@@ -1,0 +1,15 @@
+[workspace]
+provider = "devin"
+
+[providers]
+[providers.devin]
+base = ""
+command = "devin"
+args = ["acp"]
+supports_acp = true
+prompt_mode = "none"
+ready_delay_ms = 2000
+instructions_file = "AGENTS.md"
+
+[daemon]
+formula_v2 = true

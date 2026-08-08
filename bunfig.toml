@@ -1,0 +1,7 @@
+[install]
+# Use hardlinks for faster installs
+backend = "hardlink"
+
+[install.scopes]
+# Sverka packages are published under the @sverka scope
+"@sverka" = "https://registry.npmjs.org/"

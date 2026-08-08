@@ -1,0 +1,31 @@
+[pack]
+name = "sverka"
+schema = 2
+
+[imports]
+[imports.bd]
+source = "https://github.com/gastownhall/gascity/tree/main/examples/bd"
+version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
+[imports.core]
+source = "https://github.com/gastownhall/gascity/tree/main/internal/bootstrap/packs/core"
+version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
+
+# Mayor — always-on orchestrator that plans and dispatches all work
+[[named_session]]
+template = "mayor"
+mode = "always"
+
+# Architect — designs specs, plans waves, reviews structural decisions
+[[named_session]]
+template = "architect"
+mode = "on_demand"
+
+# Builder — implements code from specs, TDD style
+[[named_session]]
+template = "builder"
+mode = "on_demand"
+
+# Reviewer — reviews PRs, runs checks, gates quality
+[[named_session]]
+template = "reviewer"
+mode = "on_demand"

@@ -1,0 +1,48 @@
+---
+import Base from "../layouts/Base.astro";
+
+const exampleCode = `import { pipeline, run, parallel } from "@sverka/sdk";
+import { build, lint, test, securityScan } from "@sverka/checks";
+
+export default pipeline("verify", async ({ run, parallel }) => {
+  const artifact = await run(build());
+
+  await parallel(
+    run(lint({ input: artifact })),
+    run(test({ input: artifact })),
+    run(securityScan({ input: artifact })),
+  );
+});`;
+---
+
+<Base title="Docs — Sverka">
+  <main>
+    <h1>Documentation</h1>
+    <p class="tagline">Everything you need to use Sverka.</p>
+
+    <h2>Guides</h2>
+    <ul>
+      <li><a href="/getting-started">Getting Started</a> — install, init, run</li>
+      <li>Workflow API — pipeline, run, parallel, when, matrix</li>
+      <li>CLI Reference — all commands and flags</li>
+      <li>Check Providers — built-in and custom checks</li>
+      <li>Compilation Targets — GitHub Actions, GitLab CI</li>
+      <li>Findings & Policy — normalization, baselines, verdicts</li>
+    </ul>
+
+    <h2>Engineering docs</h2>
+    <ul>
+      <li><a href="https://github.com/sverka-dev/sverka/tree/main/engdocs">Architecture</a> — system design and package dependencies</li>
+      <li><a href="https://github.com/sverka-dev/sverka/tree/main/engdocs/adr">ADRs</a> — architecture decision records</li>
+      <li><a href="https://github.com/sverka-dev/sverka/tree/main/engdocs/contributing">Contributing</a> — development setup and conventions</li>
+    </ul>
+
+    <h2>Specs</h2>
+    <ul>
+      <li><a href="https://github.com/sverka-dev/sverka/tree/main/specs">Spec tree</a> — numbered specs for every package</li>
+    </ul>
+
+    <h2>Examples</h2>
+    <pre><code set:html={exampleCode}></code></pre>
+  </main>
+</Base>

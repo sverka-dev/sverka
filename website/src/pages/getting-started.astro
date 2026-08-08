@@ -1,0 +1,85 @@
+---
+import Base from "../layouts/Base.astro";
+
+const installCode = `bun add -g @sverka/cli`;
+const initCode = `cd your-project
+sverka init`;
+const runCode = `sverka run`;
+const planCode = `sverka plan --explain`;
+const compileGithubCode = `# GitHub Actions
+sverka compile --target github
+
+# GitLab CI
+sverka compile --target gitlab`;
+const workflowCode = `import { pipeline, run, parallel } from "@sverka/sdk";
+import { build, lint, test, securityScan } from "@sverka/checks";
+
+export default pipeline("verify", async ({ run, parallel }) => {
+  const artifact = await run(build());
+
+  await parallel(
+    run(lint({ input: artifact })),
+    run(test({ input: artifact })),
+    run(securityScan({ input: artifact })),
+  );
+});`;
+---
+
+<Base title="Getting Started — Sverka">
+  <main>
+    <h1>Getting Started</h1>
+    <p class="tagline">Set up Sverka in your project in under a minute.</p>
+
+    <h2>Prerequisites</h2>
+    <ul>
+      <li><strong>Bun</strong> >= 1.1</li>
+      <li><strong>Node.js</strong> >= 24</li>
+      <li><strong>Docker</strong> (optional, for container checks)</li>
+    </ul>
+
+    <h2>Install</h2>
+    <pre><code set:html={installCode}></code></pre>
+
+    <h2>Initialize</h2>
+    <pre><code set:html={initCode}></code></pre>
+    <p>
+      This creates a <code>sverka.config.ts</code> file with a default
+      verification workflow. Sverka auto-discovers your project type and
+      suggests relevant checks.
+    </p>
+
+    <h2>Run verification</h2>
+    <pre><code set:html={runCode}></code></pre>
+    <p>
+      Sverka discovers your project, generates a plan, and executes all
+      checks locally. Results are normalized into a single findings report.
+    </p>
+
+    <h2>Plan without running</h2>
+    <pre><code set:html={planCode}></code></pre>
+    <p>
+      See what checks will run, in what order, and with what configuration —
+      without executing anything.
+    </p>
+
+    <h2>Compile to CI</h2>
+    <pre><code set:html={compileGithubCode}></code></pre>
+    <p>
+      The same workflow that runs locally compiles to CI provider YAML.
+      The generated CI runs <code>sverka execute</code> with a locked plan.
+    </p>
+
+    <h2>Define a workflow</h2>
+    <p>
+      Edit <code>sverka.config.ts</code> to customize your workflow:
+    </p>
+    <pre><code set:html={workflowCode}></code></pre>
+
+    <h2>Next steps</h2>
+    <ul>
+      <li><a href="https://github.com/sverka-dev/sverka">Explore the source on GitHub</a></li>
+      <li>Read the <a href="/docs">documentation</a></li>
+      <li>Browse the <a href="https://github.com/sverka-dev/sverka/tree/main/specs">spec tree</a></li>
+    </ul>
+  </main>
+</Base>

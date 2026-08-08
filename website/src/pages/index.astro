@@ -1,0 +1,97 @@
+---
+import Base from "../layouts/Base.astro";
+
+const workflowCode = `import { pipeline, run, parallel } from "@sverka/sdk";
+import { build, lint, test, securityScan } from "@sverka/checks";
+
+export default pipeline("verify", async ({ run, parallel }) => {
+  const artifact = await run(build());
+
+  await parallel(
+    run(lint({ input: artifact })),
+    run(test({ input: artifact })),
+    run(securityScan({ input: artifact })),
+  );
+});`;
+
+const quickStartCode = `# Install
+bun add -g @sverka/cli
+
+# Run verification locally
+sverka run
+
+# See what would run
+sverka plan --explain
+
+# Compile to GitHub Actions
+sverka compile --target github`;
+---
+
+<Base title="Sverka — Define checks once. Plan locally. Run anywhere.">
+  <main>
+    <section class="hero">
+      <h1>Sverka</h1>
+      <p class="tagline">Define checks once. Plan locally. Run anywhere.</p>
+      <div class="cta">
+        <a class="cta-primary" href="/getting-started">Get Started</a>
+        <a class="cta-secondary" href="https://github.com/sverka-dev/sverka">GitHub</a>
+      </div>
+    </section>
+
+    <section>
+      <p>
+        A composable workflow SDK, local CI runtime, and multi-target compiler
+        for software verification. Write verification workflows in TypeScript,
+        run them locally with Docker or Podman, and compile to GitHub Actions
+        or GitLab CI.
+      </p>
+
+      <pre><code set:html={workflowCode}></code></pre>
+    </section>
+
+    <section class="features">
+      <div class="feature">
+        <h3>TypeScript-first</h3>
+        <p>Composable workflows as code. No YAML.</p>
+      </div>
+      <div class="feature">
+        <h3>Local execution</h3>
+        <p>Docker, Podman, host processes, remote APIs.</p>
+      </div>
+      <div class="feature">
+        <h3>Plan before running</h3>
+        <p>Generate a verification plan. See what will run.</p>
+      </div>
+      <div class="feature">
+        <h3>Multi-target</h3>
+        <p>Compile to GitHub Actions, GitLab CI, Earthly.</p>
+      </div>
+      <div class="feature">
+        <h3>Normalized findings</h3>
+        <p>One model for all tool outputs. SARIF compatible.</p>
+      </div>
+      <div class="feature">
+        <h3>Deterministic replay</h3>
+        <p>Locked images, locked inputs, reproducible runs.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Quick start</h2>
+      <pre><code set:html={quickStartCode}></code></pre>
+    </section>
+
+    <section>
+      <h2>How it works</h2>
+      <p>
+        Sverka takes your TypeScript workflow definition, discovers your
+        project context, and produces a canonical Plan IR. That plan can be
+        executed locally or compiled to any supported CI target.
+      </p>
+      <p>
+        The canonical source of truth is the Sverka workflow and its Plan IR —
+        not GitHub Actions or GitLab CI.
+      </p>
+    </section>
+  </main>
+</Base>

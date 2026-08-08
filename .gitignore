@@ -148,6 +148,15 @@ vite.config.ts.timestamp-*
 .beads/*
 !.beads/identity.toml
 hooks/
+.dolt-backup/
+packs.lock
+
+# Nx
+.nx/
+
+# Website build output
+website/dist/
+website/node_modules/
 
 # Beads / Dolt files (added by bd init)
 .dolt/
