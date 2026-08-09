@@ -57,7 +57,7 @@ engdocs/            # engineering docs (document-first)
 ```bash
 bun install          # install dependencies
 bun run build        # build all packages (tsdown via nx)
-bun test             # run all tests (vitest)
+bun run test         # run all tests (vitest via nx); NOTE: `bun test` runs Bun's built-in runner, not vitest
 bun run lint         # lint all packages
 bun run typecheck    # typecheck all packages
 ```
@@ -70,6 +70,10 @@ all work. Agents: mayor (orchestrator), architect (specs/design), builder
 
 All work flows through the mayor. Use formulas in `formulas/` for multi-step
 orchestration.
+
+**Model:** All agents use `DEVIN_MODEL=glm-5-2` (GLM-5.2 High, free tier).
+This is set in `city.toml` at the `[workspace]` env level. Do not override
+this with a paid model.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
 ## Beads Issue Tracker
