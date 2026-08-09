@@ -1,4 +1,4 @@
-import type { Plan, PlanOperation } from "./plan.js";
+import type { Plan } from "./plan.js";
 import { computePlanId } from "./ids.js";
 import { findCycle } from "./internal/graph.js";
 
