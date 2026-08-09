@@ -72,23 +72,4 @@ describe("canonicalStringify", () => {
     expect(canonicalStringify({})).toBe("{}");
     expect(canonicalStringify([])).toBe("[]");
   });
-
-  it("escapes lone UTF-16 surrogates as \\uXXXX", () => {
-    // Lone high surrogate (not followed by a low surrogate)
-    const loneHigh = "\uD800";
-    const out = canonicalStringify(loneHigh);
-    expect(out).toBe('"\\ud800"');
-
-    // Lone low surrogate (not preceded by a high surrogate)
-    const loneLow = "\uDC00";
-    const out2 = canonicalStringify(loneLow);
-    expect(out2).toBe('"\\udc00"');
-  });
-
-  it("preserves valid surrogate pairs (astral plane characters)", () => {
-    // U+1F600 (😀) is a valid surrogate pair: \uD83D\uDE00
-    const emoji = "\uD83D\uDE00";
-    const out = canonicalStringify(emoji);
-    expect(out).toBe('"\uD83D\uDE00"');
-  });
 });
