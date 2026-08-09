@@ -182,16 +182,27 @@ export interface PlanMetadata {
 
 /**
  * Compute a deterministic plan id from the plan content (excluding
- * createdAt). The same workflow + source context must always yield the same
- * id.
+ * `id` and `createdAt`). The same workflow + source context must always
+ * yield the same id.
+ *
+ * Algorithm: SHA-256 over the canonical serialization (see `serializePlan`)
+ * of the plan with `id` and `createdAt` stripped, hex-encoded, prefixed
+ * with `plan-`. Uses Node's `crypto.createHash('sha256')` (no external
+ * dependency). The hash input is byte-stable because canonical JSON sorts
+ * keys and emits no trailing whitespace.
  */
 export function computePlanId(
   plan: Omit<Plan, "id" | "createdAt">,
 ): string;
 
 /**
- * Compute a deterministic operation id from kind, name, command, matrix
- * values, and position in the graph.
+ * Compute a deterministic operation id from kind, name, and a context
+ * record (matrix values, position, or other discriminating fields).
+ *
+ * Algorithm: SHA-256 over the canonical JSON of `{ kind, name, context }`
+ * (keys sorted, UTF-8), hex-encoded, prefixed with `op-`. Matrix expansion
+ * produces distinct ids because each combination yields a distinct
+ * `context` record.
  */
 export function computeOperationId(
   kind: OperationKind,
@@ -230,15 +241,23 @@ export function validatePlan(plan: unknown): ValidationResult;
 // src/serialize.ts
 
 /**
- * Serialize a Plan to a canonical JSON string. Keys are sorted for
- * deterministic output.
+ * Serialize a Plan to a canonical JSON string.
+ *
+ * Canonical form: UTF-8, `JSON.stringify` with a stable replacer that sorts
+ * object keys lexicographically (byte-wise on UTF-16 code units), no
+ * trailing whitespace, no comments, 2-space indentation disabled (compact).
+ * Array element order is preserved (operations and dependsOn are
+ * semantically ordered). `undefined` fields are omitted (never serialized).
+ * This is the single canonical primitive: `computePlanId` hashes the output
+ * of this function, so two identical plans produce byte-identical JSON and
+ * thus the same id.
  */
 export function serializePlan(plan: Plan): string;
 
 /**
  * Deserialize and validate a JSON string into a Plan. Throws
  * SerializationError on parse failure or ValidationError on schema
- * violation.
+ * violation. The returned Plan is a deep-frozen, readonly view.
  */
 export function deserializePlan(json: string): Plan;
 ```
@@ -343,6 +362,8 @@ Tests live in `packages/ir/src/__tests__/` and run via `bun test`.
    - Changing one operation changes the plan id.
    - `computeOperationId` is stable across runs for identical inputs.
    - Matrix expansion produces distinct, deterministic operation ids.
+   - `computePlanId` output is prefixed `plan-` and is 64 hex chars after
+     the prefix (SHA-256). `computeOperationId` is prefixed `op-`.
 
 2. **Validation**
    - A valid plan returns `{ valid: true, errors: [] }`.
