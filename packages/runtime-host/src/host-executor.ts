@@ -6,7 +6,6 @@ import type { PlanOperation } from "@sverka/ir";
 import type { HostExecutorConfig } from "./config.js";
 import {
   HostExecutorError,
-  HostTimeoutError,
   CommandNotAllowedError,
 } from "./errors.js";
 
