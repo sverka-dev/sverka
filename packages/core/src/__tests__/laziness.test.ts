@@ -55,7 +55,11 @@ describe("laziness: composables perform no I/O", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const a = run({ command: "a" });
     const b = run({ command: "b" });
-    const wf = workflow("ci", parallel(a, b), pipeline(a, b));
+    const c = run({ command: "c" });
+    const d = run({ command: "d" });
+    // Distinct ops per root — content-addressed ids reject true duplicates,
+    // so we don't reuse a/b across roots (this test checks I/O, not dedup).
+    const wf = workflow("ci", parallel(a, b), pipeline(c, d));
     await wf.plan(makePlanRuntime());
     expect(childProcessMock.spawn).not.toHaveBeenCalled();
     expect(fsMock.writeFileSync).not.toHaveBeenCalled();
