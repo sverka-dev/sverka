@@ -67,12 +67,8 @@ export interface DockerExecutorConfig {
   readonly dockerHost?: string;
   /** Default non-root uid:gid for containers. Defaults to "1000:1000". */
   readonly runAs: string;
-  /** Directory for cache layers. */
+  /** Persistent directory for cache layers (managed by DockerCacheManager). */
   readonly cacheDir: string;
-  /** Directory for collected artifacts. */
-  readonly artifactDir: string;
-  /** Workspace root to mount read-only. */
-  readonly workspace: string;
   /** Maximum log size in bytes before truncation. Defaults to 10 MiB. */
   readonly maxLogBytes?: number;
 }
@@ -151,9 +147,9 @@ docker run
   --cpus <cpuLimit>                     # CPU limit
   --timeout <timeoutSeconds>            # mandatory timeout
   --workdir /workspace
-  --mount type=bind,source=<workspace>,target=/workspace,readonly
+  --mount type=bind,source=<request.workspace>,target=/workspace,readonly
   --mount type=bind,source=<cacheDir>,target=/cache
-  --mount type=bind,source=<artifactDir>,target=/artifacts
+  --mount type=bind,source=<request.artifactDir>,target=/artifacts
   --env <allowlisted credentials only>
   <image>@<digest>
   <command> <args...>
@@ -240,10 +236,13 @@ Rules:
 3. **Image digest mismatch.** If the pulled image's digest does not match the
    declared digest, `ImageDigestError` is raised with both digests in context.
    The container is not started.
-4. **Secret not in allowlist.** If `credentials` references an env var not in
-   the operation's credential declarations, it is not passed. If an env var in
-   `operation.env` looks like a secret (matches a denylist pattern) but is not
-   declared, `ContainerPolicyError` with code `UNDECLARED_SECRET` is raised.
+4. **Secret not in allowlist.** Only env vars declared in
+   `operation.credentials` (CredentialDeclaration[]) are passed; their values
+   come from `request.credentials` (Record<string,string> keyed by envVar).
+   `request.env` provides operation env vars. If an env var in `request.env`
+   looks like a secret (matches a denylist pattern) but is not declared in
+   `operation.credentials`, `ContainerPolicyError` with code `UNDECLARED_SECRET`
+   is raised.
 5. **Docker socket access.** If any mount or env attempts to reference the
    Docker socket, `ContainerPolicyError` with code `DOCKER_SOCKET_DENIED` is
    raised.
@@ -258,7 +257,7 @@ Rules:
 
 ## Test plan
 
-Tests live in `packages/runtime-docker/src/__tests__/` and run via `bun test`.
+Tests live in `packages/runtime-docker/src/__tests__/` and run via `bun run test`.
 
 1. **canExecute**
    - Returns `true` for operations with `executor.type === "docker"`.
@@ -287,9 +286,10 @@ Tests live in `packages/runtime-docker/src/__tests__/` and run via `bun test`.
      (`MISSING_DIGEST`).
 
 5. **Secrets allowlist**
-   - Only env vars listed in `credentials` are passed to the container.
-   - An undeclared secret-like env var raises `ContainerPolicyError`
-     (`UNDECLARED_SECRET`).
+   - Only env vars declared in `operation.credentials` are passed; values come
+     from `request.credentials`.
+   - An undeclared secret-like env var in `request.env` raises
+     `ContainerPolicyError` (`UNDECLARED_SECRET`).
    - An attempt to mount the Docker socket raises `ContainerPolicyError`
      (`DOCKER_SOCKET_DENIED`).
 
@@ -320,8 +320,8 @@ Tests live in `packages/runtime-docker/src/__tests__/` and run via `bun test`.
 
 11. **Commands**
     ```bash
-    bun test packages/runtime-docker
-    SVERKA_DOCKER=1 bun test packages/runtime-docker  # include integration
+    bun run test
+    SVERKA_DOCKER=1 bun run test  # include integration
     bun run typecheck
     bun run lint
     ```
