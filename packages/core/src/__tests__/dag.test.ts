@@ -6,44 +6,56 @@ import { workflow } from "../composables/workflow.js";
 import { CompositionError } from "../errors.js";
 import { makePlanRuntime } from "./helpers/runtime.js";
 
+const OP_ID_RE = /^op-[0-9a-f]{64}$/;
+
 describe("DAG validation", () => {
   it("rejects a cycle with node ids in context", async () => {
-    // User-provided dependsOn string ids forming a cycle: x→y→x.
+    // User-provided spec.id aliases referenced in dependsOn form a cycle: x→y→x.
     // (Predecessor-ref cycles are structurally impossible with immutable
-    // after(); cycles arise from explicit dependsOn ids.)
+    // after(); cycles arise from explicit dependsOn ids. spec.id values are
+    // resolved to op- ids during edge resolution, so the cycle is detected on
+    // the content-addressed ids.)
     const x = run({ id: "x", command: "x", dependsOn: ["y"] });
     const y = run({ id: "y", command: "y", dependsOn: ["x"] });
     const wf = workflow("cyclic", x, y);
-    const promise = wf.plan(makePlanRuntime());
-    await expect(promise).rejects.toThrow(CompositionError);
+    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
     try {
-      await promise;
+      await wf.plan(makePlanRuntime());
     } catch (err) {
-      if (!(err instanceof CompositionError)) throw err;
-      expect(err.context).toBeDefined();
-      expect(err.context?.["cycle"]).toBeDefined();
+      const ce = err as CompositionError;
+      expect(ce.context).toBeDefined();
+      expect(ce.context?.["cycle"]).toBeDefined();
     }
   });
 
-  it("rejects a dependsOn id that matches no operation", async () => {
-    const a = run({ id: "a", command: "a", dependsOn: ["ghost"] });
-    const wf = workflow("unknown-dep", a);
-    const promise = wf.plan(makePlanRuntime());
-    await expect(promise).rejects.toThrow(CompositionError);
-    await expect(promise).rejects.toThrow(/unknown id 'ghost'/);
-  });
-
-  it("rejects duplicate user-provided ids", async () => {
+  it("rejects duplicate user-provided spec.id aliases", async () => {
+    // spec.id is folded into the hash (as userId) and also used as a
+    // dependsOn alias; duplicate aliases are rejected because they would make
+    // edge resolution ambiguous.
     const a = run({ id: "dup", command: "a" });
     const b = run({ id: "dup", command: "b" });
     const wf = workflow("dup-ids", a, b);
-    const promise = wf.plan(makePlanRuntime());
-    await expect(promise).rejects.toThrow(CompositionError);
+    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
     try {
-      await promise;
+      await wf.plan(makePlanRuntime());
     } catch (err) {
-      if (!(err instanceof CompositionError)) throw err;
-      expect(err.context?.["id"]).toBe("dup");
+      const ce = err as CompositionError;
+      expect(ce.context?.["id"]).toBe("dup");
+    }
+  });
+
+  it("rejects true duplicate operations (identical kind/name/context)", async () => {
+    // Two operations with identical content produce the same content-addressed
+    // op- id; the planner detects the collision and raises CompositionError.
+    const a = run({ command: "echo" });
+    const b = run({ command: "echo" });
+    const wf = workflow("true-dups", a, b);
+    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+    try {
+      await wf.plan(makePlanRuntime());
+    } catch (err) {
+      const ce = err as CompositionError;
+      expect(ce.context?.["id"]).toMatch(OP_ID_RE);
     }
   });
 
@@ -53,18 +65,16 @@ describe("DAG validation", () => {
     const c = run({ command: "c" });
     const wf = workflow("linear", pipeline(a, b, c));
     const result = await wf.plan(makePlanRuntime());
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    const aSpec = byCmd.get("a")!;
+    const bSpec = byCmd.get("b")!;
+    const cSpec = byCmd.get("c")!;
     const ids = result.operations.map((o) => o.id);
-    const aIdx = ids.indexOf("run:a");
-    const bIdx = ids.indexOf("run:b");
-    const cIdx = ids.indexOf("run:c");
-    expect(aIdx).toBeGreaterThanOrEqual(0);
-    expect(bIdx).toBeGreaterThan(aIdx);
-    expect(cIdx).toBeGreaterThan(bIdx);
-    // b depends on a, c depends on b
-    const bSpec = result.operations.find((o) => o.id === "run:b")!;
-    const cSpec = result.operations.find((o) => o.id === "run:c")!;
-    expect(bSpec.dependsOn).toEqual(["run:a"]);
-    expect(cSpec.dependsOn).toEqual(["run:b"]);
+    expect(ids.indexOf(aSpec.id)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(bSpec.id)).toBeGreaterThan(ids.indexOf(aSpec.id));
+    expect(ids.indexOf(cSpec.id)).toBeGreaterThan(ids.indexOf(bSpec.id));
+    expect(bSpec.dependsOn).toEqual([aSpec.id]);
+    expect(cSpec.dependsOn).toEqual([bSpec.id]);
   });
 
   it("parallel siblings have no inter-sibling dependsOn", async () => {
@@ -72,8 +82,9 @@ describe("DAG validation", () => {
     const b = run({ command: "b" });
     const wf = workflow("parallel", a, b);
     const result = await wf.plan(makePlanRuntime());
-    const aSpec = result.operations.find((o) => o.id === "run:a")!;
-    const bSpec = result.operations.find((o) => o.id === "run:b")!;
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    const aSpec = byCmd.get("a")!;
+    const bSpec = byCmd.get("b")!;
     expect(aSpec.dependsOn ?? []).toEqual([]);
     expect(bSpec.dependsOn ?? []).toEqual([]);
   });

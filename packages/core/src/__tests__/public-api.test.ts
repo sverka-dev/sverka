@@ -43,8 +43,25 @@ describe("public API surface", () => {
     // named exports of the public barrel.
     const publicNames = Object.keys(api);
     const internalLeaked = publicNames.filter((n) =>
-      ["createNode", "asNode", "withSpec", "mergeSpecs", "concatDedupe", "planWorkflow", "assignId", "evaluateCondition"].includes(n),
+      [
+        "createNode",
+        "asNode",
+        "withSpec",
+        "mergeSpecs",
+        "concatDedupe",
+        "planWorkflow",
+        "evaluateCondition",
+        "canonicalStringify",
+      ].includes(n),
     );
     expect(internalLeaked).toEqual([]);
+  });
+
+  it("exports computeOperationId (content-addressed id primitive, ADR-006)", () => {
+    // computeOperationId is a pure, dependency-free primitive that any
+    // consumer (planner, compiler, ir) can use to recompute an operation id
+    // from its content. It is part of the stable public contract.
+    expect(typeof api.computeOperationId).toBe("function");
+    expect(api.computeOperationId("run", "build", {})).toMatch(/^op-[0-9a-f]{64}$/);
   });
 });

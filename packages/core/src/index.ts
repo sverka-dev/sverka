@@ -25,3 +25,4 @@ export { when } from "./composables/when.js";
 export { matrix } from "./composables/matrix.js";
 export { workflow, type Workflow } from "./composables/workflow.js";
 export { CoreError, PlanningError, CompositionError } from "./errors.js";
+export { computeOperationId } from "./internal/ids.js";
