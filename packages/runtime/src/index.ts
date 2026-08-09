@@ -1,16 +1,12 @@
 // @sverka/runtime — public API
 
-/**
- * Base error class for the runtime package. All runtime errors extend this
- * so callers can catch the full family with a single `instanceof RuntimeError`.
- */
-export class RuntimeError extends Error {
-  constructor(
-    message: string,
-    readonly code: string,
-    readonly context?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "RuntimeError";
-  }
-}
+export { type Executor, type ExecuteRequest, type ExecuteResult } from "./executor.js";
+export { type StateStore } from "./state-store.js";
+export { type CacheBackend, type CacheKey, type CacheEntry } from "./cache.js";
+export {
+  type ExecutionResult,
+  type OperationOutcome,
+  type ExecutionState,
+} from "./result.js";
+export { RuntimeExecutionError, SchedulerError, ExecutorError } from "./errors.js";
+export { Scheduler, type SchedulerConfig } from "./scheduler.js";
