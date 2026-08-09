@@ -1,15 +1,18 @@
 [workspace]
 provider = "devin"
+env = { DEVIN_MODEL = "glm-5-2", DEVIN_PERMISSION_MODE = "dangerous" }
 
 [providers]
 [providers.devin]
 base = ""
 command = "devin"
-args = ["acp"]
-supports_acp = true
 prompt_mode = "none"
 ready_delay_ms = 2000
 instructions_file = "AGENTS.md"
 
 [daemon]
 formula_v2 = true
+nudge_dispatcher = "supervisor"
+max_wakes_per_tick = 2
+probe_concurrency = 2
+tick_debounce = "500ms"

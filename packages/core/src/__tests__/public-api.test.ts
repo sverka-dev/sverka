@@ -1,0 +1,50 @@
+import { describe, it, expect } from "vitest";
+import * as api from "../index.js";
+
+describe("public API surface", () => {
+  it("exports every spec-listed symbol", () => {
+    // Types are erased at runtime, but the value exports must be present.
+    expect(typeof api.run).toBe("function");
+    expect(typeof api.pipeline).toBe("function");
+    expect(typeof api.parallel).toBe("function");
+    expect(typeof api.when).toBe("function");
+    expect(typeof api.matrix).toBe("function");
+    expect(typeof api.workflow).toBe("function");
+    expect(typeof api.CoreError).toBe("function");
+    expect(typeof api.PlanningError).toBe("function");
+    expect(typeof api.CompositionError).toBe("function");
+  });
+
+  it("CoreError is a constructor extending Error", () => {
+    const err = new api.CoreError("m", "CODE");
+    expect(err).toBeInstanceOf(Error);
+    expect(err.code).toBe("CODE");
+  });
+
+  it("run() returns an Operation with the expected shape", () => {
+    const op = api.run({ command: "echo" });
+    expect(op.kind).toBe("run");
+    expect(typeof op.after).toBe("function");
+    expect(typeof op.with).toBe("function");
+    expect(typeof op.named).toBe("function");
+    expect(typeof op.tagged).toBe("function");
+  });
+
+  it("workflow() returns a Workflow with a plan function", () => {
+    const wf = api.workflow("ci", api.run({ command: "a" }));
+    expect(wf.name).toBe("ci");
+    expect(typeof wf.plan).toBe("function");
+    expect(Array.isArray(wf.roots)).toBe(true);
+  });
+
+  it("internal modules are not re-exported from the public entry", async () => {
+    // The public index must not export internal helpers. We verify by
+    // checking that the known internal module paths are not present as
+    // named exports of the public barrel.
+    const publicNames = Object.keys(api);
+    const internalLeaked = publicNames.filter((n) =>
+      ["createNode", "asNode", "withSpec", "mergeSpecs", "concatDedupe", "planWorkflow", "assignId", "evaluateCondition"].includes(n),
+    );
+    expect(internalLeaked).toEqual([]);
+  });
+});
