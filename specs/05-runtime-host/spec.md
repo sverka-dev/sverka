@@ -30,7 +30,8 @@ timeouts, capture output, and prevent ambient privilege escalation.
    - Working directory constrained to the workspace.
 5. Apply a command allowlist to restrict which binaries may be invoked.
 6. Collect exit code, logs, and artifacts.
-7. Support retry and timeout policies from the Plan.
+7. Return failures (not exceptions) so the scheduler can apply retry
+   policies from the Plan. The host executor itself does not retry.
 8. Be fully testable without a container runtime.
 
 ## Non-goals
@@ -61,10 +62,6 @@ export { HostExecutorError, HostTimeoutError, CommandNotAllowedError }
 export interface HostExecutorConfig {
   /** Must be true to enable the host executor. Defaults to false. */
   readonly enabled: boolean;
-  /** Workspace root; child processes run with this as cwd. */
-  readonly workspace: string;
-  /** Directory for collected artifacts. */
-  readonly artifactDir: string;
   /** Allowlist of binary names or absolute paths that may be executed. */
   readonly allowlist: CommandAllowlist;
   /** Env vars from the host that are forwarded to child processes. */
@@ -134,12 +131,12 @@ HostExecutor.execute(request)
        - Start empty.
        - Forward only envAllowlist entries from the host environment.
        - Merge config.env overrides.
-       - Merge operation.credentials env vars.
-       - Merge operation.env vars.
+       - Merge request.credentials (resolved secret values, keyed by envVar).
+       - Merge request.env (operation env vars).
   6. Spawn child process:
        - command: operation.command
        - args: operation.args
-       - cwd: config.workspace (or operation.workingDir if relative to workspace)
+       - cwd: request.workspace (or operation.workingDir if relative to it)
        - env: built env
        - stdio: pipe (capture stdout + stderr)
   7. Apply timeout:
@@ -150,7 +147,7 @@ HostExecutor.execute(request)
        - Concatenate stdout + stderr.
        - Truncate at maxLogBytes with a notice.
   9. Collect artifacts:
-       - Copy declared artifact paths into config.artifactDir.
+       - Copy declared artifact paths into request.artifactDir.
   10. Return ExecuteResult:
        - status: success (exit 0) | failure (exit != 0) | cancelled
        - exitCode, durationMs, logs, artifacts
@@ -164,9 +161,9 @@ HostExecutor.execute(request)
 | Type guard                | `operation.executor.type` must be `"host"`              |
 | Command allowlist         | `command` must match an allowlist entry                 |
 | Mandatory timeout         | `timeoutSeconds` must be present and > 0                |
-| Bounded env               | Only `envAllowlist` + `credentials` + `operation.env`   |
+| Bounded env               | Only `envAllowlist` + `request.credentials` + `request.env` |
 | No ambient env leakage    | Host env not forwarded unless in `envAllowlist`         |
-| Workspace-constrained cwd | `cwd` is within `config.workspace`                      |
+| Workspace-constrained cwd | `cwd` is within `request.workspace`                      |
 | No privilege escalation    | `runAsUid` must not be 0; no `sudo` in allowlist        |
 | No network isolation      | Host network is ambient; document this limitation       |
 
@@ -237,7 +234,7 @@ Rules:
    `sudo` or `su`, `HostExecutorError` with code `PRIVILEGE_ESCALATION` is
    raised at construction time.
 7. **Working directory.** If `operation.workingDir` resolves outside
-   `config.workspace`, `HostExecutorError` with code `WORKDIR_OUTSIDE_WORKSPACE`
+   `request.workspace`, `HostExecutorError` with code `WORKDIR_OUTSIDE_WORKSPACE`
    is raised.
 8. **Process failure.** A non-zero exit code produces
    `ExecuteResult.status: "failure"` with the exit code and logs. This is not
@@ -249,8 +246,8 @@ Rules:
 
 ## Test plan
 
-Tests live in `packages/runtime-host/src/__tests__/` and run via `bun test`.
-No Docker daemon is required.
+Tests live in `packages/runtime-host/src/__tests__/` and run via
+`bun run test` (vitest via nx). No Docker daemon is required.
 
 1. **canExecute**
    - Returns `false` for all operations when `config.enabled` is `false`.
@@ -280,12 +277,12 @@ No Docker daemon is required.
 
 5. **Environment bounding**
    - Only `envAllowlist` entries from the host are forwarded.
-   - `operation.env` values are present in the child environment.
-   - `operation.credentials` env vars are present.
+   - `request.env` values are present in the child environment.
+   - `request.credentials` env vars are present.
    - A host env var not in `envAllowlist` is not present in the child.
 
 6. **Working directory**
-   - The child process `cwd` is `config.workspace` by default.
+   - The child process `cwd` is `request.workspace` by default.
    - `operation.workingDir` relative to the workspace is honored.
    - `operation.workingDir` resolving outside the workspace raises
      `HostExecutorError` (`WORKDIR_OUTSIDE_WORKSPACE`).
@@ -297,24 +294,25 @@ No Docker daemon is required.
      `HostExecutorError` (`PRIVILEGE_ESCALATION`) at construction.
 
 8. **Artifacts**
-   - Declared artifact paths are copied into `config.artifactDir`.
+   - Declared artifact paths are copied into `request.artifactDir`.
    - Missing artifact paths are reported in the result error but do not
      change the operation status.
 
 9. **Log truncation**
    - Output exceeding `maxLogBytes` is truncated and a notice is appended.
 
-10. **Retry policy**
-    - An operation with `maxAttempts: 3` that fails twice then succeeds
-      returns `status: "success"`.
-    - An operation that fails all attempts returns `status: "failure"`.
+10. **Retry policy** (scheduler-owned — not a host-executor unit test)
+    - The host executor returns `status: "failure"` for failed runs; the
+      scheduler (`@sverka/runtime`) applies `maxAttempts`/`retryOn`/
+      `backoffSeconds`. Verified at the runtime integration level, not in
+      this package's suite.
 
 11. **Type safety**
     - `bun run typecheck` passes with `strict: true` and no `any` types.
 
 12. **Commands**
     ```bash
-    bun test packages/runtime-host
+    bun run test
     bun run typecheck
     bun run lint
     ```
