@@ -35,7 +35,10 @@ describe("Runtime modes", () => {
     );
     expect(result.mode).toBe("execute");
     expect(evaluated).toHaveLength(2);
-    expect([...evaluated].sort()).toEqual(["run:a", "run:b"]);
+    // ids are content-addressed op-<64hex>; both evaluated ids match the plan ids
+    const planIds = result.operations.map((o) => o.id);
+    expect([...evaluated].sort()).toEqual([...planIds].sort());
+    for (const id of evaluated) expect(id).toMatch(/^op-[0-9a-f]{64}$/);
   });
 
   it("Compile mode produces a string artifact", async () => {
@@ -45,7 +48,8 @@ describe("Runtime modes", () => {
     expect(result.mode).toBe("compile");
     expect(result.artifacts).toBeDefined();
     expect(result.artifacts).toHaveLength(1);
-    expect(result.artifacts![0]!.content).toBe("run:a");
+    // artifact content is the joined op- ids of evaluated operations
+    expect(result.artifacts![0]!.content).toMatch(/^op-[0-9a-f]{64}$/);
   });
 
   it("skipped condition: evaluate is NOT called, status is 'skipped'", async () => {
@@ -68,26 +72,27 @@ describe("Runtime modes", () => {
     const evaluated: string[] = [];
     const nightly = when("schedule == 'nightly'", run({ command: "full-scan" }));
     const wf = workflow("cond-in", nightly);
-    await wf.plan(
+    const result = await wf.plan(
       makeExecuteRuntime({ schedule: "nightly" }, (spec) => {
         evaluated.push(spec.id);
         return { operationId: spec.id, status: "success", durationMs: 0 };
       }),
     );
-    expect(evaluated).toEqual(["run:full-scan"]);
+    expect(evaluated).toEqual([result.operations[0]!.id]);
+    expect(evaluated[0]).toMatch(/^op-[0-9a-f]{64}$/);
   });
 
   it("no context: all conditions included by default", async () => {
     const evaluated: string[] = [];
     const guarded = when("schedule == 'nightly'", run({ command: "scan" }));
     const wf = workflow("no-ctx", guarded);
-    await wf.plan(
+    const result = await wf.plan(
       makeExecuteRuntime(undefined, (spec) => {
         evaluated.push(spec.id);
         return { operationId: spec.id, status: "success", durationMs: 0 };
       }),
     );
-    expect(evaluated).toEqual(["run:scan"]);
+    expect(evaluated).toEqual([result.operations[0]!.id]);
   });
 
   it("pipeline ordering preserved through execute", async () => {
@@ -96,13 +101,15 @@ describe("Runtime modes", () => {
     const b = run({ command: "b" });
     const c = run({ command: "c" });
     const wf = workflow("ordered", pipeline(a, b, c));
-    await wf.plan(
+    const result = await wf.plan(
       makeExecuteRuntime(undefined, (spec) => {
         order.push(spec.id);
         return { operationId: spec.id, status: "success", durationMs: 0 };
       }),
     );
-    expect(order).toEqual(["run:a", "run:b", "run:c"]);
+    // ordering follows the topo-sorted plan ids: a, b, c by command
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    expect(order).toEqual([byCmd.get("a")!.id, byCmd.get("b")!.id, byCmd.get("c")!.id]);
   });
 
   it("compile mode receives all operations including false-condition ones", async () => {

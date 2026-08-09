@@ -33,14 +33,16 @@ describe("workflow()", () => {
     const d = run({ command: "d" });
     const wf = workflow("mixed", parallel(a, b), pipeline(c, d));
     const result = await wf.plan(makePlanRuntime());
-    const ids = result.operations.map((o) => o.id);
-    expect(ids).toContain("run:a");
-    expect(ids).toContain("run:b");
-    expect(ids).toContain("run:c");
-    expect(ids).toContain("run:d");
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    const aSpec = byCmd.get("a")!;
+    const bSpec = byCmd.get("b")!;
+    const cSpec = byCmd.get("c")!;
+    const dSpec = byCmd.get("d")!;
+    for (const s of [aSpec, bSpec, cSpec, dSpec]) {
+      expect(s.id).toMatch(/^op-[0-9a-f]{64}$/);
+    }
     // d depends on c
-    const dSpec = result.operations.find((o) => o.id === "run:d")!;
-    expect(dSpec.dependsOn).toEqual(["run:c"]);
+    expect(dSpec.dependsOn).toEqual([cSpec.id]);
   });
 
   it("empty workflow plans to zero operations", async () => {
