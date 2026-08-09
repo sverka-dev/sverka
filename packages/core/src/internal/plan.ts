@@ -1,5 +1,5 @@
 import type { Operation, OperationSpec } from "../operation.js";
-import type { Runtime, RuntimeResult, OperationOutcome } from "../runtime.js";
+import type { Runtime, RuntimeResult } from "../runtime.js";
 import { asNode, createNode, withSpec, type OperationNode } from "./node.js";
 import { assignId, matrixChildId, isKnownKind } from "./ids.js";
 import { evaluateCondition } from "./conditions.js";
