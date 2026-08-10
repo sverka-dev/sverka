@@ -101,6 +101,45 @@ export default defineWorkflow({
 });
 ```
 
+## Runtime SDK exports
+
+In addition to the composables above, `@sverka/sdk` re-exports runtime
+functions, error classes, and the Sverka facade. These are used by the CLI
+and by programmatic consumers that need direct access to planning, execution,
+or configuration loading.
+
+### Sverka facade
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `createSverka(options)` | function | Create a Sverka instance with root, config path, executor, baseline, and onlyNew options. Provides `plan()` and `execute()` methods. |
+| `plan(options)` | function | Top-level convenience: discover context, propose checks, resolve to operations. Returns `PlanResult`. |
+| `execute(options)` | function | Top-level convenience: plan + execute. Returns `ExecutionResult` with verdict, findings, and outcomes. |
+| `findConfig(root)` | function | Auto-discover `sverka.config.ts` in the given root directory. Returns the path or `null`. |
+| `loadWorkflow(configPath)` | function | Load and import a `sverka.config.ts` file. Returns the `WorkflowDefinition`. |
+
+### Planning
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `createPlanner(options)` | function | Create a planner instance for project context discovery and check proposal. |
+| `computePlanId(plan)` | function | Compute the deterministic plan ID from a `Plan` object. |
+| `validatePlan(plan)` | function | Validate a `Plan` against the IR schema. Returns the plan or throws. |
+
+### Error classes
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `CoreError` | class | Base error for core composition failures. |
+| `PlanningError` | class | Error thrown during planning (discovery, proposal). |
+| `CompositionError` | class | Error thrown during workflow composition (invalid graph). |
+
+```ts
+import { createSverka, findConfig, loadWorkflow, validatePlan, computePlanId } from "@sverka/sdk";
+import { CoreError, PlanningError, CompositionError } from "@sverka/sdk";
+import { createPlanner } from "@sverka/sdk";
+```
+
 ## Combining composables
 
 Composables compose freely:

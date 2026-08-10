@@ -17,8 +17,8 @@ console.log(result.summary); // human-readable summary
 
 ## `DEFAULT_POLICY`
 
-The built-in default policy fails on any finding with severity `high` or
-above.
+The built-in default policy fails on any finding with severity `high` (all
+findings) or `medium` (only new findings not in the baseline).
 
 ```ts
 import { DEFAULT_POLICY } from "@sverka/sdk";
@@ -26,7 +26,10 @@ import { DEFAULT_POLICY } from "@sverka/sdk";
 // DEFAULT_POLICY = {
 //   name: "default",
 //   default: "pass",
-//   failOn: [{ severity: "high", onlyNew: false }],
+//   failOn: [
+//     { severity: "high", onlyNew: false },
+//     { severity: "medium", onlyNew: true },
+//   ],
 // }
 ```
 
