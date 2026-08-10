@@ -28,7 +28,7 @@
       "name": "@sverka/cli",
       "version": "0.0.0",
       "bin": {
-        "sverka": "./dist/index.mjs",
+        "sverka": "./dist/bin.mjs",
       },
       "dependencies": {
         "@sverka/sdk": "workspace:*",
