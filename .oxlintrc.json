@@ -35,8 +35,22 @@
     ".gc/**",
     ".opencode/**",
     ".nx/**",
-    "website/**",
-    "**/__tests__/**",
-    "**/*.test.ts"
+    "website/**"
+  ],
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/__tests__/**"],
+      "rules": {
+        "typescript/no-unused-vars": [
+          "warn",
+          {
+            "argsIgnorePattern": "^_",
+            "varsIgnorePattern": "^_",
+            "caughtErrorsIgnorePattern": "^_",
+            "ignoreRestSiblings": true
+          }
+        ]
+      }
+    }
   ]
 }

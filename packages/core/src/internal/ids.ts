@@ -46,12 +46,8 @@ export function matrixChildId(
 }
 
 function formatMatrixValue(v: unknown): string {
-  if (
-    typeof v === "string" ||
-    typeof v === "number" ||
-    typeof v === "boolean"
-  ) {
-    return String(v);
+  if (typeof v === "object" && v !== null) {
+    return JSON.stringify(v);
   }
   return String(v);
 }

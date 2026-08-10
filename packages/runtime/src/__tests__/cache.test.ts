@@ -8,7 +8,6 @@ import type {
 } from "../index.js";
 import {
   MockExecutor,
-  op,
   planFromOps,
   successResult,
   validOperation,

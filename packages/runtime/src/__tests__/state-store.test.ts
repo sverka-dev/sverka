@@ -2,12 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Scheduler } from "../scheduler.js";
 import type { SchedulerConfig, StateStore } from "../index.js";
 import type { ExecutionState, OperationOutcome } from "../index.js";
-import {
-  MockExecutor,
-  op,
-  planFromOps,
-  successResult,
-} from "./helpers/fixtures.js";
+import { MockExecutor, op, planFromOps } from "./helpers/fixtures.js";
 
 /** In-memory StateStore mock for testing. */
 class MemoryStateStore implements StateStore {
