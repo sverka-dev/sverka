@@ -72,6 +72,15 @@ export type {
 } from "@sverka/policy";
 export { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/policy";
 
+// ── Re-exports: checks ────────────────────────────────────────────
+export type {
+  CheckResolver,
+  ResolvedCheck,
+  CheckOutput,
+} from "@sverka/checks";
+export { createBuiltinResolver, extractFindings } from "@sverka/checks";
+export { CheckError, type CheckErrorCode } from "@sverka/checks";
+
 // ── SDK errors ────────────────────────────────────────────────────
 export { SdkError, type SdkErrorCode } from "./errors.js";
 
