@@ -1,6 +1,7 @@
 import { createSverka } from "@sverka/sdk";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
+import { resolveUnderRoot } from "../internal/paths.js";
 
 /** Args parsed for the plan command. */
 export interface PlanArgs {
@@ -10,15 +11,22 @@ export interface PlanArgs {
  * Run SDK plan() and print the PlanResult. Does not execute checks.
  */
 export async function planCommand(
-  _args: PlanArgs,
+  args: PlanArgs,
   global: GlobalFlags,
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  output.debug(`plan: root=${global.root} onlyNew=${Boolean(_args.onlyNew)}`);
+  output.debug(`plan: root=${global.root} onlyNew=${Boolean(args.onlyNew)}`);
   const sverka = createSverka({
     root: global.root,
-    ...(global.config ? { configPath: global.config } : {}),
+    // Resolve a relative --config against --root (matches auto-discovery).
+    ...(global.config
+      ? { configPath: resolveUnderRoot(global.root, global.config) }
+      : {}),
+    // Forward onlyNew to the SDK. plan() currently has no findings to filter
+    // (check providers arrive in wave 11), so this is a forward-compatible
+    // no-op until then — but the flag is no longer silently dropped.
+    onlyNew: Boolean(args.onlyNew),
   });
   const result = await sverka.plan();
 

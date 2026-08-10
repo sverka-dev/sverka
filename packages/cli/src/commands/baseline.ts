@@ -10,6 +10,7 @@ import {
 } from "@sverka/sdk";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
+import { resolveUnderRoot } from "../internal/paths.js";
 
 /** Args parsed for the baseline command. */
 export interface BaselineArgs {
@@ -27,6 +28,25 @@ function resolveBaselinePath(global: GlobalFlags, override?: string): string {
 /** Ensure the parent directory of a file path exists. */
 async function ensureParentDir(path: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
+}
+
+/**
+ * Load a baseline and wrap any failure as a CliError(SDK_ERROR) so the
+ * CLI's documented error-wrapping contract is honored (loadBaseline throws
+ * BaselineError from @sverka/findings, which handleError would otherwise
+ * only route through the generic branch).
+ */
+async function loadBaselineChecked(path: string) {
+  try {
+    return await loadBaseline(path);
+  } catch (e) {
+    throw new CliError(
+      e instanceof Error ? e.message : "failed to load baseline",
+      "SDK_ERROR",
+      ExitCode.RuntimeError,
+      e,
+    );
+  }
 }
 
 /**
@@ -67,7 +87,9 @@ async function baselineCreate(
 ): Promise<number> {
   const sverka = createSverka({
     root: global.root,
-    ...(global.config ? { configPath: global.config } : {}),
+    ...(global.config
+      ? { configPath: resolveUnderRoot(global.root, global.config) }
+      : {}),
   });
   const result = await sverka.execute();
   const baseline = createBaseline([...result.findings]);
@@ -95,10 +117,12 @@ async function baselineUpdate(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  const existing = await loadBaseline(path);
+  const existing = await loadBaselineChecked(path);
   const sverka = createSverka({
     root: global.root,
-    ...(global.config ? { configPath: global.config } : {}),
+    ...(global.config
+      ? { configPath: resolveUnderRoot(global.root, global.config) }
+      : {}),
   });
   const result = await sverka.execute();
   const updated = updateBaseline([...result.findings], existing);
@@ -126,7 +150,7 @@ async function baselineShow(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  const baseline = await loadBaseline(path);
+  const baseline = await loadBaselineChecked(path);
   const durationMs = Date.now() - start;
   if (global.format === "json") {
     output.writeLine(

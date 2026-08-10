@@ -1,6 +1,7 @@
 import { loadWorkflow, findConfig, SdkError } from "@sverka/sdk";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
+import { resolveUnderRoot } from "../internal/paths.js";
 
 /**
  * Validate a sverka.config.ts without executing.
@@ -12,7 +13,11 @@ export async function validateCommand(
   start: number,
 ): Promise<number> {
   output.debug(`validate: root=${global.root} config=${global.config ?? "(auto)"}`);
-  let configPath: string | null = global.config;
+  // Resolve an explicit relative --config against --root so validation honors
+  // the selected root, matching auto-discovery via findConfig(global.root).
+  let configPath: string | null = global.config
+    ? resolveUnderRoot(global.root, global.config)
+    : null;
   if (!configPath) {
     configPath = await findConfig(global.root);
   }

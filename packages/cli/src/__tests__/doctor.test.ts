@@ -30,4 +30,15 @@ describe("doctor command", () => {
     expect(parsed.data.checks.length).toBe(3);
     expect(parsed.data.allOk).toBe(true);
   });
+
+  it("extracts a numeric version for each tool (not the raw --version line)", async () => {
+    const out = new CaptureWriter();
+    await main(["doctor", "--format", "json"], { output: out });
+    const parsed = JSON.parse(out.stdoutText.trim());
+    for (const check of parsed.data.checks) {
+      expect(check.status).toBe("ok");
+      // Version should be a numeric x.y.z, not e.g. "git version 2.43.0".
+      expect(check.version).toMatch(/^\d+\.\d+\.\d+/);
+    }
+  });
 });

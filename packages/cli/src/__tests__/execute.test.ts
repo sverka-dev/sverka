@@ -117,6 +117,39 @@ export default defineWorkflow({
     expect(code).toBe(0);
   });
 
+  it("--baseline resolves a relative baseline path against --root, not process cwd", async () => {
+    await writePassingConfig(dir);
+    // Create a baseline at the default path under <dir>.
+    await main(["baseline", "create", "--root", dir], {
+      output: new CaptureWriter(),
+    });
+    const out = new CaptureWriter();
+    const code = await main(
+      ["execute", "--only-new", "--baseline", ".sverka/baseline.json", "--root", dir],
+      { output: out },
+    );
+    // If the relative path were resolved against process cwd, loadBaseline
+    // would throw ENOENT and the command would exit 3.
+    expect(code).toBe(0);
+  });
+
+  it("--format json serializes outcomes as an object, not an empty {}", async () => {
+    await writePassingConfig(dir);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["execute", "--format", "json", "--root", dir],
+      { output: out },
+    );
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out.stdoutText.trim());
+    expect(parsed.command).toBe("execute");
+    // outcomes is a Map at runtime; it must be serialized as a populated
+    // object, not dropped to {} by JSON.stringify(Map).
+    expect(parsed.data.outcomes).toBeDefined();
+    expect(typeof parsed.data.outcomes).toBe("object");
+    expect(Object.keys(parsed.data.outcomes).length).toBeGreaterThan(0);
+  });
+
   it("--executor docker throws RUNTIME_NOT_AVAILABLE (exit 3) when docker not installed", async () => {
     await writePassingConfig(dir);
     const out = new CaptureWriter();
