@@ -36,20 +36,28 @@ function derivedBase(node: OperationNode, index: number): string {
 /**
  * Build the id suffix for a matrix child: `${baseId}[k1=v1,k2=v2]`.
  * Dimensions are joined with `,` in stable insertion order.
+ * Delimiter characters (`,`, `=`, `\`) in keys and values are escaped
+ * with a backslash so that two different dimension sets cannot produce
+ * the same id string.
  */
 export function matrixChildId(
   baseId: string,
   dims: ReadonlyArray<readonly [string, unknown]>,
 ): string {
-  const parts = dims.map(([k, v]) => `${k}=${formatMatrixValue(v)}`);
+  const parts = dims.map(([k, v]) => `${escapeSegment(k)}=${formatMatrixValue(v)}`);
   return `${baseId}[${parts.join(",")}]`;
 }
 
+/** Escape the `,`, `=`, and `\` delimiter characters used in matrix ids. */
+function escapeSegment(s: string): string {
+  return s.replace(/[\\,=]/g, (ch) => `\\${ch}`);
+}
+
 function formatMatrixValue(v: unknown): string {
-  if (typeof v === "string") return `s:${v}`;
+  if (typeof v === "string") return `s:${escapeSegment(v)}`;
   if (typeof v === "number") return `n:${String(v)}`;
   if (typeof v === "boolean") return `b:${String(v)}`;
-  return `u:${String(v)}`;
+  return `u:${escapeSegment(JSON.stringify(v) ?? String(v))}`;
 }
 
 /** Validate that a kind is a known {@link OperationKind}. */

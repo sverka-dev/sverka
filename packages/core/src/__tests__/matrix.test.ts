@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { run } from "../composables/run.js";
 import { matrix } from "../composables/matrix.js";
 import { workflow } from "../composables/workflow.js";
+import { CompositionError } from "../errors.js";
 import { makePlanRuntime } from "./helpers/runtime.js";
 
 describe("matrix expansion", () => {
@@ -61,5 +62,22 @@ describe("matrix expansion", () => {
     const wf = workflow("matrix-3", op);
     const result = await wf.plan(makePlanRuntime());
     expect(result.operations).toHaveLength(3);
+  });
+
+  it("duplicate matrix values raise CompositionError", async () => {
+    const op = matrix({ node: ["20", "20"] }, run({ command: "test" }));
+    const wf = workflow("matrix-dup", op);
+    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+  });
+
+  it("delimiter characters in values are escaped in ids", async () => {
+    const op = matrix({ key: ["a,b=c"] }, run({ command: "test" }));
+    const wf = workflow("matrix-escape", op);
+    const result = await wf.plan(makePlanRuntime());
+    expect(result.operations).toHaveLength(1);
+    // The comma and equals in the value should be escaped, not treated as
+    // dimension boundaries.
+    const id = result.operations[0]!.id;
+    expect(id).toContain("a\\,b\\=c");
   });
 });
