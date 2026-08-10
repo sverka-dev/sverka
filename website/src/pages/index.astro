@@ -1,30 +1,31 @@
 ---
 import Base from "../layouts/Base.astro";
 
-const workflowCode = `import { pipeline, run, parallel } from "@sverka/sdk";
-import { build, lint, test, securityScan } from "@sverka/checks";
+const workflowCode = `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
 
-export default pipeline("verify", async ({ run, parallel }) => {
-  const artifact = await run(build());
-
-  await parallel(
-    run(lint({ input: artifact })),
-    run(test({ input: artifact })),
-    run(securityScan({ input: artifact })),
-  );
+export default defineWorkflow({
+  name: "verify",
+  workflow: pipeline(
+    task("lint", run({ command: "bun", args: ["run", "lint"] })),
+    task("typecheck", run({ command: "bun", args: ["run", "typecheck"] })),
+    task("test", run({ command: "bun", args: ["run", "test"] })),
+  ),
 });`;
 
 const quickStartCode = `# Install
 bun add -g @sverka/cli
 
-# Run verification locally
-sverka run
+# Initialize a workflow config
+sverka init
 
 # See what would run
-sverka plan --explain
+sverka plan
 
-# Compile to GitHub Actions
-sverka compile --target github`;
+# Run verification locally
+sverka execute
+
+# Validate your config
+sverka validate`;
 ---
 
 <Base title="Sverka — Define checks once. Plan locally. Run anywhere.">

@@ -20,12 +20,13 @@ const {
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={Astro.url.href} />
     <title>{title}</title>
 
     <!-- Open Graph -->
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content="https://sverka.dev" />
+    <meta property="og:url" content={Astro.url.href} />
     <meta property="og:type" content="website" />
 
     <!-- Twitter -->
