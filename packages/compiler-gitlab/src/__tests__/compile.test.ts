@@ -56,7 +56,8 @@ describe("compileGitlabCi — empty rules filtered", () => {
     expect(yaml).toContain('$CI_COMMIT_BRANCH == "main"');
     expect(yaml).toContain("when: manual");
     // Empty rule should not produce a bare `-` entry
-    expect(yaml).not.toMatch(/-\s*\n\s*-\s/i);
+    const bareDash = /-\s*\n\s*-\s/;
+    expect(yaml).not.toMatch(bareDash);
   });
 });
 
