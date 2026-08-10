@@ -47,83 +47,27 @@ interface TableEntry {
  * (by checkId + packageManager) wins. Node entries come before Python,
  * Rust, and Go so that Node checks take precedence when multiple
  * package managers are present.
+ *
+ * Node entries are generated from a compact spec to avoid 12 near-identical
+ * hand-written blocks (3 checkIds × 4 package managers).
  */
+const NODE_PMS = ["bun", "npm", "yarn", "pnpm"] as const;
+const NODE_CHECKS = [
+  { checkId: "typecheck", args: ["run", "typecheck"] },
+  { checkId: "lint", args: ["run", "lint"] },
+  { checkId: "test", args: ["run", "test"] },
+] as const;
+
 const TABLE: readonly TableEntry[] = [
-  // Node — typecheck
-  {
-    checkId: "typecheck",
-    packageManagers: ["bun"],
-    command: "bun",
-    args: ["run", "typecheck"],
-  },
-  {
-    checkId: "typecheck",
-    packageManagers: ["npm"],
-    command: "npm",
-    args: ["run", "typecheck"],
-  },
-  {
-    checkId: "typecheck",
-    packageManagers: ["yarn"],
-    command: "yarn",
-    args: ["run", "typecheck"],
-  },
-  {
-    checkId: "typecheck",
-    packageManagers: ["pnpm"],
-    command: "pnpm",
-    args: ["run", "typecheck"],
-  },
-  // Node — lint
-  {
-    checkId: "lint",
-    packageManagers: ["bun"],
-    command: "bun",
-    args: ["run", "lint"],
-  },
-  {
-    checkId: "lint",
-    packageManagers: ["npm"],
-    command: "npm",
-    args: ["run", "lint"],
-  },
-  {
-    checkId: "lint",
-    packageManagers: ["yarn"],
-    command: "yarn",
-    args: ["run", "lint"],
-  },
-  {
-    checkId: "lint",
-    packageManagers: ["pnpm"],
-    command: "pnpm",
-    args: ["run", "lint"],
-  },
-  // Node — test
-  {
-    checkId: "test",
-    packageManagers: ["bun"],
-    command: "bun",
-    args: ["run", "test"],
-  },
-  {
-    checkId: "test",
-    packageManagers: ["npm"],
-    command: "npm",
-    args: ["run", "test"],
-  },
-  {
-    checkId: "test",
-    packageManagers: ["yarn"],
-    command: "yarn",
-    args: ["run", "test"],
-  },
-  {
-    checkId: "test",
-    packageManagers: ["pnpm"],
-    command: "pnpm",
-    args: ["run", "test"],
-  },
+  // Node — generated (typecheck/lint/test × bun/npm/yarn/pnpm)
+  ...NODE_CHECKS.flatMap(({ checkId, args }) =>
+    NODE_PMS.map((pm) => ({
+      checkId,
+      packageManagers: [pm] as readonly PmName[],
+      command: pm,
+      args,
+    })),
+  ),
   // Python — lint
   {
     checkId: "lint",
