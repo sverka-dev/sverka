@@ -60,18 +60,25 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
 ## Build & Test
 
-_Add your build and test commands here_
-
 ```bash
-# Example:
-# npm install
-# npm test
+bun install          # install dependencies
+bun run build        # build all packages (tsdown via nx)
+bun run test         # run all tests (vitest via nx)
+bun run lint         # lint all packages
+bun run typecheck    # typecheck all packages
 ```
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+Sverka is a composable workflow SDK, local CI runtime, and multi-target
+compiler for software verification. See `engdocs/architecture/overview.md`
+for the full architecture overview.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- **SDD:** Specs are written first, in `specs/`, numbered and structured.
+- **TDD:** Tests are written before implementation.
+- **Document-first:** Engineering docs in `engdocs/` before code.
+- **No `any`:** Use `unknown` and narrow. Strict TypeScript.
+- **Public API:** Everything public is exported from `src/index.ts`.
+- **Error handling:** Custom error classes per package.
