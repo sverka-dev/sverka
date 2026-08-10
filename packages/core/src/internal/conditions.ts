@@ -42,82 +42,97 @@ function tokenize(expr: string): Token[] {
   let i = 0;
   while (i < expr.length) {
     const ch = expr[i]!;
-    // whitespace
-    if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
+    if (isWhitespace(ch)) {
       i++;
       continue;
     }
-    // string literal
     if (ch === "'") {
-      let j = i + 1;
-      while (j < expr.length && expr[j] !== "'") j++;
-      if (j >= expr.length) fail(expr, "unterminated string literal");
-      tokens.push({ type: "string", value: expr.slice(i + 1, j) });
-      i = j + 1;
+      i = tokenizeString(expr, i, tokens);
       continue;
     }
-    // number literal
     if (ch >= "0" && ch <= "9") {
-      let j = i;
-      while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
-      if (expr[j] === ".") {
-        j++;
-        while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
-      }
-      tokens.push({ type: "number", value: Number(expr.slice(i, j)) });
-      i = j;
+      i = tokenizeNumber(expr, i, tokens);
       continue;
     }
-    // identifier / keyword
     if (isIdentStart(ch)) {
-      let j = i;
-      while (j < expr.length && isIdentPart(expr[j]!)) j++;
-      const word = expr.slice(i, j);
-      if (word === "true") tokens.push({ type: "true" });
-      else if (word === "false") tokens.push({ type: "false" });
-      else tokens.push({ type: "ident", value: word });
-      i = j;
+      i = tokenizeIdent(expr, i, tokens);
       continue;
     }
-    // operators
-    if (ch === "!") {
-      if (expr[i + 1] === "=") {
-        tokens.push({ type: "op", value: "!=" });
-        i += 2;
-      } else {
-        tokens.push({ type: "op", value: "!" });
-        i += 1;
-      }
-      continue;
-    }
-    if (ch === "=" && expr[i + 1] === "=") {
-      tokens.push({ type: "op", value: "==" });
-      i += 2;
-      continue;
-    }
-    if (ch === "&" && expr[i + 1] === "&") {
-      tokens.push({ type: "op", value: "&&" });
-      i += 2;
-      continue;
-    }
-    if (ch === "|" && expr[i + 1] === "|") {
-      tokens.push({ type: "op", value: "||" });
-      i += 2;
-      continue;
-    }
-    if (ch === "(") {
-      tokens.push({ type: "lparen" });
-      i++;
-      continue;
-    }
-    if (ch === ")") {
-      tokens.push({ type: "rparen" });
-      i++;
+    const opLen = tokenizeOperator(expr, i, tokens);
+    if (opLen > 0) {
+      i += opLen;
       continue;
     }
     fail(expr, `unexpected character '${ch}'`);
   }
   return tokens;
+}
+
+function isWhitespace(ch: string): boolean {
+  return ch === " " || ch === "\t" || ch === "\n" || ch === "\r";
+}
+
+function tokenizeString(expr: string, start: number, out: Token[]): number {
+  let j = start + 1;
+  while (j < expr.length && expr[j] !== "'") j++;
+  if (j >= expr.length) fail(expr, "unterminated string literal");
+  out.push({ type: "string", value: expr.slice(start + 1, j) });
+  return j + 1;
+}
+
+function tokenizeNumber(expr: string, start: number, out: Token[]): number {
+  let j = start;
+  while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
+  if (expr[j] === ".") {
+    j++;
+    while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
+  }
+  out.push({ type: "number", value: Number(expr.slice(start, j)) });
+  return j;
+}
+
+function tokenizeIdent(expr: string, start: number, out: Token[]): number {
+  let j = start;
+  while (j < expr.length && isIdentPart(expr[j]!)) j++;
+  const word = expr.slice(start, j);
+  if (word === "true") out.push({ type: "true" });
+  else if (word === "false") out.push({ type: "false" });
+  else out.push({ type: "ident", value: word });
+  return j;
+}
+
+function tokenizeOperator(expr: string, i: number, out: Token[]): number {
+  const ch = expr[i]!;
+  const next = expr[i + 1];
+  if (ch === "!" && next === "=") {
+    out.push({ type: "op", value: "!=" });
+    return 2;
+  }
+  if (ch === "!") {
+    out.push({ type: "op", value: "!" });
+    return 1;
+  }
+  if (ch === "=" && next === "=") {
+    out.push({ type: "op", value: "==" });
+    return 2;
+  }
+  if (ch === "&" && next === "&") {
+    out.push({ type: "op", value: "&&" });
+    return 2;
+  }
+  if (ch === "|" && next === "|") {
+    out.push({ type: "op", value: "||" });
+    return 2;
+  }
+  if (ch === "(") {
+    out.push({ type: "lparen" });
+    return 1;
+  }
+  if (ch === ")") {
+    out.push({ type: "rparen" });
+    return 1;
+  }
+  return 0;
 }
 
 function isIdentStart(ch: string): boolean {
