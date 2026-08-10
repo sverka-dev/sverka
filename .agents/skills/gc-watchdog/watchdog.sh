@@ -8,7 +8,10 @@
 # Usage: bash watchdog.sh [interval_seconds]
 # Default interval: 60 seconds.
 
-set -euo pipefail
+# NOTE: intentionally NOT using set -e. gc status and bd list can fail
+# transiently (session snapshot timeouts, store locks). We handle errors
+# per-command and continue the loop.
+set -uo pipefail
 
 INTERVAL="${1:-60}"
 ITER=0
@@ -16,12 +19,13 @@ ITER=0
 # Filter out ephemeral wisp/nudge beads from bd output.
 # Real issues have IDs like sv-XXXX (4 chars after sv-).
 # Wisp/nudge beads have IDs like sv-wisp-XXXX or sv-nudge-XXXX.
+# Status symbols: ○ = open, ◐ = in_progress, ● = blocked, ✓ = closed
 count_real_issues() {
   local status="$1"
   bd list --status="$status" 2>/dev/null \
-    | grep -E '^\s*○ sv-[a-z0-9]{4} ' \
+    | grep -E '^\s*[○◐●] sv-[a-z0-9]{4} ' \
     | grep -v "wisp\|nudge" \
-    | wc -l || true
+    | wc -l 2>/dev/null || echo 0
 }
 
 while true; do
@@ -40,7 +44,12 @@ while true; do
   MAYOR=$(echo "$STATUS" | grep "harness.mayor" | awk '{print $2}')
   SESSIONS=$(echo "$STATUS" | grep "Sessions:" | head -1 | sed 's/^ *//')
   SUSPENDED=$(echo "$STATUS" | grep "Suspended:" | awk '{print $2}')
-  CONTROLLER=$(echo "$STATUS" | grep "Controller:" | grep -o "supervisor-managed\|stopped\|error" | head -1)
+  CONTROLLER=$(echo "$STATUS" | grep "Controller:" | grep -o "supervisor-managed\|stopped\|error" | head -1 || true)
+
+  # Handle transient lookup errors (mayor shows "lookup" instead of "awake")
+  if echo "$MAYOR" | grep -q "lookup"; then
+    MAYOR="lookup-error"
+  fi
 
   # 2. bd work counts
   OPEN_COUNT=$(count_real_issues "open")
@@ -49,18 +58,25 @@ while true; do
   # 3. Check for issues
   ISSUES=""
   [ -z "$MAYOR" ] && ISSUES="$ISSUES MAYOR_MISSING"
-  { [ -n "$MAYOR" ] && echo "$MAYOR" | grep -qvE "awake|running|active"; } && ISSUES="$ISSUES MAYOR($MAYOR)"
-  [ "$SUSPENDED" != "no" ] && ISSUES="$ISSUES SUSPENDED"
-  [ "$CONTROLLER" != "supervisor-managed" ] && ISSUES="$ISSUES CONTROLLER($CONTROLLER)"
+  if [ -n "$MAYOR" ] && [ "$MAYOR" != "awake" ] && [ "$MAYOR" != "running" ] && [ "$MAYOR" != "active" ] && [ "$MAYOR" != "lookup-error" ]; then
+    ISSUES="$ISSUES MAYOR($MAYOR)"
+  fi
+  # lookup-error is a transient issue, not a hard failure — report as ⚠ but don't treat as fatal
+  if [ "$MAYOR" = "lookup-error" ]; then
+    ISSUES="$ISSUES MAYOR_LOOKUP_TIMEOUT"
+  fi
+  [ "${SUSPENDED:-no}" != "no" ] && ISSUES="$ISSUES SUSPENDED"
+  [ "${CONTROLLER:-supervisor-managed}" != "supervisor-managed" ] && ISSUES="$ISSUES CONTROLLER(${CONTROLLER:-unknown})"
 
   # 4. Report
   if [ -n "$ISSUES" ]; then
-    echo "[$TS] #$ITER ⚠$ISSUES | open:$OPEN_COUNT in_progress:$INPROG_COUNT | $SESSIONS"
+    echo "[$TS] #$ITER ⚠$ISSUES | open:$OPEN_COUNT in_progress:$INPROG_COUNT | ${SESSIONS:-no-sessions}"
   else
-    echo "[$TS] #$ITER ✓ mayor:$MAYOR | open:$OPEN_COUNT in_progress:$INPROG_COUNT | $SESSIONS"
+    echo "[$TS] #$ITER ✓ mayor:$MAYOR | open:$OPEN_COUNT in_progress:$INPROG_COUNT | ${SESSIONS:-no-sessions}"
   fi
 
   # 5. Exit condition: no open AND no in-progress real work, mayor healthy
+  # Note: lookup-error is transient, don't exit on it — only exit on clean idle
   if [ "$OPEN_COUNT" -eq 0 ] && [ "$INPROG_COUNT" -eq 0 ] && [ -z "$ISSUES" ]; then
     echo "[$TS] #$ITER IDLE — no open work, no in-progress work. Watchdog exiting."
     exit 0
