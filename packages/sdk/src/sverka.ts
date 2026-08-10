@@ -17,6 +17,8 @@ import { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/policy";
 import type { Policy } from "@sverka/policy";
 import { loadBaseline, filterOnlyNew } from "@sverka/findings";
 import type { Finding } from "@sverka/findings";
+import { createBuiltinResolver, extractFindings } from "@sverka/checks";
+import type { ResolvedCheck } from "@sverka/checks";
 
 import type { SverkaOptions, Sverka, PlanResult, ExecutionResult } from "./types.js";
 import type { WorkflowDefinition } from "./types.js";
@@ -77,7 +79,12 @@ async function doPlan(options: SverkaOptions): Promise<PlanResult> {
 
   // Auto-discovery mode.
   const proposal = await planner.plan(context);
-  return { context, operations: [], proposal };
+  const resolver = createBuiltinResolver();
+  const operations = proposal.checks
+    .map((check) => resolver.resolve(check, context))
+    .filter((r): r is ResolvedCheck => r !== null)
+    .map((r) => r.operation);
+  return { context, operations, proposal };
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +103,7 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
   const configPath = await resolveConfigPath(options, root);
   let def: WorkflowDefinition | null = null;
   let operations: readonly OperationSpec[] = [];
+  let resolvedChecks: readonly ResolvedCheck[] = [];
   let planName = "sverka-plan";
 
   if (configPath !== null) {
@@ -103,17 +111,19 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     operations = await evaluateWorkflow(def);
     planName = def.name;
   } else {
-    // Auto-discovery: check if planner found anything actionable.
+    // Auto-discovery: resolve proposed checks into executable operations.
     const proposal = await planner.plan(context);
-    if (proposal.checks.length === 0) {
+    const resolver = createBuiltinResolver();
+    resolvedChecks = proposal.checks
+      .map((check) => resolver.resolve(check, context))
+      .filter((r): r is ResolvedCheck => r !== null);
+    operations = resolvedChecks.map((r) => r.operation);
+    if (operations.length === 0) {
       throw new SdkError(
-        "no config found and auto-discovery produced no checks",
+        "no config found and auto-discovery produced no resolvable checks",
         "CONFIG_NOT_FOUND",
       );
     }
-    // ProposedChecks have no commands yet (wave 11 adds check providers).
-    // Run with empty operations — the pipeline is wired, findings populate later.
-    operations = [];
   }
 
   // Convert to IR Plan.
@@ -162,8 +172,17 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     await scheduler.dispose().catch(() => {});
   }
 
-  // Findings (stub — wave 11 adds extraction).
-  const findings: readonly Finding[] = [];
+  // Findings: extract from resolved checks' SARIF output artifacts.
+  let findings: readonly Finding[] = [];
+  if (resolvedChecks.length > 0) {
+    const all: Finding[] = [];
+    for (const r of resolvedChecks) {
+      if (r.outputs.length === 0) continue;
+      const extracted = await extractFindings(r.outputs, artifactDir, r.checkId);
+      all.push(...extracted);
+    }
+    findings = all;
+  }
 
   // Baseline filtering.
   let baselineFingerprints: readonly string[] = [];

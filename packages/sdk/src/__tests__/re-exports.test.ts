@@ -26,6 +26,10 @@ import {
   DEFAULT_POLICY,
   createPolicy,
   evaluatePolicy,
+  // checks
+  createBuiltinResolver,
+  extractFindings,
+  CheckError,
   // sdk
   task,
   defineWorkflow,
@@ -84,6 +88,20 @@ describe("re-exports — policy", () => {
     expect(DEFAULT_POLICY).toBeDefined();
     expect(typeof createPolicy).toBe("function");
     expect(typeof evaluatePolicy).toBe("function");
+  });
+});
+
+describe("re-exports — checks", () => {
+  it("exports createBuiltinResolver and extractFindings as functions", () => {
+    expect(typeof createBuiltinResolver).toBe("function");
+    expect(typeof extractFindings).toBe("function");
+  });
+
+  it("exports CheckError as a class", () => {
+    expect(CheckError).toBeInstanceOf(Function);
+    const err = new CheckError("msg", "RESOLUTION_FAILED");
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("CheckError");
   });
 });
 
