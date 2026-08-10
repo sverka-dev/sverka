@@ -136,7 +136,14 @@ function isIdentPart(ch: string): boolean {
   return isIdentStart(ch) || (ch >= "0" && ch <= "9") || ch === ".";
 }
 
-type OperandValue = string | number | boolean | readonly string[] | undefined;
+type OperandValue =
+  | string
+  | number
+  | boolean
+  | readonly string[]
+  | readonly number[]
+  | readonly boolean[]
+  | undefined;
 
 class Parser {
   private pos = 0;

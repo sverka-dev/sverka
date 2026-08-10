@@ -13,6 +13,7 @@ export {
   type Runtime,
   type RuntimeMode,
   type RuntimeResult,
+  type RuntimeFinalization,
   type OperationOutcome,
   type PlanContext,
   type Artifact,

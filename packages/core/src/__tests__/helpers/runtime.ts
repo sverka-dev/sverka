@@ -1,7 +1,7 @@
 import type {
   OperationOutcome,
   Runtime,
-  RuntimeResult,
+  RuntimeFinalization,
   RuntimeMode,
   PlanContext,
 } from "../../runtime.js";
@@ -35,16 +35,14 @@ export function makeRuntime(opts: {
       outcomes.push(outcome);
       return outcome;
     },
-    async finalize(): Promise<RuntimeResult> {
+    async finalize(): Promise<RuntimeFinalization> {
       const artifacts =
         mode === "compile"
           ? [{ name: "compiled", content: evaluated.map((o) => o.id).join("\n") }]
           : undefined;
       return {
         mode,
-        operations: evaluated,
         ...(artifacts !== undefined ? { artifacts } : {}),
-        durationMs: 0,
       };
     },
   };
