@@ -21,7 +21,7 @@ export class ValidationError extends IRError {
   }
 }
 
-/** Raised when Plan (de)serialization fails (malformed JSON, non-canonical). */
+/** Raised when Plan (de)serialization fails (malformed JSON, parse errors). */
 export class SerializationError extends IRError {
   constructor(message: string, context?: Record<string, unknown>) {
     super(message, "SERIALIZATION_ERROR", context);
