@@ -111,6 +111,30 @@ export async function makeTempGitRepo(): Promise<string> {
 }
 
 /**
+ * Create a temporary git repo with a package.json (bun workspace) so the
+ * planner detects bun as a package manager and proposes Node checks.
+ */
+export async function makeTempGitRepoWithPackageJson(): Promise<string> {
+  const dir = await makeTempDir("sverka-git-pkg-");
+  execSync("git init", { cwd: dir, stdio: "pipe" });
+  execSync("git config user.email test@test.com", { cwd: dir, stdio: "pipe" });
+  execSync("git config user.name test", { cwd: dir, stdio: "pipe" });
+  await writeFile(
+    join(dir, "package.json"),
+    JSON.stringify({
+      name: "test-pkg",
+      version: "1.0.0",
+      packageManager: "bun@1.2.0",
+    }),
+    "utf8",
+  );
+  await writeFile(join(dir, "tsconfig.json"), "{}", "utf8");
+  await writeFile(join(dir, "index.ts"), "export const x = 1;\n", "utf8");
+  execSync("git add . && git commit -m init", { cwd: dir, stdio: "pipe" });
+  return dir;
+}
+
+/**
  * Build a simple WorkflowDefinition in-memory (no file I/O).
  */
 export function makeSimpleWorkflowDefinition(
