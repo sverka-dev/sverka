@@ -22,9 +22,9 @@ jobs:
       - uses: oven-sh/setup-bun@f4d14e03ff726c06358e5557344e1da148b56cf7 # v1
         with:
           bun-version: latest
-      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile --ignore-scripts
       - uses: nrwl/nx-set-shas@3e9ad7370203c1e93d109be57f3b72eb0eb511b1 # v4
 
-      - run: bunx nx affected -t lint test build
-      - run: bunx nx fix-ci
+      - run: bunx nx@21.0.0 affected -t lint test build
+      - run: bunx nx@21.0.0 fix-ci
         if: always()
