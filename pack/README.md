@@ -16,22 +16,6 @@ Reusable Gas City pack for spec-driven, test-first monorepo projects.
 | `template-fragments/review-policy.md` | Template for project `REVIEW.md` |
 | `template-fragments/security-policy.md` | Template for project `SECURITY.md` |
 | `template-fragments/conventions.md` | Template for project `AGENTS.md` |
-| `skills/sverka-wave/` | Agent skill: wave planning and execution cycle |
-| `skills/sverka-review/` | Agent skill: two-axis review and gate commands |
-| `skills/sverka-drill/` | Agent skill: failure investigation and root cause isolation |
-| `docs/agent-guide.md` | Documentation for agents running under this harness |
-
-## CLI Skill (separate)
-
-The `skills/sverka/` directory at the project root contains a publishable
-CLI skill for the `sverka` CLI tool. Install it via `npx skills`:
-
-```bash
-npx skills add sverka-dev/sverka --skill sverka
-```
-
-This provides `/sverka <command>` (scan, doctor, plan, execute, validate,
-baseline, init, inspect) in any coding agent.
 
 ## Usage
 
