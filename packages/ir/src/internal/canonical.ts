@@ -90,14 +90,7 @@ function emitArray(arr: readonly unknown[], out: string[]): void {
 }
 
 function emitObject(obj: Record<string, unknown>, out: string[]): void {
-  // Collect enumerable own string keys, omitting those whose value is undefined.
-  const keys: string[] = [];
-  for (const k of Object.keys(obj)) {
-    if (obj[k] === undefined) continue;
-    keys.push(k);
-  }
-  // Lexicographic by UTF-16 code unit (default String comparison).
-  keys.sort();
+  const keys = Object.keys(obj).filter((k) => obj[k] !== undefined).sort();
   out.push("{");
   for (let i = 0; i < keys.length; i++) {
     const k = keys[i]!;
@@ -145,26 +138,7 @@ function quoteString(s: string): string {
       default:
         if (code < 0x20) {
           parts.push("\\u" + code.toString(16).padStart(4, "0"));
-        } else if (code >= 0xd800 && code <= 0xdfff) {
-          // Lone surrogate: escape as \uXXXX for valid UTF-8 output.
-          // Valid surrogate pairs (high followed by low) are emitted as-is
-          // because they form a complete code point.
-          if (code >= 0xdc00 && i > 0) {
-            // Low surrogate — check if preceded by a high surrogate.
-            const prev = s.charCodeAt(i - 1);
-            if (prev >= 0xd800 && prev <= 0xdbff) {
-              parts.push(ch);
-              continue;
-            }
-          }
-          if (code <= 0xdbff && i + 1 < s.length) {
-            // High surrogate — check if followed by a low surrogate.
-            const next = s.charCodeAt(i + 1);
-            if (next >= 0xdc00 && next <= 0xdfff) {
-              parts.push(ch);
-              continue;
-            }
-          }
+        } else if (isLoneSurrogate(code, i, s)) {
           parts.push("\\u" + code.toString(16).padStart(4, "0"));
         } else {
           parts.push(ch);
@@ -173,4 +147,20 @@ function quoteString(s: string): string {
   }
   parts.push('"');
   return parts.join("");
+}
+
+/** Check if a UTF-16 code unit is a lone surrogate (not part of a valid pair). */
+function isLoneSurrogate(code: number, i: number, s: string): boolean {
+  if (code < 0xd800 || code > 0xdfff) return false;
+  // Low surrogate — valid if preceded by a high surrogate.
+  if (code >= 0xdc00 && i > 0) {
+    const prev = s.charCodeAt(i - 1);
+    if (prev >= 0xd800 && prev <= 0xdbff) return false;
+  }
+  // High surrogate — valid if followed by a low surrogate.
+  if (code <= 0xdbff && i + 1 < s.length) {
+    const next = s.charCodeAt(i + 1);
+    if (next >= 0xdc00 && next <= 0xdfff) return false;
+  }
+  return true;
 }
