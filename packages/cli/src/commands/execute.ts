@@ -2,6 +2,7 @@ import { createSverka } from "@sverka/sdk";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { isBinaryAvailable } from "../internal/runtime-check.js";
+import { resolveUnderRoot } from "../internal/paths.js";
 
 /** Args parsed for the execute/run command. */
 export interface ExecuteArgs {
@@ -32,9 +33,16 @@ export async function executeCommand(
 
   const sverka = createSverka({
     root: global.root,
-    ...(global.config ? { configPath: global.config } : {}),
+    // Resolve relative --config / --baseline paths against --root so the
+    // CLI's path semantics match the baseline subcommands (the SDK resolves
+    // raw relative paths against the process cwd).
+    ...(global.config
+      ? { configPath: resolveUnderRoot(global.root, global.config) }
+      : {}),
     executor,
-    ...(args.baseline ? { baselinePath: args.baseline } : {}),
+    ...(args.baseline
+      ? { baselinePath: resolveUnderRoot(global.root, args.baseline) }
+      : {}),
     onlyNew: Boolean(args.onlyNew),
   });
 
@@ -46,7 +54,10 @@ export async function executeCommand(
       JSON.stringify({
         command: "execute",
         verdict: result.verdict,
-        data: result,
+        // outcomes is a Map at runtime; JSON.stringify(Map) drops it to {}.
+        // Materialize it as a plain object so machine consumers see every
+        // operation's status, exit code, logs, artifacts, and error.
+        data: { ...result, outcomes: Object.fromEntries(result.outcomes) },
         durationMs,
       }),
     );
