@@ -63,11 +63,7 @@ jobs:
     name: CodeQL Analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # CodeQL requires GitHub Advanced Security (paid for private repos).
-    # Skip on private repos without it — don't fail the pipeline.
-    continue-on-error: true
     permissions:
-      security-events: write
       actions: read
       contents: read
     strategy:
@@ -92,3 +88,12 @@ jobs:
         uses: github/codeql-action/analyze@e8e594e8799b6bc05d33c13d3d14e484b7b9cbc0 # v3.29.4
         with:
           category: "/language:${{ matrix.language }}"
+          # Don't upload SARIF to Security tab (requires Advanced Security,
+          # paid for private repos). Instead, convert to PR annotations below.
+          upload: never
+          output: ${{ github.workspace }}/results/javascript.sarif
+
+      - name: Convert SARIF to PR annotations
+        if: always()
+        run: |
+          python3 scripts/sarif-to-annotations.py < results/javascript.sarif
