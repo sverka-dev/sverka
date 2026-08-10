@@ -71,6 +71,10 @@
     "packages/compiler-gitlab": {
       "name": "@sverka/compiler-gitlab",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/ir": "workspace:*",
+        "yaml": "^2.9.0",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
