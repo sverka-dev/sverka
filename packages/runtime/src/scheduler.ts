@@ -409,8 +409,7 @@ export class Scheduler {
           for (const id of order) {
             const s = states.get(id);
             if (
-              s &&
-              s.status === "pending" &&
+              s?.status === "pending" &&
               !cancelledOps.has(id) &&
               !skippedFromResume.has(id)
             ) {

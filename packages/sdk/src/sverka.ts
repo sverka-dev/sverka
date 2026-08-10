@@ -25,8 +25,8 @@ import type {
   Sverka,
   PlanResult,
   ExecutionResult,
+  WorkflowDefinition,
 } from "./types.js";
-import type { WorkflowDefinition } from "./types.js";
 import { SdkError } from "./errors.js";
 import { findConfig, loadWorkflow } from "./config.js";
 import { convertToPlan } from "./convert.js";
