@@ -1,6 +1,5 @@
-import { existsSync } from "node:fs";
 import { mkdir, unlink } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import {
   createSverka,
   createBaseline,
@@ -22,7 +21,7 @@ const DEFAULT_BASELINE_PATH = ".sverka/baseline.json";
 
 function resolveBaselinePath(global: GlobalFlags, override?: string): string {
   const rel = override ?? DEFAULT_BASELINE_PATH;
-  return join(global.root, rel);
+  return resolveUnderRoot(global.root, rel);
 }
 
 /** Ensure the parent directory of a file path exists. */
@@ -147,14 +146,12 @@ async function baselineClear(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  // Idempotent: succeed if the file does not exist. The existsSync guard
-  // handles the common case; we still tolerate ENOENT from unlink to close
-  // the TOCTOU race. All other errors (EACCES, EISDIR, …) propagate.
-  if (existsSync(path)) {
-    await unlink(path).catch((err: NodeJS.ErrnoException) => {
-      if (err.code !== "ENOENT") throw err;
-    });
-  }
+  // Idempotent: always call unlink and tolerate only ENOENT. This closes
+  // the TOCTOU race where a file appears between an existsSync check and
+  // the unlink call. All other errors (EACCES, EISDIR, …) propagate.
+  await unlink(path).catch((err: NodeJS.ErrnoException) => {
+    if (err.code !== "ENOENT") throw err;
+  });
   const durationMs = Date.now() - start;
   if (global.format === "json") {
     output.writeLine(

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join, isAbsolute } from "node:path";
 import { main } from "../index.js";
 import {
   makeTempDir,
@@ -117,6 +117,39 @@ export default defineWorkflow({
     );
     expect(code).toBe(0);
     expect(existsSync(join(dir, customRel))).toBe(true);
+  });
+
+  it("--baseline with an absolute path uses the absolute path, not joined under root", async () => {
+    // Create a baseline at an absolute path outside the root dir.
+    const absDir = await makeTempDir();
+    const absPath = join(absDir, "abs-baseline.json");
+    expect(isAbsolute(absPath)).toBe(true);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["baseline", "create", "--baseline", absPath, "--root", dir],
+      { output: out },
+    );
+    expect(code).toBe(0);
+    // The baseline should be at the absolute path, not under dir.
+    expect(existsSync(absPath)).toBe(true);
+    expect(existsSync(join(dir, absPath))).toBe(false);
+    await cleanupTempDir(absDir);
+  });
+
+  it("clear is idempotent without existsSync guard (always calls unlink, tolerates ENOENT)", async () => {
+    // This test verifies the fix for the TOCTOU window: clear should
+    // always call unlink and catch only ENOENT, not skip via existsSync.
+    // We can't easily test the race itself, but we verify the file is
+    // gone after clear even when it exists.
+    await mkdir(join(dir, ".sverka"), { recursive: true });
+    await writeFile(join(dir, ".sverka", "baseline.json"), "{}", "utf8");
+    const out = new CaptureWriter();
+    const code = await main(
+      ["baseline", "clear", "--root", dir],
+      { output: out },
+    );
+    expect(code).toBe(0);
+    expect(existsSync(join(dir, ".sverka", "baseline.json"))).toBe(false);
   });
 
   it("unknown subcommand exits with 2", async () => {
