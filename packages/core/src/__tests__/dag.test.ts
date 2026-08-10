@@ -19,10 +19,18 @@ describe("DAG validation", () => {
     try {
       await promise;
     } catch (err) {
-      const ce = err as CompositionError;
-      expect(ce.context).toBeDefined();
-      expect(ce.context?.["cycle"]).toBeDefined();
+      if (!(err instanceof CompositionError)) throw err;
+      expect(err.context).toBeDefined();
+      expect(err.context?.["cycle"]).toBeDefined();
     }
+  });
+
+  it("rejects a dependsOn id that matches no operation", async () => {
+    const a = run({ id: "a", command: "a", dependsOn: ["ghost"] });
+    const wf = workflow("unknown-dep", a);
+    const promise = wf.plan(makePlanRuntime());
+    await expect(promise).rejects.toThrow(CompositionError);
+    await expect(promise).rejects.toThrow(/unknown id 'ghost'/);
   });
 
   it("rejects duplicate user-provided ids", async () => {
@@ -34,8 +42,8 @@ describe("DAG validation", () => {
     try {
       await promise;
     } catch (err) {
-      const ce = err as CompositionError;
-      expect(ce.context?.["id"]).toBe("dup");
+      if (!(err instanceof CompositionError)) throw err;
+      expect(err.context?.["id"]).toBe("dup");
     }
   });
 

@@ -85,13 +85,15 @@ describe("evaluateCondition", () => {
   });
 
   it("malformed error has code COMPOSITION_ERROR", () => {
+    let caught: unknown;
     try {
       evaluateCondition("!!!", {});
-      throw new Error("should have thrown");
     } catch (err) {
-      expect(err).toBeInstanceOf(CompositionError);
-      expect((err as CompositionError).code).toBe("COMPOSITION_ERROR");
-      expect((err as CompositionError).context).toMatchObject({ reason: expect.any(String) });
+      caught = err;
     }
+    expect(caught).toBeInstanceOf(CompositionError);
+    if (!(caught instanceof CompositionError)) return;
+    expect(caught.code).toBe("COMPOSITION_ERROR");
+    expect(caught.context).toMatchObject({ reason: expect.any(String) });
   });
 });
