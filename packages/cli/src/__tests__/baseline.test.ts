@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { main } from "../index.js";
 import {
@@ -90,6 +91,21 @@ export default defineWorkflow({
       { output: out },
     );
     expect(code).toBe(0);
+  });
+
+  it("clear propagates non-ENOENT unlink errors instead of swallowing them", async () => {
+    // Make the baseline path a directory: existsSync is true, but unlink throws EISDIR.
+    const baselinePath = join(dir, ".sverka", "baseline.json");
+    await mkdir(join(dir, ".sverka"), { recursive: true });
+    await mkdir(baselinePath);
+    expect(existsSync(baselinePath)).toBe(true);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["baseline", "clear", "--root", dir],
+      { output: out },
+    );
+    expect(code).not.toBe(0);
+    expect(out.stderrText).toContain("error:");
   });
 
   it("--baseline specifies a custom baseline path", async () => {

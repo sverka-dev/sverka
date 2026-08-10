@@ -153,9 +153,13 @@ async function baselineClear(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  // Idempotent: silently succeed if the file does not exist.
+  // Idempotent: succeed if the file does not exist. The existsSync guard
+  // handles the common case; we still tolerate ENOENT from unlink to close
+  // the TOCTOU race. All other errors (EACCES, EISDIR, …) propagate.
   if (existsSync(path)) {
-    await unlink(path).catch(() => {});
+    await unlink(path).catch((err: NodeJS.ErrnoException) => {
+      if (err.code !== "ENOENT") throw err;
+    });
   }
   const durationMs = Date.now() - start;
   if (global.format === "json") {
