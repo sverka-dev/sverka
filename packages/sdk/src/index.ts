@@ -54,7 +54,13 @@ export type {
 // ── Re-exports: findings ──────────────────────────────────────────
 export type { Finding, Severity, FindingSource } from "@sverka/findings";
 export { normalizeSarif, computeFingerprint } from "@sverka/findings";
-export { loadBaseline, saveBaseline, filterOnlyNew } from "@sverka/findings";
+export {
+  createBaseline,
+  updateBaseline,
+  loadBaseline,
+  saveBaseline,
+  filterOnlyNew,
+} from "@sverka/findings";
 
 // ── Re-exports: policy ────────────────────────────────────────────
 export type {
