@@ -12,12 +12,22 @@ export type RuntimeMode = "plan" | "execute" | "compile";
 export interface RuntimeResult {
   readonly mode: RuntimeMode;
   readonly operations: readonly OperationSpec[];
-  readonly outcomes?: readonly OperationOutcome[];
+  readonly outcomes: readonly OperationOutcome[];
   readonly artifacts?: readonly Artifact[];
   readonly logs?: ReadonlyMap<string, string>;
   readonly errors?: readonly CoreError[];
   readonly durationMs: number;
 }
+
+/**
+ * The runtime-supplied portion of a {@link RuntimeResult}.
+ * `planWorkflow()` composes the final `RuntimeResult` from this by adding
+ * `operations`, `outcomes`, and `durationMs`.
+ */
+export type RuntimeFinalization = Omit<
+  RuntimeResult,
+  "operations" | "outcomes" | "durationMs"
+>;
 
 /**
  * A named artifact produced during Execution or Compile mode.
@@ -60,8 +70,8 @@ export interface Runtime {
   readonly context?: PlanContext;
   /** Record or execute a single resolved operation. */
   evaluate(operation: OperationSpec): Promise<OperationOutcome>;
-  /** Finalize and return the aggregate result. */
-  finalize(): Promise<RuntimeResult>;
+  /** Finalize and return the runtime-supplied portion of the result. */
+  finalize(): Promise<RuntimeFinalization>;
 }
 
 export interface OperationOutcome {
