@@ -10,7 +10,9 @@ import type {
  * Convert a camelCase key to kebab-case (e.g. securityEvents → security-events).
  */
 function toKebab(key: string): string {
-  return key.replace(/([A-Z])/g, "-$1").toLowerCase();
+  return key.replace(/([A-Z])/g, (match, char: string, offset: number) =>
+    offset === 0 ? char.toLowerCase() : `-${char.toLowerCase()}`,
+  );
 }
 
 /**
@@ -100,8 +102,9 @@ export function compileGithubWorkflow(
         uses: "actions/setup-node@v4",
         with: { "node-version": nodeVersion },
       },
+      { uses: "oven-sh/setup-bun@v2", with: { version: "latest" } },
       { run: `bun install -g sverka@${sverkaVersion}` },
-      { run: "sverka execute .sverka/plan.json" },
+      { run: "sverka execute" },
       {
         uses: "actions/upload-artifact@v4",
         if: "always()",

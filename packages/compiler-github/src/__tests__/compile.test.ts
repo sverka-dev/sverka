@@ -9,9 +9,11 @@ describe("compileGithubWorkflow — default config", () => {
     expect(yaml).toContain("runs-on: ubuntu-latest");
     expect(yaml).toContain('node-version: "24"');
     expect(yaml).toContain("bun install -g sverka@latest");
-    expect(yaml).toContain("sverka execute .sverka/plan.json");
+    expect(yaml).toContain("sverka execute");
+    expect(yaml).not.toContain("sverka execute .sverka/plan.json");
     expect(yaml).toContain("actions/checkout@v4");
     expect(yaml).toContain("actions/setup-node@v4");
+    expect(yaml).toContain("oven-sh/setup-bun@v2");
     expect(yaml).toContain("actions/upload-artifact@v4");
     expect(yaml).toContain("if: always()");
     expect(yaml).toContain("contents: read");
@@ -128,7 +130,7 @@ describe("compileGithubWorkflow — determinism", () => {
 describe("compileGithubWorkflow — empty operations", () => {
   it("produces valid YAML for empty plan", () => {
     const yaml = compileGithubWorkflow(makePlan({ operations: [] }));
-    expect(yaml).toContain("sverka execute .sverka/plan.json");
+    expect(yaml).toContain("sverka execute");
     expect(yaml).toContain("jobs:");
   });
 });
