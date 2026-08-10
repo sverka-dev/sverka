@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validatePlan } from "../validate.js";
+import type { PlanOperation } from "../plan.js";
 import {
   validPlan,
   validPlanBody,
@@ -357,5 +358,177 @@ describe("validatePlan — collects all errors (no short-circuit)", () => {
     const codes = result.errors.map((e) => e.code);
     expect(codes).toContain("INVALID_API_VERSION");
     expect(codes).not.toContain("ID_MISMATCH");
+  });
+});
+
+describe("validatePlan — rule 14 (metadata fields)", () => {
+  it("rejects missing sverkaVersion with INVALID_METADATA", () => {
+    const plan = validPlan({
+      metadata: { sverkaVersion: "", generatedBy: "planner" },
+    });
+    // sverkaVersion="" is a string so it passes — test with missing field
+    const { metadata, ...rest } = validPlan();
+    const planMissing = { ...rest, metadata: { generatedBy: "planner" } };
+    const result = validatePlan(planMissing);
+    expect(result.valid).toBe(false);
+    const err = result.errors.find((e) => e.code === "INVALID_METADATA");
+    expect(err).toBeDefined();
+    expect(err?.field).toBe("metadata.sverkaVersion");
+  });
+
+  it("rejects non-string sverkaVersion with INVALID_METADATA", () => {
+    const { metadata, ...rest } = validPlan();
+    const plan = { ...rest, metadata: { sverkaVersion: 42, generatedBy: "planner" } };
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_METADATA" && e.field === "metadata.sverkaVersion",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects invalid generatedBy union with INVALID_METADATA", () => {
+    const { metadata, ...rest } = validPlan();
+    const plan = { ...rest, metadata: { sverkaVersion: "0.0.0", generatedBy: "unknown" } };
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    const err = result.errors.find(
+      (e) => e.code === "INVALID_METADATA" && e.field === "metadata.generatedBy",
+    );
+    expect(err).toBeDefined();
+  });
+
+  it("rejects missing generatedBy with INVALID_METADATA", () => {
+    const { metadata, ...rest } = validPlan();
+    const plan = { ...rest, metadata: { sverkaVersion: "0.0.0" } };
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_METADATA" && e.field === "metadata.generatedBy",
+      ),
+    ).toBe(true);
+  });
+
+  it("accepts all valid generatedBy values", () => {
+    for (const g of ["planner", "manual", "compiler"] as const) {
+      const plan = validPlan({
+        metadata: { sverkaVersion: "0.0.0", generatedBy: g },
+      });
+      expect(validatePlan(plan).valid).toBe(true);
+    }
+  });
+});
+
+describe("validatePlan — rule 15 (operation shape)", () => {
+  it("rejects missing operation id with INVALID_OPERATION", () => {
+    const { id: _omit, ...opWithoutId } = validOperation();
+    const plan = validPlan({ operations: [opWithoutId as unknown as PlanOperation] });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_OPERATION" && e.field === "operations[].id",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects non-string operation name with INVALID_OPERATION", () => {
+    const op = validOperation();
+    const plan = validPlan({
+      operations: [{ ...op, name: 42 } as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_OPERATION" && e.field === "operations[].name",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects missing executor with INVALID_OPERATION", () => {
+    const { executor: _omit, ...opWithoutExecutor } = validOperation();
+    const plan = validPlan({
+      operations: [opWithoutExecutor as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_OPERATION" && e.field === "operations[].executor",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects missing dependsOn (null) with INVALID_OPERATION", () => {
+    const op = validOperation();
+    const plan = validPlan({
+      operations: [{ ...op, dependsOn: null } as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_OPERATION" && e.field === "operations[].dependsOn",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects missing dependsOn (undefined) with INVALID_OPERATION", () => {
+    const { dependsOn: _omit, ...opWithoutDeps } = validOperation();
+    const plan = validPlan({
+      operations: [opWithoutDeps as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_OPERATION" && e.field === "operations[].dependsOn",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects non-array credentials with INVALID_OPERATION", () => {
+    const op = validOperation();
+    const plan = validPlan({
+      operations: [{ ...op, credentials: "not-array" } as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_OPERATION" && e.field === "operations[].credentials",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects non-array artifacts with INVALID_OPERATION", () => {
+    const op = validOperation();
+    const plan = validPlan({
+      operations: [{ ...op, artifacts: "not-array" } as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_OPERATION" && e.field === "operations[].artifacts",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects non-boolean continueOnError with INVALID_OPERATION", () => {
+    const op = validOperation();
+    const plan = validPlan({
+      operations: [{ ...op, continueOnError: "yes" } as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.code === "INVALID_OPERATION" && e.field === "operations[].continueOnError",
+      ),
+    ).toBe(true);
   });
 });
