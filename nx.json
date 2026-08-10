@@ -28,6 +28,5 @@
       "inputs": ["default", "^production"],
       "cache": true
     }
-  },
-  "nxCloudAccessToken": ""
+  }
 }
