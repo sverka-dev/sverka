@@ -35,16 +35,20 @@ function canonicalize(value: unknown): unknown {
     return value.map(canonicalize).filter((v) => v !== undefined);
   }
   if (typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    const sortedKeys = Object.keys(obj).sort();
-    const result: Record<string, unknown> = {};
-    for (const key of sortedKeys) {
-      const canonicalized = canonicalize(obj[key]);
-      if (canonicalized !== undefined) {
-        result[key] = canonicalized;
-      }
-    }
-    return result;
+    return canonicalizeObject(value as Record<string, unknown>);
   }
   return undefined;
+}
+
+/** Canonicalize an object: sort keys, omit undefined values. */
+function canonicalizeObject(obj: Record<string, unknown>): Record<string, unknown> {
+  const sortedKeys = Object.keys(obj).sort((a, b) => a.localeCompare(b));
+  const result: Record<string, unknown> = {};
+  for (const key of sortedKeys) {
+    const canonicalized = canonicalize(obj[key]);
+    if (canonicalized !== undefined) {
+      result[key] = canonicalized;
+    }
+  }
+  return result;
 }

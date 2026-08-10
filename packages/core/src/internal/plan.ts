@@ -45,43 +45,9 @@ export async function planWorkflow(
   const ordered = topoSort(specs);
 
   // 8. Evaluate conditions and feed non-skipped ops to the runtime.
-  // In compile mode, all operations are passed to the runtime so compilers
-  // can emit them (including conditionally-skipped ones with their condition
-  // field intact). In execute/plan mode, false conditions produce a synthetic
-  // "skipped" outcome without calling runtime.evaluate().
   const outcomes: OperationOutcome[] = [];
-  let aborted = false;
   try {
-    for (const spec of ordered) {
-      if (aborted) {
-        outcomes.push({ operationId: spec.id, status: "cancelled", durationMs: 0 });
-        continue;
-      }
-      if (spec.condition !== undefined) {
-        const included = evaluateCondition(spec.condition, runtime.context);
-        if (!included) {
-          if (runtime.mode === "compile") {
-            // Compile mode: pass the operation to the compiler with its
-            // condition field intact so it can emit it.
-            const outcome = await runtime.evaluate(spec);
-            outcomes.push(outcome);
-          } else {
-            // Record a skipped outcome so callers can see what was excluded.
-            outcomes.push({
-              operationId: spec.id,
-              status: "skipped",
-              durationMs: 0,
-            });
-          }
-          continue;
-        }
-      }
-      const outcome = await runtime.evaluate(spec);
-      outcomes.push(outcome);
-      if (outcome.status === "failure" && spec.continueOnError !== true) {
-        aborted = true;
-      }
-    }
+    await evaluateOperations(ordered, runtime, outcomes);
   } catch (err) {
     // Ensure runtime.finalize() is called even when evaluate() rejects,
     // so executors can release containers, processes, and file handles.
@@ -97,6 +63,43 @@ export async function planWorkflow(
     outcomes,
     durationMs: nowMs() - start,
   };
+}
+
+/**
+ * Evaluate operations in topo order, respecting conditions and failure policy.
+ * In compile mode, all operations are passed to the runtime so compilers
+ * can emit them (including conditionally-skipped ones with their condition
+ * field intact). In execute/plan mode, false conditions produce a synthetic
+ * "skipped" outcome without calling runtime.evaluate().
+ */
+async function evaluateOperations(
+  ordered: readonly OperationSpec[],
+  runtime: Runtime,
+  outcomes: OperationOutcome[],
+): Promise<void> {
+  let aborted = false;
+  for (const spec of ordered) {
+    if (aborted) {
+      outcomes.push({ operationId: spec.id, status: "cancelled", durationMs: 0 });
+      continue;
+    }
+    if (spec.condition !== undefined) {
+      const included = evaluateCondition(spec.condition, runtime.context);
+      if (!included) {
+        if (runtime.mode === "compile") {
+          outcomes.push(await runtime.evaluate(spec));
+        } else {
+          outcomes.push({ operationId: spec.id, status: "skipped", durationMs: 0 });
+        }
+        continue;
+      }
+    }
+    const outcome = await runtime.evaluate(spec);
+    outcomes.push(outcome);
+    if (outcome.status === "failure" && spec.continueOnError !== true) {
+      aborted = true;
+    }
+  }
 }
 
 function nowMs(): number {
