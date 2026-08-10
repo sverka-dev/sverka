@@ -315,7 +315,7 @@ export interface Workflow {
 
 ## Data models
 
-```
+```text
 Workflow
  ├─ name: string
  └─ roots: Operation[]

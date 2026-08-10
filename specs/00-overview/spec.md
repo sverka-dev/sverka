@@ -62,7 +62,7 @@ targets.
 
 ## Package structure
 
-```
+```text
 packages/
   core/             # workflow graph, operations, outputs
   planner/          # discovery and plan synthesis
