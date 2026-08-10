@@ -58,6 +58,16 @@ jobs:
       - name: Test
         run: bun run test
 
+      # Nx Cloud self-healing CI: auto-applies fixes for failed CI tasks.
+      # Requires the NX_CLOUD_ACCESS_TOKEN repo secret to be set.
+      # continue-on-error so the gate stays green before the secret is configured.
+      - name: Nx fix-ci (self-healing)
+        if: always()
+        continue-on-error: true
+        env:
+          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+        run: bunx nx fix-ci
+
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
