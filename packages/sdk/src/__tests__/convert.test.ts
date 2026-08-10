@@ -125,4 +125,22 @@ describe("convertToPlan", () => {
     expect(op2).toBeDefined();
     expect(op2!.dependsOn.length).toBeGreaterThan(0);
   });
+
+  it("passes tags from OperationSpec to PlanOperation", async () => {
+    const operations = await makeOperations(
+      "test",
+      pipeline(task("op1", run({ command: "true", tags: ["critical", "security"] }))),
+    );
+    const plan = convertToPlan(operations, { name: "test", executor: "host" });
+    expect(plan.operations[0]!.tags).toEqual(["critical", "security"]);
+  });
+
+  it("omits tags when OperationSpec has no tags", async () => {
+    const operations = await makeOperations(
+      "test",
+      pipeline(task("op1", run({ command: "true" }))),
+    );
+    const plan = convertToPlan(operations, { name: "test", executor: "host" });
+    expect(plan.operations[0]!.tags).toBeUndefined();
+  });
 });

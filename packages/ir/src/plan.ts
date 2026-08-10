@@ -52,6 +52,9 @@ export interface PlanOperation {
   readonly condition?: string;
   readonly continueOnError: boolean;
 
+  // Tags (for prioritization, filtering, categorization)
+  readonly tags?: readonly string[];
+
   // Compiler metadata (target-specific, ignored by runtime)
   readonly compiler?: Readonly<Record<string, unknown>>;
 }

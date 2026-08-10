@@ -35,6 +35,35 @@ describe("topoSort", () => {
     if (r.ok) expect(r.order).toEqual(["x", "y", "z"]);
   });
 
+  it("prioritizes critical-tagged ops among ready siblings", () => {
+    const ops = [
+      op("a"),
+      op("b"),
+      validOperation({ id: "c", name: "c", tags: ["critical"] }),
+    ];
+    const r = topoSort(ops);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      // c has "critical" tag → should come before a and b.
+      expect(r.order[0]).toBe("c");
+    }
+  });
+
+  it("prioritizes critical ops among siblings after a dependency completes", () => {
+    const ops = [
+      op("root"),
+      op("normal-child", ["root"]),
+      validOperation({ id: "crit-child", name: "crit-child", dependsOn: ["root"], tags: ["critical"] }),
+    ];
+    const r = topoSort(ops);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.order[0]).toBe("root");
+      // crit-child before normal-child among ready siblings.
+      expect(r.order.indexOf("crit-child")).toBeLessThan(r.order.indexOf("normal-child"));
+    }
+  });
+
   it("detects a cycle and returns the cycle path", () => {
     const ops = [op("a", ["c"]), op("b", ["a"]), op("c", ["b"])];
     const r = topoSort(ops);

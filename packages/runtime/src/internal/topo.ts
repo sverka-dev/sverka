@@ -34,11 +34,19 @@ export function topoSort(ops: readonly PlanOperation[]): TopoResult {
     }
   }
 
-  // Kahn's algorithm, preserving input order among ready siblings.
+  // Kahn's algorithm, prioritizing critical-tagged ops among ready siblings.
+  const isCritical = new Map<string, boolean>();
+  for (const op of ops) {
+    isCritical.set(op.id, op.tags?.includes("critical") ?? false);
+  }
+
   const ready: string[] = [];
   for (const op of ops) {
     if ((indegree.get(op.id) ?? 0) === 0) ready.push(op.id);
   }
+  // Sort ready queue: critical first, then input order.
+  sortReadyByPriority(ready, isCritical);
+
   const order: string[] = [];
   // Track position in the ready queue for BFS-style processing.
   let head = 0;
@@ -46,10 +54,18 @@ export function topoSort(ops: readonly PlanOperation[]): TopoResult {
     const id = ready[head]!;
     head++;
     order.push(id);
+    const newlyReady: string[] = [];
     for (const dep of dependents.get(id) ?? []) {
       const next = (indegree.get(dep) ?? 0) - 1;
       indegree.set(dep, next);
-      if (next === 0) ready.push(dep);
+      if (next === 0) newlyReady.push(dep);
+    }
+    if (newlyReady.length > 0) {
+      ready.push(...newlyReady);
+      // Re-sort the unprocessed portion of the ready queue.
+      const unsorted = ready.slice(head);
+      sortReadyByPriority(unsorted, isCritical);
+      ready.splice(head, unsorted.length, ...unsorted);
     }
   }
 
@@ -131,4 +147,20 @@ export function dependentsOf(
     }
   }
   return result;
+}
+
+/**
+ * Sort the ready queue in-place: critical-tagged ops first, then input order.
+ * Stable sort preserves relative order within each priority group.
+ */
+function sortReadyByPriority(
+  ids: string[],
+  isCritical: Map<string, boolean>,
+): void {
+  ids.sort((a, b) => {
+    const ca = isCritical.get(a) ?? false;
+    const cb = isCritical.get(b) ?? false;
+    if (ca === cb) return 0; // preserve input order
+    return ca ? -1 : 1;
+  });
 }

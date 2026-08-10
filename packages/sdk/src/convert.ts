@@ -111,6 +111,7 @@ function convertOperation(
     timeoutSeconds: spec.timeoutSeconds ?? 300,
     ...(spec.condition !== undefined ? { condition: spec.condition } : {}),
     continueOnError: spec.continueOnError ?? false,
+    ...(spec.tags !== undefined ? { tags: spec.tags } : {}),
   };
 }
 
