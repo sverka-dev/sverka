@@ -47,6 +47,33 @@ export class Scheduler {
 
   constructor(config: SchedulerConfig) {
     this.config = config;
+
+    // Validate maxConcurrent: must be a positive finite integer.
+    if (
+      typeof config.maxConcurrent !== "number" ||
+      !Number.isFinite(config.maxConcurrent) ||
+      config.maxConcurrent < 1 ||
+      !Number.isInteger(config.maxConcurrent)
+    ) {
+      throw new SchedulerError(
+        `maxConcurrent must be a positive integer (got ${String(config.maxConcurrent)})`,
+        { code: "INVALID_CONFIG" },
+      );
+    }
+
+    // Validate totalCpu: must be a positive finite number when provided.
+    if (
+      config.totalCpu !== undefined &&
+      (typeof config.totalCpu !== "number" ||
+        !Number.isFinite(config.totalCpu) ||
+        config.totalCpu <= 0)
+    ) {
+      throw new SchedulerError(
+        `totalCpu must be a positive finite number (got ${String(config.totalCpu)})`,
+        { code: "INVALID_CONFIG" },
+      );
+    }
+
     // totalCpu and totalMemory are independent optionals: enforce whichever
     // is configured, treating an unset dimension as unbounded (Infinity).
     if (config.totalCpu !== undefined || config.totalMemory !== undefined) {
@@ -168,9 +195,18 @@ export class Scheduler {
       });
     };
 
-    // Helper: persist state (best-effort).
-    const persist = async (): Promise<void> => {
-      if (!this.config.stateStore) return;
+    // Helper: persist state (best-effort, serialized to prevent overlap).
+    let persistChain: Promise<void> = Promise.resolve();
+    const persist = (): Promise<void> => {
+      if (!this.config.stateStore) return Promise.resolve();
+      // Serialize saves: chain onto the previous persist to prevent
+      // concurrent StateStore.save() calls from overlapping or writing
+      // out-of-order state.
+      persistChain = persistChain.then(() => doPersist());
+      return persistChain;
+    };
+
+    const doPersist = async (): Promise<void> => {
       const completedList: string[] = [];
       const failedList: string[] = [];
       const skippedList: string[] = [];
@@ -459,9 +495,21 @@ export class Scheduler {
       ? "partial"
       : fatalFailure
         ? "failure"
-        : outcomesHaveFailure(outcomes)
+        : outcomesHaveFailureOrCancelled(outcomes)
           ? "partial"
           : "success";
+
+    // On fully successful completion, clear persisted state — it's no longer
+    // needed for resume. On partial/failure/cancelled, retain it so a
+    // subsequent resume run can pick up where this one left off.
+    if (status === "success" && this.config.stateStore) {
+      try {
+        await this.config.stateStore.clear(plan.id);
+      } catch (e) {
+        // Best-effort: log and continue. Stale state is not a failure.
+        console.warn("stateStore.clear failed:", e);
+      }
+    }
 
     return {
       planId: plan.id,
@@ -637,11 +685,11 @@ function toOutcome(
   };
 }
 
-function outcomesHaveFailure(
+function outcomesHaveFailureOrCancelled(
   outcomes: ReadonlyMap<string, OperationOutcome>,
 ): boolean {
   for (const o of outcomes.values()) {
-    if (o.status === "failure") return true;
+    if (o.status === "failure" || o.status === "cancelled") return true;
   }
   return false;
 }
