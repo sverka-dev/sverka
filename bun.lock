@@ -129,10 +129,6 @@
     "packages/runtime-host": {
       "name": "@sverka/runtime-host",
       "version": "0.0.0",
-      "dependencies": {
-        "@sverka/ir": "workspace:*",
-        "@sverka/runtime": "workspace:*",
-      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",

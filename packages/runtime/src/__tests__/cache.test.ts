@@ -71,7 +71,7 @@ describe("Scheduler — cache reuse", () => {
     expect(result.status).toBe("success");
     expect(result.outcomes.get("a")?.fromCache).toBe(true);
     expect(result.outcomes.get("a")?.status).toBe("success");
-    expect(exec.calls.length).toBe(0);
+    expect(exec.calls).toHaveLength(0);
   });
 
   it("a cache miss executes the operation and stores outputs", async () => {
@@ -85,7 +85,7 @@ describe("Scheduler — cache reuse", () => {
     ).execute(plan);
     expect(result.status).toBe("success");
     expect(result.outcomes.get("a")?.fromCache).toBe(false);
-    expect(exec.calls.length).toBe(1);
+    expect(exec.calls).toHaveLength(1);
     expect(cache.stored).toContain("cache-a");
     expect(cache.entries.has("cache-a")).toBe(true);
   });
@@ -96,6 +96,6 @@ describe("Scheduler — cache reuse", () => {
     const result = await new Scheduler(baseConfig([exec])).execute(plan);
     expect(result.status).toBe("success");
     expect(result.outcomes.get("a")?.fromCache).toBe(false);
-    expect(exec.calls.length).toBe(1);
+    expect(exec.calls).toHaveLength(1);
   });
 });
