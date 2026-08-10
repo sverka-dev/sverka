@@ -12,7 +12,9 @@ export async function validateCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  output.debug(`validate: root=${global.root} config=${global.config ?? "(auto)"}`);
+  output.debug(
+    `validate: root=${global.root} config=${global.config ?? "(auto)"}`,
+  );
   // Resolve an explicit relative --config against --root so validation honors
   // the selected root, matching auto-discovery via findConfig(global.root).
   let configPath: string | null = global.config

@@ -4,7 +4,9 @@ import { computeFingerprint } from "../fingerprint.js";
 import { NormalizationError } from "../errors.js";
 import type { FingerprintInput } from "../types.js";
 
-function baseInput(overrides: Partial<FingerprintInput> = {}): FingerprintInput {
+function baseInput(
+  overrides: Partial<FingerprintInput> = {},
+): FingerprintInput {
   return {
     rule: "no-console",
     file: "src/index.ts",

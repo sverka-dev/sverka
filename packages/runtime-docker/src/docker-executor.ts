@@ -153,10 +153,9 @@ export class DockerExecutor implements Executor {
     }
     // 2. Validate timeout.
     if (op.timeoutSeconds === undefined || op.timeoutSeconds <= 0) {
-      throw new ContainerPolicyError(
-        "timeoutSeconds must be present and > 0",
-        { timeoutSeconds: op.timeoutSeconds },
-      );
+      throw new ContainerPolicyError("timeoutSeconds must be present and > 0", {
+        timeoutSeconds: op.timeoutSeconds,
+      });
     }
     // 3. Validate image digest presence.
     if (op.executor.imageDigest === undefined) {
@@ -181,8 +180,7 @@ export class DockerExecutor implements Executor {
     });
 
     const durationMs = Date.now() - start;
-    const rawLogs =
-      result.stdout + (result.stderr ? "\n" + result.stderr : "");
+    const rawLogs = result.stdout + (result.stderr ? "\n" + result.stderr : "");
     const logs = this.truncateLogs(rawLogs);
 
     let base: ExecuteResult;

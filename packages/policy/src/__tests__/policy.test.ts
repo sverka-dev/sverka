@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  DEFAULT_POLICY,
-  createPolicy,
-  severityRank,
-} from "../policy.js";
+import { DEFAULT_POLICY, createPolicy, severityRank } from "../policy.js";
 import { PolicyError } from "../errors.js";
 import type { Policy, PolicyConfig, Verdict } from "../types.js";
 
@@ -109,16 +105,12 @@ describe("createPolicy", () => {
   it("throws INVALID_SEVERITY for unknown severity", () => {
     expect(() =>
       createPolicy({
-        failOn: [
-          { severity: "unknown" as unknown as "low", onlyNew: false },
-        ],
+        failOn: [{ severity: "unknown" as unknown as "low", onlyNew: false }],
       }),
     ).toThrow(PolicyError);
     try {
       createPolicy({
-        failOn: [
-          { severity: "boom" as unknown as "low", onlyNew: false },
-        ],
+        failOn: [{ severity: "boom" as unknown as "low", onlyNew: false }],
       });
     } catch (err) {
       expect(err).toBeInstanceOf(PolicyError);

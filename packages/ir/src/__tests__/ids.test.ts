@@ -21,7 +21,11 @@ function planBody(overrides: Partial<Omit<Plan, "id" | "createdAt">> = {}) {
         network: "deny" as const,
         credentials: [],
         artifacts: [],
-        retry: { maxAttempts: 1, backoffSeconds: 0, retryOn: ["failure"] as readonly ("failure" | "timeout")[] },
+        retry: {
+          maxAttempts: 1,
+          backoffSeconds: 0,
+          retryOn: ["failure"] as readonly ("failure" | "timeout")[],
+        },
         timeoutSeconds: 60,
         continueOnError: false,
       },
@@ -65,9 +69,7 @@ describe("computePlanId", () => {
   it("changes when an operation changes", () => {
     const a = planBody();
     const b = planBody({
-      operations: [
-        { ...a.operations[0]!, name: "test" },
-      ],
+      operations: [{ ...a.operations[0]!, name: "test" }],
     });
     expect(computePlanId(a)).not.toBe(computePlanId(b));
   });

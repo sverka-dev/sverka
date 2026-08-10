@@ -45,7 +45,9 @@ export async function planCommand(
     if (result.proposal) {
       output.writeLine(`  proposed checks: ${result.proposal.checks.length}`);
       for (const check of result.proposal.checks) {
-        output.writeLine(`    - ${check.checkId} (priority: ${check.priority})`);
+        output.writeLine(
+          `    - ${check.checkId} (priority: ${check.priority})`,
+        );
       }
     } else {
       output.writeLine("  proposal: (from config)");

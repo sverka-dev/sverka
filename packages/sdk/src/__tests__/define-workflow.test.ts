@@ -1,11 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { defineWorkflow, pipeline, task, run, workflow, type WorkflowDefinition } from "../index.js";
+import {
+  defineWorkflow,
+  pipeline,
+  task,
+  run,
+  workflow,
+  type WorkflowDefinition,
+} from "../index.js";
 
 describe("defineWorkflow", () => {
   it("returns the same object passed in (identity)", () => {
     const def: WorkflowDefinition = {
       name: "ci",
-      workflow: workflow("ci", pipeline(task("lint", run({ command: "true" })))),
+      workflow: workflow(
+        "ci",
+        pipeline(task("lint", run({ command: "true" }))),
+      ),
     };
     const result = defineWorkflow(def);
     expect(result).toBe(def);
@@ -21,7 +31,10 @@ describe("defineWorkflow", () => {
   it("preserves optional policy config", () => {
     const result = defineWorkflow({
       name: "ci",
-      workflow: workflow("ci", pipeline(task("lint", run({ command: "true" })))),
+      workflow: workflow(
+        "ci",
+        pipeline(task("lint", run({ command: "true" }))),
+      ),
       policy: {
         failOn: [{ severity: "high", onlyNew: false }],
       },

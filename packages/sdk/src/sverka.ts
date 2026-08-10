@@ -20,7 +20,12 @@ import type { Finding } from "@sverka/findings";
 import { createBuiltinResolver, extractFindings } from "@sverka/checks";
 import type { ResolvedCheck } from "@sverka/checks";
 
-import type { SverkaOptions, Sverka, PlanResult, ExecutionResult } from "./types.js";
+import type {
+  SverkaOptions,
+  Sverka,
+  PlanResult,
+  ExecutionResult,
+} from "./types.js";
 import type { WorkflowDefinition } from "./types.js";
 import { SdkError } from "./errors.js";
 import { findConfig, loadWorkflow } from "./config.js";
@@ -54,7 +59,9 @@ export async function plan(options?: SverkaOptions): Promise<PlanResult> {
 }
 
 /** Top-level execute convenience function. */
-export async function execute(options?: SverkaOptions): Promise<ExecutionResult> {
+export async function execute(
+  options?: SverkaOptions,
+): Promise<ExecutionResult> {
   return doExecute(options ?? {});
 }
 
@@ -178,7 +185,11 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     const all: Finding[] = [];
     for (const r of resolvedChecks) {
       if (r.outputs.length === 0) continue;
-      const extracted = await extractFindings(r.outputs, artifactDir, r.checkId);
+      const extracted = await extractFindings(
+        r.outputs,
+        artifactDir,
+        r.checkId,
+      );
       all.push(...extracted);
     }
     findings = all;
@@ -197,12 +208,15 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
   const policy: Policy = def?.policy
     ? createPolicy(def.policy)
     : DEFAULT_POLICY;
-  const policyResult = evaluatePolicy(filteredFindings, policy, baselineFingerprints);
+  const policyResult = evaluatePolicy(
+    filteredFindings,
+    policy,
+    baselineFingerprints,
+  );
 
   // Verdict: fail if execution failed, otherwise use policy verdict.
-  const verdict = runtimeResult.status === "success"
-    ? policyResult.verdict
-    : "fail";
+  const verdict =
+    runtimeResult.status === "success" ? policyResult.verdict : "fail";
 
   return {
     findings: filteredFindings,

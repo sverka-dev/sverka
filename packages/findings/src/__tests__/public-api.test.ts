@@ -74,7 +74,11 @@ describe("public API — types (compile-time check)", () => {
     const _finding: Finding = {} as Finding;
     const _severity: Severity = "info";
     const _source: FindingSource = {} as FindingSource;
-    const _ctx: NormalizeContext = { root: "/", checkIdPrefix: "", defaultConfidence: 0.5 };
+    const _ctx: NormalizeContext = {
+      root: "/",
+      checkIdPrefix: "",
+      defaultConfidence: 0.5,
+    };
     const _fpInput: FingerprintInput = {
       rule: "r",
       file: "f",

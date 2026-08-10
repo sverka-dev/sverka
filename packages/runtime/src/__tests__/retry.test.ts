@@ -10,7 +10,10 @@ import {
   validOperation,
 } from "./helpers/fixtures.js";
 
-function baseConfig(executors: readonly MockExecutor[], overrides: Partial<SchedulerConfig> = {}): SchedulerConfig {
+function baseConfig(
+  executors: readonly MockExecutor[],
+  overrides: Partial<SchedulerConfig> = {},
+): SchedulerConfig {
   return {
     executors,
     maxConcurrent: 4,
@@ -31,7 +34,8 @@ describe("Scheduler — retry policy", () => {
     const exec = new MockExecutor({
       result: (req) => {
         calls++;
-        if (calls < 3) return failureResult(req.operation.id, { error: "fail" });
+        if (calls < 3)
+          return failureResult(req.operation.id, { error: "fail" });
         return successResult(req.operation.id);
       },
     });
@@ -90,7 +94,10 @@ describe("Scheduler — retry policy", () => {
     const exec = new MockExecutor({
       result: (req) => {
         calls++;
-        if (calls < 2) return failureResult(req.operation.id, { error: "operation timeout exceeded" });
+        if (calls < 2)
+          return failureResult(req.operation.id, {
+            error: "operation timeout exceeded",
+          });
         return successResult(req.operation.id);
       },
     });
@@ -111,7 +118,8 @@ describe("Scheduler — retry policy", () => {
     const exec = new MockExecutor({
       result: (req) => {
         calls++;
-        if (calls < 2) return failureResult(req.operation.id, { error: "fail" });
+        if (calls < 2)
+          return failureResult(req.operation.id, { error: "fail" });
         return successResult(req.operation.id);
       },
     });

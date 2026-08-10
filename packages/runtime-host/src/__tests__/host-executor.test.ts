@@ -5,11 +5,7 @@ import { join } from "node:path";
 import { HostExecutor } from "../host-executor.js";
 import { createAllowlist } from "../allowlist.js";
 import { HostExecutorError, CommandNotAllowedError } from "../errors.js";
-import {
-  makeHostOp,
-  makeRequest,
-  defaultConfig,
-} from "./helpers/fixtures.js";
+import { makeHostOp, makeRequest, defaultConfig } from "./helpers/fixtures.js";
 
 let workspace: string;
 let artifactDir: string;
@@ -55,7 +51,9 @@ describe("HostExecutor.canExecute", () => {
     const exec = new HostExecutor(defaultConfig());
     // timeoutSeconds is required in PlanOperation; simulate by setting to 0
     expect(
-      exec.canExecute(makeHostOp({ command: "node", timeoutSeconds: 0 as unknown as number })),
+      exec.canExecute(
+        makeHostOp({ command: "node", timeoutSeconds: 0 as unknown as number }),
+      ),
     ).toBe(false);
   });
 
@@ -235,9 +233,9 @@ describe("HostExecutor.execute — working directory", () => {
 
 describe("HostExecutor — privilege escalation prevention", () => {
   it("rejects runAsUid: 0 at construction", () => {
-    expect(
-      () => new HostExecutor(defaultConfig({ runAsUid: 0 })),
-    ).toThrow(HostExecutorError);
+    expect(() => new HostExecutor(defaultConfig({ runAsUid: 0 }))).toThrow(
+      HostExecutorError,
+    );
   });
 
   it("rejects sudo in allowlist at construction", () => {
@@ -298,9 +296,7 @@ describe("HostExecutor.execute — artifacts", () => {
 
 describe("HostExecutor.execute — log truncation", () => {
   it("truncates logs exceeding maxLogBytes with a notice", async () => {
-    const exec = new HostExecutor(
-      defaultConfig({ maxLogBytes: 20 }),
-    );
+    const exec = new HostExecutor(defaultConfig({ maxLogBytes: 20 }));
     const op = makeHostOp({
       command: "node",
       args: ["-e", "console.log('A'.repeat(100))"],
@@ -308,7 +304,9 @@ describe("HostExecutor.execute — log truncation", () => {
     const result = await exec.execute(
       makeRequest(op, { workspace, artifactDir }),
     );
-    expect(result.logs.length).toBeLessThanOrEqual(20 + "\n[log truncated]".length);
+    expect(result.logs.length).toBeLessThanOrEqual(
+      20 + "\n[log truncated]".length,
+    );
     expect(result.logs).toContain("[log truncated]");
   });
 });

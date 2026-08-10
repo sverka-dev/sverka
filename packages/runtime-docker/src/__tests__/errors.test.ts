@@ -31,7 +31,10 @@ describe("ImageDigestError", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe("ImageDigestError");
     expect(err.code).toBe("IMAGE_DIGEST_MISMATCH");
-    expect(err.context).toEqual({ expected: "sha256:aaa", actual: "sha256:bbb" });
+    expect(err.context).toEqual({
+      expected: "sha256:aaa",
+      actual: "sha256:bbb",
+    });
   });
 
   it("context is optional", () => {

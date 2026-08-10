@@ -14,10 +14,9 @@ const SPEC_KEYS: ReadonlySet<string> = new Set<string>([
 ]);
 
 /** Fields whose values are arrays that should be concatenated (not replaced). */
-const CONCAT_FIELDS: ReadonlySet<keyof OperationSpec> = new Set<keyof OperationSpec>([
-  "dependsOn",
-  "tags",
-]);
+const CONCAT_FIELDS: ReadonlySet<keyof OperationSpec> = new Set<
+  keyof OperationSpec
+>(["dependsOn", "tags"]);
 
 /**
  * Merge two partial specs. Scalar fields: `b` wins when defined. `dependsOn`

@@ -85,20 +85,18 @@ export default defineWorkflow({
   it("--executor host selects host executor", async () => {
     await writePassingConfig(dir);
     const out = new CaptureWriter();
-    const code = await main(
-      ["execute", "--executor", "host", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["execute", "--executor", "host", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
   });
 
   it("--format json produces JSON output", async () => {
     await writePassingConfig(dir);
     const out = new CaptureWriter();
-    const code = await main(
-      ["execute", "--format", "json", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["execute", "--format", "json", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("execute");
@@ -109,10 +107,9 @@ export default defineWorkflow({
   it("--only-new filters to new findings (no baseline → all new)", async () => {
     await writePassingConfig(dir);
     const out = new CaptureWriter();
-    const code = await main(
-      ["execute", "--only-new", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["execute", "--only-new", "--root", dir], {
+      output: out,
+    });
     // No baseline path given → onlyNew with no baseline is a no-op in SDK
     expect(code).toBe(0);
   });
@@ -125,7 +122,14 @@ export default defineWorkflow({
     });
     const out = new CaptureWriter();
     const code = await main(
-      ["execute", "--only-new", "--baseline", ".sverka/baseline.json", "--root", dir],
+      [
+        "execute",
+        "--only-new",
+        "--baseline",
+        ".sverka/baseline.json",
+        "--root",
+        dir,
+      ],
       { output: out },
     );
     // If the relative path were resolved against process cwd, loadBaseline
@@ -136,10 +140,9 @@ export default defineWorkflow({
   it("--format json serializes outcomes as an object, not an empty {}", async () => {
     await writePassingConfig(dir);
     const out = new CaptureWriter();
-    const code = await main(
-      ["execute", "--format", "json", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["execute", "--format", "json", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("execute");

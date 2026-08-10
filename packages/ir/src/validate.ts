@@ -57,8 +57,7 @@ export function validatePlan(plan: unknown): ValidationResult {
   }
 
   // Rule 2a: id must be a non-empty string.
-  const idIsNonEmptyString =
-    typeof p.id === "string" && p.id.length > 0;
+  const idIsNonEmptyString = typeof p.id === "string" && p.id.length > 0;
   if (!idIsNonEmptyString) {
     errors.push({
       field: "id",
@@ -162,7 +161,11 @@ export function validatePlan(plan: unknown): ValidationResult {
   }
   const reportedDup = new Set<string>();
   for (const op of ops) {
-    if (typeof op.id === "string" && (idCounts.get(op.id) ?? 0) > 1 && !reportedDup.has(op.id)) {
+    if (
+      typeof op.id === "string" &&
+      (idCounts.get(op.id) ?? 0) > 1 &&
+      !reportedDup.has(op.id)
+    ) {
       errors.push({
         operationId: op.id,
         field: "operations[].id",
@@ -204,7 +207,10 @@ export function validatePlan(plan: unknown): ValidationResult {
     if (isPlainObject(op.executor)) {
       const ex = op.executor as { type?: unknown; imageDigest?: unknown };
       if (ex.type === "docker" || ex.type === "podman") {
-        if (typeof ex.imageDigest !== "string" || !IMAGE_DIGEST_RE.test(ex.imageDigest)) {
+        if (
+          typeof ex.imageDigest !== "string" ||
+          !IMAGE_DIGEST_RE.test(ex.imageDigest)
+        ) {
           errors.push({
             ...(opId !== undefined ? { operationId: opId } : {}),
             field: "operations[].executor.imageDigest",
@@ -216,7 +222,11 @@ export function validatePlan(plan: unknown): ValidationResult {
     }
 
     // Rule 8: timeoutSeconds > 0.
-    if (typeof op.timeoutSeconds !== "number" || !Number.isFinite(op.timeoutSeconds) || op.timeoutSeconds <= 0) {
+    if (
+      typeof op.timeoutSeconds !== "number" ||
+      !Number.isFinite(op.timeoutSeconds) ||
+      op.timeoutSeconds <= 0
+    ) {
       errors.push({
         ...(opId !== undefined ? { operationId: opId } : {}),
         field: "operations[].timeoutSeconds",
@@ -235,7 +245,8 @@ export function validatePlan(plan: unknown): ValidationResult {
           ...(opId !== undefined ? { operationId: opId } : {}),
           field: "operations[].resources",
           code: "INVALID_RESOURCES",
-          message: "resources.cpu must be a number string and resources.memory must match /^[0-9]+(Ki|Mi|Gi|Ti)?$/",
+          message:
+            "resources.cpu must be a number string and resources.memory must match /^[0-9]+(Ki|Mi|Gi|Ti)?$/",
         });
       }
     } else {
@@ -302,7 +313,8 @@ export function validatePlan(plan: unknown): ValidationResult {
             ...(opId !== undefined ? { operationId: opId } : {}),
             field: "operations[].cache.key",
             code: "MISSING_CACHE_KEY",
-            message: "cache.key must be a non-empty string when cache is declared",
+            message:
+              "cache.key must be a non-empty string when cache is declared",
           });
         }
       } else {

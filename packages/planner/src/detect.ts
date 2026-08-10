@@ -46,32 +46,62 @@ export function detectSignals(files: readonly string[]): LocalSignal[] {
     const base = basename(file);
     // manifest
     if (MANIFEST_FILES.includes(base)) {
-      signals.push({ type: "manifest", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "manifest",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // lockfile
     if (base in LOCKFILE_MAP) {
-      signals.push({ type: "lockfile", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "lockfile",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // dockerfile
     if (base === "Dockerfile" || base.endsWith(".Dockerfile")) {
-      signals.push({ type: "dockerfile", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "dockerfile",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // docker-compose
     if (base === "docker-compose.yml" || base === "docker-compose.yaml") {
-      signals.push({ type: "docker-compose", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "docker-compose",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // ci-definition
     if (isCiDefinition(file, base)) {
-      signals.push({ type: "ci-definition", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "ci-definition",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // monorepo-marker (file-based only; package.json workspaces handled in detectMonorepo)
     if (base in MONOREPO_MARKER_FILES) {
-      signals.push({ type: "monorepo-marker", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "monorepo-marker",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
   }
@@ -79,10 +109,17 @@ export function detectSignals(files: readonly string[]): LocalSignal[] {
 }
 
 function isCiDefinition(file: string, base: string): boolean {
-  if (base === ".gitlab-ci.yml" || base === "azure-pipelines.yml" || base === "Jenkinsfile") {
+  if (
+    base === ".gitlab-ci.yml" ||
+    base === "azure-pipelines.yml" ||
+    base === "Jenkinsfile"
+  ) {
     return true;
   }
-  if (file.startsWith(".github/workflows/") && (base.endsWith(".yml") || base.endsWith(".yaml"))) {
+  if (
+    file.startsWith(".github/workflows/") &&
+    (base.endsWith(".yml") || base.endsWith(".yaml"))
+  ) {
     return true;
   }
   if (file.startsWith(".circleci/")) {
@@ -220,8 +257,20 @@ function parsePackageManager(pm: string): {
   const toolName = pm.slice(0, atIdx);
   const version = pm.slice(atIdx + 1) || null;
   const valid: PackageManagerName[] = [
-    "npm", "yarn", "pnpm", "bun", "pip", "poetry", "uv",
-    "pipenv", "cargo", "go", "maven", "gradle", "composer", "other",
+    "npm",
+    "yarn",
+    "pnpm",
+    "bun",
+    "pip",
+    "poetry",
+    "uv",
+    "pipenv",
+    "cargo",
+    "go",
+    "maven",
+    "gradle",
+    "composer",
+    "other",
   ];
   if (!valid.includes(toolName as PackageManagerName)) {
     return { tool: null, version };

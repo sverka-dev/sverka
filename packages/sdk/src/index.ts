@@ -24,7 +24,12 @@ export type {
 export { CoreError, PlanningError, CompositionError } from "@sverka/core";
 
 // ── Re-exports: IR types ──────────────────────────────────────────
-export type { Plan, PlanOperation, PlanMetadata, ExecutorSpec } from "@sverka/ir";
+export type {
+  Plan,
+  PlanOperation,
+  PlanMetadata,
+  ExecutorSpec,
+} from "@sverka/ir";
 export { validatePlan, computePlanId } from "@sverka/ir";
 
 // ── Re-exports: runtime ───────────────────────────────────────────

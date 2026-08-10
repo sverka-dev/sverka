@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "no-unused-vars": "off",
+    "typescript/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }
+    ],
+    "typescript/no-explicit-any": "warn",
+    "typescript/no-non-null-assertion": "off",
+    "typescript/no-empty-object-type": "off",
+    "typescript/no-unsafe-function-type": "off",
+    "no-empty-function": "off"
+  },
+  "env": {
+    "builtin": true,
+    "es2024": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    ".beads/**",
+    ".devin/**",
+    ".evidence/**",
+    ".gc/**",
+    ".opencode/**",
+    ".nx/**",
+    "website/**",
+    "**/__tests__/**",
+    "**/*.test.ts"
+  ]
+}

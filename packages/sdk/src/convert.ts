@@ -69,7 +69,9 @@ function convertOperation(
   const executor: ExecutorSpec = {
     type: opts.executor,
     ...(spec.image !== undefined ? { image: spec.image } : {}),
-    ...(spec.imageDigest !== undefined ? { imageDigest: spec.imageDigest } : {}),
+    ...(spec.imageDigest !== undefined
+      ? { imageDigest: spec.imageDigest }
+      : {}),
   };
 
   const resources: ResourceLimits = {
@@ -95,7 +97,9 @@ function convertOperation(
     id: spec.id,
     kind: spec.kind,
     name: spec.name,
-    ...(spec.description !== undefined ? { description: spec.description } : {}),
+    ...(spec.description !== undefined
+      ? { description: spec.description }
+      : {}),
     ...(spec.command !== undefined ? { command: spec.command } : {}),
     ...(spec.args !== undefined ? { args: spec.args } : {}),
     ...(spec.env !== undefined ? { env: spec.env } : {}),
@@ -145,7 +149,5 @@ function computeSourceContextHash(context?: ProjectContext): string {
     String(context.dirty),
     context.changedFiles.map((f) => f.path).join(","),
   ];
-  return createHash("sha256")
-    .update(parts.join("|"))
-    .digest("hex");
+  return createHash("sha256").update(parts.join("|")).digest("hex");
 }

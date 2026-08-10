@@ -44,7 +44,10 @@ describe("extractFindings — non-SARIF format", () => {
 describe("extractFindings — invalid SARIF", () => {
   it("throws CheckError(EXTRACTION_FAILED) with cause set", async () => {
     const dir = makeDir();
-    writeFileSync(join(dir, "bad.sarif"), JSON.stringify({ version: "1.0.0", runs: [] }));
+    writeFileSync(
+      join(dir, "bad.sarif"),
+      JSON.stringify({ version: "1.0.0", runs: [] }),
+    );
     const outputs: CheckOutput[] = [{ path: "bad.sarif", format: "sarif" }];
     try {
       await extractFindings(outputs, dir, "mycheck");

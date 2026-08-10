@@ -33,7 +33,7 @@ describe("discover — local signal detection", () => {
     const files: Record<string, string> = {
       "package.json": "{}",
       "bun.lock": "{}",
-      "Dockerfile": "FROM node:24",
+      Dockerfile: "FROM node:24",
       "docker-compose.yml": "services: {}",
       ".github/workflows/ci.yml": "on: [push]",
       "nx.json": "{}",
@@ -88,7 +88,9 @@ describe("discover — local signal detection", () => {
     installMockGit({ root, trackedFiles: Object.keys(files) });
     try {
       const ctx = await createPlanner().discover({ root });
-      expect(ctx.localSignals.some((s) => s.type === "docker-compose")).toBe(true);
+      expect(ctx.localSignals.some((s) => s.type === "docker-compose")).toBe(
+        true,
+      );
     } finally {
       await cleanup(root);
     }
@@ -97,7 +99,7 @@ describe("discover — local signal detection", () => {
   it("detects .gitlab-ci.yml, Jenkinsfile, azure-pipelines.yml, .circleci/", async () => {
     const files: Record<string, string> = {
       ".gitlab-ci.yml": "stages: []",
-      "Jenkinsfile": "pipeline {}",
+      Jenkinsfile: "pipeline {}",
       "azure-pipelines.yml": "steps: []",
       ".circleci/config.yml": "version: 2",
     };
@@ -105,7 +107,9 @@ describe("discover — local signal detection", () => {
     installMockGit({ root, trackedFiles: Object.keys(files) });
     try {
       const ctx = await createPlanner().discover({ root });
-      const ciSignals = ctx.localSignals.filter((s) => s.type === "ci-definition");
+      const ciSignals = ctx.localSignals.filter(
+        (s) => s.type === "ci-definition",
+      );
       expect(ciSignals.length).toBe(4);
       expect(ctx.hasCiDefinition).toBe(true);
     } finally {
@@ -184,7 +188,15 @@ describe("discover — package manager detection", () => {
     try {
       const ctx = await createPlanner().discover({ root });
       const names = ctx.packageManagers.map((p) => p.name).sort();
-      expect(names).toEqual(["bun", "cargo", "go", "npm", "pnpm", "poetry", "yarn"]);
+      expect(names).toEqual([
+        "bun",
+        "cargo",
+        "go",
+        "npm",
+        "pnpm",
+        "poetry",
+        "yarn",
+      ]);
     } finally {
       await cleanup(root);
     }
@@ -246,7 +258,10 @@ describe("discover — package manager detection", () => {
 
 describe("discover — monorepo detection", () => {
   it("nx.json → nx", async () => {
-    const root = await makeFixtureDir({ "nx.json": "{}", "package.json": "{}" });
+    const root = await makeFixtureDir({
+      "nx.json": "{}",
+      "package.json": "{}",
+    });
     installMockGit({ root, trackedFiles: ["nx.json", "package.json"] });
     try {
       const ctx = await createPlanner().discover({ root });
@@ -259,7 +274,9 @@ describe("discover — monorepo detection", () => {
   });
 
   it("pnpm-workspace.yaml → pnpm-workspace", async () => {
-    const root = await makeFixtureDir({ "pnpm-workspace.yaml": "packages: []" });
+    const root = await makeFixtureDir({
+      "pnpm-workspace.yaml": "packages: []",
+    });
     installMockGit({ root, trackedFiles: ["pnpm-workspace.yaml"] });
     try {
       const ctx = await createPlanner().discover({ root });
@@ -327,8 +344,14 @@ describe("discover — git metadata", () => {
       expect(ctx.commit).toBe("abcdef1234567890abcdef1234567890abcdef12");
       expect(ctx.dirty).toBe(false);
       expect(ctx.changedFiles.length).toBe(2);
-      expect(ctx.changedFiles[0]).toEqual({ path: "src/index.ts", status: "modified" });
-      expect(ctx.changedFiles[1]).toEqual({ path: "src/new.ts", status: "added" });
+      expect(ctx.changedFiles[0]).toEqual({
+        path: "src/index.ts",
+        status: "modified",
+      });
+      expect(ctx.changedFiles[1]).toEqual({
+        path: "src/new.ts",
+        status: "added",
+      });
     } finally {
       await cleanup(root);
     }
@@ -370,7 +393,7 @@ describe("discover — explainability", () => {
     const files: Record<string, string> = {
       "package.json": "{}",
       "bun.lock": "{}",
-      "Dockerfile": "FROM node:24",
+      Dockerfile: "FROM node:24",
       "nx.json": "{}",
       ".github/workflows/ci.yml": "on: [push]",
       "src/index.ts": "export {}",
@@ -427,13 +450,19 @@ describe("discover — error cases", () => {
   it("ROOT_NOT_FOUND when root does not exist", async () => {
     installMockGit({ root: "/nonexistent" });
     await expect(
-      createPlanner().discover({ root: "/nonexistent/path/that/does/not/exist" }),
+      createPlanner().discover({
+        root: "/nonexistent/path/that/does/not/exist",
+      }),
     ).rejects.toMatchObject({ name: "DiscoveryError", code: "ROOT_NOT_FOUND" });
   });
 
   it("GIT_UNAVAILABLE when git --version throws ENOENT", async () => {
     const root = await makeFixtureDir({ "src/index.ts": "export {}" });
-    installMockGit({ root, trackedFiles: ["src/index.ts"], gitUnavailable: true });
+    installMockGit({
+      root,
+      trackedFiles: ["src/index.ts"],
+      gitUnavailable: true,
+    });
     try {
       await expect(createPlanner().discover({ root })).rejects.toMatchObject({
         name: "DiscoveryError",
@@ -464,18 +493,25 @@ describe("discover — error cases", () => {
       run(args) {
         const j = args.join(" ");
         if (j === "--version") return Promise.resolve("git version 2.43.0\n");
-        if (j === "rev-parse --show-toplevel") return Promise.resolve(`${root}\n`);
+        if (j === "rev-parse --show-toplevel")
+          return Promise.resolve(`${root}\n`);
         if (j === "ls-files") return Promise.resolve("src/index.ts\n");
         if (j === "status --porcelain") return Promise.resolve("");
         if (j === "rev-parse HEAD") return Promise.resolve("abc\n");
-        if (args[0] === "diff") return Promise.reject(new Error("bad ref", { cause: "fatal: bad revision" }));
+        if (args[0] === "diff")
+          return Promise.reject(
+            new Error("bad ref", { cause: "fatal: bad revision" }),
+          );
         return Promise.reject(new Error(`unhandled: ${j}`));
       },
     });
     try {
       await expect(
         createPlanner().discover({ root, baseRef: "nonexistent-ref" }),
-      ).rejects.toMatchObject({ name: "DiscoveryError", code: "TRAVERSAL_FAILED" });
+      ).rejects.toMatchObject({
+        name: "DiscoveryError",
+        code: "TRAVERSAL_FAILED",
+      });
     } finally {
       await cleanup(root);
     }

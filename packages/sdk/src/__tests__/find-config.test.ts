@@ -1,6 +1,12 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { findConfig } from "../index.js";
-import { makeTempDir, cleanupTempDir, writeSimpleConfig, writeJsConfig, writeNestedConfig } from "./helpers/fixtures.js";
+import {
+  makeTempDir,
+  cleanupTempDir,
+  writeSimpleConfig,
+  writeJsConfig,
+  writeNestedConfig,
+} from "./helpers/fixtures.js";
 
 describe("findConfig", () => {
   const dirs: string[] = [];

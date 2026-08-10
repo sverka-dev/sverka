@@ -24,10 +24,7 @@ const SUMMARY_SEVERITY_ORDER: Severity[] = [
  */
 function validatePolicy(policy: Policy): asserts policy is Policy {
   if (!Array.isArray(policy.failOn)) {
-    throw new PolicyError(
-      "Policy failOn must be an array",
-      "INVALID_POLICY",
-    );
+    throw new PolicyError("Policy failOn must be an array", "INVALID_POLICY");
   }
   for (const rule of policy.failOn) {
     assertValidSeverity(rule.severity);

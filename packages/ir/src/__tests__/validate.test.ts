@@ -45,9 +45,9 @@ describe("validatePlan — rule 1 (apiVersion)", () => {
     const { apiVersion: _omit, ...rest } = validPlan();
     const result = validatePlan(rest);
     expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => e.code === "INVALID_API_VERSION"),
-    ).toBe(true);
+    expect(result.errors.some((e) => e.code === "INVALID_API_VERSION")).toBe(
+      true,
+    );
   });
 });
 
@@ -83,9 +83,7 @@ describe("validatePlan — rule 3 (non-empty operations)", () => {
 describe("validatePlan — rule 4 (dependsOn references exist)", () => {
   it("rejects a dependsOn referencing an unknown id", () => {
     const plan = validPlan({
-      operations: [
-        validOperation({ id: "op-a", dependsOn: ["op-missing"] }),
-      ],
+      operations: [validOperation({ id: "op-a", dependsOn: ["op-missing"] })],
     });
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);
@@ -159,9 +157,9 @@ describe("validatePlan — rule 7 (imageDigest for containers)", () => {
     const plan = validPlan({ operations: [op] });
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);
-    expect(
-      result.errors.some((e) => e.code === "MISSING_IMAGE_DIGEST"),
-    ).toBe(true);
+    expect(result.errors.some((e) => e.code === "MISSING_IMAGE_DIGEST")).toBe(
+      true,
+    );
   });
 
   it("accepts a host executor without imageDigest", () => {
@@ -187,9 +185,9 @@ describe("validatePlan — rule 8 (timeoutSeconds > 0)", () => {
       operations: [validOperation({ timeoutSeconds: -5 })],
     });
     expect(validatePlan(plan).valid).toBe(false);
-    expect(
-      result_of(plan).some((e) => e.code === "INVALID_TIMEOUT"),
-    ).toBe(true);
+    expect(result_of(plan).some((e) => e.code === "INVALID_TIMEOUT")).toBe(
+      true,
+    );
   });
 });
 
@@ -212,7 +210,9 @@ describe("validatePlan — rule 9 (resources parseable)", () => {
 
   it("rejects non-numeric cpu", () => {
     const plan = validPlan({
-      operations: [validOperation({ resources: { cpu: "fast", memory: "512Mi" } })],
+      operations: [
+        validOperation({ resources: { cpu: "fast", memory: "512Mi" } }),
+      ],
     });
     expect(validatePlan(plan).valid).toBe(false);
     expect(
@@ -244,7 +244,9 @@ describe("validatePlan — rule 10 (retry policy)", () => {
   it("rejects maxAttempts < 1 with INVALID_RETRY_POLICY", () => {
     const plan = validPlan({
       operations: [
-        validOperation({ retry: { maxAttempts: 0, backoffSeconds: 0, retryOn: ["failure"] } }),
+        validOperation({
+          retry: { maxAttempts: 0, backoffSeconds: 0, retryOn: ["failure"] },
+        }),
       ],
     });
     const result = validatePlan(plan);
@@ -257,7 +259,9 @@ describe("validatePlan — rule 10 (retry policy)", () => {
   it("rejects negative backoffSeconds", () => {
     const plan = validPlan({
       operations: [
-        validOperation({ retry: { maxAttempts: 1, backoffSeconds: -1, retryOn: ["failure"] } }),
+        validOperation({
+          retry: { maxAttempts: 1, backoffSeconds: -1, retryOn: ["failure"] },
+        }),
       ],
     });
     expect(validatePlan(plan).valid).toBe(false);
@@ -270,7 +274,14 @@ describe("validatePlan — rule 10 (retry policy)", () => {
     const plan = validPlan({
       operations: [
         validOperation({
-          retry: { maxAttempts: 1, backoffSeconds: 0, retryOn: ["failure", "unknown"] as readonly ("failure" | "timeout")[] },
+          retry: {
+            maxAttempts: 1,
+            backoffSeconds: 0,
+            retryOn: ["failure", "unknown"] as readonly (
+              | "failure"
+              | "timeout"
+            )[],
+          },
         }),
       ],
     });

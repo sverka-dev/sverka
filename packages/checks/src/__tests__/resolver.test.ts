@@ -130,7 +130,10 @@ describe("createBuiltinResolver — unknown / unmatched", () => {
 
 describe("createBuiltinResolver — multiple package managers", () => {
   it("first matching entry in table order wins (bun before cargo)", () => {
-    const r = resolver.resolve(makeCheck("test"), makeContext(["cargo", "bun"]));
+    const r = resolver.resolve(
+      makeCheck("test"),
+      makeContext(["cargo", "bun"]),
+    );
     expect(r).not.toBeNull();
     // Node entries come before cargo in table order, so bun wins.
     expect(r!.operation.command).toBe("bun");

@@ -25,7 +25,13 @@ describe("public API surface", () => {
   it("internal modules are not re-exported from the public entry", () => {
     const publicNames = Object.keys(api);
     const internalLeaked = publicNames.filter((n) =>
-      ["topoSort", "dependentsOf", "ResourcePool", "parseCpu", "parseMemory"].includes(n),
+      [
+        "topoSort",
+        "dependentsOf",
+        "ResourcePool",
+        "parseCpu",
+        "parseMemory",
+      ].includes(n),
     );
     expect(internalLeaked).toEqual([]);
   });

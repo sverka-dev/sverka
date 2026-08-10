@@ -21,7 +21,9 @@ export async function executeCommand(
   start: number,
 ): Promise<number> {
   const executor = args.executor === "docker" ? "docker" : "host";
-  output.debug(`execute: root=${global.root} executor=${executor} onlyNew=${Boolean(args.onlyNew)}`);
+  output.debug(
+    `execute: root=${global.root} executor=${executor} onlyNew=${Boolean(args.onlyNew)}`,
+  );
 
   if (executor === "docker" && !isBinaryAvailable("docker")) {
     throw new CliError(

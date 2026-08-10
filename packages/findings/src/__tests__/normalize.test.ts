@@ -116,7 +116,12 @@ describe("normalizeSarif — level to severity mapping", () => {
     delete (result as Partial<SarifResult>).level;
     const findings = normalizeSarif(
       makeSarifLog({
-        runs: [makeRun({ tool: { driver: { name: "eslint", rules: [rule] } }, results: [result] })],
+        runs: [
+          makeRun({
+            tool: { driver: { name: "eslint", rules: [rule] } },
+            results: [result],
+          }),
+        ],
       }),
       defaultContext(),
     );
@@ -129,7 +134,12 @@ describe("normalizeSarif — rule resolution", () => {
     const rule = makeRule({ helpUri: "https://example.com/no-console" });
     const findings = normalizeSarif(
       makeSarifLog({
-        runs: [makeRun({ tool: { driver: { name: "eslint", rules: [rule] } }, results: [makeResult()] })],
+        runs: [
+          makeRun({
+            tool: { driver: { name: "eslint", rules: [rule] } },
+            results: [makeResult()],
+          }),
+        ],
       }),
       defaultContext(),
     );
@@ -140,10 +150,18 @@ describe("normalizeSarif — rule resolution", () => {
     const result = makeResult();
     delete (result as Partial<SarifResult>).ruleId;
     result.ruleIndex = 0;
-    const rule = makeRule({ id: "indexed-rule", helpUri: "https://example.com/indexed" });
+    const rule = makeRule({
+      id: "indexed-rule",
+      helpUri: "https://example.com/indexed",
+    });
     const findings = normalizeSarif(
       makeSarifLog({
-        runs: [makeRun({ tool: { driver: { name: "eslint", rules: [rule] } }, results: [result] })],
+        runs: [
+          makeRun({
+            tool: { driver: { name: "eslint", rules: [rule] } },
+            results: [result],
+          }),
+        ],
       }),
       defaultContext(),
     );
@@ -156,7 +174,9 @@ describe("normalizeSarif — rule resolution", () => {
     delete (result as Partial<SarifResult>).ruleId;
     const findings = normalizeSarif(
       makeSarifLog({
-        runs: [makeRun({ tool: { driver: { name: "eslint" } }, results: [result] })],
+        runs: [
+          makeRun({ tool: { driver: { name: "eslint" } }, results: [result] }),
+        ],
       }),
       defaultContext(),
     );
@@ -199,7 +219,11 @@ describe("normalizeSarif — multi-location", () => {
         {
           physicalLocation: {
             artifactLocation: { uri: "src/index.ts" },
-            region: { startLine: 10, endLine: 10, snippet: { text: "console.log(1)" } },
+            region: {
+              startLine: 10,
+              endLine: 10,
+              snippet: { text: "console.log(1)" },
+            },
           },
         },
       ],
@@ -217,7 +241,12 @@ describe("normalizeSarif — multi-location", () => {
         {
           physicalLocation: {
             artifactLocation: { uri: "src/index.ts" },
-            region: { startLine: 10, endLine: 10, startColumn: 3, endColumn: 14 },
+            region: {
+              startLine: 10,
+              endLine: 10,
+              startColumn: 3,
+              endColumn: 14,
+            },
           },
         },
       ],
@@ -233,9 +262,9 @@ describe("normalizeSarif — multi-location", () => {
 
 describe("normalizeSarif — empty inputs", () => {
   it("returns [] for empty runs array", () => {
-    expect(normalizeSarif(makeSarifLog({ runs: [] }), defaultContext())).toEqual(
-      [],
-    );
+    expect(
+      normalizeSarif(makeSarifLog({ runs: [] }), defaultContext()),
+    ).toEqual([]);
   });
 
   it("returns [] for empty results array", () => {

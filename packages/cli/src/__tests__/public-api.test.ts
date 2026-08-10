@@ -41,7 +41,13 @@ describe("public API — exports", () => {
 
   it("createOutputWriter returns a writer", () => {
     const w = createOutputWriter(
-      { format: "human", config: null, root: ".", quiet: false, verbose: false },
+      {
+        format: "human",
+        config: null,
+        root: ".",
+        quiet: false,
+        verbose: false,
+      },
       () => {},
       () => {},
     );
@@ -56,7 +62,10 @@ describe("public API — exports", () => {
       quiet: false,
       verbose: false,
     };
-    const _w: OutputWriter = new ConsoleOutputWriter(() => {}, () => {});
+    const _w: OutputWriter = new ConsoleOutputWriter(
+      () => {},
+      () => {},
+    );
     const _c: CliErrorCode = "UNKNOWN_COMMAND";
     const _d: MainDeps = {};
     const _s: WriteSink = () => {};

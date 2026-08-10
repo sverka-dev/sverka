@@ -46,12 +46,14 @@ export function matrixChildId(
 }
 
 function formatMatrixValue(v: unknown): string {
-  // Preserve type distinctions: prefix with a type tag so that values
-  // like 1 (number) and "1" (string) produce distinct matrix child ids.
-  if (typeof v === "string") return `s:${v}`;
-  if (typeof v === "number") return `n:${v}`;
-  if (typeof v === "boolean") return `b:${v}`;
-  return `o:${String(v)}`;
+  if (
+    typeof v === "string" ||
+    typeof v === "number" ||
+    typeof v === "boolean"
+  ) {
+    return String(v);
+  }
+  return String(v);
 }
 
 /** Validate that a kind is a known {@link OperationKind}. */
@@ -68,6 +70,8 @@ export function isKnownKind(kind: string): kind is OperationKind {
 }
 
 /** Public spec id helper — exposed for tests that build specs directly. */
-export function specId(spec: Readonly<Partial<OperationSpec>>): string | undefined {
+export function specId(
+  spec: Readonly<Partial<OperationSpec>>,
+): string | undefined {
   return spec.id;
 }

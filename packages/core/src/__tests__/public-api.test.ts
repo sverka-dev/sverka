@@ -43,7 +43,16 @@ describe("public API surface", () => {
     // named exports of the public barrel.
     const publicNames = Object.keys(api);
     const internalLeaked = publicNames.filter((n) =>
-      ["createNode", "asNode", "withSpec", "mergeSpecs", "concatDedupe", "planWorkflow", "assignId", "evaluateCondition"].includes(n),
+      [
+        "createNode",
+        "asNode",
+        "withSpec",
+        "mergeSpecs",
+        "concatDedupe",
+        "planWorkflow",
+        "assignId",
+        "evaluateCondition",
+      ].includes(n),
     );
     expect(internalLeaked).toEqual([]);
   });

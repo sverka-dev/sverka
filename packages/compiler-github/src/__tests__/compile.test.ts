@@ -62,16 +62,12 @@ describe("compileGithubWorkflow — credentials", () => {
     const plan = makePlan({
       operations: [
         makeOperation({
-          credentials: [
-            { name: "token", envVar: "API_TOKEN", required: true },
-          ],
+          credentials: [{ name: "token", envVar: "API_TOKEN", required: true }],
         }),
         makeOperation({
           id: "op-2",
           name: "lint",
-          credentials: [
-            { name: "key", envVar: "SECRET_KEY", required: true },
-          ],
+          credentials: [{ name: "key", envVar: "SECRET_KEY", required: true }],
         }),
       ],
     });
@@ -89,16 +85,12 @@ describe("compileGithubWorkflow — credentials", () => {
     const plan = makePlan({
       operations: [
         makeOperation({
-          credentials: [
-            { name: "t", envVar: "TOKEN", required: true },
-          ],
+          credentials: [{ name: "t", envVar: "TOKEN", required: true }],
         }),
         makeOperation({
           id: "op-2",
           name: "lint",
-          credentials: [
-            { name: "t2", envVar: "TOKEN", required: true },
-          ],
+          credentials: [{ name: "t2", envVar: "TOKEN", required: true }],
         }),
       ],
     });

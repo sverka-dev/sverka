@@ -10,7 +10,10 @@ import {
   validOperation,
 } from "./helpers/fixtures.js";
 
-function baseConfig(executors: readonly MockExecutor[], overrides: Partial<SchedulerConfig> = {}): SchedulerConfig {
+function baseConfig(
+  executors: readonly MockExecutor[],
+  overrides: Partial<SchedulerConfig> = {},
+): SchedulerConfig {
   return {
     executors,
     maxConcurrent: 4,
@@ -36,8 +39,16 @@ describe("Scheduler — resource limits", () => {
         return successResult(req.operation.id);
       },
     });
-    const opA = validOperation({ id: "a", name: "a", resources: { cpu: "4", memory: "512Mi" } });
-    const opB = validOperation({ id: "b", name: "b", resources: { cpu: "4", memory: "512Mi" } });
+    const opA = validOperation({
+      id: "a",
+      name: "a",
+      resources: { cpu: "4", memory: "512Mi" },
+    });
+    const opB = validOperation({
+      id: "b",
+      name: "b",
+      resources: { cpu: "4", memory: "512Mi" },
+    });
     const plan = planFromOps([opA, opB]);
     await new Scheduler(
       baseConfig([exec], { maxConcurrent: 4, totalCpu: 4, totalMemory: "2Gi" }),
@@ -57,8 +68,16 @@ describe("Scheduler — resource limits", () => {
         return successResult(req.operation.id);
       },
     });
-    const opA = validOperation({ id: "a", name: "a", resources: { cpu: "2", memory: "512Mi" } });
-    const opB = validOperation({ id: "b", name: "b", resources: { cpu: "2", memory: "512Mi" } });
+    const opA = validOperation({
+      id: "a",
+      name: "a",
+      resources: { cpu: "2", memory: "512Mi" },
+    });
+    const opB = validOperation({
+      id: "b",
+      name: "b",
+      resources: { cpu: "2", memory: "512Mi" },
+    });
     const plan = planFromOps([opA, opB]);
     await new Scheduler(
       baseConfig([exec], { maxConcurrent: 4, totalCpu: 4, totalMemory: "2Gi" }),
@@ -68,7 +87,11 @@ describe("Scheduler — resource limits", () => {
 
   it("an op requesting more CPU than totalCpu raises INSUFFICIENT_RESOURCES", async () => {
     const exec = new MockExecutor();
-    const opA = validOperation({ id: "a", name: "a", resources: { cpu: "8", memory: "512Mi" } });
+    const opA = validOperation({
+      id: "a",
+      name: "a",
+      resources: { cpu: "8", memory: "512Mi" },
+    });
     const plan = planFromOps([opA]);
     await expect(
       new Scheduler(
@@ -92,8 +115,16 @@ describe("Scheduler — resource limits", () => {
         return successResult(req.operation.id);
       },
     });
-    const opA = validOperation({ id: "a", name: "a", resources: { cpu: "4", memory: "512Mi" } });
-    const opB = validOperation({ id: "b", name: "b", resources: { cpu: "4", memory: "512Mi" } });
+    const opA = validOperation({
+      id: "a",
+      name: "a",
+      resources: { cpu: "4", memory: "512Mi" },
+    });
+    const opB = validOperation({
+      id: "b",
+      name: "b",
+      resources: { cpu: "4", memory: "512Mi" },
+    });
     const plan = planFromOps([opA, opB]);
     await new Scheduler(
       baseConfig([exec], { maxConcurrent: 4, totalCpu: 4 }),
@@ -113,8 +144,16 @@ describe("Scheduler — resource limits", () => {
         return successResult(req.operation.id);
       },
     });
-    const opA = validOperation({ id: "a", name: "a", resources: { cpu: "1", memory: "2Gi" } });
-    const opB = validOperation({ id: "b", name: "b", resources: { cpu: "1", memory: "2Gi" } });
+    const opA = validOperation({
+      id: "a",
+      name: "a",
+      resources: { cpu: "1", memory: "2Gi" },
+    });
+    const opB = validOperation({
+      id: "b",
+      name: "b",
+      resources: { cpu: "1", memory: "2Gi" },
+    });
     const plan = planFromOps([opA, opB]);
     await new Scheduler(
       baseConfig([exec], { maxConcurrent: 4, totalMemory: "2Gi" }),

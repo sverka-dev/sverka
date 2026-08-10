@@ -42,11 +42,17 @@ export function makeMockGit(cfg: MockGitConfig): GitCli {
       const joined = args.join(" ");
       return new Promise<string>((resolvePromise, reject) => {
         if (cfg.gitUnavailable && joined.includes("--version")) {
-          reject(Object.assign(new Error("spawn git ENOENT"), { code: "ENOENT" }));
+          reject(
+            Object.assign(new Error("spawn git ENOENT"), { code: "ENOENT" }),
+          );
           return;
         }
         if (cfg.notARepo && joined.includes("--show-toplevel")) {
-          reject(new Error("not a git repository", { cause: "fatal: not a git repository" }));
+          reject(
+            new Error("not a git repository", {
+              cause: "fatal: not a git repository",
+            }),
+          );
           return;
         }
         if (joined === "--version") {
@@ -62,7 +68,9 @@ export function makeMockGit(cfg: MockGitConfig): GitCli {
           return;
         }
         if (joined === "ls-files") {
-          resolvePromise(tracked.map((f) => f).join("\n") + (tracked.length ? "\n" : ""));
+          resolvePromise(
+            tracked.map((f) => f).join("\n") + (tracked.length ? "\n" : ""),
+          );
           return;
         }
         if (joined === "status --porcelain") {

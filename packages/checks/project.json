@@ -18,7 +18,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bun run eslint src",
+        "command": "bun run oxlint src",
         "cwd": "packages/checks"
       }
     },

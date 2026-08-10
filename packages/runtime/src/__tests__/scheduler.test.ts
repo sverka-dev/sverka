@@ -12,7 +12,10 @@ import {
 } from "./helpers/fixtures.js";
 import type { PlanOperation } from "@sverka/ir";
 
-function baseConfig(executors: readonly MockExecutor[], overrides: Partial<SchedulerConfig> = {}): SchedulerConfig {
+function baseConfig(
+  executors: readonly MockExecutor[],
+  overrides: Partial<SchedulerConfig> = {},
+): SchedulerConfig {
   return {
     executors,
     maxConcurrent: 4,
@@ -28,11 +31,7 @@ function baseConfig(executors: readonly MockExecutor[], overrides: Partial<Sched
 describe("Scheduler — topological scheduling", () => {
   it("executes a linear plan a -> b -> c in order", async () => {
     const exec = new MockExecutor();
-    const plan = planFromOps([
-      op("a"),
-      op("b", ["a"]),
-      op("c", ["b"]),
-    ]);
+    const plan = planFromOps([op("a"), op("b", ["a"]), op("c", ["b"])]);
     const result = await new Scheduler(baseConfig([exec])).execute(plan);
     expect(result.status).toBe("success");
     expect([...result.outcomes.keys()]).toEqual(["a", "b", "c"]);
@@ -111,11 +110,7 @@ describe("Scheduler — failure and cancellation", () => {
           ? failureResult(req.operation.id, { error: "boom" })
           : successResult(req.operation.id),
     });
-    const plan = planFromOps([
-      op("a"),
-      op("b", ["a"]),
-      op("c", ["a"]),
-    ]);
+    const plan = planFromOps([op("a"), op("b", ["a"]), op("c", ["a"])]);
     const result = await new Scheduler(baseConfig([exec])).execute(plan);
     expect(result.status).toBe("failure");
     expect(result.outcomes.get("a")?.status).toBe("failure");
@@ -133,7 +128,12 @@ describe("Scheduler — failure and cancellation", () => {
           ? failureResult(req.operation.id)
           : successResult(req.operation.id),
     });
-    const a = validOperation({ id: "a", name: "a", dependsOn: [], continueOnError: true });
+    const a = validOperation({
+      id: "a",
+      name: "a",
+      dependsOn: [],
+      continueOnError: true,
+    });
     const z = op("z");
     const b = op("b", ["a"]);
     const plan = planFromOps([a, z, b]);
@@ -184,11 +184,17 @@ describe("Scheduler — executor routing", () => {
       id: "d",
       name: "d",
       dependsOn: [],
-      executor: { type: "docker", image: "img", imageDigest: "sha256:" + "a".repeat(64) },
+      executor: {
+        type: "docker",
+        image: "img",
+        imageDigest: "sha256:" + "a".repeat(64),
+      },
     });
     const hostOp = op("h");
     const plan = planFromOps([dockerOp, hostOp]);
-    const result = await new Scheduler(baseConfig([docker, host])).execute(plan);
+    const result = await new Scheduler(baseConfig([docker, host])).execute(
+      plan,
+    );
     expect(result.status).toBe("success");
     expect(docker.calls.map((c) => c.operation.id)).toEqual(["d"]);
     expect(host.calls.map((c) => c.operation.id)).toEqual(["h"]);
@@ -202,10 +208,16 @@ describe("Scheduler — executor routing", () => {
       id: "d",
       name: "d",
       dependsOn: [],
-      executor: { type: "docker", image: "img", imageDigest: "sha256:" + "a".repeat(64) },
+      executor: {
+        type: "docker",
+        image: "img",
+        imageDigest: "sha256:" + "a".repeat(64),
+      },
     });
     const plan = planFromOps([dockerOp]);
-    await expect(new Scheduler(baseConfig([host])).execute(plan)).rejects.toMatchObject({
+    await expect(
+      new Scheduler(baseConfig([host])).execute(plan),
+    ).rejects.toMatchObject({
       code: "SCHEDULER_ERROR",
       context: expect.objectContaining({ code: "NO_EXECUTOR" }),
     });
@@ -213,12 +225,10 @@ describe("Scheduler — executor routing", () => {
 
   it("raises CYCLE_DETECTED when the plan DAG has a cycle", async () => {
     const exec = new MockExecutor();
-    const plan = planFromOps([
-      op("a", ["c"]),
-      op("b", ["a"]),
-      op("c", ["b"]),
-    ]);
-    await expect(new Scheduler(baseConfig([exec])).execute(plan)).rejects.toMatchObject({
+    const plan = planFromOps([op("a", ["c"]), op("b", ["a"]), op("c", ["b"])]);
+    await expect(
+      new Scheduler(baseConfig([exec])).execute(plan),
+    ).rejects.toMatchObject({
       code: "SCHEDULER_ERROR",
       context: expect.objectContaining({ code: "CYCLE_DETECTED" }),
     });
@@ -254,7 +264,9 @@ describe("Scheduler — result status semantics", () => {
   it("a fatal failure => status: failure", async () => {
     const exec = new MockExecutor({
       result: (req) =>
-        req.operation.id === "a" ? failureResult(req.operation.id) : successResult(req.operation.id),
+        req.operation.id === "a"
+          ? failureResult(req.operation.id)
+          : successResult(req.operation.id),
     });
     const plan = planFromOps([op("a"), op("b", ["a"])]);
     const result = await new Scheduler(baseConfig([exec])).execute(plan);

@@ -4,10 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import type { Executor, ExecuteRequest, ExecuteResult } from "@sverka/runtime";
 import type { PlanOperation } from "@sverka/ir";
 import type { HostExecutorConfig } from "./config.js";
-import {
-  HostExecutorError,
-  CommandNotAllowedError,
-} from "./errors.js";
+import { HostExecutorError, CommandNotAllowedError } from "./errors.js";
 
 const DEFAULT_MAX_LOG_BYTES = 10 * 1024 * 1024; // 10 MiB
 const GRACE_PERIOD_MS = 2000;
@@ -52,7 +49,10 @@ export class HostExecutor implements Executor {
     if (operation.executor.type !== "host") return false;
     const command = operation.command ?? "";
     if (!this.config.allowlist.isAllowed(command)) return false;
-    if (operation.timeoutSeconds === undefined || operation.timeoutSeconds <= 0) {
+    if (
+      operation.timeoutSeconds === undefined ||
+      operation.timeoutSeconds <= 0
+    ) {
       return false;
     }
     return true;

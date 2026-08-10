@@ -45,7 +45,9 @@ export async function initCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  output.debug(`init: root=${global.root} template=${args.template ?? "minimal"} force=${Boolean(args.force)}`);
+  output.debug(
+    `init: root=${global.root} template=${args.template ?? "minimal"} force=${Boolean(args.force)}`,
+  );
   const template = args.template ?? "minimal";
   if (template !== "minimal" && template !== "full") {
     throw new CliError(
@@ -67,7 +69,9 @@ export async function initCommand(
   const content = template === "full" ? FULL_TEMPLATE : MINIMAL_TEMPLATE;
   // Use exclusive create (wx) when not forcing to close the TOCTOU race
   // between existsSync and writeFile. With --force, use standard write.
-  const flags: WriteFileOptions = args.force ? "utf8" : { encoding: "utf8", flag: "wx" };
+  const flags: WriteFileOptions = args.force
+    ? "utf8"
+    : { encoding: "utf8", flag: "wx" };
   try {
     await writeFile(configPath, content, flags);
   } catch (e) {

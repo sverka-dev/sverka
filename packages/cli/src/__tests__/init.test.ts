@@ -56,10 +56,9 @@ describe("init command", () => {
 
   it("--template minimal produces minimal config", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["init", "--root", dir, "--template", "minimal"],
-      { output: out },
-    );
+    const code = await main(["init", "--root", dir, "--template", "minimal"], {
+      output: out,
+    });
     expect(code).toBe(0);
     const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
     expect(content).toContain("lint");
@@ -69,10 +68,9 @@ describe("init command", () => {
 
   it("--template full produces a fuller config", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["init", "--root", dir, "--template", "full"],
-      { output: out },
-    );
+    const code = await main(["init", "--root", dir, "--template", "full"], {
+      output: out,
+    });
     expect(code).toBe(0);
     const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
     expect(content).toContain("defineWorkflow");
@@ -80,10 +78,9 @@ describe("init command", () => {
 
   it("--format json includes a numeric durationMs (not hardcoded 0)", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["init", "--format", "json", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["init", "--format", "json", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("init");

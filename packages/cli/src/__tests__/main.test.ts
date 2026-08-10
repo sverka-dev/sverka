@@ -51,7 +51,11 @@ describe("main — exit codes", () => {
     // is mapped to exit 2 (missing arg). To get exit 3, point at a file that
     // exists but is not valid JS/TS (CONFIG_LOAD_FAILED).
     const badPath = join(dir, "sverka.config.ts");
-    await writefile(dir, "sverka.config.ts", "this is not valid typescript {{{");
+    await writefile(
+      dir,
+      "sverka.config.ts",
+      "this is not valid typescript {{{",
+    );
     const out = new CaptureWriter();
     const code = await main(["validate", "--config", badPath, "--root", dir], {
       output: out,
@@ -72,10 +76,9 @@ describe("main — global flags", () => {
 
   it("--format json produces JSON output on stdout", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["init", "--format", "json", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["init", "--format", "json", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("init");

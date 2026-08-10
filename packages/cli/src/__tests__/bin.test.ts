@@ -2,10 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import {
-  makeTempDir,
-  cleanupTempDir,
-} from "./helpers/fixtures.js";
+import { makeTempDir, cleanupTempDir } from "./helpers/fixtures.js";
 
 const BIN_PATH = join(import.meta.dirname, "..", "..", "dist", "bin.mjs");
 const binBuilt = existsSync(BIN_PATH);

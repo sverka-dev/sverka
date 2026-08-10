@@ -160,7 +160,10 @@ class Parser {
 
   private parseOr(): boolean {
     let left = this.parseAnd();
-    while (this.peek()?.type === "op" && (this.peek() as { value: string }).value === "||") {
+    while (
+      this.peek()?.type === "op" &&
+      (this.peek() as { value: string }).value === "||"
+    ) {
       this.next();
       const right = this.parseAnd();
       left = left || right;
@@ -170,7 +173,10 @@ class Parser {
 
   private parseAnd(): boolean {
     let left = this.parseNot();
-    while (this.peek()?.type === "op" && (this.peek() as { value: string }).value === "&&") {
+    while (
+      this.peek()?.type === "op" &&
+      (this.peek() as { value: string }).value === "&&"
+    ) {
       this.next();
       const right = this.parseNot();
       left = left && right;
