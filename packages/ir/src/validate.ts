@@ -54,22 +54,30 @@ function isValidCpuString(s: string): boolean {
   return true;
 }
 
-/** Validate memory string (digits with optional suffix) without regex. */
-function isValidMemoryString(s: string): boolean {
-  if (s.length === 0 || s.length > 20) return false;
-  let digitEnd = s.length;
+/** Find the boundary between digit and suffix portions (from the right). */
+function findDigitBoundary(s: string): number {
   for (let i = s.length - 1; i >= 0; i--) {
     const c = s.charCodeAt(i);
-    if (c >= 48 && c <= 57) { // '0'-'9'
-      digitEnd = i + 1;
-      break;
-    }
+    if (c >= 48 && c <= 57) return i + 1; // '0'-'9'
   }
-  if (digitEnd === s.length) return false; // no digits at all
-  for (let i = 0; i < digitEnd; i++) {
+  return 0;
+}
+
+/** Check if all chars in s[start..end) are ASCII digits. */
+function isAllDigits(s: string, start: number, end: number): boolean {
+  for (let i = start; i < end; i++) {
     const c = s.charCodeAt(i);
     if (c < 48 || c > 57) return false;
   }
+  return true;
+}
+
+/** Validate memory string (digits with optional suffix) without regex. */
+function isValidMemoryString(s: string): boolean {
+  if (s.length === 0 || s.length > 20) return false;
+  const digitEnd = findDigitBoundary(s);
+  if (digitEnd === 0) return false; // no digits at all
+  if (!isAllDigits(s, 0, digitEnd)) return false;
   if (digitEnd < s.length) {
     const suffix = s.slice(digitEnd);
     if (!MEMORY_SUFFIXES.has(suffix)) return false;
