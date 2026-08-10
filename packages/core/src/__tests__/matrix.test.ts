@@ -28,10 +28,10 @@ describe("matrix expansion", () => {
       "run:test[node=s:24,os=s:linux]",
       "run:test[node=s:24,os=s:macos]",
     ]);
-    for (const spec of result.operations) {
-      expect(spec.env?.MATRIX_NODE).toBeDefined();
-      expect(spec.env?.MATRIX_OS).toBeDefined();
-    }
+    const envs = result.operations
+      .map((spec) => `${spec.env?.MATRIX_NODE}/${spec.env?.MATRIX_OS}`)
+      .sort();
+    expect(envs).toEqual(["20/linux", "20/macos", "24/linux", "24/macos"]);
   });
 
   it("children inherit predecessors from the template", async () => {
@@ -40,10 +40,10 @@ describe("matrix expansion", () => {
     const matrixed = matrix({ node: ["20", "24"] }, test).after(build);
     const wf = workflow("matrix-deps", matrixed);
     const result = await wf.plan(makePlanRuntime());
-    for (const spec of result.operations) {
-      if (spec.id.startsWith("run:test[")) {
-        expect(spec.dependsOn).toEqual(["run:build"]);
-      }
+    const children = result.operations.filter((spec) => spec.id.startsWith("run:test["));
+    expect(children).toHaveLength(2);
+    for (const spec of children) {
+      expect(spec.dependsOn).toEqual(["run:build"]);
     }
   });
 
