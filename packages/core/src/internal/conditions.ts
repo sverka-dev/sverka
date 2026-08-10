@@ -101,35 +101,29 @@ function tokenizeIdent(expr: string, start: number, out: Token[]): number {
   return j;
 }
 
+const TWO_CHAR_OPS: Record<string, Token> = {
+  "!=": { type: "op", value: "!=" },
+  "==": { type: "op", value: "==" },
+  "&&": { type: "op", value: "&&" },
+  "||": { type: "op", value: "||" },
+};
+
+const SINGLE_CHAR_OPS: Record<string, Token> = {
+  "!": { type: "op", value: "!" },
+  "(": { type: "lparen" },
+  ")": { type: "rparen" },
+};
+
 function tokenizeOperator(expr: string, i: number, out: Token[]): number {
-  const ch = expr[i]!;
-  const next = expr[i + 1];
-  if (ch === "!" && next === "=") {
-    out.push({ type: "op", value: "!=" });
+  const two = expr.slice(i, i + 2);
+  const twoChar = TWO_CHAR_OPS[two];
+  if (twoChar !== undefined) {
+    out.push(twoChar);
     return 2;
   }
-  if (ch === "!") {
-    out.push({ type: "op", value: "!" });
-    return 1;
-  }
-  if (ch === "=" && next === "=") {
-    out.push({ type: "op", value: "==" });
-    return 2;
-  }
-  if (ch === "&" && next === "&") {
-    out.push({ type: "op", value: "&&" });
-    return 2;
-  }
-  if (ch === "|" && next === "|") {
-    out.push({ type: "op", value: "||" });
-    return 2;
-  }
-  if (ch === "(") {
-    out.push({ type: "lparen" });
-    return 1;
-  }
-  if (ch === ")") {
-    out.push({ type: "rparen" });
+  const single = SINGLE_CHAR_OPS[expr[i]!];
+  if (single !== undefined) {
+    out.push(single);
     return 1;
   }
   return 0;
