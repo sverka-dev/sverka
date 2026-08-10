@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
 
@@ -50,14 +50,18 @@ export async function doctorCommand(
 
 function runCheck(name: string, binary: string): DoctorCheck {
   try {
-    const out = execSync(`${binary} --version`, {
+    const result = spawnSync(binary, ["--version"], {
       stdio: ["ignore", "pipe", "ignore"],
       encoding: "utf8",
       // Bound the check so a hung shim (broken PATH entry, blocking prompt,
       // etc.) cannot hang the CLI indefinitely. A timeout throws and is
       // treated the same as a missing tool.
       timeout: 5000,
-    }).trim();
+    });
+    if (result.error || result.status !== 0) {
+      return { name, status: "missing", version: null };
+    }
+    const out = (result.stdout ?? "").trim();
     // Extract the first x.y.z version token so output like "git version 2.43.0"
     // or "node v22.0.0" is normalized to "2.43.0" / "22.0.0".
     const match = out.match(/(\d+\.\d+\.\d+[^\s]*)/);
