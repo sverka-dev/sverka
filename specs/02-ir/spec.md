@@ -337,7 +337,8 @@ Validation rules (each violation produces a `ValidationErrorDetail`):
 1. `apiVersion` must equal `sverka.dev/v1`.
 2. `id` must be non-empty and match the recomputed `computePlanId`.
 3. `operations` must be non-empty.
-4. Every `dependsOn` id must reference an existing operation id.
+4. Every `dependsOn` id must reference an existing operation id. A present
+   but non-array `dependsOn` is rejected with `INVALID_DEPENDS_ON`.
 5. The dependency graph must be acyclic.
 6. Operation ids must be unique within the plan.
 7. For `executor.type` of `docker` or `podman`, `imageDigest` must be present

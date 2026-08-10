@@ -11,51 +11,48 @@ const OP_ID_RE = /^op-[0-9a-f]{64}$/;
 describe("DAG validation", () => {
   it("rejects a cycle with node ids in context", async () => {
     // User-provided spec.id aliases referenced in dependsOn form a cycle: x→y→x.
-    // (Predecessor-ref cycles are structurally impossible with immutable
-    // after(); cycles arise from explicit dependsOn ids. spec.id values are
-    // resolved to op- ids during edge resolution, so the cycle is detected on
-    // the content-addressed ids.)
     const x = run({ id: "x", command: "x", dependsOn: ["y"] });
     const y = run({ id: "y", command: "y", dependsOn: ["x"] });
     const wf = workflow("cyclic", x, y);
-    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+    const promise = wf.plan(makePlanRuntime());
+    await expect(promise).rejects.toThrow(CompositionError);
     try {
-      await wf.plan(makePlanRuntime());
+      await promise;
     } catch (err) {
-      const ce = err as CompositionError;
-      expect(ce.context).toBeDefined();
-      expect(ce.context?.["cycle"]).toBeDefined();
+      expect(err).toBeInstanceOf(CompositionError);
+      if (!(err instanceof CompositionError)) return;
+      expect(err.context).toBeDefined();
+      expect(err.context?.["cycle"]).toBeDefined();
     }
   });
 
   it("rejects duplicate user-provided spec.id aliases", async () => {
-    // spec.id is folded into the hash (as userId) and also used as a
-    // dependsOn alias; duplicate aliases are rejected because they would make
-    // edge resolution ambiguous.
     const a = run({ id: "dup", command: "a" });
     const b = run({ id: "dup", command: "b" });
     const wf = workflow("dup-ids", a, b);
-    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+    const promise = wf.plan(makePlanRuntime());
+    await expect(promise).rejects.toThrow(CompositionError);
     try {
-      await wf.plan(makePlanRuntime());
+      await promise;
     } catch (err) {
-      const ce = err as CompositionError;
-      expect(ce.context?.["id"]).toBe("dup");
+      expect(err).toBeInstanceOf(CompositionError);
+      if (!(err instanceof CompositionError)) return;
+      expect(err.context?.["id"]).toBe("dup");
     }
   });
 
   it("rejects true duplicate operations (identical kind/name/context)", async () => {
-    // Two operations with identical content produce the same content-addressed
-    // op- id; the planner detects the collision and raises CompositionError.
     const a = run({ command: "echo" });
     const b = run({ command: "echo" });
     const wf = workflow("true-dups", a, b);
-    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+    const promise = wf.plan(makePlanRuntime());
+    await expect(promise).rejects.toThrow(CompositionError);
     try {
-      await wf.plan(makePlanRuntime());
+      await promise;
     } catch (err) {
-      const ce = err as CompositionError;
-      expect(ce.context?.["id"]).toMatch(OP_ID_RE);
+      expect(err).toBeInstanceOf(CompositionError);
+      if (!(err instanceof CompositionError)) return;
+      expect(err.context?.["id"]).toMatch(OP_ID_RE);
     }
   });
 

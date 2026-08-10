@@ -39,6 +39,21 @@ describe("matrix expansion", () => {
     }
   });
 
+  it("cartesian product with multiple values in each dimension", async () => {
+    const op = matrix({ node: ["20", "24"], os: ["linux", "macos"] }, run({ command: "test" }));
+    const wf = workflow("matrix-2x2", op);
+    const result = await wf.plan(makePlanRuntime());
+    expect(result.operations).toHaveLength(4);
+    const ids = result.operations.map((o) => o.id);
+    for (const id of ids) expect(id).toMatch(OP_ID_RE);
+    expect(new Set(ids).size).toBe(4); // all distinct
+    // Verify all four env combinations are present
+    const envCombos = result.operations.map(
+      (o) => `${o.env?.MATRIX_NODE}/${o.env?.MATRIX_OS}`,
+    ).sort();
+    expect(envCombos).toEqual(["20/linux", "20/macos", "24/linux", "24/macos"]);
+  });
+
   it("children inherit predecessors from the template", async () => {
     const build = run({ command: "build" });
     const test = run({ command: "test" });

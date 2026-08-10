@@ -1,16 +1,6 @@
 // @sverka/policy — public API
-
-/**
- * Base error class for the policy package. All policy errors extend this
- * so callers can catch the full family with a single `instanceof PolicyError`.
- */
-export class PolicyError extends Error {
-  constructor(
-    message: string,
-    readonly code: string,
-    readonly context?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "PolicyError";
-  }
-}
+export type { Verdict, Policy, FailOnRule, TriggeredFinding,
+             RuleResult, PolicyResult, PolicyConfig } from "./types.js";
+export { DEFAULT_POLICY, createPolicy } from "./policy.js";
+export { evaluatePolicy } from "./evaluator.js";
+export { PolicyError, type PolicyErrorCode } from "./errors.js";
