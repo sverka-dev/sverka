@@ -1,3 +1,17 @@
+export interface GithubTriggers {
+  readonly push?: readonly string[];
+  readonly pullRequest?: readonly string[];
+  readonly workflowDispatch?: boolean;
+}
+
+export interface GithubPermissions {
+  readonly contents?: "read" | "write";
+  readonly actions?: "read" | "write";
+  readonly checks?: "read" | "write";
+  readonly securityEvents?: "read" | "write";
+  readonly idToken?: "write";
+}
+
 /** Compiler configuration. All fields optional; sensible defaults apply. */
 export interface GithubCompilerConfig {
   /** Workflow name. Defaults to "Sverka". */
@@ -12,18 +26,4 @@ export interface GithubCompilerConfig {
   readonly nodeVersion?: string;
   /** Permissions for the GITHUB_TOKEN. Defaults to { contents: "read" }. */
   readonly permissions?: GithubPermissions;
-}
-
-export interface GithubTriggers {
-  readonly push?: readonly string[];
-  readonly pullRequest?: readonly string[];
-  readonly workflowDispatch?: boolean;
-}
-
-export interface GithubPermissions {
-  readonly contents?: "read" | "write";
-  readonly actions?: "read" | "write";
-  readonly checks?: "read" | "write";
-  readonly securityEvents?: "read" | "write";
-  readonly idToken?: "read" | "write";
 }
