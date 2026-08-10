@@ -29,5 +29,5 @@
       "cache": true
     }
   },
-  "nxCloudAccessToken": "${NX_CLOUD_ACCESS_TOKEN}"
+  "nxCloudAccessToken": ""
 }
