@@ -53,9 +53,15 @@ function runCheck(name: string, binary: string): DoctorCheck {
     const out = execSync(`${binary} --version`, {
       stdio: ["ignore", "pipe", "ignore"],
       encoding: "utf8",
+      // Bound the check so a hung shim (broken PATH entry, blocking prompt,
+      // etc.) cannot hang the CLI indefinitely. A timeout throws and is
+      // treated the same as a missing tool.
+      timeout: 5000,
     }).trim();
-    // Strip leading 'v' from version strings (node v22.0.0 -> 22.0.0).
-    const version = out.replace(/^v/, "");
+    // Extract the first x.y.z version token so output like "git version 2.43.0"
+    // or "node v22.0.0" is normalized to "2.43.0" / "22.0.0".
+    const match = out.match(/(\d+\.\d+\.\d+[^\s]*)/);
+    const version = match?.[1] ?? out;
     return { name, status: "ok", version };
   } catch {
     return { name, status: "missing", version: null };
