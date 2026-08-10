@@ -85,6 +85,16 @@ function validateTopLevelFields(
   p: Record<string, unknown>,
   errors: ValidationErrorDetail[],
 ): void {
+  validateApiVersion(p, errors);
+  const idIsNonEmptyString = validateId(p, errors);
+  validatePlanIdIfShapeOk(p, errors, idIsNonEmptyString);
+  validateOperationsShape(p, errors);
+}
+
+function validateApiVersion(
+  p: Record<string, unknown>,
+  errors: ValidationErrorDetail[],
+): void {
   // Rule 1: apiVersion.
   if (p.apiVersion !== "sverka.dev/v1") {
     errors.push({
@@ -93,10 +103,14 @@ function validateTopLevelFields(
       message: `apiVersion must be "sverka.dev/v1"`,
     });
   }
+}
 
+function validateId(
+  p: Record<string, unknown>,
+  errors: ValidationErrorDetail[],
+): boolean {
   // Rule 2a: id must be a non-empty string.
-  const idIsNonEmptyString =
-    typeof p.id === "string" && p.id.length > 0;
+  const idIsNonEmptyString = typeof p.id === "string" && p.id.length > 0;
   if (!idIsNonEmptyString) {
     errors.push({
       field: "id",
@@ -104,27 +118,42 @@ function validateTopLevelFields(
       message: "id must be a non-empty string matching computePlanId",
     });
   }
+  return idIsNonEmptyString;
+}
 
-  // Structural fields needed for rule-2 recompute and downstream rules.
-  const nameOk = typeof p.name === "string";
-  const sourceContextHashOk = typeof p.sourceContextHash === "string";
-  const operationsOk = Array.isArray(p.operations);
-  const metadataOk = isPlainObject(p.metadata);
-  const shapeOk =
-    p.apiVersion === "sverka.dev/v1" &&
-    nameOk &&
-    sourceContextHashOk &&
-    operationsOk &&
-    metadataOk;
-
+function validatePlanIdIfShapeOk(
+  p: Record<string, unknown>,
+  errors: ValidationErrorDetail[],
+  idIsNonEmptyString: boolean,
+): void {
+  const shapeOk = checkShapeOk(p);
   // Rule 2b: id matches recomputed computePlanId (only when shape is valid,
   // and never let it throw).
   if (shapeOk && idIsNonEmptyString) {
     validatePlanId(p, errors);
   }
+}
 
+function checkShapeOk(p: Record<string, unknown>): boolean {
+  const nameOk = typeof p.name === "string";
+  const sourceContextHashOk = typeof p.sourceContextHash === "string";
+  const operationsOk = Array.isArray(p.operations);
+  const metadataOk = isPlainObject(p.metadata);
+  return (
+    p.apiVersion === "sverka.dev/v1" &&
+    nameOk &&
+    sourceContextHashOk &&
+    operationsOk &&
+    metadataOk
+  );
+}
+
+function validateOperationsShape(
+  p: Record<string, unknown>,
+  errors: ValidationErrorDetail[],
+): void {
   // Rule 3: operations non-empty array.
-  if (!operationsOk) {
+  if (!Array.isArray(p.operations)) {
     errors.push({
       field: "operations",
       code: "EMPTY_OPERATIONS",
@@ -202,24 +231,38 @@ function collectDuplicateIds(
   errors: ValidationErrorDetail[],
 ): void {
   // Rule 6: unique operation ids (collect first; reused by rules 4 & 5).
+  const idCounts = countIds(ops);
+  const reportedDup = new Set<string>();
+  for (const op of ops) {
+    if (!isDuplicateId(op, idCounts, reportedDup)) continue;
+    errors.push({
+      operationId: op.id as string,
+      field: "operations[].id",
+      code: "DUPLICATE_OPERATION_ID",
+      message: `duplicate operation id "${op.id as string}"`,
+    });
+    reportedDup.add(op.id as string);
+  }
+}
+
+function countIds(ops: PlanOperationView[]): Map<string, number> {
   const idCounts = new Map<string, number>();
   for (const op of ops) {
     if (typeof op.id === "string") {
       idCounts.set(op.id, (idCounts.get(op.id) ?? 0) + 1);
     }
   }
-  const reportedDup = new Set<string>();
-  for (const op of ops) {
-    if (typeof op.id === "string" && (idCounts.get(op.id) ?? 0) > 1 && !reportedDup.has(op.id)) {
-      errors.push({
-        operationId: op.id,
-        field: "operations[].id",
-        code: "DUPLICATE_OPERATION_ID",
-        message: `duplicate operation id "${op.id}"`,
-      });
-      reportedDup.add(op.id);
-    }
-  }
+  return idCounts;
+}
+
+function isDuplicateId(
+  op: PlanOperationView,
+  idCounts: Map<string, number>,
+  reportedDup: Set<string>,
+): boolean {
+  if (typeof op.id !== "string") return false;
+  if ((idCounts.get(op.id) ?? 0) <= 1) return false;
+  return !reportedDup.has(op.id);
 }
 
 function validateOperation(
