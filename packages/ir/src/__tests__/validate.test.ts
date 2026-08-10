@@ -359,3 +359,25 @@ describe("validatePlan — collects all errors (no short-circuit)", () => {
     expect(codes).not.toContain("ID_MISMATCH");
   });
 });
+
+describe("validatePlan — tags field", () => {
+  it("accepts an operation with tags", () => {
+    const plan = validPlan({
+      operations: [validOperation({ tags: ["critical", "security"] })],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts an operation without tags (optional)", () => {
+    const plan = validPlan({ operations: [validOperation()] });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts an operation with empty tags array", () => {
+    const plan = validPlan({ operations: [validOperation({ tags: [] })] });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(true);
+  });
+});
