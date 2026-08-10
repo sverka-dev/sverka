@@ -1,27 +1,69 @@
 import { describe, it, expect } from "vitest";
-import { CliError } from "../index.js";
+import {
+  main,
+  ExitCode,
+  CliError,
+  ConsoleOutputWriter,
+  createOutputWriter,
+  type GlobalFlags,
+  type OutputWriter,
+  type CliErrorCode,
+  type MainDeps,
+  type WriteSink,
+} from "../index.js";
 
-describe("CliError", () => {
-  it("sets message, code, and context", () => {
-    const err = new CliError("command not found", "NOT_FOUND", { command: "sverka" });
-    expect(err.message).toBe("command not found");
-    expect(err.code).toBe("NOT_FOUND");
-    expect(err.context).toEqual({ command: "sverka" });
+describe("public API — exports", () => {
+  it("main is a function", () => {
+    expect(typeof main).toBe("function");
   });
 
-  it("sets name to CliError", () => {
-    const err = new CliError("fail", "FAIL");
-    expect(err.name).toBe("CliError");
+  it("ExitCode has the four codes", () => {
+    expect(ExitCode.Success).toBe(0);
+    expect(ExitCode.PolicyFail).toBe(1);
+    expect(ExitCode.UsageError).toBe(2);
+    expect(ExitCode.RuntimeError).toBe(3);
   });
 
-  it("is an instance of Error", () => {
-    const err = new CliError("fail", "FAIL");
+  it("CliError is constructible", () => {
+    const err = new CliError("msg", "UNKNOWN_COMMAND", ExitCode.UsageError);
     expect(err).toBeInstanceOf(Error);
-    expect(err).toBeInstanceOf(CliError);
+    expect(err.code).toBe("UNKNOWN_COMMAND");
+    expect(err.exitCode).toBe(2);
   });
 
-  it("context is optional", () => {
-    const err = new CliError("fail", "FAIL");
-    expect(err.context).toBeUndefined();
+  it("ConsoleOutputWriter is constructible", () => {
+    const w = new ConsoleOutputWriter(
+      () => {},
+      () => {},
+    );
+    expect(typeof w.write).toBe("function");
+  });
+
+  it("createOutputWriter returns a writer", () => {
+    const w = createOutputWriter(
+      { format: "human", config: null, root: ".", quiet: false, verbose: false },
+      () => {},
+      () => {},
+    );
+    expect(typeof w.writeLine).toBe("function");
+  });
+
+  it("all types are importable (compile-time check)", () => {
+    const _g: GlobalFlags = {
+      format: "human",
+      config: null,
+      root: ".",
+      quiet: false,
+      verbose: false,
+    };
+    const _w: OutputWriter = new ConsoleOutputWriter(() => {}, () => {});
+    const _c: CliErrorCode = "UNKNOWN_COMMAND";
+    const _d: MainDeps = {};
+    const _s: WriteSink = () => {};
+    expect(_g.format).toBe("human");
+    expect(_w).toBeDefined();
+    expect(_c).toBe("UNKNOWN_COMMAND");
+    expect(_d).toBeDefined();
+    expect(_s).toBeDefined();
   });
 });
