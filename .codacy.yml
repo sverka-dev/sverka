@@ -1,11 +1,6 @@
 ---
 # Codacy configuration — focus on real issues, exclude noise
 # https://docs.codacy.com/repositories-configure/codacy-configuration-file/
-#
-# NOTE: Codacy's .codacy.yml only supports `exclude_paths` and `base_sub_dir`
-# at the engine level. The `disable_rules` key is NOT a documented feature and
-# is silently ignored. To disable specific code patterns, use the Codacy UI
-# Code patterns page or the tool's own configuration file (e.g. .eslintrc.json).
 
 # Exclude non-source paths from analysis
 exclude_paths:
@@ -38,31 +33,118 @@ exclude_paths:
   - "node_modules/**"
   - ".opencode/**"
 
-# Configure tools — exclude all JS/TS source from Codacy's ESLint engines.
-# Codacy's ESLint runs eslint-plugin-es-x which flags ES2015+ syntax (modules,
-# classes, const, arrow functions, etc.) as forbidden. These rules are
-# inappropriate for a Node 24 / Bun / TypeScript project. The repository has
-# its own ESLint config (.eslintrc.json / eslint.config.mjs) that explicitly
-# disables all es-x rules, but Codacy does not honour that config unless
-# activated via the Codacy UI Code patterns page. Excluding all source files
-# from Codacy's ESLint engines is the only reliable .codacy.yml workaround.
+# Configure tools
 engines:
-  eslint-8:
-    exclude_paths:
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.js"
-      - "**/*.jsx"
-      - "**/*.mjs"
-      - "**/*.cjs"
+  # ESLint v9 — disable rules inappropriate for Node 24 / Bun / TypeScript project
   eslint-9:
-    exclude_paths:
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.js"
-      - "**/*.jsx"
-      - "**/*.mjs"
-      - "**/*.cjs"
+    enabled: true
+    disable_rules:
+      # eslint-plugin-es-x: forbids ES2015+ syntax (arrow functions, const, import, etc.)
+      # Completely irrelevant for a modern TypeScript project targeting Node 24+
+      - ESLint9_es-x_no-arrow-functions
+      - ESLint9_es-x_no-modules
+      - ESLint9_es-x_no-block-scoped-variables
+      - ESLint9_es-x_no-trailing-commas
+      - ESLint9_es-x_no-template-literals
+      - ESLint9_es-x_no-classes
+      - ESLint9_es-x_no-default-parameters
+      - ESLint9_es-x_no-destructuring
+      - ESLint9_es-x_no-rest-spread-properties
+      - ESLint9_es-x_no-spread-elements
+      - ESLint9_es-x_no-async-functions
+      - ESLint9_es-x_no-generators
+      - ESLint9_es-x_no-for-of-loops
+      - ESLint9_es-x_no-exponential-operators
+      - ESLint9_es-x_no-promise-objects
+      - ESLint9_es-x_no-symbol
+      - ESLint9_es-x_no-map
+      - ESLint9_es-x_no-set
+      - ESLint9_es-x_no-weak-map
+      - ESLint9_es-x_no-weak-set
+      - ESLint9_es-x_no-proxy
+      - ESLint9_es-x_no-reflect
+      - ESLint9_es-x_no-binary-numeric-literals
+      - ESLint9_es-x_no-octal-numeric-literals
+      - ESLint9_es-x_no-regex-u-flag
+      - ESLint9_es-x_no-regex-y-flag
+      - ESLint9_es-x_no-unicode-codepoint-escapes
+      - ESLint9_es-x_no-object-super-properties
+      - ESLint9_es-x_no-array-prototype-copywithin
+      - ESLint9_es-x_no-array-prototype-fill
+      - ESLint9_es-x_no-array-prototype-find
+      - ESLint9_es-x_no-array-prototype-findindex
+      - ESLint9_es-x_no-array-prototype-flat
+      - ESLint9_es-x_no-array-prototype-flatmap
+      - ESLint9_es-x_no-array-prototype-includes
+      - ESLint9_es-x_no-array-prototype-keys
+      - ESLint9_es-x_no-array-prototype-values
+      - ESLint9_es-x_no-array-prototype-entries
+      - ESLint9_es-x_no-string-prototype-at
+      - ESLint9_es-x_no-string-prototype-codepoint-at
+      - ESLint9_es-x_no-string-prototype-ends-with
+      - ESLint9_es-x_no-string-prototype-includes
+      - ESLint9_es-x_no-string-prototype-match-all
+      - ESLint9_es-x_no-string-prototype-pad-end
+      - ESLint9_es-x_no-string-prototype-pad-start
+      - ESLint9_es-x_no-string-prototype-repeat
+      - ESLint9_es-x_no-string-prototype-starts-with
+      - ESLint9_es-x_no-string-prototype-trim
+      - ESLint9_es-x_no-string-prototype-trimstart
+      - ESLint9_es-x_no-string-prototype-trimend
+      - ESLint9_es-x_no-string-raw
+      - ESLint9_es-x_no-number-constructor
+      - ESLint9_es-x_no-number-isfinite
+      - ESLint9_es-x_no-number-isinteger
+      - ESLint9_es-x_no-number-isnan
+      - ESLint9_es-x_no-number-issafeinteger
+      - ESLint9_es-x_no-number-max-safe-integer
+      - ESLint9_es-x_no-number-min-safe-integer
+      - ESLint9_es-x_no-number-epsilon
+      - ESLint9_es-x_no-number-parse-float
+      - ESLint9_es-x_no-number-parse-integer
+      - ESLint9_es-x_no-math-acosh
+      - ESLint9_es-x_no-math-asinh
+      - ESLint9_es-x_no-math-atanh
+      - ESLint9_es-x_no-math-cbrt
+      - ESLint9_es-x_no-math-clz32
+      - ESLint9_es-x_no-math-cosh
+      - ESLint9_es-x_no-math-expm1
+      - ESLint9_es-x_no-math-fround
+      - ESLint9_es-x_no-math-hypot
+      - ESLint9_es-x_no-math-imul
+      - ESLint9_es-x_no-math-log10
+      - ESLint9_es-x_no-math-log1p
+      - ESLint9_es-x_no-math-log2
+      - ESLint9_es-x_no-math-sign
+      - ESLint9_es-x_no-math-sinh
+      - ESLint9_es-x_no-math-tanh
+      - ESLint9_es-x_no-object-assign
+      - ESLint9_es-x_no-object-is
+      - ESLint9_es-x_no-object-entries
+      - ESLint9_es-x_no-object-fromentries
+      - ESLint9_es-x_no-object-getownpropertydescriptors
+      - ESLint9_es-x_no-object-values
+      - ESLint9_es-x_no-object-keys
+      - ESLint9_es-x_no-object-define-property
+      - ESLint9_es-x_no-object-define-properties
+      - ESLint9_es-x_no-object-create
+      - ESLint9_es-x_no-object-get-prototype-of
+      - ESLint9_es-x_no-object-set-prototype-of
+      - ESLint9_es-x_no-date-prototype-to-primitive
+      - ESLint9_es-x_no-symbol-prototype-description
+      - ESLint9_es-x_no-intl
+      - ESLint9_es-x_no-atomics
+      - ESLint9_es-x_no-shared-array-buffer
+
+  # Markdown linter — disable noisy rules
+  markdownlint:
+    enabled: true
+    disable_rules:
+      - MD034  # Bare URL used
+      - MD024  # Multiple headings with same content
+      - MD025  # Multiple top-level headings
+      - MD036  # Emphasis used instead of a heading
+      - MD041  # First line in a file should be a top-level heading
 
 # Disable analysis of markdown files (we only care about code)
 languages:
