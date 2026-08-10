@@ -3,7 +3,6 @@ import { Scheduler } from "../scheduler.js";
 import type { SchedulerConfig } from "../scheduler.js";
 import {
   MockExecutor,
-  op,
   planFromOps,
   successResult,
   failureResult,

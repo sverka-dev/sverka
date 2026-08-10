@@ -1,3 +1,8 @@
+export type NormalizationErrorCode =
+  | "INVALID_SARIF"
+  | "MISSING_LOCATION"
+  | "INVALID_FINGERPRINT_INPUT";
+
 /**
  * Base error class for normalization failures. All normalization errors throw
  * a `NormalizationError` with one of the `NormalizationErrorCode` values.
@@ -13,10 +18,10 @@ export class NormalizationError extends Error {
   }
 }
 
-export type NormalizationErrorCode =
-  | "INVALID_SARIF"
-  | "MISSING_LOCATION"
-  | "INVALID_FINGERPRINT_INPUT";
+export type BaselineErrorCode =
+  | "BASELINE_NOT_FOUND"
+  | "BASELINE_INVALID"
+  | "BASELINE_WRITE_FAILED";
 
 /**
  * Base error class for baseline operation failures. All baseline I/O and
@@ -33,8 +38,3 @@ export class BaselineError extends Error {
     this.cause = cause;
   }
 }
-
-export type BaselineErrorCode =
-  | "BASELINE_NOT_FOUND"
-  | "BASELINE_INVALID"
-  | "BASELINE_WRITE_FAILED";

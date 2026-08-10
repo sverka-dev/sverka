@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Scheduler } from "../scheduler.js";
 import type { SchedulerConfig } from "../scheduler.js";
-import { SchedulerError } from "../errors.js";
 import {
   MockExecutor,
   op,

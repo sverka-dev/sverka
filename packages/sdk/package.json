@@ -17,7 +17,7 @@
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
-    "lint": "eslint src",
+    "lint": "oxlint src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

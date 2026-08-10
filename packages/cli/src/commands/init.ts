@@ -69,9 +69,8 @@ export async function initCommand(
   const content = template === "full" ? FULL_TEMPLATE : MINIMAL_TEMPLATE;
   // Use exclusive create (wx) when not forcing to close the TOCTOU race
   // between existsSync and writeFile. With --force, use standard write.
-  const flags: WriteFileOptions = args.force
-    ? "utf8"
-    : { encoding: "utf8", flag: "wx" };
+  const flags: WriteFileOptions =
+    args.force === true ? "utf8" : { encoding: "utf8", flag: "wx" };
   try {
     await writeFile(configPath, content, flags);
   } catch (e) {

@@ -8,7 +8,7 @@ import {
 
 // Integration tests require a real Docker daemon. Skipped by default.
 // Run with: SVERKA_DOCKER=1 bun run test
-describe.skipIf(!process.env.SVERKA_DOCKER)(
+describe.skipIf(process.env.SVERKA_DOCKER !== "1")(
   "DockerExecutor integration",
   () => {
     it("runs echo hello in busybox and returns success", async () => {
