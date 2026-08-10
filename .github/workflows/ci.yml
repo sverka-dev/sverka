@@ -74,3 +74,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@e8e594e8799b6bc05d33c13d3d14e484b7b9cbc0 # v3.29.4
+        with:
+          languages: ${{ matrix.language }}
+          config-file: .github/codeql/codeql-config.yml
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@e8e594e8799b6bc05d33c13d3d14e484b7b9cbc0 # v3.29.4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@e8e594e8799b6bc05d33c13d3d14e484b7b9cbc0 # v3.29.4
+        with:
+          category: "/language:${{ matrix.language }}"
