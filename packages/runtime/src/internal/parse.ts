@@ -12,7 +12,7 @@ export function parseCpu(s: string): number {
   return n;
 }
 
-const MEM_RE = /^([0-9]+)(Ki|Mi|Gi|Ti)?$/;
+const MEM_RE = /^(\d+)(Ki|Mi|Gi|Ti)?$/;
 const MEM_UNITS: Readonly<Record<string, number>> = {
   "": 1,
   Ki: 1024,

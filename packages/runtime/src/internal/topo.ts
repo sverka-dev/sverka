@@ -24,15 +24,7 @@ export function topoSort(ops: readonly PlanOperation[]): TopoResult {
     dependents.set(op.id, []);
     indegree.set(op.id, 0);
   }
-  for (const op of ops) {
-    for (const dep of op.dependsOn) {
-      // Ignore deps that don't exist in the plan (IR validation rejects these,
-      // but defend in depth by treating them as already-satisfied).
-      if (!ids.has(dep)) continue;
-      dependents.get(dep)?.push(op.id);
-      indegree.set(op.id, (indegree.get(op.id) ?? 0) + 1);
-    }
-  }
+  buildEdges(ops, ids, dependents, indegree);
 
   // Kahn's algorithm, preserving input order among ready siblings.
   const ready: string[] = [];
@@ -61,6 +53,23 @@ export function topoSort(ops: readonly PlanOperation[]): TopoResult {
   const remaining = ops.filter((o) => (indegree.get(o.id) ?? 0) > 0);
   const cycle = findCycle(remaining);
   return { ok: false, cycle };
+}
+
+function buildEdges(
+  ops: readonly PlanOperation[],
+  ids: Set<string>,
+  dependents: Map<string, string[]>,
+  indegree: Map<string, number>,
+): void {
+  for (const op of ops) {
+    for (const dep of op.dependsOn) {
+      // Ignore deps that don't exist in the plan (IR validation rejects these,
+      // but defend in depth by treating them as already-satisfied).
+      if (!ids.has(dep)) continue;
+      dependents.get(dep)?.push(op.id);
+      indegree.set(op.id, (indegree.get(op.id) ?? 0) + 1);
+    }
+  }
 }
 
 /**

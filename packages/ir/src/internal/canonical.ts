@@ -26,6 +26,18 @@ function emit(value: unknown, out: string[]): void {
     out.push("null");
     return;
   }
+  if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      emitArray(value, out);
+    } else {
+      emitObject(value as Record<string, unknown>, out);
+    }
+    return;
+  }
+  emitScalar(value, out);
+}
+
+function emitScalar(value: unknown, out: string[]): void {
   if (typeof value === "string") {
     out.push(quoteString(value));
     return;
@@ -40,35 +52,31 @@ function emit(value: unknown, out: string[]): void {
         `canonical JSON does not support ${String(value)} (NaN/Infinity are not valid JSON)`,
       );
     }
-    out.push(Number.isFinite(value) ? Number(value).toString() : "null");
+    out.push(Number(value).toString());
     return;
   }
   if (typeof value === "bigint") {
     throw new TypeError("canonical JSON does not support bigint");
   }
-  if (Array.isArray(value)) {
-    out.push("[");
-    for (let i = 0; i < value.length; i++) {
-      const el = value[i];
-      if (el === undefined) {
-        // JSON.stringify emits null for undefined array elements.
-        out.push("null");
-      } else {
-        emit(el, out);
-      }
-      if (i < value.length - 1) out.push(",");
-    }
-    out.push("]");
-    return;
-  }
-  if (typeof value === "object") {
-    emitObject(value as Record<string, unknown>, out);
-    return;
-  }
   // functions, symbols, etc. — not representable.
   throw new TypeError(
     `canonical JSON does not support value of type ${typeof value}`,
   );
+}
+
+function emitArray(value: unknown[], out: string[]): void {
+  out.push("[");
+  for (let i = 0; i < value.length; i++) {
+    const el = value[i];
+    if (el === undefined) {
+      // JSON.stringify emits null for undefined array elements.
+      out.push("null");
+    } else {
+      emit(el, out);
+    }
+    if (i < value.length - 1) out.push(",");
+  }
+  out.push("]");
 }
 
 function emitObject(obj: Record<string, unknown>, out: string[]): void {
@@ -79,7 +87,9 @@ function emitObject(obj: Record<string, unknown>, out: string[]): void {
     keys.push(k);
   }
   // Lexicographic by UTF-16 code unit (default String comparison).
-  keys.sort();
+  // NOTE: localeCompare is locale-sensitive and would violate the spec's
+  // byte-wise UTF-16 ordering, so we use the default comparison explicitly.
+  keys.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   out.push("{");
   for (let i = 0; i < keys.length; i++) {
     const k = keys[i]!;
@@ -98,34 +108,33 @@ function emitObject(obj: Record<string, unknown>, out: string[]): void {
  */
 function quoteString(s: string): string {
   const parts: string[] = ['"'];
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i]!;
+  for (const ch of s) {
     const code = ch.charCodeAt(0);
     switch (ch) {
       case '"':
-        parts.push('\\"');
+        parts.push(String.raw`\"`);
         break;
       case "\\":
-        parts.push("\\\\");
+        parts.push(String.raw`\\`);
         break;
       case "\b":
-        parts.push("\\b");
+        parts.push(String.raw`\b`);
         break;
       case "\t":
-        parts.push("\\t");
+        parts.push(String.raw`\t`);
         break;
       case "\n":
-        parts.push("\\n");
+        parts.push(String.raw`\n`);
         break;
       case "\f":
-        parts.push("\\f");
+        parts.push(String.raw`\f`);
         break;
       case "\r":
-        parts.push("\\r");
+        parts.push(String.raw`\r`);
         break;
       default:
         if (code < 0x20) {
-          parts.push("\\u" + code.toString(16).padStart(4, "0"));
+          parts.push(String.raw`\u` + code.toString(16).padStart(4, "0"));
         } else {
           parts.push(ch);
         }

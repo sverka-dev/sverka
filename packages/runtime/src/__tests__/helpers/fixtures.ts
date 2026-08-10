@@ -48,8 +48,12 @@ export function validPlan(
 }
 
 /** Build an operation with a stable id and optional deps. */
-export function op(id: string, dependsOn: readonly string[] = []): PlanOperation {
-  return validOperation({ id, name: id, dependsOn });
+export function op(
+  id: string,
+  dependsOn: readonly string[] = [],
+  overrides: Partial<PlanOperation> = {},
+): PlanOperation {
+  return validOperation({ id, name: id, dependsOn, ...overrides });
 }
 
 /** Build a plan from a list of operations (ids derived from op ids). */
