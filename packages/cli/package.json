@@ -2,14 +2,17 @@
   "name": "@sverka/cli",
   "version": "0.0.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     }
+  },
+  "bin": {
+    "sverka": "./dist/bin.mjs"
   },
   "files": ["dist"],
   "scripts": {
@@ -18,7 +21,12 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@sverka/sdk": "workspace:*",
+    "yargs": "^17.7.3"
+  },
   "devDependencies": {
+    "@types/yargs": "^17.0.33",
     "tsdown": "^0.22.0",
     "typescript": "^5.8.0",
     "vitest": "^3.0.0"
