@@ -2,7 +2,12 @@ import { describe, it, expect, afterEach } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { plan, createSverka } from "../index.js";
-import { makeTempGitRepo, cleanupTempDir, writeSimpleConfig } from "./helpers/fixtures.js";
+import {
+  makeTempGitRepo,
+  makeTempGitRepoWithPackageJson,
+  cleanupTempDir,
+  writeSimpleConfig,
+} from "./helpers/fixtures.js";
 
 describe("plan mode", () => {
   const dirs: string[] = [];
@@ -52,5 +57,19 @@ describe("plan mode", () => {
     expect(result).toBeDefined();
     expect(result.context).toBeDefined();
     expect(result.proposal).not.toBeNull();
+  });
+
+  it("auto-discovery: resolves proposed checks into operations when package managers are detected", async () => {
+    const dir = await makeTempGitRepoWithPackageJson();
+    dirs.push(dir);
+    const result = await plan({ root: dir });
+    expect(result.proposal).not.toBeNull();
+    expect(result.proposal!.checks.length).toBeGreaterThan(0);
+    // The builtin resolver should produce operations for Node checks.
+    expect(result.operations.length).toBeGreaterThan(0);
+    for (const op of result.operations) {
+      expect(op.kind).toBe("check");
+      expect(op.command).toBeDefined();
+    }
   });
 });

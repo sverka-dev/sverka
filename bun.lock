@@ -18,6 +18,11 @@
     "packages/checks": {
       "name": "@sverka/checks",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/core": "workspace:*",
+        "@sverka/findings": "workspace:*",
+        "@sverka/planner": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -179,6 +184,7 @@
       "name": "@sverka/sdk",
       "version": "0.0.0",
       "dependencies": {
+        "@sverka/checks": "workspace:*",
         "@sverka/core": "workspace:*",
         "@sverka/findings": "workspace:*",
         "@sverka/ir": "workspace:*",

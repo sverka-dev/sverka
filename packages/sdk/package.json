@@ -26,7 +26,8 @@
     "@sverka/runtime-host": "workspace:*",
     "@sverka/runtime-docker": "workspace:*",
     "@sverka/findings": "workspace:*",
-    "@sverka/policy": "workspace:*"
+    "@sverka/policy": "workspace:*",
+    "@sverka/checks": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",
