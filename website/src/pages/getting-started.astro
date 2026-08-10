@@ -1,9 +1,13 @@
 ---
 import Base from "../layouts/Base.astro";
 
-const installCode = `bun add -g @sverka/cli`;
-const initCode = `cd your-project
-sverka init`;
+const installCode = `# Install the CLI globally
+bun add -g @sverka/cli
+
+# Add the SDK to your project
+cd your-project
+bun add @sverka/sdk`;
+const initCode = `sverka init`;
 const runCode = `sverka execute`;
 const planCode = `sverka plan`;
 const workflowCode = `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
