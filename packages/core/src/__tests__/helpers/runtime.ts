@@ -68,6 +68,13 @@ export function makeExecuteRuntime(
 }
 
 /** A compile-mode runtime that emits a string artifact. */
-export function makeCompileRuntime(context?: PlanContext): Runtime {
-  return makeRuntime({ mode: "compile", ...(context !== undefined ? { context } : {}) });
+export function makeCompileRuntime(
+  context?: PlanContext,
+  onEvaluate?: (spec: OperationSpec) => OperationOutcome,
+): Runtime {
+  return makeRuntime({
+    mode: "compile",
+    ...(context !== undefined ? { context } : {}),
+    ...(onEvaluate !== undefined ? { onEvaluate } : {}),
+  });
 }
