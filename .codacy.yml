@@ -39,6 +39,8 @@ engines:
   # (ESLint 8 may be the active engine since ESLint 9 is not enabled by default)
   eslint-8:
     enabled: true
+    exclude_paths:
+      - "packages/**"
     disable_rules:
       # eslint-plugin-es-x: forbids ES2015+ syntax (arrow functions, const, import, etc.)
       # Completely irrelevant for a modern TypeScript project targeting Node 24+
