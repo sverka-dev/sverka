@@ -4,24 +4,17 @@ import Base from "../layouts/Base.astro";
 const installCode = `bun add -g @sverka/cli`;
 const initCode = `cd your-project
 sverka init`;
-const runCode = `sverka run`;
-const planCode = `sverka plan --explain`;
-const compileGithubCode = `# GitHub Actions
-sverka compile --target github
+const runCode = `sverka execute`;
+const planCode = `sverka plan`;
+const workflowCode = `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
 
-# GitLab CI
-sverka compile --target gitlab`;
-const workflowCode = `import { pipeline, run, parallel } from "@sverka/sdk";
-import { build, lint, test, securityScan } from "@sverka/checks";
-
-export default pipeline("verify", async ({ run, parallel }) => {
-  const artifact = await run(build());
-
-  await parallel(
-    run(lint({ input: artifact })),
-    run(test({ input: artifact })),
-    run(securityScan({ input: artifact })),
-  );
+export default defineWorkflow({
+  name: "verify",
+  workflow: pipeline(
+    task("lint", run({ command: "bun", args: ["run", "lint"] })),
+    task("typecheck", run({ command: "bun", args: ["run", "typecheck"] })),
+    task("test", run({ command: "bun", args: ["run", "test"] })),
+  ),
 });`;
 ---
 
@@ -60,13 +53,6 @@ export default pipeline("verify", async ({ run, parallel }) => {
     <p>
       See what checks will run, in what order, and with what configuration —
       without executing anything.
-    </p>
-
-    <h2>Compile to CI</h2>
-    <pre><code set:html={compileGithubCode}></code></pre>
-    <p>
-      The same workflow that runs locally compiles to CI provider YAML.
-      The generated CI runs <code>sverka execute</code> with a locked plan.
     </p>
 
     <h2>Define a workflow</h2>
