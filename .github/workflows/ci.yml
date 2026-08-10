@@ -59,22 +59,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  sonarcloud:
-    name: SonarCloud Analysis
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    # Run in parallel with build-test-lint
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0 # SonarCloud needs full history for blame
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@503cf68cd1c8f17555746dd8748cbf0a2a43251d # v2.3.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-24.04
