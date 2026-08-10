@@ -1,5 +1,5 @@
-formula = "sverka-wave"
-description = "Execute a Sverka implementation wave: architect designs, builder implements, reviewer gates"
+formula = "wave"
+description = "Execute an implementation wave: architect designs, builder implements, reviewer gates"
 
 [requires]
 formula_compiler = ">=2.0.0"

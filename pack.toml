@@ -2,7 +2,6 @@
 name = "sverka"
 schema = 2
 
-[imports]
 [imports.bd]
 source = "https://github.com/gastownhall/gascity/tree/main/examples/bd"
 version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
@@ -10,22 +9,43 @@ version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
 source = "https://github.com/gastownhall/gascity/tree/main/internal/bootstrap/packs/core"
 version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
 
+# sverka-gc-pack — reusable SDD/TDD wave harness (mayor/architect/builder/reviewer + formulas)
+[imports.harness]
+source = "./pack"
+
+# Inject sverka project context into harness agents
+[[patches.agent]]
+name = "harness.mayor"
+append_fragments = ["project-context.md"]
+
+[[patches.agent]]
+name = "harness.architect"
+append_fragments = ["project-context.md"]
+
+[[patches.agent]]
+name = "harness.builder"
+append_fragments = ["project-context.md"]
+
+[[patches.agent]]
+name = "harness.reviewer"
+append_fragments = ["project-context.md"]
+
 # Mayor — always-on orchestrator that plans and dispatches all work
 [[named_session]]
-template = "mayor"
+template = "harness.mayor"
 mode = "always"
 
 # Architect — designs specs, plans waves, reviews structural decisions
 [[named_session]]
-template = "architect"
+template = "harness.architect"
 mode = "on_demand"
 
 # Builder — implements code from specs, TDD style
 [[named_session]]
-template = "builder"
+template = "harness.builder"
 mode = "on_demand"
 
 # Reviewer — reviews PRs, runs checks, gates quality
 [[named_session]]
-template = "reviewer"
+template = "harness.reviewer"
 mode = "on_demand"
