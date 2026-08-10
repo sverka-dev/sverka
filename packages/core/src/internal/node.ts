@@ -34,7 +34,10 @@ function makeNode(fields: NodeFields): OperationNode {
       makeNode({
         kind,
         spec,
-        predecessors: [...predecessors, ...(predecessorsToAdd as OperationNode[])],
+        predecessors: [
+          ...predecessors,
+          ...(predecessorsToAdd as OperationNode[]),
+        ],
         siblings,
       }),
     with: (...siblingsToAdd: Operation[]): Operation =>

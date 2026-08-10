@@ -46,7 +46,11 @@ export function matrixChildId(
 }
 
 function formatMatrixValue(v: unknown): string {
-  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+  if (
+    typeof v === "string" ||
+    typeof v === "number" ||
+    typeof v === "boolean"
+  ) {
     return String(v);
   }
   return String(v);
@@ -66,6 +70,8 @@ export function isKnownKind(kind: string): kind is OperationKind {
 }
 
 /** Public spec id helper — exposed for tests that build specs directly. */
-export function specId(spec: Readonly<Partial<OperationSpec>>): string | undefined {
+export function specId(
+  spec: Readonly<Partial<OperationSpec>>,
+): string | undefined {
   return spec.id;
 }

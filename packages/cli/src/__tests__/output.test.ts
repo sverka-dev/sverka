@@ -31,12 +31,7 @@ describe("CliError", () => {
 
   it("preserves cause when provided", () => {
     const inner = new Error("inner");
-    const err = new CliError(
-      "wrap",
-      "SDK_ERROR",
-      ExitCode.RuntimeError,
-      inner,
-    );
+    const err = new CliError("wrap", "SDK_ERROR", ExitCode.RuntimeError, inner);
     expect(err.cause).toBe(inner);
   });
 
@@ -120,7 +115,13 @@ describe("createOutputWriter", () => {
   it("does not write debug when not verbose", () => {
     const err: string[] = [];
     const w = createOutputWriter(
-      { format: "human", config: null, root: ".", quiet: false, verbose: false },
+      {
+        format: "human",
+        config: null,
+        root: ".",
+        quiet: false,
+        verbose: false,
+      },
       () => {},
       (s) => err.push(s),
     );

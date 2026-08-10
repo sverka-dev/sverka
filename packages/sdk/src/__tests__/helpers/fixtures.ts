@@ -2,12 +2,21 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pipeline, run, task, defineWorkflow, workflow, type WorkflowDefinition } from "../../index.js";
+import {
+  pipeline,
+  run,
+  task,
+  defineWorkflow,
+  workflow,
+  type WorkflowDefinition,
+} from "../../index.js";
 
 /**
  * Create a temporary directory and return its path. Clean up with cleanupTempDir.
  */
-export async function makeTempDir(prefix = "sverka-sdk-test-"): Promise<string> {
+export async function makeTempDir(
+  prefix = "sverka-sdk-test-",
+): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix));
 }
 

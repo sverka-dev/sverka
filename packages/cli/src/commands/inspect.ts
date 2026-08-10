@@ -28,7 +28,9 @@ export async function inspectCommand(
     output.writeLine(`  commit: ${context.commit}`);
     output.writeLine(`  dirty: ${context.dirty}`);
     output.writeLine(`  changed files: ${context.changedFiles.length}`);
-    output.writeLine(`  languages: ${context.languages.map((l) => l.name).join(", ") || "(none)"}`);
+    output.writeLine(
+      `  languages: ${context.languages.map((l) => l.name).join(", ") || "(none)"}`,
+    );
     output.writeLine(
       `  package managers: ${context.packageManagers.map((p) => p.name).join(", ") || "(none)"}`,
     );

@@ -74,7 +74,10 @@ describe("matrix validation (deferred to planning)", () => {
     expect(() => matrix({ node: [] }, run({ command: "test" }))).not.toThrow();
     // non-array value — also deferred
     expect(() =>
-      matrix({ node: "not-array" as unknown as readonly unknown[] }, run({ command: "test" })),
+      matrix(
+        { node: "not-array" as unknown as readonly unknown[] },
+        run({ command: "test" }),
+      ),
     ).not.toThrow();
   });
 

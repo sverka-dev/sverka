@@ -55,8 +55,20 @@ export interface DetectedLanguage {
 }
 
 export type PackageManagerName =
-  | "npm" | "yarn" | "pnpm" | "bun" | "pip" | "poetry" | "uv"
-  | "pipenv" | "cargo" | "go" | "maven" | "gradle" | "composer" | "other";
+  | "npm"
+  | "yarn"
+  | "pnpm"
+  | "bun"
+  | "pip"
+  | "poetry"
+  | "uv"
+  | "pipenv"
+  | "cargo"
+  | "go"
+  | "maven"
+  | "gradle"
+  | "composer"
+  | "other";
 
 export interface DetectedPackageManager {
   name: PackageManagerName;
@@ -66,7 +78,12 @@ export interface DetectedPackageManager {
 }
 
 export type MonorepoTool =
-  | "nx" | "turborepo" | "lerna" | "pnpm-workspace" | "bun-workspace" | "custom";
+  | "nx"
+  | "turborepo"
+  | "lerna"
+  | "pnpm-workspace"
+  | "bun-workspace"
+  | "custom";
 
 export interface MonorepoMarker {
   tool: MonorepoTool;
@@ -122,19 +139,30 @@ class PlannerImpl implements Planner {
   async discover(options: DiscoverOptions): Promise<ProjectContext> {
     const root = options.root;
     if (!existsSync(root)) {
-      throw new DiscoveryError(`root directory not found: ${root}`, "ROOT_NOT_FOUND");
+      throw new DiscoveryError(
+        `root directory not found: ${root}`,
+        "ROOT_NOT_FOUND",
+      );
     }
     try {
       await this.git.run(["--version"], root);
     } catch (err) {
-      throw new DiscoveryError("git is not installed or not on PATH", "GIT_UNAVAILABLE", err);
+      throw new DiscoveryError(
+        "git is not installed or not on PATH",
+        "GIT_UNAVAILABLE",
+        err,
+      );
     }
     let toplevel: string;
     try {
       const out = await this.git.run(["rev-parse", "--show-toplevel"], root);
       toplevel = out.trim();
     } catch (err) {
-      throw new DiscoveryError(`not a git repository: ${root}`, "GIT_NOT_A_REPO", err);
+      throw new DiscoveryError(
+        `not a git repository: ${root}`,
+        "GIT_NOT_A_REPO",
+        err,
+      );
     }
     let trackedRaw: string;
     let porcelainRaw: string;
@@ -142,7 +170,11 @@ class PlannerImpl implements Planner {
       trackedRaw = await this.git.run(["ls-files"], toplevel);
       porcelainRaw = await this.git.run(["status", "--porcelain"], toplevel);
     } catch (err) {
-      throw new DiscoveryError("filesystem traversal failed", "TRAVERSAL_FAILED", err);
+      throw new DiscoveryError(
+        "filesystem traversal failed",
+        "TRAVERSAL_FAILED",
+        err,
+      );
     }
     const tracked = trackedRaw.split("\n").filter(Boolean);
     const porcelain = porcelainRaw.split("\n").filter(Boolean);
@@ -266,16 +298,66 @@ interface PlanDriver {
 }
 
 const PLAN_DRIVERS: readonly PlanDriver[] = [
-  { checkId: "typecheck", reason: "Node project defaults", languages: ["TypeScript", "JavaScript"], packageManagers: ["npm", "yarn", "pnpm", "bun"] },
-  { checkId: "lint", reason: "Node project defaults", languages: ["TypeScript", "JavaScript"], packageManagers: ["npm", "yarn", "pnpm", "bun"] },
-  { checkId: "test", reason: "Node project defaults", languages: ["TypeScript", "JavaScript"], packageManagers: ["npm", "yarn", "pnpm", "bun"] },
-  { checkId: "lint", reason: "Python project defaults", languages: ["Python"], packageManagers: ["pip", "poetry", "uv", "pipenv"] },
-  { checkId: "test", reason: "Python project defaults", languages: ["Python"], packageManagers: ["pip", "poetry", "uv", "pipenv"] },
-  { checkId: "fmt-check", reason: "Rust project defaults", languages: ["Rust"], packageManagers: ["cargo"] },
-  { checkId: "clippy", reason: "Rust project defaults", languages: ["Rust"], packageManagers: ["cargo"] },
-  { checkId: "test", reason: "Rust project defaults", languages: ["Rust"], packageManagers: ["cargo"] },
-  { checkId: "vet", reason: "Go project defaults", languages: ["Go"], packageManagers: ["go"] },
-  { checkId: "test", reason: "Go project defaults", languages: ["Go"], packageManagers: ["go"] },
+  {
+    checkId: "typecheck",
+    reason: "Node project defaults",
+    languages: ["TypeScript", "JavaScript"],
+    packageManagers: ["npm", "yarn", "pnpm", "bun"],
+  },
+  {
+    checkId: "lint",
+    reason: "Node project defaults",
+    languages: ["TypeScript", "JavaScript"],
+    packageManagers: ["npm", "yarn", "pnpm", "bun"],
+  },
+  {
+    checkId: "test",
+    reason: "Node project defaults",
+    languages: ["TypeScript", "JavaScript"],
+    packageManagers: ["npm", "yarn", "pnpm", "bun"],
+  },
+  {
+    checkId: "lint",
+    reason: "Python project defaults",
+    languages: ["Python"],
+    packageManagers: ["pip", "poetry", "uv", "pipenv"],
+  },
+  {
+    checkId: "test",
+    reason: "Python project defaults",
+    languages: ["Python"],
+    packageManagers: ["pip", "poetry", "uv", "pipenv"],
+  },
+  {
+    checkId: "fmt-check",
+    reason: "Rust project defaults",
+    languages: ["Rust"],
+    packageManagers: ["cargo"],
+  },
+  {
+    checkId: "clippy",
+    reason: "Rust project defaults",
+    languages: ["Rust"],
+    packageManagers: ["cargo"],
+  },
+  {
+    checkId: "test",
+    reason: "Rust project defaults",
+    languages: ["Rust"],
+    packageManagers: ["cargo"],
+  },
+  {
+    checkId: "vet",
+    reason: "Go project defaults",
+    languages: ["Go"],
+    packageManagers: ["go"],
+  },
+  {
+    checkId: "test",
+    reason: "Go project defaults",
+    languages: ["Go"],
+    packageManagers: ["go"],
+  },
 ];
 
 function synthesizePlan(context: ProjectContext): PlanProposal {
@@ -285,9 +367,10 @@ function synthesizePlan(context: ProjectContext): PlanProposal {
   const checks: ProposedCheck[] = [];
   const seen = new Set<string>();
 
-  const manifestSignal = context.localSignals.find(
-    (s) => s.type === "manifest" || s.type === "lockfile",
-  ) ?? null;
+  const manifestSignal =
+    context.localSignals.find(
+      (s) => s.type === "manifest" || s.type === "lockfile",
+    ) ?? null;
   const signalRef = manifestSignal
     ? `${manifestSignal.type}:${manifestSignal.path}`
     : null;
@@ -300,16 +383,26 @@ function synthesizePlan(context: ProjectContext): PlanProposal {
     if (seen.has(key)) continue;
     seen.add(key);
     const id = `prop-${createHash("sha256").update(`${driver.checkId}${driver.reason}`).digest("hex").slice(0, 16)}`;
-    checks.push({ id, checkId: driver.checkId, reason: driver.reason, signalRef, priority: 2 });
+    checks.push({
+      id,
+      checkId: driver.checkId,
+      reason: driver.reason,
+      signalRef,
+      priority: 2,
+    });
   }
 
   if (checks.length === 0) {
-    notes.push("No default checks applied: no recognized languages or package managers detected.");
+    notes.push(
+      "No default checks applied: no recognized languages or package managers detected.",
+    );
   } else {
     const drivers: string[] = [];
     if (langNames.length) drivers.push(`languages=[${langNames.join(",")}]`);
     if (pmNames.length) drivers.push(`packageManagers=[${pmNames.join(",")}]`);
-    notes.push(`Selected ${checks.length} default checks from ${drivers.join(" ")}.`);
+    notes.push(
+      `Selected ${checks.length} default checks from ${drivers.join(" ")}.`,
+    );
   }
 
   return { context, checks, workflowPath: null, notes };

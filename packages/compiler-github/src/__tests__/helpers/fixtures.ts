@@ -42,17 +42,19 @@ export function makePlan(overrides: Partial<Plan> = {}): Plan {
 /**
  * Build a Plan with operations declaring the given credential envVars.
  */
-export function makePlanWithCredentials(
-  envVars: string[],
-): Plan {
+export function makePlanWithCredentials(envVars: string[]): Plan {
   const operations = envVars.map((envVar, i) =>
     makeOperation({
       id: `op-${i}`,
       name: `check-${i}`,
       credentials: [
-        { name: `cred-${i}`, envVar, required: true } satisfies CredentialDeclaration,
+        {
+          name: `cred-${i}`,
+          envVar,
+          required: true,
+        } satisfies CredentialDeclaration,
       ],
-    })
+    }),
   );
   return makePlan({ operations });
 }

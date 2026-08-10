@@ -2,10 +2,7 @@ import type { Plan, PlanOperation } from "@sverka/ir";
 import type { Executor, ExecuteRequest, ExecuteResult } from "./executor.js";
 import type { StateStore } from "./state-store.js";
 import type { CacheBackend, CacheKey } from "./cache.js";
-import type {
-  ExecutionResult,
-  OperationOutcome,
-} from "./result.js";
+import type { ExecutionResult, OperationOutcome } from "./result.js";
 import { SchedulerError, ExecutorError } from "./errors.js";
 import { topoSort, dependentsOf } from "./internal/topo.js";
 import { ResourcePool } from "./internal/resource-pool.js";
@@ -214,12 +211,18 @@ export class Scheduler {
       try {
         // Cache check.
         if (this.config.cache && op.cache) {
-          const cacheKey: CacheKey = { key: op.cache.key, inputs: op.cache.inputs };
+          const cacheKey: CacheKey = {
+            key: op.cache.key,
+            inputs: op.cache.inputs,
+          };
           try {
             const entry = await this.config.cache.get(cacheKey);
             if (entry) {
               try {
-                await this.config.cache.restore(cacheKey, this.config.workspace);
+                await this.config.cache.restore(
+                  cacheKey,
+                  this.config.workspace,
+                );
                 s.status = "success";
                 s.outcome = {
                   operationId: op.id,
@@ -297,7 +300,10 @@ export class Scheduler {
 
           // Cache store on success.
           if (this.config.cache && op.cache && outcome.status === "success") {
-            const cacheKey: CacheKey = { key: op.cache.key, inputs: op.cache.inputs };
+            const cacheKey: CacheKey = {
+              key: op.cache.key,
+              inputs: op.cache.inputs,
+            };
             try {
               await this.config.cache.store(cacheKey, this.config.workspace);
               await this.config.cache.put({
@@ -390,7 +396,10 @@ export class Scheduler {
     // Mark resume-skipped ops as success in outcomes (already done above).
     // Process until all ops are handled or cancelled.
     launchReady();
-    while (inflight.size > 0 || (index < order.length && !this.cancelled && !fatalFailure && !runError)) {
+    while (
+      inflight.size > 0 ||
+      (index < order.length && !this.cancelled && !fatalFailure && !runError)
+    ) {
       if (inflight.size === 0) {
         // No inflight but ops remain: either blocked or ready. Try launching.
         launchReady();
@@ -399,7 +408,12 @@ export class Scheduler {
           // remaining pending-but-cancelled and break.
           for (const id of order) {
             const s = states.get(id);
-            if (s && s.status === "pending" && !cancelledOps.has(id) && !skippedFromResume.has(id)) {
+            if (
+              s &&
+              s.status === "pending" &&
+              !cancelledOps.has(id) &&
+              !skippedFromResume.has(id)
+            ) {
               // Blocked by a cancelled/failed dep => cancel it.
               cancelledOps.add(id);
               s.status = "cancelled";
@@ -502,7 +516,10 @@ export class Scheduler {
   }
 
   private async loadState(planId: string): Promise<
-    | { completed: readonly string[]; outcomes: ReadonlyMap<string, OperationOutcome> }
+    | {
+        completed: readonly string[];
+        outcomes: ReadonlyMap<string, OperationOutcome>;
+      }
     | undefined
   > {
     if (!this.config.stateStore || !this.config.resume) return undefined;
@@ -570,7 +587,8 @@ export class Scheduler {
         const isTimeout = result.error?.includes("timeout") ?? false;
         const shouldRetry =
           attempt < maxAttempts &&
-          (retryOn.includes("failure") || (isTimeout && retryOn.includes("timeout")));
+          (retryOn.includes("failure") ||
+            (isTimeout && retryOn.includes("timeout")));
         if (!shouldRetry) {
           return toOutcome(op.id, result, false);
         }
@@ -588,7 +606,8 @@ export class Scheduler {
         const isTimeout = e instanceof Error && e.message.includes("timeout");
         const shouldRetry =
           attempt < maxAttempts &&
-          (retryOn.includes("failure") || (isTimeout && retryOn.includes("timeout")));
+          (retryOn.includes("failure") ||
+            (isTimeout && retryOn.includes("timeout")));
         if (!shouldRetry) {
           return {
             operationId: op.id,
@@ -650,7 +669,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function cancellableSleep(ms: number, scheduler: Scheduler): Promise<void> {
+async function cancellableSleep(
+  ms: number,
+  scheduler: Scheduler,
+): Promise<void> {
   const deadline = Date.now() + ms;
   // Poll every 10ms (or sooner) so cancel() is observed promptly.
   while (Date.now() < deadline) {

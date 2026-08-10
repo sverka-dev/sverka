@@ -12,16 +12,18 @@ import {
 
 // Mock the docker-cli seam so no real Docker daemon is needed.
 vi.mock("../internal/docker-cli.js", () => ({
-  runDocker: vi.fn(async (): Promise<{
-    stdout: string;
-    stderr: string;
-    exitCode: number;
-    timedOut?: boolean;
-  }> => ({
-    stdout: "hello\n",
-    stderr: "",
-    exitCode: 0,
-  })),
+  runDocker: vi.fn(
+    async (): Promise<{
+      stdout: string;
+      stderr: string;
+      exitCode: number;
+      timedOut?: boolean;
+    }> => ({
+      stdout: "hello\n",
+      stderr: "",
+      exitCode: 0,
+    }),
+  ),
 }));
 
 // Import the mocked module so tests can override per-test.
@@ -31,7 +33,11 @@ const mockedRunDocker = vi.mocked(runDocker);
 
 beforeEach(() => {
   mockedRunDocker.mockReset();
-  mockedRunDocker.mockResolvedValue({ stdout: "hello\n", stderr: "", exitCode: 0 });
+  mockedRunDocker.mockResolvedValue({
+    stdout: "hello\n",
+    stderr: "",
+    exitCode: 0,
+  });
 });
 
 // --- Slice D: canExecute ---
@@ -44,15 +50,17 @@ describe("DockerExecutor.canExecute", () => {
 
   it("returns false for host type", () => {
     const exec = new DockerExecutor(defaultConfig());
-    expect(
-      exec.canExecute(makeDockerOp({ executor: { type: "host" } })),
-    ).toBe(false);
+    expect(exec.canExecute(makeDockerOp({ executor: { type: "host" } }))).toBe(
+      false,
+    );
   });
 
   it("returns false for podman type", () => {
     const exec = new DockerExecutor(defaultConfig());
     expect(
-      exec.canExecute(makeDockerOp({ executor: { type: "podman", image: "node:24" } })),
+      exec.canExecute(
+        makeDockerOp({ executor: { type: "podman", image: "node:24" } }),
+      ),
     ).toBe(false);
   });
 
@@ -192,7 +200,9 @@ describe("DockerExecutor.buildDockerArgs — container policy", () => {
   it("appends command and args", () => {
     const op = makeDockerOp({ command: "echo", args: ["hi", "there"] });
     const args = exec.buildDockerArgs(makeRequest(op));
-    const imgIdx = args.indexOf("busybox:latest@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890");
+    const imgIdx = args.indexOf(
+      "busybox:latest@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+    );
     expect(args[imgIdx + 1]).toBe("echo");
     expect(args[imgIdx + 2]).toBe("hi");
     expect(args[imgIdx + 3]).toBe("there");
@@ -289,9 +299,7 @@ describe("DockerExecutor.buildEnv — secrets allowlist", () => {
 
   it("passes only declared credentials from request.credentials", () => {
     const op = makeDockerOp({
-      credentials: [
-        { name: "api-key", envVar: "API_KEY", required: true },
-      ],
+      credentials: [{ name: "api-key", envVar: "API_KEY", required: true }],
     });
     const env = exec.buildEnv(
       makeRequest(op, {
@@ -318,15 +326,15 @@ describe("DockerExecutor.buildEnv — secrets allowlist", () => {
       caught = e;
     }
     expect(caught).toBeInstanceOf(ContainerPolicyError);
-    expect((caught as ContainerPolicyError).code).toBe("CONTAINER_POLICY_VIOLATION");
+    expect((caught as ContainerPolicyError).code).toBe(
+      "CONTAINER_POLICY_VIOLATION",
+    );
     expect((caught as ContainerPolicyError).message).toContain("MY_SECRET");
   });
 
   it("allows secret-like env var when declared in credentials", () => {
     const op = makeDockerOp({
-      credentials: [
-        { name: "token", envVar: "API_TOKEN", required: true },
-      ],
+      credentials: [{ name: "token", envVar: "API_TOKEN", required: true }],
     });
     const env = exec.buildEnv(
       makeRequest(op, {

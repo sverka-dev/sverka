@@ -51,11 +51,7 @@ describe("compileGitlabCi — custom rules", () => {
 describe("compileGitlabCi — empty rules filtered", () => {
   it("filters out empty rule objects that would produce invalid GitLab YAML", () => {
     const yaml = compileGitlabCi(makePlan(), {
-      rules: [
-        { if: '$CI_COMMIT_BRANCH == "main"' },
-        {},
-        { when: "manual" },
-      ],
+      rules: [{ if: '$CI_COMMIT_BRANCH == "main"' }, {}, { when: "manual" }],
     });
     expect(yaml).toContain('$CI_COMMIT_BRANCH == "main"');
     expect(yaml).toContain("when: manual");

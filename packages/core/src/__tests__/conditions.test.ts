@@ -44,15 +44,23 @@ describe("evaluateCondition", () => {
   });
 
   it("!= is the negation of ==", () => {
-    expect(evaluateCondition("schedule != 'ci'", { schedule: "nightly" })).toBe(true);
-    expect(evaluateCondition("schedule != 'nightly'", { schedule: "nightly" })).toBe(false);
+    expect(evaluateCondition("schedule != 'ci'", { schedule: "nightly" })).toBe(
+      true,
+    );
+    expect(
+      evaluateCondition("schedule != 'nightly'", { schedule: "nightly" }),
+    ).toBe(false);
   });
 
   it("NOT > AND > OR precedence", () => {
     // a && b || !c  with a=true,b=false,c=false => (true && false) || (!false) => false || true => true
-    expect(evaluateCondition("a && b || !c", { a: true, b: false, c: false })).toBe(true);
+    expect(
+      evaluateCondition("a && b || !c", { a: true, b: false, c: false }),
+    ).toBe(true);
     // a && b || !c  with a=true,b=false,c=true  => (true && false) || (!true)  => false || false => false
-    expect(evaluateCondition("a && b || !c", { a: true, b: false, c: true })).toBe(false);
+    expect(
+      evaluateCondition("a && b || !c", { a: true, b: false, c: true }),
+    ).toBe(false);
   });
 
   it("NOT binds tighter than AND", () => {
@@ -73,7 +81,11 @@ describe("evaluateCondition", () => {
   });
 
   it("whitespace is tolerated", () => {
-    expect(evaluateCondition("  schedule   ==   'nightly'  ", { schedule: "nightly" })).toBe(true);
+    expect(
+      evaluateCondition("  schedule   ==   'nightly'  ", {
+        schedule: "nightly",
+      }),
+    ).toBe(true);
   });
 
   it("throws CompositionError on malformed expression", () => {
@@ -91,7 +103,9 @@ describe("evaluateCondition", () => {
     } catch (err) {
       expect(err).toBeInstanceOf(CompositionError);
       expect((err as CompositionError).code).toBe("COMPOSITION_ERROR");
-      expect((err as CompositionError).context).toMatchObject({ reason: expect.any(String) });
+      expect((err as CompositionError).context).toMatchObject({
+        reason: expect.any(String),
+      });
     }
   });
 });

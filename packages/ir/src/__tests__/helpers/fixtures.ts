@@ -60,7 +60,9 @@ export function validPlanBody(
 }
 
 /** A complete, valid Plan with the deterministic id and a fixed createdAt. */
-export function validPlan(overrides: Partial<Omit<Plan, "id" | "createdAt">> = {}): Plan {
+export function validPlan(
+  overrides: Partial<Omit<Plan, "id" | "createdAt">> = {},
+): Plan {
   const body = validPlanBody(overrides);
   const id = computePlanId(body);
   return { ...body, id, createdAt: "2026-01-01T00:00:00.000Z" };

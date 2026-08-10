@@ -36,10 +36,9 @@ describe("plan command", () => {
 
   it("--format json prints plan as JSON", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["plan", "--format", "json", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["plan", "--format", "json", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("plan");

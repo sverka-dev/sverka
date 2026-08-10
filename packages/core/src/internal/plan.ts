@@ -199,7 +199,13 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       newPreds.length === node.predecessors.length &&
       newPreds.every((p, i) => p === node.predecessors[i]);
     if (same) return node;
-    return makeNodeWith(node.kind, node.spec, newPreds, node.siblings, node._id);
+    return makeNodeWith(
+      node.kind,
+      node.spec,
+      newPreds,
+      node.siblings,
+      node._id,
+    );
   });
 
   return rewritten.filter((n) => !isArtifact(n));
@@ -227,14 +233,20 @@ function makeNodeWith(
 // ---------------------------------------------------------------------------
 
 /** Assign deterministic ids; reject duplicate user ids. */
-function assignIds(nodes: readonly OperationNode[]): Map<OperationNode, string> {
+function assignIds(
+  nodes: readonly OperationNode[],
+): Map<OperationNode, string> {
   const idMap = new Map<OperationNode, string>();
   const usedIds = new Set<string>();
   nodes.forEach((node, index) => {
     if (!isKnownKind(node.kind)) {
-      throw new CoreError(`unknown operation kind '${node.kind}'`, "UNKNOWN_KIND", {
-        kind: node.kind,
-      });
+      throw new CoreError(
+        `unknown operation kind '${node.kind}'`,
+        "UNKNOWN_KIND",
+        {
+          kind: node.kind,
+        },
+      );
     }
     const combo = (node as unknown as Record<string, unknown>).__matrixCombo as
       | readonly [string, unknown][]
@@ -276,9 +288,13 @@ function resolveEdges(
     const userDeps = node.spec.dependsOn ?? [];
     const resolvedDeps = node.predecessors.map((p) => idMap.get(p));
     if (resolvedDeps.some((d) => d === undefined)) {
-      throw new CompositionError("unresolved predecessor reference", { node: id });
+      throw new CompositionError("unresolved predecessor reference", {
+        node: id,
+      });
     }
-    const dependsOn = [...new Set([...userDeps, ...(resolvedDeps as string[])])];
+    const dependsOn = [
+      ...new Set([...userDeps, ...(resolvedDeps as string[])]),
+    ];
     result.set(node, buildSpec(node, id, dependsOn));
   }
   return result;
@@ -305,9 +321,13 @@ function buildSpec(
     ...(s.condition !== undefined ? { condition: s.condition } : {}),
     ...(s.cpuLimit !== undefined ? { cpuLimit: s.cpuLimit } : {}),
     ...(s.memoryLimit !== undefined ? { memoryLimit: s.memoryLimit } : {}),
-    ...(s.timeoutSeconds !== undefined ? { timeoutSeconds: s.timeoutSeconds } : {}),
+    ...(s.timeoutSeconds !== undefined
+      ? { timeoutSeconds: s.timeoutSeconds }
+      : {}),
     ...(s.retries !== undefined ? { retries: s.retries } : {}),
-    ...(s.continueOnError !== undefined ? { continueOnError: s.continueOnError } : {}),
+    ...(s.continueOnError !== undefined
+      ? { continueOnError: s.continueOnError }
+      : {}),
     ...(s.cache !== undefined ? { cache: s.cache } : {}),
     ...(s.artifacts !== undefined ? { artifacts: s.artifacts } : {}),
     ...(s.network !== undefined ? { network: s.network } : {}),
@@ -365,7 +385,9 @@ function topoSort(specs: Map<OperationNode, OperationSpec>): OperationSpec[] {
       }
     }
   }
-  const queue = all.filter((s) => (indegree.get(s.id) ?? 0) === 0).map((s) => s.id);
+  const queue = all
+    .filter((s) => (indegree.get(s.id) ?? 0) === 0)
+    .map((s) => s.id);
   const ordered: OperationSpec[] = [];
   while (queue.length > 0) {
     const id = queue.shift()!;

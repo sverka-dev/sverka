@@ -53,14 +53,21 @@ describe("topoSort", () => {
     const ops = [
       op("root"),
       op("normal-child", ["root"]),
-      validOperation({ id: "crit-child", name: "crit-child", dependsOn: ["root"], tags: ["critical"] }),
+      validOperation({
+        id: "crit-child",
+        name: "crit-child",
+        dependsOn: ["root"],
+        tags: ["critical"],
+      }),
     ];
     const r = topoSort(ops);
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.order[0]).toBe("root");
       // crit-child before normal-child among ready siblings.
-      expect(r.order.indexOf("crit-child")).toBeLessThan(r.order.indexOf("normal-child"));
+      expect(r.order.indexOf("crit-child")).toBeLessThan(
+        r.order.indexOf("normal-child"),
+      );
     }
   });
 

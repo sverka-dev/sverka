@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { Scheduler } from "../scheduler.js";
-import type { SchedulerConfig, CacheBackend, CacheKey, CacheEntry } from "../index.js";
+import type {
+  SchedulerConfig,
+  CacheBackend,
+  CacheKey,
+  CacheEntry,
+} from "../index.js";
 import {
   MockExecutor,
   op,
@@ -45,7 +50,10 @@ function baseConfig(
   };
 }
 
-function cachedOp(id: string, dependsOn: readonly string[] = []): ReturnType<typeof validOperation> {
+function cachedOp(
+  id: string,
+  dependsOn: readonly string[] = [],
+): ReturnType<typeof validOperation> {
   return validOperation({
     id,
     name: id,
@@ -65,9 +73,9 @@ describe("Scheduler — cache reuse", () => {
       createdAt: new Date().toISOString(),
     });
     const plan = planFromOps([cachedOp("a")]);
-    const result = await new Scheduler(
-      baseConfig([exec], { cache }),
-    ).execute(plan);
+    const result = await new Scheduler(baseConfig([exec], { cache })).execute(
+      plan,
+    );
     expect(result.status).toBe("success");
     expect(result.outcomes.get("a")?.fromCache).toBe(true);
     expect(result.outcomes.get("a")?.status).toBe("success");
@@ -80,9 +88,9 @@ describe("Scheduler — cache reuse", () => {
     });
     const cache = new MemoryCache();
     const plan = planFromOps([cachedOp("a")]);
-    const result = await new Scheduler(
-      baseConfig([exec], { cache }),
-    ).execute(plan);
+    const result = await new Scheduler(baseConfig([exec], { cache })).execute(
+      plan,
+    );
     expect(result.status).toBe("success");
     expect(result.outcomes.get("a")?.fromCache).toBe(false);
     expect(exec.calls.length).toBe(1);

@@ -23,10 +23,7 @@ export interface MainDeps {
  * @param argv Command-line arguments (excluding node and script path).
  * @returns Exit code (0 = success, 1 = policy fail, 2 = usage error, 3 = runtime error).
  */
-export async function main(
-  argv: string[],
-  deps?: MainDeps,
-): Promise<number> {
+export async function main(argv: string[], deps?: MainDeps): Promise<number> {
   const start = Date.now();
 
   // Output writer: injected (tests) or console (production).
@@ -63,18 +60,19 @@ export async function main(
 
   // Re-create output writer with actual parsed flags (so quiet/verbose/format
   // are respected). If deps injected a writer, wrap it with flag semantics.
-  const realOutput =
-    deps?.output
-      ? wrapOutputWriter(global, deps.output)
-      : createOutputWriter(
-          global,
-          (s) => process.stdout.write(s),
-          (s) => process.stderr.write(s),
-        );
+  const realOutput = deps?.output
+    ? wrapOutputWriter(global, deps.output)
+    : createOutputWriter(
+        global,
+        (s) => process.stdout.write(s),
+        (s) => process.stderr.write(s),
+      );
 
   const command = String(parsed._[0] ?? "");
 
-  realOutput.debug(`sverka: command=${command} root=${global.root} format=${global.format}`);
+  realOutput.debug(
+    `sverka: command=${command} root=${global.root} format=${global.format}`,
+  );
 
   try {
     return await dispatch(command, parsed, global, realOutput, start);
@@ -109,30 +107,24 @@ function buildParser(): Argv {
     .command("plan", "Synthesize a plan without executing", (y) =>
       y.option("only-new", { type: "boolean", default: false }),
     )
-    .command(
-      ["execute", "run"],
-      "Execute the workflow locally",
-      (y) =>
-        y
-          .option("executor", {
-            type: "string",
-            default: "host",
-            choices: ["host", "docker"],
-          })
-          .option("only-new", { type: "boolean", default: false })
-          .option("baseline", { type: "string" }),
+    .command(["execute", "run"], "Execute the workflow locally", (y) =>
+      y
+        .option("executor", {
+          type: "string",
+          default: "host",
+          choices: ["host", "docker"],
+        })
+        .option("only-new", { type: "boolean", default: false })
+        .option("baseline", { type: "string" }),
     )
     .command("validate", "Validate a sverka.config.ts without executing")
-    .command(
-      "baseline",
-      "Manage the findings baseline",
-      (y) =>
-        y
-          .command("create", "Create a baseline from execution")
-          .command("update", "Update the baseline")
-          .command("show", "Display the baseline")
-          .command("clear", "Remove the baseline file")
-          .option("baseline", { type: "string" }),
+    .command("baseline", "Manage the findings baseline", (y) =>
+      y
+        .command("create", "Create a baseline from execution")
+        .command("update", "Update the baseline")
+        .command("show", "Display the baseline")
+        .command("clear", "Remove the baseline file")
+        .option("baseline", { type: "string" }),
     )
     .command("doctor", "Diagnose environment and dependencies")
     .demandCommand(1, "No command given")
@@ -154,7 +146,8 @@ async function dispatch(
     case "init":
       return initCommand(
         {
-          template: typeof parsed.template === "string" ? parsed.template : undefined,
+          template:
+            typeof parsed.template === "string" ? parsed.template : undefined,
           force: Boolean(parsed.force),
         },
         global,
@@ -174,9 +167,11 @@ async function dispatch(
     case "run":
       return executeCommand(
         {
-          executor: typeof parsed.executor === "string" ? parsed.executor : "host",
+          executor:
+            typeof parsed.executor === "string" ? parsed.executor : "host",
           onlyNew: Boolean(parsed["only-new"]),
-          baseline: typeof parsed.baseline === "string" ? parsed.baseline : undefined,
+          baseline:
+            typeof parsed.baseline === "string" ? parsed.baseline : undefined,
         },
         global,
         output,
@@ -187,7 +182,11 @@ async function dispatch(
     case "baseline": {
       const sub = String(parsed._[1] ?? "");
       return baselineCommand(
-        { subcommand: sub, baselinePath: typeof parsed.baseline === "string" ? parsed.baseline : undefined },
+        {
+          subcommand: sub,
+          baselinePath:
+            typeof parsed.baseline === "string" ? parsed.baseline : undefined,
+        },
         global,
         output,
         start,
@@ -204,11 +203,7 @@ async function dispatch(
   }
 }
 
-function handleError(
-  e: unknown,
-  output: OutputWriter,
-  _start: number,
-): number {
+function handleError(e: unknown, output: OutputWriter, _start: number): number {
   if (e instanceof CliError) {
     output.errorLine(`error: ${e.message}`);
     return e.exitCode;

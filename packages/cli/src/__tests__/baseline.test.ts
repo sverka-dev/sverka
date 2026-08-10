@@ -35,10 +35,9 @@ export default defineWorkflow({
 
   it("create creates a baseline from execution", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "create", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["baseline", "create", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     expect(existsSync(join(dir, ".sverka", "baseline.json"))).toBe(true);
   });
@@ -48,10 +47,9 @@ export default defineWorkflow({
       output: new CaptureWriter(),
     });
     const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "show", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["baseline", "show", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("Baseline:");
     expect(out.stdoutText).toContain("fingerprints:");
@@ -62,10 +60,9 @@ export default defineWorkflow({
       output: new CaptureWriter(),
     });
     const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "update", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["baseline", "update", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("updated");
   });
@@ -76,20 +73,18 @@ export default defineWorkflow({
     });
     expect(existsSync(join(dir, ".sverka", "baseline.json"))).toBe(true);
     const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "clear", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["baseline", "clear", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     expect(existsSync(join(dir, ".sverka", "baseline.json"))).toBe(false);
   });
 
   it("clear is idempotent when no baseline exists", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "clear", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["baseline", "clear", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
   });
 
@@ -100,10 +95,9 @@ export default defineWorkflow({
     await mkdir(baselinePath);
     expect(existsSync(baselinePath)).toBe(true);
     const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "clear", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["baseline", "clear", "--root", dir], {
+      output: out,
+    });
     expect(code).not.toBe(0);
     expect(out.stderrText).toContain("error:");
   });
@@ -144,20 +138,18 @@ export default defineWorkflow({
     await mkdir(join(dir, ".sverka"), { recursive: true });
     await writeFile(join(dir, ".sverka", "baseline.json"), "{}", "utf8");
     const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "clear", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["baseline", "clear", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     expect(existsSync(join(dir, ".sverka", "baseline.json"))).toBe(false);
   });
 
   it("unknown subcommand exits with 2", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "frobnicate", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["baseline", "frobnicate", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(2);
   });
 });

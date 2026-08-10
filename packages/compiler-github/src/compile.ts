@@ -46,7 +46,9 @@ function buildTriggers(triggers?: GithubTriggers): Record<string, unknown> {
  * Build the `permissions:` section. Converts camelCase keys to kebab-case
  * for GitHub Actions YAML (e.g. securityEvents → security-events).
  */
-function buildPermissions(permissions?: GithubPermissions): Record<string, string> {
+function buildPermissions(
+  permissions?: GithubPermissions,
+): Record<string, string> {
   const source = permissions ?? { contents: "read" as const };
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(source)) {

@@ -130,16 +130,28 @@ export async function loadBaseline(path: string): Promise<Baseline> {
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err.code === "ENOENT") {
-      throw new BaselineError(`baseline file not found: ${path}`, "BASELINE_NOT_FOUND", e);
+      throw new BaselineError(
+        `baseline file not found: ${path}`,
+        "BASELINE_NOT_FOUND",
+        e,
+      );
     }
-    throw new BaselineError(`cannot read baseline file: ${path}`, "BASELINE_INVALID", e);
+    throw new BaselineError(
+      `cannot read baseline file: ${path}`,
+      "BASELINE_INVALID",
+      e,
+    );
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    throw new BaselineError("baseline file is not valid JSON", "BASELINE_INVALID", e);
+    throw new BaselineError(
+      "baseline file is not valid JSON",
+      "BASELINE_INVALID",
+      e,
+    );
   }
 
   const obj = parsed as Record<string, unknown>;

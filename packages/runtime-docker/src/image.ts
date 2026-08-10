@@ -33,7 +33,10 @@ export async function verifyImageDigest(
   // Image not present locally — pull then re-inspect.
   if (inspectResult.exitCode !== 0) {
     await runDocker(["pull", image], opts);
-    inspectResult = await runDocker(["inspect", "--format={{.Id}}", image], opts);
+    inspectResult = await runDocker(
+      ["inspect", "--format={{.Id}}", image],
+      opts,
+    );
   }
 
   const actualDigest = inspectResult.stdout.trim();

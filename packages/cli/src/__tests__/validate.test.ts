@@ -94,10 +94,9 @@ export default defineWorkflow({
 `,
     );
     const out = new CaptureWriter();
-    const code = await main(
-      ["validate", "--format", "json", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["validate", "--format", "json", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("validate");

@@ -50,7 +50,10 @@ describe("Runtime modes", () => {
 
   it("skipped condition: evaluate is NOT called, status is 'skipped'", async () => {
     const evaluated: string[] = [];
-    const nightly = when("schedule == 'nightly'", run({ command: "full-scan" }));
+    const nightly = when(
+      "schedule == 'nightly'",
+      run({ command: "full-scan" }),
+    );
     const wf = workflow("cond", nightly);
     const result = await wf.plan(
       makeExecuteRuntime({ schedule: "ci" }, (spec) => {
@@ -66,7 +69,10 @@ describe("Runtime modes", () => {
 
   it("included condition: evaluate IS called", async () => {
     const evaluated: string[] = [];
-    const nightly = when("schedule == 'nightly'", run({ command: "full-scan" }));
+    const nightly = when(
+      "schedule == 'nightly'",
+      run({ command: "full-scan" }),
+    );
     const wf = workflow("cond-in", nightly);
     await wf.plan(
       makeExecuteRuntime({ schedule: "nightly" }, (spec) => {

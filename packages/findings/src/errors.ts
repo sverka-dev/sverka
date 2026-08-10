@@ -5,11 +5,7 @@
 export class NormalizationError extends Error {
   readonly code: NormalizationErrorCode;
   override readonly cause: unknown;
-  constructor(
-    message: string,
-    code: NormalizationErrorCode,
-    cause?: unknown,
-  ) {
+  constructor(message: string, code: NormalizationErrorCode, cause?: unknown) {
     super(message);
     this.name = "NormalizationError";
     this.code = code;

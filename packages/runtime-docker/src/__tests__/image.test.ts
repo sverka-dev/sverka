@@ -26,7 +26,9 @@ describe("verifyImageDigest", () => {
       stderr: "",
       exitCode: 0,
     });
-    await expect(verifyImageDigest(image, digest, config)).resolves.toBeUndefined();
+    await expect(
+      verifyImageDigest(image, digest, config),
+    ).resolves.toBeUndefined();
     // Should have called docker inspect only (no pull).
     expect(mockedRunDocker).toHaveBeenCalledTimes(1);
     const callArgs = mockedRunDocker.mock.calls[0]?.[0];
@@ -42,7 +44,9 @@ describe("verifyImageDigest", () => {
     await expect(verifyImageDigest(image, digest, config)).rejects.toThrow(
       ImageDigestError,
     );
-    await expect(verifyImageDigest(image, digest, config)).rejects.toMatchObject({
+    await expect(
+      verifyImageDigest(image, digest, config),
+    ).rejects.toMatchObject({
       code: "IMAGE_DIGEST_MISMATCH",
       context: { image, expected: digest, actual: "sha256:wrongdigest" },
     });
@@ -66,7 +70,9 @@ describe("verifyImageDigest", () => {
         stderr: "",
         exitCode: 0,
       });
-    await expect(verifyImageDigest(image, digest, config)).resolves.toBeUndefined();
+    await expect(
+      verifyImageDigest(image, digest, config),
+    ).resolves.toBeUndefined();
     expect(mockedRunDocker).toHaveBeenCalledTimes(3);
     expect(mockedRunDocker.mock.calls[0]?.[0]?.[0]).toBe("inspect");
     expect(mockedRunDocker.mock.calls[1]?.[0]?.[0]).toBe("pull");

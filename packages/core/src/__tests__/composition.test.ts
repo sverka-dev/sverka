@@ -15,7 +15,10 @@ describe("concatDedupe", () => {
 
 describe("mergeSpecs", () => {
   it("scalar fields: b wins when defined", () => {
-    const merged = mergeSpecs({ command: "a", image: "node:20" }, { command: "b" });
+    const merged = mergeSpecs(
+      { command: "a", image: "node:20" },
+      { command: "b" },
+    );
     expect(merged.command).toBe("b");
     expect(merged.image).toBe("node:20");
   });
@@ -28,7 +31,10 @@ describe("mergeSpecs", () => {
   });
 
   it("dependsOn is concatenated and deduplicated", () => {
-    const merged = mergeSpecs({ dependsOn: ["a", "b"] }, { dependsOn: ["b", "c"] });
+    const merged = mergeSpecs(
+      { dependsOn: ["a", "b"] },
+      { dependsOn: ["b", "c"] },
+    );
     expect(merged.dependsOn).toEqual(["a", "b", "c"]);
   });
 

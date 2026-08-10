@@ -1,11 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { join } from "node:path";
-import {
-  SdkError,
-  loadWorkflow,
-  createSverka,
-  execute,
-} from "../index.js";
+import { SdkError, loadWorkflow, createSverka, execute } from "../index.js";
 import {
   makeTempDir,
   makeTempGitRepo,

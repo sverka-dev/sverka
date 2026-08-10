@@ -70,12 +70,18 @@ async function baselineCreate(
     output.writeLine(
       JSON.stringify({
         command: "baseline",
-        data: { action: "create", path, fingerprints: baseline.fingerprints.length },
+        data: {
+          action: "create",
+          path,
+          fingerprints: baseline.fingerprints.length,
+        },
         durationMs,
       }),
     );
   } else {
-    output.writeLine(`Baseline created: ${path} (${baseline.fingerprints.length} fingerprints)`);
+    output.writeLine(
+      `Baseline created: ${path} (${baseline.fingerprints.length} fingerprints)`,
+    );
   }
   return ExitCode.Success;
 }
@@ -103,12 +109,18 @@ async function baselineUpdate(
     output.writeLine(
       JSON.stringify({
         command: "baseline",
-        data: { action: "update", path, fingerprints: updated.fingerprints.length },
+        data: {
+          action: "update",
+          path,
+          fingerprints: updated.fingerprints.length,
+        },
         durationMs,
       }),
     );
   } else {
-    output.writeLine(`Baseline updated: ${path} (${updated.fingerprints.length} fingerprints)`);
+    output.writeLine(
+      `Baseline updated: ${path} (${updated.fingerprints.length} fingerprints)`,
+    );
   }
   return ExitCode.Success;
 }

@@ -26,19 +26,23 @@ export function makeRuntime(opts: {
     ...(opts.context !== undefined ? { context: opts.context } : {}),
     async evaluate(operation: OperationSpec): Promise<OperationOutcome> {
       evaluated.push(operation);
-      const outcome: OperationOutcome =
-        opts.onEvaluate?.(operation) ?? {
-          operationId: operation.id,
-          status: mode === "plan" ? "planned" : "success",
-          durationMs: 0,
-        };
+      const outcome: OperationOutcome = opts.onEvaluate?.(operation) ?? {
+        operationId: operation.id,
+        status: mode === "plan" ? "planned" : "success",
+        durationMs: 0,
+      };
       outcomes.push(outcome);
       return outcome;
     },
     async finalize(): Promise<RuntimeResult> {
       const artifacts =
         mode === "compile"
-          ? [{ name: "compiled", content: evaluated.map((o) => o.id).join("\n") }]
+          ? [
+              {
+                name: "compiled",
+                content: evaluated.map((o) => o.id).join("\n"),
+              },
+            ]
           : undefined;
       return {
         mode,
@@ -52,7 +56,10 @@ export function makeRuntime(opts: {
 
 /** A minimal plan-mode runtime (no side effects, records operations). */
 export function makePlanRuntime(context?: PlanContext): Runtime {
-  return makeRuntime({ mode: "plan", ...(context !== undefined ? { context } : {}) });
+  return makeRuntime({
+    mode: "plan",
+    ...(context !== undefined ? { context } : {}),
+  });
 }
 
 /** An execution-mode runtime that records evaluate calls. */
@@ -69,5 +76,8 @@ export function makeExecuteRuntime(
 
 /** A compile-mode runtime that emits a string artifact. */
 export function makeCompileRuntime(context?: PlanContext): Runtime {
-  return makeRuntime({ mode: "compile", ...(context !== undefined ? { context } : {}) });
+  return makeRuntime({
+    mode: "compile",
+    ...(context !== undefined ? { context } : {}),
+  });
 }

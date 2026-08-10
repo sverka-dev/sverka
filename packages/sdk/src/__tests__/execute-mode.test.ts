@@ -1,6 +1,11 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { execute, createSverka } from "../index.js";
-import { makeTempGitRepo, cleanupTempDir, writeSimpleConfig, writeFailingConfig } from "./helpers/fixtures.js";
+import {
+  makeTempGitRepo,
+  cleanupTempDir,
+  writeSimpleConfig,
+  writeFailingConfig,
+} from "./helpers/fixtures.js";
 
 describe("execute mode", () => {
   const dirs: string[] = [];

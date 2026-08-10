@@ -50,31 +50,126 @@ interface TableEntry {
  */
 const TABLE: readonly TableEntry[] = [
   // Node — typecheck
-  { checkId: "typecheck", packageManagers: ["bun"], command: "bun", args: ["run", "typecheck"] },
-  { checkId: "typecheck", packageManagers: ["npm"], command: "npm", args: ["run", "typecheck"] },
-  { checkId: "typecheck", packageManagers: ["yarn"], command: "yarn", args: ["run", "typecheck"] },
-  { checkId: "typecheck", packageManagers: ["pnpm"], command: "pnpm", args: ["run", "typecheck"] },
+  {
+    checkId: "typecheck",
+    packageManagers: ["bun"],
+    command: "bun",
+    args: ["run", "typecheck"],
+  },
+  {
+    checkId: "typecheck",
+    packageManagers: ["npm"],
+    command: "npm",
+    args: ["run", "typecheck"],
+  },
+  {
+    checkId: "typecheck",
+    packageManagers: ["yarn"],
+    command: "yarn",
+    args: ["run", "typecheck"],
+  },
+  {
+    checkId: "typecheck",
+    packageManagers: ["pnpm"],
+    command: "pnpm",
+    args: ["run", "typecheck"],
+  },
   // Node — lint
-  { checkId: "lint", packageManagers: ["bun"], command: "bun", args: ["run", "lint"] },
-  { checkId: "lint", packageManagers: ["npm"], command: "npm", args: ["run", "lint"] },
-  { checkId: "lint", packageManagers: ["yarn"], command: "yarn", args: ["run", "lint"] },
-  { checkId: "lint", packageManagers: ["pnpm"], command: "pnpm", args: ["run", "lint"] },
+  {
+    checkId: "lint",
+    packageManagers: ["bun"],
+    command: "bun",
+    args: ["run", "lint"],
+  },
+  {
+    checkId: "lint",
+    packageManagers: ["npm"],
+    command: "npm",
+    args: ["run", "lint"],
+  },
+  {
+    checkId: "lint",
+    packageManagers: ["yarn"],
+    command: "yarn",
+    args: ["run", "lint"],
+  },
+  {
+    checkId: "lint",
+    packageManagers: ["pnpm"],
+    command: "pnpm",
+    args: ["run", "lint"],
+  },
   // Node — test
-  { checkId: "test", packageManagers: ["bun"], command: "bun", args: ["run", "test"] },
-  { checkId: "test", packageManagers: ["npm"], command: "npm", args: ["run", "test"] },
-  { checkId: "test", packageManagers: ["yarn"], command: "yarn", args: ["run", "test"] },
-  { checkId: "test", packageManagers: ["pnpm"], command: "pnpm", args: ["run", "test"] },
+  {
+    checkId: "test",
+    packageManagers: ["bun"],
+    command: "bun",
+    args: ["run", "test"],
+  },
+  {
+    checkId: "test",
+    packageManagers: ["npm"],
+    command: "npm",
+    args: ["run", "test"],
+  },
+  {
+    checkId: "test",
+    packageManagers: ["yarn"],
+    command: "yarn",
+    args: ["run", "test"],
+  },
+  {
+    checkId: "test",
+    packageManagers: ["pnpm"],
+    command: "pnpm",
+    args: ["run", "test"],
+  },
   // Python — lint
-  { checkId: "lint", packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "ruff", args: ["check"] },
+  {
+    checkId: "lint",
+    packageManagers: ["pip", "poetry", "uv", "pipenv"],
+    command: "ruff",
+    args: ["check"],
+  },
   // Python — test
-  { checkId: "test", packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "pytest", args: [] },
+  {
+    checkId: "test",
+    packageManagers: ["pip", "poetry", "uv", "pipenv"],
+    command: "pytest",
+    args: [],
+  },
   // Rust
-  { checkId: "clippy", packageManagers: ["cargo"], command: "cargo", args: ["clippy"] },
-  { checkId: "fmt-check", packageManagers: ["cargo"], command: "cargo", args: ["fmt", "--check"] },
-  { checkId: "test", packageManagers: ["cargo"], command: "cargo", args: ["test"] },
+  {
+    checkId: "clippy",
+    packageManagers: ["cargo"],
+    command: "cargo",
+    args: ["clippy"],
+  },
+  {
+    checkId: "fmt-check",
+    packageManagers: ["cargo"],
+    command: "cargo",
+    args: ["fmt", "--check"],
+  },
+  {
+    checkId: "test",
+    packageManagers: ["cargo"],
+    command: "cargo",
+    args: ["test"],
+  },
   // Go
-  { checkId: "vet", packageManagers: ["go"], command: "go", args: ["vet", "./..."] },
-  { checkId: "test", packageManagers: ["go"], command: "go", args: ["test", "./..."] },
+  {
+    checkId: "vet",
+    packageManagers: ["go"],
+    command: "go",
+    args: ["vet", "./..."],
+  },
+  {
+    checkId: "test",
+    packageManagers: ["go"],
+    command: "go",
+    args: ["test", "./..."],
+  },
 ];
 
 /**

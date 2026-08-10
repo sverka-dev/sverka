@@ -17,7 +17,8 @@ export function parallel(...operations: Operation[]): Operation {
   const join: OperationNode = createNode("custom", {
     name: "parallel-join",
     [JOIN_MARKER]: true,
-  } as Partial<import("../operation.js").OperationSpec> & Record<typeof JOIN_MARKER, true>);
+  } as Partial<import("../operation.js").OperationSpec> &
+    Record<typeof JOIN_MARKER, true>);
   if (operations.length === 0) return join;
   return join.with(...operations);
 }
