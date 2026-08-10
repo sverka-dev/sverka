@@ -29,7 +29,7 @@ export function assignId(
 
 function derivedBase(node: OperationNode, index: number): string {
   const { kind, spec } = node;
-  const name = spec.name ?? spec.command ?? String(index);
+  const name = spec.name || spec.command || String(index);
   return `${kind}:${name}`;
 }
 
@@ -46,10 +46,10 @@ export function matrixChildId(
 }
 
 function formatMatrixValue(v: unknown): string {
-  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
-    return String(v);
-  }
-  return String(v);
+  if (typeof v === "string") return `s:${v}`;
+  if (typeof v === "number") return `n:${String(v)}`;
+  if (typeof v === "boolean") return `b:${String(v)}`;
+  return `u:${String(v)}`;
 }
 
 /** Validate that a kind is a known {@link OperationKind}. */

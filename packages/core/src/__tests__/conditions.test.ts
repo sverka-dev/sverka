@@ -84,7 +84,7 @@ describe("evaluateCondition", () => {
     expect(() => evaluateCondition("'unclosed", {})).toThrow(CompositionError);
   });
 
-  it("malformed error has code INVALID_CONDITION", () => {
+  it("malformed error has code COMPOSITION_ERROR", () => {
     try {
       evaluateCondition("!!!", {});
       throw new Error("should have thrown");
