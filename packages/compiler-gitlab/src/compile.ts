@@ -22,21 +22,23 @@ export function compileGitlabCi(
   config?: GitlabCompilerConfig,
 ): string {
   void plan; // accepted for API consistency; thin wrapper ignores contents
-  const image = config?.image ?? "node:24";
+  const image = config?.image ?? "oven/bun:latest";
   const sverkaVersion = config?.sverkaVersion ?? "latest";
   const rules = config?.rules ?? DEFAULT_RULES;
 
   const job: Record<string, unknown> = {
     stage: "verify",
     image,
-    rules: rules.map((r) => {
-      const entry: Record<string, unknown> = {};
-      if (r.if !== undefined) entry.if = r.if;
-      if (r.when !== undefined) entry.when = r.when;
-      return entry;
-    }),
+    rules: rules
+      .filter((r) => r.if !== undefined || r.when !== undefined)
+      .map((r) => {
+        const entry: Record<string, unknown> = {};
+        if (r.if !== undefined) entry.if = r.if;
+        if (r.when !== undefined) entry.when = r.when;
+        return entry;
+      }),
     before_script: [`bun install -g sverka@${sverkaVersion}`],
-    script: ["sverka execute .sverka/plan.json"],
+    script: ["sverka execute"],
     artifacts: { when: "always", paths: [".sverka/output/"] },
   };
 
