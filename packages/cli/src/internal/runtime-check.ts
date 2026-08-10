@@ -8,6 +8,7 @@ export function isBinaryAvailable(binary: string): boolean {
   const result = spawnSync(binary, ["--version"], {
     stdio: ["ignore", "pipe", "ignore"],
     encoding: "utf8",
+    timeout: 5000,
   });
   return result.status === 0 && result.error === undefined;
 }
