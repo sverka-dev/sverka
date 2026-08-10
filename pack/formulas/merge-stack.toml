@@ -1,0 +1,117 @@
+formula = "merge-stack"
+description = "Merge a stack of PRs bottom-up: /act each PR until clean, merge, retrospect, advance to next, until main"
+
+[requires]
+formula_compiler = ">=2.0.0"
+
+[[steps]]
+id = "discover"
+title = "Mayor: discover the PR stack"
+description = """
+The mayor discovers the open PR stack by querying `gh pr list --state open`
+and building the dependency chain from base/head ref names. The bottom-most
+PR (base = main) is the first to merge. The top-most PR is the last.
+
+Output: ordered list of PR numbers [bottom, ..., top] with their
+head/base refs. The mayor records this as the merge plan.
+"""
+agent = "mayor"
+
+[[steps]]
+id = "act-loop"
+title = "Builder: /act --loop on current PR until merge-ready"
+description = """
+The builder runs `/act --loop` on the current (bottom-most unmerged) PR.
+
+The /act loop MUST converge before merge. Convergence requires ALL:
+1. open_threads == 0 (all review threads resolved)
+2. CI_REQUIRED_PENDING == 0 (all required CI checks pass)
+3. SAST_FINDINGS_PENDING == 0 (no unresolved security/quality findings)
+4. No new bot comments appeared in the last CI run (bot count stable)
+5. PR is mergeable (no conflicts, branch up to date with base)
+6. Quality gates passed (coverage, code quality — if configured)
+7. CodeRabbit review triggered and completed (click checkbox after each push)
+
+CodeRabbit trigger is MANDATORY after every push. CodeRabbit does not
+auto-review non-default branches. Without triggering, review threads
+stay stale and convergence check #4 is meaningless.
+
+PREREQUISITE: Before /act, check if the PR needs rebase:
+  gh pr view <N> --json mergeable --jq '.mergeable'
+If mergeable != 'MERGEABLE', rebase first:
+  git rebase origin/<base> && git push --force-with-lease
+
+If /act cannot converge (context limit, unfixable issue), the builder
+reports back to the mayor with a blocker report. The mayor decides:
+retry with fresh context, or escalate to human.
+"""
+needs = ["discover"]
+agent = "builder"
+
+[[steps]]
+id = "merge"
+title = "Mayor: merge the clean PR"
+description = """
+The mayor merges the PR ONLY after the builder confirms /act convergence
+AND CodeRabbit review completed.
+
+Merge method: squash (clean history, one commit per PR).
+Command:
+  gh pr merge <N> --squash --delete-branch
+
+After merge:
+1. Delete the remote head branch (gh pr merge --delete-branch does this)
+2. Pull main locally: git checkout main && git pull
+3. Record merge in bd: bd close <bead-id> if tracking
+
+If merge fails (conflict, CI changed), report back to builder for
+another /act iteration.
+"""
+needs = ["act-loop"]
+agent = "mayor"
+
+[[steps]]
+id = "retrospect"
+title = "Mayor: retrospect (self-learning)"
+description = """
+MANDATORY after each merge. This is the self-learning loop.
+
+Capture:
+1. What worked — patterns that made /act converge fast
+2. What didn't — issues that took multiple iterations
+3. Review patterns — common review feedback
+4. CI patterns — common CI failures and fixes
+5. Bot patterns — CodeRabbit/Codacy/Qodo recurring findings
+6. Time to converge — how many /act iterations
+
+Store in .gc/retrospects/merge-stack.md and bd remember.
+
+Before starting /act on the next PR, read the retrospect log and apply
+lessons learned — proactively fix patterns before bots find them.
+"""
+needs = ["merge"]
+agent = "mayor"
+
+[[steps]]
+id = "advance"
+title = "Mayor: advance to next PR in stack or finish"
+description = """
+After retrospect, the mayor checks if there are more PRs in the stack.
+If yes:
+  - The next PR's base may now point to main (if it was based on the
+    just-merged branch). Rebase the next PR onto main:
+    git checkout <next-head> && git rebase main && git push --force-with-lease
+  - Update the PR base to main if needed:
+    gh pr edit <next> --base main
+  - Loop back to act-loop step with the next PR.
+
+If no more PRs remain (we reached the top of the stack):
+  - Run final retrospect (comprehensive: total PRs, total iterations,
+    top patterns, top lessons, recommendations).
+  - Record completion: all PRs merged, stack is flat on main.
+  - Report final status to human.
+
+This is the loop terminator: advance until main is reached.
+"""
+needs = ["retrospect"]
+agent = "mayor"
