@@ -90,14 +90,18 @@ function emitArray(arr: readonly unknown[], out: string[]): void {
 }
 
 function emitObject(obj: Record<string, unknown>, out: string[]): void {
-  const keys = Object.keys(obj).filter((k) => obj[k] !== undefined).sort();
+  // Collect [key, value] pairs, omitting undefined values, sorted by key.
+  const entries = Object.entries(obj)
+    .filter(([, v]) => v !== undefined)
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   out.push("{");
-  for (let i = 0; i < keys.length; i++) {
-    const k = keys[i]!;
+  let first = true;
+  for (const [k, v] of entries) {
+    if (!first) out.push(",");
+    first = false;
     out.push(quoteString(k));
     out.push(":");
-    emit(obj[k], out);
-    if (i < keys.length - 1) out.push(",");
+    emit(v, out);
   }
   out.push("}");
 }
