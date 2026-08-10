@@ -9,11 +9,12 @@ describe("compileGitlabCi — default config", () => {
     expect(yaml).toContain("- verify");
     expect(yaml).toContain("sverka:");
     expect(yaml).toContain("stage: verify");
-    expect(yaml).toContain("image: node:24");
+    expect(yaml).toContain("image: oven/bun:latest");
     expect(yaml).toContain('$CI_PIPELINE_SOURCE == "push"');
     expect(yaml).toContain('$CI_PIPELINE_SOURCE == "merge_request_event"');
     expect(yaml).toContain("bun install -g sverka@latest");
-    expect(yaml).toContain("sverka execute .sverka/plan.json");
+    expect(yaml).toContain("sverka execute");
+    expect(yaml).not.toContain("sverka execute .sverka/plan.json");
     expect(yaml).toContain("when: always");
     expect(yaml).toContain(".sverka/output/");
   });
@@ -47,6 +48,22 @@ describe("compileGitlabCi — custom rules", () => {
   });
 });
 
+describe("compileGitlabCi — empty rules filtered", () => {
+  it("filters out empty rule objects that would produce invalid GitLab YAML", () => {
+    const yaml = compileGitlabCi(makePlan(), {
+      rules: [
+        { if: '$CI_COMMIT_BRANCH == "main"' },
+        {},
+        { when: "manual" },
+      ],
+    });
+    expect(yaml).toContain('$CI_COMMIT_BRANCH == "main"');
+    expect(yaml).toContain("when: manual");
+    // Empty rule should not produce a bare `-` entry
+    expect(yaml).not.toMatch(/-\s*\n\s*-\s/if/);
+  });
+});
+
 describe("compileGitlabCi — determinism", () => {
   it("same plan + config → identical YAML", () => {
     const plan = makePlan();
@@ -59,7 +76,7 @@ describe("compileGitlabCi — determinism", () => {
 describe("compileGitlabCi — empty operations", () => {
   it("produces valid YAML for empty plan", () => {
     const yaml = compileGitlabCi(makePlan({ operations: [] }));
-    expect(yaml).toContain("sverka execute .sverka/plan.json");
+    expect(yaml).toContain("sverka execute");
     expect(yaml).toContain("sverka:");
   });
 });
