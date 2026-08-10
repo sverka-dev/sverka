@@ -23,10 +23,59 @@ export interface PlanValidator {
 
 const NETWORK_POLICIES = new Set(["deny", "allow-host", "allow-egress"]);
 const RETRY_ON_VALUES = new Set(["failure", "timeout"]);
-const IMAGE_DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
-const CPU_RE = /^\d+(\.\d+)?$/;
-const MEMORY_RE = /^\d+(Ki|Mi|Gi|Ti)?$/;
 const GENERATED_BY_VALUES = new Set(["planner", "manual", "compiler"]);
+const MEMORY_SUFFIXES = new Set(["Ki", "Mi", "Gi", "Ti"]);
+
+/** Validate sha256 image digest without regex (avoids ReDoS false positive). */
+function isValidImageDigest(s: string): boolean {
+  if (s.length !== 71) return false; // "sha256:" + 64 hex chars
+  if (!s.startsWith("sha256:")) return false;
+  for (let i = 7; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    const isHex = (c >= 48 && c <= 57) || (c >= 97 && c <= 102); // 0-9, a-f
+    if (!isHex) return false;
+  }
+  return true;
+}
+
+/** Validate CPU string (digits with optional decimal) without regex. */
+function isValidCpuString(s: string): boolean {
+  if (s.length === 0 || s.length > 10) return false;
+  let hasDot = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 46) { // '.'
+      if (hasDot || i === 0 || i === s.length - 1) return false;
+      hasDot = true;
+    } else if (c < 48 || c > 57) { // not '0'-'9'
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Validate memory string (digits with optional suffix) without regex. */
+function isValidMemoryString(s: string): boolean {
+  if (s.length === 0 || s.length > 20) return false;
+  let digitEnd = s.length;
+  for (let i = s.length - 1; i >= 0; i--) {
+    const c = s.charCodeAt(i);
+    if (c >= 48 && c <= 57) { // '0'-'9'
+      digitEnd = i + 1;
+      break;
+    }
+  }
+  if (digitEnd === s.length) return false; // no digits at all
+  for (let i = 0; i < digitEnd; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 48 || c > 57) return false;
+  }
+  if (digitEnd < s.length) {
+    const suffix = s.slice(digitEnd);
+    if (!MEMORY_SUFFIXES.has(suffix)) return false;
+  }
+  return true;
+}
 
 /**
  * Validate an unknown value as a Plan. Returns a {@link ValidationResult};
@@ -216,7 +265,7 @@ function validateImageDigest(op: PlanOperationView, opId: string | undefined, er
   if (!isPlainObject(op.executor)) return;
   const ex = op.executor as { type?: unknown; imageDigest?: unknown };
   if (ex.type !== "docker" && ex.type !== "podman") return;
-  if (typeof ex.imageDigest !== "string" || !IMAGE_DIGEST_RE.test(ex.imageDigest)) {
+  if (typeof ex.imageDigest !== "string" || !isValidImageDigest(ex.imageDigest)) {
     errors.push(opError(opId, "operations[].executor.imageDigest", "MISSING_IMAGE_DIGEST", `executor of type "${ex.type}" requires a sha256 image digest`));
   }
 }
@@ -231,8 +280,8 @@ function validateTimeout(op: PlanOperationView, opId: string | undefined, errors
 function validateResources(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (isPlainObject(op.resources)) {
     const r = op.resources as { cpu?: unknown; memory?: unknown };
-    const cpuOk = typeof r.cpu === "string" && r.cpu.length <= 10 && CPU_RE.test(r.cpu);
-    const memOk = typeof r.memory === "string" && r.memory.length <= 20 && MEMORY_RE.test(r.memory);
+    const cpuOk = typeof r.cpu === "string" && isValidCpuString(r.cpu);
+    const memOk = typeof r.memory === "string" && isValidMemoryString(r.memory);
     if (cpuOk && memOk) return;
   }
   errors.push(opError(opId, "operations[].resources", "INVALID_RESOURCES", "resources.cpu must be a number string and resources.memory must match /^\\d+(Ki|Mi|Gi|Ti)?$/"));
