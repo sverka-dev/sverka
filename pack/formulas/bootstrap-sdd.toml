@@ -1,5 +1,5 @@
-formula = "sverka-bootstrap"
-description = "Bootstrap the Sverka project: spec tree, monorepo scaffold, README, website skeleton"
+formula = "bootstrap-sdd"
+description = "Bootstrap a spec-driven project: spec tree, engdocs structure, monorepo scaffold, README, website skeleton"
 
 [requires]
 formula_compiler = ">=2.0.0"
@@ -25,12 +25,13 @@ agent = "architect"
 
 [[steps]]
 id = "monorepo"
-title = "Builder: scaffold nx monorepo with tsdown"
+title = "Builder: scaffold monorepo"
 description = """
-Set up the nx TypeScript monorepo with bun workspaces, tsdown build,
-vitest testing, and all package directories from the product spec.
-Create root package.json, nx.json, tsconfig.base.json, bunfig.toml.
+Set up the project monorepo with the package manager, build system, testing
+framework, and all package directories from the product spec.
+Create root package.json, build config, tsconfig, and lockfile.
 Each package gets a minimal package.json and src/index.ts stub.
+Follow AGENTS.md for the project's tech stack.
 """
 needs = ["spec-tree", "engdocs"]
 agent = "builder"
@@ -39,10 +40,9 @@ agent = "builder"
 id = "readme"
 title = "Builder: write professional README"
 description = """
-Write a professional README.md for the Sverka project.
+Write a professional README.md for the project.
 Must include: project description, features, quick start, installation,
 usage examples, architecture overview, contributing, license.
-Reference sverka.dev as the website.
 """
 needs = ["monorepo"]
 agent = "builder"
@@ -51,19 +51,18 @@ agent = "builder"
 id = "website"
 title = "Builder: scaffold minimalistic website"
 description = """
-Scaffold the sverka.dev website using a modern minimalistic framework
-(Astro or Vite + a minimal CSS approach). The site must be informative
-but minimal: hero, features, quick start, links to docs.
+Scaffold the project website using a modern minimalistic framework.
+The site must be informative but minimal: hero, features, quick start, links to docs.
 """
 needs = ["monorepo"]
 agent = "builder"
 
 [[steps]]
 id = "review"
-title = "Reviewer: gate Wave 0"
+title = "Reviewer: gate bootstrap"
 description = """
-Review all Wave 0 deliverables: spec tree completeness, monorepo builds,
-README quality, website runs. Run bun install, bun run build, bun test.
+Review all bootstrap deliverables: spec tree completeness, monorepo builds,
+README quality, website runs. Run install, build, test.
 Approve or reject with specific feedback.
 """
 needs = ["readme", "website"]
@@ -71,6 +70,7 @@ agent = "reviewer"
 
 [[steps]]
 id = "finalize"
-title = "Finalize Wave 0"
-description = "Wave 0 complete. Mayor commits work and prepares Wave 1."
+title = "Finalize bootstrap"
+description = "Bootstrap complete. Mayor commits work and prepares first wave."
 needs = ["review"]
+agent = "mayor"

@@ -1,0 +1,26 @@
+formula = "address-review"
+description = "Address GitHub PR review feedback: respond to every comment, resolve every thread"
+
+[requires]
+formula_compiler = ">=2.0.0"
+
+[[steps]]
+id = "address"
+title = "Builder: address PR review via /act"
+description = """
+The builder runs `/act` on the wave PR to address all GitHub review feedback.
+Every review comment gets a substantive reply in-thread, every code fix is
+committed, and every thread is resolved. The /act loop runs until the PR is
+merge-ready: open_threads=0, CI green, SAST clean.
+
+PREREQUISITE: Before starting /act, check if the stacked PR requires rebase.
+Use `gh stack rebase` to cascading-rebase the entire stack if any lower
+branch has advanced (previous wave had review fixes applied, trunk moved).
+Then `gh stack submit` to push the rebased stack. Never run /act on a
+branch that is behind its base — review comments would be on a stale diff.
+
+This step is dispatched by the mayor immediately after the PR is created.
+The builder must NOT skip any open thread — /act's per-thread loop
+(read → acknowledge → fix/reply → commit → resolve) is mandatory.
+"""
+agent = "builder"
