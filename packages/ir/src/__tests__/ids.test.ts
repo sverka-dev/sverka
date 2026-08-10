@@ -39,7 +39,7 @@ describe("computePlanId", () => {
   it("is plan- + 64 hex chars (sha256)", () => {
     const id = computePlanId(planBody());
     const hex = id.slice("plan-".length);
-    expect(hex.length).toBe(64);
+    expect(hex).toHaveLength(64);
     expect(hex).toMatch(/^[0-9a-f]{64}$/);
   });
 

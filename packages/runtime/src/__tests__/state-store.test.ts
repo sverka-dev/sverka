@@ -7,6 +7,7 @@ import {
   op,
   planFromOps,
   successResult,
+  failureResult,
 } from "./helpers/fixtures.js";
 
 /** In-memory StateStore mock for testing. */
@@ -65,11 +66,9 @@ describe("Scheduler — state persistence and resume", () => {
     });
     const store = new MemoryStateStore();
     const plan = planFromOps([
-      op("a"),
+      op("a", [], { continueOnError: true }),
       op("b", ["a"]),
     ]);
-    // Make op-a continueOnError so the run is "partial" not "failure".
-    plan.operations[0]!.continueOnError = true;
     const result = await new Scheduler(
       baseConfig([exec], { stateStore: store }),
     ).execute(plan);
