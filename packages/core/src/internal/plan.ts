@@ -45,16 +45,22 @@ export async function planWorkflow(
   const ordered = topoSort(specs);
 
   // 8. Evaluate conditions and feed non-skipped ops to the runtime.
+  const outcomes: OperationOutcome[] = [];
   for (const spec of ordered) {
     if (spec.condition !== undefined) {
       const included = evaluateCondition(spec.condition, runtime.context);
       if (!included) {
-        // Skipped: do not call runtime.evaluate. The operation is still
-        // recorded in the graph (in `ordered`) with its condition field.
+        // Record a skipped outcome so callers can see what was excluded.
+        outcomes.push({
+          operationId: spec.id,
+          status: "skipped",
+          durationMs: 0,
+        });
         continue;
       }
     }
-    await runtime.evaluate(spec);
+    const outcome = await runtime.evaluate(spec);
+    outcomes.push(outcome);
   }
 
   // 9. Finalize via the runtime, merge planner metadata.
@@ -62,6 +68,7 @@ export async function planWorkflow(
   return {
     ...finalized,
     operations: ordered,
+    outcomes,
     durationMs: nowMs() - start,
   };
 }
@@ -340,7 +347,13 @@ function detectCycles(specs: Map<OperationNode, OperationSpec>): void {
     stack.push(id);
     const spec = byId.get(id)!;
     for (const dep of spec.dependsOn ?? []) {
-      if (byId.has(dep)) visit(dep);
+      if (!byId.has(dep)) {
+        throw new CompositionError(
+          `operation '${id}' depends on unknown id '${dep}'`,
+          { id, unknownDep: dep },
+        );
+      }
+      visit(dep);
     }
     stack.pop();
     color.set(id, "black");
@@ -359,10 +372,14 @@ function topoSort(specs: Map<OperationNode, OperationSpec>): OperationSpec[] {
   const adj = new Map<string, string[]>(all.map((s) => [s.id, []] as const));
   for (const spec of all) {
     for (const dep of spec.dependsOn ?? []) {
-      if (byId.has(dep)) {
-        adj.get(dep)!.push(spec.id);
-        indegree.set(spec.id, (indegree.get(spec.id) ?? 0) + 1);
+      if (!byId.has(dep)) {
+        throw new CompositionError(
+          `operation '${spec.id}' depends on unknown id '${dep}'`,
+          { id: spec.id, unknownDep: dep },
+        );
       }
+      adj.get(dep)!.push(spec.id);
+      indegree.set(spec.id, (indegree.get(spec.id) ?? 0) + 1);
     }
   }
   const queue = all.filter((s) => (indegree.get(s.id) ?? 0) === 0).map((s) => s.id);

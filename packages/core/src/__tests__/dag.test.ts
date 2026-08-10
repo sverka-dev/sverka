@@ -14,9 +14,10 @@ describe("DAG validation", () => {
     const x = run({ id: "x", command: "x", dependsOn: ["y"] });
     const y = run({ id: "y", command: "y", dependsOn: ["x"] });
     const wf = workflow("cyclic", x, y);
-    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+    const promise = wf.plan(makePlanRuntime());
+    await expect(promise).rejects.toThrow(CompositionError);
     try {
-      await wf.plan(makePlanRuntime());
+      await promise;
     } catch (err) {
       const ce = err as CompositionError;
       expect(ce.context).toBeDefined();
@@ -28,9 +29,10 @@ describe("DAG validation", () => {
     const a = run({ id: "dup", command: "a" });
     const b = run({ id: "dup", command: "b" });
     const wf = workflow("dup-ids", a, b);
-    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+    const promise = wf.plan(makePlanRuntime());
+    await expect(promise).rejects.toThrow(CompositionError);
     try {
-      await wf.plan(makePlanRuntime());
+      await promise;
     } catch (err) {
       const ce = err as CompositionError;
       expect(ce.context?.["id"]).toBe("dup");

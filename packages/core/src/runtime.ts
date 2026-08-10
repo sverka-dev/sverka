@@ -12,6 +12,7 @@ export type RuntimeMode = "plan" | "execute" | "compile";
 export interface RuntimeResult {
   readonly mode: RuntimeMode;
   readonly operations: readonly OperationSpec[];
+  readonly outcomes?: readonly OperationOutcome[];
   readonly artifacts?: readonly Artifact[];
   readonly logs?: ReadonlyMap<string, string>;
   readonly errors?: readonly CoreError[];
@@ -35,7 +36,13 @@ export interface Artifact {
  * flags, etc.). Condition expressions reference these keys by name.
  */
 export interface PlanContext {
-  readonly [key: string]: string | number | boolean | readonly string[];
+  readonly [key: string]:
+    | string
+    | number
+    | boolean
+    | readonly string[]
+    | readonly number[]
+    | readonly boolean[];
 }
 
 /**
