@@ -60,6 +60,28 @@ export default defineWorkflow({
     expect(code).toBe(2);
   });
 
+  it("--config resolves a relative config path against --root, not process cwd", async () => {
+    await writefile(
+      dir,
+      "rel-config.ts",
+      `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
+export default defineWorkflow({
+  name: "test",
+  workflow: pipeline(task("op", run({ command: "true" }))),
+});
+`,
+    );
+    const out = new CaptureWriter();
+    const code = await main(
+      ["validate", "--config", "rel-config.ts", "--root", dir],
+      { output: out },
+    );
+    // If the relative path were resolved against process cwd, loadWorkflow
+    // would throw CONFIG_NOT_FOUND and the command would exit 2.
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("valid");
+  });
+
   it("--format json on valid config", async () => {
     await writefile(
       dir,
