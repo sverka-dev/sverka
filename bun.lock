@@ -5,14 +5,14 @@
     "": {
       "name": "sverka",
       "devDependencies": {
-        "@types/node": "^24.0.0",
-        "eslint": "^9.0.0",
-        "nx": "^21.0.0",
-        "prettier": "^3.0.0",
-        "tsdown": "^0.22.14",
-        "typescript": "^5.8.0",
+        "@types/node": "24.13.3",
+        "eslint": "9.39.5",
+        "nx": "21.6.11",
+        "prettier": "3.9.6",
+        "tsdown": "0.22.14",
+        "typescript": "5.9.3",
         "typescript-eslint": "8.67.0",
-        "vitest": "^3.0.0",
+        "vitest": "3.2.7",
       },
     },
     "packages/checks": {
@@ -123,6 +123,10 @@
     "packages/runtime-docker": {
       "name": "@sverka/runtime-docker",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/ir": "workspace:*",
+        "@sverka/runtime": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -132,6 +136,10 @@
     "packages/runtime-host": {
       "name": "@sverka/runtime-host",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/ir": "workspace:*",
+        "@sverka/runtime": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",

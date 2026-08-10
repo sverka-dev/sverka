@@ -61,15 +61,26 @@ export class HostExecutor implements Executor {
   async execute(request: ExecuteRequest): Promise<ExecuteResult> {
     const op = request.operation;
     const start = Date.now();
+    const command = this.validateRequest(op);
+    const cwd = this.resolveCwd(op, request.workspace);
+    const env = this.buildEnv(request);
+    const result = await this.spawnProcess(
+      command,
+      [...(op.args ?? [])],
+      cwd,
+      env,
+      op.timeoutSeconds,
+      start,
+      op.id,
+    );
+    return this.finalizeResult(result, op, request, start);
+  }
 
-    // 1. Validate enabled.
+  /** Validate enabled, executor type, timeout, and allowlist. Returns command. */
+  private validateRequest(op: PlanOperation): string {
     if (!this.config.enabled) {
-      throw new HostExecutorError(
-        "host executor is disabled",
-        "EXECUTOR_DISABLED",
-      );
+      throw new HostExecutorError("host executor is disabled", "EXECUTOR_DISABLED");
     }
-    // 2. Validate executor type.
     if (op.executor.type !== "host") {
       throw new HostExecutorError(
         `expected executor.type "host", got "${op.executor.type}"`,
@@ -77,7 +88,6 @@ export class HostExecutor implements Executor {
         { type: op.executor.type },
       );
     }
-    // 3. Validate timeout.
     if (op.timeoutSeconds === undefined || op.timeoutSeconds <= 0) {
       throw new HostExecutorError(
         "timeoutSeconds must be present and > 0",
@@ -85,7 +95,6 @@ export class HostExecutor implements Executor {
         { timeoutSeconds: op.timeoutSeconds },
       );
     }
-    // 4. Validate allowlist.
     const command = op.command ?? "";
     if (!this.config.allowlist.isAllowed(command)) {
       throw new CommandNotAllowedError(
@@ -93,35 +102,22 @@ export class HostExecutor implements Executor {
         { command },
       );
     }
+    return command;
+  }
 
-    // 5. Resolve working directory.
-    const cwd = this.resolveCwd(op, request.workspace);
-
-    // 6. Build env.
-    const env = this.buildEnv(request);
-
-    // 7. Spawn.
-    const args = op.args ?? [];
-    const result = await this.spawnProcess(
-      command,
-      [...args],
-      cwd,
-      env,
-      op.timeoutSeconds,
-      start,
-      op.id,
-    );
-
-    // 8. Collect artifacts.
+  /** Collect artifacts and merge into the spawn result. */
+  private async finalizeResult(
+    result: ExecuteResult,
+    op: PlanOperation,
+    request: ExecuteRequest,
+    start: number,
+  ): Promise<ExecuteResult> {
     const artifacts = await this.collectArtifacts(
       op,
       request.workspace,
       request.artifactDir,
     );
-
     const durationMs = Date.now() - start;
-
-    // Merge artifact errors into the result.
     if (artifacts.errors.length > 0) {
       const existingError = result.error ?? "";
       const artifactError = `artifact errors: ${artifacts.errors.join("; ")}`;
@@ -129,12 +125,9 @@ export class HostExecutor implements Executor {
         ...result,
         durationMs,
         artifacts: artifacts.collected,
-        error: existingError
-          ? `${existingError}; ${artifactError}`
-          : artifactError,
+        error: existingError ? `${existingError}; ${artifactError}` : artifactError,
       };
     }
-
     return { ...result, durationMs, artifacts: artifacts.collected };
   }
 
