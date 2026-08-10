@@ -31,7 +31,6 @@ exclude_paths:
   - "template-fragments/**"
   - "dist/**"
   - "node_modules/**"
-  - ".opencode/**"
 
 # Configure tools
 engines:
