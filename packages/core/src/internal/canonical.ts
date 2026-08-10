@@ -29,6 +29,18 @@ function emit(value: unknown, out: string[]): void {
     out.push("null");
     return;
   }
+  if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      emitArray(value, out);
+    } else {
+      emitObject(value as Record<string, unknown>, out);
+    }
+    return;
+  }
+  emitScalar(value, out);
+}
+
+function emitScalar(value: unknown, out: string[]): void {
   if (typeof value === "string") {
     out.push(quoteString(value));
     return;
@@ -49,27 +61,23 @@ function emit(value: unknown, out: string[]): void {
   if (typeof value === "bigint") {
     throw new TypeError("canonical JSON does not support bigint");
   }
-  if (Array.isArray(value)) {
-    out.push("[");
-    for (let i = 0; i < value.length; i++) {
-      const el = value[i];
-      if (el === undefined) {
-        out.push("null");
-      } else {
-        emit(el, out);
-      }
-      if (i < value.length - 1) out.push(",");
-    }
-    out.push("]");
-    return;
-  }
-  if (typeof value === "object") {
-    emitObject(value as Record<string, unknown>, out);
-    return;
-  }
   throw new TypeError(
     `canonical JSON does not support value of type ${typeof value}`,
   );
+}
+
+function emitArray(value: unknown[], out: string[]): void {
+  out.push("[");
+  for (let i = 0; i < value.length; i++) {
+    const el = value[i];
+    if (el === undefined) {
+      out.push("null");
+    } else {
+      emit(el, out);
+    }
+    if (i < value.length - 1) out.push(",");
+  }
+  out.push("]");
 }
 
 function emitObject(obj: Record<string, unknown>, out: string[]): void {
@@ -78,7 +86,7 @@ function emitObject(obj: Record<string, unknown>, out: string[]): void {
     if (obj[k] === undefined) continue;
     keys.push(k);
   }
-  keys.sort();
+  keys.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   out.push("{");
   for (let i = 0; i < keys.length; i++) {
     const k = keys[i]!;

@@ -125,8 +125,9 @@ describe("Runtime modes", () => {
     );
     // In compile mode, false-condition operations are still passed to the
     // compiler so it can emit them with their condition field.
-    expect(evaluated).toContain("run:full-scan");
-    expect(evaluated).toContain("run:always");
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    expect(evaluated).toContain(byCmd.get("full-scan")!.id);
+    expect(evaluated).toContain(byCmd.get("always")!.id);
     expect(result.operations).toHaveLength(2);
   });
 
@@ -139,15 +140,16 @@ describe("Runtime modes", () => {
     const result = await wf.plan(
       makeExecuteRuntime(undefined, (spec) => {
         evaluated.push(spec.id);
-        if (spec.id === "run:b") {
+        if (spec.command === "b") {
           return { operationId: spec.id, status: "failure", durationMs: 0 };
         }
         return { operationId: spec.id, status: "success", durationMs: 0 };
       }),
     );
     // b fails, c should be cancelled (not evaluated)
-    expect(evaluated).toEqual(["run:a", "run:b"]);
-    const cOutcome = result.outcomes.find((o) => o.operationId === "run:c");
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    expect(evaluated).toEqual([byCmd.get("a")!.id, byCmd.get("b")!.id]);
+    const cOutcome = result.outcomes!.find((o) => o.operationId === byCmd.get("c")!.id);
     expect(cOutcome?.status).toBe("cancelled");
   });
 
