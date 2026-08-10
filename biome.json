@@ -24,8 +24,7 @@
       "!**/.nx/**",
       "!**/website/**",
       "!**/bun.lock",
-      "!**/*.d.ts",
-      "!**/compile.test.ts"
+      "!**/*.d.ts"
     ]
   },
   "formatter": {
