@@ -49,36 +49,6 @@ async function loadBaselineChecked(path: string) {
   }
 }
 
-/**
- * Manage the findings baseline.
- */
-export async function baselineCommand(
-  args: BaselineArgs,
-  global: GlobalFlags,
-  output: OutputWriter,
-  start: number,
-): Promise<number> {
-  const path = resolveBaselinePath(global, args.baselinePath);
-  output.debug(`baseline: subcommand=${args.subcommand} path=${path}`);
-
-  switch (args.subcommand) {
-    case "create":
-      return baselineCreate(path, global, output, start);
-    case "update":
-      return baselineUpdate(path, global, output, start);
-    case "show":
-      return baselineShow(path, global, output, start);
-    case "clear":
-      return baselineClear(path, global, output, start);
-    default:
-      throw new CliError(
-        `unknown baseline subcommand: ${args.subcommand}`,
-        "UNKNOWN_COMMAND",
-        ExitCode.UsageError,
-      );
-  }
-}
-
 async function baselineCreate(
   path: string,
   global: GlobalFlags,
@@ -198,4 +168,34 @@ async function baselineClear(
     output.writeLine(`Baseline cleared: ${path}`);
   }
   return ExitCode.Success;
+}
+
+/**
+ * Manage the findings baseline.
+ */
+export async function baselineCommand(
+  args: BaselineArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const path = resolveBaselinePath(global, args.baselinePath);
+  output.debug(`baseline: subcommand=${args.subcommand} path=${path}`);
+
+  switch (args.subcommand) {
+    case "create":
+      return baselineCreate(path, global, output, start);
+    case "update":
+      return baselineUpdate(path, global, output, start);
+    case "show":
+      return baselineShow(path, global, output, start);
+    case "clear":
+      return baselineClear(path, global, output, start);
+    default:
+      throw new CliError(
+        `unknown baseline subcommand: ${args.subcommand}`,
+        "UNKNOWN_COMMAND",
+        ExitCode.UsageError,
+      );
+  }
 }

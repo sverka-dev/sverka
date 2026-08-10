@@ -8,6 +8,7 @@ import {
 } from "./helpers/fixtures.js";
 
 const BIN_PATH = join(import.meta.dirname, "..", "..", "dist", "bin.mjs");
+const binBuilt = existsSync(BIN_PATH);
 
 describe("sverka binary (acceptance)", () => {
   let dir: string;
@@ -20,11 +21,7 @@ describe("sverka binary (acceptance)", () => {
     await cleanupTempDir(dir);
   });
 
-  it("spawns and creates a config file via `init`", () => {
-    if (!existsSync(BIN_PATH)) {
-      it.skip("dist/bin.mjs not built — run `bun run build` first");
-      return;
-    }
+  it.skipIf(!binBuilt)("spawns and creates a config file via `init`", () => {
     const result = spawnSync("node", [BIN_PATH, "init", "--root", dir], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -33,11 +30,7 @@ describe("sverka binary (acceptance)", () => {
     expect(existsSync(join(dir, "sverka.config.ts"))).toBe(true);
   });
 
-  it("exits with 2 for unknown command", () => {
-    if (!existsSync(BIN_PATH)) {
-      it.skip("dist/bin.mjs not built — run `bun run build` first");
-      return;
-    }
+  it.skipIf(!binBuilt)("exits with 2 for unknown command", () => {
     const result = spawnSync("node", [BIN_PATH, "frobnicate", "--root", dir], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -45,11 +38,7 @@ describe("sverka binary (acceptance)", () => {
     expect(result.status).toBe(2);
   });
 
-  it("exits with 0 for doctor", () => {
-    if (!existsSync(BIN_PATH)) {
-      it.skip("dist/bin.mjs not built — run `bun run build` first");
-      return;
-    }
+  it.skipIf(!binBuilt)("exits with 0 for doctor", () => {
     const result = spawnSync("node", [BIN_PATH, "doctor", "--root", dir], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],

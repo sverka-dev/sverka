@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
+import type { WriteFileOptions } from "node:fs";
 
 /** Args parsed for the init command. */
 export interface InitArgs {
@@ -64,7 +65,26 @@ export async function initCommand(
   }
 
   const content = template === "full" ? FULL_TEMPLATE : MINIMAL_TEMPLATE;
-  await writeFile(configPath, content, "utf8");
+  // Use exclusive create (wx) when not forcing to close the TOCTOU race
+  // between existsSync and writeFile. With --force, use standard write.
+  const flags: WriteFileOptions = args.force ? "utf8" : { encoding: "utf8", flag: "wx" };
+  try {
+    await writeFile(configPath, content, flags);
+  } catch (e) {
+    if (
+      e instanceof Error &&
+      "code" in e &&
+      (e as { code: string }).code === "EEXIST"
+    ) {
+      throw new CliError(
+        `config already exists: ${configPath} (use --force to overwrite)`,
+        "CONFIG_EXISTS",
+        ExitCode.UsageError,
+        e,
+      );
+    }
+    throw e;
+  }
 
   if (global.format === "json") {
     output.writeLine(
