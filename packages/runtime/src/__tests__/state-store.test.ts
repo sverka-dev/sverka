@@ -49,10 +49,34 @@ describe("Scheduler — state persistence and resume", () => {
       baseConfig([exec], { stateStore: store }),
     ).execute(plan);
     expect(result.status).toBe("success");
+    // On successful completion, the scheduler clears persisted state — it's
+    // no longer needed for resume. Verify the state was cleared.
+    expect(store.states.get(plan.id)).toBeUndefined();
+  });
+
+  it("retains state after a partial run (failure with continueOnError)", async () => {
+    const exec = new MockExecutor({
+      result: (req) => {
+        if (req.operation.id === "a") {
+          return failureResult("a");
+        }
+        return successResult(req.operation.id);
+      },
+    });
+    const store = new MemoryStateStore();
+    const plan = planFromOps([
+      op("a"),
+      op("b", ["a"]),
+    ]);
+    // Make op-a continueOnError so the run is "partial" not "failure".
+    plan.operations[0]!.continueOnError = true;
+    const result = await new Scheduler(
+      baseConfig([exec], { stateStore: store }),
+    ).execute(plan);
+    expect(result.status).toBe("partial");
+    // State should be retained for potential resume.
     const saved = store.states.get(plan.id);
     expect(saved).toBeDefined();
-    expect(saved!.completed).toContain("a");
-    expect(saved!.completed).toContain("b");
   });
 
   it("a resumed run skips completed ops and executes only remaining", async () => {

@@ -280,3 +280,79 @@ describe("Scheduler — dispose", () => {
     expect(exec.disposed).toBe(true);
   });
 });
+
+describe("Scheduler — config validation", () => {
+  it("rejects maxConcurrent = 0 with INVALID_CONFIG", () => {
+    const exec = new MockExecutor();
+    expect(
+      () => new Scheduler(baseConfig([exec], { maxConcurrent: 0 })),
+    ).toThrow(SchedulerError);
+  });
+
+  it("rejects negative maxConcurrent with INVALID_CONFIG", () => {
+    const exec = new MockExecutor();
+    expect(
+      () => new Scheduler(baseConfig([exec], { maxConcurrent: -1 })),
+    ).toThrow(SchedulerError);
+  });
+
+  it("rejects non-integer maxConcurrent with INVALID_CONFIG", () => {
+    const exec = new MockExecutor();
+    expect(
+      () => new Scheduler(baseConfig([exec], { maxConcurrent: 2.5 })),
+    ).toThrow(SchedulerError);
+  });
+
+  it("rejects NaN maxConcurrent with INVALID_CONFIG", () => {
+    const exec = new MockExecutor();
+    expect(
+      () => new Scheduler(baseConfig([exec], { maxConcurrent: NaN })),
+    ).toThrow(SchedulerError);
+  });
+
+  it("rejects totalCpu = 0 with INVALID_CONFIG", () => {
+    const exec = new MockExecutor();
+    expect(
+      () => new Scheduler(baseConfig([exec], { totalCpu: 0 })),
+    ).toThrow(SchedulerError);
+  });
+
+  it("rejects negative totalCpu with INVALID_CONFIG", () => {
+    const exec = new MockExecutor();
+    expect(
+      () => new Scheduler(baseConfig([exec], { totalCpu: -1 })),
+    ).toThrow(SchedulerError);
+  });
+
+  it("rejects NaN totalCpu with INVALID_CONFIG", () => {
+    const exec = new MockExecutor();
+    expect(
+      () => new Scheduler(baseConfig([exec], { totalCpu: NaN })),
+    ).toThrow(SchedulerError);
+  });
+
+  it("rejects Infinity totalCpu with INVALID_CONFIG", () => {
+    const exec = new MockExecutor();
+    expect(
+      () => new Scheduler(baseConfig([exec], { totalCpu: Infinity })),
+    ).toThrow(SchedulerError);
+  });
+});
+
+describe("Scheduler — cancelled outcome in aggregate status", () => {
+  it("returns partial when an executor returns cancelled without cancel()", async () => {
+    const exec = new MockExecutor({
+      result: (req) => ({
+        operationId: req.operation.id,
+        status: "cancelled" as const,
+        durationMs: 1,
+        logs: "",
+        artifacts: [],
+      }),
+    });
+    const plan = planFromOps([op("a")]);
+    const result = await new Scheduler(baseConfig([exec])).execute(plan);
+    expect(result.status).toBe("partial");
+    expect(result.outcomes.get("a")?.status).toBe("cancelled");
+  });
+});
