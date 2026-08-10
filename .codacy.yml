@@ -1,0 +1,24 @@
+---
+# Codacy configuration file
+# https://docs.codacy.com/repositories-configure/codacy-configuration-file/
+
+# Exclude non-source paths from analysis
+exclude_paths:
+  - "pack/**"
+  - ".agents/**"
+  - ".gc/**"
+  - ".husky/**"
+  - "website/**"
+  - "engdocs/**"
+  - "**/*.md"
+  - "**/*.json"
+  - "**/*.toml"
+
+# Configure tools
+engines:
+  # Use eslint-9 (matches our oxlint migration, Codacy's eslint for TS/JS)
+  eslint-9:
+    enabled: true
+  # Enable biome for formatting checks (matches our biome.json)
+  biome:
+    enabled: true

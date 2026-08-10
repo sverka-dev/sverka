@@ -14,8 +14,9 @@ anywhere.
 - **Monorepo:** Nx
 - **Build:** tsdown
 - **Test:** Vitest
-- **Lint:** ESLint
-- **Format:** Prettier
+- **Lint:** oxlint
+- **Format:** Biome
+- **Pre-commit:** Husky + lint-staged (biome format)
 
 ## Structure
 
