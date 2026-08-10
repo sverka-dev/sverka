@@ -170,6 +170,16 @@
     "packages/sdk": {
       "name": "@sverka/sdk",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/core": "workspace:*",
+        "@sverka/findings": "workspace:*",
+        "@sverka/ir": "workspace:*",
+        "@sverka/planner": "workspace:*",
+        "@sverka/policy": "workspace:*",
+        "@sverka/runtime": "workspace:*",
+        "@sverka/runtime-docker": "workspace:*",
+        "@sverka/runtime-host": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
