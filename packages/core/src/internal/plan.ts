@@ -45,22 +45,48 @@ export async function planWorkflow(
   const ordered = topoSort(specs);
 
   // 8. Evaluate conditions and feed non-skipped ops to the runtime.
+  // In compile mode, all operations are passed to the runtime so compilers
+  // can emit them (including conditionally-skipped ones with their condition
+  // field intact). In execute/plan mode, false conditions produce a synthetic
+  // "skipped" outcome without calling runtime.evaluate().
   const outcomes: OperationOutcome[] = [];
-  for (const spec of ordered) {
-    if (spec.condition !== undefined) {
-      const included = evaluateCondition(spec.condition, runtime.context);
-      if (!included) {
-        // Record a skipped outcome so callers can see what was excluded.
-        outcomes.push({
-          operationId: spec.id,
-          status: "skipped",
-          durationMs: 0,
-        });
+  let aborted = false;
+  try {
+    for (const spec of ordered) {
+      if (aborted) {
+        outcomes.push({ operationId: spec.id, status: "cancelled", durationMs: 0 });
         continue;
       }
+      if (spec.condition !== undefined) {
+        const included = evaluateCondition(spec.condition, runtime.context);
+        if (!included) {
+          if (runtime.mode === "compile") {
+            // Compile mode: pass the operation to the compiler with its
+            // condition field intact so it can emit it.
+            const outcome = await runtime.evaluate(spec);
+            outcomes.push(outcome);
+          } else {
+            // Record a skipped outcome so callers can see what was excluded.
+            outcomes.push({
+              operationId: spec.id,
+              status: "skipped",
+              durationMs: 0,
+            });
+          }
+          continue;
+        }
+      }
+      const outcome = await runtime.evaluate(spec);
+      outcomes.push(outcome);
+      if (outcome.status === "failure" && spec.continueOnError !== true) {
+        aborted = true;
+      }
     }
-    const outcome = await runtime.evaluate(spec);
-    outcomes.push(outcome);
+  } catch (err) {
+    // Ensure runtime.finalize() is called even when evaluate() rejects,
+    // so executors can release containers, processes, and file handles.
+    await runtime.finalize();
+    throw err;
   }
 
   // 9. Finalize via the runtime, merge planner metadata.
@@ -183,8 +209,31 @@ function cartesianProduct(
  * - empty-pipeline node → dropped (no real predecessors)
  * Then remove artifact nodes from the set. Siblings of a join are reachable
  * on their own (they were discovered), so dropping the join is safe.
+ *
+ * If a join node carries a `condition` (e.g. from `when(cond, parallel(...))`),
+ * the condition is propagated to each sibling that doesn't already have one.
+ * A sibling with an existing condition gets a combined `(${existing} && ${join})`
+ * condition so both guards are honored.
  */
 function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
+  // Collect conditions from join nodes to propagate to their siblings.
+  const joinConditions = new Map<OperationNode, string | undefined>();
+  for (const node of nodes) {
+    if (markerOf(node) === JOIN_MARKER && node.spec.condition !== undefined) {
+      for (const sib of node.siblings) {
+        const prev = joinConditions.get(sib);
+        const joinCond = node.spec.condition;
+        if (prev === undefined) {
+          joinConditions.set(sib, joinCond);
+        } else {
+          // Combine: both the sibling's own condition and the join condition
+          // must be true. We use a simple `&&` expression.
+          joinConditions.set(sib, `(${prev} && ${joinCond})`);
+        }
+      }
+    }
+  }
+
   // Resolve a predecessor reference into the real nodes it should stand for.
   const resolvePred = (pred: OperationNode): OperationNode[] => {
     const m = markerOf(pred);
@@ -199,6 +248,16 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
   };
 
   const rewritten = nodes.map((node) => {
+    // Propagate join condition to siblings.
+    const joinCond = joinConditions.get(node);
+    if (joinCond !== undefined && !isArtifact(node)) {
+      const existing = node.spec.condition;
+      const combined = existing !== undefined ? `(${existing} && ${joinCond})` : joinCond;
+      if (combined !== existing) {
+        const newSpec = { ...node.spec, condition: combined };
+        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id);
+      }
+    }
     if (node.predecessors.length === 0) return node;
     const newPreds = node.predecessors.flatMap(resolvePred);
     // Skip rebuild if nothing changed.

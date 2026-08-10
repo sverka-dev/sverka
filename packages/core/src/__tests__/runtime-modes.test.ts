@@ -104,4 +104,63 @@ describe("Runtime modes", () => {
     );
     expect(order).toEqual(["run:a", "run:b", "run:c"]);
   });
+
+  it("compile mode receives all operations including false-condition ones", async () => {
+    const evaluated: string[] = [];
+    const nightly = when("schedule == 'nightly'", run({ command: "full-scan" }));
+    const always = run({ command: "always" });
+    const wf = workflow("compile-cond", pipeline(nightly, always));
+    const result = await wf.plan(
+      makeCompileRuntime({ schedule: "ci" }, (spec) => {
+        evaluated.push(spec.id);
+        return { operationId: spec.id, status: "planned", durationMs: 0 };
+      }),
+    );
+    // In compile mode, false-condition operations are still passed to the
+    // compiler so it can emit them with their condition field.
+    expect(evaluated).toContain("run:full-scan");
+    expect(evaluated).toContain("run:always");
+    expect(result.operations).toHaveLength(2);
+  });
+
+  it("execute mode stops after failure unless continueOnError", async () => {
+    const evaluated: string[] = [];
+    const a = run({ command: "a" });
+    const b = run({ command: "b" });
+    const c = run({ command: "c" });
+    const wf = workflow("fail-stop", pipeline(a, b, c));
+    const result = await wf.plan(
+      makeExecuteRuntime(undefined, (spec) => {
+        evaluated.push(spec.id);
+        if (spec.id === "run:b") {
+          return { operationId: spec.id, status: "failure", durationMs: 0 };
+        }
+        return { operationId: spec.id, status: "success", durationMs: 0 };
+      }),
+    );
+    // b fails, c should be cancelled (not evaluated)
+    expect(evaluated).toEqual(["run:a", "run:b"]);
+    const cOutcome = result.outcomes!.find((o) => o.operationId === "run:c");
+    expect(cOutcome?.status).toBe("cancelled");
+  });
+
+  it("when(condition, parallel(...)) propagates condition to siblings", async () => {
+    const evaluated: string[] = [];
+    const a = run({ command: "a" });
+    const b = run({ command: "b" });
+    const guarded = when("schedule == 'nightly'", parallel(a, b));
+    const wf = workflow("parallel-cond", guarded);
+    const result = await wf.plan(
+      makeExecuteRuntime({ schedule: "ci" }, (spec) => {
+        evaluated.push(spec.id);
+        return { operationId: spec.id, status: "success", durationMs: 0 };
+      }),
+    );
+    // Both siblings should be skipped because the condition is false
+    expect(evaluated).toEqual([]);
+    expect(result.operations).toHaveLength(2);
+    for (const spec of result.operations) {
+      expect(spec.condition).toContain("schedule == 'nightly'");
+    }
+  });
 });
