@@ -12,8 +12,12 @@ export default defineWorkflow({
   ),
 });`;
 
-const quickStartCode = `# Install
+const quickStartCode = `# Install the CLI globally
 bun add -g @sverka/cli
+
+# Add the SDK to your project
+cd your-project
+bun add @sverka/sdk
 
 # Initialize a workflow config
 sverka init
