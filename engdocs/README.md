@@ -38,3 +38,7 @@ Consequences, Alternatives.
 - [Contributor Guide](./contributing/guide.md) — how to contribute
 - [Development Setup](./contributing/development-setup.md) — local dev environment
 - [Wave Process](./contributing/waves.md) — how waves work
+
+## User docs
+
+- [User docs index](./user/README.md) — getting started, workflow API, CLI, checks, compilers, findings, policy
