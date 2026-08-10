@@ -47,16 +47,14 @@ export async function planWorkflow(
   const ordered = topoSort(specs);
 
   // 8. Evaluate conditions and feed non-skipped ops to the runtime.
-  for (const spec of ordered) {
-    if (spec.condition !== undefined) {
-      const included = evaluateCondition(spec.condition, runtime.context);
-      if (!included) {
-        // Skipped: do not call runtime.evaluate. The operation is still
-        // recorded in the graph (in `ordered`) with its condition field.
-        continue;
-      }
-    }
-    await runtime.evaluate(spec);
+  const outcomes: OperationOutcome[] = [];
+  try {
+    await evaluateOperations(ordered, runtime, outcomes);
+  } catch (err) {
+    // Ensure runtime.finalize() is called even when evaluate() rejects,
+    // so executors can release containers, processes, and file handles.
+    await runtime.finalize();
+    throw err;
   }
 
   // 9. Finalize via the runtime, merge planner metadata.
@@ -64,8 +62,46 @@ export async function planWorkflow(
   return {
     ...finalized,
     operations: ordered,
+    outcomes,
     durationMs: nowMs() - start,
   };
+}
+
+/**
+ * Evaluate operations in topo order, respecting conditions and failure policy.
+ * In compile mode, all operations are passed to the runtime so compilers
+ * can emit them (including conditionally-skipped ones with their condition
+ * field intact). In execute/plan mode, false conditions produce a synthetic
+ * "skipped" outcome without calling runtime.evaluate().
+ */
+async function evaluateOperations(
+  ordered: readonly OperationSpec[],
+  runtime: Runtime,
+  outcomes: OperationOutcome[],
+): Promise<void> {
+  let aborted = false;
+  for (const spec of ordered) {
+    if (aborted) {
+      outcomes.push({ operationId: spec.id, status: "cancelled", durationMs: 0 });
+      continue;
+    }
+    if (spec.condition !== undefined) {
+      const included = evaluateCondition(spec.condition, runtime.context);
+      if (!included) {
+        if (runtime.mode === "compile") {
+          outcomes.push(await runtime.evaluate(spec));
+        } else {
+          outcomes.push({ operationId: spec.id, status: "skipped", durationMs: 0 });
+        }
+        continue;
+      }
+    }
+    const outcome = await runtime.evaluate(spec);
+    outcomes.push(outcome);
+    if (outcome.status === "failure" && spec.continueOnError !== true) {
+      aborted = true;
+    }
+  }
 }
 
 function nowMs(): number {
@@ -125,19 +161,7 @@ function expandMatrices(nodes: readonly OperationNode[]): OperationNode[] {
       result.push(node);
       continue;
     }
-    for (const [key, values] of Object.entries(dims)) {
-      if (!Array.isArray(values)) {
-        throw new CompositionError(
-          `matrix dimension '${key}' is not an array`,
-          { dimension: key, value: values },
-        );
-      }
-      if (values.length === 0) {
-        throw new CompositionError(`matrix dimension '${key}' is empty`, {
-          dimension: key,
-        });
-      }
-    }
+    validateMatrixDims(dims);
     for (const combo of cartesianProduct(dims)) {
       const env: Record<string, string> = { ...(node.spec.env ?? {}) };
       for (const [k, v] of combo) env[`MATRIX_${k.toUpperCase()}`] = String(v);
@@ -150,6 +174,23 @@ function expandMatrices(nodes: readonly OperationNode[]): OperationNode[] {
     }
   }
   return result;
+}
+
+/** Validate that all matrix dimensions are non-empty arrays. */
+function validateMatrixDims(dims: Readonly<Record<string, readonly unknown[]>>): void {
+  for (const [key, values] of Object.entries(dims)) {
+    if (!Array.isArray(values)) {
+      throw new CompositionError(
+        `matrix dimension '${key}' is not an array`,
+        { dimension: key, value: values },
+      );
+    }
+    if (values.length === 0) {
+      throw new CompositionError(`matrix dimension '${key}' is empty`, {
+        dimension: key,
+      });
+    }
+  }
 }
 
 function cartesianProduct(
@@ -178,8 +219,31 @@ function cartesianProduct(
  * - empty-pipeline node → dropped (no real predecessors)
  * Then remove artifact nodes from the set. Siblings of a join are reachable
  * on their own (they were discovered), so dropping the join is safe.
+ *
+ * If a join node carries a `condition` (e.g. from `when(cond, parallel(...))`),
+ * the condition is propagated to each sibling that doesn't already have one.
+ * A sibling with an existing condition gets a combined `(${existing} && ${join})`
+ * condition so both guards are honored.
  */
 function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
+  // Collect conditions from join nodes to propagate to their siblings.
+  const joinConditions = new Map<OperationNode, string | undefined>();
+  for (const node of nodes) {
+    if (markerOf(node) === JOIN_MARKER && node.spec.condition !== undefined) {
+      for (const sib of node.siblings) {
+        const prev = joinConditions.get(sib);
+        const joinCond = node.spec.condition;
+        if (prev === undefined) {
+          joinConditions.set(sib, joinCond);
+        } else {
+          // Combine: both the sibling's own condition and the join condition
+          // must be true. We use a simple `&&` expression.
+          joinConditions.set(sib, `(${prev} && ${joinCond})`);
+        }
+      }
+    }
+  }
+
   // Resolve a predecessor reference into the real nodes it should stand for.
   const resolvePred = (pred: OperationNode): OperationNode[] => {
     const m = markerOf(pred);
@@ -194,6 +258,16 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
   };
 
   const rewritten = nodes.map((node) => {
+    // Propagate join condition to siblings.
+    const joinCond = joinConditions.get(node);
+    if (joinCond !== undefined && !isArtifact(node)) {
+      const existing = node.spec.condition;
+      const combined = existing !== undefined ? `(${existing} && ${joinCond})` : joinCond;
+      if (combined !== existing) {
+        const newSpec = { ...node.spec, condition: combined };
+        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id);
+      }
+    }
     if (node.predecessors.length === 0) return node;
     const newPreds = node.predecessors.flatMap(resolvePred);
     // Skip rebuild if nothing changed.
@@ -359,36 +433,25 @@ function resolveDep(
   });
 }
 
+const OPTIONAL_SPEC_KEYS = [
+  "description", "command", "args", "env", "workingDir", "image", "imageDigest",
+  "condition", "cpuLimit", "memoryLimit", "timeoutSeconds", "retries",
+  "continueOnError", "cache", "artifacts", "network", "credentials", "tags",
+] as const satisfies readonly (keyof OperationSpec)[];
+
 function buildSpec(
   node: OperationNode,
   id: string,
   dependsOn: readonly string[],
 ): OperationSpec {
   const s = node.spec;
-  return {
-    id,
-    kind: node.kind,
-    name: s.name ?? "",
-    ...(s.description !== undefined ? { description: s.description } : {}),
-    ...(s.command !== undefined ? { command: s.command } : {}),
-    ...(s.args !== undefined ? { args: s.args } : {}),
-    ...(s.env !== undefined ? { env: s.env } : {}),
-    ...(s.workingDir !== undefined ? { workingDir: s.workingDir } : {}),
-    ...(s.image !== undefined ? { image: s.image } : {}),
-    ...(s.imageDigest !== undefined ? { imageDigest: s.imageDigest } : {}),
-    dependsOn,
-    ...(s.condition !== undefined ? { condition: s.condition } : {}),
-    ...(s.cpuLimit !== undefined ? { cpuLimit: s.cpuLimit } : {}),
-    ...(s.memoryLimit !== undefined ? { memoryLimit: s.memoryLimit } : {}),
-    ...(s.timeoutSeconds !== undefined ? { timeoutSeconds: s.timeoutSeconds } : {}),
-    ...(s.retries !== undefined ? { retries: s.retries } : {}),
-    ...(s.continueOnError !== undefined ? { continueOnError: s.continueOnError } : {}),
-    ...(s.cache !== undefined ? { cache: s.cache } : {}),
-    ...(s.artifacts !== undefined ? { artifacts: s.artifacts } : {}),
-    ...(s.network !== undefined ? { network: s.network } : {}),
-    ...(s.credentials !== undefined ? { credentials: s.credentials } : {}),
-    ...(s.tags !== undefined ? { tags: s.tags } : {}),
-  };
+  const optional: Partial<OperationSpec> = {};
+  for (const key of OPTIONAL_SPEC_KEYS) {
+    if (s[key] !== undefined) {
+      Object.assign(optional, { [key]: s[key] });
+    }
+  }
+  return { id, kind: node.kind, name: s.name ?? "", dependsOn, ...optional };
 }
 
 // ---------------------------------------------------------------------------
