@@ -231,8 +231,8 @@ function validateTimeout(op: PlanOperationView, opId: string | undefined, errors
 function validateResources(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (isPlainObject(op.resources)) {
     const r = op.resources as { cpu?: unknown; memory?: unknown };
-    const cpuOk = typeof r.cpu === "string" && CPU_RE.test(r.cpu);
-    const memOk = typeof r.memory === "string" && MEMORY_RE.test(r.memory);
+    const cpuOk = typeof r.cpu === "string" && r.cpu.length <= 10 && CPU_RE.test(r.cpu);
+    const memOk = typeof r.memory === "string" && r.memory.length <= 20 && MEMORY_RE.test(r.memory);
     if (cpuOk && memOk) return;
   }
   errors.push(opError(opId, "operations[].resources", "INVALID_RESOURCES", "resources.cpu must be a number string and resources.memory must match /^\\d+(Ki|Mi|Gi|Ti)?$/"));
