@@ -1,6 +1,5 @@
 import type { ExecuteResult } from "../executor.js";
 import type { OperationOutcome, ExecutionResult } from "../result.js";
-import type { Scheduler } from "../scheduler.js";
 
 /** Build a cancelled outcome for an operation. */
 export function cancelledOutcome(
@@ -90,15 +89,14 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Sleep that returns early when the cancellation checker returns true. */
 export async function cancellableSleep(
   ms: number,
-  scheduler: Scheduler,
+  isCancelled: () => boolean,
 ): Promise<void> {
   const deadline = Date.now() + ms;
-  // Poll every 10ms (or sooner) so cancel() is observed promptly.
   while (Date.now() < deadline) {
-    // `cancelled` is private; access via a cast to a minimal shape.
-    if ((scheduler as unknown as { cancelled: boolean }).cancelled) return;
+    if (isCancelled()) return;
     const wait = Math.min(10, deadline - Date.now());
     if (wait <= 0) return;
     await sleep(wait);

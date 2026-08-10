@@ -1,24 +1,27 @@
 import type { Plan, PlanOperation } from "@sverka/ir";
-import type { Executor, ExecuteRequest, ExecuteResult } from "./executor.js";
+import type { Executor } from "./executor.js";
 import type { StateStore } from "./state-store.js";
 import type { CacheBackend, CacheKey } from "./cache.js";
 import type {
   ExecutionResult,
   OperationOutcome,
 } from "./result.js";
-import { SchedulerError, ExecutorError } from "./errors.js";
+import { SchedulerError } from "./errors.js";
 import { topoSort, dependentsOf } from "./internal/topo.js";
 import { ResourcePool } from "./internal/resource-pool.js";
 import { parseCpu, parseMemory } from "./internal/parse.js";
 import {
   cancelledOutcome,
   failureOutcome,
-  toOutcome,
-  shouldRetry,
   computeFinalStatus,
   sleep,
-  cancellableSleep,
 } from "./internal/scheduler-helpers.js";
+import { executeWithRetry } from "./internal/retry.js";
+import {
+  loadPersistedState,
+  clearPersistedState,
+  persistState,
+} from "./internal/state-persist.js";
 
 export interface SchedulerConfig {
   readonly executors: readonly Executor[];
@@ -201,7 +204,9 @@ export class Scheduler {
     plan: Plan,
     topo: { ok: true; order: readonly string[] },
   ): Promise<RunContext> {
-    const priorState = await this.loadState(plan.id);
+    const priorState = await loadPersistedState(
+      this.config.stateStore, this.config.resume, plan.id,
+    );
     const completed = new Set<string>(priorState?.completed ?? []);
     const skippedFromResume = new Set<string>(completed);
     const states = new Map<string, OpState>();
@@ -304,7 +309,7 @@ export class Scheduler {
   ): Promise<ExecutionResult> {
     const outcomes = this.buildOutcomes(ctx);
     const status = computeFinalStatus(this.cancelled, ctx.fatalFailure, outcomes);
-    await this.maybeClearState(ctx.plan.id, status);
+    if (status === "success") await clearPersistedState(this.config.stateStore, ctx.plan.id);
     return {
       planId: ctx.plan.id,
       status,
@@ -312,18 +317,6 @@ export class Scheduler {
       durationMs: Date.now() - start,
       cancelledOperations: [...ctx.cancelledOps],
     };
-  }
-
-  private async maybeClearState(
-    planId: string,
-    status: ExecutionResult["status"],
-  ): Promise<void> {
-    if (status !== "success" || !this.config.stateStore) return;
-    try {
-      await this.config.stateStore.clear(planId);
-    } catch (e) {
-      console.warn("stateStore.clear failed:", e);
-    }
   }
 
   private buildOutcomes(ctx: RunContext): Map<string, OperationOutcome> {
@@ -370,15 +363,10 @@ export class Scheduler {
 
   private async doPersist(ctx: RunContext): Promise<void> {
     const snapshot = this.snapshotState(ctx);
-    try {
-      await this.config.stateStore!.save({
-        planId: ctx.plan.id,
-        ...snapshot,
-        updatedAt: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("stateStore.save failed:", e);
-    }
+    await persistState(this.config.stateStore, {
+      planId: ctx.plan.id,
+      ...snapshot,
+    });
   }
 
   private snapshotState(ctx: RunContext): {
@@ -448,7 +436,11 @@ export class Scheduler {
     s: OpState,
     executor: Executor,
   ): Promise<void> {
-    const outcome = await this.executeWithRetry(executor, op);
+    const outcome = await executeWithRetry(
+      { config: this.config, isCancelled: () => this.cancelled },
+      executor,
+      op,
+    );
     s.status = outcome.status;
     s.outcome = outcome;
     if (outcome.status === "cancelled") ctx.cancelledOps.add(op.id);
@@ -568,108 +560,5 @@ export class Scheduler {
       operationId: op.id,
       executorType: op.executor.type,
     });
-  }
-
-  private async loadState(planId: string): Promise<
-    | { completed: readonly string[]; outcomes: ReadonlyMap<string, OperationOutcome> }
-    | undefined
-  > {
-    if (!this.config.stateStore || !this.config.resume) return undefined;
-    let state;
-    try {
-      state = await this.config.stateStore.load(planId);
-    } catch (e) {
-      throw new SchedulerError("state store load failed", {
-        code: "STATE_LOAD_ERROR",
-        cause: e instanceof Error ? e.message : String(e),
-      });
-    }
-    if (!state) return undefined;
-    return { completed: state.completed, outcomes: state.outcomes };
-  }
-
-  private async executeWithRetry(
-    executor: Executor,
-    op: PlanOperation,
-  ): Promise<OperationOutcome> {
-    const { maxAttempts, backoffSeconds, retryOn } = op.retry;
-    const start = Date.now();
-    let lastResult: ExecuteResult | undefined;
-    let lastError: Error | undefined;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (this.cancelled) return cancelledOutcome(op.id, Date.now() - start);
-      const request = this.buildRequest(op);
-      const result = await this.executeAttempt(
-        executor, op, request, attempt, maxAttempts, retryOn, backoffSeconds, start,
-      );
-      if (result.outcome) return result.outcome;
-      if (result.lastResult) lastResult = result.lastResult;
-      if (result.lastError) lastError = result.lastError;
-    }
-    if (lastResult) return toOutcome(op.id, lastResult, false);
-    return failureOutcome(op.id, Date.now() - start, lastError?.message ?? "retries exhausted");
-  }
-
-  private buildRequest(op: PlanOperation): ExecuteRequest {
-    return {
-      operation: op,
-      workspace: this.config.workspace,
-      env: op.env ?? {},
-      credentials: this.config.credentials,
-      cacheDir: this.config.cacheDir,
-      artifactDir: this.config.artifactDir,
-    };
-  }
-
-  private async executeAttempt(
-    executor: Executor,
-    op: PlanOperation,
-    request: ExecuteRequest,
-    attempt: number,
-    maxAttempts: number,
-    retryOn: readonly ("failure" | "timeout")[],
-    backoffSeconds: number,
-    start: number,
-  ): Promise<{ outcome?: OperationOutcome; lastResult?: ExecuteResult; lastError?: Error }> {
-    try {
-      const result = await executor.execute(request);
-      if (this.cancelled) return { outcome: cancelledOutcome(op.id, Date.now() - start) };
-      if (result.status === "success" || result.status === "skipped") {
-        return { outcome: toOutcome(op.id, result, false) };
-      }
-      const isTimeout = result.error?.includes("timeout") ?? false;
-      if (!shouldRetry(attempt, maxAttempts, retryOn, isTimeout)) {
-        return { outcome: toOutcome(op.id, result, false) };
-      }
-      if (backoffSeconds > 0) await cancellableSleep(backoffSeconds * 1000, this);
-      return { lastResult: result };
-    } catch (e) {
-      return this.handleExecutorThrow(
-        executor, op, e, attempt, maxAttempts, retryOn, backoffSeconds, start,
-      );
-    }
-  }
-
-  private async handleExecutorThrow(
-    executor: Executor,
-    op: PlanOperation,
-    e: unknown,
-    attempt: number,
-    maxAttempts: number,
-    retryOn: readonly ("failure" | "timeout")[],
-    backoffSeconds: number,
-    start: number,
-  ): Promise<{ outcome?: OperationOutcome; lastError?: Error }> {
-    const wrapped = new ExecutorError(
-      e instanceof Error ? e.message : String(e),
-      { operationId: op.id, executor: executor.name },
-    );
-    const isTimeout = e instanceof Error && e.message.includes("timeout");
-    if (!shouldRetry(attempt, maxAttempts, retryOn, isTimeout)) {
-      return { outcome: failureOutcome(op.id, Date.now() - start, wrapped.message) };
-    }
-    if (backoffSeconds > 0) await cancellableSleep(backoffSeconds * 1000, this);
-    return { lastError: wrapped };
   }
 }
