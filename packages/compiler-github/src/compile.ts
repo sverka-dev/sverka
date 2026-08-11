@@ -82,28 +82,31 @@ function buildCredentialEnv(plan: Plan): Record<string, string> {
  * Pure and synchronous: no I/O, no side effects. The same plan + config
  * always produces the same YAML.
  */
-export function compileGithubWorkflow(
-  plan: Plan,
-  config?: GithubCompilerConfig,
-): string {
-  const name = config?.name ?? "Sverka";
-  const runner = config?.runner ?? "ubuntu-latest";
-  const sverkaVersion = config?.sverkaVersion ?? "latest";
-  const nodeVersion = config?.nodeVersion ?? "24";
-  const triggers = buildTriggers(config?.on);
-  const permissions = buildPermissions(config?.permissions);
-  const env = buildCredentialEnv(plan);
+const GITHUB_DEFAULTS = {
+  name: "Sverka",
+  runner: "ubuntu-latest",
+  sverkaVersion: "latest",
+  nodeVersion: "24",
+};
 
+interface JobConfig {
+  runner: string;
+  sverkaVersion: string;
+  nodeVersion: string;
+  env: Record<string, string>;
+}
+
+function buildJob(cfg: JobConfig): Record<string, unknown> {
   const job: Record<string, unknown> = {
-    "runs-on": runner,
+    "runs-on": cfg.runner,
     steps: [
       { uses: "actions/checkout@v4" },
       {
         uses: "actions/setup-node@v4",
-        with: { "node-version": nodeVersion },
+        with: { "node-version": cfg.nodeVersion },
       },
       { uses: "oven-sh/setup-bun@v2", with: { version: "latest" } },
-      { run: `bun install -g sverka@${sverkaVersion}` },
+      { run: `bun install -g sverka@${cfg.sverkaVersion}` },
       { run: "sverka execute" },
       {
         uses: "actions/upload-artifact@v4",
@@ -112,15 +115,26 @@ export function compileGithubWorkflow(
       },
     ],
   };
-  if (Object.keys(env).length > 0) {
-    job.env = env;
+  if (Object.keys(cfg.env).length > 0) {
+    job.env = cfg.env;
   }
+  return job;
+}
+
+export function compileGithubWorkflow(
+  plan: Plan,
+  config?: GithubCompilerConfig,
+): string {
+  const cfg = { ...GITHUB_DEFAULTS, ...config };
+  const triggers = buildTriggers(cfg.on);
+  const permissions = buildPermissions(cfg.permissions);
+  const env = buildCredentialEnv(plan);
 
   const workflow = {
-    name,
+    name: cfg.name,
     on: triggers,
     permissions,
-    jobs: { sverka: job },
+    jobs: { sverka: buildJob({ ...cfg, env }) },
   };
 
   return stringify(workflow);
