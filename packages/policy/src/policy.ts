@@ -62,6 +62,12 @@ export function createPolicy(config: PolicyConfig): Policy {
   const def: Verdict = config.default ?? DEFAULT_POLICY.default;
   const failOn = config.failOn ?? DEFAULT_POLICY.failOn;
   for (const rule of failOn) {
+    if (!rule || typeof rule !== "object" || !("severity" in rule)) {
+      throw new PolicyError(
+        `Invalid rule in failOn: expected object with severity, got ${String(rule)}`,
+        "INVALID_RULE",
+      );
+    }
     assertValidSeverity(rule.severity);
   }
   return { name, default: def, failOn };
