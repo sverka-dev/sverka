@@ -25,6 +25,7 @@ const NETWORK_POLICIES = new Set(["deny", "allow-host", "allow-egress"]);
 const RETRY_ON_VALUES = new Set(["failure", "timeout"]);
 const GENERATED_BY_VALUES = new Set(["planner", "manual", "compiler"]);
 const MEMORY_SUFFIXES = new Set(["Ki", "Mi", "Gi", "Ti"]);
+const OPERATION_KINDS = new Set(["run", "check", "build", "analyze", "fetch", "publish", "custom"]);
 
 /** Validate sha256 image digest without regex (avoids ReDoS false positive). */
 function isValidImageDigest(s: string): boolean {
@@ -208,13 +209,7 @@ function validateCreatedAt(p: Record<string, unknown>, errors: ValidationErrorDe
 /** Recompute the plan id and compare with the declared id. */
 function recomputeId(p: Record<string, unknown>, errors: ValidationErrorDetail[]): void {
   try {
-    const body = {
-      apiVersion: p.apiVersion,
-      name: p.name,
-      sourceContextHash: p.sourceContextHash,
-      operations: p.operations,
-      metadata: p.metadata,
-    };
+    const { id: _id, createdAt: _createdAt, ...body } = p;
     const expected = computePlanId(body as Omit<Plan, "id" | "createdAt">);
     if (expected !== p.id) {
       errors.push({ field: "id", code: "ID_MISMATCH", message: `id does not match recomputed plan id (expected ${expected})` });
@@ -264,9 +259,6 @@ function detectDuplicateIds(ops: readonly PlanOperationView[], idCounts: Map<str
 
 /** Validate acyclic dependency graph (rule 5). */
 function validateAcyclic(ops: readonly PlanOperationView[], errors: ValidationErrorDetail[]): void {
-  const hasUnknownDep = errors.some((e) => e.code === "UNKNOWN_DEPENDENCY");
-  if (hasUnknownDep) return;
-
   const cycleNodes = ops
     .filter((op) => typeof op.id === "string" && Array.isArray(op.dependsOn))
     .map((op) => ({
@@ -389,6 +381,9 @@ function validateCredentials(op: PlanOperationView, opId: string | undefined, er
 
 /** Validate required operation fields (rule 15). */
 function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+  if (typeof op.kind !== "string" || !OPERATION_KINDS.has(op.kind)) {
+    errors.push(opError(opId, "operations[].kind", "INVALID_OPERATION", `operation kind must be one of ${[...OPERATION_KINDS].join(", ")}`));
+  }
   if (typeof op.id !== "string" || op.id.length === 0) {
     errors.push(opError(opId, "operations[].id", "INVALID_OPERATION", "operation id must be a non-empty string"));
   }
