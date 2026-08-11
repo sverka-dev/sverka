@@ -7,7 +7,7 @@ decision, every non-trivial design choice is documented here first.
 
 ## Structure
 
-```
+```text
 engdocs/
   README.md           # this file
   architecture/       # architecture overview and component docs

@@ -97,9 +97,8 @@ previous wave's branch, not main.
    Base it on the previous wave's branch (or main for Wave 1).
 
 2. Stage all changes for this wave:
-   ```
-   git add packages/<package>/ specs/NN-<name>/ engdocs/
-   ```
+
+       git add packages/<package>/ specs/NN-<name>/ engdocs/
 
 3. Prepare the commit message and push commands, and the PR title/body, then
    present them to the human for explicit authorization.

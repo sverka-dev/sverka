@@ -1,11 +1,6 @@
 ---
 # Codacy configuration — focus on real issues, exclude noise
 # https://docs.codacy.com/repositories-configure/codacy-configuration-file/
-#
-# NOTE: Codacy's .codacy.yml only supports `exclude_paths` and `base_sub_dir`
-# at the engine level. The `disable_rules` key is NOT a documented feature and
-# is silently ignored. To disable specific code patterns, use the Codacy UI
-# Code patterns page or the tool's own configuration file (e.g. .eslintrc.json).
 
 # Exclude non-source paths from analysis
 exclude_paths:
@@ -38,31 +33,11 @@ exclude_paths:
   - "node_modules/**"
   - ".opencode/**"
 
-# Configure tools — exclude all JS/TS source from Codacy's ESLint engines.
-# Codacy's ESLint runs eslint-plugin-es-x which flags ES2015+ syntax (modules,
-# classes, const, arrow functions, etc.) as forbidden. These rules are
-# inappropriate for a Node 24 / Bun / TypeScript project. The repository has
-# its own ESLint config (.eslintrc.json / eslint.config.mjs) that explicitly
-# disables all es-x rules, but Codacy does not honour that config unless
-# activated via the Codacy UI Code patterns page. Excluding all source files
-# from Codacy's ESLint engines is the only reliable .codacy.yml workaround.
+# Configure tools
 engines:
-  eslint-8:
-    exclude_paths:
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.js"
-      - "**/*.jsx"
-      - "**/*.mjs"
-      - "**/*.cjs"
+  # ESLint v9 — rely on the repository's native eslint.config.mjs for rules.
   eslint-9:
-    exclude_paths:
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.js"
-      - "**/*.jsx"
-      - "**/*.mjs"
-      - "**/*.cjs"
+    enabled: true
 
 # Disable analysis of markdown files (we only care about code)
 languages:

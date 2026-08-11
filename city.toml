@@ -1,6 +1,6 @@
 [workspace]
 provider = "devin"
-env = { DEVIN_MODEL = "glm-5-2" }
+env = { DEVIN_MODEL = "glm-5-2", DEVIN_PERMISSION_MODE = "dangerous" }
 
 [providers]
 [providers.devin]

@@ -200,13 +200,21 @@ This is the core engine. It is called by `workflow().plan()`.
         `CompositionError` with the cycle path in `context`.
      6. **Topo sort** — Kahn's algorithm or DFS post-order.
      7. **Evaluate conditions** — for each node in topo order, if
-        `spec.condition` exists, evaluate against `runtime.context`.
-        - In **compile** mode, call `runtime.evaluate(spec)` for *all*
-          nodes, including false-conditioned ones, so the compiler can emit
-          them with the `condition` field intact.
-        - In **execute** and **plan** modes, a false condition produces a
-          synthetic `"skipped"` outcome without calling
-          `runtime.evaluate()`.
+        `spec.condition` exists, evaluate against `runtime.context`. If
+        false, mark as skipped (don't call `runtime.evaluate`, or call it
+        and let the runtime decide — **decision: call `runtime.evaluate`
+        for all nodes; the planner passes the condition result via
+        `OperationSpec.condition` and the runtime decides**). Actually,
+        simpler: the planner evaluates the condition and if false, sets
+        `status: "skipped"` in the outcome without calling evaluate. But
+        the spec says the operation is "still recorded in the graph." So:
+        build the `OperationSpec` with `condition` set, call
+        `runtime.evaluate(spec)` for all, and in Execution mode the
+        runtime checks the condition. **Final decision:** the planner
+        evaluates conditions and skips `runtime.evaluate` for false
+        conditions, producing a synthetic `"skipped"` outcome. The
+        `OperationSpec.condition` field is still populated so compilers
+        can emit it. This keeps the runtime simple.
      8. **Evaluate** — for each non-skipped node in topo order, call
         `runtime.evaluate(spec)`. Collect `OperationOutcome`s.
      9. **Finalize** — call `runtime.finalize()`, merge with planner
@@ -284,7 +292,7 @@ bun run tsdown              # build produces dist/
 
 From repo root:
 ```bash
-bun run test                # nx run-many --target=test --all
+bun test                    # nx run-many --target=test --all
 bun run typecheck
 bun run lint
 bun run build
@@ -299,5 +307,5 @@ bun run build
 | Composition (pipeline/parallel/when/matrix/after/with) | `composition.test.ts`, `composables/*.test.ts` |
 | DAG validation (cycles, duplicate ids) | `dag.test.ts` |
 | Three Runtime modes | `runtime-modes.test.ts` |
-| bun run test/typecheck/lint/build green | verification gates |
+| bun test/typecheck/lint/build green | verification gates |
 | No `any`, no `@ts-ignore` | typecheck + lint |

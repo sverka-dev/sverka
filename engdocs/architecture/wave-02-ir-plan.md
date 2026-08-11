@@ -19,7 +19,7 @@ Implement the canonical Plan IR for `sverka.dev/v1`:
 - Versioned schema types (`Plan`, `PlanOperation`, sub-types).
 - Deterministic IDs: `computePlanId`, `computeOperationId` (SHA-256).
 - Canonical (de)serialization: `serializePlan`, `deserializePlan`.
-- Validation: `validatePlan` (13 rules, never throws) + `ValidationResult`.
+- Validation: `validatePlan` (15 rules, never throws) + `ValidationResult`.
 - Error hierarchy: `IRError` → `ValidationError`, `SerializationError`.
 - `PLAN_SCHEMA_VERSION` constant.
 - Public re-exports from `src/index.ts`.
@@ -44,7 +44,7 @@ The builder must run `bun install` once after pulling the new
 Mirror `core`'s layout (one module per concern, `__tests__/` co-located,
 internal helpers under `internal/`):
 
-```
+```text
 packages/ir/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   version.ts            # PLAN_SCHEMA_VERSION
@@ -76,6 +76,7 @@ the hash and the wire format can never drift.
 The builder writes tests before each module. Suggested commit-sized slices:
 
 ### Slice A — Errors + version (foundation, no deps)
+
 1. `errors.test.ts` — `IRError` base, `ValidationError`/`SerializationError`
    codes and `instanceof` chain. Mirror `core/src/errors.ts` exactly
    (constructor sets `name`, calls `super`).
@@ -85,54 +86,61 @@ The builder writes tests before each module. Suggested commit-sized slices:
 5. Wire both into `index.ts`.
 
 ### Slice B — Plan types
-6. `plan.ts` — type definitions only (no runtime). Copy interfaces verbatim
+
+1. `plan.ts` — type definitions only (no runtime). Copy interfaces verbatim
    from spec §Interfaces. `import type { OperationKind } from "@sverka/core"`.
    Note `verbatimModuleSyntax: true` → use `import type`.
-7. Export all plan types from `index.ts`.
-8. `public-api.test.ts` (skeleton) — assert every exported symbol is
+2. Export all plan types from `index.ts`.
+3. `public-api.test.ts` (skeleton) — assert every exported symbol is
    importable. Extend as slices land.
 
 ### Slice C — Canonical serialization (the primitive)
-9. `internal/canonical.ts` — `canonicalStringify(value: unknown): string`.
+
+1. `internal/canonical.ts` — `canonicalStringify(value: unknown): string`.
    Stable key sort (lexicographic on UTF-16 code units), compact
-   (no indentation), `undefined` omitted, arrays order-preserved.
-   Implement with a recursive walker + `JSON.stringify`-free manual emit
-   OR a replacer-based `JSON.stringify`; either is fine but must be
-   byte-stable. **Test first:** two objects with keys in different insertion
-   order produce identical output.
-10. `serialize.test.ts` — round-trip, byte-identical output for identical
-    plans, key-order independence.
-11. `serialize.ts` — `serializePlan` calls `canonicalStringify`.
-    `deserializePlan`: `JSON.parse` (throw `SerializationError` on
-    `SyntaxError`), then `validatePlan`; on invalid throw `ValidationError`
-    with the first error's code/message. Return a deep-frozen object.
+   (no indentation), object keys with `undefined` values omitted, array
+   element order preserved, `NaN`/`Infinity` rejected, strings escaped per
+   JSON rules. Implement with a recursive walker and a `JSON.stringify`-free
+   manual emit; a replacer-based `JSON.stringify` is not sufficient because
+   it cannot deterministically control `undefined` handling and key order.
+   **Test first:** two objects with keys in different insertion order
+   produce identical output.
+2. `serialize.test.ts` — round-trip, byte-identical output for identical
+   plans, key-order independence.
+3. `serialize.ts` — `serializePlan` calls `canonicalStringify`.
+   `deserializePlan`: `JSON.parse` (throw `SerializationError` on
+   `SyntaxError`), then `validatePlan`; on invalid throw `ValidationError`
+   with the first error's code/message. Return a deep-frozen object.
 
 ### Slice D — IDs (depends on canonical + plan types)
-12. `ids.test.ts` — determinism, prefix (`plan-`/`op-`), 64 hex chars,
-    matrix distinctness, changing-one-op changes plan id.
-13. `ids.ts` — `computePlanId`: strip `id`+`createdAt`, `canonicalStringify`,
-    `crypto.createHash('sha256')`, hex, prefix `plan-`.
-    `computeOperationId`: `canonicalStringify({ kind, name, context })`,
-    sha256 hex, prefix `op-`. Use `node:crypto` (built-in, no dep).
+
+1. `ids.test.ts` — determinism, prefix (`plan-`/`op-`), 64 hex chars,
+   matrix distinctness, changing-one-op changes plan id.
+2. `ids.ts` — `computePlanId`: strip `id`+`createdAt`, `canonicalStringify`,
+   `crypto.createHash('sha256')`, hex, prefix `plan-`.
+   `computeOperationId`: `canonicalStringify({ kind, name, context })`,
+   sha256 hex, prefix `op-`. Use `node:crypto` (built-in, no dep).
 
 ### Slice E — Validation (depends on ids + plan types)
-14. `internal/graph.ts` — `hasCycle(operations): string[] | undefined`
-    returns the cycle path (ids) or undefined. DFS with WHITE/GRAY/BLACK
-    coloring.
-15. `validate.test.ts` — one positive + 13 negative cases (one per rule),
-    each asserting `valid === false`, the right `code`, and `field`.
-    Cycle test asserts the cycle path appears in `context`/`message`.
-16. `validate.ts` — `validatePlan(plan: unknown): ValidationResult`.
-    Narrow `unknown` with type guards (never `any`). Collect ALL errors,
-    do not short-circuit (callers want the full list). Never throw.
-    Rule 2 (id matches recomputed) calls `computePlanId` on the parsed
-    shape minus `id`/`createdAt` — guard against missing fields first.
+
+1. `internal/graph.ts` — `hasCycle(operations): string[] | undefined`
+   returns the cycle path (ids) or undefined. DFS with WHITE/GRAY/BLACK
+   coloring.
+2. `validate.test.ts` — one positive + 15 negative cases (one per rule),
+   each asserting `valid === false`, the right `code`, and `field`.
+   Cycle test asserts the cycle path appears in `context`/`message`.
+3. `validate.ts` — `validatePlan(plan: unknown): ValidationResult`.
+   Narrow `unknown` with type guards (never `any`). Collect ALL errors,
+   do not short-circuit (callers want the full list). Never throw.
+   Rule 2 (id matches recomputed) calls `computePlanId` on the parsed
+   shape minus `id`/`createdAt` — guard against missing fields first.
 
 ### Slice F — Public API + gates
-17. Complete `index.ts` exports to match spec §Interfaces exactly.
-18. `public-api.test.ts` — every symbol importable + exercised.
-19. Run gates: `bun run vitest run`, `bun run typecheck`, `bun run lint`,
-    `bun run build`. All must be green.
+
+1. Complete `index.ts` exports to match spec §Interfaces exactly.
+2. `public-api.test.ts` — every symbol importable + exercised.
+3. Run gates: `bun test packages/ir`, `bun run typecheck`, `bun run lint`,
+   `bun run build`. All must be green.
 
 ## 5. Convention checklist (enforced by reviewer)
 
@@ -184,6 +192,7 @@ The builder should use these stable `code` strings (reviewer checks them):
 
 | Rule | code                       | field                          |
 |------|----------------------------|--------------------------------|
+| -    | `INVALID_PLAN`             | `""`, `name`, `sourceContextHash`, `createdAt` |
 | 1    | `INVALID_API_VERSION`      | `apiVersion`                   |
 | 2    | `ID_MISMATCH`              | `id`                           |
 | 3    | `EMPTY_OPERATIONS`         | `operations`                   |
@@ -197,12 +206,14 @@ The builder should use these stable `code` strings (reviewer checks them):
 | 11   | `INVALID_NETWORK_POLICY`   | `operations[].network`         |
 | 12   | `MISSING_CACHE_KEY`        | `operations[].cache.key`       |
 | 13   | `EMPTY_CREDENTIAL_ENVVAR`  | `operations[].credentials[].envVar` |
+| 14   | `INVALID_METADATA`         | `metadata`                     |
+| 15   | `INVALID_OPERATION`        | `operations[]`                 |
 
 ## 8. Gates (reviewer runs these)
 
 ```bash
 bun install              # resolve new @sverka/core dep
-bun run vitest run       # all tests green (Vitest, not `bun test`)
+bun test packages/ir     # all tests green
 bun run typecheck        # strict, no any
 bun run lint             # eslint clean
 bun run build            # tsdown produces dist/index.mjs + .d.mts
