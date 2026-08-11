@@ -11,36 +11,32 @@ export interface InitArgs {
   force?: boolean;
 }
 
-// Build template content with array.join to avoid Codacy "template string"
-// warnings on multi-line literals that have no interpolation.
-const MINIMAL_TEMPLATE = [
-  'import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";',
-  "",
-  "export default defineWorkflow({",
-  '  name: "verify",',
-  "  workflow: pipeline(",
-  '    task("lint", run({ command: "bun", args: ["run", "lint"] })),',
-  '    task("typecheck", run({ command: "bun", args: ["run", "typecheck"] })),',
-  '    task("test", run({ command: "bun", args: ["run", "test"] })),',
-  "  ),",
-  "});",
-  "",
-].join("\n");
+// codacy-disable-next-line: This is generated file content, not runtime interpolation.
+const MINIMAL_TEMPLATE = `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
 
-const FULL_TEMPLATE = [
-  'import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";',
-  "",
-  "export default defineWorkflow({",
-  '  name: "verify",',
-  "  workflow: pipeline(",
-  '    task("lint", run({ command: "bun", args: ["run", "lint"] })),',
-  '    task("typecheck", run({ command: "bun", args: ["run", "typecheck"] })),',
-  '    task("test", run({ command: "bun", args: ["run", "test"] })),',
-  '    task("build", run({ command: "bun", args: ["run", "build"] })),',
-  "  ),",
-  "});",
-  "",
-].join("\n");
+export default defineWorkflow({
+  name: "verify",
+  workflow: pipeline(
+    task("lint", run({ command: "bun", args: ["run", "lint"] })),
+    task("typecheck", run({ command: "bun", args: ["run", "typecheck"] })),
+    task("test", run({ command: "bun", args: ["run", "test"] })),
+  ),
+});
+`;
+
+// codacy-disable-next-line: This is generated file content, not runtime interpolation.
+const FULL_TEMPLATE = `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
+
+export default defineWorkflow({
+  name: "verify",
+  workflow: pipeline(
+    task("lint", run({ command: "bun", args: ["run", "lint"] })),
+    task("typecheck", run({ command: "bun", args: ["run", "typecheck"] })),
+    task("test", run({ command: "bun", args: ["run", "test"] })),
+    task("build", run({ command: "bun", args: ["run", "build"] })),
+  ),
+});
+`;
 
 /** Resolve and validate the template name, returning its file content. */
 function resolveTemplateContent(template: string): string {
