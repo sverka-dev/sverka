@@ -30,6 +30,7 @@ Enrichment from SARIF `properties`:
 import json
 import re
 import sys
+from urllib.parse import urlparse, unquote
 
 LEVEL_MAP = {
     "error":   "error",
@@ -188,14 +189,12 @@ def parse_location(result):
                 "end_line": None, "end_col": None}
     phys = locations[0].get("physicalLocation") or {}
     file_uri = phys.get("artifactLocation", {}).get("uri", "")
-    # Normalize: strip file:// scheme and leading slashes so GitHub Actions
-    # receives a path relative to the repository root.
-    if file_uri.startswith("file://"):
-        file_uri = file_uri[len("file://"):]
-    elif "://" in file_uri:
-        # Drop any other absolute URI scheme (http://, https://, etc.) —
-        # keep only the path component after the authority.
-        file_uri = file_uri.split("/", 3)[-1] if "/" in file_uri.split("://", 1)[1] else ""
+    # Normalize: strip scheme/authority and leading slashes so GitHub Actions
+    # receives a path relative to the repository root. Use urllib.parse for
+    # robust handling of file://, https://, and other URI schemes.
+    if "://" in file_uri:
+        parsed = urlparse(file_uri)
+        file_uri = unquote(parsed.path)
     file_uri = file_uri.lstrip("/")
     region = phys.get("region") or {}
     return {
