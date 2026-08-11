@@ -53,7 +53,11 @@ export async function planWorkflow(
   } catch (err) {
     // Ensure runtime.finalize() is called even when evaluate() rejects,
     // so executors can release containers, processes, and file handles.
-    await runtime.finalize();
+    try {
+      await runtime.finalize();
+    } catch {
+      // Cleanup failure must not mask the original evaluation error.
+    }
     throw err;
   }
 
@@ -85,16 +89,12 @@ async function evaluateOperations(
       outcomes.push({ operationId: spec.id, status: "cancelled", durationMs: 0 });
       continue;
     }
-    if (spec.condition !== undefined) {
-      const included = evaluateCondition(spec.condition, runtime.context);
-      if (!included) {
-        if (runtime.mode === "compile") {
-          outcomes.push(await runtime.evaluate(spec));
-        } else {
-          outcomes.push({ operationId: spec.id, status: "skipped", durationMs: 0 });
-        }
-        continue;
-      }
+    const skipped =
+      spec.condition !== undefined &&
+      !evaluateCondition(spec.condition, runtime.context);
+    if (skipped) {
+      outcomes.push(await outcomeForSkipped(spec, runtime));
+      continue;
     }
     const outcome = await runtime.evaluate(spec);
     outcomes.push(outcome);
@@ -102,6 +102,16 @@ async function evaluateOperations(
       aborted = true;
     }
   }
+}
+
+async function outcomeForSkipped(
+  spec: OperationSpec,
+  runtime: Runtime,
+): Promise<OperationOutcome> {
+  if (runtime.mode === "compile") {
+    return runtime.evaluate(spec);
+  }
+  return { operationId: spec.id, status: "skipped", durationMs: 0 };
 }
 
 function nowMs(): number {

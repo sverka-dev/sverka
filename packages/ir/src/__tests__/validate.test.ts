@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validatePlan } from "../validate.js";
+import { computePlanId } from "../ids.js";
 import type { PlanOperation } from "../plan.js";
 import {
   validPlan,
@@ -67,6 +68,14 @@ describe("validatePlan — rule 2 (id matches recomputed)", () => {
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.code === "ID_MISMATCH")).toBe(true);
+  });
+
+  it("accepts a plan with an extra top-level field", () => {
+    const planWithExtra = { ...validPlan(), extraField: "value" };
+    const plan = { ...planWithExtra, id: computePlanId(planWithExtra) };
+    const result = validatePlan(plan);
+    expect(result.errors.some((e) => e.code === "ID_MISMATCH")).toBe(false);
+    expect(result.valid).toBe(true);
   });
 });
 
@@ -364,11 +373,8 @@ describe("validatePlan — collects all errors (no short-circuit)", () => {
 
 describe("validatePlan — rule 14 (metadata fields)", () => {
   it("rejects missing sverkaVersion with INVALID_METADATA", () => {
-    const plan = validPlan({
-      metadata: { sverkaVersion: "", generatedBy: "planner" },
-    });
     // sverkaVersion="" is a string so it passes — test with missing field
-    const { metadata, ...rest } = validPlan();
+    const { metadata: _metadata, ...rest } = validPlan();
     const planMissing = { ...rest, metadata: { generatedBy: "planner" } };
     const result = validatePlan(planMissing);
     expect(result.valid).toBe(false);
@@ -378,7 +384,7 @@ describe("validatePlan — rule 14 (metadata fields)", () => {
   });
 
   it("rejects non-string sverkaVersion with INVALID_METADATA", () => {
-    const { metadata, ...rest } = validPlan();
+    const { metadata: _metadata, ...rest } = validPlan();
     const plan = { ...rest, metadata: { sverkaVersion: 42, generatedBy: "planner" } };
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);
@@ -390,7 +396,7 @@ describe("validatePlan — rule 14 (metadata fields)", () => {
   });
 
   it("rejects invalid generatedBy union with INVALID_METADATA", () => {
-    const { metadata, ...rest } = validPlan();
+    const { metadata: _metadata, ...rest } = validPlan();
     const plan = { ...rest, metadata: { sverkaVersion: "0.0.0", generatedBy: "unknown" } };
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);
@@ -401,7 +407,7 @@ describe("validatePlan — rule 14 (metadata fields)", () => {
   });
 
   it("rejects missing generatedBy with INVALID_METADATA", () => {
-    const { metadata, ...rest } = validPlan();
+    const { metadata: _metadata, ...rest } = validPlan();
     const plan = { ...rest, metadata: { sverkaVersion: "0.0.0" } };
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);

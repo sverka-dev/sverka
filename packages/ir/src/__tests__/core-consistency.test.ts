@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeOperationId as irComputeOperationId } from "../ids.js";
-import { computeOperationId as coreComputeOperationId } from "@sverka/core";
+import { computeOperationId as coreComputeOperationId, type OperationKind } from "@sverka/core";
 
 /**
  * ADR-006 cross-package consistency: the `ir` package re-exports
@@ -9,7 +9,7 @@ import { computeOperationId as coreComputeOperationId } from "@sverka/core";
  * with golden hashes to detect regression drift.
  */
 describe("core / ir computeOperationId consistency (ADR-006)", () => {
-  const cases: Array<[string, string, Record<string, unknown>, string]> = [
+  const cases: Array<[OperationKind, string, Record<string, unknown>, string]> = [
     ["run", "build", {}, "op-b75f0e7c4aa34a7f67cad8a4bfe9547ffe992a79736df1d6b19d28a5534e7bb6"],
     ["run", "build", { os: "linux" }, "op-ec9c1a04131e3bd5cb07b1eca9880930299e88c0a1b9b2f128655f670aaedd23"],
     ["run", "test", { node: "20", os: "linux" }, "op-1e54982274bd04562da23f5b6431a2d030990aaae2b2062786e12507268aaa51"],
@@ -24,8 +24,8 @@ describe("core / ir computeOperationId consistency (ADR-006)", () => {
 
   for (const [kind, name, context, expected] of cases) {
     it(`produces expected golden id for ${kind}/${name}/${JSON.stringify(context)}`, () => {
-      expect(coreComputeOperationId(kind as never, name, context)).toBe(expected);
-      expect(irComputeOperationId(kind as never, name, context)).toBe(expected);
+      expect(coreComputeOperationId(kind, name, context)).toBe(expected);
+      expect(irComputeOperationId(kind, name, context)).toBe(expected);
     });
   }
 });
