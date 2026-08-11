@@ -58,26 +58,22 @@ def _count_real_issues(bd_output: str, status: str = "open", bd_exit: int = 0) -
 
 
 def _parse_status(status: str) -> tuple:
-    """Run the same pipelines watchdog uses to parse gc status fields."""
+    """Parse gc status using the same sourceable helper the production watchdog uses."""
+    prefix = _source_prefix()
     script = f"""
-STATUS=$(cat <<'STATUSEOF'
-{status}
-STATUSEOF
-)
-MAYOR=$(printf '%s\\n' "$STATUS" | awk '/^harness\\.mayor / {{print $2; exit}}')
-SESSIONS=$(printf '%s\\n' "$STATUS" | awk '/^Sessions:/ {{gsub(/^ */, ""); print; exit}}')
-SUSPENDED=$(printf '%s\\n' "$STATUS" | awk '/^Suspended:/ {{print $2; exit}}')
-CONTROLLER=$(printf '%s\\n' "$STATUS" | grep -m1 '^Controller:' | grep -o "supervisor-managed\\|stopped\\|error" | head -1 || true)
-echo "$MAYOR|$SESSIONS|$SUSPENDED|$CONTROLLER"
+{prefix}
+_parse_gc_status "$STATUS"
 """
     result = subprocess.run(
-        ["bash", "-c", script],
+        ["/bin/bash", "-c", script],
         capture_output=True,
         text=True,
+        check=True,
+        env={"STATUS": status, **os.environ},
     )
-    if result.returncode != 0:
-        raise AssertionError(f"status parsing failed: {result.stderr}")
     parts = result.stdout.strip().split("|")
+    if len(parts) != 4:
+        raise AssertionError(f"expected 4 status fields, got {parts!r}")
     return tuple(parts)
 
 
@@ -156,6 +152,25 @@ def test_status_fields_parsed():
     assert controller == "supervisor-managed"
 
 
+def test_status_first_match_wins():
+    """When status lines are repeated, the first matching line is used."""
+    status = (
+        "harness.mayor awake\n"
+        "harness.mayor lookup\n"
+        "Sessions: 3 active\n"
+        "Sessions: 99 stale\n"
+        "Controller: stopped\n"
+        "Controller: supervisor-managed\n"
+        "Suspended: no\n"
+        "Suspended: yes\n"
+    )
+    mayor, sessions, suspended, controller = _parse_status(status)
+    assert mayor == "awake"
+    assert sessions == "Sessions: 3 active"
+    assert controller == "stopped"
+    assert suspended == "no"
+
+
 def test_status_missing_fields():
     """Missing status fields produce empty values rather than stale defaults."""
     status = "Sessions: 0 active\n"
@@ -175,6 +190,7 @@ TESTS = [
     test_non_status_lines_ignored,
     test_bd_lookup_failure_returns_minus_one,
     test_status_fields_parsed,
+    test_status_first_match_wins,
     test_status_missing_fields,
 ]
 
