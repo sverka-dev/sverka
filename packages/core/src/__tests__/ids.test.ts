@@ -41,6 +41,12 @@ describe("computeOperationId", () => {
     );
   });
 
+  it("differs when context values differ only by type", () => {
+    expect(computeOperationId("run", "build", { target: 1 })).not.toBe(
+      computeOperationId("run", "build", { target: "1" }),
+    );
+  });
+
   it("matrix expansion produces distinct, deterministic ids", () => {
     const combos = [
       { os: "linux", arch: "x64" },
