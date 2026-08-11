@@ -84,9 +84,9 @@ http://127.0.0.1:8372/city/sverka/mail or via `gc mail inbox`.
 
 ## Stacked PRs to GitHub
 
-After each wave passes review, commit and push a stacked PR to GitHub so the
-human can see progress in the GitHub UI. Stacked PRs chain: each wave's PR
-targets the previous wave's branch, not main.
+After each wave passes review, prepare a stacked PR on a branch so the human
+can review and authorize it. Stacked PRs chain: each wave's PR targets the
+previous wave's branch, not main.
 
 ### Procedure (after reviewer approves a wave):
 
@@ -96,39 +96,19 @@ targets the previous wave's branch, not main.
    ```
    Base it on the previous wave's branch (or main for Wave 1).
 
-2. Stage and commit all changes for this wave:
+2. Stage all changes for this wave:
    ```
    git add packages/<package>/ specs/NN-<name>/ engdocs/
-   git commit -m "feat: Wave N — <package> summary
-
-   <details>
-   - N tests pass
-   - typecheck clean
-   - build green
-   - reviewer approved
-   </details>"
    ```
 
-3. Push the branch:
-   ```
-   git push -u origin wave-N-<package>
-   ```
+3. Prepare the commit message and push commands, and the PR title/body, then
+   present them to the human for explicit authorization.
 
-4. Create a stacked PR targeting the previous wave's branch:
-   ```
-   gh pr create --base wave-(N-1)-<prev-package> --head wave-N-<package> \
-     --title "Wave N: <package>" \
-     --body "## Summary
-   - <bullet points>
-
-   ## Test plan
-   - [x] bun run test
-   - [x] bun run typecheck
-   - [x] bun run build
-   - [x] reviewer approved
-
-   Stacked on #<previous PR number>"
-   ```
+4. Only after the human authorizes (or an active profile grants that authority):
+   - commit the staged changes,
+   - push the branch with `git push -u origin wave-N-<package>`,
+   - create the stacked PR with `gh pr create --base wave-(N-1)-<prev-package>
+     --head wave-N-<package> --title "Wave N: <package>" --body "..."`.
 
 5. For Wave 1, target `main`. For all subsequent waves, target the previous
    wave's branch.
