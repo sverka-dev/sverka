@@ -91,65 +91,17 @@ Command:
 
 This single merge brings ALL changes from the entire stack into main.
 
-After merge:
-1. Delete the remote head branch (gh pr merge --delete-branch does this)
-2. Pull main locally: git checkout main && git pull
-3. Close all lower PRs in this stack (their changes are now in main):
-   # Fetch origin once before verifying any lower PR; if it fails, none of the
-   # lower PRs can be safely proven as included, so retain all of them.
-   if ! git fetch origin; then
-     echo "WARNING: git fetch origin failed — cannot verify lower PRs; retaining all lower PRs and branches"
-   else
-     BASE_TREE=$(git rev-parse "origin/main^{tree}")
+After merge, follow the post-merge cleanup runbook in
+`engdocs/runbooks/merge-stack-post-merge.md`:
+- Pull `main` locally.
+- For each lower PR, verify its content is already in `main` using a trial
+  `git merge-tree --write-tree` comparison (squash merges break ancestry checks).
+- Close verified lower PRs and delete their head branches; retain any PR whose
+  inclusion cannot be proven.
+- Record the merge in `bd` if this stack is tracked.
 
-     For each lower PR in the stack:
-       # Squash merge creates a new commit on main, so ancestry checks
-       # (git merge-base --is-ancestor) will fail even though all content
-       # was included. Verify content inclusion with a trial 3-way merge:
-       # if merging the lower branch into origin/main produces the same tree
-       # as origin/main, every change the branch carries is already present.
-       # This is sound because it is Git's own merge machinery, and it cannot
-       # be fooled by a larger unrelated diff on main (regression case: a
-       # lower branch with a 5-line change and a main branch with an unrelated
-       # 50-line change elsewhere previously passed the old wc -l check).
-       CONTENT_INCLUDED=false
-       LOWER_REF="origin/<lower-head-branch>"
-
-       MERGE_BASE=$(git merge-base origin/main "$LOWER_REF") || true
-       if [ -n "$MERGE_BASE" ]; then
-         # git merge-tree --write-tree needs git >= 2.38. On older git it exits
-         # with a usage error and we conservatively treat content as unverified.
-         # Keep stdout (the tree OID) and stderr (diagnostics / errors) separate,
-         # then validate the OID before comparing it.
-         MERGE_ERR=$(mktemp)
-         MERGED_TREE=""
-         if MERGED_TREE=$(git merge-tree --write-tree --no-messages origin/main "$LOWER_REF" 2>"$MERGE_ERR"); then
-           MERGE_RC=0
-         else
-           MERGE_RC=$?
-         fi
-         rm -f "$MERGE_ERR"
-         if [ "$MERGE_RC" -eq 0 ] && [ -n "$MERGED_TREE" ]; then
-           if [[ "$MERGED_TREE" =~ ^[0-9a-f]{40,64}$ ]] && [ "$(git cat-file -t "$MERGED_TREE" 2>/dev/null)" = "tree" ]; then
-             if [ "$MERGED_TREE" = "$BASE_TREE" ]; then
-               CONTENT_INCLUDED=true
-             fi
-           else
-             echo "WARNING: merge-tree output is not a valid tree object — treating content as unverified" >&2
-           fi
-         fi
-       fi
-
-       if [ "$CONTENT_INCLUDED" = "true" ]; then
-         gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
-         git push origin --delete <lower-head-branch> 2>/dev/null || true
-       else
-         echo "WARNING: <lower-head-branch> content not proven to be in main — retaining lower PR and branch for review"
-         # Do not close or delete; the lower PR stays open until inclusion can be verified.
-       fi
-     fi
-   fi
-4. Record merge in bd: bd close <bead-id> if tracking
+The runbook contains the full executable steps and safety notes, including the
+required git >= 2.38 caveat and OID validation logic.
 
 If merge fails (conflict, CI changed), report back to builder for
 another /act iteration.
