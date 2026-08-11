@@ -114,14 +114,21 @@ function buildPlanOperation(
     kind: spec.kind,
     name: spec.name,
     ...optionalFields(spec),
-    dependsOn: spec.dependsOn ?? [],
+    ...resolveDefaults(spec),
     executor,
     resources,
-    network: spec.network ?? "deny",
-    credentials: spec.credentials ?? [],
     ...(cache !== undefined ? { cache } : {}),
     artifacts,
     retry,
+  };
+}
+
+/** Resolve fields with default values to reduce buildPlanOperation complexity. */
+function resolveDefaults(spec: OperationSpec): Partial<PlanOperation> {
+  return {
+    dependsOn: spec.dependsOn ?? [],
+    network: spec.network ?? "deny",
+    credentials: spec.credentials ?? [],
     timeoutSeconds: spec.timeoutSeconds ?? 300,
     continueOnError: spec.continueOnError ?? false,
   };
