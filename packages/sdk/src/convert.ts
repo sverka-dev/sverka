@@ -134,16 +134,20 @@ type DefaultedField =
   | "timeoutSeconds"
   | "continueOnError";
 
+function valueOrDefault<T>(value: T | undefined, defaultValue: T): T {
+  return value === undefined ? defaultValue : value;
+}
+
 /** Resolve fields with default values to reduce buildPlanOperation complexity. */
 function resolveDefaults(
   spec: OperationSpec,
 ): Required<Pick<PlanOperation, DefaultedField>> {
   return {
-    dependsOn: spec.dependsOn ?? [],
-    network: spec.network ?? "deny",
-    credentials: spec.credentials ?? [],
-    timeoutSeconds: spec.timeoutSeconds ?? 300,
-    continueOnError: spec.continueOnError ?? false,
+    dependsOn: valueOrDefault(spec.dependsOn, []),
+    network: valueOrDefault(spec.network, "deny"),
+    credentials: valueOrDefault(spec.credentials, []),
+    timeoutSeconds: valueOrDefault(spec.timeoutSeconds, 300),
+    continueOnError: valueOrDefault(spec.continueOnError, false),
   };
 }
 
