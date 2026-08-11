@@ -184,9 +184,9 @@ function validateName(p: Record<string, unknown>, errors: ValidationErrorDetail[
 }
 
 function validateSourceContextHash(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
-  const ok = typeof p.sourceContextHash === "string" && p.sourceContextHash.length > 0;
+  const ok = typeof p.sourceContextHash === "string";
   if (!ok) {
-    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a non-empty string" });
+    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a string" });
   }
   return ok;
 }
