@@ -61,7 +61,7 @@ def collect_entries(runs):
 
 
 def sanitize_for_command(value: str) -> str:
-    """Make a string safe to embed in a GitHub workflow command.
+    r"""Make a string safe to embed in a GitHub workflow command.
 
     Workflow commands use `::` as terminator and newlines as end-of-line
     markers. Replace `\r`, `\n`, `\t` and other ASCII control characters
@@ -173,6 +173,28 @@ def build_message(explanation, properties):
     return " — ".join(out)
 
 
+def parse_location(result):
+    """Extract the first physical location from a SARIF result.
+
+    Returns a dict with keys: file_uri, start_line, start_col,
+    end_line, end_col. Missing values are empty string or None.
+    """
+    locations = result.get("locations") or []
+    if not locations:
+        return {"file_uri": "", "start_line": None, "start_col": None,
+                "end_line": None, "end_col": None}
+    phys = locations[0].get("physicalLocation") or {}
+    file_uri = phys.get("artifactLocation", {}).get("uri", "")
+    region = phys.get("region") or {}
+    return {
+        "file_uri": file_uri,
+        "start_line": region.get("startLine"),
+        "start_col": region.get("startColumn"),
+        "end_line": region.get("endLine"),
+        "end_col": region.get("endColumn"),
+    }
+
+
 def build_annotation_line(result, tool_name, entries_by_id):
     """Build one GitHub workflow-command line for a single SARIF result."""
     ann_level = LEVEL_MAP.get(result.get("level", "warning"), LEVEL_MAP["warning"])
@@ -184,33 +206,19 @@ def build_annotation_line(result, tool_name, entries_by_id):
     title = build_title(tool_name, rule_id, properties, entries_by_id)
     full_msg = build_message(message, properties)
 
-    # Get first physical location
-    locations = result.get("locations") or []
-    file_uri = ""
-    start_line = None
-    start_col = None
-    end_line = None
-    end_col = None
-    if locations:
-        phys = locations[0].get("physicalLocation") or {}
-        file_uri = phys.get("artifactLocation", {}).get("uri", "")
-        region = phys.get("region") or {}
-        start_line = region.get("startLine")
-        start_col = region.get("startColumn")
-        end_line = region.get("endLine")
-        end_col = region.get("endColumn")
+    loc = parse_location(result)
 
     parts = []
-    if file_uri:
-        parts.append("file=" + encode_property_value(file_uri))
-    if start_line is not None:
-        parts.append("line=" + str(start_line))
-    if start_col is not None:
-        parts.append("col=" + str(start_col))
-    if end_line is not None:
-        parts.append("endLine=" + str(end_line))
-    if end_col is not None:
-        parts.append("endColumn=" + str(end_col))
+    if loc["file_uri"]:
+        parts.append("file=" + encode_property_value(loc["file_uri"]))
+    if loc["start_line"] is not None:
+        parts.append("line=" + str(loc["start_line"]))
+    if loc["start_col"] is not None:
+        parts.append("col=" + str(loc["start_col"]))
+    if loc["end_line"] is not None:
+        parts.append("endLine=" + str(loc["end_line"]))
+    if loc["end_col"] is not None:
+        parts.append("endColumn=" + str(loc["end_col"]))
     parts.append("title=" + encode_property_value(title))
     props = ",".join(parts)
 
@@ -225,7 +233,16 @@ def build_annotation_line(result, tool_name, entries_by_id):
 
 
 def main():
-    raw = sys.stdin.read()
+    # Limit stdin to 100 MB to prevent excessive memory consumption from
+    # malformed or hostile input. SARIF files are typically well under 1 MB.
+    MAX_INPUT_BYTES = 100 * 1024 * 1024
+    raw = sys.stdin.read(MAX_INPUT_BYTES)
+    if len(raw) >= MAX_INPUT_BYTES:
+        print(
+            "::error title=sarif-to-annotations::input exceeds 100 MB limit",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     start = raw.find("{")
     if start < 0:
         print(

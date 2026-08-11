@@ -96,8 +96,15 @@ After merge:
 2. Pull main locally: git checkout main && git pull
 3. Close all lower PRs in this stack (their changes are now in main):
    For each lower PR in the stack:
-     gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
-     git push origin --delete <lower-head-branch> (if not already deleted)
+     # Verify the branch is truly in main before deleting:
+     git fetch origin
+     if git merge-base --is-ancestor origin/<lower-head-branch> origin/main; then
+       gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
+       git push origin --delete <lower-head-branch> (if not already deleted)
+     else
+       echo "WARNING: <lower-head-branch> is NOT an ancestor of main — skipping deletion"
+       gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). Branch retained for safety."
+     fi
 4. Record merge in bd: bd close <bead-id> if tracking
 
 If merge fails (conflict, CI changed), report back to builder for

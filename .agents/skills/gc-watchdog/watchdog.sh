@@ -14,23 +14,30 @@
 set -uo pipefail
 
 INTERVAL="${1:-60}"
+# Validate INTERVAL is a positive integer to prevent injection.
+if ! [[ "$INTERVAL" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: interval must be a positive integer, got: $INTERVAL" >&2
+  exit 2
+fi
 ITER=0
 
 # Filter out ephemeral wisp/nudge beads from bd output.
-# Real issues have IDs like sv-XXXX (4 chars after sv-).
+# Real issues have IDs like sv-XXXX (4+ chars after sv-).
 # Wisp/nudge beads have IDs like sv-wisp-XXXX or sv-nudge-XXXX.
 # Status symbols: ○ = open, ◐ = in_progress, ● = blocked, ✓ = closed
+# Returns -1 on bd failure (distinct from a legitimate 0 count) so the
+# caller can distinguish "no work" from "lookup failed".
 count_real_issues() {
   local status="$1"
   local count
   if ! count=$(
     bd list --status="$status" 2>/dev/null \
-      | grep -E '^\s*[○◐●] sv-[a-z0-9]{4} ' \
-      | grep -v "wisp\|nudge" \
+      | grep -E '^\s*[○◐●] sv-[a-z0-9]{4,}($| )' \
+      | grep -vE 'sv-(wisp|nudge)' \
       | wc -l 2>/dev/null
   ); then
-    printf '0\n'
-    return 0
+    printf -- '-1\n'
+    return 1
   fi
   printf '%s\n' "$count"
 }
@@ -91,9 +98,12 @@ while true; do
     echo "[$TS] #$ITER ✓ mayor:$MAYOR | open:$OPEN_COUNT in_progress:$INPROG_COUNT | ${SESSIONS:-no-sessions}"
   fi
 
-  # 5. Exit condition: no open AND no in-progress real work, mayor healthy
-  # Note: lookup-error is transient, don't exit on it — only exit on clean idle
-  if [ "$OPEN_COUNT" -eq 0 ] && [ "$INPROG_COUNT" -eq 0 ] && [ -z "$ISSUES" ]; then
+  # 5. Exit condition: no open AND no in-progress real work, mayor healthy.
+  # Note: lookup-error is transient, don't block exit on it — only exit on
+  # clean idle (no real issues, no hard failures). MAYOR_LOOKUP_TIMEOUT is
+  # a soft signal, so strip it from ISSUES before checking the exit condition.
+  HARD_ISSUES="${ISSUES// MAYOR_LOOKUP_TIMEOUT/}"
+  if [ "$OPEN_COUNT" -eq 0 ] && [ "$INPROG_COUNT" -eq 0 ] && [ -z "$HARD_ISSUES" ]; then
     echo "[$TS] #$ITER IDLE — no open work, no in-progress work. Watchdog exiting."
     exit 0
   fi
