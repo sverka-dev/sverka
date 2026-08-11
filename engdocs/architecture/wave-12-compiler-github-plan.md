@@ -70,7 +70,7 @@ Implement the `@sverka/compiler-github` package:
 
 ## 3. File layout
 
-```
+```text
 packages/compiler-github/src/
 ├── index.ts              # public exports
 ├── types.ts              # GithubCompilerConfig, GithubTriggers, GithubPermissions

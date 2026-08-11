@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { parse } from "yaml";
 import { compileGithubWorkflow } from "../compile.js";
 import { makePlan, makeOperation } from "./helpers/fixtures.js";
 
@@ -47,13 +48,15 @@ describe("compileGithubWorkflow — triggers", () => {
     const yaml = compileGithubWorkflow(makePlan(), {
       on: {
         push: ["main", "develop"],
-        pullRequest: ["main"],
+        pullRequest: ["release"],
         workflowDispatch: true,
       },
     });
-    expect(yaml).toContain("workflow_dispatch:");
-    expect(yaml).toContain("develop");
-    expect(yaml).toContain("pull_request:");
+    const parsed = parse(yaml) as { on: { push: { branches: string[] }; pull_request: { branches: string[] } | null; workflow_dispatch: unknown } };
+    expect(parsed.on.workflow_dispatch).toBeNull();
+    expect(parsed.on.push.branches).toContain("develop");
+    expect(parsed.on.pull_request).not.toBeNull();
+    expect(parsed.on.pull_request?.branches).toContain("release");
   });
 });
 
@@ -130,7 +133,15 @@ describe("compileGithubWorkflow — determinism", () => {
 describe("compileGithubWorkflow — empty operations", () => {
   it("produces valid YAML for empty plan", () => {
     const yaml = compileGithubWorkflow(makePlan({ operations: [] }));
-    expect(yaml).toContain("sverka execute");
-    expect(yaml).toContain("jobs:");
+    const parsed = parse(yaml) as {
+      name: string;
+      jobs: { sverka: { steps: { run?: string }[] } };
+    };
+    expect(parsed.name).toBe("Sverka");
+    expect(parsed.jobs.sverka).toBeDefined();
+    const runs = parsed.jobs.sverka.steps
+      .map((s) => s.run)
+      .filter((r): r is string => typeof r === "string");
+    expect(runs).toContain("sverka execute");
   });
 });
