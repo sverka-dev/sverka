@@ -252,7 +252,7 @@ async function collectChangedFiles(
   if (!baseRef) return [];
   try {
     const diff = await git.run(
-      ["diff", "--name-status", `${baseRef}..HEAD`],
+      ["diff", "--name-status", `${baseRef}...HEAD`],
       toplevel,
     );
     return parseDiffNameStatus(diff);

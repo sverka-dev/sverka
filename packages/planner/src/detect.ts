@@ -50,7 +50,7 @@ export function detectSignals(files: readonly string[]): LocalSignal[] {
       continue;
     }
     // lockfile
-    if (base in LOCKFILE_MAP) {
+    if (Object.hasOwn(LOCKFILE_MAP, base)) {
       signals.push({ type: "lockfile", path: file, detail: null, confidence: 1.0 });
       continue;
     }
@@ -70,7 +70,7 @@ export function detectSignals(files: readonly string[]): LocalSignal[] {
       continue;
     }
     // monorepo-marker (file-based only; package.json workspaces handled in detectMonorepo)
-    if (base in MONOREPO_MARKER_FILES) {
+    if (Object.hasOwn(MONOREPO_MARKER_FILES, base)) {
       signals.push({ type: "monorepo-marker", path: file, detail: null, confidence: 1.0 });
     }
   }
@@ -170,7 +170,10 @@ function collectLockfilePackageManagers(
     const name = LOCKFILE_MAP[base];
     if (!name) {
       // Unknown lockfile → "other"
-      if (!byName.has("other")) {
+      const other = byName.get("other");
+      if (other) {
+        other.evidence.push(sig.path);
+      } else {
         byName.set("other", {
           name: "other",
           version: null,
@@ -180,7 +183,12 @@ function collectLockfilePackageManagers(
       }
       continue;
     }
-    if (!byName.has(name)) {
+    const existing = byName.get(name);
+    if (existing) {
+      if (!existing.evidence.includes(sig.path)) {
+        existing.evidence.push(sig.path);
+      }
+    } else {
       byName.set(name, {
         name,
         version: null,
