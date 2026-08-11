@@ -194,6 +194,7 @@ export class HostExecutor implements Executor {
       let stdout = "";
       let stderr = "";
       let timedOut = false;
+      let spawnErrored = false;
 
       const child = spawn(command, args, {
         cwd,
@@ -220,6 +221,7 @@ export class HostExecutor implements Executor {
 
       child.on("error", (err) => {
         clearTimeout(timer);
+        spawnErrored = true;
         const durationMs = Date.now() - start;
         const logs = this.truncateLogs(`stderr: ${err.message}`);
         resolvePromise({
@@ -233,6 +235,10 @@ export class HostExecutor implements Executor {
       });
 
       child.on("close", (code) => {
+        if (spawnErrored) {
+          // The 'error' event already resolved the promise with a runtime failure.
+          return;
+        }
         clearTimeout(timer);
         const durationMs = Date.now() - start;
         const rawLogs = stdout + (stderr ? "\n" + stderr : "");
@@ -247,6 +253,21 @@ export class HostExecutor implements Executor {
             logs,
             artifacts: [],
             error: `timeout after ${timeoutSeconds}s`,
+          });
+          return;
+        }
+
+        // Negative or null exit codes indicate the process could not be spawned
+        // or was terminated by a signal; treat these as runtime failures.
+        if (code === null || code < 0) {
+          resolvePromise({
+            operationId,
+            status: "failure",
+            durationMs,
+            logs,
+            artifacts: [],
+            error: `spawn error: exit code ${code}`,
+            runtimeFailure: true,
           });
           return;
         }
