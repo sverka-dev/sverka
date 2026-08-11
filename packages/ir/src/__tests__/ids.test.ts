@@ -40,7 +40,7 @@ describe("computePlanId", () => {
   it("is plan- + 64 hex chars (sha256)", () => {
     const id = computePlanId(planBody());
     const hex = id.slice("plan-".length);
-    expect(hex.length).toBe(64);
+    expect(hex).toHaveLength(64);
     expect(hex).toMatch(/^[0-9a-f]{64}$/);
   });
 
@@ -78,32 +78,29 @@ describe("computePlanId", () => {
     expect(computePlanId(a)).not.toBe(computePlanId(b));
   });
 
-  it("ignores id and createdAt even when present in the input", () => {
-    // A complete Plan with id and createdAt should produce the same id as
-    // the stripped body, because computePlanId strips them at runtime.
+  it("ignores runtime id and createdAt fields", () => {
     const body = planBody();
-    const idFromBody = computePlanId(body);
-    const completePlan: Plan = {
+    const first: Plan = {
       ...body,
-      id: idFromBody,
+      id: "plan-first",
       createdAt: "2026-01-01T00:00:00.000Z",
     };
-    const idFromComplete = computePlanId(completePlan);
-    expect(idFromComplete).toBe(idFromBody);
+    const second: Plan = {
+      ...body,
+      id: "plan-second",
+      createdAt: "2026-02-01T00:00:00.000Z",
+    };
+
+    expect(computePlanId(first)).toBe(computePlanId(second));
   });
 
   it("matches a manual sha256 over the canonical serialization", () => {
     const body = planBody();
     const id = computePlanId(body);
-    // Recompute independently: canonical JSON of the five identity fields,
-    // sha256, prefix.
-    const canonical = canonicalStringify({
-      apiVersion: body.apiVersion,
-      name: body.name,
-      sourceContextHash: body.sourceContextHash,
-      operations: body.operations,
-      metadata: body.metadata,
-    });
+    // Reconstruct the canonical form independently and compute the expected
+    // SHA-256 digest. This verifies the hash input (canonical JSON of the
+    // body with id/createdAt stripped) is correct.
+    const canonical = canonicalStringify(body);
     const expectedHex = createHash("sha256").update(canonical, "utf8").digest("hex");
     expect(id).toBe(`plan-${expectedHex}`);
   });

@@ -1,7 +1,7 @@
 import type {
   OperationOutcome,
   Runtime,
-  RuntimeResult,
+  RuntimeFinalization,
   RuntimeMode,
   PlanContext,
 } from "../../runtime.js";
@@ -35,16 +35,14 @@ export function makeRuntime(opts: {
       outcomes.push(outcome);
       return outcome;
     },
-    async finalize(): Promise<RuntimeResult> {
+    async finalize(): Promise<RuntimeFinalization> {
       const artifacts =
         mode === "compile"
           ? [{ name: "compiled", content: evaluated.map((o) => o.id).join("\n") }]
           : undefined;
       return {
         mode,
-        operations: evaluated,
         ...(artifacts !== undefined ? { artifacts } : {}),
-        durationMs: 0,
       };
     },
   };
@@ -68,6 +66,13 @@ export function makeExecuteRuntime(
 }
 
 /** A compile-mode runtime that emits a string artifact. */
-export function makeCompileRuntime(context?: PlanContext): Runtime {
-  return makeRuntime({ mode: "compile", ...(context !== undefined ? { context } : {}) });
+export function makeCompileRuntime(
+  context?: PlanContext,
+  onEvaluate?: (spec: OperationSpec) => OperationOutcome,
+): Runtime {
+  return makeRuntime({
+    mode: "compile",
+    ...(context !== undefined ? { context } : {}),
+    ...(onEvaluate !== undefined ? { onEvaluate } : {}),
+  });
 }

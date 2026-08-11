@@ -42,82 +42,91 @@ function tokenize(expr: string): Token[] {
   let i = 0;
   while (i < expr.length) {
     const ch = expr[i]!;
-    // whitespace
-    if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
+    if (isWhitespace(ch)) {
       i++;
       continue;
     }
-    // string literal
     if (ch === "'") {
-      let j = i + 1;
-      while (j < expr.length && expr[j] !== "'") j++;
-      if (j >= expr.length) fail(expr, "unterminated string literal");
-      tokens.push({ type: "string", value: expr.slice(i + 1, j) });
-      i = j + 1;
+      i = tokenizeString(expr, i, tokens);
       continue;
     }
-    // number literal
     if (ch >= "0" && ch <= "9") {
-      let j = i;
-      while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
-      if (expr[j] === ".") {
-        j++;
-        while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
-      }
-      tokens.push({ type: "number", value: Number(expr.slice(i, j)) });
-      i = j;
+      i = tokenizeNumber(expr, i, tokens);
       continue;
     }
-    // identifier / keyword
     if (isIdentStart(ch)) {
-      let j = i;
-      while (j < expr.length && isIdentPart(expr[j]!)) j++;
-      const word = expr.slice(i, j);
-      if (word === "true") tokens.push({ type: "true" });
-      else if (word === "false") tokens.push({ type: "false" });
-      else tokens.push({ type: "ident", value: word });
-      i = j;
+      i = tokenizeIdent(expr, i, tokens);
       continue;
     }
-    // operators
-    if (ch === "!") {
-      if (expr[i + 1] === "=") {
-        tokens.push({ type: "op", value: "!=" });
-        i += 2;
-      } else {
-        tokens.push({ type: "op", value: "!" });
-        i += 1;
-      }
-      continue;
-    }
-    if (ch === "=" && expr[i + 1] === "=") {
-      tokens.push({ type: "op", value: "==" });
-      i += 2;
-      continue;
-    }
-    if (ch === "&" && expr[i + 1] === "&") {
-      tokens.push({ type: "op", value: "&&" });
-      i += 2;
-      continue;
-    }
-    if (ch === "|" && expr[i + 1] === "|") {
-      tokens.push({ type: "op", value: "||" });
-      i += 2;
-      continue;
-    }
-    if (ch === "(") {
-      tokens.push({ type: "lparen" });
-      i++;
-      continue;
-    }
-    if (ch === ")") {
-      tokens.push({ type: "rparen" });
-      i++;
+    const opLen = tokenizeOperator(expr, i, tokens);
+    if (opLen > 0) {
+      i += opLen;
       continue;
     }
     fail(expr, `unexpected character '${ch}'`);
   }
   return tokens;
+}
+
+function isWhitespace(ch: string): boolean {
+  return ch === " " || ch === "\t" || ch === "\n" || ch === "\r";
+}
+
+function tokenizeString(expr: string, start: number, out: Token[]): number {
+  let j = start + 1;
+  while (j < expr.length && expr[j] !== "'") j++;
+  if (j >= expr.length) fail(expr, "unterminated string literal");
+  out.push({ type: "string", value: expr.slice(start + 1, j) });
+  return j + 1;
+}
+
+function tokenizeNumber(expr: string, start: number, out: Token[]): number {
+  let j = start;
+  while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
+  if (expr[j] === ".") {
+    j++;
+    while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
+  }
+  out.push({ type: "number", value: Number(expr.slice(start, j)) });
+  return j;
+}
+
+function tokenizeIdent(expr: string, start: number, out: Token[]): number {
+  let j = start;
+  while (j < expr.length && isIdentPart(expr[j]!)) j++;
+  const word = expr.slice(start, j);
+  if (word === "true") out.push({ type: "true" });
+  else if (word === "false") out.push({ type: "false" });
+  else out.push({ type: "ident", value: word });
+  return j;
+}
+
+const TWO_CHAR_OPS: Record<string, Token> = {
+  "!=": { type: "op", value: "!=" },
+  "==": { type: "op", value: "==" },
+  "&&": { type: "op", value: "&&" },
+  "||": { type: "op", value: "||" },
+};
+
+const SINGLE_CHAR_OPS: Record<string, Token> = {
+  "!": { type: "op", value: "!" },
+  "(": { type: "lparen" },
+  ")": { type: "rparen" },
+};
+
+function tokenizeOperator(expr: string, i: number, out: Token[]): number {
+  const two = expr.slice(i, i + 2);
+  const twoChar = TWO_CHAR_OPS[two];
+  if (twoChar !== undefined) {
+    out.push(twoChar);
+    return 2;
+  }
+  const single = SINGLE_CHAR_OPS[expr[i]!];
+  if (single !== undefined) {
+    out.push(single);
+    return 1;
+  }
+  return 0;
 }
 
 function isIdentStart(ch: string): boolean {
@@ -127,7 +136,14 @@ function isIdentPart(ch: string): boolean {
   return isIdentStart(ch) || (ch >= "0" && ch <= "9") || ch === ".";
 }
 
-type OperandValue = string | number | boolean | readonly string[] | undefined;
+type OperandValue =
+  | string
+  | number
+  | boolean
+  | readonly string[]
+  | readonly number[]
+  | readonly boolean[]
+  | undefined;
 
 class Parser {
   private pos = 0;
@@ -158,9 +174,14 @@ class Parser {
     return t;
   }
 
+  private peekOp(value: "!" | "&&" | "||" | "==" | "!="): boolean {
+    const t = this.peek();
+    return t?.type === "op" && t.value === value;
+  }
+
   private parseOr(): boolean {
     let left = this.parseAnd();
-    while (this.peek()?.type === "op" && (this.peek() as { value: string }).value === "||") {
+    while (this.peekOp("||")) {
       this.next();
       const right = this.parseAnd();
       left = left || right;
@@ -170,7 +191,7 @@ class Parser {
 
   private parseAnd(): boolean {
     let left = this.parseNot();
-    while (this.peek()?.type === "op" && (this.peek() as { value: string }).value === "&&") {
+    while (this.peekOp("&&")) {
       this.next();
       const right = this.parseNot();
       left = left && right;
@@ -212,8 +233,6 @@ class Parser {
     const t = this.next();
     switch (t.type) {
       case "ident":
-        // Use own-property lookup to avoid inherited prototype properties
-        // (e.g. `toString`, `constructor`) leaking into condition results.
         return Object.prototype.hasOwnProperty.call(this.context, t.value)
           ? this.context[t.value]
           : undefined;
@@ -247,17 +266,8 @@ function isTruthy(v: OperandValue): boolean {
 function looseEqual(a: OperandValue, b: OperandValue): boolean {
   if (a === b) return true;
   if (a == null || b == null) return a == b;
-  // Loose string/number coercion: compare numerically when one side is a
-  // number and the other is a string, consistent with the spec loose
-  // equality (string/number coercion).
-  if (typeof a === "string" && typeof b === "number") {
-    const na = Number(a);
-    return Number.isFinite(na) && na === b;
-  }
-  if (typeof a === "number" && typeof b === "string") {
-    const nb = Number(b);
-    return Number.isFinite(nb) && a === nb;
-  }
+  if (typeof a === "string" && typeof b === "number") return a === String(b);
+  if (typeof a === "number" && typeof b === "string") return String(a) === b;
   if (typeof a === "boolean" || typeof b === "boolean") return a === b;
   return a === b;
 }

@@ -28,6 +28,12 @@ describe("evaluateCondition", () => {
     expect(evaluateCondition("missing", {})).toBe(false);
   });
 
+  it("ignores inherited object prototype properties", () => {
+    expect(evaluateCondition("constructor", {})).toBe(false);
+    expect(evaluateCondition("toString", {})).toBe(false);
+    expect(evaluateCondition("hasOwnProperty", {})).toBe(false);
+  });
+
   it("boolean literals", () => {
     expect(evaluateCondition("true", {})).toBe(true);
     expect(evaluateCondition("false", {})).toBe(false);
@@ -62,6 +68,13 @@ describe("evaluateCondition", () => {
     expect(evaluateCondition("!a && b", { a: true, b: true })).toBe(false);
   });
 
+  it("parentheses override precedence", () => {
+    const ctx: PlanContext = { a: true, b: false, c: true };
+    expect(evaluateCondition("a && (b || c)", ctx)).toBe(true);
+    expect(evaluateCondition("(a && b) || c", ctx)).toBe(true);
+    expect(evaluateCondition("!(a && c)", ctx)).toBe(false);
+  });
+
   it("dotted identifiers are looked up by full key", () => {
     const ctx: PlanContext = { "git.branch": "main" };
     expect(evaluateCondition("git.branch == 'main'", ctx)).toBe(true);
@@ -84,14 +97,16 @@ describe("evaluateCondition", () => {
     expect(() => evaluateCondition("'unclosed", {})).toThrow(CompositionError);
   });
 
-  it("malformed error has code INVALID_CONDITION", () => {
+  it("malformed error has code COMPOSITION_ERROR", () => {
+    let caught: unknown;
     try {
       evaluateCondition("!!!", {});
-      throw new Error("should have thrown");
     } catch (err) {
-      expect(err).toBeInstanceOf(CompositionError);
-      expect((err as CompositionError).code).toBe("COMPOSITION_ERROR");
-      expect((err as CompositionError).context).toMatchObject({ reason: expect.any(String) });
+      caught = err;
     }
+    expect(caught).toBeInstanceOf(CompositionError);
+    if (!(caught instanceof CompositionError)) return;
+    expect(caught.code).toBe("COMPOSITION_ERROR");
+    expect(caught.context).toMatchObject({ reason: expect.any(String) });
   });
 });

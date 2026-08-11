@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
-import type { OperationKind } from "@sverka/core";
+import { canonicalStringify, computeOperationId } from "@sverka/core";
 import type { Plan } from "./plan.js";
-import { canonicalStringify } from "./internal/canonical.js";
 
 /**
  * Compute a deterministic plan id from the plan content (excluding `id` and
@@ -13,16 +12,9 @@ import { canonicalStringify } from "./internal/canonical.js";
  * trailing whitespace.
  */
 export function computePlanId(plan: Omit<Plan, "id" | "createdAt">): string {
-  // Explicitly construct the hash body from only the five identity fields.
-  // Callers may pass a complete Plan (with id/createdAt), so strip them at
-  // runtime to guarantee they never influence the hash.
-  const body = {
-    apiVersion: plan.apiVersion,
-    name: plan.name,
-    sourceContextHash: plan.sourceContextHash,
-    operations: plan.operations,
-    metadata: plan.metadata,
-  };
+  // Defensive: strip any runtime id/createdAt fields so the hash is always
+  // over the plan content, not the plan identity.
+  const { id: _id, createdAt: _createdAt, ...body } = plan as Record<string, unknown>;
   const canonical = canonicalStringify(body);
   const hex = createHash("sha256").update(canonical, "utf8").digest("hex");
   return `plan-${hex}`;
@@ -32,16 +24,7 @@ export function computePlanId(plan: Omit<Plan, "id" | "createdAt">): string {
  * Compute a deterministic operation id from kind, name, and a context record
  * (matrix values, position, or other discriminating fields).
  *
- * Algorithm: SHA-256 over the canonical JSON of `{ kind, name, context }`
- * (keys sorted, UTF-8), hex-encoded, prefixed with `op-`. Matrix expansion
- * produces distinct ids because each combination yields a distinct `context`.
+ * Re-exported from `@sverka/core` to ensure core and ir produce identical ids
+ * by construction (ADR-006). The core/ir consistency test guards against drift.
  */
-export function computeOperationId(
-  kind: OperationKind,
-  name: string,
-  context: Readonly<Record<string, unknown>>,
-): string {
-  const canonical = canonicalStringify({ kind, name, context });
-  const hex = createHash("sha256").update(canonical, "utf8").digest("hex");
-  return `op-${hex}`;
-}
+export { computeOperationId };
