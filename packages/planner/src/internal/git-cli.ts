@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import path from "node:path";
 
 /**
  * A mockable seam over the `git` CLI. Unit tests mock this via `vi.mock`;
@@ -22,9 +23,9 @@ export interface GitCli {
  */
 function resolveGitBinary(): string {
   const pathEnv = process.env.PATH ?? "";
-  for (const dir of pathEnv.split(":")) {
+  for (const dir of pathEnv.split(path.delimiter)) {
     if (!dir) continue;
-    const candidate = `${dir}/git`;
+    const candidate = path.join(dir, "git");
     if (existsSync(candidate)) {
       return candidate;
     }

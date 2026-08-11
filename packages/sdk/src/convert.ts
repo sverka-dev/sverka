@@ -98,8 +98,9 @@ function buildResources(spec: OperationSpec): ResourceLimits {
 }
 
 function buildRetry(spec: OperationSpec): RetryPolicy {
+  const retries = spec.retries ?? 0;
   return {
-    maxAttempts: Math.max(1, spec.retries ?? 1),
+    maxAttempts: Math.max(1, retries + 1),
     backoffSeconds: 0,
     retryOn: ["failure", "timeout"],
   };
