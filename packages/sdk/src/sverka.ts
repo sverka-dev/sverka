@@ -141,7 +141,7 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
   const plan = convertToPlan(operations, {
     name: planName,
     executor: executorType,
-    ...(context !== undefined ? { context } : {}),
+    context,
   });
 
   // Validate (skip for empty operations — auto-discovery with no commands).

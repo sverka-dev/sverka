@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import {
   normalizeSarif,
@@ -8,6 +9,31 @@ import {
 } from "@sverka/findings";
 import { CheckError } from "./errors.js";
 import type { CheckOutput } from "./resolver.js";
+
+/**
+ * Validate that an output path stays inside the artifact directory and is
+ * not absolute. Returns the resolved, safe file path.
+ */
+function resolveSafeOutputPath(
+  outputPath: string,
+  artifactDir: string,
+): string {
+  if (isAbsolute(outputPath)) {
+    throw new CheckError(
+      `absolute output path "${outputPath}" is not allowed`,
+      "EXTRACTION_FAILED",
+    );
+  }
+  const filePath = resolve(artifactDir, outputPath);
+  const rel = relative(artifactDir, filePath);
+  if (rel.startsWith("..")) {
+    throw new CheckError(
+      `output path "${outputPath}" escapes artifactDir`,
+      "EXTRACTION_FAILED",
+    );
+  }
+  return filePath;
+}
 
 /**
  * Extract findings from a check's output files. Reads each declared output
@@ -28,22 +54,9 @@ export async function extractFindings(
   const findings: Finding[] = [];
   for (const output of outputs) {
     if (output.format !== "sarif") continue;
-    if (isAbsolute(output.path)) {
-      throw new CheckError(
-        `absolute output path "${output.path}" is not allowed`,
-        "EXTRACTION_FAILED",
-      );
-    }
-    const filePath = resolve(artifactDir, output.path);
-    const rel = relative(artifactDir, filePath);
-    if (rel.startsWith("..")) {
-      throw new CheckError(
-        `output path "${output.path}" escapes artifactDir`,
-        "EXTRACTION_FAILED",
-      );
-    }
+    const filePath = resolveSafeOutputPath(output.path, artifactDir);
     if (!existsSync(filePath)) continue;
-    const raw = readFileSync(filePath, "utf8");
+    const raw = await readFile(filePath, "utf8");
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
