@@ -260,40 +260,18 @@ export class HostExecutor implements Executor {
   ): ExecuteResult {
     const durationMs = Date.now() - start;
     const logs = this.truncateLogs(stdout + (stderr ? "\n" + stderr : ""));
+    const base = { operationId, status: "failure" as const, durationMs, logs, artifacts: [] as const };
 
     if (timedOut) {
-      return {
-        operationId,
-        status: "failure",
-        durationMs,
-        ...(code !== null ? { exitCode: code } : {}),
-        logs,
-        artifacts: [],
-        error: `timeout after ${timeoutSeconds}s`,
-      };
+      return { ...base, ...(code !== null ? { exitCode: code } : {}), error: `timeout after ${timeoutSeconds}s` };
     }
 
     if (signal !== null) {
-      return {
-        operationId,
-        status: "failure",
-        durationMs,
-        logs,
-        artifacts: [],
-        error: `terminated by signal ${signal}`,
-      };
+      return { ...base, error: `terminated by signal ${signal}` };
     }
 
     if (code === null || code < 0) {
-      return {
-        operationId,
-        status: "failure",
-        durationMs,
-        logs,
-        artifacts: [],
-        error: `spawn error: exit code ${code}`,
-        runtimeFailure: true,
-      };
+      return { ...base, error: `spawn error: exit code ${code}`, runtimeFailure: true };
     }
 
     const status = code === 0 ? "success" : "failure";

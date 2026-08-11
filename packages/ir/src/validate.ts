@@ -394,23 +394,47 @@ function validateOperationIdentity(op: PlanOperationView, opId: string | undefin
 /** Validate required operation fields (rule 15). */
 function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   validateOperationIdentity(op, opId, errors);
+  validateOperationName(op, opId, errors);
+  validateOperationExecutor(op, opId, errors);
+  validateOperationDependsOn(op, opId, errors);
+  validateOperationCredentialsArray(op, opId, errors);
+  validateOperationArtifacts(op, opId, errors);
+  validateOperationContinueOnError(op, opId, errors);
+}
+
+function validateOperationName(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (typeof op.name !== "string") {
     errors.push(opError(opId, "operations[].name", "INVALID_OPERATION", "operation name must be a string"));
   }
+}
+
+function validateOperationExecutor(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (!isPlainObject(op.executor)) {
     errors.push(opError(opId, "operations[].executor", "INVALID_OPERATION", "operation executor must be an object"));
   }
+}
+
+function validateOperationDependsOn(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (op.dependsOn == null) {
     errors.push(opError(opId, "operations[].dependsOn", "INVALID_OPERATION", "operation dependsOn is required"));
   } else if (!Array.isArray(op.dependsOn)) {
     errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must be an array"));
   }
+}
+
+function validateOperationCredentialsArray(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (!Array.isArray(op.credentials)) {
     errors.push(opError(opId, "operations[].credentials", "INVALID_OPERATION", "operation credentials must be an array"));
   }
+}
+
+function validateOperationArtifacts(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (!Array.isArray(op.artifacts)) {
     errors.push(opError(opId, "operations[].artifacts", "INVALID_OPERATION", "operation artifacts must be an array"));
   }
+}
+
+function validateOperationContinueOnError(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (typeof op.continueOnError !== "boolean") {
     errors.push(opError(opId, "operations[].continueOnError", "INVALID_OPERATION", "operation continueOnError must be a boolean"));
   }
