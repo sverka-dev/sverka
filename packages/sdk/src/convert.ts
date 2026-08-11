@@ -66,40 +66,54 @@ function convertOperation(
     );
   }
 
-  const executor: ExecutorSpec = {
+  const executor = buildExecutor(spec, opts);
+  const resources = buildResources(spec);
+  const retry = buildRetry(spec);
+  const artifacts = (spec.artifacts ?? []).map(convertArtifact);
+  const cache = spec.cache ? convertCache(spec.cache) : undefined;
+
+  return buildPlanOperation(spec, executor, resources, retry, artifacts, cache);
+}
+
+function buildExecutor(
+  spec: OperationSpec,
+  opts: ConvertOptions,
+): ExecutorSpec {
+  return {
     type: opts.executor,
     ...(spec.image !== undefined ? { image: spec.image } : {}),
     ...(spec.imageDigest !== undefined ? { imageDigest: spec.imageDigest } : {}),
   };
+}
 
-  const resources: ResourceLimits = {
+function buildResources(spec: OperationSpec): ResourceLimits {
+  return {
     cpu: spec.cpuLimit ?? "1",
     memory: spec.memoryLimit ?? "512Mi",
   };
+}
 
-  const retry: RetryPolicy = {
+function buildRetry(spec: OperationSpec): RetryPolicy {
+  return {
     maxAttempts: spec.retries ?? 1,
     backoffSeconds: 0,
     retryOn: ["failure", "timeout"],
   };
+}
 
-  const artifacts: IrArtifact[] = (spec.artifacts ?? []).map((a) =>
-    convertArtifact(a),
-  );
-
-  const cache: IrCache | undefined = spec.cache
-    ? convertCache(spec.cache)
-    : undefined;
-
+function buildPlanOperation(
+  spec: OperationSpec,
+  executor: ExecutorSpec,
+  resources: ResourceLimits,
+  retry: RetryPolicy,
+  artifacts: IrArtifact[],
+  cache: IrCache | undefined,
+): PlanOperation {
   return {
     id: spec.id,
     kind: spec.kind,
     name: spec.name,
-    ...(spec.description !== undefined ? { description: spec.description } : {}),
-    ...(spec.command !== undefined ? { command: spec.command } : {}),
-    ...(spec.args !== undefined ? { args: spec.args } : {}),
-    ...(spec.env !== undefined ? { env: spec.env } : {}),
-    ...(spec.workingDir !== undefined ? { workingDir: spec.workingDir } : {}),
+    ...optionalFields(spec),
     dependsOn: spec.dependsOn ?? [],
     executor,
     resources,
@@ -109,8 +123,18 @@ function convertOperation(
     artifacts,
     retry,
     timeoutSeconds: spec.timeoutSeconds ?? 300,
-    ...(spec.condition !== undefined ? { condition: spec.condition } : {}),
     continueOnError: spec.continueOnError ?? false,
+  };
+}
+
+function optionalFields(spec: OperationSpec): Partial<PlanOperation> {
+  return {
+    ...(spec.description !== undefined ? { description: spec.description } : {}),
+    ...(spec.command !== undefined ? { command: spec.command } : {}),
+    ...(spec.args !== undefined ? { args: spec.args } : {}),
+    ...(spec.env !== undefined ? { env: spec.env } : {}),
+    ...(spec.workingDir !== undefined ? { workingDir: spec.workingDir } : {}),
+    ...(spec.condition !== undefined ? { condition: spec.condition } : {}),
   };
 }
 
