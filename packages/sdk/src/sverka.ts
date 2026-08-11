@@ -7,6 +7,7 @@ import { workflow as makeWorkflow } from "@sverka/core";
 import type { Plan } from "@sverka/ir";
 import { validatePlan } from "@sverka/ir";
 import { createPlanner } from "@sverka/planner";
+import type { Planner, ProjectContext } from "@sverka/planner";
 import { Scheduler } from "@sverka/runtime";
 import type { Executor } from "@sverka/runtime";
 import type { ExecutionResult as RuntimeExecutionResult } from "@sverka/runtime";
@@ -94,33 +95,57 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
   });
 
   const configPath = await resolveConfigPath(options, root);
-  let def: WorkflowDefinition | null = null;
-  let operations: readonly OperationSpec[] = [];
-  let planName = "sverka-plan";
+  const { operations, planName, def } = await resolveExecutionOperations(
+    options,
+    planner,
+    context,
+    configPath,
+  );
 
+  const plan = buildAndValidatePlan(operations, planName, executorType, context);
+  const runtimeResult = await executePlan(plan, executorType, root);
+  return buildExecutionResult(options, runtimeResult, def);
+}
+
+async function resolveExecutionOperations(
+  options: SverkaOptions,
+  planner: Planner,
+  context: ProjectContext,
+  configPath: string | null,
+): Promise<{
+  operations: readonly OperationSpec[];
+  planName: string;
+  def: WorkflowDefinition | null;
+}> {
   if (configPath !== null) {
-    def = await loadWorkflow(configPath);
-    operations = await evaluateWorkflow(def);
-    planName = def.name;
-  } else {
-    // Auto-discovery: check if planner found anything actionable.
-    const proposal = await planner.plan(context);
-    if (proposal.checks.length === 0) {
-      throw new SdkError(
-        "no config found and auto-discovery produced no checks",
-        "CONFIG_NOT_FOUND",
-      );
-    }
-    // ProposedChecks have no commands yet (wave 11 adds check providers).
-    // Run with empty operations — the pipeline is wired, findings populate later.
-    operations = [];
+    const def = await loadWorkflow(configPath);
+    const operations = await evaluateWorkflow(def);
+    return { operations, planName: def.name, def };
   }
 
-  // Convert to IR Plan.
+  // Auto-discovery: check if planner found anything actionable.
+  const proposal = await planner.plan(context);
+  if (proposal.checks.length === 0) {
+    throw new SdkError(
+      "no config found and auto-discovery produced no checks",
+      "CONFIG_NOT_FOUND",
+    );
+  }
+  // ProposedChecks have no commands yet (wave 11 adds check providers).
+  // Run with empty operations — the pipeline is wired, findings populate later.
+  return { operations: [], planName: "sverka-plan", def: null };
+}
+
+function buildAndValidatePlan(
+  operations: readonly OperationSpec[],
+  planName: string,
+  executorType: "host" | "docker",
+  context: ProjectContext,
+): Plan {
   const plan = convertToPlan(operations, {
     name: planName,
     executor: executorType,
-    ...(context !== undefined ? { context } : {}),
+    context,
   });
 
   // Validate (skip for empty operations — auto-discovery with no commands).
@@ -134,7 +159,14 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     }
   }
 
-  // Execute via Scheduler.
+  return plan;
+}
+
+async function executePlan(
+  plan: Plan,
+  executorType: "host" | "docker",
+  root: string,
+): Promise<RuntimeExecutionResult> {
   const artifactDir = mkdtempSync(join(tmpdir(), "sverka-artifacts-"));
   const cacheDir = mkdtempSync(join(tmpdir(), "sverka-cache-"));
   const executor = createExecutor(executorType, root, cacheDir);
@@ -149,9 +181,8 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     resume: false,
   });
 
-  let runtimeResult: RuntimeExecutionResult;
   try {
-    runtimeResult = await scheduler.execute(plan as Plan);
+    return await scheduler.execute(plan);
   } catch (e) {
     throw new SdkError(
       `execution failed: ${e instanceof Error ? e.message : String(e)}`,
@@ -161,26 +192,28 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
   } finally {
     await scheduler.dispose().catch(() => {});
   }
+}
 
-  // Findings (stub — wave 11 adds extraction).
+async function buildExecutionResult(
+  options: SverkaOptions,
+  runtimeResult: RuntimeExecutionResult,
+  def: WorkflowDefinition | null,
+): Promise<ExecutionResult> {
   const findings: readonly Finding[] = [];
+  const { filteredFindings, baselineFingerprints } = await filterFindings(
+    options,
+    findings,
+  );
 
-  // Baseline filtering.
-  let baselineFingerprints: readonly string[] = [];
-  let filteredFindings: readonly Finding[] = findings;
-  if (options.baselinePath && options.onlyNew) {
-    const baseline = await loadBaseline(options.baselinePath);
-    baselineFingerprints = baseline.fingerprints;
-    filteredFindings = filterOnlyNew(findings, baseline);
-  }
-
-  // Policy evaluation.
   const policy: Policy = def?.policy
     ? createPolicy(def.policy)
     : DEFAULT_POLICY;
-  const policyResult = evaluatePolicy(filteredFindings, policy, baselineFingerprints);
+  const policyResult = evaluatePolicy(
+    filteredFindings,
+    policy,
+    baselineFingerprints,
+  );
 
-  // Verdict: fail if execution failed, otherwise use policy verdict.
   const verdict = runtimeResult.status === "success"
     ? policyResult.verdict
     : "fail";
@@ -192,6 +225,24 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     status: runtimeResult.status,
     outcomes: runtimeResult.outcomes,
     durationMs: runtimeResult.durationMs,
+  };
+}
+
+async function filterFindings(
+  options: SverkaOptions,
+  findings: readonly Finding[],
+): Promise<{
+  filteredFindings: readonly Finding[];
+  baselineFingerprints: readonly string[];
+}> {
+  if (!options.baselinePath || !options.onlyNew) {
+    return { filteredFindings: findings, baselineFingerprints: [] };
+  }
+  // Baseline filtering.
+  const baseline = await loadBaseline(options.baselinePath);
+  return {
+    filteredFindings: filterOnlyNew(findings, baseline),
+    baselineFingerprints: baseline.fingerprints,
   };
 }
 

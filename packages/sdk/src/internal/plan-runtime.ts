@@ -33,6 +33,7 @@ export class PlanRuntime implements Runtime {
     return {
       mode: "plan",
       operations: this.recorded,
+      outcomes: [],
       durationMs: Date.now() - this.start,
     };
   }
