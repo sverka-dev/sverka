@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import {
@@ -55,8 +54,19 @@ export async function extractFindings(
   for (const output of outputs) {
     if (output.format !== "sarif") continue;
     const filePath = resolveSafeOutputPath(output.path, artifactDir);
-    if (!existsSync(filePath)) continue;
-    const raw = await readFile(filePath, "utf8");
+    let raw: string;
+    try {
+      raw = await readFile(filePath, "utf8");
+    } catch (e) {
+      if (typeof e === "object" && e !== null && "code" in e && (e as { code: string }).code === "ENOENT") {
+        continue;
+      }
+      throw new CheckError(
+        `failed to read ${output.path}`,
+        "EXTRACTION_FAILED",
+        e,
+      );
+    }
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
