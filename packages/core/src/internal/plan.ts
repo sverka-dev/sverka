@@ -2,7 +2,7 @@ import type { Operation, OperationSpec } from "../operation.js";
 import type { Runtime, RuntimeResult, OperationOutcome } from "../runtime.js";
 import { asNode, createNode, withSpec, type OperationNode } from "./node.js";
 import { assignId, matrixChildId, isKnownKind } from "./ids.js";
-import { canonicalJson } from "./canonical.js";
+import { canonicalStringify } from "./canonical.js";
 import { evaluateCondition } from "./conditions.js";
 import { CoreError, CompositionError } from "../errors.js";
 
@@ -208,7 +208,7 @@ function buildMatrixChild(
   const env: Record<string, string> = { ...node.spec.env };
   for (const [k, v] of combo) {
     env[`MATRIX_${k.toUpperCase()}`] =
-      typeof v === "object" && v !== null ? canonicalJson(v) : String(v);
+      typeof v === "object" && v !== null ? canonicalStringify(v) : String(v);
   }
   const childSpec = { ...node.spec };
   delete (childSpec as unknown as Record<string, unknown>)[MATRIX_MARKER];

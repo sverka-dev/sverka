@@ -17,7 +17,7 @@
  * Keys are sorted lexicographically, `undefined` is omitted, and
  * output is compact.
  */
-export function canonicalJson(value: unknown): string {
+export function canonicalStringify(value: unknown): string {
   const out: string[] = [];
   emit(value, out);
   return out.join("");
@@ -58,8 +58,9 @@ function emitScalar(value: unknown, out: string[]): void {
   }
   if (typeof value === "number") {
     if (Number.isNaN(value) || !Number.isFinite(value)) {
-      out.push("null");
-      return;
+      throw new TypeError(
+        `canonical JSON does not support ${String(value)} (NaN/Infinity are not valid JSON)`,
+      );
     }
     out.push(Number(value).toString());
     return;
@@ -70,11 +71,15 @@ function emitScalar(value: unknown, out: string[]): void {
 }
 
 function emitArray(value: unknown[], out: string[]): void {
-  const filtered = value.filter((v) => v !== undefined);
   out.push("[");
-  for (let i = 0; i < filtered.length; i++) {
-    emit(filtered[i], out);
-    if (i < filtered.length - 1) out.push(",");
+  for (let i = 0; i < value.length; i++) {
+    const el = value[i];
+    if (el === undefined) {
+      out.push("null");
+    } else {
+      emit(el, out);
+    }
+    if (i < value.length - 1) out.push(",");
   }
   out.push("]");
 }
