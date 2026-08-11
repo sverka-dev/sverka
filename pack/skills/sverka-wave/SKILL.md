@@ -79,13 +79,18 @@ Each spec contains: Overview, Goals, Non-goals, Interfaces, Data models, Error h
 
 ## Commit Hygiene
 
-Before committing a wave, verify every impl + test file is at least staged:
+Before committing a wave, verify every impl + test file is committed (not
+just staged — staging alone does not survive a forced checkout):
 
 ```bash
 git status --short
 ```
 
-Untracked files are fragile under concurrent branch switches. Stage everything for the wave before any other session can switch branches.
+Untracked and staged files are fragile under concurrent branch switches. A
+forced `git checkout -f` can discard both. Before any branch switch, either
+use a separate worktree (`git worktree add`) or commit/stash all changes so
+the working tree is clean. Commit the wave's files as soon as review is
+approved, before any other session can switch branches.
 
 ## Stacked PRs
 

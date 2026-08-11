@@ -77,10 +77,13 @@ bd remember "drill-finding-$(date +%Y-%m-%d)-<keyword>: <root cause and preventi
 Root cause: a forced checkout (`git checkout -f` or `git checkout --force`)
 wipes untracked files that conflict with the target branch. A normal
 checkout preserves local changes or aborts on conflicts — forced checkout
-is what causes data loss.
-Prevention: never use `--force` when switching branches with untracked
-files. Stage files immediately after creation. Commit as soon as review
-is approved.
+is what causes data loss. Staging alone is NOT sufficient: a forced
+checkout can still discard staged changes and conflicting untracked files.
+Prevention: before switching branches, either (a) use a separate worktree
+(`git worktree add`) so the working tree is never disturbed, or (b) commit
+or stash all changes (`git commit` / `git stash`) so the tree is clean.
+Never use `--force` when switching branches. Commit as soon as review is
+approved.
 
 ### Tests pass in package but monorepo is red
 
