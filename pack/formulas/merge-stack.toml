@@ -98,17 +98,41 @@ After merge:
    For each lower PR in the stack:
      # Squash merge creates a new commit on main, so ancestry checks
      # (git merge-base --is-ancestor) will fail even though all content
-     # was included. Instead, verify content inclusion by checking that
-     # the diff between the merge-base and the branch tip is empty on main.
+     # was included. Verify content inclusion with a trial 3-way merge:
+     # if merging the lower branch into origin/main produces the same tree
+     # as origin/main, every change the branch carries is already present.
+     # This is sound because it is Git's own merge machinery, and it cannot
+     # be fooled by a larger unrelated diff on main (regression case: a
+     # lower branch with a 5-line change and a main branch with an unrelated
+     # 50-line change elsewhere previously passed the old wc -l check).
      git fetch origin
-     MERGE_BASE=$(git merge-base origin/main origin/<lower-head-branch>)
-     DIFF_ON_MAIN=$(git diff "$MERGE_BASE" origin/main -- . | wc -l)
-     BRANCH_CHANGES=$(git diff "$MERGE_BASE" origin/<lower-head-branch> -- . | wc -l)
-     if [ "$BRANCH_CHANGES" -gt 0 ] && [ "$DIFF_ON_MAIN" -ge "$BRANCH_CHANGES" ]; then
+     LOWER_REF="origin/<lower-head-branch>"
+     BASE_TREE=$(git rev-parse "origin/main^{tree}")
+     CONTENT_INCLUDED=false
+
+     MERGE_BASE=$(git merge-base origin/main "$LOWER_REF") || true
+     if [ -n "$MERGE_BASE" ]; then
+       # git merge-tree --write-tree needs git >= 2.38. On older git it exits
+       # with a usage error and we conservatively treat content as unverified.
+       MERGE_OUTPUT=""
+       if MERGE_OUTPUT=$(git merge-tree --write-tree origin/main "$LOWER_REF" 2>&1); then
+         MERGE_RC=0
+       else
+         MERGE_RC=$?
+       fi
+       if [ "$MERGE_RC" -eq 0 ]; then
+         MERGED_TREE=$(printf '%s\n' "$MERGE_OUTPUT" | head -1)
+         if [ "$MERGED_TREE" = "$BASE_TREE" ]; then
+           CONTENT_INCLUDED=true
+         fi
+       fi
+     fi
+
+     if [ "$CONTENT_INCLUDED" = "true" ]; then
        gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
-       git push origin --delete <lower-head-branch> (if not already deleted)
+       git push origin --delete <lower-head-branch> 2>/dev/null || true
      else
-       echo "WARNING: <lower-head-branch> content not fully in main — skipping deletion"
+       echo "WARNING: <lower-head-branch> content not proven to be in main — skipping deletion"
        gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). Branch retained for safety."
      fi
 4. Record merge in bd: bd close <bead-id> if tracking
