@@ -9,7 +9,7 @@ import type {
 
 // --- manifest / lockfile / dockerfile / ci / monorepo-marker rules ---
 
-const MANIFEST_FILES: readonly string[] = [
+const MANIFEST_FILES: ReadonlySet<string> = new Set([
   "package.json",
   "pyproject.toml",
   "Cargo.toml",
@@ -17,7 +17,7 @@ const MANIFEST_FILES: readonly string[] = [
   "pom.xml",
   "build.gradle",
   "composer.json",
-];
+]);
 
 const LOCKFILE_MAP: Readonly<Record<string, PackageManagerName>> = {
   "bun.lock": "bun",
@@ -45,7 +45,7 @@ export function detectSignals(files: readonly string[]): LocalSignal[] {
   for (const file of files) {
     const base = basename(file);
     // manifest
-    if (MANIFEST_FILES.includes(base)) {
+    if (MANIFEST_FILES.has(base)) {
       signals.push({ type: "manifest", path: file, detail: null, confidence: 1.0 });
       continue;
     }
@@ -72,7 +72,6 @@ export function detectSignals(files: readonly string[]): LocalSignal[] {
     // monorepo-marker (file-based only; package.json workspaces handled in detectMonorepo)
     if (base in MONOREPO_MARKER_FILES) {
       signals.push({ type: "monorepo-marker", path: file, detail: null, confidence: 1.0 });
-      continue;
     }
   }
   return signals;
@@ -155,8 +154,16 @@ export function detectPackageManagers(
   rootPkgJson: Record<string, unknown> | null,
 ): DetectedPackageManager[] {
   const byName = new Map<PackageManagerName, DetectedPackageManager>();
+  collectLockfilePackageManagers(signals, byName);
+  applyPackageManagerField(rootPkgJson, byName);
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
 
-  // From lockfile signals.
+/** Populate `byName` from lockfile signals. */
+function collectLockfilePackageManagers(
+  signals: readonly LocalSignal[],
+  byName: Map<PackageManagerName, DetectedPackageManager>,
+): void {
   for (const sig of signals) {
     if (sig.type !== "lockfile") continue;
     const base = basename(sig.path);
@@ -182,32 +189,32 @@ export function detectPackageManagers(
       });
     }
   }
+}
 
-  // packageManager field override for Node ecosystems.
-  if (rootPkgJson) {
-    const pm = rootPkgJson["packageManager"];
-    if (typeof pm === "string") {
-      const { tool, version } = parsePackageManager(pm);
-      if (tool) {
-        const existing = byName.get(tool);
-        if (existing) {
-          existing.version = version;
-          if (!existing.evidence.includes("package.json#packageManager")) {
-            existing.evidence.push("package.json#packageManager");
-          }
-        } else {
-          byName.set(tool, {
-            name: tool,
-            version,
-            lockfile: null,
-            evidence: ["package.json#packageManager"],
-          });
-        }
-      }
+/** Apply the `packageManager` field override from the root package.json. */
+function applyPackageManagerField(
+  rootPkgJson: Record<string, unknown> | null,
+  byName: Map<PackageManagerName, DetectedPackageManager>,
+): void {
+  if (!rootPkgJson) return;
+  const pm = rootPkgJson["packageManager"];
+  if (typeof pm !== "string") return;
+  const { tool, version } = parsePackageManager(pm);
+  if (!tool) return;
+  const existing = byName.get(tool);
+  if (existing) {
+    existing.version = version;
+    if (!existing.evidence.includes("package.json#packageManager")) {
+      existing.evidence.push("package.json#packageManager");
     }
+  } else {
+    byName.set(tool, {
+      name: tool,
+      version,
+      lockfile: null,
+      evidence: ["package.json#packageManager"],
+    });
   }
-
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function parsePackageManager(pm: string): {

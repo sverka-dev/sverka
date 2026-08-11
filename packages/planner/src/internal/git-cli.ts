@@ -21,8 +21,16 @@ export function createGitCli(): GitCli {
   return {
     run(args, cwd) {
       return new Promise<string>((resolvePromise, reject) => {
+        // Pass an explicit, sanitized environment so PATH cannot be hijacked
+        // by untrusted environment variables leaking into the git subprocess.
+        const env: NodeJS.ProcessEnv = {
+          PATH: process.env.PATH ?? "",
+          HOME: process.env.HOME,
+          GIT_TERMINAL_PROMPT: "0",
+        };
         const child = spawn("git", [...args], {
           cwd,
+          env,
           stdio: ["ignore", "pipe", "pipe"],
         });
         let stdout = "";

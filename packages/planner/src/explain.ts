@@ -34,7 +34,7 @@ export function buildExplanation(
   parts.push(`${total} signal${total === 1 ? "" : "s"}`);
   const nonzero = SIGNAL_TYPES.filter((t) => counts[t] > 0);
   if (nonzero.length) {
-    parts.push(`(${nonzero.map((t) => `${t}=${counts[t]}`).join(", ")})`);
+    parts.push(`(${formatSignalCounts(nonzero, counts)})`);
   }
   if (opts.dirty) {
     parts.push("working tree dirty");
@@ -49,4 +49,12 @@ export function buildExplanation(
     summary: parts.join(" "),
     signalCounts: counts,
   };
+}
+
+/** Format non-zero signal counts as "type=count, type=count". */
+function formatSignalCounts(
+  types: readonly LocalSignalType[],
+  counts: Readonly<Record<LocalSignalType, number>>,
+): string {
+  return types.map((t) => t + "=" + counts[t]).join(", ");
 }

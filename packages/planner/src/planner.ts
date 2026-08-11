@@ -124,36 +124,9 @@ class PlannerImpl implements Planner {
     if (!existsSync(root)) {
       throw new DiscoveryError(`root directory not found: ${root}`, "ROOT_NOT_FOUND");
     }
-    try {
-      await this.git.run(["--version"], root);
-    } catch (err) {
-      throw new DiscoveryError("git is not installed or not on PATH", "GIT_UNAVAILABLE", err);
-    }
-    let toplevel: string;
-    try {
-      const out = await this.git.run(["rev-parse", "--show-toplevel"], root);
-      toplevel = out.trim();
-    } catch (err) {
-      throw new DiscoveryError(`not a git repository: ${root}`, "GIT_NOT_A_REPO", err);
-    }
-    let trackedRaw: string;
-    let porcelainRaw: string;
-    try {
-      trackedRaw = await this.git.run(["ls-files"], toplevel);
-      porcelainRaw = await this.git.run(["status", "--porcelain"], toplevel);
-    } catch (err) {
-      throw new DiscoveryError("filesystem traversal failed", "TRAVERSAL_FAILED", err);
-    }
-    const tracked = trackedRaw.split("\n").filter(Boolean);
-    const porcelain = porcelainRaw.split("\n").filter(Boolean);
-    const untracked: string[] = [];
-    for (const line of porcelain) {
-      const status = line.slice(0, 2);
-      const path = line.slice(3).trim();
-      if (status.includes("??")) {
-        untracked.push(path);
-      }
-    }
+    await assertGitAvailable(this.git, root);
+    const toplevel = await resolveToplevel(this.git, root);
+    const { tracked, untracked, porcelain } = await collectGitFiles(this.git, toplevel);
     const allFiles = [...new Set([...tracked, ...untracked])];
     const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
     const filtered = applyMaxDepth(allFiles, maxDepth);
@@ -168,31 +141,9 @@ class PlannerImpl implements Planner {
     );
     const hasCiDefinition = signals.some((s) => s.type === "ci-definition");
 
-    let commit = "";
-    try {
-      const out = await this.git.run(["rev-parse", "HEAD"], toplevel);
-      commit = out.trim();
-    } catch {
-      commit = "";
-    }
+    const commit = await resolveHeadCommit(this.git, toplevel);
     const dirty = porcelain.length > 0;
-
-    let changedFiles: ChangedFile[] = [];
-    if (options.baseRef) {
-      try {
-        const diff = await this.git.run(
-          ["diff", "--name-status", `${options.baseRef}..HEAD`],
-          toplevel,
-        );
-        changedFiles = parseDiffNameStatus(diff);
-      } catch (err) {
-        throw new DiscoveryError(
-          `failed to diff against baseRef "${options.baseRef}"`,
-          "TRAVERSAL_FAILED",
-          err,
-        );
-      }
-    }
+    const changedFiles = await collectChangedFiles(this.git, toplevel, options.baseRef);
 
     const gitSignal: LocalSignal = {
       type: "git-metadata",
@@ -231,6 +182,89 @@ function applyMaxDepth(files: string[], maxDepth: number): string[] {
   return files.filter((f) => f.split("/").length <= maxDepth);
 }
 
+/** Throw `GIT_UNAVAILABLE` if git is not on PATH. */
+async function assertGitAvailable(git: GitCli, root: string): Promise<void> {
+  try {
+    await git.run(["--version"], root);
+  } catch (err) {
+    throw new DiscoveryError("git is not installed or not on PATH", "GIT_UNAVAILABLE", err);
+  }
+}
+
+/** Resolve the repository toplevel, throwing `GIT_NOT_A_REPO` on failure. */
+async function resolveToplevel(git: GitCli, root: string): Promise<string> {
+  try {
+    const out = await git.run(["rev-parse", "--show-toplevel"], root);
+    return out.trim();
+  } catch (err) {
+    throw new DiscoveryError(`not a git repository: ${root}`, "GIT_NOT_A_REPO", err);
+  }
+}
+
+/** Collect tracked files, untracked files, and porcelain lines from git. */
+async function collectGitFiles(
+  git: GitCli,
+  toplevel: string,
+): Promise<{ tracked: string[]; untracked: string[]; porcelain: string[] }> {
+  let trackedRaw: string;
+  let porcelainRaw: string;
+  try {
+    trackedRaw = await git.run(["ls-files"], toplevel);
+    porcelainRaw = await git.run(["status", "--porcelain"], toplevel);
+  } catch (err) {
+    throw new DiscoveryError("filesystem traversal failed", "TRAVERSAL_FAILED", err);
+  }
+  const tracked = trackedRaw.split("\n").filter(Boolean);
+  const porcelain = porcelainRaw.split("\n").filter(Boolean);
+  const untracked = extractUntracked(porcelain);
+  return { tracked, untracked, porcelain };
+}
+
+/** Extract untracked file paths from porcelain status lines. */
+function extractUntracked(porcelain: readonly string[]): string[] {
+  const untracked: string[] = [];
+  for (const line of porcelain) {
+    const status = line.slice(0, 2);
+    const path = line.slice(3).trim();
+    if (status.includes("??")) {
+      untracked.push(path);
+    }
+  }
+  return untracked;
+}
+
+/** Resolve the HEAD commit SHA, returning "" on failure. */
+async function resolveHeadCommit(git: GitCli, toplevel: string): Promise<string> {
+  try {
+    const out = await git.run(["rev-parse", "HEAD"], toplevel);
+    return out.trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Collect changed files against `baseRef` when provided. */
+async function collectChangedFiles(
+  git: GitCli,
+  toplevel: string,
+  baseRef: string | undefined,
+): Promise<ChangedFile[]> {
+  if (!baseRef) return [];
+  try {
+    const diff = await git.run(
+      ["diff", "--name-status", `${baseRef}..HEAD`],
+      toplevel,
+    );
+    return parseDiffNameStatus(diff);
+  } catch (err) {
+    throw new DiscoveryError(
+      `failed to diff against baseRef "${baseRef}"`,
+      "TRAVERSAL_FAILED",
+      err,
+    );
+  }
+}
+
 function readRootPackageJson(root: string): Record<string, unknown> | null {
   try {
     const raw = readFileSync(`${root}/package.json`, "utf8");
@@ -247,15 +281,18 @@ function parseDiffNameStatus(diff: string): ChangedFile[] {
     const code = parts[0] ?? "";
     const path = parts[1] ?? "";
     if (!path) continue;
-    let status: ChangedFile["status"];
-    if (code.startsWith("A")) status = "added";
-    else if (code.startsWith("M")) status = "modified";
-    else if (code.startsWith("D")) status = "deleted";
-    else if (code.startsWith("R")) status = "renamed";
-    else status = "modified";
-    out.push({ path, status });
+    out.push({ path, status: diffStatusCode(code) });
   }
   return out;
+}
+
+/** Map a git diff --name-status code to a `ChangedFile` status. */
+function diffStatusCode(code: string): ChangedFile["status"] {
+  if (code.startsWith("A")) return "added";
+  if (code.startsWith("M")) return "modified";
+  if (code.startsWith("D")) return "deleted";
+  if (code.startsWith("R")) return "renamed";
+  return "modified";
 }
 
 interface PlanDriver {
@@ -281,36 +318,59 @@ const PLAN_DRIVERS: readonly PlanDriver[] = [
 function synthesizePlan(context: ProjectContext): PlanProposal {
   const langNames = context.languages.map((l) => l.name);
   const pmNames = context.packageManagers.map((p) => p.name);
-  const notes: string[] = [];
-  const checks: ProposedCheck[] = [];
-  const seen = new Set<string>();
+  const signalRef = resolveSignalRef(context.localSignals);
+  const checks = collectDefaultChecks(PLAN_DRIVERS, langNames, pmNames, signalRef);
+  const notes = buildPlanNotes(checks, langNames, pmNames);
+  return { context, checks, workflowPath: null, notes };
+}
 
-  const manifestSignal = context.localSignals.find(
+/** Resolve the signal reference for the first manifest/lockfile signal. */
+function resolveSignalRef(signals: readonly LocalSignal[]): string | null {
+  const manifestSignal = signals.find(
     (s) => s.type === "manifest" || s.type === "lockfile",
   ) ?? null;
-  const signalRef = manifestSignal
-    ? `${manifestSignal.type}:${manifestSignal.path}`
-    : null;
+  return manifestSignal ? `${manifestSignal.type}:${manifestSignal.path}` : null;
+}
 
-  for (const driver of PLAN_DRIVERS) {
+/** Collect deduplicated default checks that match the detected languages/package managers. */
+function collectDefaultChecks(
+  drivers: readonly PlanDriver[],
+  langNames: readonly string[],
+  pmNames: readonly PackageManagerName[],
+  signalRef: string | null,
+): ProposedCheck[] {
+  const checks: ProposedCheck[] = [];
+  const seen = new Set<string>();
+  for (const driver of drivers) {
     const langMatch = driver.languages.some((l) => langNames.includes(l));
     const pmMatch = driver.packageManagers.some((p) => pmNames.includes(p));
     if (!langMatch || !pmMatch) continue;
     const key = `${driver.checkId}:${driver.reason}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const id = `prop-${createHash("sha256").update(`${driver.checkId}${driver.reason}`).digest("hex").slice(0, 16)}`;
+    const id = makeCheckId(driver.checkId, driver.reason);
     checks.push({ id, checkId: driver.checkId, reason: driver.reason, signalRef, priority: 2 });
   }
+  return checks;
+}
 
+/** Build a stable proposed-check id from its checkId and reason. */
+function makeCheckId(checkId: string, reason: string): string {
+  const digest = createHash("sha256").update(checkId + reason).digest("hex").slice(0, 16);
+  return "prop-" + digest;
+}
+
+/** Build human-readable notes describing the selected checks. */
+function buildPlanNotes(
+  checks: readonly ProposedCheck[],
+  langNames: readonly string[],
+  pmNames: readonly PackageManagerName[],
+): string[] {
   if (checks.length === 0) {
-    notes.push("No default checks applied: no recognized languages or package managers detected.");
-  } else {
-    const drivers: string[] = [];
-    if (langNames.length) drivers.push(`languages=[${langNames.join(",")}]`);
-    if (pmNames.length) drivers.push(`packageManagers=[${pmNames.join(",")}]`);
-    notes.push(`Selected ${checks.length} default checks from ${drivers.join(" ")}.`);
+    return ["No default checks applied: no recognized languages or package managers detected."];
   }
-
-  return { context, checks, workflowPath: null, notes };
+  const drivers: string[] = [];
+  if (langNames.length) drivers.push(`languages=[${langNames.join(",")}]`);
+  if (pmNames.length) drivers.push(`packageManagers=[${pmNames.join(",")}]`);
+  return [`Selected ${checks.length} default checks from ${drivers.join(" ")}.`];
 }
