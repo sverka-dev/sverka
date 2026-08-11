@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   DEFAULT_POLICY,
   createPolicy,
@@ -73,5 +76,23 @@ describe("public API — types (compile-time check)", () => {
     expect(_result.verdict).toBe("pass");
     expect(_config).toBeDefined();
     expect(_code).toBe("INVALID_POLICY");
+  });
+});
+
+describe("public API — built package entrypoint", () => {
+  it("exports the expected symbols from the built entrypoint when available", async () => {
+    const dist = resolve(
+      fileURLToPath(import.meta.url),
+      "../../dist/index.mjs",
+    );
+    if (!existsSync(dist)) {
+      // Building is a separate Nx target; unit tests run against source.
+      return;
+    }
+    const pkg = await import(dist);
+    expect(typeof pkg.createPolicy).toBe("function");
+    expect(typeof pkg.evaluatePolicy).toBe("function");
+    expect(pkg.DEFAULT_POLICY).toBeDefined();
+    expect(typeof pkg.PolicyError).toBe("function");
   });
 });

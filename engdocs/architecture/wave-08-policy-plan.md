@@ -76,7 +76,7 @@ Implement severity-based policy evaluation for `@sverka/policy`:
 Mirror `findings` / `planner` (one module per concern, `__tests__/`
 co-located):
 
-```
+```text
 packages/policy/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   types.ts              # Policy, FailOnRule, PolicyResult, TriggeredFinding,

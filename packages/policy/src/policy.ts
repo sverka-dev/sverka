@@ -55,12 +55,19 @@ export function assertValidSeverity(
 
 /**
  * Create a policy from a partial configuration, filling defaults.
+ * @throws {PolicyError} INVALID_POLICY if the config is not an object or failOn is not an array.
  * @throws {PolicyError} INVALID_SEVERITY if a rule has an unknown severity.
  */
 export function createPolicy(config: PolicyConfig): Policy {
+  if (!config || typeof config !== "object") {
+    throw new PolicyError("Policy config must be an object", "INVALID_POLICY");
+  }
   const name = config.name ?? DEFAULT_POLICY.name;
   const def: Verdict = config.default ?? DEFAULT_POLICY.default;
   const failOn = config.failOn ?? DEFAULT_POLICY.failOn;
+  if (!Array.isArray(failOn)) {
+    throw new PolicyError("Policy failOn must be an array", "INVALID_POLICY");
+  }
   for (const rule of failOn) {
     if (!rule || typeof rule !== "object" || !("severity" in rule)) {
       throw new PolicyError(

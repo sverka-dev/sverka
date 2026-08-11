@@ -22,6 +22,22 @@ describe("Runtime modes", () => {
     expect(result.artifacts).toBeUndefined();
   });
 
+  it("Plan mode preserves false-conditioned operations without evaluating", async () => {
+    const evaluated: string[] = [];
+    const nightly = when("schedule == 'nightly'", run({ command: "full-scan" }));
+    const always = run({ command: "always" });
+    const wf = workflow("plan-cond", pipeline(nightly, always));
+    const result = await wf.plan(
+      makePlanRuntime({ schedule: "ci" }, (spec) => {
+        evaluated.push(spec.id);
+        return { operationId: spec.id, status: "planned", durationMs: 0 };
+      }),
+    );
+    expect(evaluated).toEqual([result.operations[1]!.id]);
+    expect(result.operations).toHaveLength(2);
+    expect(result.operations[0]!.condition).toBe("schedule == 'nightly'");
+  });
+
   it("Execution mode calls evaluate for each non-skipped op", async () => {
     const evaluated: string[] = [];
     const a = run({ command: "a" });

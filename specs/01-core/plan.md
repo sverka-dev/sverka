@@ -306,5 +306,5 @@ bun run build
 | Composition (pipeline/parallel/when/matrix/after/with) | `composition.test.ts`, `composables/*.test.ts` |
 | DAG validation (cycles, duplicate ids) | `dag.test.ts` |
 | Three Runtime modes | `runtime-modes.test.ts` |
-| bun test/typecheck/lint/build green | verification gates |
+| bun run test/typecheck/lint/build green | verification gates |
 | No `any`, no `@ts-ignore` | typecheck + lint |

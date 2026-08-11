@@ -49,8 +49,15 @@ export function makeRuntime(opts: {
 }
 
 /** A minimal plan-mode runtime (no side effects, records operations). */
-export function makePlanRuntime(context?: PlanContext): Runtime {
-  return makeRuntime({ mode: "plan", ...(context !== undefined ? { context } : {}) });
+export function makePlanRuntime(
+  context?: PlanContext,
+  onEvaluate?: (spec: OperationSpec) => OperationOutcome,
+): Runtime {
+  return makeRuntime({
+    mode: "plan",
+    ...(context !== undefined ? { context } : {}),
+    ...(onEvaluate !== undefined ? { onEvaluate } : {}),
+  });
 }
 
 /** An execution-mode runtime that records evaluate calls. */

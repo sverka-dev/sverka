@@ -178,7 +178,7 @@ A finding triggers a `failOn` rule if `finding.severity >= rule.severity`.
 
 ### Summary format
 
-```
+```text
 "fail: 3 findings triggered 2 rules (2 high, 1 medium)"
 "pass: no findings triggered any rule"
 ```

@@ -18,11 +18,14 @@ const SUMMARY_SEVERITY_ORDER: Severity[] = [
 ];
 
 /**
- * Validate a policy's structure. Throws `INVALID_POLICY` if `failOn` is
- * missing or not an array, and `INVALID_SEVERITY` if any rule has an
- * unknown severity.
+ * Validate a policy's structure. Throws `INVALID_POLICY` if `policy` is not
+ * an object or `failOn` is missing or not an array, and `INVALID_SEVERITY`
+ * if any rule has an unknown severity.
  */
 function validatePolicy(policy: Policy): asserts policy is Policy {
+  if (!policy || typeof policy !== "object") {
+    throw new PolicyError("Policy must be an object", "INVALID_POLICY");
+  }
   if (!Array.isArray(policy.failOn)) {
     throw new PolicyError(
       "Policy failOn must be an array",
@@ -105,12 +108,13 @@ function buildSummary(
     return "pass: no findings triggered any rule";
   }
 
-  // Unique findings by fingerprint.
+  // Unique findings by stable id (checkId:fingerprint), not just fingerprint,
+  // so two different checks with the same fingerprint are counted separately.
   const seen = new Set<string>();
   const uniqueFindings: Finding[] = [];
   for (const t of triggered) {
-    if (!seen.has(t.finding.fingerprint)) {
-      seen.add(t.finding.fingerprint);
+    if (!seen.has(t.finding.id)) {
+      seen.add(t.finding.id);
       uniqueFindings.push(t.finding);
     }
   }
