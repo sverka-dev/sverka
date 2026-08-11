@@ -143,6 +143,29 @@ function normalizeRun(
 }
 
 /**
+ * Resolved rule context shared across all locations of a result.
+ */
+interface ResultContext {
+  ruleId: string;
+  severity: Severity;
+  helpUrl: string | undefined;
+  originalSeverity: "none" | "note" | "warning" | "error" | null;
+  toolName: string;
+  toolVersion: string | null;
+}
+
+/**
+ * Resolve the severity for a SARIF result from its level or rule default.
+ */
+function resolveSeverity(
+  result: SarifResult,
+  rule: SarifRule | undefined,
+): Severity {
+  const level = result.level ?? rule?.defaultConfiguration?.level;
+  return level ? (LEVEL_TO_SEVERITY[level] ?? "info") : "info";
+}
+
+/**
  * Normalize a single SARIF result into one Finding per location.
  * @throws {NormalizationError} MISSING_LOCATION — no locations.
  */
@@ -154,10 +177,14 @@ function normalizeResult(
   rules: readonly SarifRule[],
 ): Finding[] {
   const { ruleId, rule } = resolveRule(result, rules);
-  const level = result.level ?? rule?.defaultConfiguration?.level;
-  const severity = level ? (LEVEL_TO_SEVERITY[level] ?? "info") : "info";
-  const helpUrl = rule?.helpUri;
-  const originalSeverity = result.level ?? null;
+  const rc: ResultContext = {
+    ruleId,
+    severity: resolveSeverity(result, rule),
+    helpUrl: rule?.helpUri,
+    originalSeverity: result.level ?? null,
+    toolName,
+    toolVersion,
+  };
 
   const locations = result.locations;
   if (!Array.isArray(locations) || locations.length === 0) {
@@ -168,13 +195,7 @@ function normalizeResult(
     );
   }
 
-  const findings: Finding[] = [];
-  for (const location of locations) {
-    findings.push(
-      buildFinding(location, result, context, ruleId, severity, helpUrl, originalSeverity, toolName, toolVersion),
-    );
-  }
-  return findings;
+  return locations.map((loc) => buildFinding(loc, result, context, rc));
 }
 
 /**
@@ -184,61 +205,53 @@ function buildFinding(
   location: SarifLocation,
   result: SarifResult,
   context: NormalizeContext,
-  ruleId: string,
-  severity: Severity,
-  helpUrl: string | undefined,
-  originalSeverity: "none" | "note" | "warning" | "error" | null,
-  toolName: string,
-  toolVersion: string | null,
+  rc: ResultContext,
 ): Finding {
   const phys = location?.physicalLocation;
   const uri = phys?.artifactLocation?.uri ?? "";
   const region = phys?.region;
   const startLine = region?.startLine ?? 0;
   const endLine = region?.endLine ?? startLine;
-
   const checkId = context.checkIdPrefix
-    ? `${context.checkIdPrefix}:${ruleId}`
-    : ruleId;
-
+    ? `${context.checkIdPrefix}:${rc.ruleId}`
+    : rc.ruleId;
   const source: FindingSource = {
-    tool: toolName,
-    version: toolVersion,
+    tool: rc.toolName,
+    version: rc.toolVersion,
     format: "sarif",
-    originalRuleId: ruleId,
-    originalSeverity,
+    originalRuleId: rc.ruleId,
+    originalSeverity: rc.originalSeverity,
   };
-
   const fingerprint = computeFingerprint({
-    rule: ruleId,
-    file: uri,
-    startLine,
-    endLine,
-    checkId,
+    rule: rc.ruleId, file: uri, startLine, endLine, checkId,
   });
-
   return {
     id: `${checkId}:${fingerprint}`,
-    fingerprint,
-    checkId,
-    severity,
+    fingerprint, checkId,
+    severity: rc.severity,
     confidence: context.defaultConfidence,
     message: result.message?.text ?? "",
-    rule: ruleId,
-    file: uri,
-    startLine,
-    endLine,
-    ...(region?.startColumn !== undefined
-      ? { startColumn: region.startColumn }
-      : {}),
-    ...(region?.endColumn !== undefined
-      ? { endColumn: region.endColumn }
-      : {}),
-    ...(helpUrl !== undefined ? { helpUrl } : {}),
+    rule: rc.ruleId, file: uri, startLine, endLine,
     source,
+    ...optionalFields(region, rc.helpUrl),
+  };
+}
+
+/**
+ * Build optional finding fields (columns, helpUrl, snippet) from a region.
+ */
+function optionalFields(
+  region: SarifLocation["physicalLocation"]["region"] | undefined,
+  helpUrl: string | undefined,
+): Partial<Finding> {
+  return {
+    ...(region?.startColumn !== undefined
+      ? { startColumn: region.startColumn } : {}),
+    ...(region?.endColumn !== undefined
+      ? { endColumn: region.endColumn } : {}),
+    ...(helpUrl !== undefined ? { helpUrl } : {}),
     ...(region?.snippet?.text !== undefined
-      ? { snippet: region.snippet.text }
-      : {}),
+      ? { snippet: region.snippet.text } : {}),
   };
 }
 
