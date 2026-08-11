@@ -93,7 +93,7 @@ of truth.
   id, so stale caches are never hit after a workflow change.
 - Plan and operation ids are distinguishable by prefix without parsing.
 - IDs are 69 and 67 characters respectively — longer than sequential ids,
-  but stable and globally unique without coordination.
+  but stable and collision-resistant without coordination.
 - Validation rule 2 (id matches recomputed) is enforceable by any consumer
   using only the plan contents and `node:crypto`.
 

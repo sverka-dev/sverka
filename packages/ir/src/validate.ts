@@ -101,6 +101,12 @@ export function validatePlan(plan: unknown): ValidationResult {
   const p = plan as Record<string, unknown>;
   validateTopLevel(p, errors);
 
+  if (isPlainObject(p.metadata)) {
+    validateMetadata(p.metadata as Record<string, unknown>, errors);
+  } else {
+    errors.push({ field: "metadata", code: "INVALID_METADATA", message: "metadata must be an object" });
+  }
+
   if (!Array.isArray(p.operations)) {
     errors.push({ field: "operations", code: "EMPTY_OPERATIONS", message: "operations must be a non-empty array" });
     return { valid: errors.length === 0, errors };
@@ -109,17 +115,11 @@ export function validatePlan(plan: unknown): ValidationResult {
   const operations = p.operations as readonly unknown[];
   if (operations.length === 0) {
     errors.push({ field: "operations", code: "EMPTY_OPERATIONS", message: "operations must be non-empty" });
-    return { valid: false, errors };
+    return { valid: errors.length === 0, errors };
   }
 
   const ops = normalizeOperations(operations, errors);
-  if (ops.length === 0) return { valid: false, errors };
-
-  if (isPlainObject(p.metadata)) {
-    validateMetadata(p.metadata as Record<string, unknown>, errors);
-  } else {
-    errors.push({ field: "metadata", code: "INVALID_METADATA", message: "metadata must be an object" });
-  }
+  if (ops.length === 0) return { valid: errors.length === 0, errors };
 
   const { idSet, idCounts } = collectOperationIds(ops);
   detectDuplicateIds(ops, idCounts, errors);
@@ -190,8 +190,15 @@ function validateSourceContextHash(p: Record<string, unknown>, errors: Validatio
   return ok;
 }
 
+const ISO_8601_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2}))?$/;
+
+function isValidIso8601(s: string): boolean {
+  if (!ISO_8601_RE.test(s)) return false;
+  return !Number.isNaN(Date.parse(s));
+}
+
 function validateCreatedAt(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
-  const ok = typeof p.createdAt === "string" && p.createdAt.length > 0 && !Number.isNaN(Date.parse(p.createdAt));
+  const ok = typeof p.createdAt === "string" && p.createdAt.length > 0 && isValidIso8601(p.createdAt);
   if (!ok) {
     errors.push({ field: "createdAt", code: "INVALID_PLAN", message: "createdAt must be a non-empty ISO 8601 string" });
   }
