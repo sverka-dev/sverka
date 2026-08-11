@@ -65,3 +65,11 @@ describe("extractFindings — empty outputs", () => {
     expect(findings).toEqual([]);
   });
 });
+
+describe("extractFindings — path traversal", () => {
+  it("throws CheckError when output.path escapes artifactDir", async () => {
+    const dir = makeDir();
+    const outputs: CheckOutput[] = [{ path: "../../etc/passwd", format: "sarif" }];
+    await expect(extractFindings(outputs, dir, "mycheck")).rejects.toBeInstanceOf(CheckError);
+  });
+});

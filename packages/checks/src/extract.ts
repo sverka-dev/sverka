@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import {
   normalizeSarif,
   type Finding,
@@ -28,7 +28,20 @@ export async function extractFindings(
   const findings: Finding[] = [];
   for (const output of outputs) {
     if (output.format !== "sarif") continue;
-    const filePath = join(artifactDir, output.path);
+    if (isAbsolute(output.path)) {
+      throw new CheckError(
+        `absolute output path "${output.path}" is not allowed`,
+        "EXTRACTION_FAILED",
+      );
+    }
+    const filePath = resolve(artifactDir, output.path);
+    const rel = relative(artifactDir, filePath);
+    if (rel.startsWith("..")) {
+      throw new CheckError(
+        `output path "${output.path}" escapes artifactDir`,
+        "EXTRACTION_FAILED",
+      );
+    }
     if (!existsSync(filePath)) continue;
     const raw = readFileSync(filePath, "utf8");
     let parsed: unknown;
