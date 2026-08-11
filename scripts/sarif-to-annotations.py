@@ -227,14 +227,17 @@ def build_annotation_line(result, tool_name, entries_by_id):
     parts = []
     if loc["file_uri"]:
         parts.append("file=" + encode_property_value(loc["file_uri"]))
-    if loc["start_line"] is not None:
-        parts.append("line=" + str(loc["start_line"]))
-    if loc["start_col"] is not None:
-        parts.append("col=" + str(loc["start_col"]))
-    if loc["end_line"] is not None:
-        parts.append("endLine=" + str(loc["end_line"]))
-    if loc["end_col"] is not None:
-        parts.append("endColumn=" + str(loc["end_col"]))
+    # Validate location coordinates: GitHub Actions requires positive
+    # integers. Reject hostile or malformed values rather than stringifying
+    # them, which could inject workflow-command syntax.
+    for field, prop in [("start_line", "line"), ("start_col", "col"),
+                        ("end_line", "endLine"), ("end_col", "endColumn")]:
+        val = loc[field]
+        if val is None:
+            continue
+        if not isinstance(val, int) or val < 1:
+            continue  # skip invalid, don't emit
+        parts.append(f"{prop}={val}")
     parts.append("title=" + encode_property_value(title))
     props = ",".join(parts)
 
@@ -251,11 +254,21 @@ def build_annotation_line(result, tool_name, entries_by_id):
 def main():
     # Limit stdin to 100 MB to prevent excessive memory consumption from
     # malformed or hostile input. SARIF files are typically well under 1 MB.
+    # Read from stdin.buffer and check byte length (not character count)
+    # so multibyte UTF-8 input is correctly measured.
     MAX_INPUT_BYTES = 100 * 1024 * 1024
-    raw = sys.stdin.read(MAX_INPUT_BYTES)
-    if len(raw) >= MAX_INPUT_BYTES:
+    raw_bytes = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
+    if len(raw_bytes) > MAX_INPUT_BYTES:
         print(
             "::error title=sarif-to-annotations::input exceeds 100 MB limit",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    try:
+        raw = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError as e:
+        print(
+            "::error title=sarif-to-annotations::invalid UTF-8: " + str(e),
             file=sys.stderr,
         )
         sys.exit(2)
@@ -282,7 +295,11 @@ def main():
             file=sys.stderr,
         )
         sys.exit(2)
-    runs = data.get("runs") or []
+    runs = data.get("runs")
+    # Distinguish missing field (default to []) from explicitly malformed
+    # non-list values ({} , "", 0, false) which should fail, not pass.
+    if runs is None:
+        runs = []
     if not isinstance(runs, list):
         print(
             "::error title=sarif-to-annotations::runs is not a list",

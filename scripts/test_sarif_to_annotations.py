@@ -97,6 +97,49 @@ def test_url_encoded_path():
     assert _file_uri("file:///src/%E4%B8%AD.ts") == "src/中.ts"
 
 
+# Tests for integer validation in build_annotation_line (qodo thread 4)
+def _annotation_line(uri, **region):
+    """Build an annotation line and return it for inspection."""
+    _build = _mod.build_annotation_line
+    result = _loc(uri, **region)
+    entries = {}
+    line, is_error = _build(result, "test-tool", entries)
+    return line
+
+
+def test_non_integer_line_skipped():
+    """Non-integer startLine (e.g. string) should be skipped, not stringified."""
+    # JSON only has numbers, but if a hostile SARIF has a string, json.loads
+    # will parse it as a string. parse_location passes it through.
+    line = _annotation_line("src/a.ts", startLine="10")
+    assert "line=10" not in line
+    assert "line=" not in line
+
+
+def test_negative_line_skipped():
+    """Negative line numbers should be skipped."""
+    line = _annotation_line("src/a.ts", startLine=-5)
+    assert "line=-5" not in line
+    assert "line=" not in line
+
+
+def test_string_line_skipped():
+    """String values with newlines should not appear in the annotation."""
+    line = _annotation_line("src/a.ts", startLine="evil\n::error::injected")
+    assert "evil" not in line
+    assert "injected" not in line
+
+
+def test_valid_integer_lines_emitted():
+    """Valid positive integers should be emitted correctly."""
+    line = _annotation_line("src/a.ts", startLine=10, startColumn=3,
+                            endLine=12, endColumn=5)
+    assert "line=10" in line
+    assert "col=3" in line
+    assert "endLine=12" in line
+    assert "endColumn=5" in line
+
+
 TESTS = [
     test_empty_locations,
     test_relative_path_unchanged,
@@ -111,6 +154,10 @@ TESTS = [
     test_region_fields,
     test_missing_region,
     test_url_encoded_path,
+    test_non_integer_line_skipped,
+    test_negative_line_skipped,
+    test_string_line_skipped,
+    test_valid_integer_lines_emitted,
 ]
 
 

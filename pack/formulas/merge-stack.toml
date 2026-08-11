@@ -96,13 +96,19 @@ After merge:
 2. Pull main locally: git checkout main && git pull
 3. Close all lower PRs in this stack (their changes are now in main):
    For each lower PR in the stack:
-     # Verify the branch is truly in main before deleting:
+     # Squash merge creates a new commit on main, so ancestry checks
+     # (git merge-base --is-ancestor) will fail even though all content
+     # was included. Instead, verify content inclusion by checking that
+     # the diff between the merge-base and the branch tip is empty on main.
      git fetch origin
-     if git merge-base --is-ancestor origin/<lower-head-branch> origin/main; then
+     MERGE_BASE=$(git merge-base origin/main origin/<lower-head-branch>)
+     DIFF_ON_MAIN=$(git diff "$MERGE_BASE" origin/main -- . | wc -l)
+     BRANCH_CHANGES=$(git diff "$MERGE_BASE" origin/<lower-head-branch> -- . | wc -l)
+     if [ "$BRANCH_CHANGES" -gt 0 ] && [ "$DIFF_ON_MAIN" -ge "$BRANCH_CHANGES" ]; then
        gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
        git push origin --delete <lower-head-branch> (if not already deleted)
      else
-       echo "WARNING: <lower-head-branch> is NOT an ancestor of main — skipping deletion"
+       echo "WARNING: <lower-head-branch> content not fully in main — skipping deletion"
        gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). Branch retained for safety."
      fi
 4. Record merge in bd: bd close <bead-id> if tracking

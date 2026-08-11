@@ -22,7 +22,8 @@ fi
 ITER=0
 
 # Filter out ephemeral wisp/nudge beads from bd output.
-# Real issues have IDs like sv-XXXX (4+ chars after sv-).
+# Real issues have IDs like sv-XXXX (3+ alphanumeric chars, optionally
+# followed by .N for hierarchical IDs like sv-a1b.1).
 # Wisp/nudge beads have IDs like sv-wisp-XXXX or sv-nudge-XXXX.
 # Status symbols: ○ = open, ◐ = in_progress, ● = blocked, ✓ = closed
 # Returns -1 on bd failure (distinct from a legitimate 0 count) so the
@@ -39,7 +40,7 @@ count_real_issues() {
   # pipeline. Use `|| true` to swallow grep's no-match exit code so
   # an empty result yields 0, not -1.
   printf '%s\n' "$raw" \
-    | { grep -E '^\s*[○◐●] sv-[a-z0-9]{4,}($| )' || true; } \
+    | { grep -E '^\s*[○◐●] sv-[a-z0-9]{3,}(\.[0-9]+)?($| )' || true; } \
     | { grep -vE '^\s*[○◐●] sv-(wisp|nudge)' || true; } \
     | wc -l
 }
