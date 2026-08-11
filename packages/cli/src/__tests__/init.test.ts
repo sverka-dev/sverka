@@ -78,6 +78,34 @@ describe("init command", () => {
     expect(content).toContain("defineWorkflow");
   });
 
+  it("--config with a relative path creates the file under root", async () => {
+    const out = new CaptureWriter();
+    const code = await main(
+      ["init", "--root", dir, "--config", "config/sverka.config.ts"],
+      { output: out },
+    );
+    expect(code).toBe(0);
+    const configPath = join(dir, "config", "sverka.config.ts");
+    expect(existsSync(configPath)).toBe(true);
+  });
+
+  it("--config with an absolute path creates the file at that path", async () => {
+    const absDir = await makeTempDir();
+    try {
+      const absPath = join(absDir, "custom.config.ts");
+      const out = new CaptureWriter();
+      const code = await main(
+        ["init", "--root", dir, "--config", absPath],
+        { output: out },
+      );
+      expect(code).toBe(0);
+      expect(existsSync(absPath)).toBe(true);
+      expect(existsSync(join(dir, "sverka.config.ts"))).toBe(false);
+    } finally {
+      await cleanupTempDir(absDir);
+    }
+  });
+
   it("--format json includes a numeric durationMs (not hardcoded 0)", async () => {
     const out = new CaptureWriter();
     const code = await main(

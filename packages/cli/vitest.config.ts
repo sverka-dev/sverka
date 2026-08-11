@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -8,7 +9,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@sverka/sdk": new URL("../sdk/src/index.ts", import.meta.url).pathname,
+      "@sverka/sdk": fileURLToPath(
+        new URL("../sdk/src/index.ts", import.meta.url),
+      ),
     },
   },
 });

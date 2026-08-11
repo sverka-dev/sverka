@@ -68,5 +68,8 @@ export async function executeCommand(
     output.writeLine(`  duration: ${result.durationMs}ms`);
   }
 
+  if (result.runtimeFailure) {
+    return ExitCode.RuntimeError;
+  }
   return result.verdict === "pass" ? ExitCode.Success : ExitCode.PolicyFail;
 }

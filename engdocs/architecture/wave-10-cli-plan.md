@@ -85,7 +85,7 @@ Implement the `sverka` CLI with 7 commands:
 
 ## 4. File layout
 
-```
+```text
 packages/cli/src/
   index.ts              # main() entry point, exports
   types.ts              # GlobalFlags, OutputWriter, ExitCode, CliError, CliErrorCode

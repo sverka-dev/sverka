@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { join, isAbsolute } from "node:path";
 import { main } from "../index.js";
 import {
@@ -122,18 +122,21 @@ export default defineWorkflow({
   it("--baseline with an absolute path uses the absolute path, not joined under root", async () => {
     // Create a baseline at an absolute path outside the root dir.
     const absDir = await makeTempDir();
-    const absPath = join(absDir, "abs-baseline.json");
-    expect(isAbsolute(absPath)).toBe(true);
-    const out = new CaptureWriter();
-    const code = await main(
-      ["baseline", "create", "--baseline", absPath, "--root", dir],
-      { output: out },
-    );
-    expect(code).toBe(0);
-    // The baseline should be at the absolute path, not under dir.
-    expect(existsSync(absPath)).toBe(true);
-    expect(existsSync(join(dir, absPath))).toBe(false);
-    await cleanupTempDir(absDir);
+    try {
+      const absPath = join(absDir, "abs-baseline.json");
+      expect(isAbsolute(absPath)).toBe(true);
+      const out = new CaptureWriter();
+      const code = await main(
+        ["baseline", "create", "--baseline", absPath, "--root", dir],
+        { output: out },
+      );
+      expect(code).toBe(0);
+      // The baseline should be at the absolute path, not joined under dir.
+      expect(existsSync(absPath)).toBe(true);
+      expect(existsSync(join(dir, "abs-baseline.json"))).toBe(false);
+    } finally {
+      await cleanupTempDir(absDir);
+    }
   });
 
   it("clear is idempotent without existsSync guard (always calls unlink, tolerates ENOENT)", async () => {
@@ -159,5 +162,12 @@ export default defineWorkflow({
       { output: out },
     );
     expect(code).toBe(2);
+  });
+
+  it("missing subcommand exits with 2 and prints a clear message", async () => {
+    const out = new CaptureWriter();
+    const code = await main(["baseline", "--root", dir], { output: out });
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("subcommand");
   });
 });

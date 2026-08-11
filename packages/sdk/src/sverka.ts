@@ -243,6 +243,9 @@ async function buildExecutionResult(
     policyResult,
     verdict,
     status: runtimeResult.status,
+    ...(runtimeResult.runtimeFailure
+      ? { runtimeFailure: runtimeResult.runtimeFailure }
+      : {}),
     outcomes: runtimeResult.outcomes,
     durationMs: runtimeResult.durationMs,
   };

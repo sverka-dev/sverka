@@ -58,6 +58,12 @@ export interface ExecutionResult {
   verdict: Verdict;
   /** Scheduler execution status. */
   status: "success" | "failure" | "partial";
+  /**
+   * True when at least one operation failed due to an executor-level runtime
+   * fault (e.g., a binary could not be spawned). Distinguishes runtime errors
+   * from policy/command failures.
+   */
+  runtimeFailure?: boolean;
   /** Per-operation outcomes (runtime's OperationOutcome with fromCache). */
   outcomes: ReadonlyMap<string, RuntimeOperationOutcome>;
   /** Total execution time in ms. */

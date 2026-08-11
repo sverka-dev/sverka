@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
 
@@ -6,6 +6,7 @@ interface DoctorCheck {
   name: string;
   status: "ok" | "missing";
   version: string | null;
+  required: boolean;
 }
 
 /**
@@ -19,12 +20,12 @@ export async function doctorCommand(
 ): Promise<number> {
   output.debug(`doctor: root=${global.root}`);
   const checks: DoctorCheck[] = [
-    runCheck("node", "node"),
-    runCheck("bun", "bun"),
-    runCheck("git", "git"),
+    runCheck("node", "node", true),
+    runCheck("bun", "bun", false),
+    runCheck("git", "git", true),
   ];
 
-  const allOk = checks.every((c) => c.status === "ok");
+  const allOk = checks.every((c) => !c.required || c.status === "ok");
   const exitCode = allOk ? ExitCode.Success : ExitCode.RuntimeError;
 
   const durationMs = Date.now() - start;
@@ -48,22 +49,30 @@ export async function doctorCommand(
   return exitCode;
 }
 
-function runCheck(name: string, binary: string): DoctorCheck {
+function runCheck(
+  name: string,
+  binary: string,
+  required: boolean,
+): DoctorCheck {
   try {
-    const out = execSync(`${binary} --version`, {
+    const result = spawnSync(binary, ["--version"], {
       stdio: ["ignore", "pipe", "ignore"],
       encoding: "utf8",
       // Bound the check so a hung shim (broken PATH entry, blocking prompt,
       // etc.) cannot hang the CLI indefinitely. A timeout throws and is
       // treated the same as a missing tool.
       timeout: 5000,
-    }).trim();
+    });
+    if (result.status !== 0 || result.error) {
+      return { name, status: "missing", version: null, required };
+    }
+    const out = result.stdout.trim();
     // Extract the first x.y.z version token so output like "git version 2.43.0"
     // or "node v22.0.0" is normalized to "2.43.0" / "22.0.0".
     const match = out.match(/(\d+\.\d+\.\d+[^\s]*)/);
     const version = match?.[1] ?? out;
-    return { name, status: "ok", version };
+    return { name, status: "ok", version, required };
   } catch {
-    return { name, status: "missing", version: null };
+    return { name, status: "missing", version: null, required };
   }
 }

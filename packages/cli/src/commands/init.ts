@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join } from "node:path";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import type { WriteFileOptions } from "node:fs";
@@ -54,7 +54,7 @@ function resolveTemplateContent(template: string): string {
   return template === "full" ? FULL_TEMPLATE : MINIMAL_TEMPLATE;
 }
 
-/** Write the config file, using exclusive create when not forcing. */
+/** Write the config file, creating parent directories and using exclusive create when not forcing. */
 async function writeConfig(
   configPath: string,
   content: string,
@@ -71,6 +71,7 @@ async function writeConfig(
   // between existsSync and writeFile. With --force, use standard write.
   const flags: WriteFileOptions = force ? "utf8" : { encoding: "utf8", flag: "wx" };
   try {
+    await mkdir(dirname(configPath), { recursive: true });
     await writeFile(configPath, content, flags);
   } catch (e) {
     if (
@@ -110,6 +111,13 @@ function emitInitResult(
   }
 }
 
+/** Resolve the config path relative to root, honoring an explicit --config. */
+function resolveConfigPath(root: string, config: string | null): string {
+  const defaultPath = "sverka.config.ts";
+  const selected = config ?? defaultPath;
+  return isAbsolute(selected) ? selected : join(root, selected);
+}
+
 /**
  * Create a sverka.config.ts in the root directory.
  */
@@ -122,7 +130,7 @@ export async function initCommand(
   const template = args.template ?? "minimal";
   output.debug(`init: root=${global.root} template=${template} force=${Boolean(args.force)}`);
   const content = resolveTemplateContent(template);
-  const configPath = join(global.root, "sverka.config.ts");
+  const configPath = resolveConfigPath(global.root, global.config);
   await writeConfig(configPath, content, Boolean(args.force));
   emitInitResult(output, global.format, configPath, template, start);
   return ExitCode.Success;

@@ -150,6 +150,22 @@ export default defineWorkflow({
     expect(Object.keys(parsed.data.outcomes).length).toBeGreaterThan(0);
   });
 
+  it("exit code 3 for a runtime/executor failure (command not found)", async () => {
+    await writefile(
+      dir,
+      "sverka.config.ts",
+      `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
+export default defineWorkflow({
+  name: "test",
+  workflow: pipeline(task("op", run({ command: "__sverka_missing_binary__" }))),
+});
+`,
+    );
+    const out = new CaptureWriter();
+    const code = await main(["execute", "--root", dir], { output: out });
+    expect(code).toBe(3);
+  });
+
   it("--executor docker throws RUNTIME_NOT_AVAILABLE (exit 3) when docker not installed", async () => {
     await writePassingConfig(dir);
     const out = new CaptureWriter();

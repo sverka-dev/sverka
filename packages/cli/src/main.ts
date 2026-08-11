@@ -194,6 +194,13 @@ function dispatchBaseline(
   start: number,
 ): Promise<number> {
   const sub = String(parsed._[1] ?? "");
+  if (!sub) {
+    throw new CliError(
+      "baseline requires a subcommand (create, update, show, clear)",
+      "MISSING_ARG",
+      ExitCode.UsageError,
+    );
+  }
   return baselineCommand(
     { subcommand: sub, baselinePath: typeof parsed.baseline === "string" ? parsed.baseline : undefined },
     global,

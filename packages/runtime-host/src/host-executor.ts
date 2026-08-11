@@ -231,6 +231,7 @@ export class HostExecutor implements Executor {
           logs,
           artifacts: [],
           error: `spawn error: ${err.message}`,
+          runtimeFailure: true,
         });
       });
 

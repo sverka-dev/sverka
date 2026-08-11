@@ -76,6 +76,7 @@ export interface OutputWriter {
   writeLine(text: string): void;
   error(text: string): void;
   errorLine(text: string): void;
+  debug(text: string): void;
 }
 
 /** Exit codes used by the CLI. */
@@ -180,6 +181,7 @@ exists, the command fails unless `--force` is provided. The `--template`
 flag selects a template (`minimal`, `full`). Default is `minimal`.
 
 The minimal template:
+
 ```typescript
 import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
 
