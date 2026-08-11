@@ -71,7 +71,20 @@ export class DockerExecutor implements Executor {
    */
   buildDockerArgs(request: ExecuteRequest, cachePath?: string): string[] {
     const op = request.operation;
-    const args: string[] = [
+    const args = this.buildBaseArgs(op);
+    const netFlag = this.networkFlag(op.network);
+    if (netFlag !== undefined) args.push("--network", netFlag);
+    args.push(...this.buildMountArgs(request, cachePath));
+    const env = this.buildEnv(request);
+    for (const [k, v] of Object.entries(env)) args.push("--env", `${k}=${v}`);
+    args.push(this.imageRef(op));
+    if (op.command !== undefined) args.push(op.command);
+    if (op.args !== undefined) args.push(...op.args);
+    return args;
+  }
+
+  private buildBaseArgs(op: PlanOperation): string[] {
+    return [
       "run",
       "--rm",
       "--read-only",
@@ -88,18 +101,14 @@ export class DockerExecutor implements Executor {
       "--workdir",
       "/workspace",
     ];
+  }
 
-    // Network policy mapping.
-    const netFlag = this.networkFlag(op.network);
-    if (netFlag !== undefined) {
-      args.push("--network", netFlag);
-    }
-
-    // Bind mounts: workspace (read-only), cache, artifacts.
+  private buildMountArgs(request: ExecuteRequest, cachePath?: string): string[] {
     const workspaceMount = `type=bind,source=${request.workspace},target=/workspace,readonly`;
     const cacheSource = cachePath ?? request.cacheDir;
     const cacheMount = `type=bind,source=${cacheSource},target=/cache`;
     const artifactMount = `type=bind,source=${request.artifactDir},target=/artifacts`;
+    const mounts: string[] = [];
     for (const mount of [workspaceMount, cacheMount, artifactMount]) {
       const source = mountSource(mount);
       if (source && refersToDockerSocket(source)) {
@@ -109,28 +118,9 @@ export class DockerExecutor implements Executor {
           "DOCKER_SOCKET_DENIED",
         );
       }
-      args.push("--mount", mount);
+      mounts.push("--mount", mount);
     }
-
-    // Environment variables (allowlisted credentials + request env).
-    const env = this.buildEnv(request);
-    for (const [k, v] of Object.entries(env)) {
-      args.push("--env", `${k}=${v}`);
-    }
-
-    // Image with digest pinning.
-    const image = this.imageRef(op);
-    args.push(image);
-
-    // Command + args.
-    if (op.command !== undefined) {
-      args.push(op.command);
-    }
-    if (op.args !== undefined) {
-      args.push(...op.args);
-    }
-
-    return args;
+    return mounts;
   }
 
   /**

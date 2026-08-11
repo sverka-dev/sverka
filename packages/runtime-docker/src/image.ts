@@ -1,6 +1,46 @@
+import type { DockerRunOptions } from "./internal/docker-cli.js";
 import type { DockerExecutorConfig } from "./config.js";
 import { ImageDigestError } from "./errors.js";
 import { runDocker } from "./internal/docker-cli.js";
+
+type DockerResult = Awaited<ReturnType<typeof runDocker>>;
+
+function dockerOptions(config: DockerExecutorConfig): DockerRunOptions {
+  return {
+    timeoutSeconds: 300,
+    ...(config.dockerPath !== undefined ? { dockerPath: config.dockerPath } : {}),
+    ...(config.dockerHost !== undefined ? { dockerHost: config.dockerHost } : {}),
+  };
+}
+
+function dockerInspect(image: string, opts: DockerRunOptions) {
+  return runDocker(["inspect", "--format={{json .RepoDigests}}", image], opts);
+}
+
+function dockerPull(image: string, opts: DockerRunOptions) {
+  return runDocker(["pull", image], opts);
+}
+
+function assertInspectOk(
+  result: DockerResult,
+  image: string,
+  expectedDigest: string,
+  phase: string,
+): void {
+  if (result.timedOut) {
+    throw new ImageDigestError(
+      `timed out inspecting image "${image}" ${phase}`,
+      { image, expected: expectedDigest },
+    );
+  }
+  if (result.exitCode !== 0) {
+    const detail = result.stderr.trim() || result.stdout.trim() || "unknown error";
+    throw new ImageDigestError(
+      `image "${image}" inspect failed ${phase}: ${detail}`,
+      { image, expected: expectedDigest },
+    );
+  }
+}
 
 /**
  * Verify that the locally available image digest matches the declared digest.
@@ -15,31 +55,12 @@ export async function verifyImageDigest(
   expectedDigest: string,
   config: DockerExecutorConfig,
 ): Promise<void> {
-  const opts = {
-    timeoutSeconds: 300,
-    ...(config.dockerPath !== undefined
-      ? { dockerPath: config.dockerPath }
-      : {}),
-    ...(config.dockerHost !== undefined
-      ? { dockerHost: config.dockerHost }
-      : {}),
-  };
+  const opts = dockerOptions(config);
 
-  let inspectResult = await runDocker(
-    ["inspect", "--format={{json .RepoDigests}}", image],
-    opts,
-  );
+  let inspectResult = await dockerInspect(image, opts);
 
-  if (inspectResult.timedOut) {
-    throw new ImageDigestError(
-      `timed out inspecting image "${image}"`,
-      { image, expected: expectedDigest },
-    );
-  }
-
-  // Image not present locally — pull then re-inspect.
   if (inspectResult.exitCode !== 0) {
-    const pullResult = await runDocker(["pull", image], opts);
+    const pullResult = await dockerPull(image, opts);
     if (pullResult.timedOut) {
       throw new ImageDigestError(
         `timed out pulling image "${image}"`,
@@ -47,28 +68,16 @@ export async function verifyImageDigest(
       );
     }
     if (pullResult.exitCode !== 0) {
+      const detail = pullResult.stderr.trim() || pullResult.stdout.trim() || "unknown error";
       throw new ImageDigestError(
-        `failed to pull image "${image}": ${pullResult.stderr.trim() || pullResult.stdout.trim() || "unknown error"}`,
+        `failed to pull image "${image}": ${detail}`,
         { image, expected: expectedDigest },
       );
     }
-    inspectResult = await runDocker(
-      ["inspect", "--format={{json .RepoDigests}}", image],
-      opts,
-    );
-    if (inspectResult.timedOut) {
-      throw new ImageDigestError(
-        `timed out inspecting image "${image}" after pull`,
-        { image, expected: expectedDigest },
-      );
-    }
-    if (inspectResult.exitCode !== 0) {
-      throw new ImageDigestError(
-        `image "${image}" missing after successful pull: ${inspectResult.stderr.trim() || inspectResult.stdout.trim()}`,
-        { image, expected: expectedDigest },
-      );
-    }
+    inspectResult = await dockerInspect(image, opts);
   }
+
+  assertInspectOk(inspectResult, image, expectedDigest, inspectResult.exitCode === 0 ? "" : "after pull");
 
   const repoDigests = parseRepoDigests(inspectResult.stdout.trim());
   if (!repoDigests.some((d) => d === expectedDigest || d.endsWith(`@${expectedDigest}`))) {
