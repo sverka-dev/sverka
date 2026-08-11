@@ -531,9 +531,7 @@ function buildDependencyGraph(all: OperationSpec[]) {
   const adj = new Map<string, string[]>(all.map((s) => [s.id, []] as const));
   for (const spec of all) {
     for (const dep of spec.dependsOn ?? []) {
-      if (!byId.has(dep)) {
-        throw new CompositionError(`topological sort encountered unknown dependency '${dep}'`, { dependsOn: dep });
-      }
+      if (!byId.has(dep)) continue;
       adj.get(dep)!.push(spec.id);
       indegree.set(spec.id, (indegree.get(spec.id) ?? 0) + 1);
     }

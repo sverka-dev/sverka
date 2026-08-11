@@ -65,7 +65,7 @@ export function makeMockGit(cfg: MockGitConfig): GitCli {
           resolvePromise(tracked.map((f) => f).join("\n") + (tracked.length ? "\n" : ""));
           return;
         }
-        if (joined === "status --porcelain") {
+        if (joined === "status --porcelain" || joined === "status --porcelain -uall") {
           resolvePromise(porcelain.join("\n") + (porcelain.length ? "\n" : ""));
           return;
         }

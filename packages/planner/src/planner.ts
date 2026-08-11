@@ -210,7 +210,7 @@ async function collectGitFiles(
   let porcelainRaw: string;
   try {
     trackedRaw = await git.run(["ls-files"], toplevel);
-    porcelainRaw = await git.run(["status", "--porcelain"], toplevel);
+    porcelainRaw = await git.run(["status", "--porcelain", "-uall"], toplevel);
   } catch (err) {
     throw new DiscoveryError("filesystem traversal failed", "TRAVERSAL_FAILED", err);
   }
@@ -243,6 +243,17 @@ async function resolveHeadCommit(git: GitCli, toplevel: string): Promise<string>
   }
 }
 
+const REF_RE = /^[A-Za-z0-9_./~^\-@{}]+$/;
+
+function validateBaseRef(baseRef: string): void {
+  if (baseRef.startsWith("-") || !REF_RE.test(baseRef)) {
+    throw new DiscoveryError(
+      `invalid baseRef: ${baseRef}`,
+      "INVALID_BASE_REF",
+    );
+  }
+}
+
 /** Collect changed files against `baseRef` when provided. */
 async function collectChangedFiles(
   git: GitCli,
@@ -250,9 +261,10 @@ async function collectChangedFiles(
   baseRef: string | undefined,
 ): Promise<ChangedFile[]> {
   if (!baseRef) return [];
+  validateBaseRef(baseRef);
   try {
     const diff = await git.run(
-      ["diff", "--name-status", `${baseRef}...HEAD`],
+      ["diff", "--name-status", `${baseRef}...HEAD`, "--"],
       toplevel,
     );
     return parseDiffNameStatus(diff);

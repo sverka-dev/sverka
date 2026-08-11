@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import * as api from "../index.js";
+import type { GithubCompilerConfig } from "../index.js";
+
+type _TypeExportCheck = GithubCompilerConfig;
 
 describe("public API", () => {
   it("exports compileGithubWorkflow", () => {

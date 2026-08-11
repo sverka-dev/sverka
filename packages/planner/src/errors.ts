@@ -17,4 +17,5 @@ export type DiscoveryErrorCode =
   | "ROOT_NOT_FOUND"
   | "GIT_UNAVAILABLE"
   | "GIT_NOT_A_REPO"
-  | "TRAVERSAL_FAILED";
+  | "TRAVERSAL_FAILED"
+  | "INVALID_BASE_REF";

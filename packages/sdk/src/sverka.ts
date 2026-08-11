@@ -11,8 +11,7 @@ import { createPlanner } from "@sverka/planner";
 import type { ProjectContext } from "@sverka/planner";
 import { Scheduler } from "@sverka/runtime";
 import type { Executor, ExecutionResult as RuntimeExecutionResult } from "@sverka/runtime";
-import { HostExecutor } from "@sverka/runtime-host";
-import type { CommandAllowlist } from "@sverka/runtime-host";
+import { HostExecutor, createAllowlist } from "@sverka/runtime-host";
 import { DockerExecutor } from "@sverka/runtime-docker";
 import { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/policy";
 import type { Policy } from "@sverka/policy";
@@ -32,18 +31,6 @@ import { SdkError } from "./errors.js";
 import { findConfig, loadWorkflow } from "./config.js";
 import { convertToPlan } from "./convert.js";
 import { PlanRuntime } from "./internal/plan-runtime.js";
-
-/**
- * Allowlist that permits any command. The SDK runs the user's own
- * `sverka.config.ts` in the current process, so it must only be invoked with
- * trusted configuration files. Treating untrusted config paths as trusted may
- * allow arbitrary command execution; call sites validate `configPath` against
- * the project `root` before loading.
- */
-const allowAllCommands: CommandAllowlist = {
-  entries: ["*"],
-  isAllowed: () => true,
-};
 
 /**
  * Create a Sverka instance with default options pre-applied. Per-call
@@ -216,7 +203,7 @@ async function runPlan(
   const cacheDir = mkdtempSync(join(tmpdir(), "sverka-cache-"));
 
   try {
-    const executor = createExecutor(executorType, cacheDir);
+    const executor = createExecutor(executorType, cacheDir, plan.operations);
     const scheduler = new Scheduler({
       executors: [executor],
       maxConcurrent: 4,
@@ -351,6 +338,7 @@ function isWorkflow(wf: Workflow | Operation): wf is Workflow {
 function createExecutor(
   type: "host" | "docker",
   cacheDir: string,
+  operations: readonly { command?: string }[],
 ): Executor {
   if (type === "docker") {
     return new DockerExecutor({
@@ -358,9 +346,12 @@ function createExecutor(
       cacheDir,
     });
   }
+  const commands = operations
+    .map((op) => op.command)
+    .filter((c): c is string => typeof c === "string" && c.length > 0);
   return new HostExecutor({
     enabled: true,
-    allowlist: allowAllCommands,
+    allowlist: createAllowlist(commands),
     envAllowlist: ["PATH"],
   });
 }

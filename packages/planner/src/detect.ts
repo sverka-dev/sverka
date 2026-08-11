@@ -149,12 +149,18 @@ export function detectLanguages(files: readonly string[]): DetectedLanguage[] {
 
 // --- package manager detection ---
 
+const MANIFEST_PACKAGE_MANAGER: Readonly<Record<string, PackageManagerName>> = {
+  "go.mod": "go",
+  "Cargo.toml": "cargo",
+};
+
 export function detectPackageManagers(
   signals: readonly LocalSignal[],
   rootPkgJson: Record<string, unknown> | null,
 ): DetectedPackageManager[] {
   const byName = new Map<PackageManagerName, DetectedPackageManager>();
   collectLockfilePackageManagers(signals, byName);
+  collectManifestPackageManagers(signals, byName);
   applyPackageManagerField(rootPkgJson, byName);
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -196,6 +202,25 @@ function collectLockfilePackageManagers(
         evidence: [sig.path],
       });
     }
+  }
+}
+
+/** Populate `byName` from manifest signals for ecosystems without a lockfile or when the manifest is the primary signal. */
+function collectManifestPackageManagers(
+  signals: readonly LocalSignal[],
+  byName: Map<PackageManagerName, DetectedPackageManager>,
+): void {
+  for (const sig of signals) {
+    if (sig.type !== "manifest") continue;
+    const base = basename(sig.path);
+    const name = MANIFEST_PACKAGE_MANAGER[base];
+    if (!name || byName.has(name)) continue;
+    byName.set(name, {
+      name,
+      version: null,
+      lockfile: null,
+      evidence: [sig.path],
+    });
   }
 }
 

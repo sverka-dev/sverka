@@ -21,7 +21,6 @@ export function compileGitlabCi(
   plan: Plan,
   config?: GitlabCompilerConfig,
 ): string {
-  void plan; // accepted for API consistency; thin wrapper ignores contents
   const image = config?.image ?? "oven/bun:latest";
   const sverkaVersion = config?.sverkaVersion ?? "latest";
   const rules = config?.rules ?? DEFAULT_RULES;
