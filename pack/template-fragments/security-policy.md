@@ -15,8 +15,10 @@ Report security vulnerabilities privately. Do NOT open a public GitHub issue.
 
 - NEVER commit secrets, API keys, tokens, or passwords to the repository
 - Use environment variables or secret managers
-- If a secret is accidentally committed: rotate it immediately, then force-push
-  the branch to remove it from history
+- If a secret is accidentally committed: rotate it immediately, then use
+  `git filter-repo` or BFG Repo-Cleaner to purge it from history, then
+  force-push the rewritten branch. A force-push alone does NOT remove the
+  secret from retained history, forks, logs, or artifacts — rotation comes first
 - Reviewer must check for hardcoded secrets in every PR
 
 ## Dependencies

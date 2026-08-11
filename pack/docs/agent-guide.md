@@ -5,7 +5,7 @@ It describes the skills, formulas, and workflow available to them.
 
 ## Skills
 
-The pack provides three skills in `pack/skills/`:
+The pack provides four skills in `pack/skills/`:
 
 ### `sverka-wave`
 
@@ -19,6 +19,10 @@ Use when reviewing a wave implementation. Covers gate commands, two-axis review 
 
 Use when a wave fails, a builder is stuck, or tests break. Covers drill task creation, scoped investigation, root cause isolation, and prevention planning.
 
+### `sverka-merge-stack`
+
+Use when managing stacked PRs across waves. Covers stack creation, cascading rebase, and submit.
+
 ## How agents discover skills
 
 Gas City packs can include a `skills/` directory. Skills in `pack/skills/`
@@ -27,7 +31,7 @@ are available to all agents that load the pack. Agents invoke skills via
 
 ## Formulas
 
-The pack provides three formulas in `pack/formulas/`:
+The pack provides four formulas in `pack/formulas/`:
 
 ### `wave`
 
@@ -52,6 +56,11 @@ The project bootstrap:
 5. **website** (builder) — scaffold website
 6. **review** (reviewer) — gate bootstrap
 7. **finalize** (mayor) — commit, prepare first wave
+
+### `merge-stack`
+
+The stacked PR merge cycle:
+1. **merge** (mayor) — merge the bottom PR, cascading the stack
 
 ## Project Context
 

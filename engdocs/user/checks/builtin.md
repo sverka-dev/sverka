@@ -67,9 +67,9 @@ matches a table entry, the resolver produces a `ResolvedCheck` with an
 ## Extracting findings
 
 `extractFindings()` reads check output files from an artifact directory and
-normalizes SARIF into `Finding[]`. It is async and takes three positional
-arguments: the list of `CheckOutput` declarations, the artifact directory
-path, and the check ID (used as a prefix for finding IDs).
+normalizes SARIF into `readonly Finding[]`. It is async and takes three
+positional arguments: the list of `CheckOutput` declarations, the artifact
+directory path, and the check ID (used as a prefix for finding IDs).
 
 ```ts
 import { extractFindings } from "@sverka/sdk";
@@ -79,5 +79,8 @@ const findings = await extractFindings(outputs, artifactDir, checkId);
 
 Only SARIF 2.1.0 output is supported in v1. Non-SARIF formats (JSON, JUnit,
 text) are skipped silently. Missing output files are also skipped. If a SARIF
-file exists but is invalid, `CheckError(EXTRACTION_FAILED)` is thrown with the
-underlying `NormalizationError` as `cause`.
+file exists but cannot be parsed as JSON, `CheckError(EXTRACTION_FAILED)` is
+thrown with the underlying `SyntaxError` as `cause`. If the JSON is valid but
+the SARIF structure is invalid (e.g. missing location), `CheckError(EXTRACTION_FAILED)`
+is thrown with the underlying `NormalizationError` (`INVALID_SARIF` or
+`MISSING_LOCATION`) as `cause`.

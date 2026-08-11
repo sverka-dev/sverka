@@ -74,8 +74,13 @@ bd remember "drill-finding-$(date +%Y-%m-%d)-<keyword>: <root cause and preventi
 
 ### Untracked files lost on branch switch
 
-Root cause: concurrent agent sessions switching branches wipe untracked files.
-Prevention: stage files immediately after creation. Commit as soon as review is approved.
+Root cause: a forced checkout (`git checkout -f` or `git checkout --force`)
+wipes untracked files that conflict with the target branch. A normal
+checkout preserves local changes or aborts on conflicts — forced checkout
+is what causes data loss.
+Prevention: never use `--force` when switching branches with untracked
+files. Stage files immediately after creation. Commit as soon as review
+is approved.
 
 ### Tests pass in package but monorepo is red
 

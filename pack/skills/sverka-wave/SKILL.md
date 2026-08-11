@@ -28,9 +28,13 @@ Each spec contains: Overview, Goals, Non-goals, Interfaces, Data models, Error h
 
 1. Read the wave's spec in `specs/NN-<name>/spec.md`
 2. Read `engdocs/` for existing architectural context
-3. Trim the spec — cut everything non-essential (YAGNI)
+3. Trim the spec — cut everything non-essential (YAGNI), but preserve every
+   interface, type, and error code the spec requires. "Trim" means remove
+   prose and scope, not required specification surfaces.
 4. Produce an implementation plan at `engdocs/architecture/wave-NN-<name>-plan.md`
-5. Define TypeScript interfaces — only export what's used
+5. Define TypeScript interfaces — only export what's used, but never remove
+   an export that the spec requires. "Only export what's used" means don't
+   add speculative API, not that you may delete spec-mandated interfaces.
 6. Report to mayor via mail
 
 ### 2. Implement (builder)
@@ -60,13 +64,18 @@ Each spec contains: Overview, Goals, Non-goals, Interfaces, Data models, Error h
 ### 4. Finalize (mayor)
 
 1. Verify reviewer approved
-2. Stage only wave files:
+2. Check commit completeness:
+   ```bash
+   git status --short
+   ```
+   Confirm no untracked wave files remain before staging.
+3. Stage only wave files:
    ```bash
    git add packages/<package>/ specs/NN-<name>/ engdocs/ bun.lock
    ```
-3. Exclude: `city.toml`, `agents/`, `.devin/`, `.gc/`, `.beads/`, `formulas/`
-4. Commit and push stacked PR
-5. Close wave epic, create next wave
+4. Exclude: `city.toml`, `agents/`, `.devin/`, `.gc/`, `.beads/`, `formulas/`
+5. Commit and push stacked PR
+6. Close wave epic, create next wave
 
 ## Commit Hygiene
 

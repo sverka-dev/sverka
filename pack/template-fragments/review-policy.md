@@ -18,10 +18,11 @@ is rejected.
 
 ## Verification Bar
 
-The reviewer runs all checks themselves. No trusting builder claims.
+The reviewer runs all checks themselves, fresh (not cached, not trusted from
+builder). No trusting builder claims.
 
-- Tests: run them, confirm they pass, confirm they test behavior
-- Build: run it, confirm it succeeds
+- Tests: run them fresh (`--skip-nx-cache`), confirm they pass, confirm they test behavior
+- Build: run it fresh (`--skip-nx-cache`), confirm it succeeds
 - Lint: run it, confirm zero errors
 - Typecheck: run it, confirm zero errors
 

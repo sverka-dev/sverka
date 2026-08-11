@@ -10,7 +10,7 @@ Every finding has:
 | Field         | Type     | Description                              |
 |---------------|----------|------------------------------------------|
 | `id`          | `string` | `{checkId}:{fingerprint}`                |
-| `fingerprint` | `string` | SHA-256 of `checkId|rule|file|lines`     |
+| `fingerprint` | `string` | SHA-256 of `checkId\|rule\|file\|lines`   |
 | `checkId`     | `string` | Check that produced the finding          |
 | `severity`    | `Severity` | `info`, `low`, `medium`, `high`, `critical` |
 | `confidence`  | `number`  | 0.0–1.0 (default 0.5 for SARIF)        |
@@ -75,7 +75,7 @@ import { createBaseline } from "@sverka/sdk";
 const baseline = createBaseline(findings);
 ```
 
-### `updateBaseline(baseline, findings)`
+### `updateBaseline(findings, baseline)`
 
 Update an existing baseline with new findings.
 

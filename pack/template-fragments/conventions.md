@@ -14,7 +14,7 @@ sections. The harness agents (architect, builder, reviewer) reference
 
 ## Structure
 
-```
+```text
 <project directory layout>
 ```
 

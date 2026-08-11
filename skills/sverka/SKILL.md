@@ -146,8 +146,8 @@ export default defineWorkflow({
 All commands support `--format json` for programmatic use:
 
 ```bash
-sverka plan --format json | jq '.operations[].name'
-sverka execute --format json | jq '.findings | length'
+sverka plan --format json | jq '.data.operations[].name'
+sverka execute --format json | jq '.data.findings | length'
 ```
 
 ## Troubleshooting

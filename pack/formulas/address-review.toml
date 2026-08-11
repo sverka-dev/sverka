@@ -13,6 +13,11 @@ Every review comment gets a substantive reply in-thread, every code fix is
 committed, and every thread is resolved. The /act loop runs until the PR is
 merge-ready: open_threads=0, CI green, SAST clean.
 
+The /act loop is bounded to a maximum of 5 iterations. If the PR is not
+merge-ready after 5 iterations, escalate to the mayor: report the remaining
+open threads, the last CI/SAST status, and the reason the loop could not
+converge. The mayor decides whether to drill, request human input, or reject.
+
 PREREQUISITE: Before starting /act, check if the stacked PR requires rebase.
 Use `gh stack rebase` to cascading-rebase the entire stack if any lower
 branch has advanced (previous wave had review fixes applied, trunk moved).

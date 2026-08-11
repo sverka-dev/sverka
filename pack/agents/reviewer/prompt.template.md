@@ -31,6 +31,7 @@ Always invoke these skills when reviewing:
 - `skill evidence` — require proof that tests pass, build succeeds
 - `skill sourcegraph` — verify the code matches what's actually in the repo
 - `skill deepwiki` — when checking if a dependency is used correctly
+- `skill sverka-review` — gate commands, finding classification, REVIEW.md policy
 
 ## Your responsibilities
 

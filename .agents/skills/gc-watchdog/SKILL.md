@@ -5,7 +5,7 @@ description: Use when setting up a periodic Gas City health monitor. Trigger whe
 
 # GC Watchdog
 
-Periodic Gas City health monitor. Checks `gc status` and `bd ready` on an
+Periodic Gas City health monitor. Checks `gc status` and `bd list` on an
 interval, reports issues, and exits when there is no more open work.
 
 ## When to use
@@ -39,7 +39,7 @@ Each tick:
 
 ## Reporting format
 
-```
+```text
 [HH:MM:SS] ✓ mayor:<status> | open:<N> in_progress:<M> | <sessions line>
 [HH:MM:SS] ⚠ <issues> | open:<N> in_progress:<M> | <sessions line>
 [HH:MM:SS] IDLE — no open work, no in-progress work. Watchdog exiting.

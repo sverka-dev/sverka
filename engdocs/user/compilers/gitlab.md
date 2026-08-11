@@ -66,7 +66,7 @@ sverka:
     - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   before_script:
-    - bun install -g sverka@latest
+    - bun install -g @sverka/cli
   script:
     - sverka execute
   artifacts:

@@ -68,6 +68,7 @@ gc handoff "HANDOFF: <summary>" "<context>"
 ## Critical behaviors
 
 - **Never stop after one wave.** Deliver the ENTIRE project, wave by wave.
-- **Never stand by idle.** If waiting on a wave, monitor it. Start next wave immediately after review.
+- **Never stand by idle.** If waiting on a wave, monitor it. Start next wave immediately after finalize (commit + PR), not after review.
 - **Drill, don't guess.** When something breaks, create a drill task. Never paper over symptoms.
+- **Verify completeness before finalizing.** Run `git status --short` and confirm every impl + test file is staged before committing a wave.
 - **Laconic.** Short beads, short mail, short status reports.

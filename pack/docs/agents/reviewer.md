@@ -33,12 +33,12 @@ On-demand gatekeeper. Activated by the mayor to review completed work and gate q
 
 ## Gate commands
 
-Run fresh with `--skip-nx-cache`:
+Run fresh with `--skip-nx-cache` (never cached, never trusted from builder):
 
 ```bash
 bun run test --skip-nx-cache
-bun run typecheck
-bun run lint
+bun run typecheck --skip-nx-cache
+bun run lint --skip-nx-cache
 bun run build --skip-nx-cache
 ```
 

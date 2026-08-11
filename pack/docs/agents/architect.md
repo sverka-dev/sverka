@@ -31,7 +31,7 @@ On-demand designer. Activated by the mayor to design specs, plan implementation 
 
 Each spec must include (keep each section as short as possible):
 
-```
+```text
 specs/NN-<name>/
   spec.md
 ```

@@ -14,7 +14,7 @@ the reviewer verifies accuracy via grep cross-reference.
 
 ### Step 1: Scaffold the directory tree
 
-```
+```bash
 mkdir -p engdocs/user/{getting-started,workflow-api,cli,checks,compilers,findings,policy}
 ```
 
@@ -28,6 +28,7 @@ links. Follow the style of `engdocs/README.md`.
 - `getting-started/install.md` — prerequisites (Node 24+, Bun), `bun
   install`, `bunx sverka init`. Link to first-plan.
 - `getting-started/first-plan.md` — complete working example:
+
   ```ts
   import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
   export default defineWorkflow({
@@ -39,6 +40,7 @@ links. Follow the style of `engdocs/README.md`.
     ),
   });
   ```
+
   Then `bunx sverka plan` and `bunx sverka execute`.
 
 ### Step 4: Write `workflow-api/overview.md`
@@ -84,8 +86,8 @@ Add "User docs" section after the existing structure section, linking to
 
 ### Step 10: Update `website/src/pages/docs.astro`
 
-Replace the placeholder list items (Workflow API, CLI Reference, etc.)
-with links to the actual GitHub paths under `engdocs/user/`.
+Out of scope for this wave — website updates belong to Wave 14. The docs page
+will link to `engdocs/user/` paths once the website wave lands.
 
 ## Verification (reviewer)
 
@@ -106,7 +108,6 @@ with links to the actual GitHub paths under `engdocs/user/`.
 Stage ONLY:
 - `engdocs/user/**` (all new files)
 - `engdocs/README.md` (modified)
-- `website/src/pages/docs.astro` (modified)
 - `specs/15-documentation/spec.md` (trimmed)
 - `engdocs/architecture/wave-15-documentation-plan.md` (this plan)
 

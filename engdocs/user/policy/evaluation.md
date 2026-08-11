@@ -3,14 +3,15 @@
 Policy evaluation determines whether a set of findings passes or fails.
 Source: `packages/policy/src/`.
 
-## `evaluatePolicy(findings, policy, baselineFingerprints?)`
+## `evaluatePolicy(findings, policy, baselineFingerprints)`
 
-Evaluate findings against a policy. Returns a `PolicyResult`.
+Evaluate findings against a policy. Returns a `PolicyResult`. Pass an empty
+array for `baselineFingerprints` when no baseline exists.
 
 ```ts
 import { evaluatePolicy, DEFAULT_POLICY } from "@sverka/sdk";
 
-const result = evaluatePolicy(findings, DEFAULT_POLICY);
+const result = evaluatePolicy(findings, DEFAULT_POLICY, []);
 console.log(result.verdict); // "pass" | "fail"
 console.log(result.summary); // human-readable summary
 ```
