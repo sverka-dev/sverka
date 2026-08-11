@@ -80,22 +80,28 @@ def _create_repo() -> str:
     return tmp
 
 
+def _commit_file(repo: str, path: str, content: str, message: str) -> None:
+    with open(os.path.join(repo, path), "w") as f:
+        f.write(content)
+    _run_git(repo, "add", path)
+    _run_git(repo, "commit", "-m", message)
+
+
+def _init_base(repo: str) -> None:
+    _commit_file(repo, "base.txt", "base\n", "initial")
+
+
+def _branch_with_file(repo: str, branch: str, path: str, content: str, message: str) -> None:
+    _run_git(repo, "checkout", "-b", branch)
+    _commit_file(repo, path, content, message)
+
+
 def test_squash_merged_content_is_included():
     """When a lower branch's change is already on main, merge-tree matches main."""
     repo = _create_repo()
     try:
-        # main: add base.txt
-        with open(os.path.join(repo, "base.txt"), "w") as f:
-            f.write("base\n")
-        _run_git(repo, "add", "base.txt")
-        _run_git(repo, "commit", "-m", "initial")
-
-        # feature: add feature.txt
-        _run_git(repo, "checkout", "-b", "feature")
-        with open(os.path.join(repo, "feature.txt"), "w") as f:
-            f.write("feature\n")
-        _run_git(repo, "add", "feature.txt")
-        _run_git(repo, "commit", "-m", "feature")
+        _init_base(repo)
+        _branch_with_file(repo, "feature", "feature.txt", "feature\n", "feature")
 
         # main: simulate squash-merge by bringing in feature.txt without a merge commit
         _run_git(repo, "checkout", "main")
@@ -112,16 +118,8 @@ def test_unmerged_content_is_not_included():
     """When a lower branch carries a change not on main, merge-tree differs."""
     repo = _create_repo()
     try:
-        with open(os.path.join(repo, "base.txt"), "w") as f:
-            f.write("base\n")
-        _run_git(repo, "add", "base.txt")
-        _run_git(repo, "commit", "-m", "initial")
-
-        _run_git(repo, "checkout", "-b", "diverged")
-        with open(os.path.join(repo, "diverged.txt"), "w") as f:
-            f.write("diverged\n")
-        _run_git(repo, "add", "diverged.txt")
-        _run_git(repo, "commit", "-m", "diverged change")
+        _init_base(repo)
+        _branch_with_file(repo, "diverged", "diverged.txt", "diverged\n", "diverged change")
 
         _run_git(repo, "checkout", "main")
 
@@ -138,16 +136,8 @@ def test_unrelated_change_on_main_does_not_fool_wc_check():
     """
     repo = _create_repo()
     try:
-        with open(os.path.join(repo, "base.txt"), "w") as f:
-            f.write("base\n")
-        _run_git(repo, "add", "base.txt")
-        _run_git(repo, "commit", "-m", "initial")
-
-        _run_git(repo, "checkout", "-b", "feature")
-        with open(os.path.join(repo, "feature.txt"), "w") as f:
-            f.write("feature\n")
-        _run_git(repo, "add", "feature.txt")
-        _run_git(repo, "commit", "-m", "feature")
+        _init_base(repo)
+        _branch_with_file(repo, "feature", "feature.txt", "feature\n", "feature")
 
         # main adds many unrelated lines in a different file, then includes feature.txt
         _run_git(repo, "checkout", "main")
