@@ -143,33 +143,40 @@ export class DockerExecutor implements Executor {
   async execute(request: ExecuteRequest): Promise<ExecuteResult> {
     const op = request.operation;
     const start = Date.now();
+    this.validateRequest(op);
+    const args = this.buildDockerArgs(request);
+    const result = await this.runContainer(args, op);
+    return this.finalizeResult(result, op, request, start);
+  }
 
-    // 1. Validate executor type.
+  /** Validate executor type, timeout, and image digest. */
+  private validateRequest(op: PlanOperation): void {
     if (op.executor.type !== "docker") {
       throw new ContainerPolicyError(
         `expected executor.type "docker", got "${op.executor.type}"`,
         { type: op.executor.type },
       );
     }
-    // 2. Validate timeout.
     if (op.timeoutSeconds === undefined || op.timeoutSeconds <= 0) {
       throw new ContainerPolicyError(
         "timeoutSeconds must be present and > 0",
         { timeoutSeconds: op.timeoutSeconds },
       );
     }
-    // 3. Validate image digest presence.
     if (op.executor.imageDigest === undefined) {
       throw new ContainerPolicyError(
         "docker operations require executor.imageDigest",
         { image: op.executor.image },
       );
     }
+  }
 
-    // 4. Build args + env (validates secrets + socket before any spawn).
-    const args = this.buildDockerArgs(request);
-
-    // 5. Spawn.
+  /** Spawn docker and build the base ExecuteResult. */
+  private async runContainer(
+    args: string[],
+    op: PlanOperation,
+  ): Promise<ExecuteResult> {
+    const start = Date.now();
     const result = await runDocker(args, {
       timeoutSeconds: op.timeoutSeconds,
       ...(this.config.dockerPath !== undefined
@@ -179,15 +186,12 @@ export class DockerExecutor implements Executor {
         ? { dockerHost: this.config.dockerHost }
         : {}),
     });
-
     const durationMs = Date.now() - start;
     const rawLogs =
       result.stdout + (result.stderr ? "\n" + result.stderr : "");
     const logs = this.truncateLogs(rawLogs);
-
-    let base: ExecuteResult;
     if (result.timedOut === true) {
-      base = {
+      return {
         operationId: op.id,
         status: "failure",
         ...(result.exitCode >= 0 ? { exitCode: result.exitCode } : {}),
@@ -196,39 +200,45 @@ export class DockerExecutor implements Executor {
         artifacts: [],
         error: `timeout after ${op.timeoutSeconds}s`,
       };
-    } else {
-      const status = result.exitCode === 0 ? "success" : "failure";
-      base = {
-        operationId: op.id,
-        status,
-        ...(result.exitCode >= 0 ? { exitCode: result.exitCode } : {}),
-        durationMs,
-        logs,
-        artifacts: [],
-        ...(status === "failure"
-          ? { error: `exit code ${result.exitCode}` }
-          : {}),
-      };
     }
+    const status = result.exitCode === 0 ? "success" : "failure";
+    return {
+      operationId: op.id,
+      status,
+      ...(result.exitCode >= 0 ? { exitCode: result.exitCode } : {}),
+      durationMs,
+      logs,
+      artifacts: [],
+      ...(status === "failure" ? { error: `exit code ${result.exitCode}` } : {}),
+    };
+  }
 
-    // 6. Collect artifacts (merge errors without changing status).
+  /** Collect artifacts and merge errors into the base result. */
+  private async finalizeResult(
+    base: ExecuteResult,
+    op: PlanOperation,
+    request: ExecuteRequest,
+    start: number,
+  ): Promise<ExecuteResult> {
     const artifacts = await this.collectArtifacts(
       op,
       request.workspace,
       request.artifactDir,
     );
+    const durationMs = Date.now() - start;
     if (artifacts.errors.length > 0) {
       const existingError = base.error ?? "";
       const artifactError = `artifact errors: ${artifacts.errors.join("; ")}`;
       return {
         ...base,
+        durationMs,
         artifacts: artifacts.collected,
         error: existingError
           ? `${existingError}; ${artifactError}`
           : artifactError,
       };
     }
-    return { ...base, artifacts: artifacts.collected };
+    return { ...base, durationMs, artifacts: artifacts.collected };
   }
 
   async dispose(): Promise<void> {
