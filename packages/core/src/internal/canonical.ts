@@ -13,10 +13,8 @@
  * - Strings escaped per JSON.stringify rules.
  *
  * Implemented as a manual recursive emitter so the wire format and the hash
- * input can never drift. This is an independent copy of the `ir` package's
- * `internal/canonical.ts` (core must not depend on ir); both reference
- * ADR-006 as the source of truth and are kept in lockstep by the
- * core/ir consistency test.
+ * input can never drift. This is the single source of truth — the `ir` package
+ * re-exports it from `@sverka/core` rather than maintaining its own copy.
  */
 export function canonicalStringify(value: unknown): string {
   const out: string[] = [];
