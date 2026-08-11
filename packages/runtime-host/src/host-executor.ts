@@ -241,60 +241,71 @@ export class HostExecutor implements Executor {
           return;
         }
         clearTimeout(timer);
-        const durationMs = Date.now() - start;
-        const rawLogs = stdout + (stderr ? "\n" + stderr : "");
-        const logs = this.truncateLogs(rawLogs);
-
-        if (timedOut) {
-          resolvePromise({
-            operationId,
-            status: "failure",
-            durationMs,
-            ...(code !== null ? { exitCode: code } : {}),
-            logs,
-            artifacts: [],
-            error: `timeout after ${timeoutSeconds}s`,
-          });
-          return;
-        }
-
-        if (signal !== null) {
-          resolvePromise({
-            operationId,
-            status: "failure",
-            durationMs,
-            logs,
-            artifacts: [],
-            error: `terminated by signal ${signal}`,
-          });
-          return;
-        }
-
-        if (code === null || code < 0) {
-          resolvePromise({
-            operationId,
-            status: "failure",
-            durationMs,
-            logs,
-            artifacts: [],
-            error: `spawn error: exit code ${code}`,
-            runtimeFailure: true,
-          });
-          return;
-        }
-
-        const status = code === 0 ? "success" : "failure";
-        resolvePromise({
-          operationId,
-          status,
-          ...(code !== null ? { exitCode: code } : {}),
-          durationMs,
-          logs,
-          artifacts: [],
-          ...(status === "failure" ? { error: `exit code ${code}` } : {}),
-        });
+        resolvePromise(
+          this.buildExecuteResult(operationId, start, stdout, stderr, code, signal, timedOut, timeoutSeconds),
+        );
       });
     });
+  }
+
+  private buildExecuteResult(
+    operationId: string,
+    start: number,
+    stdout: string,
+    stderr: string,
+    code: number | null,
+    signal: NodeJS.Signals | null,
+    timedOut: boolean,
+    timeoutSeconds: number,
+  ): ExecuteResult {
+    const durationMs = Date.now() - start;
+    const logs = this.truncateLogs(stdout + (stderr ? "\n" + stderr : ""));
+
+    if (timedOut) {
+      return {
+        operationId,
+        status: "failure",
+        durationMs,
+        ...(code !== null ? { exitCode: code } : {}),
+        logs,
+        artifacts: [],
+        error: `timeout after ${timeoutSeconds}s`,
+      };
+    }
+
+    if (signal !== null) {
+      return {
+        operationId,
+        status: "failure",
+        durationMs,
+        logs,
+        artifacts: [],
+        error: `terminated by signal ${signal}`,
+      };
+    }
+
+    if (code === null || code < 0) {
+      return {
+        operationId,
+        status: "failure",
+        durationMs,
+        logs,
+        artifacts: [],
+        error: `spawn error: exit code ${code}`,
+        runtimeFailure: true,
+      };
+    }
+
+    const status = code === 0 ? "success" : "failure";
+    return {
+      operationId,
+      status,
+      ...(code !== null ? { exitCode: code } : {}),
+      durationMs,
+      logs,
+      artifacts: [],
+      ...(status === "failure" ? { error: `exit code ${code}` } : {}),
+    };
   }
 
   private truncateLogs(logs: string): string {

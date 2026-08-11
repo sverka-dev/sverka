@@ -35,27 +35,36 @@ export class DockerCacheManager implements CacheManager {
     await mkdir(target, { recursive: true });
     const workspaceRoot = workspace ?? process.cwd();
     for (const input of inputs) {
-      const root = workspace ?? dirname(input);
-      const rel = isAbsolute(input) ? relative(root, input) : input;
-      if (rel.startsWith("..") || isAbsolute(rel)) {
-        throw new DockerExecutorError(
-          `cache input "${input}" escapes workspace "${root}"`,
-          "CACHE_PATH_ESCAPE",
-        );
-      }
-      const src = isAbsolute(input) ? input : join(workspaceRoot, input);
-      const dest = join(target, rel);
-      await mkdir(dirname(dest), { recursive: true });
-      // Only copy if the source exists; if not, the cached copy may already
-      // be present from a prior run (restore-from-cache semantics).
-      try {
-        await stat(src);
-        await copyFile(src, dest);
-      } catch {
-        // Source missing — rely on existing cached copy (if any).
-      }
+      await this.copyCacheInput(input, target, workspaceRoot, workspace);
     }
     return target;
+  }
+
+  private async copyCacheInput(
+    input: string,
+    target: string,
+    workspaceRoot: string,
+    workspace: string | undefined,
+  ): Promise<void> {
+    const root = workspace ?? dirname(input);
+    const rel = isAbsolute(input) ? relative(root, input) : input;
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      throw new DockerExecutorError(
+        `cache input "${input}" escapes workspace "${root}"`,
+        "CACHE_PATH_ESCAPE",
+      );
+    }
+    const src = isAbsolute(input) ? input : join(workspaceRoot, input);
+    const dest = join(target, rel);
+    await mkdir(dirname(dest), { recursive: true });
+    // Only copy if the source exists; if not, the cached copy may already
+    // be present from a prior run (restore-from-cache semantics).
+    try {
+      await stat(src);
+      await copyFile(src, dest);
+    } catch {
+      // Source missing — rely on existing cached copy (if any).
+    }
   }
 
   async collect(
