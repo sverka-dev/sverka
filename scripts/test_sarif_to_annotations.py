@@ -5,6 +5,7 @@ Run: python3 scripts/test_sarif_to_annotations.py
 """
 import sys
 import os
+import subprocess
 import importlib.util
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -140,6 +141,69 @@ def test_valid_integer_lines_emitted():
     assert "endColumn=5" in line
 
 
+def test_boolean_line_skipped():
+    """Boolean coordinate values must be skipped, not emitted as line=True."""
+    line = _annotation_line("src/a.ts", startLine=True, startColumn=False,
+                            endLine=True, endColumn=False)
+    assert "line=" not in line
+    assert "col=" not in line
+    assert "endLine=" not in line
+    assert "endColumn=" not in line
+
+
+def test_relative_encoded_and_fragment():
+    """Relative percent-encoded URIs and query/fragments are normalized."""
+    assert _file_uri("src/a%20b.ts?line=1#fragment") == "src/a b.ts"
+    assert _file_uri("src/a.ts#fragment") == "src/a.ts"
+    assert _file_uri("packages/%F0%9F%9A%80/src.ts") == "packages/🚀/src.ts"
+
+
+# End-to-end tests for main() covering stdin and SARIF-structure validation.
+def _run_main(stdin: bytes):
+    script = os.path.join(os.path.dirname(__file__), "sarif-to-annotations.py")
+    result = subprocess.run(
+        [sys.executable, script],
+        input=stdin,
+        capture_output=True,
+    )
+    return result
+
+
+def test_main_invalid_utf8():
+    """Invalid UTF-8 input is rejected with exit code 2."""
+    result = _run_main(b"\xff\xfe")
+    assert result.returncode == 2
+    assert b"invalid UTF-8" in result.stderr
+
+
+def test_main_malformed_runs():
+    """A non-list `runs` value is rejected with exit code 2."""
+    result = _run_main(b'{"runs": "not-a-list"}')
+    assert result.returncode == 2
+    assert b"runs is not a list" in result.stderr
+
+
+def test_main_null_runs():
+    """Explicit `null` runs is treated as an empty SARIF run list."""
+    result = _run_main(b'{"runs": null}')
+    assert result.returncode == 0
+    assert result.stdout == b""
+
+
+def test_main_missing_runs():
+    """Missing `runs` is treated as an empty SARIF run list."""
+    result = _run_main(b'{"version": "2.1.0"}')
+    assert result.returncode == 0
+    assert result.stdout == b""
+
+
+def test_main_invalid_json():
+    """Malformed JSON input is rejected with exit code 2."""
+    result = _run_main(b'{"runs": [}')
+    assert result.returncode == 2
+    assert b"invalid JSON" in result.stderr
+
+
 TESTS = [
     test_empty_locations,
     test_relative_path_unchanged,
@@ -158,6 +222,13 @@ TESTS = [
     test_negative_line_skipped,
     test_string_line_skipped,
     test_valid_integer_lines_emitted,
+    test_boolean_line_skipped,
+    test_relative_encoded_and_fragment,
+    test_main_invalid_utf8,
+    test_main_malformed_runs,
+    test_main_null_runs,
+    test_main_missing_runs,
+    test_main_invalid_json,
 ]
 
 
