@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createHash } from "node:crypto";
 import { computePlanId, computeOperationId } from "../ids.js";
+import { canonicalStringify } from "../internal/canonical.js";
 import type { Plan } from "../plan.js";
 
 /** A minimal plan body (no id/createdAt) for id computation. */
@@ -77,24 +78,34 @@ describe("computePlanId", () => {
     expect(computePlanId(a)).not.toBe(computePlanId(b));
   });
 
-  it("ignores id and createdAt (not part of the input type)", () => {
-    // The input type omits id/createdAt entirely, so they cannot influence
-    // the hash. We verify by confirming the function signature accepts the
-    // body without those fields.
-    const id = computePlanId(planBody());
-    expect(typeof id).toBe("string");
+  it("ignores id and createdAt even when present in the input", () => {
+    // A complete Plan with id and createdAt should produce the same id as
+    // the stripped body, because computePlanId strips them at runtime.
+    const body = planBody();
+    const idFromBody = computePlanId(body);
+    const completePlan: Plan = {
+      ...body,
+      id: idFromBody,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const idFromComplete = computePlanId(completePlan);
+    expect(idFromComplete).toBe(idFromBody);
   });
 
   it("matches a manual sha256 over the canonical serialization", () => {
     const body = planBody();
     const id = computePlanId(body);
-    // Recompute independently: canonical JSON of the body, sha256, prefix.
-    // We reconstruct the canonical form via the same algorithm by relying on
-    // the public serialize contract is not available here; instead verify
-    // the hex portion is a valid sha256 of *some* deterministic input by
-    // checking it is 64 hex chars (already covered) and stable (covered).
-    const hex = id.slice("plan-".length);
-    expect(createHash("sha256").digest("hex")).not.toBe(hex); // sanity: not the empty hash
+    // Recompute independently: canonical JSON of the five identity fields,
+    // sha256, prefix.
+    const canonical = canonicalStringify({
+      apiVersion: body.apiVersion,
+      name: body.name,
+      sourceContextHash: body.sourceContextHash,
+      operations: body.operations,
+      metadata: body.metadata,
+    });
+    const expectedHex = createHash("sha256").update(canonical, "utf8").digest("hex");
+    expect(id).toBe(`plan-${expectedHex}`);
   });
 });
 

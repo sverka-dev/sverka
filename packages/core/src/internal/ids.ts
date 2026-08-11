@@ -46,10 +46,12 @@ export function matrixChildId(
 }
 
 function formatMatrixValue(v: unknown): string {
-  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
-    return String(v);
-  }
-  return String(v);
+  // Preserve type distinctions: prefix with a type tag so that values
+  // like 1 (number) and "1" (string) produce distinct matrix child ids.
+  if (typeof v === "string") return `s:${v}`;
+  if (typeof v === "number") return `n:${v}`;
+  if (typeof v === "boolean") return `b:${v}`;
+  return `o:${String(v)}`;
 }
 
 /** Validate that a kind is a known {@link OperationKind}. */

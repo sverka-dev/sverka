@@ -126,6 +126,11 @@ function quoteString(s: string): string {
       default:
         if (code < 0x20) {
           parts.push("\\u" + code.toString(16).padStart(4, "0"));
+        } else if (code >= 0xd800 && code <= 0xdfff) {
+          // Isolated UTF-16 surrogate code unit -- escape it as \\uXXXX so the
+          // output is always valid JSON (lone surrogates would produce
+          // malformed UTF-8 if emitted raw).
+          parts.push("\\u" + code.toString(16).padStart(4, "0"));
         } else {
           parts.push(ch);
         }

@@ -65,7 +65,7 @@ describe("validatePlan — rule 2 (id matches recomputed)", () => {
     const plan = { ...validPlan(), id: "" };
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.code === "ID_MISMATCH")).toBe(true);
+    expect(result.errors.some((e) => e.code === "INVALID_ID")).toBe(true);
   });
 });
 
@@ -186,17 +186,13 @@ describe("validatePlan — rule 8 (timeoutSeconds > 0)", () => {
     const plan = validPlan({
       operations: [validOperation({ timeoutSeconds: -5 })],
     });
-    expect(validatePlan(plan).valid).toBe(false);
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
     expect(
-      result_of(plan).some((e) => e.code === "INVALID_TIMEOUT"),
+      result.errors.some((e) => e.code === "INVALID_TIMEOUT"),
     ).toBe(true);
   });
 });
-
-// helper to keep the negative-timeout test concise
-function result_of(plan: unknown) {
-  return validatePlan(plan).errors;
-}
 
 describe("validatePlan — rule 9 (resources parseable)", () => {
   it("rejects empty cpu with INVALID_RESOURCES", () => {
@@ -357,5 +353,71 @@ describe("validatePlan — collects all errors (no short-circuit)", () => {
     const codes = result.errors.map((e) => e.code);
     expect(codes).toContain("INVALID_API_VERSION");
     expect(codes).not.toContain("ID_MISMATCH");
+  });
+});
+
+describe("validatePlan -- additional edge cases", () => {
+  it("rejects non-array dependsOn with INVALID_DEPENDS_ON", () => {
+    const plan = validPlan({
+      operations: [
+        validOperation({ id: "op-a", dependsOn: "op-b" as unknown as readonly string[] }),
+      ],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.code === "INVALID_DEPENDS_ON")).toBe(true);
+  });
+
+  it("rejects numeric dependsOn with INVALID_DEPENDS_ON", () => {
+    const plan = validPlan({
+      operations: [
+        validOperation({ id: "op-a", dependsOn: 42 as unknown as readonly string[] }),
+      ],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.code === "INVALID_DEPENDS_ON")).toBe(true);
+  });
+
+  it("rejects non-object operation entries", () => {
+    const body = validPlanBody({
+      operations: ["not-an-object" as unknown as ReturnType<typeof validOperation>],
+    });
+    const result = validatePlan({ ...body, id: "plan-x" });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.code === "INVALID_OPERATION")).toBe(true);
+  });
+
+  it("rejects operations with missing id", () => {
+    const op = validOperation();
+    const { id: _omit, ...opWithoutId } = op;
+    const body = validPlanBody({ operations: [opWithoutId as ReturnType<typeof validOperation>] });
+    const result = validatePlan({ ...body, id: "plan-x" });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.code === "INVALID_OPERATION_ID")).toBe(true);
+  });
+
+  it("rejects operations with non-string id", () => {
+    const op = validOperation({ id: 42 as unknown as string });
+    const body = validPlanBody({ operations: [op] });
+    const result = validatePlan({ ...body, id: "plan-x" });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.code === "INVALID_OPERATION_ID")).toBe(true);
+  });
+
+  it("handles a deep dependency chain without stack overflow", () => {
+    const ops: ReturnType<typeof validOperation>[] = [];
+    for (let i = 0; i < 5000; i++) {
+      ops.push(
+        validOperation({
+          id: `op-${i}`,
+          name: `step-${i}`,
+          dependsOn: i > 0 ? [`op-${i - 1}`] : [],
+        }),
+      );
+    }
+    const plan = validPlan({ operations: ops });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(true);
   });
 });

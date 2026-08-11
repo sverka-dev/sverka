@@ -212,7 +212,11 @@ class Parser {
     const t = this.next();
     switch (t.type) {
       case "ident":
-        return this.context[t.value];
+        // Use own-property lookup to avoid inherited prototype properties
+        // (e.g. `toString`, `constructor`) leaking into condition results.
+        return Object.prototype.hasOwnProperty.call(this.context, t.value)
+          ? this.context[t.value]
+          : undefined;
       case "string":
         return t.value;
       case "number":
@@ -243,8 +247,17 @@ function isTruthy(v: OperandValue): boolean {
 function looseEqual(a: OperandValue, b: OperandValue): boolean {
   if (a === b) return true;
   if (a == null || b == null) return a == b;
-  if (typeof a === "string" && typeof b === "number") return a === String(b);
-  if (typeof a === "number" && typeof b === "string") return String(a) === b;
+  // Loose string/number coercion: compare numerically when one side is a
+  // number and the other is a string, consistent with the spec loose
+  // equality (string/number coercion).
+  if (typeof a === "string" && typeof b === "number") {
+    const na = Number(a);
+    return Number.isFinite(na) && na === b;
+  }
+  if (typeof a === "number" && typeof b === "string") {
+    const nb = Number(b);
+    return Number.isFinite(nb) && a === nb;
+  }
   if (typeof a === "boolean" || typeof b === "boolean") return a === b;
   return a === b;
 }

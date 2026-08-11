@@ -24,34 +24,36 @@ interface NodeFields {
 /** Build an immutable {@link OperationNode} with working composable methods. */
 function makeNode(fields: NodeFields): OperationNode {
   const { kind, spec, predecessors, siblings } = fields;
+  // Snapshot the spec so later mutation by the caller cannot affect the node.
+  const specSnapshot: Readonly<Partial<OperationSpec>> = { ...spec };
   const node: OperationNode = {
     kind,
-    spec,
+    spec: specSnapshot,
     predecessors,
     siblings,
     ...(fields._id !== undefined ? { _id: fields._id } : {}),
     after: (...predecessorsToAdd: Operation[]): Operation =>
       makeNode({
         kind,
-        spec,
-        predecessors: [...predecessors, ...(predecessorsToAdd as OperationNode[])],
+        spec: specSnapshot,
+        predecessors: [...predecessors, ...predecessorsToAdd.map(asNode)],
         siblings,
       }),
     with: (...siblingsToAdd: Operation[]): Operation =>
       makeNode({
         kind,
-        spec,
+        spec: specSnapshot,
         predecessors,
-        siblings: [...siblings, ...(siblingsToAdd as OperationNode[])],
+        siblings: [...siblings, ...siblingsToAdd.map(asNode)],
       }),
     named: (name: string): Operation =>
-      makeNode({ kind, spec: { ...spec, name }, predecessors, siblings }),
+      makeNode({ kind, spec: { ...specSnapshot, name }, predecessors, siblings }),
     tagged: (...tags: string[]): Operation =>
       makeNode({
         kind,
         spec: {
-          ...spec,
-          tags: concatDedupe([...(spec.tags ?? []), ...tags]),
+          ...specSnapshot,
+          tags: concatDedupe([...(specSnapshot.tags ?? []), ...tags]),
         },
         predecessors,
         siblings,
@@ -68,8 +70,19 @@ export function createNode(
   return makeNode({ kind, spec, predecessors: [], siblings: [] });
 }
 
-/** Type guard: narrow a public {@link Operation} to an internal node. */
+/**
+ * Type guard: narrow a public {@link Operation} to an internal node.
+ * Throws if the value does not have the required internal fields.
+ */
 export function asNode(operation: Operation): OperationNode {
+  const candidate = operation as unknown as Partial<OperationNode>;
+  if (
+    typeof candidate.kind !== "string" ||
+    typeof candidate.spec !== "object" ||
+    candidate.spec === null
+  ) {
+    throw new TypeError("expected an OperationNode, got a plain Operation");
+  }
   return operation as OperationNode;
 }
 

@@ -131,7 +131,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
 ### Slice F — Public API + gates
 17. Complete `index.ts` exports to match spec §Interfaces exactly.
 18. `public-api.test.ts` — every symbol importable + exercised.
-19. Run gates: `bun test packages/ir`, `bun run typecheck`, `bun run lint`,
+19. Run gates: `bun run vitest run`, `bun run typecheck`, `bun run lint`,
     `bun run build`. All must be green.
 
 ## 5. Convention checklist (enforced by reviewer)
@@ -202,7 +202,7 @@ The builder should use these stable `code` strings (reviewer checks them):
 
 ```bash
 bun install              # resolve new @sverka/core dep
-bun test packages/ir     # all tests green
+bun run vitest run       # all tests green (Vitest, not `bun test`)
 bun run typecheck        # strict, no any
 bun run lint             # eslint clean
 bun run build            # tsdown produces dist/index.mjs + .d.mts

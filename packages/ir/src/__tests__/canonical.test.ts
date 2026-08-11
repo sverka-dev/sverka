@@ -72,4 +72,22 @@ describe("canonicalStringify", () => {
     expect(canonicalStringify({})).toBe("{}");
     expect(canonicalStringify([])).toBe("[]");
   });
+
+  it("escapes isolated high UTF-16 surrogate code units", () => {
+    const loneHigh = "\uD800";
+    const out = canonicalStringify(loneHigh);
+    expect(out).toBe('"\\ud800"');
+  });
+
+  it("escapes isolated low UTF-16 surrogate code units", () => {
+    const loneLow = "\uDC00";
+    const out = canonicalStringify(loneLow);
+    expect(out).toBe('"\\udc00"');
+  });
+
+  it("preserves valid surrogate pairs (astral characters)", () => {
+    const emoji = "\uD83D\uDE00";
+    const out = canonicalStringify(emoji);
+    expect(out).toBe('"\\ud83d\\ude00"');
+  });
 });

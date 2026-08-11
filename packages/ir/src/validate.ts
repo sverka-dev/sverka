@@ -62,8 +62,8 @@ export function validatePlan(plan: unknown): ValidationResult {
   if (!idIsNonEmptyString) {
     errors.push({
       field: "id",
-      code: "ID_MISMATCH",
-      message: "id must be a non-empty string matching computePlanId",
+      code: "INVALID_ID",
+      message: "id must be a non-empty string",
     });
   }
 
@@ -152,6 +152,12 @@ export function validatePlan(plan: unknown): ValidationResult {
     if (typeof op.id === "string") {
       idSet.add(op.id);
       idCounts.set(op.id, (idCounts.get(op.id) ?? 0) + 1);
+    } else {
+      errors.push({
+        field: "operations[].id",
+        code: "INVALID_OPERATION_ID",
+        message: "operation id must be a non-empty string",
+      });
     }
   }
   const reportedDup = new Set<string>();
@@ -171,16 +177,25 @@ export function validatePlan(plan: unknown): ValidationResult {
   for (const op of ops) {
     const opId = typeof op.id === "string" ? op.id : undefined;
 
-    // Rule 4: dependsOn references must exist.
-    if (Array.isArray(op.dependsOn)) {
-      for (const dep of op.dependsOn) {
-        if (typeof dep !== "string" || !idSet.has(dep)) {
-          errors.push({
-            ...(opId !== undefined ? { operationId: opId } : {}),
-            field: "operations[].dependsOn",
-            code: "UNKNOWN_DEPENDENCY",
-            message: `operation depends on unknown id "${String(dep)}"`,
-          });
+    // Rule 4: dependsOn must be an array if present; each id must exist.
+    if (op.dependsOn !== undefined) {
+      if (!Array.isArray(op.dependsOn)) {
+        errors.push({
+          ...(opId !== undefined ? { operationId: opId } : {}),
+          field: "operations[].dependsOn",
+          code: "INVALID_DEPENDS_ON",
+          message: "dependsOn must be an array of strings",
+        });
+      } else {
+        for (const dep of op.dependsOn) {
+          if (typeof dep !== "string" || !idSet.has(dep)) {
+            errors.push({
+              ...(opId !== undefined ? { operationId: opId } : {}),
+              field: "operations[].dependsOn",
+              code: "UNKNOWN_DEPENDENCY",
+              message: `operation depends on unknown id "${String(dep)}"`,
+            });
+          }
         }
       }
     }
@@ -326,7 +341,9 @@ export function validatePlan(plan: unknown): ValidationResult {
   }
 
   // Rule 5: acyclic (only meaningful when all deps reference known ids).
-  const hasUnknownDep = errors.some((e) => e.code === "UNKNOWN_DEPENDENCY");
+  const hasUnknownDep = errors.some(
+    (e) => e.code === "UNKNOWN_DEPENDENCY" || e.code === "INVALID_DEPENDS_ON",
+  );
   if (!hasUnknownDep) {
     const cycleNodes = ops
       .filter((op) => typeof op.id === "string" && Array.isArray(op.dependsOn))

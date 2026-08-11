@@ -55,7 +55,7 @@ spec-first (SDD), test-first (TDD), built in waves.
 2. Read the relevant engineering docs in `engdocs/`.
 3. Invoke `skill investigate-first` to understand the code area.
 4. Invoke `skill test-driven-development` — write failing tests first.
-5. Run tests: `bun test`. Confirm they fail for the right reason.
+5. Run tests: `bun run vitest run`. Confirm they fail for the right reason.
 6. Implement until tests pass.
 7. Invoke `skill minimalist` — cut any code that isn't needed.
 8. Run build: `bun run build`.
