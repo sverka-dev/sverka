@@ -38,7 +38,7 @@ nx monorepo. It has its own `package.json` and `bun.lock`. Gates are
 ### Step 1: Install dependencies
 
 ```bash
-cd website
+cd "$(git rev-parse --show-toplevel)/website"
 bun add @astrojs/sitemap
 bun add -d @astrojs/check typescript
 ```
@@ -157,7 +157,7 @@ grep '"name"' packages/cli/package.json
 ### Step 7: Verify gates
 
 ```bash
-cd website
+cd "$(git rev-parse --show-toplevel)/website"
 bun run check    # astro check — TypeScript validation
 bun run build    # astro build — static generation
 ```
