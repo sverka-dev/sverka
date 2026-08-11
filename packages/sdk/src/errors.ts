@@ -17,4 +17,5 @@ export type SdkErrorCode =
   | "CONFIG_NOT_FOUND"
   | "CONFIG_INVALID"
   | "CONFIG_LOAD_FAILED"
+  | "CONFIG_PATH_ESCAPE"
   | "EXECUTION_FAILED";

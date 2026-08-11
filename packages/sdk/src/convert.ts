@@ -175,10 +175,12 @@ function convertCache(c: CoreCache): IrCache {
 }
 
 function computeCacheKey(inputs: readonly string[]): string {
+  // Use 32 hex chars (128 bits) to keep keys compact while avoiding
+  // the higher collision risk of a 64-bit truncation.
   return createHash("sha256")
     .update(inputs.join(","))
     .digest("hex")
-    .slice(0, 16);
+    .slice(0, 32);
 }
 
 function computeSourceContextHash(context?: ProjectContext): string {

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { resolve, dirname, basename } from "node:path";
+import { resolve, dirname, basename, isAbsolute, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { WorkflowDefinition } from "./types.js";
 import { SdkError } from "./errors.js";
@@ -36,6 +36,7 @@ export async function findConfig(root: string): Promise<string | null> {
  */
 export async function loadWorkflow(
   configPath: string,
+  root?: string,
 ): Promise<WorkflowDefinition> {
   if (!existsSync(configPath)) {
     throw new SdkError(
@@ -44,9 +45,22 @@ export async function loadWorkflow(
     );
   }
 
+  const resolved = isAbsolute(configPath)
+    ? resolve(configPath)
+    : resolve(root ?? process.cwd(), configPath);
+  if (root !== undefined) {
+    const rel = relative(resolve(root), resolved);
+    if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
+      throw new SdkError(
+        `config path escapes root: ${configPath}`,
+        "CONFIG_PATH_ESCAPE",
+      );
+    }
+  }
+
   let mod: unknown;
   try {
-    const url = pathToFileURL(resolve(configPath)).href;
+    const url = pathToFileURL(resolved).href;
     mod = await import(url);
   } catch (e) {
     throw new SdkError(

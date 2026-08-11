@@ -31,7 +31,13 @@ import { findConfig, loadWorkflow } from "./config.js";
 import { convertToPlan } from "./convert.js";
 import { PlanRuntime } from "./internal/plan-runtime.js";
 
-/** Allowlist that permits any command (the SDK is the user's own tool). */
+/**
+ * Allowlist that permits any command. The SDK runs the user's own
+ * `sverka.config.ts` in the current process, so it must only be invoked with
+ * trusted configuration files. Treating untrusted config paths as trusted may
+ * allow arbitrary command execution; call sites validate `configPath` against
+ * the project `root` before loading.
+ */
 const allowAllCommands: CommandAllowlist = {
   entries: ["*"],
   isAllowed: () => true,
@@ -76,7 +82,7 @@ async function doPlan(options: SverkaOptions): Promise<PlanResult> {
 
   const configPath = await resolveConfigPath(options, root);
   if (configPath !== null) {
-    const def = await loadWorkflow(configPath);
+    const def = await loadWorkflow(configPath, root);
     const operations = await evaluateWorkflow(def);
     return { context, operations, proposal: null };
   }
@@ -105,6 +111,7 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     planner,
     context,
     configPath,
+    root,
   );
 
   const plan = buildAndValidatePlan(operations, planName, executorType, context);
@@ -117,13 +124,14 @@ async function resolveExecutionOperations(
   planner: Planner,
   context: ProjectContext,
   configPath: string | null,
+  root: string,
 ): Promise<{
   operations: readonly OperationSpec[];
   planName: string;
   def: WorkflowDefinition | null;
 }> {
   if (configPath !== null) {
-    const def = await loadWorkflow(configPath);
+    const def = await loadWorkflow(configPath, root);
     const operations = await evaluateWorkflow(def);
     return { operations, planName: def.name, def };
   }
@@ -174,28 +182,31 @@ async function executePlan(
 ): Promise<RuntimeExecutionResult> {
   const artifactDir = mkdtempSync(join(tmpdir(), "sverka-artifacts-"));
   const cacheDir = mkdtempSync(join(tmpdir(), "sverka-cache-"));
-  const executor = createExecutor(executorType, cacheDir);
-
-  const scheduler = new Scheduler({
-    executors: [executor],
-    maxConcurrent: 4,
-    workspace: root,
-    artifactDir,
-    cacheDir,
-    credentials: {},
-    resume: false,
-  });
 
   try {
-    return await scheduler.execute(plan);
-  } catch (e) {
-    throw new SdkError(
-      `execution failed: ${e instanceof Error ? e.message : String(e)}`,
-      "EXECUTION_FAILED",
-      e,
-    );
+    const executor = createExecutor(executorType, cacheDir);
+    const scheduler = new Scheduler({
+      executors: [executor],
+      maxConcurrent: 4,
+      workspace: root,
+      artifactDir,
+      cacheDir,
+      credentials: {},
+      resume: false,
+    });
+
+    try {
+      return await scheduler.execute(plan);
+    } catch (e) {
+      throw new SdkError(
+        `execution failed: ${e instanceof Error ? e.message : String(e)}`,
+        "EXECUTION_FAILED",
+        e,
+      );
+    } finally {
+      await scheduler.dispose().catch(() => {});
+    }
   } finally {
-    await scheduler.dispose().catch(() => {});
     await Promise.all([
       rm(artifactDir, { recursive: true, force: true }).catch(() => {}),
       rm(cacheDir, { recursive: true, force: true }).catch(() => {}),
