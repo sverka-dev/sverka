@@ -57,7 +57,7 @@ while true; do
     continue
   fi
 
-  MAYOR=$(echo "$STATUS" | grep -w "harness.mayor" | head -1 | awk '{print $2}')
+  MAYOR=$(echo "$STATUS" | grep -m1 -wF -- "harness.mayor" | awk '{print $2}')
   SESSIONS=$(echo "$STATUS" | grep "Sessions:" | head -1 | sed 's/^ *//')
   SUSPENDED=$(echo "$STATUS" | grep -w "Suspended:" | head -1 | awk '{print $2}')
   CONTROLLER=$(echo "$STATUS" | grep "Controller:" | grep -o "supervisor-managed\|stopped\|error" | head -1 || true)

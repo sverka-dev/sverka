@@ -191,8 +191,8 @@ def parse_location(result):
     file_uri = phys.get("artifactLocation", {}).get("uri", "")
     # Normalize: strip scheme/authority and leading slashes so GitHub Actions
     # receives a path relative to the repository root. Use urllib.parse for
-    # robust handling of file://, https://, and other URI schemes.
-    if "://" in file_uri:
+    # robust handling of file://, file:/, https://, and other URI schemes.
+    if "://" in file_uri or "file:/" in file_uri.lower():
         parsed = urlparse(file_uri)
         file_uri = unquote(parsed.path)
     file_uri = file_uri.lstrip("/")
