@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-to-annotations.py — convert SARIF 2.1.0 to GitHub Actions workflow commands.
+"""to-annotations.py — convert SARIF 2.1.0 to GitHub Actions workflow commands.
 
 Reads a SARIF document from stdin, emits one
   ::error|warning|notice file=…,line=…,col=…,title=…::message
