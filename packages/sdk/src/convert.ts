@@ -120,7 +120,7 @@ function buildPlanOperation(
     ...(cache !== undefined ? { cache } : {}),
     artifacts,
     retry,
-  };
+  } as PlanOperation;
 }
 
 /** Resolve fields with default values to reduce buildPlanOperation complexity. */
