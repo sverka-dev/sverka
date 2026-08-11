@@ -90,20 +90,16 @@ const TABLE: readonly TableEntry[] = [
  * Built-in resolver backed by a (checkId, packageManager) → command table.
  * Covers the 6 checkIds the planner proposes across Node/Python/Rust/Go.
  * Never throws — returns null for unknown mappings.
+ *
+ * Table order determines precedence: Node entries come before Python/Rust/Go,
+ * so when multiple package managers are present the first matching entry wins.
  */
 export function createBuiltinResolver(): CheckResolver {
   return {
     resolve(check, ctx) {
       const pmNames = ctx.packageManagers.map((p) => p.name);
       const rootPkg = readRootPackageJson(ctx.root);
-
-      // First pass: match by checkId, reason, and a valid package manager.
-      let result = findEntry(check, ctx, pmNames, rootPkg, true);
-      if (result === null) {
-        // Fallback: ignore the reason and disambiguate by package manager only.
-        result = findEntry(check, ctx, pmNames, rootPkg, false);
-      }
-      return result;
+      return findEntry(check, ctx, pmNames, rootPkg);
     },
   };
 }
@@ -113,11 +109,9 @@ function findEntry(
   ctx: ProjectContext,
   pmNames: PmName[],
   rootPkg: Record<string, unknown> | null,
-  requireReason: boolean,
 ): ResolvedCheck | null {
   for (const entry of TABLE) {
     if (entry.checkId !== check.checkId) continue;
-    if (requireReason && entry.reason !== check.reason) continue;
     if (!entry.packageManagers.some((pm) => pmNames.includes(pm))) continue;
     if (!isEntryApplicable(entry, ctx.root, rootPkg)) continue;
     const operation: OperationSpec = {

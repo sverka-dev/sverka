@@ -287,12 +287,24 @@ Test cases:
 Then implement `extract.ts`:
 
 ```typescript
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 import { normalizeSarif, type Finding, type NormalizeContext } from "@sverka/findings";
 import type { SarifLog } from "@sverka/findings";
 import { CheckError } from "./errors.js";
 import type { CheckOutput } from "./resolver.js";
+
+function resolveSafeOutputPath(outputPath: string, artifactDir: string): string {
+  if (isAbsolute(outputPath)) {
+    throw new CheckError(`absolute output path "${outputPath}" is not allowed`, "EXTRACTION_FAILED");
+  }
+  const filePath = resolve(artifactDir, outputPath);
+  const rel = relative(artifactDir, filePath);
+  if (rel === ".." || rel.startsWith("../")) {
+    throw new CheckError(`output path "${outputPath}" escapes artifactDir`, "EXTRACTION_FAILED");
+  }
+  return filePath;
+}
 
 export async function extractFindings(
   outputs: readonly CheckOutput[],
@@ -302,9 +314,14 @@ export async function extractFindings(
   const findings: Finding[] = [];
   for (const output of outputs) {
     if (output.format !== "sarif") continue;
-    const filePath = join(artifactDir, output.path);
-    if (!existsSync(filePath)) continue;
-    const raw = readFileSync(filePath, "utf8");
+    const filePath = resolveSafeOutputPath(output.path, artifactDir);
+    let raw: string;
+    try {
+      raw = await readFile(filePath, "utf8");
+    } catch (e) {
+      if (isErrnoException(e) && e.code === "ENOENT") continue;
+      throw new CheckError(`cannot read ${output.path}`, "EXTRACTION_FAILED", e);
+    }
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);

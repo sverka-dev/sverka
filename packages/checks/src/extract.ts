@@ -26,7 +26,7 @@ function resolveSafeOutputPath(
   }
   const filePath = resolve(artifactDir, outputPath);
   const rel = relative(artifactDir, filePath);
-  if (rel.startsWith("..")) {
+  if (rel === ".." || rel.startsWith("../")) {
     throw new CheckError(
       `output path "${outputPath}" escapes artifactDir`,
       "EXTRACTION_FAILED",

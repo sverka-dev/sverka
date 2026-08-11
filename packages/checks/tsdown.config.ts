@@ -5,4 +5,6 @@ export default defineConfig({
   format: ["esm"],
   dts: true,
   clean: true,
+  treeshake: false,
+  outExtensions: () => ({ js: ".mjs", dts: ".d.mts" }),
 });

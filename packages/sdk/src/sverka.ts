@@ -91,10 +91,15 @@ async function doPlan(options: SverkaOptions): Promise<PlanResult> {
   // Auto-discovery mode.
   const proposal = await planner.plan(context);
   const resolver = options.resolver ?? createBuiltinResolver();
-  const operations = proposal.checks
-    .map((check) => resolver.resolve(check, context))
-    .filter((r): r is ResolvedCheck => r !== null)
-    .map((r) => r.operation);
+  const operations: OperationSpec[] = [];
+  for (const check of proposal.checks) {
+    try {
+      const r = resolver.resolve(check, context);
+      if (r !== null) operations.push(r.operation);
+    } catch {
+      // Skip checks whose custom resolver fails and continue with the rest.
+    }
+  }
   return { context, operations, proposal };
 }
 
@@ -125,12 +130,19 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     // Auto-discovery: resolve proposed checks into executable operations.
     const proposal = await planner.plan(context);
     const resolver = options.resolver ?? createBuiltinResolver();
-    resolvedChecks = proposal.checks
-      .map((check) => resolver.resolve(check, context))
-      .filter((r): r is ResolvedCheck => r !== null);
-    if (executorType === "docker" && resolvedChecks.every((r) => r.operation.image === undefined)) {
+    const tmpChecks: ResolvedCheck[] = [];
+    for (const check of proposal.checks) {
+      try {
+        const r = resolver.resolve(check, context);
+        if (r !== null) tmpChecks.push(r);
+      } catch {
+        // Skip checks whose custom resolver fails and continue with the rest.
+      }
+    }
+    resolvedChecks = tmpChecks;
+    if (executorType === "docker" && resolvedChecks.some((r) => r.operation.image === undefined)) {
       throw new SdkError(
-        "docker executor requires container images; auto-discovered built-in checks do not provide them",
+        "docker executor requires container images; every operation must declare an image",
         "EXECUTION_FAILED",
       );
     }
@@ -166,6 +178,7 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
   const cacheDir = mkdtempSync(join(tmpdir(), "sverka-cache-"));
 
   let runtimeResult: RuntimeExecutionResult;
+  let findings: readonly Finding[] = [];
   try {
     const executor = createExecutor(executorType, cacheDir);
     const scheduler = new Scheduler({
@@ -180,6 +193,18 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
 
     try {
       runtimeResult = await scheduler.execute(plan);
+
+      // Findings: extract from resolved checks' SARIF output artifacts before
+      // the artifact directory is cleaned up.
+      if (resolvedChecks.length > 0) {
+        const all: Finding[] = [];
+        for (const r of resolvedChecks) {
+          if (r.outputs.length === 0) continue;
+          const extracted = await extractFindings(r.outputs, artifactDir, r.checkId);
+          all.push(...extracted);
+        }
+        findings = all;
+      }
     } catch (e) {
       throw new SdkError(
         `execution failed: ${e instanceof Error ? e.message : String(e)}`,
@@ -194,18 +219,6 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
       rm(artifactDir, { recursive: true, force: true }).catch(() => {}),
       rm(cacheDir, { recursive: true, force: true }).catch(() => {}),
     ]);
-  }
-
-  // Findings: extract from resolved checks' SARIF output artifacts.
-  let findings: readonly Finding[] = [];
-  if (resolvedChecks.length > 0) {
-    const all: Finding[] = [];
-    for (const r of resolvedChecks) {
-      if (r.outputs.length === 0) continue;
-      const extracted = await extractFindings(r.outputs, artifactDir, r.checkId);
-      all.push(...extracted);
-    }
-    findings = all;
   }
 
   // Baseline filtering.

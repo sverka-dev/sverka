@@ -89,6 +89,56 @@ describe("execute mode", { timeout: 30_000 }, () => {
     expect(result.outcomes.size).toBeGreaterThan(0);
   });
 
+  it("extracts SARIF findings from resolved-check outputs before cleanup", async () => {
+    const dir = await makeTempGitRepoWithPackageJson();
+    dirs.push(dir);
+    const sarif = JSON.stringify({
+      version: "2.1.0",
+      runs: [
+        {
+          tool: { driver: { name: "test-tool", version: "1.0.0" } },
+          results: [
+            {
+              ruleId: "R1",
+              level: "error",
+              message: { text: "bad code" },
+              locations: [
+                {
+                  physicalLocation: {
+                    artifactLocation: { uri: "src/a.ts" },
+                    region: { startLine: 1, endLine: 1 },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const customResolver: CheckResolver = {
+      resolve(check) {
+        if (check.checkId !== "test") return null;
+        return {
+          checkId: check.checkId,
+          operation: {
+            id: check.id,
+            kind: "check",
+            name: check.checkId,
+            description: check.reason,
+            command: "node",
+            args: ["-e", `require('fs').writeFileSync('findings.sarif', '${sarif}')`],
+          },
+          outputs: [{ path: "findings.sarif", format: "sarif" }],
+        };
+      },
+    };
+    const result = await execute({ root: dir, resolver: customResolver });
+    expect(result.status).toBe("success");
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]!.checkId).toMatch(/^test/);
+    expect(result.findings[0]!.severity).toBe("high");
+  });
+
   it("rejects docker executor for auto-discovered checks without images", async () => {
     const dir = await makeTempGitRepoWithPackageJson();
     dirs.push(dir);
