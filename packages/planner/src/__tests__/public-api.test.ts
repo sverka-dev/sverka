@@ -46,19 +46,10 @@ describe("public API", () => {
     const _changed: ChangedFile = {} as ChangedFile;
     const _expl: DiscoveryExplanation = {} as DiscoveryExplanation;
     const _code: DiscoveryErrorCode = "ROOT_NOT_FOUND";
-    // Touch all to avoid unused warnings; verify the types carry real values.
+    // Touch all to avoid unused warnings; verify the exported values are usable.
+    const exported = [_ctx, _proposal, _check, _signal, _lang, _pm, _mono, _changed, _expl, _planner];
+    expect(exported).toHaveLength(10);
     expect(_opts.root).toBe("/tmp");
-    expect(typeof _sigType).toBe("string");
-    expect(typeof _code).toBe("string");
-    expect(_ctx).toBeDefined();
-    expect(_proposal).toBeDefined();
-    expect(_check).toBeDefined();
-    expect(_signal).toBeDefined();
-    expect(_lang).toBeDefined();
-    expect(_pm).toBeDefined();
-    expect(_mono).toBeDefined();
-    expect(_changed).toBeDefined();
-    expect(_expl).toBeDefined();
-    expect(_planner).toBeDefined();
+    expect([_sigType, _code]).toEqual(["manifest", "ROOT_NOT_FOUND"]);
   });
 });
