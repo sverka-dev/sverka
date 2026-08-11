@@ -73,7 +73,3 @@ export function isKnownKind(kind: string): kind is OperationKind {
   );
 }
 
-/** Public spec id helper — exposed for tests that build specs directly. */
-export function specId(spec: Readonly<Partial<OperationSpec>>): string | undefined {
-  return spec.id;
-}

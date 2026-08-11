@@ -72,6 +72,20 @@ export async function planWorkflow(
  * field intact). In execute/plan mode, false conditions produce a synthetic
  * "skipped" outcome without calling runtime.evaluate().
  */
+async function outcomeForFalseCondition(
+  spec: OperationSpec,
+  runtime: Runtime,
+): Promise<OperationOutcome> {
+  // Compile mode still passes the operation to the compiler so the emitted
+  // artifact keeps the condition field.
+  if (runtime.mode === "compile") return runtime.evaluate(spec);
+  return { operationId: spec.id, status: "skipped", durationMs: 0 };
+}
+
+function isSkipped(spec: OperationSpec, runtime: Runtime): boolean {
+  return spec.condition !== undefined && !evaluateCondition(spec.condition, runtime.context);
+}
+
 async function evaluateOperations(
   ordered: readonly OperationSpec[],
   runtime: Runtime,
@@ -83,16 +97,9 @@ async function evaluateOperations(
       outcomes.push({ operationId: spec.id, status: "cancelled", durationMs: 0 });
       continue;
     }
-    if (spec.condition !== undefined) {
-      const included = evaluateCondition(spec.condition, runtime.context);
-      if (!included) {
-        if (runtime.mode === "compile") {
-          outcomes.push(await runtime.evaluate(spec));
-        } else {
-          outcomes.push({ operationId: spec.id, status: "skipped", durationMs: 0 });
-        }
-        continue;
-      }
+    if (isSkipped(spec, runtime)) {
+      outcomes.push(await outcomeForFalseCondition(spec, runtime));
+      continue;
     }
     const outcome = await runtime.evaluate(spec);
     outcomes.push(outcome);
@@ -197,8 +204,11 @@ function buildMatrixChild(
   combo: readonly [string, unknown][],
   combos: Map<OperationNode, readonly [string, unknown][]>,
 ): OperationNode {
-  const env: Record<string, string> = { ...(node.spec.env ?? {}) };
-  for (const [k, v] of combo) env[`MATRIX_${k.toUpperCase()}`] = String(v);
+  const env: Record<string, string> = { ...node.spec.env };
+  for (const [k, v] of combo) {
+    env[`MATRIX_${k.toUpperCase()}`] =
+      typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
+  }
   const childSpec = { ...node.spec };
   delete (childSpec as unknown as Record<string, unknown>)[MATRIX_MARKER];
   delete (childSpec as unknown as Record<string, unknown>).matrix;
@@ -215,19 +225,30 @@ function cartesianProduct(
   const [first, ...rest] = entries;
   if (first === undefined) return [[]];
   const [dimKey, dimValues] = first;
-  const restProduct = cartesianProduct(Object.fromEntries(rest));
-  const result: Array<readonly [string, unknown][]> = [];
-  for (const v of dimValues) {
-    for (const combo of restProduct) result.push([[dimKey, v], ...combo]);
-  }
-  if (result.length > MAX_MATRIX_COMBINATIONS) {
+
+  const total = dimValues.length * cartesianProductCount(Object.fromEntries(rest));
+  if (total > MAX_MATRIX_COMBINATIONS) {
     const dimSummary = entries.map(([k, v]) => `${k}=${v.length}`).join(", ");
     throw new CompositionError(
       `matrix cartesian product exceeds limit of ${MAX_MATRIX_COMBINATIONS} (dimensions: ${dimSummary})`,
       { dimensions: Object.fromEntries(entries.map(([k, v]) => [k, v.length])) },
     );
   }
+
+  const restProduct = cartesianProduct(Object.fromEntries(rest));
+  const result: Array<readonly [string, unknown][]> = [];
+  for (const v of dimValues) {
+    for (const combo of restProduct) result.push([[dimKey, v], ...combo]);
+  }
   return result;
+}
+
+function cartesianProductCount(dims: Readonly<Record<string, readonly unknown[]>>): number {
+  const entries = Object.entries(dims);
+  if (entries.length === 0) return 1;
+  const [first, ...rest] = entries;
+  if (first === undefined) return 1;
+  return first[1].length * cartesianProductCount(Object.fromEntries(rest));
 }
 
 // ---------------------------------------------------------------------------
@@ -373,7 +394,7 @@ function resolveEdges(
     const id = idMap.get(node)!;
     const userDeps = node.spec.dependsOn ?? [];
     const resolvedDeps = node.predecessors.map((p) => idMap.get(p));
-    if (resolvedDeps.some((d) => d === undefined)) {
+    if (resolvedDeps.includes(undefined)) {
       throw new CompositionError("unresolved predecessor reference", { node: id });
     }
     const dependsOn = [...new Set([...userDeps, ...(resolvedDeps as string[])])];

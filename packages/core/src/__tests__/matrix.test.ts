@@ -80,4 +80,16 @@ describe("matrix expansion", () => {
     const id = result.operations[0]!.id;
     expect(id).toContain("a\\,b\\=c");
   });
+
+  it("number and string values with the same text produce distinct ids", async () => {
+    const op = matrix({ v: [1, "1", true] }, run({ command: "test" }));
+    const wf = workflow("matrix-types", op);
+    const result = await wf.plan(makePlanRuntime());
+    expect(result.operations).toHaveLength(3);
+    expect(result.operations.map((o) => o.id).sort()).toEqual([
+      "run:test[v=b:true]",
+      "run:test[v=n:1]",
+      "run:test[v=s:1]",
+    ]);
+  });
 });

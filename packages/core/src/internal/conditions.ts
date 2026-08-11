@@ -174,9 +174,14 @@ class Parser {
     return t;
   }
 
+  private peekOp(value: "!" | "&&" | "||" | "==" | "!="): boolean {
+    const t = this.peek();
+    return t?.type === "op" && t.value === value;
+  }
+
   private parseOr(): boolean {
     let left = this.parseAnd();
-    while (this.peek()?.type === "op" && (this.peek() as { value: string }).value === "||") {
+    while (this.peekOp("||")) {
       this.next();
       const right = this.parseAnd();
       left = left || right;
@@ -186,7 +191,7 @@ class Parser {
 
   private parseAnd(): boolean {
     let left = this.parseNot();
-    while (this.peek()?.type === "op" && (this.peek() as { value: string }).value === "&&") {
+    while (this.peekOp("&&")) {
       this.next();
       const right = this.parseNot();
       left = left && right;
@@ -228,7 +233,9 @@ class Parser {
     const t = this.next();
     switch (t.type) {
       case "ident":
-        return this.context[t.value];
+        return Object.prototype.hasOwnProperty.call(this.context, t.value)
+          ? this.context[t.value]
+          : undefined;
       case "string":
         return t.value;
       case "number":

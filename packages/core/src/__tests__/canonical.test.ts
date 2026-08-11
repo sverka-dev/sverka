@@ -6,6 +6,10 @@ describe("canonicalJson", () => {
     expect(canonicalJson({ b: 1, a: 2 })).toBe('{"a":2,"b":1}');
   });
 
+  it("sorts keys by UTF-16 code unit, so uppercase precedes lowercase", () => {
+    expect(canonicalJson({ a: 1, B: 2, A: 3 })).toBe('{"A":3,"B":2,"a":1}');
+  });
+
   it("omits undefined values from objects", () => {
     expect(canonicalJson({ a: 1, b: undefined, c: 3 })).toBe('{"a":1,"c":3}');
   });
@@ -36,5 +40,15 @@ describe("canonicalJson", () => {
 
   it("produces compact output (no spaces)", () => {
     expect(canonicalJson({ a: { b: 1 } })).toBe('{"a":{"b":1}}');
+  });
+
+  it("serializes top-level undefined as null", () => {
+    expect(canonicalJson(undefined)).toBe("null");
+  });
+
+  it("serializes Date instances as ISO strings", () => {
+    expect(canonicalJson({ created: new Date("2026-01-15T00:00:00.000Z") })).toBe(
+      '{"created":"2026-01-15T00:00:00.000Z"}',
+    );
   });
 });

@@ -23,7 +23,7 @@ and the same workflow composed in a different order yields different IDs.
 
 Operation IDs are **content-addressed** using SHA-256:
 
-```
+```text
 op-<64 hex chars>
 ```
 
@@ -51,6 +51,20 @@ the same canonical form used by the `ir` package's `serializePlan`.
 The `core` package implements this independently in
 `internal/canonical.ts` (no dependency on `ir`; the algorithm is simple
 and specified here).
+
+#### Shared test vectors
+
+Both `core` and `ir` must produce identical canonical JSON for these
+inputs:
+
+| Input | Canonical JSON |
+|-------|----------------|
+| `{ b: 1, a: 2 }` | `{"a":2,"b":1}` |
+| `{ a: 1, b: undefined, c: 3 }` | `{"a":1,"c":3}` |
+| `[1, undefined, 3]` | `[1,3]` |
+| `NaN` | `null` |
+| `{ created: new Date("2026-01-15T00:00:00.000Z") }` | `{"created":"2026-01-15T00:00:00.000Z"}` |
+| `{ a: 1, B: 2, A: 3 }` | `{"A":3,"B":2,"a":1}` |
 
 ### Duplicate detection
 

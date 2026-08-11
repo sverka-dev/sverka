@@ -140,8 +140,26 @@ describe("Runtime modes", () => {
     );
     // b fails, c should be cancelled (not evaluated)
     expect(evaluated).toEqual(["run:a", "run:b"]);
-    const cOutcome = result.outcomes!.find((o) => o.operationId === "run:c");
+    const cOutcome = result.outcomes.find((o) => o.operationId === "run:c");
     expect(cOutcome?.status).toBe("cancelled");
+  });
+
+  it("execute mode continues after failure when continueOnError is set", async () => {
+    const evaluated: string[] = [];
+    const a = run({ command: "a" });
+    const b = run({ command: "b", continueOnError: true });
+    const c = run({ command: "c" });
+    const wf = workflow("fail-continue", pipeline(a, b, c));
+    const result = await wf.plan(
+      makeExecuteRuntime(undefined, (spec) => {
+        evaluated.push(spec.id);
+        const status = spec.id === "run:b" ? "failure" : "success";
+        return { operationId: spec.id, status, durationMs: 0 };
+      }),
+    );
+    expect(evaluated).toEqual(["run:a", "run:b", "run:c"]);
+    const continueOutcome = result.outcomes.find((o) => o.operationId === "run:c");
+    expect(continueOutcome?.status).toBe("success");
   });
 
   it("when(condition, parallel(...)) propagates condition to siblings", async () => {

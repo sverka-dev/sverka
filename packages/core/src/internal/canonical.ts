@@ -18,7 +18,8 @@
  * output is compact.
  */
 export function canonicalJson(value: unknown): string {
-  return JSON.stringify(canonicalize(value));
+  const canonical = canonicalize(value);
+  return canonical === undefined ? "null" : JSON.stringify(canonical);
 }
 
 /**
@@ -35,6 +36,7 @@ function canonicalize(value: unknown): unknown {
     return value.map(canonicalize).filter((v) => v !== undefined);
   }
   if (typeof value === "object") {
+    if (value instanceof Date) return value.toISOString();
     return canonicalizeObject(value as Record<string, unknown>);
   }
   return undefined;
@@ -42,7 +44,9 @@ function canonicalize(value: unknown): unknown {
 
 /** Canonicalize an object: sort keys, omit undefined values. */
 function canonicalizeObject(obj: Record<string, unknown>): Record<string, unknown> {
-  const sortedKeys = Object.keys(obj).sort((a, b) => a.localeCompare(b));
+  // Code-unit order (RFC 8785). Locale-aware comparison is not deterministic
+  // across runtimes and ICU builds.
+  const sortedKeys = Object.keys(obj).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const result: Record<string, unknown> = {};
   for (const key of sortedKeys) {
     const canonicalized = canonicalize(obj[key]);

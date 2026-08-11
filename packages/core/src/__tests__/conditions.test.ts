@@ -28,6 +28,12 @@ describe("evaluateCondition", () => {
     expect(evaluateCondition("missing", {})).toBe(false);
   });
 
+  it("ignores inherited object prototype properties", () => {
+    expect(evaluateCondition("constructor", {})).toBe(false);
+    expect(evaluateCondition("toString", {})).toBe(false);
+    expect(evaluateCondition("hasOwnProperty", {})).toBe(false);
+  });
+
   it("boolean literals", () => {
     expect(evaluateCondition("true", {})).toBe(true);
     expect(evaluateCondition("false", {})).toBe(false);
@@ -60,6 +66,13 @@ describe("evaluateCondition", () => {
     expect(evaluateCondition("!a && b", { a: false, b: true })).toBe(true);
     // !a && b : a=true,b=true  => (!true) && true => false
     expect(evaluateCondition("!a && b", { a: true, b: true })).toBe(false);
+  });
+
+  it("parentheses override precedence", () => {
+    const ctx: PlanContext = { a: true, b: false, c: true };
+    expect(evaluateCondition("a && (b || c)", ctx)).toBe(true);
+    expect(evaluateCondition("(a && b) || c", ctx)).toBe(true);
+    expect(evaluateCondition("!(a && c)", ctx)).toBe(false);
   });
 
   it("dotted identifiers are looked up by full key", () => {
