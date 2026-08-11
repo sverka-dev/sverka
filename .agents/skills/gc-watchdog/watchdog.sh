@@ -40,7 +40,7 @@ count_real_issues() {
   # an empty result yields 0, not -1.
   printf '%s\n' "$raw" \
     | { grep -E '^\s*[○◐●] sv-[a-z0-9]{4,}($| )' || true; } \
-    | { grep -vE 'sv-(wisp|nudge)' || true; } \
+    | { grep -vE '^\s*[○◐●] sv-(wisp|nudge)' || true; } \
     | wc -l
 }
 
