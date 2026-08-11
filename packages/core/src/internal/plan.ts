@@ -498,9 +498,7 @@ function detectCycles(specs: Map<OperationNode, OperationSpec>): void {
 // 7. Topological sort (Kahn's algorithm, stable by discovery order)
 // ---------------------------------------------------------------------------
 
-function topoSort(specs: Map<OperationNode, OperationSpec>): OperationSpec[] {
-  const all = [...specs.values()];
-  const byId = new Map(all.map((s) => [s.id, s] as const));
+function buildGraph(all: readonly OperationSpec[], byId: Map<string, OperationSpec>) {
   const indegree = new Map<string, number>(all.map((s) => [s.id, 0] as const));
   const adj = new Map<string, string[]>(all.map((s) => [s.id, []] as const));
   for (const spec of all) {
@@ -511,18 +509,35 @@ function topoSort(specs: Map<OperationNode, OperationSpec>): OperationSpec[] {
       }
     }
   }
+  return { indegree, adj };
+}
+
+function kahnSort(
+  all: readonly OperationSpec[],
+  byId: Map<string, OperationSpec>,
+  indegree: Map<string, number>,
+  adj: Map<string, string[]>,
+): OperationSpec[] {
   const queue = all.filter((s) => (indegree.get(s.id) ?? 0) === 0).map((s) => s.id);
   const ordered: OperationSpec[] = [];
   while (queue.length > 0) {
     const id = queue.shift()!;
     ordered.push(byId.get(id)!);
     for (const next of adj.get(id) ?? []) {
-      indegree.set(next, (indegree.get(next) ?? 0) - 1);
-      if (indegree.get(next) === 0) queue.push(next);
+      const nextDegree = (indegree.get(next) ?? 0) - 1;
+      indegree.set(next, nextDegree);
+      if (nextDegree === 0) queue.push(next);
     }
   }
   if (ordered.length !== all.length) {
     throw new CompositionError("topological sort failed (residual cycle)", {});
   }
   return ordered;
+}
+
+function topoSort(specs: Map<OperationNode, OperationSpec>): OperationSpec[] {
+  const all = [...specs.values()];
+  const byId = new Map(all.map((s) => [s.id, s] as const));
+  const { indegree, adj } = buildGraph(all, byId);
+  return kahnSort(all, byId, indegree, adj);
 }
