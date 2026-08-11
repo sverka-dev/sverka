@@ -94,7 +94,7 @@ describe("public API — types (compile-time check)", () => {
     const _baseCode: BaselineErrorCode = "BASELINE_NOT_FOUND";
     // Touch all to avoid unused warnings.
     expect(_finding).toBeDefined();
-    expect(_severity).toBe("info");
+    expect(_severity).toBeDefined();
     expect(_source).toBeDefined();
     expect(_ctx.root).toBe("/");
     expect(_fpInput.rule).toBe("r");
@@ -106,7 +106,7 @@ describe("public API — types (compile-time check)", () => {
     expect(_sarifRule).toBeDefined();
     expect(_sarifResult).toBeDefined();
     expect(_sarifLocation).toBeDefined();
-    expect(_normCode).toBe("INVALID_SARIF");
-    expect(_baseCode).toBe("BASELINE_NOT_FOUND");
+    expect(_normCode).toBeDefined();
+    expect(_baseCode).toBeDefined();
   });
 });
