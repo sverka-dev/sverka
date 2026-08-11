@@ -16,6 +16,8 @@ import subprocess
 import sys
 import tempfile
 
+from testlib import run_tests
+
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -182,31 +184,13 @@ ALL_TESTS = [
 ]
 
 
-def run() -> int:
+def _select_tests() -> list:
     major, minor = _git_version()
     if (major, minor) < (2, 38):
         print(f"SKIP: git {major}.{minor} does not support merge-tree --write-tree; running non-git tests only")
-        tests = [t for t in ALL_TESTS if t not in GIT_TESTS]
-    else:
-        tests = ALL_TESTS
-
-    passed = 0
-    failed = 0
-    for test in tests:
-        try:
-            test()
-            print(f"PASS  {test.__name__}")
-            passed += 1
-        except AssertionError as e:
-            print(f"FAIL  {test.__name__}: {e}")
-            failed += 1
-        except Exception as e:
-            print(f"ERROR {test.__name__}: {e}")
-            failed += 1
-    print()
-    print(f"{passed}/{len(tests)} passed")
-    return 0 if failed == 0 else 1
+        return [t for t in ALL_TESTS if t not in GIT_TESTS]
+    return list(ALL_TESTS)
 
 
 if __name__ == "__main__":
-    sys.exit(run())
+    sys.exit(run_tests(_select_tests()))

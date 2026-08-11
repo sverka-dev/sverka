@@ -8,6 +8,8 @@ import os
 import subprocess
 import importlib.util
 
+from testlib import run_tests
+
 sys.path.insert(0, os.path.dirname(__file__))
 _spec = importlib.util.spec_from_file_location(
     "sarif_to_annotations",
@@ -232,21 +234,5 @@ TESTS = [
 ]
 
 
-def main():
-    failed = 0
-    for test in TESTS:
-        try:
-            test()
-            print(f"  PASS  {test.__name__}")
-        except AssertionError as e:
-            print(f"  FAIL  {test.__name__}: {e}")
-            failed += 1
-        except Exception as e:
-            print(f"  ERROR {test.__name__}: {e}")
-            failed += 1
-    print(f"\n{len(TESTS) - failed}/{len(TESTS)} passed")
-    sys.exit(1 if failed else 0)
-
-
 if __name__ == "__main__":
-    main()
+    sys.exit(run_tests(TESTS))

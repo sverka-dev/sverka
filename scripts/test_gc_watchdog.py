@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 
+from testlib import run_tests
+
 
 WATCHDOG = os.path.join(
     os.path.dirname(__file__), "..", ".agents", "skills", "gc-watchdog", "watchdog.sh"
@@ -195,24 +197,5 @@ TESTS = [
 ]
 
 
-def run() -> int:
-    passed = 0
-    failed = 0
-    for test in TESTS:
-        try:
-            test()
-            print(f"PASS  {test.__name__}")
-            passed += 1
-        except AssertionError as e:
-            print(f"FAIL  {test.__name__}: {e}")
-            failed += 1
-        except Exception as e:
-            print(f"ERROR {test.__name__}: {e}")
-            failed += 1
-    print()
-    print(f"{passed}/{len(TESTS)} passed")
-    return 0 if failed == 0 else 1
-
-
 if __name__ == "__main__":
-    sys.exit(run())
+    sys.exit(run_tests(TESTS))
