@@ -48,7 +48,17 @@ export function toOutcome(
     artifacts: r.artifacts,
     ...(r.error !== undefined ? { error: r.error } : {}),
     fromCache,
+    ...(r.runtimeFailure ? { runtimeFailure: true } : {}),
   };
+}
+
+export function outcomesHaveRuntimeFailure(
+  outcomes: ReadonlyMap<string, OperationOutcome>,
+): boolean {
+  for (const o of outcomes.values()) {
+    if (o.runtimeFailure) return true;
+  }
+  return false;
 }
 
 /** Decide whether a retry should be attempted. */

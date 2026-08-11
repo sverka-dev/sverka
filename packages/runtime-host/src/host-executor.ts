@@ -194,6 +194,7 @@ export class HostExecutor implements Executor {
       let stdout = "";
       let stderr = "";
       let timedOut = false;
+      let spawnErrored = false;
 
       const child = spawn(command, args, {
         cwd,
@@ -220,6 +221,7 @@ export class HostExecutor implements Executor {
 
       child.on("error", (err) => {
         clearTimeout(timer);
+        spawnErrored = true;
         const durationMs = Date.now() - start;
         const logs = this.truncateLogs(`stderr: ${err.message}`);
         resolvePromise({
@@ -229,40 +231,59 @@ export class HostExecutor implements Executor {
           logs,
           artifacts: [],
           error: `spawn error: ${err.message}`,
+          runtimeFailure: true,
         });
       });
 
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        const durationMs = Date.now() - start;
-        const rawLogs = stdout + (stderr ? "\n" + stderr : "");
-        const logs = this.truncateLogs(rawLogs);
-
-        if (timedOut) {
-          resolvePromise({
-            operationId,
-            status: "failure",
-            durationMs,
-            ...(code !== null ? { exitCode: code } : {}),
-            logs,
-            artifacts: [],
-            error: `timeout after ${timeoutSeconds}s`,
-          });
+      child.on("close", (code, signal) => {
+        if (spawnErrored) {
+          // The 'error' event already resolved the promise with a runtime failure.
           return;
         }
-
-        const status = code === 0 ? "success" : "failure";
-        resolvePromise({
-          operationId,
-          status,
-          ...(code !== null ? { exitCode: code } : {}),
-          durationMs,
-          logs,
-          artifacts: [],
-          ...(status === "failure" ? { error: `exit code ${code}` } : {}),
-        });
+        clearTimeout(timer);
+        resolvePromise(
+          this.buildExecuteResult(operationId, start, stdout, stderr, code, signal, timedOut, timeoutSeconds),
+        );
       });
     });
+  }
+
+  private buildExecuteResult(
+    operationId: string,
+    start: number,
+    stdout: string,
+    stderr: string,
+    code: number | null,
+    signal: NodeJS.Signals | null,
+    timedOut: boolean,
+    timeoutSeconds: number,
+  ): ExecuteResult {
+    const durationMs = Date.now() - start;
+    const logs = this.truncateLogs(stdout + (stderr ? "\n" + stderr : ""));
+    const base = { operationId, status: "failure" as const, durationMs, logs, artifacts: [] as const };
+
+    if (timedOut) {
+      return { ...base, ...(code !== null ? { exitCode: code } : {}), error: `timeout after ${timeoutSeconds}s` };
+    }
+
+    if (signal !== null) {
+      return { ...base, error: `terminated by signal ${signal}` };
+    }
+
+    if (code === null || code < 0) {
+      return { ...base, error: `spawn error: exit code ${code}`, runtimeFailure: true };
+    }
+
+    const status = code === 0 ? "success" : "failure";
+    return {
+      operationId,
+      status,
+      ...(code !== null ? { exitCode: code } : {}),
+      durationMs,
+      logs,
+      artifacts: [],
+      ...(status === "failure" ? { error: `exit code ${code}` } : {}),
+    };
   }
 
   private truncateLogs(logs: string): string {

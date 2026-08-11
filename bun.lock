@@ -18,6 +18,11 @@
     "packages/checks": {
       "name": "@sverka/checks",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/core": "workspace:*",
+        "@sverka/findings": "workspace:*",
+        "@sverka/planner": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -27,7 +32,15 @@
     "packages/cli": {
       "name": "@sverka/cli",
       "version": "0.0.0",
+      "bin": {
+        "sverka": "./dist/bin.mjs",
+      },
+      "dependencies": {
+        "@sverka/sdk": "workspace:*",
+        "yargs": "^17.7.3",
+      },
       "devDependencies": {
+        "@types/yargs": "^17.0.33",
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
         "vitest": "^3.0.0",
@@ -45,6 +58,10 @@
     "packages/compiler-github": {
       "name": "@sverka/compiler-github",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/ir": "workspace:*",
+        "yaml": "^2.9.0",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -54,6 +71,10 @@
     "packages/compiler-gitlab": {
       "name": "@sverka/compiler-gitlab",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/ir": "workspace:*",
+        "yaml": "^2.9.0",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -102,6 +123,9 @@
     "packages/policy": {
       "name": "@sverka/policy",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/findings": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -167,6 +191,17 @@
     "packages/sdk": {
       "name": "@sverka/sdk",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/checks": "workspace:*",
+        "@sverka/core": "workspace:*",
+        "@sverka/findings": "workspace:*",
+        "@sverka/ir": "workspace:*",
+        "@sverka/planner": "workspace:*",
+        "@sverka/policy": "workspace:*",
+        "@sverka/runtime": "workspace:*",
+        "@sverka/runtime-docker": "workspace:*",
+        "@sverka/runtime-host": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -448,6 +483,10 @@
     "@types/json-schema": ["@types/json-schema@7.0.15", "", {}, "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="],
 
     "@types/node": ["@types/node@24.13.3", "", { "dependencies": { "undici-types": "~7.18.0" } }, "sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q=="],
+
+    "@types/yargs": ["@types/yargs@17.0.35", "", { "dependencies": { "@types/yargs-parser": "*" } }, "sha512-qUHkeCyQFxMXg79wQfTtfndEC+N9ZZg76HJftDJp+qH2tV7Gj4OJi7l+PiWwJ+pWtW8GwSmqsDj/oymhrTWXjg=="],
+
+    "@types/yargs-parser": ["@types/yargs-parser@21.0.3", "", {}, "sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ=="],
 
     "@typescript-eslint/eslint-plugin": ["@typescript-eslint/eslint-plugin@8.67.0", "", { "dependencies": { "@eslint-community/regexpp": "^4.12.2", "@typescript-eslint/scope-manager": "8.67.0", "@typescript-eslint/type-utils": "8.67.0", "@typescript-eslint/utils": "8.67.0", "@typescript-eslint/visitor-keys": "8.67.0", "ignore": "^7.0.5", "natural-compare": "^1.4.0", "ts-api-utils": "^2.5.0" }, "peerDependencies": { "@typescript-eslint/parser": "^8.67.0", "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0", "typescript": ">=4.8.4 <6.1.0" } }, "sha512-Un7Heoyj65NREbKAyIrFxeM143NZpExWmy1Nep4DLeQOeLlTeumPjoNKnBrU5D5moWXbPJgRa5Uwcdu0faVNGQ=="],
 

@@ -26,17 +26,32 @@ describe("matrix expansion", () => {
   });
 
   it("multi-dimension cartesian product with distinct op- ids", async () => {
-    const op = matrix({ node: ["20", "24"], os: ["linux"] }, run({ command: "test" }));
+    const op = matrix({ node: ["20", "24"], os: ["linux", "macos"] }, run({ command: "test" }));
     const wf = workflow("matrix-2d", op);
     const result = await wf.plan(makePlanRuntime());
-    expect(result.operations).toHaveLength(2);
+    expect(result.operations).toHaveLength(4);
     const ids = result.operations.map((o) => o.id);
     for (const id of ids) expect(id).toMatch(OP_ID_RE);
     expect(new Set(ids).size).toBe(ids.length);
     for (const spec of result.operations) {
       expect(spec.env?.MATRIX_NODE).toBeDefined();
-      expect(spec.env?.MATRIX_OS).toBe("linux");
+      expect(spec.env?.MATRIX_OS).toBeDefined();
     }
+  });
+
+  it("cartesian product with multiple values in each dimension", async () => {
+    const op = matrix({ node: ["20", "24"], os: ["linux", "macos"] }, run({ command: "test" }));
+    const wf = workflow("matrix-2x2", op);
+    const result = await wf.plan(makePlanRuntime());
+    expect(result.operations).toHaveLength(4);
+    const ids = result.operations.map((o) => o.id);
+    for (const id of ids) expect(id).toMatch(OP_ID_RE);
+    expect(new Set(ids).size).toBe(4); // all distinct
+    // Verify all four env combinations are present
+    const envCombos = result.operations.map(
+      (o) => `${o.env?.MATRIX_NODE}/${o.env?.MATRIX_OS}`,
+    ).sort();
+    expect(envCombos).toEqual(["20/linux", "20/macos", "24/linux", "24/macos"]);
   });
 
   it("children inherit predecessors from the template", async () => {
@@ -67,5 +82,20 @@ describe("matrix expansion", () => {
     const wf = workflow("matrix-3", op);
     const result = await wf.plan(makePlanRuntime());
     expect(result.operations).toHaveLength(3);
+  });
+
+  it("rejects duplicate matrix values that would produce duplicate ids", async () => {
+    const op = matrix({ node: ["20", "20"] }, run({ command: "test" }));
+    const wf = workflow("matrix-dup", op);
+    await expect(wf.plan(makePlanRuntime())).rejects.toThrow("duplicate operation id");
+  });
+
+  it("distinguishes values with identical text but different types", async () => {
+    const op = matrix({ node: [1, "1", true] as unknown[] }, run({ command: "test" }));
+    const wf = workflow("matrix-types", op);
+    const result = await wf.plan(makePlanRuntime());
+    expect(result.operations).toHaveLength(3);
+    const ids = result.operations.map((o) => o.id);
+    expect(new Set(ids).size).toBe(3);
   });
 });

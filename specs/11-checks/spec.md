@@ -1,384 +1,239 @@
-# Spec 11 — Checks Package: Built-in Check Providers
+# Spec 11 — Checks Package: Check Resolution and Findings Extraction
 
 ## Overview
 
-The `checks` package provides built-in check providers that discover,
-propose, resolve, and normalize verification checks for a project. A check
-provider is the bridge between an external tool (ESLint, Trivy, Gitleaks,
-Semgrep, a build system, a test runner) and the Sverka plan IR. Providers
-are pluggable: built-in providers ship in this package, and third-party
-providers can be registered via a YAML plugin descriptor.
+The `checks` package bridges the planner's `ProposedCheck[]` and the IR
+`OperationSpec`. The planner proposes *what* category of check to run
+(`lint`, `typecheck`, `test`); the checks package resolves *how* to run it
+(command, args, outputs) given the project's package managers and languages.
+It also extracts findings from SARIF artifacts after execution.
 
-A provider does four things:
-
-1. **Detect** whether its tool is applicable to a given project context.
-2. **Propose** one or more check operations (canonical plan entries) when
-   applicable.
-3. **Resolve** configuration defaults, image references, and locked inputs
-   for a proposed check.
-4. **Normalize** tool-specific output into the canonical findings model.
-
-Detection must be side-effect free. Proposal must not execute anything.
-Resolution may read files but must not mutate the project. Normalization is
-pure: it transforms raw output into findings.
+The package does **not** re-detect or re-propose checks — that is the
+planner's job (`@sverka/planner`). It does **not** re-normalize findings —
+that is the findings package's job (`@sverka/findings`). It maps checkIds to
+executable operations and reads normalized findings from artifact files.
 
 ## Goals
 
-1. Provide a stable `CheckProvider` interface that all built-in and
-   third-party providers implement.
-2. Ship built-in providers for the most common verification categories:
-   build, lint, test, security scan, typecheck, and dependency audit.
-3. Ship specific providers for popular tools: ESLint, Trivy, Gitleaks,
-   Semgrep.
-4. Support a YAML plugin descriptor format so third-party providers can be
-   declared without writing TypeScript.
-5. Produce detection results and check proposals that the planner can merge
-   into a canonical plan.
-6. Normalize heterogeneous tool output into the canonical findings model
-   defined by the `findings` package.
-7. Keep detection and proposal deterministic and side-effect free so the
-   planner can run them in parallel and cache results.
+1. Resolve a `ProposedCheck` into a `ResolvedCheck` containing an
+   `OperationSpec` ready for the IR conversion and a list of output
+   declarations for findings extraction.
+2. Ship a built-in resolver covering the checkIds the planner already
+   proposes: `typecheck`, `lint`, `test`, `clippy`, `vet`, `fmt-check`.
+3. Extract findings from SARIF artifact files via `@sverka/findings`.
+4. Allow custom resolvers via a `CheckResolver` interface (no YAML, no
+   plugin descriptor format — implement the interface in TypeScript).
+5. Export all public types and functions from `src/index.ts`.
 
-## Non-goals
+## Non-goals (v1 / Wave 11)
 
-- Executing checks. Execution is the responsibility of the runtime
-  packages. Providers only describe checks.
-- Implementing scanner logic inside Sverka. Providers wrap external tools.
-- Supporting every possible tool. The plugin descriptor exists for the long
-  tail.
-- Owning the findings model. The `findings` package owns normalization
-  rules; providers supply raw output and hints.
-- Managing tool installation or version pinning on the host. Providers
-  declare image references; the runtime pulls them.
+- **Re-detecting or re-proposing checks.** The planner owns discovery and
+  proposal. The checks package only resolves.
+- **Re-normalizing findings.** The findings package owns SARIF
+  normalization. The checks package calls `normalizeSarif`.
+- **YAML plugin descriptors.** No third-party providers exist. Custom
+  resolvers implement the `CheckResolver` interface in TypeScript.
+- **Tool-specific providers** (eslint, trivy, gitleaks, semgrep). The
+  planner proposes generic checkIds; the resolver maps them to commands per
+  package manager. Tool-specific providers are future work.
+- **Non-SARIF extraction** (raw ESLint JSON, JUnit, text). The findings
+  package defers non-SARIF normalizers; the checks package follows.
+- **Executing checks.** Execution is the runtime's job.
+- **Managing tool installation or image pinning.** The resolver declares
+  commands; the runtime executes them.
 
 ## Interfaces
 
 ```typescript
+// src/index.ts — public exports
+
+export type { CheckResolver, ResolvedCheck, CheckOutput } from "./resolver.js";
+export { createBuiltinResolver } from "./resolver.js";
+export { extractFindings } from "./extract.js";
+export { CheckError, type CheckErrorCode } from "./errors.js";
+```
+
+```typescript
+// src/resolver.ts
+
+import type { OperationSpec } from "@sverka/core";
+import type { ProposedCheck, ProjectContext } from "@sverka/planner";
+
 /**
- * A check provider discovers, proposes, resolves, and normalizes a
- * category of verification checks.
+ * Resolves a ProposedCheck into an executable OperationSpec with output
+ * declarations. Returns null when the resolver has no mapping for the
+ * given check + context (the caller skips the check).
  */
-export interface CheckProvider {
-  /** Stable unique identifier, e.g. "eslint". */
-  readonly id: string;
-  /** Schema version of this provider's proposal output. */
-  readonly version: string;
-  /** Human-readable category, e.g. "lint", "securityScan". */
-  readonly category: CheckCategory;
-
-  /**
-   * Detect whether this provider applies to the given project context.
-   * Must be side-effect free and deterministic.
-   */
-  detect(ctx: DetectionContext): Promise<DetectionResult>;
-
-  /**
-   * Propose one or more check operations for the project. Called only when
-   * detect() returns applicable. Must not execute anything.
-   */
-  propose(ctx: DetectionContext, result: DetectionResult): Promise<CheckProposal[]>;
-
-  /**
-   * Resolve a proposed check into a fully-specified operation ready for the
-   * plan IR. May read files but must not mutate the project.
-   */
-  resolve(proposal: CheckProposal, ctx: DetectionContext): Promise<ResolvedCheck>;
-
-  /**
-   * Normalize raw tool output into the canonical findings model.
-   * Pure function: no I/O, no side effects.
-   */
-  normalize(raw: unknown, proposal: CheckProposal): NormalizationResult;
+export interface CheckResolver {
+  resolve(check: ProposedCheck, ctx: ProjectContext): ResolvedCheck | null;
 }
 
-export type CheckCategory =
-  | "build"
-  | "lint"
-  | "test"
-  | "securityScan"
-  | "typecheck"
-  | "dependencyAudit";
-
-export interface DetectionContext {
-  /** Absolute path to the project root. */
-  readonly projectRoot: string;
-  /** Map of file path (relative to root) to file content for manifest files. */
-  readonly manifests: ReadonlyMap<string, string>;
-  /** List of file paths (relative to root) discovered by the planner. */
-  readonly filePaths: readonly string[];
-  /** Environment variables available to detection (read-only snapshot). */
-  readonly env: Readonly<Record<string, string>>;
-}
-
-export interface DetectionResult {
-  /** Whether the provider applies. */
-  readonly applicable: boolean;
-  /** Confidence score 0..1. */
-  readonly confidence: number;
-  /** Human-readable reason for the decision. */
-  readonly reason: string;
-  /** Evidence: file paths or manifest keys that triggered detection. */
-  readonly evidence: readonly string[];
-}
-
-export interface CheckProposal {
-  /** Provider id that produced this proposal. */
-  readonly providerId: string;
-  /** Proposal id, unique within a provider, e.g. "eslint:src". */
-  readonly proposalId: string;
-  /** Display name for the check. */
-  readonly name: string;
-  /** Category. */
-  readonly category: CheckCategory;
-  /** Tool command or entrypoint, unresolved. */
-  readonly command: string;
-  /** Arguments, may contain template placeholders. */
-  readonly args: readonly string[];
-  /** File globs this check should run against, if applicable. */
-  readonly inputs?: readonly string[];
-  /** Provider-specific hints for resolution. */
-  readonly hints: Readonly<Record<string, string>>;
-}
-
+/**
+ * A fully-resolved check: an OperationSpec for the IR plus output
+ * declarations for findings extraction.
+ */
 export interface ResolvedCheck {
-  readonly providerId: string;
-  readonly proposalId: string;
-  readonly name: string;
-  readonly category: CheckCategory;
-  /** Container image reference (locked digest) or "host" for host execution. */
-  readonly image: string;
-  /** Resolved command with no remaining placeholders. */
-  readonly command: string;
-  readonly args: readonly string[];
-  /** Environment variables to set. */
-  readonly env: Readonly<Record<string, string>>;
-  /** Working directory inside the container or on host. */
-  readonly workdir: string;
-  /** Output files the check produces (SARIF, JSON, JUnit). */
+  readonly checkId: string;
+  readonly operation: OperationSpec;
   readonly outputs: readonly CheckOutput[];
 }
 
+/**
+ * An output file a check produces, used for findings extraction.
+ */
 export interface CheckOutput {
+  /** Relative path within the artifact directory. */
   readonly path: string;
   readonly format: "sarif" | "json" | "junit" | "text";
-  /** Findings parser id within the findings package. */
-  readonly parser: string;
-}
-
-export interface NormalizationResult {
-  readonly findings: readonly NormalizedFinding[];
-  readonly errors: readonly NormalizationError[];
-}
-
-export interface NormalizedFinding {
-  readonly ruleId: string;
-  readonly severity: "info" | "low" | "medium" | "high" | "critical";
-  readonly message: string;
-  readonly file: string;
-  readonly line?: number;
-  readonly column?: number;
-  readonly endLine?: number;
-  readonly endColumn?: number;
-}
-
-export interface NormalizationError {
-  readonly message: string;
-  readonly raw?: unknown;
 }
 
 /**
- * Registry of all known providers, built-in and plugin-loaded.
+ * Built-in resolver backed by a (checkId, packageManager) → command table.
+ * Covers the 6 checkIds the planner proposes across Node/Python/Rust/Go.
  */
-export interface CheckProviderRegistry {
-  list(): readonly CheckProvider[];
-  get(id: string): CheckProvider | undefined;
-  register(provider: CheckProvider): void;
-  /** Load providers from YAML plugin descriptors. */
-  loadPlugins(descriptors: readonly PluginDescriptor[]): void;
-}
-
-/**
- * YAML plugin descriptor for third-party providers.
- */
-export interface PluginDescriptor {
-  readonly id: string;
-  readonly version: string;
-  readonly category: CheckCategory;
-  readonly detect: PluginDetectRule;
-  readonly propose: PluginProposeRule;
-  readonly normalize?: PluginNormalizeRule;
-}
-
-export interface PluginDetectRule {
-  /** File globs that, if present, make the provider applicable. */
-  readonly matchFiles?: readonly string[];
-  /** Manifest keys to check, e.g. "package.json:scripts.lint". */
-  readonly matchManifestKeys?: readonly string[];
-  /** Minimum confidence when matched. */
-  readonly confidence?: number;
-}
-
-export interface PluginProposeRule {
-  readonly name: string;
-  readonly command: string;
-  readonly args: readonly string[];
-  readonly image?: string;
-  readonly outputs?: readonly CheckOutput[];
-}
-
-export interface PluginNormalizeRule {
-  readonly parser: string;
-  readonly format: "sarif" | "json" | "junit" | "text";
-}
+export function createBuiltinResolver(): CheckResolver;
 ```
 
-### Built-in providers
+```typescript
+// src/extract.ts
+
+import type { Finding } from "@sverka/findings";
+
+/**
+ * Extract findings from a check's output files. Reads each declared output
+ * from `artifactDir`, parses SARIF via `@sverka/findings.normalizeSarif`,
+ * and returns the combined findings.
+ *
+ * - Missing output file: skipped (no findings from that output).
+ * - Non-SARIF format: skipped (deferred per findings non-goal).
+ * - Invalid SARIF: throws CheckError(EXTRACTION_FAILED).
+ *
+ * @throws {CheckError} EXTRACTION_FAILED — SARIF file exists but is invalid.
+ */
+export function extractFindings(
+  outputs: readonly CheckOutput[],
+  artifactDir: string,
+  checkId: string,
+): Promise<readonly Finding[]>;
+```
 
 ```typescript
-/** Built-in provider ids exported from the package. */
-export const BUILTIN_PROVIDER_IDS = [
-  "build",
-  "lint",
-  "test",
-  "securityScan",
-  "typecheck",
-  "eslint",
-  "trivy",
-  "gitleaks",
-  "semgrep",
-  "dependencyAudit",
-] as const;
+// src/errors.ts
 
-export type BuiltinProviderId = (typeof BUILTIN_PROVIDER_IDS)[number];
+export class CheckError extends Error {
+  readonly code: CheckErrorCode;
+  override readonly cause: unknown;
+  constructor(message: string, code: CheckErrorCode, cause?: unknown) {
+    super(message);
+    this.name = "CheckError";
+    this.code = code;
+    this.cause = cause;
+  }
+}
 
-/** Factory that returns a registry pre-loaded with all built-in providers. */
-export function createBuiltinRegistry(): CheckProviderRegistry;
+export type CheckErrorCode = "RESOLUTION_FAILED" | "EXTRACTION_FAILED";
 ```
 
 ## Data models
 
-### Built-in provider mapping
+### Built-in resolution table
 
-| Provider id        | Category         | Tool / convention            | Detection signal                                   |
-|--------------------|------------------|------------------------------|----------------------------------------------------|
-| `build`            | build            | npm/yarn/bun build scripts    | `package.json` scripts.build, Makefile             |
-| `lint`             | lint             | generic lint script           | `package.json` scripts.lint, `.eslintrc*`          |
-| `test`             | test             | npm/yarn/bun test scripts     | `package.json` scripts.test, `*.test.*` files      |
-| `securityScan`     | securityScan     | generic SAST/container scan   | Dockerfile present, security config files          |
-| `typecheck`        | typecheck        | `tsc --noEmit`                | `tsconfig.json`                                    |
-| `eslint`           | lint             | ESLint                        | `.eslintrc*`, `eslint.config.*`, eslint dependency |
-| `trivy`            | securityScan     | Trivy                         | `.trivy*`, Dockerfile, image references            |
-| `gitleaks`         | securityScan     | Gitleaks                      | `.gitleaks*`, git repository present               |
-| `semgrep`          | securityScan     | Semgrep                       | `semgrep.yml`, `.semgrep*`                         |
-| `dependencyAudit`  | dependencyAudit  | npm audit / bun audit         | lockfile present (`bun.lockb`, `package-lock.json`)|
+The built-in resolver maps `(checkId, packageManagerCategory)` to a command.
+When the project has multiple package managers, the first matching entry wins
+(in table order). When no entry matches, `resolve()` returns null.
 
-### Plugin descriptor format (YAML)
+| checkId     | packageManager         | command   | args                         | outputs |
+|-------------|------------------------|-----------|------------------------------|---------|
+| `typecheck` | bun                    | `bun`     | `["run", "typecheck"]`       | `[]`    |
+| `typecheck` | npm/yarn/pnpm          | `npm`/`yarn`/`pnpm` | `["run", "typecheck"]` | `[]`    |
+| `lint`      | bun                    | `bun`     | `["run", "lint"]`            | `[]`    |
+| `lint`      | npm/yarn/pnpm          | `npm`/`yarn`/`pnpm` | `["run", "lint"]`      | `[]`    |
+| `lint`      | pip/poetry/uv/pipenv   | `ruff`    | `["check"]`                  | `[]`    |
+| `test`      | bun                    | `bun`     | `["run", "test"]`            | `[]`    |
+| `test`      | npm/yarn/pnpm          | `npm`/`yarn`/`pnpm` | `["run", "test"]`      | `[]`    |
+| `test`      | pip/poetry/uv/pipenv   | `pytest`  | `[]`                         | `[]`    |
+| `test`      | cargo                  | `cargo`   | `["test"]`                   | `[]`    |
+| `test`      | go                     | `go`      | `["test", "./..."]`          | `[]`    |
+| `clippy`    | cargo                  | `cargo`   | `["clippy"]`                 | `[]`    |
+| `fmt-check` | cargo                  | `cargo`   | `["fmt", "--check"]`         | `[]`    |
+| `vet`       | go                     | `go`      | `["vet", "./..."]`           | `[]`    |
 
-```yaml
-id: my-custom-scanner
-version: "1.0.0"
-category: securityScan
+Built-in checks declare `outputs: []` — the project's scripts may or may not
+emit SARIF. Findings extraction is exercised by custom resolvers that declare
+SARIF outputs, and by the test suite with synthetic fixtures.
 
-detect:
-  matchFiles:
-    - ".my-scanner.yml"
-  matchManifestKeys:
-    - "package.json:scripts.scan"
-  confidence: 0.8
+### ResolvedCheck.operation fields
 
-propose:
-  name: "My Custom Scanner"
-  command: "my-scanner"
-  args: ["scan", "--output", "sarif"]
-  image: "ghcr.io/my-org/my-scanner:1.0.0@sha256:abc..."
-  outputs:
-    - path: "results.sarif"
-      format: "sarif"
-      parser: "sarif"
+The resolver constructs the `OperationSpec` from the `ProposedCheck`:
 
-normalize:
-  parser: "sarif"
-  format: "sarif"
-```
+| field        | source                              |
+|--------------|-------------------------------------|
+| `id`         | `check.id` (the ProposedCheck id)   |
+| `kind`       | `"check"`                           |
+| `name`       | `check.checkId`                     |
+| `command`    | from table                          |
+| `args`       | from table                          |
+| `description`| `check.reason`                      |
 
-### Detection result
+No `image`, `dependsOn`, `env`, or `workingDir` is set by the built-in
+resolver (host execution, no dependencies, default working dir).
 
-```json
-{
-  "applicable": true,
-  "confidence": 0.9,
-  "reason": "Found eslint.config.js and eslint in devDependencies",
-  "evidence": ["eslint.config.js", "package.json:devDependencies.eslint"]
-}
-```
+### Findings extraction
 
-### Check proposal
-
-```json
-{
-  "providerId": "eslint",
-  "proposalId": "eslint:src",
-  "name": "ESLint (src)",
-  "category": "lint",
-  "command": "eslint",
-  "args": ["src", "--format", "@sverka/sarif-formatter"],
-  "inputs": ["src/**/*.ts"],
-  "hints": { "configFile": "eslint.config.js" }
-}
-```
+1. For each `CheckOutput` in `outputs`:
+   - Skip if `format !== "sarif"` (non-SARIF deferred).
+   - Read `${artifactDir}/${output.path}`. Skip if the file does not exist.
+   - `JSON.parse` the file content.
+   - Call `normalizeSarif(sarif, { root: artifactDir, checkIdPrefix: checkId, defaultConfidence: 0.5 })`.
+   - Collect the returned `Finding[]`.
+2. If `normalizeSarif` throws `NormalizationError`, rethrow as
+   `CheckError(EXTRACTION_FAILED, cause)`.
+3. Return the combined findings from all outputs.
 
 ## Error handling
 
-All errors extend a base `CheckProviderError`:
-
-```typescript
-export class CheckProviderError extends Error {
-  constructor(
-    message: string,
-    readonly providerId: string,
-    readonly code: CheckErrorCode,
-  ) {
-    super(message);
-    this.name = "CheckProviderError";
-  }
-}
-
-export type CheckErrorCode =
-  | "DETECTION_FAILED"
-  | "PROPOSAL_FAILED"
-  | "RESOLUTION_FAILED"
-  | "NORMALIZATION_FAILED"
-  | "INVALID_PLUGIN_DESCRIPTOR"
-  | "DUPLICATE_PROVIDER_ID";
-```
-
-- `detect()` failures throw `DETECTION_FAILED`. The planner treats a failed
-  detection as "not applicable" and logs a warning.
-- `propose()` failures throw `PROPOSAL_FAILED`. The planner skips the
-  provider and continues with others.
-- `resolve()` failures throw `RESOLUTION_FAILED`. The planner excludes the
-  unresolved proposal from the final plan.
-- `normalize()` never throws for malformed tool output. It returns
-  `NormalizationError[]` entries instead, so partial findings are preserved.
-- Invalid plugin descriptors throw `INVALID_PLUGIN_DESCRIPTOR` at load time.
-- Registering a provider with a duplicate id throws
-  `DUPLICATE_PROVIDER_ID`.
+- **`RESOLUTION_FAILED`** — a custom resolver's `resolve()` threw. The
+  caller (SDK) catches and skips the check with a warning. The built-in
+  resolver never throws; it returns null for unknown mappings.
+- **`EXTRACTION_FAILED`** — a SARIF output file exists but is invalid
+  (`normalizeSarif` threw `NormalizationError`). Missing files are not
+  errors (skipped silently).
+- All errors include `cause: unknown` with `override` per
+  `noImplicitOverride`.
+- No `any` types.
 
 ## Test plan
 
-- Unit tests for each built-in provider's `detect()` using fixture projects
-  in `src/__tests__/fixtures/`.
-- Unit tests for `propose()` verifying the shape and fields of proposals.
-- Unit tests for `resolve()` verifying image references, commands, and
-  outputs are fully resolved.
-- Unit tests for `normalize()` with sample SARIF, JSON, and JUnit payloads,
-  asserting normalized findings match expected output.
-- Unit tests for `createBuiltinRegistry()` asserting all built-in provider
-  ids are present.
-- Unit tests for plugin descriptor loading: valid YAML, missing fields,
-  duplicate ids.
-- Property tests: `detect()` is deterministic across repeated calls with
-  the same context.
-- Tests run via `bun test`.
-- No `any` types; all test fixtures use concrete typed objects.
-```
+Tests live in `packages/checks/src/__tests__/` and run via `bun run test`
+(vitest via nx).
+
+1. **Built-in resolver — Node (bun):** `typecheck`/`lint`/`test` resolve to
+   `bun run <checkId>` with correct command, args, `kind: "check"`,
+   `id = check.id`, `name = check.checkId`, `description = check.reason`.
+2. **Built-in resolver — Node (npm/yarn/pnpm):** same checkIds resolve to
+   the correct package manager command.
+3. **Built-in resolver — Python:** `lint` → `ruff check`, `test` → `pytest`.
+4. **Built-in resolver — Rust:** `clippy`/`fmt-check`/`test` resolve to
+   `cargo` commands.
+5. **Built-in resolver — Go:** `vet`/`test` resolve to `go` commands.
+6. **Built-in resolver — unknown:** unknown checkId → null. Known checkId
+   with unmatched packageManager (e.g. `clippy` + bun) → null.
+7. **Built-in resolver — multiple package managers:** first matching entry
+   in table order wins.
+8. **Built-in resolver — outputs:** all built-in checks have `outputs: []`.
+9. **Custom resolver:** a user-implemented `CheckResolver` returns a
+   `ResolvedCheck` with a SARIF output declaration.
+10. **extractFindings — SARIF:** a synthetic SARIF file in a temp
+    `artifactDir` produces `Finding[]` with correct `checkId` prefix.
+11. **extractFindings — missing file:** declared output path does not exist
+    → `[]` (no throw).
+12. **extractFindings — non-SARIF format:** `format: "json"` → `[]` (skipped).
+13. **extractFindings — invalid SARIF:** file exists but is not valid SARIF
+    → throws `CheckError(EXTRACTION_FAILED)` with `cause` set to the
+    `NormalizationError`.
+14. **extractFindings — empty outputs:** `[]` → `[]`.
+15. **CheckError:** `cause` uses `override`; `code` is the union; `name`
+    is `"CheckError"`.
+16. **Public API:** all exports present in `src/index.ts`; no extra exports.
+17. **Determinism:** same `(check, ctx)` produces byte-identical
+    `ResolvedCheck`.

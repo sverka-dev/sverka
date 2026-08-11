@@ -301,8 +301,10 @@ function validateOperation(op: PlanOperationView, idSet: Set<string>, errors: Va
 function validateDependsOn(op: PlanOperationView, opId: string | undefined, idSet: Set<string>, errors: ValidationErrorDetail[]): void {
   if (!Array.isArray(op.dependsOn)) return;
   for (const dep of op.dependsOn) {
-    if (typeof dep !== "string" || !idSet.has(dep)) {
-      errors.push(opError(opId, "operations[].dependsOn", "UNKNOWN_DEPENDENCY", `operation depends on unknown id "${String(dep)}"`));
+    if (typeof dep !== "string") {
+      errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must contain only strings"));
+    } else if (!idSet.has(dep)) {
+      errors.push(opError(opId, "operations[].dependsOn", "UNKNOWN_DEPENDENCY", `operation depends on unknown id "${dep}"`));
     }
   }
 }
@@ -379,29 +381,60 @@ function validateCredentials(op: PlanOperationView, opId: string | undefined, er
   }
 }
 
-/** Validate required operation fields (rule 15). */
-function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+/** Validate operation identity fields (rule 15). */
+function validateOperationIdentity(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (typeof op.kind !== "string" || !OPERATION_KINDS.has(op.kind)) {
     errors.push(opError(opId, "operations[].kind", "INVALID_OPERATION", `operation kind must be one of ${[...OPERATION_KINDS].join(", ")}`));
   }
   if (typeof op.id !== "string" || op.id.length === 0) {
     errors.push(opError(opId, "operations[].id", "INVALID_OPERATION", "operation id must be a non-empty string"));
   }
+}
+
+/** Validate required operation fields (rule 15). */
+function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+  validateOperationIdentity(op, opId, errors);
+  validateOperationName(op, opId, errors);
+  validateOperationExecutor(op, opId, errors);
+  validateOperationDependsOn(op, opId, errors);
+  validateOperationCredentialsArray(op, opId, errors);
+  validateOperationArtifacts(op, opId, errors);
+  validateOperationContinueOnError(op, opId, errors);
+}
+
+function validateOperationName(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (typeof op.name !== "string") {
     errors.push(opError(opId, "operations[].name", "INVALID_OPERATION", "operation name must be a string"));
   }
+}
+
+function validateOperationExecutor(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (!isPlainObject(op.executor)) {
     errors.push(opError(opId, "operations[].executor", "INVALID_OPERATION", "operation executor must be an object"));
   }
-  if (!Array.isArray(op.dependsOn)) {
-    errors.push(opError(opId, "operations[].dependsOn", "INVALID_OPERATION", "operation dependsOn must be an array"));
+}
+
+function validateOperationDependsOn(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+  if (op.dependsOn == null) {
+    errors.push(opError(opId, "operations[].dependsOn", "INVALID_OPERATION", "operation dependsOn is required"));
+  } else if (!Array.isArray(op.dependsOn)) {
+    errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must be an array"));
   }
+}
+
+function validateOperationCredentialsArray(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (!Array.isArray(op.credentials)) {
     errors.push(opError(opId, "operations[].credentials", "INVALID_OPERATION", "operation credentials must be an array"));
   }
+}
+
+function validateOperationArtifacts(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (!Array.isArray(op.artifacts)) {
     errors.push(opError(opId, "operations[].artifacts", "INVALID_OPERATION", "operation artifacts must be an array"));
   }
+}
+
+function validateOperationContinueOnError(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (typeof op.continueOnError !== "boolean") {
     errors.push(opError(opId, "operations[].continueOnError", "INVALID_OPERATION", "operation continueOnError must be a boolean"));
   }

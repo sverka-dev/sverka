@@ -283,7 +283,7 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       const combined = existing !== undefined ? `(${existing} && ${joinCond})` : joinCond;
       if (combined !== existing) {
         const newSpec = { ...node.spec, condition: combined };
-        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id);
+        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id, node);
       }
     }
     if (node.predecessors.length === 0) return node;
@@ -293,7 +293,7 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       newPreds.length === node.predecessors.length &&
       newPreds.every((p, i) => p === node.predecessors[i]);
     if (same) return node;
-    return makeNodeWith(node.kind, node.spec, newPreds, node.siblings, node._id);
+    return makeNodeWith(node.kind, node.spec, newPreds, node.siblings, node._id, node);
   });
 
   return rewritten.filter((n) => !isArtifact(n));
@@ -306,6 +306,7 @@ function makeNodeWith(
   predecessors: readonly OperationNode[],
   siblings: readonly OperationNode[],
   _id: string | undefined,
+  source?: OperationNode,
 ): OperationNode {
   // createNode yields a node with empty preds/siblings; reattach via the
   // immutable after()/with() API so the public contract is respected.
@@ -313,6 +314,12 @@ function makeNodeWith(
   if (predecessors.length > 0) n = asNode(n.after(...predecessors));
   if (siblings.length > 0) n = asNode(n.with(...siblings));
   if (_id !== undefined) (n as unknown as { _id: string })._id = _id;
+  if (source !== undefined) {
+    const combo = (source as unknown as { __matrixCombo?: unknown }).__matrixCombo;
+    if (combo !== undefined) {
+      (n as unknown as { __matrixCombo?: unknown }).__matrixCombo = combo;
+    }
+  }
   return n;
 }
 
@@ -510,17 +517,34 @@ function detectCycles(specs: Map<OperationNode, OperationSpec>): void {
 
 function topoSort(specs: Map<OperationNode, OperationSpec>): OperationSpec[] {
   const all = [...specs.values()];
+  const { byId, indegree, adj } = buildDependencyGraph(all);
+  const ordered = kahnSort(all, byId, indegree, adj);
+  if (ordered.length !== all.length) {
+    throw new CompositionError("topological sort failed (residual cycle)", {});
+  }
+  return ordered;
+}
+
+function buildDependencyGraph(all: OperationSpec[]) {
   const byId = new Map(all.map((s) => [s.id, s] as const));
   const indegree = new Map<string, number>(all.map((s) => [s.id, 0] as const));
   const adj = new Map<string, string[]>(all.map((s) => [s.id, []] as const));
   for (const spec of all) {
     for (const dep of spec.dependsOn ?? []) {
-      if (byId.has(dep)) {
-        adj.get(dep)!.push(spec.id);
-        indegree.set(spec.id, (indegree.get(spec.id) ?? 0) + 1);
-      }
+      if (!byId.has(dep)) continue;
+      adj.get(dep)!.push(spec.id);
+      indegree.set(spec.id, (indegree.get(spec.id) ?? 0) + 1);
     }
   }
+  return { byId, indegree, adj };
+}
+
+function kahnSort(
+  all: OperationSpec[],
+  byId: Map<string, OperationSpec>,
+  indegree: Map<string, number>,
+  adj: Map<string, string[]>,
+): OperationSpec[] {
   const queue = all.filter((s) => (indegree.get(s.id) ?? 0) === 0).map((s) => s.id);
   const ordered: OperationSpec[] = [];
   while (queue.length > 0) {
@@ -530,9 +554,6 @@ function topoSort(specs: Map<OperationNode, OperationSpec>): OperationSpec[] {
       indegree.set(next, (indegree.get(next) ?? 0) - 1);
       if (indegree.get(next) === 0) queue.push(next);
     }
-  }
-  if (ordered.length !== all.length) {
-    throw new CompositionError("topological sort failed (residual cycle)", {});
   }
   return ordered;
 }
