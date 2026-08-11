@@ -497,6 +497,34 @@ describe("validatePlan — rule 15 (operation shape)", () => {
     ).toBe(true);
   });
 
+  it("rejects a present but non-array dependsOn with INVALID_DEPENDS_ON", () => {
+    const op = validOperation();
+    const plan = validPlan({
+      operations: [{ ...op, dependsOn: "op-a" } as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    const err = result.errors.find(
+      (e) => e.code === "INVALID_DEPENDS_ON" && e.field === "operations[].dependsOn",
+    );
+    expect(err).toBeDefined();
+    expect(err?.operationId).toBe(op.id);
+  });
+
+  it("rejects a dependsOn array containing a non-string element with INVALID_DEPENDS_ON", () => {
+    const op = validOperation();
+    const plan = validPlan({
+      operations: [{ ...op, dependsOn: [123] } as unknown as PlanOperation],
+    });
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    const err = result.errors.find(
+      (e) => e.code === "INVALID_DEPENDS_ON" && e.field === "operations[].dependsOn",
+    );
+    expect(err).toBeDefined();
+    expect(err?.operationId).toBe(op.id);
+  });
+
   it("rejects non-array credentials with INVALID_OPERATION", () => {
     const op = validOperation();
     const plan = validPlan({

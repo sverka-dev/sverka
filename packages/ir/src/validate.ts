@@ -301,8 +301,10 @@ function validateOperation(op: PlanOperationView, idSet: Set<string>, errors: Va
 function validateDependsOn(op: PlanOperationView, opId: string | undefined, idSet: Set<string>, errors: ValidationErrorDetail[]): void {
   if (!Array.isArray(op.dependsOn)) return;
   for (const dep of op.dependsOn) {
-    if (typeof dep !== "string" || !idSet.has(dep)) {
-      errors.push(opError(opId, "operations[].dependsOn", "UNKNOWN_DEPENDENCY", `operation depends on unknown id "${String(dep)}"`));
+    if (typeof dep !== "string") {
+      errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must contain only strings"));
+    } else if (!idSet.has(dep)) {
+      errors.push(opError(opId, "operations[].dependsOn", "UNKNOWN_DEPENDENCY", `operation depends on unknown id "${dep}"`));
     }
   }
 }
@@ -398,8 +400,10 @@ function validateOperationShape(op: PlanOperationView, opId: string | undefined,
   if (!isPlainObject(op.executor)) {
     errors.push(opError(opId, "operations[].executor", "INVALID_OPERATION", "operation executor must be an object"));
   }
-  if (!Array.isArray(op.dependsOn)) {
-    errors.push(opError(opId, "operations[].dependsOn", "INVALID_OPERATION", "operation dependsOn must be an array"));
+  if (op.dependsOn == null) {
+    errors.push(opError(opId, "operations[].dependsOn", "INVALID_OPERATION", "operation dependsOn is required"));
+  } else if (!Array.isArray(op.dependsOn)) {
+    errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must be an array"));
   }
   if (!Array.isArray(op.credentials)) {
     errors.push(opError(opId, "operations[].credentials", "INVALID_OPERATION", "operation credentials must be an array"));
