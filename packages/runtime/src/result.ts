@@ -7,6 +7,11 @@ export interface OperationOutcome {
   readonly artifacts: readonly string[];
   readonly error?: string;
   readonly fromCache: boolean;
+  /**
+   * True when the failure was caused by an executor/runtime fault rather than
+   * the operation's own non-zero exit code.
+   */
+  readonly runtimeFailure?: boolean;
 }
 
 export interface ExecutionResult {
@@ -22,6 +27,10 @@ export interface ExecutionResult {
   readonly outcomes: ReadonlyMap<string, OperationOutcome>;
   readonly durationMs: number;
   readonly cancelledOperations: readonly string[];
+  /**
+   * True when at least one outcome failed due to an executor/runtime fault.
+   */
+  readonly runtimeFailure?: boolean;
 }
 
 export interface ExecutionState {

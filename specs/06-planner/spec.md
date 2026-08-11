@@ -2,97 +2,103 @@
 
 ## Overview
 
-The `planner` package is responsible for discovering project context and
-synthesizing a verification plan. It inspects the local working tree, reads
-manifests and configuration files, queries remote providers for metadata, and
-assembles a `ProjectContext` that downstream packages (IR, runtime, compilers)
-consume. Discovery must be deterministic, side-effect free, and explainable:
-every signal that contributes to the plan is recorded so users can audit why a
-particular check was selected or skipped.
+The `planner` package discovers project context from the local working tree
+and synthesizes a verification plan proposal. It inspects manifests,
+lockfiles, dockerfiles, CI definitions, monorepo markers, and git metadata,
+assembles a `ProjectContext`, and proposes default checks for projects with
+no user-supplied workflow. Discovery is deterministic and side-effect free:
+it does not mutate the working tree, write files, or make network calls.
 
-The planner does not execute checks. It only gathers signals and produces a
-plan proposal. Execution is the responsibility of the runtime packages.
+The planner does not execute checks and does not query remote providers. It
+only gathers local signals and produces a plan proposal. Execution is the
+runtime's job; remote discovery is a later wave (`runtime-remote`).
 
 ## Goals
 
 1. Discover project context from local filesystem signals with zero
    configuration.
-2. Discover project context from remote provider signals (GitHub, GitLab, cloud
-   credentials) when available.
-3. Produce a `ProjectContext` model that fully describes the project under
-   analysis.
-4. Record every discovery signal with its source and confidence so the plan is
-   explainable and auditable.
-5. Synthesize a plan proposal from discovered context plus any user-supplied
-   workflow definition.
-6. Support monorepo layouts with multiple workspaces and mixed languages.
-7. Detect CI definitions, Dockerfiles, Terraform, and infrastructure-as-code to
-   inform check selection.
-8. Detect package managers, languages, and frameworks to select appropriate
-   built-in checks.
-9. Remain deterministic: identical inputs produce identical `ProjectContext`
-   outputs.
-10. Remain side-effect free: discovery must not mutate the working tree, write
-    files, or make state-changing API calls.
+2. Produce a `ProjectContext` model describing the project under analysis.
+3. Record every discovery signal with its source and confidence so the plan
+   is explainable.
+4. Synthesize a default plan proposal from discovered context when no
+   user-supplied workflow exists.
+5. Detect package managers, languages, dockerfiles, CI definitions, and
+   monorepo layouts to inform default check selection.
+6. Remain deterministic: identical inputs produce identical `ProjectContext`.
+7. Remain side-effect free: discovery reads the filesystem and git only; it
+   never mutates, writes, or calls the network.
 
-## Non-goals (v1)
+## Non-goals (v1 / Wave 6)
 
 - Executing checks or running tools during discovery.
 - Mutating project files or configuration.
-- Implementing full static analysis of source code.
-- Caching remote API responses persistently (in-memory cache only within a
-  single discovery run).
-- Resolving dependency vulnerabilities (that is the responsibility of the
-  `findings` and `checks` packages).
-- Generating CI pipeline files (that is the responsibility of compiler
-  packages).
+- Remote discovery of any kind: GitHub, GitLab, SonarCloud, Dependabot, code
+  scanning, cloud providers. Deferred to a later wave (`runtime-remote`).
+- Cloud credential detection (AWS/GCP/Azure). Deferred.
+- Framework detection (no consumer needs it yet). Deferred.
+- Infrastructure-as-code detection beyond Dockerfile/docker-compose (no
+  consumer needs terraform/k8s/helm yet). Deferred.
+- Loading and executing a user `sverka.config.ts` to map its workflow into
+  proposed checks. That requires executing user code and is tightly coupled
+  to the SDK's Workflow→IR-Plan wiring; deferred to the SDK wave (09).
+- Generating CI pipeline files (compiler packages).
+- Resolving dependency vulnerabilities (`findings`/`checks`).
 
 ## Interfaces
 
 ```typescript
+// src/index.ts — public exports
+
+export { type Planner, type DiscoverOptions, type ProjectContext,
+         type PlanProposal, type ProposedCheck, type LocalSignal,
+         type LocalSignalType, type DetectedLanguage,
+         type DetectedPackageManager, type MonorepoMarker,
+         type ChangedFile, type DiscoveryExplanation } from "./planner.js";
+export { createPlanner } from "./planner.js";
+export { DiscoveryError, type DiscoveryErrorCode } from "./errors.js";
+```
+
+```typescript
+// src/planner.ts
+
 /**
  * Top-level entry point for discovery and plan synthesis.
  */
 export interface Planner {
   /**
-   * Discover project context from local and remote signals.
-   *
-   * @param options Discovery options.
-   * @returns A resolved ProjectContext with all signals recorded.
+   * Discover project context from local signals. Pure: reads the filesystem
+   * and git only; no network, no writes.
    */
   discover(options: DiscoverOptions): Promise<ProjectContext>;
 
   /**
-   * Synthesize a plan proposal from a project context and optional
-   * user-supplied workflow definition.
-   *
-   * @param context The discovered project context.
-   * @param workflowPath Optional path to a sverka.config.ts file.
-   * @returns A plan proposal ready for IR validation.
+   * Synthesize a default plan proposal from a discovered context.
+   * Proposes checks based on detected languages and package managers.
+   * Does not load or execute a user workflow (deferred to SDK wave).
    */
-  plan(context: ProjectContext, workflowPath?: string): Promise<PlanProposal>;
+  plan(context: ProjectContext): Promise<PlanProposal>;
 }
+
+/**
+ * Create a Planner. The git seam (`internal/git-cli.ts`) is mocked in tests
+ * via `vi.mock`; it is not part of the public API.
+ */
+export function createPlanner(): Planner;
 
 /**
  * Options controlling discovery behavior.
  */
 export interface DiscoverOptions {
-  /** Root directory of the project to inspect. */
+  /** Root directory of the project to inspect. Must exist. */
   root: string;
-  /** Git commit SHA to anchor discovery. Defaults to HEAD. */
-  commit?: string;
-  /** Whether to query remote providers. Defaults to true when credentials
-   *  are available. */
-  remote?: boolean;
-  /** Whether to include remote signals that require network access. */
-  remoteSignals?: RemoteSignalType[];
+  /**
+   * Git ref to diff against when computing changedFiles. If omitted,
+   * changedFiles is empty and the explanation notes "no baseRef provided".
+   * Must be a local ref (no network).
+   */
+  baseRef?: string;
   /** Maximum depth for filesystem traversal. Defaults to 10. */
   maxDepth?: number;
-  /** Paths to exclude from discovery (gitignore patterns are always
-   *  respected). */
-  exclude?: string[];
-  /** Provider credentials for remote discovery. */
-  credentials?: ProviderCredentials;
 }
 
 /**
@@ -101,42 +107,34 @@ export interface DiscoverOptions {
 export interface ProjectContext {
   /** Absolute path to the project root. */
   root: string;
-  /** Git commit SHA at discovery time. */
+  /** Git commit SHA at discovery time (HEAD). */
   commit: string;
   /** Whether the working tree has uncommitted changes. */
   dirty: boolean;
-  /** Files that changed relative to the base ref. */
-  changedFiles: ChangedFile[];
+  /** Files that changed relative to baseRef (empty if baseRef omitted). */
+  changedFiles: readonly ChangedFile[];
   /** Detected programming languages with evidence. */
-  languages: DetectedLanguage[];
-  /** Detected frameworks with evidence. */
-  frameworks: DetectedFramework[];
+  languages: readonly DetectedLanguage[];
   /** Detected package managers with evidence. */
-  packageManagers: DetectedPackageManager[];
-  /** Detected infrastructure-as-code and deployment signals. */
-  infrastructure: InfrastructureSignal[];
-  /** Remote provider metadata (GitHub, GitLab, etc.). */
-  providers: ProviderMetadata[];
-  /** Credentials available for remote discovery. */
-  credentials: ProviderCredentials;
-  /** All local signals collected during discovery. */
-  localSignals: LocalSignal[];
-  /** All remote signals collected during discovery. */
-  remoteSignals: RemoteSignal[];
-  /** Monorepo markers if a monorepo layout was detected. */
+  packageManagers: readonly DetectedPackageManager[];
+  /** True when a Dockerfile or docker-compose file was detected. */
+  hasContainerBuild: boolean;
+  /** True when a CI definition was detected. */
+  hasCiDefinition: boolean;
+  /** Monorepo marker if a monorepo layout was detected, else null. */
   monorepo: MonorepoMarker | null;
+  /** All local signals collected during discovery. */
+  localSignals: readonly LocalSignal[];
   /** Human-readable explanation of how the context was assembled. */
   explanation: DiscoveryExplanation;
 }
 
 /**
- * A file that changed relative to a base ref.
+ * A file that changed relative to baseRef.
  */
 export interface ChangedFile {
   path: string;
   status: "added" | "modified" | "deleted" | "renamed";
-  additions: number;
-  deletions: number;
 }
 
 /**
@@ -145,18 +143,9 @@ export interface ChangedFile {
 export interface DetectedLanguage {
   name: string;
   confidence: number;
+  /** File extensions that mapped to this language (e.g. [".ts", ".tsx"]). */
   evidence: string[];
   fileCount: number;
-}
-
-/**
- * A detected framework.
- */
-export interface DetectedFramework {
-  name: string;
-  version: string | null;
-  confidence: number;
-  evidence: string[];
 }
 
 /**
@@ -170,50 +159,21 @@ export interface DetectedPackageManager {
   evidence: string[];
 }
 
+// `name: "other"` is used when a lockfile is present but does not match any
+// known package manager (e.g. a custom vendored lockfile).
+
 /**
- * An infrastructure-as-code or deployment signal.
+ * Marker indicating a monorepo layout.
  */
-export interface InfrastructureSignal {
-  type: "dockerfile" | "docker-compose" | "terraform" | "pulumi" |
-        "kubernetes" | "helm" | "ansible" | "cloudformation" | "serverless";
-  path: string;
-  detail: string | null;
+export interface MonorepoMarker {
+  tool: "nx" | "turborepo" | "lerna" | "pnpm-workspace" | "bun-workspace" |
+        "custom";
+  workspaces: readonly string[];
+  evidence: string[];
 }
 
 /**
- * Metadata about a remote provider.
- */
-export interface ProviderMetadata {
-  provider: "github" | "gitlab" | "bitbucket" | "sonarcloud" | "other";
-  owner: string;
-  repo: string;
-  url: string;
-  defaultBranch: string;
-  isPrivate: boolean;
-}
-
-/**
- * Credentials for remote provider access.
- */
-export interface ProviderCredentials {
-  github?: { token: string; apiUrl?: string };
-  gitlab?: { token: string; apiUrl?: string };
-  sonarcloud?: { token: string; organization: string };
-  cloud?: CloudCredential[];
-}
-
-/**
- * Cloud credential detected in the environment.
- */
-export interface CloudCredential {
-  provider: "aws" | "gcp" | "azure";
-  profile: string | null;
-  region: string | null;
-  detectedFrom: string;
-}
-
-/**
- * A signal collected from the local filesystem.
+ * A signal collected from the local filesystem or git.
  */
 export interface LocalSignal {
   type: LocalSignalType;
@@ -223,55 +183,23 @@ export interface LocalSignal {
 }
 
 export type LocalSignalType =
-  | "file"
   | "manifest"
+  | "lockfile"
   | "dockerfile"
   | "docker-compose"
-  | "terraform"
-  | "git-metadata"
   | "ci-definition"
   | "monorepo-marker"
-  | "lockfile"
-  | "config-file";
-
-/**
- * A signal collected from a remote provider.
- */
-export interface RemoteSignal {
-  type: RemoteSignalType;
-  provider: string;
-  detail: string | null;
-  confidence: number;
-  fetchedAt: string;
-}
-
-export type RemoteSignalType =
-  | "github-metadata"
-  | "gitlab-metadata"
-  | "code-scanning-findings"
-  | "dependabot-alerts"
-  | "sonarcloud-findings"
-  | "pr-metadata"
-  | "cloud-credentials";
-
-/**
- * Marker indicating a monorepo layout.
- */
-export interface MonorepoMarker {
-  tool: "nx" | "turborepo" | "lerna" | "pnpm-workspace" | "bun-workspace" |
-        "rush" | "bazel" | "custom";
-  workspaces: string[];
-  evidence: string[];
-}
+  | "git-metadata";
 
 /**
  * A plan proposal synthesized from context.
  */
 export interface PlanProposal {
   context: ProjectContext;
-  checks: ProposedCheck[];
+  checks: readonly ProposedCheck[];
+  /** Always null in v1 (user workflow loading deferred to SDK wave). */
   workflowPath: string | null;
-  notes: string[];
+  notes: readonly string[];
 }
 
 /**
@@ -281,7 +209,8 @@ export interface ProposedCheck {
   id: string;
   checkId: string;
   reason: string;
-  signalRef: string;
+  /** `${type}:${path}` of the LocalSignal that triggered this check, or null. */
+  signalRef: string | null;
   priority: number;
 }
 
@@ -290,170 +219,154 @@ export interface ProposedCheck {
  */
 export interface DiscoveryExplanation {
   summary: string;
-  steps: DiscoveryStep[];
+  /** Count of signals collected, per type. */
+  signalCounts: Readonly<Record<LocalSignalType, number>>;
 }
+```
 
-/**
- * A single step in the discovery explanation.
- */
-export interface DiscoveryStep {
-  step: string;
-  input: string;
-  output: string;
-  rationale: string;
-}
+```typescript
+// src/errors.ts
 
-/**
- * A signal provider that contributes local or remote signals.
- */
-export interface SignalProvider {
-  readonly name: string;
-  readonly type: "local" | "remote";
-  discover(options: DiscoverOptions): Promise<LocalSignal[] | RemoteSignal[]>;
-}
-
-/**
- * Error thrown when discovery fails.
- */
 export class DiscoveryError extends Error {
-  readonly code: string;
+  readonly code: DiscoveryErrorCode;
   readonly cause: unknown;
-  constructor(message: string, code: string, cause?: unknown) {
+  constructor(message: string, code: DiscoveryErrorCode, cause?: unknown) {
     super(message);
     this.name = "DiscoveryError";
     this.code = code;
     this.cause = cause;
   }
 }
+
+export type DiscoveryErrorCode =
+  | "ROOT_NOT_FOUND"
+  | "GIT_UNAVAILABLE"
+  | "GIT_NOT_A_REPO"
+  | "TRAVERSAL_FAILED";
+```
+
+```typescript
+// src/internal/git-cli.ts (NOT exported — mockable seam)
+
+export interface GitCli {
+  /** Run a git command in root, return stdout. Throws on non-zero exit. */
+  run(args: readonly string[], cwd: string): Promise<string>;
+}
+
+/** Default implementation: spawns `git`. */
+export function createGitCli(): GitCli;
 ```
 
 ## Data models
 
 ### ProjectContext assembly
 
-1. **Local discovery runs first.** Local signal providers are invoked in
-   parallel. Each returns zero or more `LocalSignal` entries with a confidence
-   score (0.0–1.0).
-2. **Signals are aggregated** into `languages`, `frameworks`,
-   `packageManagers`, `infrastructure`, and `monorepo` by correlating signals
-   against known detection rules.
-3. **Remote discovery runs second** (when enabled and credentials are
-   available). Remote signal providers are invoked in parallel with a
-   configurable timeout. Failures are recorded as signals with `confidence: 0`
-   and do not abort discovery.
-4. **Git metadata** is always collected: current commit, dirty state, and
-   changed files relative to the base ref (default: merge-base with default
-   branch).
-5. **Explanation** is assembled from an ordered list of `DiscoveryStep`
-   entries, one per signal provider invocation, recording input, output, and
-   rationale.
+1. **Validate root.** If root does not exist → `ROOT_NOT_FOUND`. If `git` is
+   not on PATH → `GIT_UNAVAILABLE`. If root is not inside a git repo →
+   `GIT_NOT_A_REPO`.
+2. **Enumerate files via git** (`git ls-files` for tracked, `git status
+   --porcelain` for untracked). Git respects `.gitignore`, so no hand-rolled
+   gitignore matching. `maxDepth` filters the result set.
+3. **Collect local signals** by scanning the file list against detection
+   rules (table below). Each match emits a `LocalSignal` with confidence.
+4. **Aggregate signals** into `languages`, `packageManagers`,
+   `hasContainerBuild`, `hasCiDefinition`, and `monorepo`.
+5. **Collect git metadata** via `git rev-parse HEAD`, `git status --porcelain`
+   (dirty), and `git diff --name-status <baseRef>..HEAD` when baseRef is
+   provided.
+6. **Assemble explanation**: a one-line summary plus `signalCounts`.
 
 ### Detection rules
 
 | Signal type | Detection rule | Confidence |
 |---|---|---|
-| `manifest` | Presence of `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`, `build.gradle`, `composer.json` | 1.0 |
-| `dockerfile` | File named `Dockerfile` or matching `*.Dockerfile` | 1.0 |
-| `docker-compose` | File named `docker-compose.yml` or `docker-compose.yaml` | 1.0 |
-| `terraform` | Files matching `*.tf` or `*.tf.json` | 1.0 |
-| `ci-definition` | Files under `.github/workflows/`, `.gitlab-ci.yml`, `.circleci/`, `azure-pipelines.yml`, `Jenkinsfile` | 1.0 |
-| `monorepo-marker` | Presence of `nx.json`, `turbo.json`, `lerna.json`, `pnpm-workspace.yaml`, root `package.json` with `workspaces` field | 1.0 |
-| `lockfile` | `bun.lock`, `bun.lockb`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `Cargo.lock`, `go.sum` | 1.0 |
-| `git-metadata` | `git rev-parse HEAD`, `git status --porcelain`, `git diff --name-only` | 1.0 |
-| `github-metadata` | API call to `/repos/{owner}/{repo}` | 0.9 |
-| `code-scanning-findings` | API call to GitHub code scanning alerts | 0.9 |
-| `dependabot-alerts` | API call to GitHub Dependabot alerts | 0.9 |
-| `sonarcloud-findings` | API call to SonarCloud issues endpoint | 0.9 |
-| `cloud-credentials` | Environment variables `AWS_*`, `GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*` or config files | 0.7 |
+| `manifest` | `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`, `build.gradle`, `composer.json` present | 1.0 |
+| `lockfile` | `bun.lock`, `bun.lockb`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `Cargo.lock`, `go.sum` present | 1.0 |
+| `dockerfile` | file named `Dockerfile` or matching `*.Dockerfile` | 1.0 |
+| `docker-compose` | `docker-compose.yml` or `docker-compose.yaml` | 1.0 |
+| `ci-definition` | `.github/workflows/*.yml`, `.gitlab-ci.yml`, `.circleci/`, `azure-pipelines.yml`, `Jenkinsfile` | 1.0 |
+| `monorepo-marker` | `nx.json`, `turbo.json`, `lerna.json`, `pnpm-workspace.yaml`, or root `package.json` with a `workspaces` field | 1.0 |
+| `git-metadata` | `git rev-parse HEAD`, `git status --porcelain`, `git diff --name-status` | 1.0 |
 
 ### Language detection
 
-Languages are inferred from file extensions and manifest files. The
-`fileCount` field records how many files of that language were found within
-the traversal depth. Confidence is `min(1.0, fileCount / 10)`.
+Languages are inferred from file extensions of the enumerated files.
+`fileCount` is the count of files of that language within traversal depth.
+Confidence is `min(1.0, fileCount / 10)`.
 
-### Framework detection
+### Package manager detection
 
-Frameworks are inferred from dependency entries in manifest files. For
-example, `package.json` dependencies containing `react` produce a
-`DetectedFramework` with `name: "react"` and `version` from the dependency
-range. Confidence is 0.9 for direct dependencies, 0.6 for transitive.
+Package managers are inferred from lockfile presence (table above) and, for
+Node, from the `packageManager` field of `package.json` when present. `version`
+is read from `packageManager` or the lockfile when determinable, else `null`.
+
+### Monorepo detection
+
+`nx.json` → `nx`; `turbo.json` → `turborepo`; `lerna.json` → `lerna`;
+`pnpm-workspace.yaml` → `pnpm-workspace`; root `package.json` with
+`workspaces` and no other marker → `custom` (or `bun-workspace` when
+`packageManager` starts with `bun`). Workspace globs are resolved to the
+workspace paths that exist on disk.
+
+### Plan synthesis (default, no user workflow)
+
+`plan(context)` proposes checks from detected languages and package managers:
+
+| Detected | Proposed check (`checkId`) | Reason |
+|---|---|---|
+| TypeScript/JavaScript + npm/bun/yarn/pnpm | `typecheck`, `lint`, `test` | Node project defaults |
+| Python + pip/poetry/uv | `lint`, `test` | Python project defaults |
+| Rust + cargo | `fmt-check`, `clippy`, `test` | Rust project defaults |
+| Go + go.mod | `vet`, `test` | Go project defaults |
+
+Each proposed check gets a stable `id` (`prop-<sha256 of checkId+reason>`), a
+`signalRef` pointing at the manifest/lockfile signal that triggered it (or
+`null` for pure defaults), and `priority` 2. `notes` records which signals
+drove selection and any skipped categories. When nothing is detected,
+`checks` is empty and `notes` explains that no defaults applied.
 
 ## Error handling
 
-- **`DiscoveryError`** is thrown for unrecoverable failures (missing root
-  directory, git not available, invalid credentials format). The `code` field
-  identifies the failure category:
-  - `ROOT_NOT_FOUND` — the root directory does not exist.
-  - `GIT_UNAVAILABLE` — git is not installed or not on PATH.
-  - `GIT_NOT_A_REPO` — the root is not inside a git repository.
-  - `INVALID_CREDENTIALS` — credentials are malformed.
-  - `REMOTE_TIMEOUT` — a remote provider exceeded the timeout (wrapped, not
-    thrown; recorded as a signal).
-  - `TRAVERSAL_FAILED` — filesystem traversal encountered a permission error.
-- **Remote signal failures are non-fatal.** If a remote provider returns an
-  error or times out, a `RemoteSignal` with `confidence: 0` and the error
-  message in `detail` is recorded. Discovery continues with remaining
-  providers.
-- **Partial discovery is valid.** If some local signal providers fail, their
-  absence is noted in the explanation but discovery does not abort.
-- All errors include a `cause` field for chaining underlying errors.
-- No `any` types are used; `cause` is typed as `unknown` and narrowed by
-  consumers.
+- **`DiscoveryError`** is thrown for unrecoverable failures. Codes:
+  - `ROOT_NOT_FOUND` — root directory does not exist.
+  - `GIT_UNAVAILABLE` — git not installed / not on PATH.
+  - `GIT_NOT_A_REPO` — root is not inside a git repository.
+  - `TRAVERSAL_FAILED` — filesystem traversal hit a permission error.
+- No remote, no credentials, no timeout codes in v1.
+- All errors include a `cause` field (`unknown`, narrowed by consumers). No
+  `any` types.
 
 ## Test plan
 
-Tests live in `packages/planner/src/__tests__/` and run via `bun test`.
+Tests live in `packages/planner/src/__tests__/` and run via `bun run test`
+(vitest). The git seam (`GitCli`) is mocked in unit tests; a fixture tree is
+built in a temp dir per test.
 
-1. **Local signal detection:**
-   - Manifest files (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`)
-     are detected with correct type and confidence.
-   - Dockerfiles and docker-compose files are detected.
-   - Terraform files are detected.
-   - CI definitions under `.github/workflows/` and `.gitlab-ci.yml` are
-     detected.
-   - Lockfiles are detected and mapped to the correct package manager.
-2. **Language detection:**
-   - File extensions map to correct languages.
-   - `fileCount` and confidence are computed correctly.
-3. **Framework detection:**
-   - Direct dependencies produce confidence 0.9.
-   - Transitive dependencies produce confidence 0.6.
-   - Version is extracted from the dependency range.
-4. **Monorepo detection:**
-   - `nx.json` produces `tool: "nx"`.
-   - `pnpm-workspace.yaml` produces `tool: "pnpm-workspace"`.
-   - Root `package.json` with `workspaces` produces `tool: "custom"` when no
-     other monorepo tool is detected.
-   - Workspace globs are resolved to workspace paths.
-5. **Git metadata:**
-   - Commit SHA, dirty state, and changed files are collected.
-   - Changed files include correct status and line counts.
-6. **Remote signals (mocked):**
-   - GitHub metadata is fetched when a token is provided.
-   - Code scanning findings are fetched and recorded.
-   - Dependabot alerts are fetched and recorded.
-   - SonarCloud findings are fetched when configured.
-   - Remote failures are recorded as signals with `confidence: 0` and do not
-     abort discovery.
-   - Remote discovery is skipped when `remote: false`.
-7. **Cloud credentials:**
-   - AWS credentials detected from environment variables.
-   - GCP credentials detected from `GOOGLE_APPLICATION_CREDENTIALS`.
-   - Azure credentials detected from environment variables.
-8. **Explainability:**
-   - Every signal has a corresponding `DiscoveryStep` in the explanation.
-   - Steps are ordered chronologically.
-   - Each step records input, output, and rationale.
-9. **Determinism:**
-   - Identical inputs produce identical `ProjectContext` outputs (excluding
-     `fetchedAt` timestamps on remote signals).
-10. **Plan synthesis:**
-    - A `PlanProposal` is produced from a `ProjectContext`.
-    - Proposed checks reference the signals that triggered them.
-    - A user-supplied `sverka.config.ts` overrides auto-detected checks.
-11. **Error cases:**
-    - `ROOT_NOT_FOUND` when root does not exist.
-    - `GIT_NOT_A_REPO` when root is not a git repository.
-    - `INVALID_CREDENTIALS` when credentials are malformed.
-    - Filesystem permission errors are caught and recorded.
+1. **Local signal detection:** manifest, lockfile, dockerfile,
+   docker-compose, ci-definition, monorepo-marker signals are detected with
+   correct type and confidence.
+2. **Language detection:** file extensions map to correct languages;
+   `fileCount` and `confidence = min(1, fileCount/10)` are correct.
+3. **Package manager detection:** each lockfile maps to the correct package
+   manager; `packageManager` field overrides lockfile inference; `version`
+   is extracted when available, else `null`.
+4. **Monorepo detection:** `nx.json` → `nx`; `pnpm-workspace.yaml` →
+   `pnpm-workspace`; root `package.json` `workspaces` with no other marker →
+   `custom` (or `bun-workspace` when `packageManager` starts with `bun`);
+   workspace globs resolve to existing paths.
+5. **Git metadata:** commit SHA, dirty state, and changed files (status only)
+   are collected when `baseRef` is provided; `changedFiles` is empty and
+   explanation notes it when `baseRef` is omitted.
+6. **Explainability:** every signal increments `signalCounts`; `summary` is
+   non-empty.
+7. **Determinism:** identical fixture trees + identical git mock outputs
+   produce byte-identical `ProjectContext` (no timestamps in v1).
+8. **Plan synthesis:** a Node project proposes `typecheck`/`lint`/`test`;
+   Python proposes `lint`/`test`; Rust proposes `fmt-check`/`clippy`/`test`;
+   Go proposes `vet`/`test`; an empty context proposes no checks with an
+   explanatory note; proposed check ids are stable and deterministic.
+9. **Error cases:** `ROOT_NOT_FOUND` when root missing; `GIT_UNAVAILABLE`
+   when git mock throws ENOENT; `GIT_NOT_A_REPO` when `git rev-parse`
+   fails; `TRAVERSAL_FAILED` when a read throws EACCES.
+10. **Side-effect freedom:** discover() does not write any file under root
+    (assert no new files after run in a temp fixture).

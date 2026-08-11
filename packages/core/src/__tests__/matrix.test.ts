@@ -2,37 +2,56 @@ import { describe, it, expect } from "vitest";
 import { run } from "../composables/run.js";
 import { matrix } from "../composables/matrix.js";
 import { workflow } from "../composables/workflow.js";
-import { CompositionError } from "../errors.js";
 import { makePlanRuntime } from "./helpers/runtime.js";
+import { computeOperationId } from "../internal/ids.js";
+
+const OP_ID_RE = /^op-[0-9a-f]{64}$/;
 
 describe("matrix expansion", () => {
-  it("produces one node per value with distinct ids and MATRIX_<DIM> env", async () => {
+  it("produces one node per value with distinct op- ids and MATRIX_<DIM> env", async () => {
     const op = matrix({ node: ["20", "24"] }, run({ command: "test" }));
     const wf = workflow("matrix-1d", op);
     const result = await wf.plan(makePlanRuntime());
     expect(result.operations).toHaveLength(2);
-    const ids = result.operations.map((o) => o.id).sort();
-    expect(ids).toEqual(["run:test[node=s:20]", "run:test[node=s:24]"]);
+    const ids = result.operations.map((o) => o.id);
+    for (const id of ids) expect(id).toMatch(OP_ID_RE);
+    expect(new Set(ids).size).toBe(ids.length); // distinct
+    // ids are content-addressed over {kind, name, context:{node, command}}
+    const expected = ["20", "24"].map((v) =>
+      computeOperationId("run", "test", { node: v, command: "test" }),
+    );
+    expect(ids.sort()).toEqual([...expected].sort());
     const envs = result.operations.map((o) => o.env?.MATRIX_NODE).sort();
     expect(envs).toEqual(["20", "24"]);
   });
 
-  it("multi-dimension cartesian product with joined id suffix", async () => {
+  it("multi-dimension cartesian product with distinct op- ids", async () => {
     const op = matrix({ node: ["20", "24"], os: ["linux", "macos"] }, run({ command: "test" }));
     const wf = workflow("matrix-2d", op);
     const result = await wf.plan(makePlanRuntime());
     expect(result.operations).toHaveLength(4);
-    const ids = result.operations.map((o) => o.id).sort();
-    expect(ids).toEqual([
-      "run:test[node=s:20,os=s:linux]",
-      "run:test[node=s:20,os=s:macos]",
-      "run:test[node=s:24,os=s:linux]",
-      "run:test[node=s:24,os=s:macos]",
-    ]);
-    const envs = result.operations
-      .map((spec) => `${spec.env?.MATRIX_NODE}/${spec.env?.MATRIX_OS}`)
-      .sort();
-    expect(envs).toEqual(["20/linux", "20/macos", "24/linux", "24/macos"]);
+    const ids = result.operations.map((o) => o.id);
+    for (const id of ids) expect(id).toMatch(OP_ID_RE);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const spec of result.operations) {
+      expect(spec.env?.MATRIX_NODE).toBeDefined();
+      expect(spec.env?.MATRIX_OS).toBeDefined();
+    }
+  });
+
+  it("cartesian product with multiple values in each dimension", async () => {
+    const op = matrix({ node: ["20", "24"], os: ["linux", "macos"] }, run({ command: "test" }));
+    const wf = workflow("matrix-2x2", op);
+    const result = await wf.plan(makePlanRuntime());
+    expect(result.operations).toHaveLength(4);
+    const ids = result.operations.map((o) => o.id);
+    for (const id of ids) expect(id).toMatch(OP_ID_RE);
+    expect(new Set(ids).size).toBe(4); // all distinct
+    // Verify all four env combinations are present
+    const envCombos = result.operations.map(
+      (o) => `${o.env?.MATRIX_NODE}/${o.env?.MATRIX_OS}`,
+    ).sort();
+    expect(envCombos).toEqual(["20/linux", "20/macos", "24/linux", "24/macos"]);
   });
 
   it("children inherit predecessors from the template", async () => {
@@ -41,10 +60,11 @@ describe("matrix expansion", () => {
     const matrixed = matrix({ node: ["20", "24"] }, test).after(build);
     const wf = workflow("matrix-deps", matrixed);
     const result = await wf.plan(makePlanRuntime());
-    const children = result.operations.filter((spec) => spec.id.startsWith("run:test["));
-    expect(children).toHaveLength(2);
-    for (const spec of children) {
-      expect(spec.dependsOn).toEqual(["run:build"]);
+    const buildSpec = result.operations.find((o) => o.command === "build")!;
+    const testSpecs = result.operations.filter((o) => o.command === "test");
+    expect(testSpecs.length).toBe(2);
+    for (const spec of testSpecs) {
+      expect(spec.dependsOn).toEqual([buildSpec.id]);
     }
   });
 
@@ -64,32 +84,18 @@ describe("matrix expansion", () => {
     expect(result.operations).toHaveLength(3);
   });
 
-  it("duplicate matrix values raise CompositionError", async () => {
+  it("rejects duplicate matrix values that would produce duplicate ids", async () => {
     const op = matrix({ node: ["20", "20"] }, run({ command: "test" }));
     const wf = workflow("matrix-dup", op);
-    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+    await expect(wf.plan(makePlanRuntime())).rejects.toThrow("duplicate operation id");
   });
 
-  it("delimiter characters in values are escaped in ids", async () => {
-    const op = matrix({ key: ["a,b=c"] }, run({ command: "test" }));
-    const wf = workflow("matrix-escape", op);
-    const result = await wf.plan(makePlanRuntime());
-    expect(result.operations).toHaveLength(1);
-    // The comma and equals in the value should be escaped, not treated as
-    // dimension boundaries.
-    const id = result.operations[0]!.id;
-    expect(id).toContain("a\\,b\\=c");
-  });
-
-  it("number and string values with the same text produce distinct ids", async () => {
-    const op = matrix({ v: [1, "1", true] }, run({ command: "test" }));
+  it("distinguishes values with identical text but different types", async () => {
+    const op = matrix({ node: [1, "1", true] as unknown[] }, run({ command: "test" }));
     const wf = workflow("matrix-types", op);
     const result = await wf.plan(makePlanRuntime());
     expect(result.operations).toHaveLength(3);
-    expect(result.operations.map((o) => o.id).sort()).toEqual([
-      "run:test[v=b:true]",
-      "run:test[v=n:1]",
-      "run:test[v=s:1]",
-    ]);
+    const ids = result.operations.map((o) => o.id);
+    expect(new Set(ids).size).toBe(3);
   });
 });

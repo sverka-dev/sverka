@@ -25,6 +25,7 @@ const NETWORK_POLICIES = new Set(["deny", "allow-host", "allow-egress"]);
 const RETRY_ON_VALUES = new Set(["failure", "timeout"]);
 const GENERATED_BY_VALUES = new Set(["planner", "manual", "compiler"]);
 const MEMORY_SUFFIXES = new Set(["Ki", "Mi", "Gi", "Ti"]);
+const OPERATION_KINDS = new Set(["run", "check", "build", "analyze", "fetch", "publish", "custom"]);
 
 /** Validate sha256 image digest without regex (avoids ReDoS false positive). */
 function isValidImageDigest(s: string): boolean {
@@ -183,9 +184,9 @@ function validateName(p: Record<string, unknown>, errors: ValidationErrorDetail[
 }
 
 function validateSourceContextHash(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
-  const ok = typeof p.sourceContextHash === "string" && p.sourceContextHash.length > 0;
+  const ok = typeof p.sourceContextHash === "string";
   if (!ok) {
-    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a non-empty string" });
+    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a string" });
   }
   return ok;
 }
@@ -208,13 +209,7 @@ function validateCreatedAt(p: Record<string, unknown>, errors: ValidationErrorDe
 /** Recompute the plan id and compare with the declared id. */
 function recomputeId(p: Record<string, unknown>, errors: ValidationErrorDetail[]): void {
   try {
-    const body = {
-      apiVersion: p.apiVersion,
-      name: p.name,
-      sourceContextHash: p.sourceContextHash,
-      operations: p.operations,
-      metadata: p.metadata,
-    };
+    const { id: _id, createdAt: _createdAt, ...body } = p;
     const expected = computePlanId(body as Omit<Plan, "id" | "createdAt">);
     if (expected !== p.id) {
       errors.push({ field: "id", code: "ID_MISMATCH", message: `id does not match recomputed plan id (expected ${expected})` });
@@ -264,9 +259,6 @@ function detectDuplicateIds(ops: readonly PlanOperationView[], idCounts: Map<str
 
 /** Validate acyclic dependency graph (rule 5). */
 function validateAcyclic(ops: readonly PlanOperationView[], errors: ValidationErrorDetail[]): void {
-  const hasUnknownDep = errors.some((e) => e.code === "UNKNOWN_DEPENDENCY");
-  if (hasUnknownDep) return;
-
   const cycleNodes = ops
     .filter((op) => typeof op.id === "string" && Array.isArray(op.dependsOn))
     .map((op) => ({
@@ -309,8 +301,10 @@ function validateOperation(op: PlanOperationView, idSet: Set<string>, errors: Va
 function validateDependsOn(op: PlanOperationView, opId: string | undefined, idSet: Set<string>, errors: ValidationErrorDetail[]): void {
   if (!Array.isArray(op.dependsOn)) return;
   for (const dep of op.dependsOn) {
-    if (typeof dep !== "string" || !idSet.has(dep)) {
-      errors.push(opError(opId, "operations[].dependsOn", "UNKNOWN_DEPENDENCY", `operation depends on unknown id "${String(dep)}"`));
+    if (typeof dep !== "string") {
+      errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must contain only strings"));
+    } else if (!idSet.has(dep)) {
+      errors.push(opError(opId, "operations[].dependsOn", "UNKNOWN_DEPENDENCY", `operation depends on unknown id "${dep}"`));
     }
   }
 }
@@ -387,19 +381,29 @@ function validateCredentials(op: PlanOperationView, opId: string | undefined, er
   }
 }
 
-/** Validate required operation fields (rule 15). */
-function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+/** Validate operation identity fields (rule 15). */
+function validateOperationIdentity(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+  if (typeof op.kind !== "string" || !OPERATION_KINDS.has(op.kind)) {
+    errors.push(opError(opId, "operations[].kind", "INVALID_OPERATION", `operation kind must be one of ${[...OPERATION_KINDS].join(", ")}`));
+  }
   if (typeof op.id !== "string" || op.id.length === 0) {
     errors.push(opError(opId, "operations[].id", "INVALID_OPERATION", "operation id must be a non-empty string"));
   }
+}
+
+/** Validate required operation fields (rule 15). */
+function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+  validateOperationIdentity(op, opId, errors);
   if (typeof op.name !== "string") {
     errors.push(opError(opId, "operations[].name", "INVALID_OPERATION", "operation name must be a string"));
   }
   if (!isPlainObject(op.executor)) {
     errors.push(opError(opId, "operations[].executor", "INVALID_OPERATION", "operation executor must be an object"));
   }
-  if (!Array.isArray(op.dependsOn)) {
-    errors.push(opError(opId, "operations[].dependsOn", "INVALID_OPERATION", "operation dependsOn must be an array"));
+  if (op.dependsOn == null) {
+    errors.push(opError(opId, "operations[].dependsOn", "INVALID_OPERATION", "operation dependsOn is required"));
+  } else if (!Array.isArray(op.dependsOn)) {
+    errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must be an array"));
   }
   if (!Array.isArray(op.credentials)) {
     errors.push(opError(opId, "operations[].credentials", "INVALID_OPERATION", "operation credentials must be an array"));

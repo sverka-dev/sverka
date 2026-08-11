@@ -14,6 +14,7 @@ import {
   cancelledOutcome,
   failureOutcome,
   computeFinalStatus,
+  outcomesHaveRuntimeFailure,
   sleep,
 } from "./internal/scheduler-helpers.js";
 import { executeWithRetry } from "./internal/retry.js";
@@ -309,6 +310,7 @@ export class Scheduler {
   ): Promise<ExecutionResult> {
     const outcomes = this.buildOutcomes(ctx);
     const status = computeFinalStatus(this.cancelled, ctx.fatalFailure, outcomes);
+    const runtimeFailure = outcomesHaveRuntimeFailure(outcomes);
     if (status === "success") await clearPersistedState(this.config.stateStore, ctx.plan.id);
     return {
       planId: ctx.plan.id,
@@ -316,6 +318,7 @@ export class Scheduler {
       outcomes,
       durationMs: Date.now() - start,
       cancelledOperations: [...ctx.cancelledOps],
+      ...(runtimeFailure ? { runtimeFailure: true } : {}),
     };
   }
 

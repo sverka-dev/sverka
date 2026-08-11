@@ -2,108 +2,70 @@
 
 ## Overview
 
-The `compiler-gitlab` package compiles a canonical Sverka plan (Plan IR)
-into a GitLab CI YAML configuration (`.gitlab-ci.yml`). The canonical plan
-is the single source of truth; GitLab CI is a compilation target.
+The `compiler-gitlab` package compiles a canonical Sverka plan (Plan IR) into
+a GitLab CI YAML configuration (`.gitlab-ci.yml`). The canonical plan is the
+single source of truth; GitLab CI is a compilation target.
 
-The initial implementation is a **thin wrapper**: the generated
-configuration installs Sverka and runs `sverka execute .sverka/plan.json`
-in a single job. This ensures parity between local and CI execution. Later,
-the compiler will support **native job expansion** for checks that benefit
-from native CI visibility (separate job entries in the GitLab pipeline
-view, artifact reports, SARIF-compatible output).
+The v1 implementation is a **thin wrapper** (per ADR-004): the generated
+configuration installs Sverka and runs `sverka execute` in a single job. Native
+job expansion is a later optimization, not in scope.
 
 ## Goals
 
-1. Compile a canonical plan to a valid `.gitlab-ci.yml`.
-2. Initial implementation: thin wrapper that runs `sverka execute
-   .sverka/plan.json` in a single job.
-3. Later: native job expansion for selected checks, producing one GitLab CI
-   job per check (or grouped check) for native pipeline visibility.
-4. Map plan stages to GitLab CI `stages` declarations.
-5. Map plan artifacts to GitLab CI `artifacts` and `reports` declarations.
-6. Map plan rules (branch, merge request) to GitLab CI `rules` arrays.
-7. Map plan variables to GitLab CI `variables` declarations.
-8. Produce deterministic, idempotent output: the same plan always compiles
-   to the same YAML.
-9. Validate the generated YAML against GitLab CI schema constraints known
-   to the compiler.
+1. Compile a canonical `Plan` to a valid `.gitlab-ci.yml`.
+2. Thin wrapper: single job runs `sverka execute`.
+3. Map config rules to GitLab CI `rules:` arrays (when the pipeline runs).
+4. Produce deterministic, idempotent output: same plan + config → same YAML.
 
 ## Non-goals
 
-- Replacing the local runtime. The compiler emits a configuration;
-  execution still happens via Sverka.
-- Supporting every GitLab CI feature (dynamic child pipelines, trigger
-  jobs, resource groups, needs chaining) in v1.
-- Generating configurations that bypass Sverka entirely. Native expansion
-  is an optimization, not a replacement.
+- Native job expansion (one job per check). Later optimization (ADR-004).
+- Credential mapping. GitLab CI/CD variables defined in project settings are
+  auto-injected into jobs as `$VAR` — no YAML declaration needed, unlike
+  GitHub Actions which requires explicit `env:` mapping to expose secrets.
+- Replacing the local runtime. The compiler emits YAML; execution is Sverka.
 - Hosting or running the pipeline. The compiler only produces YAML.
 - Managing GitLab project settings, merge request approvals, or protected
   branches.
+- Validating the generated YAML against a GitLab CI schema. The output is
+  valid by construction.
+- SARIF/code-quality report mapping. `sverka execute` does not produce
+  SARIF in v1; GitLab report types are add when it does.
 
 ## Interfaces
 
 ```typescript
 import type { Plan } from "@sverka/ir";
 
-/**
- * Compiler configuration.
- */
+/** Compiler configuration. All fields optional; sensible defaults apply. */
 export interface GitlabCompilerConfig {
-  /** Whether to use thin wrapper (true) or native expansion (false). */
-  readonly mode?: "thin" | "native";
-  /** Sverka version to install in the job. */
-  readonly sverkaVersion?: string;
-  /** Base image for the job, e.g. "node:24". */
+  /**
+   * Base image for the job. Defaults to "oven/bun:latest".
+   * The image must provide the Bun runtime because the generated job runs
+   * `bun install` in `before_script`.
+   */
   readonly image?: string;
-  /** Global variables to declare. */
-  readonly variables?: Readonly<Record<string, string>>;
-  /** Custom stages. If omitted, a default stage list is generated. */
-  readonly stages?: readonly string[];
-  /** Rules for when the pipeline should run. */
+  /** Sverka version to install. Defaults to "latest". */
+  readonly sverkaVersion?: string;
+  /** Rules for when the pipeline should run. Defaults to push + merge request. */
   readonly rules?: readonly GitlabRule[];
 }
 
 export interface GitlabRule {
   readonly if?: string;
-  readonly when?: "on_success" | "on_failure" | "never" | "always" | "manual";
-  readonly changes?: readonly string[];
-  readonly exists?: readonly string[];
+  readonly when?: "on_success" | "never" | "always" | "manual";
 }
 
 /**
- * Result of compilation.
+ * Compile a Plan to a GitLab CI YAML string.
+ *
+ * Pure and synchronous: no I/O, no side effects. The same plan + config
+ * always produces the same YAML.
  */
-export interface GitlabCompileResult {
-  /** Generated .gitlab-ci.yml string. */
-  readonly yaml: string;
-  /** Warnings emitted during compilation. */
-  readonly warnings: readonly CompilerWarning[];
-  /** Mode used: thin or native. */
-  readonly mode: "thin" | "native";
-}
-
-export interface CompilerWarning {
-  readonly code: GitlabCompilerWarningCode;
-  readonly message: string;
-  readonly checkId?: string;
-}
-
-export type GitlabCompilerWarningCode =
-  | "UNSUPPORTED_CHECK_NATIVE"
-  | "MISSING_ARTIFACT_REPORT"
-  | "RULE_FALLBACK"
-  | "STAGE_COLLISION";
-
-/**
- * The compiler.
- */
-export interface GitlabCompiler {
-  compile(plan: Plan, config?: GitlabCompilerConfig): Promise<GitlabCompileResult>;
-}
-
-/** Factory. */
-export function createGitlabCompiler(): GitlabCompiler;
+export function compileGitlabCi(
+  plan: Plan,
+  config?: GitlabCompilerConfig,
+): string;
 ```
 
 ### Thin wrapper output
@@ -112,174 +74,57 @@ export function createGitlabCompiler(): GitlabCompiler;
 stages:
   - verify
 
-variables:
-  SVERKA_VERSION: "latest"
-
 sverka:
   stage: verify
-  image: node:24
+  image: oven/bun:latest
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   before_script:
-    - bun install -g sverka@$SVERKA_VERSION
+    - bun install -g sverka@latest
   script:
-    - sverka execute .sverka/plan.json
+    - sverka execute
   artifacts:
     when: always
     paths:
       - .sverka/output/
-    reports:
-      codequality: .sverka/output/codequality.json
-      junit: .sverka/output/junit.xml
-```
-
-### Native expansion output (later)
-
-```yaml
-stages:
-  - lint
-  - test
-  - security
-
-eslint:
-  stage: lint
-  image: node:24
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  before_script:
-    - bun install -g sverka@$SVERKA_VERSION
-  script:
-    - sverka execute .sverka/plan.json --check eslint
-  artifacts:
-    when: always
-    reports:
-      codequality: .sverka/output/eslint-codequality.json
-
-trivy:
-  stage: security
-  image: node:24
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  before_script:
-    - bun install -g sverka@$SVERKA_VERSION
-  script:
-    - sverka execute .sverka/plan.json --check trivy
-  artifacts:
-    when: always
-    reports:
-      container_scanning: .sverka/output/trivy-scanning.json
 ```
 
 ## Data models
 
-### Compilation mode selection
+### Default config
 
-| Condition                              | Mode   | Behavior                                      |
-|----------------------------------------|--------|-----------------------------------------------|
-| Default                                | thin   | Single job runs `sverka execute`              |
-| `config.mode === "native"`            | native | One job per check with `--check` flag         |
-| Check not supported for native         | native | Falls back to thin for that check, warning    |
+| Field           | Default                                                              |
+|-----------------|----------------------------------------------------------------------|
+| `image`         | `"oven/bun:latest"`                                                  |
+| `sverkaVersion` | `"latest"`                                                           |
+| `rules`         | `[{ if: '$CI_PIPELINE_SOURCE == "push"' }, { if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }]` |
 
-### Stage mapping
+### YAML serialization
 
-| Check category         | GitLab CI stage |
-|------------------------|-----------------|
-| build                  | `build`         |
-| lint                   | `lint`          |
-| test                   | `test`          |
-| typecheck              | `test`          |
-| securityScan           | `security`      |
-| dependencyAudit        | `security`      |
-
-When `config.stages` is provided, the compiler uses those stages. Otherwise
-it derives stages from the check categories in the plan. If two checks map
-to the same stage, they run in parallel within that stage.
-
-### Artifact and report mapping
-
-| Plan artifact          | GitLab CI report type          |
-|------------------------|--------------------------------|
-| SARIF report           | (converted) `codequality`      |
-| Code quality JSON      | `codequality`                  |
-| JUnit XML              | `junit`                        |
-| Container scanning     | `container_scanning`           |
-| Dependency scanning    | `dependency_scanning`          |
-| Secret detection       | `secret_detection`             |
-| Generic findings dir   | `artifacts.paths`              |
-
-GitLab CI does not natively consume SARIF. The compiler emits a
-`MISSING_ARTIFACT_REPORT` warning if a check produces SARIF but no
-GitLab-compatible report is configured. The runtime is responsible for
-converting SARIF to GitLab's code quality JSON format.
-
-### Rules mapping
-
-| Plan rule condition              | GitLab CI rule                          |
-|----------------------------------|-----------------------------------------|
-| Run on push to main              | `if: $CI_COMMIT_BRANCH == "main"`       |
-| Run on merge request             | `if: $CI_PIPELINE_SOURCE == "merge_request_event"` |
-| Run on schedule                  | `if: $CI_PIPELINE_SOURCE == "schedule"` |
-| Changes to specific paths        | `changes: [...]`                        |
-
-If no rules are provided, the compiler defaults to running on push and
-merge request events.
-
-### Variables mapping
-
-Plan-level variables are emitted as global `variables:` entries. Job-level
-variables (in native mode) are emitted under each job's `variables:` key.
-Secret variables are referenced as `$VARIABLE_NAME` and the compiler
-assumes they are defined in the GitLab project CI/CD settings.
+Uses the `yaml` library (eemeli/yaml, already in lockfile). The pipeline
+object is constructed deterministically; `stringify` produces deterministic
+output for deterministic input.
 
 ## Error handling
 
-```typescript
-export class GitlabCompilerError extends Error {
-  constructor(
-    message: string,
-    readonly code: GitlabCompilerErrorCode,
-  ) {
-    super(message);
-    this.name = "GitlabCompilerError";
-  }
-}
-
-export type GitlabCompilerErrorCode =
-  | "INVALID_PLAN"
-  | "UNSUPPORTED_RULE"
-  | "YAML_GENERATION_FAILED"
-  | "NATIVE_EXPANSION_UNAVAILABLE";
-```
-
-- `INVALID_PLAN`: the plan fails IR validation. Compilation aborts.
-- `UNSUPPORTED_RULE`: a rule condition in the config is not supported.
-  Abort.
-- `YAML_GENERATION_FAILED`: the YAML serializer fails. Abort.
-- `NATIVE_EXPANSION_UNAVAILABLE`: `mode: "native"` requested but the check
-  does not support native expansion. The compiler falls back to thin for
-  that check and emits a warning, unless the entire plan requires native and
-  none support it, in which case it throws.
-
-Warnings are non-fatal and returned in `GitlabCompileResult.warnings`.
+No custom error class. The compiler is a pure function operating on a
+validated `Plan`. If the `yaml` serializer fails (should not happen for
+well-formed input), the native `Error` propagates.
 
 ## Test plan
 
-- Unit tests for thin wrapper compilation: given a minimal plan, the
-  generated YAML contains the expected job, stages, rules, and artifacts.
-- Unit tests for stage mapping: each check category maps to the correct
-  stage.
-- Unit tests for artifact and report mapping: code quality, JUnit, and
-  container scanning reports are present when the plan declares them.
-- Unit tests for rules mapping: push, merge request, schedule, and changes
-  rules produce correct `rules:` arrays.
-- Unit tests for variables: global and job-level variables appear in
-  output.
-- Unit tests for native expansion: one job per check, each with `--check`
-  flag and appropriate report.
-- Unit tests for fallback: unsupported native check falls back to thin with
-  a warning.
-- Determinism test: compiling the same plan twice produces identical YAML.
-- Snapshot tests for representative plans.
-- Tests run via `bun test`.
-- No `any` types; all test inputs use typed `Plan` objects.
+1. **Minimal plan, default config:** YAML contains `stages: [verify]`,
+   `sverka` job with `stage: verify`, `image: oven/bun:latest`, default rules
+   (push + merge_request_event), `before_script: bun install -g
+   sverka@latest`, `script: sverka execute`,
+   `artifacts: when: always, paths: [.sverka/output/]`.
+2. **Custom config:** custom image and sverkaVersion reflected in YAML.
+   Custom image should provide Bun so `bun install` succeeds.
+3. **Custom rules:** config with custom `if` conditions and `when` values
+   reflected in `rules:` array.
+4. **Determinism:** same plan + config compiled twice → identical YAML.
+5. **Empty operations:** plan with empty `operations` array → valid YAML
+   (job still runs `sverka execute`, which handles empty plans).
+6. Tests run via `vitest` (not `bun test`).
+7. No `any` types; all test inputs use typed `Plan` objects.

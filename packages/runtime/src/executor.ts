@@ -23,6 +23,12 @@ export interface ExecuteResult {
   readonly logs: string;
   readonly artifacts: readonly string[];
   readonly error?: string;
+  /**
+   * True when the operation failed because of an executor-level fault
+   * (e.g., the binary could not be spawned) rather than the operation's own
+   * non-zero exit code. Distinguishes runtime errors from policy failures.
+   */
+  readonly runtimeFailure?: boolean;
 }
 
 /**

@@ -22,6 +22,22 @@ describe("Runtime modes", () => {
     expect(result.artifacts).toBeUndefined();
   });
 
+  it("Plan mode preserves false-conditioned operations without evaluating", async () => {
+    const evaluated: string[] = [];
+    const nightly = when("schedule == 'nightly'", run({ command: "full-scan" }));
+    const always = run({ command: "always" });
+    const wf = workflow("plan-cond", pipeline(nightly, always));
+    const result = await wf.plan(
+      makePlanRuntime({ schedule: "ci" }, (spec) => {
+        evaluated.push(spec.id);
+        return { operationId: spec.id, status: "planned", durationMs: 0 };
+      }),
+    );
+    expect(evaluated).toEqual([result.operations[1]!.id]);
+    expect(result.operations).toHaveLength(2);
+    expect(result.operations[0]!.condition).toBe("schedule == 'nightly'");
+  });
+
   it("Execution mode calls evaluate for each non-skipped op", async () => {
     const evaluated: string[] = [];
     const a = run({ command: "a" });
@@ -35,7 +51,10 @@ describe("Runtime modes", () => {
     );
     expect(result.mode).toBe("execute");
     expect(evaluated).toHaveLength(2);
-    expect([...evaluated].sort()).toEqual(["run:a", "run:b"]);
+    // ids are content-addressed op-<64hex>; both evaluated ids match the plan ids
+    const planIds = result.operations.map((o) => o.id);
+    expect([...evaluated].sort()).toEqual([...planIds].sort());
+    for (const id of evaluated) expect(id).toMatch(/^op-[0-9a-f]{64}$/);
   });
 
   it("Compile mode produces a string artifact", async () => {
@@ -45,7 +64,8 @@ describe("Runtime modes", () => {
     expect(result.mode).toBe("compile");
     expect(result.artifacts).toBeDefined();
     expect(result.artifacts).toHaveLength(1);
-    expect(result.artifacts![0]!.content).toBe("run:a");
+    // artifact content is the joined op- ids of evaluated operations
+    expect(result.artifacts![0]!.content).toMatch(/^op-[0-9a-f]{64}$/);
   });
 
   it("skipped condition: evaluate is NOT called, status is 'skipped'", async () => {
@@ -68,26 +88,27 @@ describe("Runtime modes", () => {
     const evaluated: string[] = [];
     const nightly = when("schedule == 'nightly'", run({ command: "full-scan" }));
     const wf = workflow("cond-in", nightly);
-    await wf.plan(
+    const result = await wf.plan(
       makeExecuteRuntime({ schedule: "nightly" }, (spec) => {
         evaluated.push(spec.id);
         return { operationId: spec.id, status: "success", durationMs: 0 };
       }),
     );
-    expect(evaluated).toEqual(["run:full-scan"]);
+    expect(evaluated).toEqual([result.operations[0]!.id]);
+    expect(evaluated[0]).toMatch(/^op-[0-9a-f]{64}$/);
   });
 
   it("no context: all conditions included by default", async () => {
     const evaluated: string[] = [];
     const guarded = when("schedule == 'nightly'", run({ command: "scan" }));
     const wf = workflow("no-ctx", guarded);
-    await wf.plan(
+    const result = await wf.plan(
       makeExecuteRuntime(undefined, (spec) => {
         evaluated.push(spec.id);
         return { operationId: spec.id, status: "success", durationMs: 0 };
       }),
     );
-    expect(evaluated).toEqual(["run:scan"]);
+    expect(evaluated).toEqual([result.operations[0]!.id]);
   });
 
   it("pipeline ordering preserved through execute", async () => {
@@ -96,13 +117,15 @@ describe("Runtime modes", () => {
     const b = run({ command: "b" });
     const c = run({ command: "c" });
     const wf = workflow("ordered", pipeline(a, b, c));
-    await wf.plan(
+    const result = await wf.plan(
       makeExecuteRuntime(undefined, (spec) => {
         order.push(spec.id);
         return { operationId: spec.id, status: "success", durationMs: 0 };
       }),
     );
-    expect(order).toEqual(["run:a", "run:b", "run:c"]);
+    // ordering follows the topo-sorted plan ids: a, b, c by command
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    expect(order).toEqual([byCmd.get("a")!.id, byCmd.get("b")!.id, byCmd.get("c")!.id]);
   });
 
   it("compile mode receives all operations including false-condition ones", async () => {
@@ -118,8 +141,9 @@ describe("Runtime modes", () => {
     );
     // In compile mode, false-condition operations are still passed to the
     // compiler so it can emit them with their condition field.
-    expect(evaluated).toContain("run:full-scan");
-    expect(evaluated).toContain("run:always");
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    expect(evaluated).toContain(byCmd.get("full-scan")!.id);
+    expect(evaluated).toContain(byCmd.get("always")!.id);
     expect(result.operations).toHaveLength(2);
   });
 
@@ -132,15 +156,16 @@ describe("Runtime modes", () => {
     const result = await wf.plan(
       makeExecuteRuntime(undefined, (spec) => {
         evaluated.push(spec.id);
-        if (spec.id === "run:b") {
+        if (spec.command === "b") {
           return { operationId: spec.id, status: "failure", durationMs: 0 };
         }
         return { operationId: spec.id, status: "success", durationMs: 0 };
       }),
     );
     // b fails, c should be cancelled (not evaluated)
-    expect(evaluated).toEqual(["run:a", "run:b"]);
-    const cOutcome = result.outcomes.find((o) => o.operationId === "run:c");
+    const byCmd = new Map(result.operations.map((o) => [o.command, o]));
+    expect(evaluated).toEqual([byCmd.get("a")!.id, byCmd.get("b")!.id]);
+    const cOutcome = result.outcomes!.find((o) => o.operationId === byCmd.get("c")!.id);
     expect(cOutcome?.status).toBe("cancelled");
   });
 
@@ -153,13 +178,15 @@ describe("Runtime modes", () => {
     const result = await wf.plan(
       makeExecuteRuntime(undefined, (spec) => {
         evaluated.push(spec.id);
-        const status = spec.id === "run:b" ? "failure" : "success";
+        const status = spec.command === "b" ? "failure" : "success";
         return { operationId: spec.id, status, durationMs: 0 };
       }),
     );
-    expect(evaluated).toEqual(["run:a", "run:b", "run:c"]);
-    const continueOutcome = result.outcomes.find((o) => o.operationId === "run:c");
-    expect(continueOutcome?.status).toBe("success");
+    expect(evaluated).toEqual(result.operations.map((o) => o.id));
+    const cOutcome = result.outcomes.find((o) =>
+      result.operations.some((op) => op.id === o.operationId && op.command === "c"),
+    );
+    expect(cOutcome?.status).toBe("success");
   });
 
   it("when(condition, parallel(...)) propagates condition to siblings", async () => {

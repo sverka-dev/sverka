@@ -1,21 +1,21 @@
 /**
- * Canonical JSON serialization for content-addressed ID computation
- * (ADR-006).
+ * Canonical JSON serialization — the stable primitive shared by
+ * `computeOperationId` (and, in the `ir` package, `serializePlan` /
+ * `computePlanId`).
  *
- * Rules:
- * - Object keys sorted lexicographically.
- * - Compact output (no indentation, no spaces).
- * - `undefined` values omitted from objects and arrays.
- * - Array order preserved.
- * - `NaN`/`Infinity` serialized as `null` (JSON compatibility).
- * - No external dependency; the `ir` package implements the same
- *   algorithm independently for `serializePlan`.
- */
-
-/**
- * Produce a canonical JSON string for the given value.
- * Keys are sorted lexicographically, `undefined` is omitted, and
- * output is compact.
+ * Rules (per ADR-006 and spec 01-core §ID assignment):
+ * - Object keys sorted lexicographically (ascending UTF-16 code-unit order,
+ *   i.e. default JS string comparison).
+ * - Compact: no whitespace, no indentation, no trailing newline.
+ * - `undefined` object fields are omitted (never serialized).
+ * - Array element order is preserved; `undefined` array elements emit `null`.
+ * - `NaN`, `Infinity`, `-Infinity` are rejected (not valid JSON).
+ * - Strings escaped per JSON.stringify rules, including lone UTF-16 surrogate
+ *   code units.
+ *
+ * Implemented as a manual recursive emitter so the wire format and the hash
+ * input can never drift. This is the single source of truth — the `ir` package
+ * re-exports it from `@sverka/core` rather than maintaining its own copy.
  */
 export function canonicalStringify(value: unknown): string {
   const out: string[] = [];
@@ -65,6 +65,9 @@ function emitScalar(value: unknown, out: string[]): void {
     out.push(Number(value).toString());
     return;
   }
+  if (typeof value === "bigint") {
+    throw new TypeError("canonical JSON does not support bigint");
+  }
   throw new TypeError(
     `canonical JSON does not support value of type ${typeof value}`,
   );
@@ -90,8 +93,6 @@ function emitObject(obj: Record<string, unknown>, out: string[]): void {
     if (obj[k] === undefined) continue;
     keys.push(k);
   }
-  // Code-unit order (RFC 8785). Locale-aware comparison is not deterministic
-  // across runtimes and ICU builds.
   keys.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   out.push("{");
   for (let i = 0; i < keys.length; i++) {
@@ -104,6 +105,12 @@ function emitObject(obj: Record<string, unknown>, out: string[]): void {
   out.push("}");
 }
 
+/**
+ * Quote a string per JSON rules. Mirrors JSON.stringify's string escaping:
+ * escapes ", \, and control chars (< 0x20) using short escapes where defined
+ * and \u00XX otherwise. Lone UTF-16 surrogate code units (0xD800–0xDFFF not
+ * part of a valid pair) are escaped as \uXXXX to ensure valid UTF-8 output.
+ */
 const SHORT_ESCAPES: Readonly<Record<string, string>> = {
   '"': '\\"',
   "\\": "\\\\",
@@ -134,6 +141,7 @@ function quoteString(s: string): string {
   return parts.join("");
 }
 
+/** Check if a UTF-16 code unit is a lone surrogate (not part of a valid pair). */
 function isLoneSurrogate(code: number, i: number, s: string): boolean {
   if (code < 0xd800 || code > 0xdfff) return false;
   if (isLowSurrogate(code) && hasValidHighSurrogateBefore(i, s)) return false;
