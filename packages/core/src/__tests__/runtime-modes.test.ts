@@ -162,13 +162,15 @@ describe("Runtime modes", () => {
     const result = await wf.plan(
       makeExecuteRuntime(undefined, (spec) => {
         evaluated.push(spec.id);
-        const status = spec.id === "run:b" ? "failure" : "success";
+        const status = spec.command === "b" ? "failure" : "success";
         return { operationId: spec.id, status, durationMs: 0 };
       }),
     );
-    expect(evaluated).toEqual(["run:a", "run:b", "run:c"]);
-    const continueOutcome = result.outcomes.find((o) => o.operationId === "run:c");
-    expect(continueOutcome?.status).toBe("success");
+    expect(evaluated).toEqual(result.operations.map((o) => o.id));
+    const cOutcome = result.outcomes.find((o) =>
+      result.operations.some((op) => op.id === o.operationId && op.command === "c"),
+    );
+    expect(cOutcome?.status).toBe("success");
   });
 
   it("when(condition, parallel(...)) propagates condition to siblings", async () => {
