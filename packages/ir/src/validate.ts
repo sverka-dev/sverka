@@ -379,14 +379,19 @@ function validateCredentials(op: PlanOperationView, opId: string | undefined, er
   }
 }
 
-/** Validate required operation fields (rule 15). */
-function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+/** Validate operation identity fields (rule 15). */
+function validateOperationIdentity(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (typeof op.kind !== "string" || !OPERATION_KINDS.has(op.kind)) {
     errors.push(opError(opId, "operations[].kind", "INVALID_OPERATION", `operation kind must be one of ${[...OPERATION_KINDS].join(", ")}`));
   }
   if (typeof op.id !== "string" || op.id.length === 0) {
     errors.push(opError(opId, "operations[].id", "INVALID_OPERATION", "operation id must be a non-empty string"));
   }
+}
+
+/** Validate required operation fields (rule 15). */
+function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
+  validateOperationIdentity(op, opId, errors);
   if (typeof op.name !== "string") {
     errors.push(opError(opId, "operations[].name", "INVALID_OPERATION", "operation name must be a string"));
   }
