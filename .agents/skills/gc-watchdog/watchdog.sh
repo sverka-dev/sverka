@@ -40,7 +40,7 @@ count_real_issues() {
   # pipeline. Use `|| true` to swallow grep's no-match exit code so
   # an empty result yields 0, not -1.
   printf '%s\n' "$raw" \
-    | { grep -E '^\s*[○◐●] sv-[a-z0-9]{3,}(\.[0-9]+)?($| )' || true; } \
+    | { grep -E '^\s*[○◐●] sv-[a-z0-9]{3,}(\.[0-9]+)?($|[[:space:]])' || true; } \
     | { grep -vE '^\s*[○◐●] sv-(wisp|nudge)(\.[0-9]+)?($|[[:space:]])' || true; } \
     | wc -l
 }
@@ -60,7 +60,7 @@ while true; do
 
   MAYOR=$(echo "$STATUS" | grep -m1 -wF -- "harness.mayor" | awk '{print $2}')
   SESSIONS=$(echo "$STATUS" | grep "Sessions:" | head -1 | sed 's/^ *//')
-  SUSPENDED=$(echo "$STATUS" | grep -w "Suspended:" | head -1 | awk '{print $2}')
+  SUSPENDED=$(echo "$STATUS" | grep -m1 -w "Suspended:" | awk '{print $2}')
   CONTROLLER=$(echo "$STATUS" | grep "Controller:" | grep -o "supervisor-managed\|stopped\|error" | head -1 || true)
 
   # Handle transient lookup errors (mayor shows "lookup" instead of "awake")
