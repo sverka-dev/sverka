@@ -5,7 +5,7 @@ compiler for software verification.
 
 ## System flow
 
-```
+```text
 Workflow SDK (TypeScript code)
   → Discovery + Planner (project context detection)
   → Canonical Plan IR (stable, serializable DAG)

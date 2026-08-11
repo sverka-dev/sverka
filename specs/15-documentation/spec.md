@@ -345,7 +345,7 @@ export interface ValidationResult {
 
 ### Repository documentation layout
 
-```
+```text
 engdocs/
   user/
     getting-started/

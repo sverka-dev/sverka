@@ -163,3 +163,8 @@ website/node_modules/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Temporary files
+tmp/
+.evidence/
+.opencode/

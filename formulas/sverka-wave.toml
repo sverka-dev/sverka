@@ -40,3 +40,4 @@ id = "finalize"
 title = "Finalize wave"
 description = "Wave is complete. Mayor records completion and prepares next wave."
 needs = ["review"]
+agent = "mayor"

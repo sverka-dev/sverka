@@ -81,7 +81,7 @@ sverka compile --target gitlab
 
 ## Architecture
 
-```
+```text
                  ┌─────────────────────┐
                  │ Workflow SDK / DSL  │
                  └──────────┬──────────┘
@@ -138,7 +138,7 @@ sverka compile --target gitlab
 
 bun install        # install dependencies
 bun run build      # build all packages (tsdown via nx)
-bun test           # run all tests (vitest)
+bun run test       # run all tests (vitest via nx); NOTE: `bun test` runs Bun's built-in runner, not vitest
 bun run lint       # lint all packages (eslint)
 bun run typecheck  # typecheck all packages
 ```
@@ -155,7 +155,7 @@ bun run typecheck  # typecheck all packages
 
 ## Project structure
 
-```
+```text
 packages/     # monorepo packages
 specs/        # numbered spec tree (spec-driven development)
 engdocs/      # engineering docs (architecture, ADRs, contributing)

@@ -7,7 +7,7 @@ decision, every non-trivial design choice is documented here first.
 
 ## Structure
 
-```
+```text
 engdocs/
   README.md           # this file
   architecture/       # architecture overview and component docs
@@ -30,6 +30,8 @@ Consequences, Alternatives.
 - [ADR-002: Use tsdown for builds](./adr/ADR-002-tsdown-build.md)
 - [ADR-003: Canonical Plan IR as source of truth](./adr/ADR-003-canonical-plan-ir.md)
 - [ADR-004: Thin wrapper CI compiler first](./adr/ADR-004-thin-wrapper-ci-compiler.md)
+- [ADR-005: Predecessor-reference resolution model](./adr/ADR-005-predecessor-reference-resolution.md)
+- [ADR-006: SHA-256 content-addressed Plan and Operation IDs](./adr/ADR-006-sha256-content-addressed-plan-ids.md)
 
 ## Contributing
 
