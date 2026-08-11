@@ -143,7 +143,7 @@ export async function loadBaseline(path: string): Promise<Baseline> {
   }
 
   const obj = parsed as Record<string, unknown>;
-  if (obj.version !== BASELINE_VERSION) {
+  if (typeof obj.version !== "number" || obj.version !== BASELINE_VERSION) {
     throw new BaselineError(
       `baseline version must be ${BASELINE_VERSION}, got ${String(obj.version)}`,
       "BASELINE_INVALID",
@@ -161,13 +161,15 @@ export async function loadBaseline(path: string): Promise<Baseline> {
       "BASELINE_INVALID",
     );
   }
+  const createdAt = asString(obj.createdAt);
+  const updatedAt = asString(obj.updatedAt);
 
   return {
-    version: obj.version as number,
+    version: obj.version,
     fingerprints: obj.fingerprints as string[],
     suppressions: obj.suppressions as Suppression[],
-    createdAt: String(obj.createdAt ?? ""),
-    updatedAt: String(obj.updatedAt ?? ""),
+    createdAt,
+    updatedAt,
   };
 }
 
@@ -192,8 +194,16 @@ export async function saveBaseline(
 }
 
 /**
+ * Coerce an unknown JSON value to a string.
+ * Returns the value when it is already a string, otherwise an empty string.
+ */
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+/**
  * Dedupe and sort an array of strings.
  */
 function dedupeSorted(items: readonly string[]): string[] {
-  return [...new Set(items)].sort();
+  return [...new Set(items)].sort((a, b) => a.localeCompare(b));
 }
