@@ -139,36 +139,63 @@ export function validatePlan(plan: unknown): ValidationResult {
 
 /** Validate top-level plan fields: apiVersion, id, structural shape, id recompute. */
 function validateTopLevel(p: Record<string, unknown>, errors: ValidationErrorDetail[]): void {
-  if (p.apiVersion !== "sverka.dev/v1") {
-    errors.push({ field: "apiVersion", code: "INVALID_API_VERSION", message: `apiVersion must be "sverka.dev/v1"` });
-  }
-
-  const idIsNonEmptyString = typeof p.id === "string" && p.id.length > 0;
-  if (!idIsNonEmptyString) {
-    errors.push({ field: "id", code: "ID_MISMATCH", message: "id must be a non-empty string matching computePlanId" });
-  }
-
-  if (typeof p.name !== "string" || p.name.length === 0) {
-    errors.push({ field: "name", code: "INVALID_PLAN", message: "name must be a non-empty string" });
-  }
-  if (typeof p.sourceContextHash !== "string" || p.sourceContextHash.length === 0) {
-    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a non-empty string" });
-  }
-  if (typeof p.createdAt !== "string" || p.createdAt.length === 0 || Number.isNaN(Date.parse(p.createdAt))) {
-    errors.push({ field: "createdAt", code: "INVALID_PLAN", message: "createdAt must be a non-empty ISO 8601 string" });
-  }
+  const apiVersionOk = validateApiVersion(p, errors);
+  const idOk = validatePlanId(p, errors);
+  const nameOk = validateName(p, errors);
+  const sourceContextHashOk = validateSourceContextHash(p, errors);
+  const createdAtOk = validateCreatedAt(p, errors);
 
   const shapeOk =
-    p.apiVersion === "sverka.dev/v1" &&
-    typeof p.name === "string" && p.name.length > 0 &&
-    typeof p.sourceContextHash === "string" && p.sourceContextHash.length > 0 &&
-    typeof p.createdAt === "string" && !Number.isNaN(Date.parse(p.createdAt)) &&
+    apiVersionOk &&
+    nameOk &&
+    sourceContextHashOk &&
+    createdAtOk &&
     Array.isArray(p.operations) &&
     isPlainObject(p.metadata);
 
-  if (shapeOk && idIsNonEmptyString) {
+  if (shapeOk && idOk) {
     recomputeId(p, errors);
   }
+}
+
+function validateApiVersion(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
+  if (p.apiVersion !== "sverka.dev/v1") {
+    errors.push({ field: "apiVersion", code: "INVALID_API_VERSION", message: `apiVersion must be "sverka.dev/v1"` });
+    return false;
+  }
+  return true;
+}
+
+function validatePlanId(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
+  const ok = typeof p.id === "string" && p.id.length > 0;
+  if (!ok) {
+    errors.push({ field: "id", code: "ID_MISMATCH", message: "id must be a non-empty string matching computePlanId" });
+  }
+  return ok;
+}
+
+function validateName(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
+  const ok = typeof p.name === "string" && p.name.length > 0;
+  if (!ok) {
+    errors.push({ field: "name", code: "INVALID_PLAN", message: "name must be a non-empty string" });
+  }
+  return ok;
+}
+
+function validateSourceContextHash(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
+  const ok = typeof p.sourceContextHash === "string" && p.sourceContextHash.length > 0;
+  if (!ok) {
+    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a non-empty string" });
+  }
+  return ok;
+}
+
+function validateCreatedAt(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
+  const ok = typeof p.createdAt === "string" && p.createdAt.length > 0 && !Number.isNaN(Date.parse(p.createdAt));
+  if (!ok) {
+    errors.push({ field: "createdAt", code: "INVALID_PLAN", message: "createdAt must be a non-empty ISO 8601 string" });
+  }
+  return ok;
 }
 
 /** Recompute the plan id and compare with the declared id. */
