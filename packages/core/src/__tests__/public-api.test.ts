@@ -51,7 +51,6 @@ describe("public API surface", () => {
         "concatDedupe",
         "planWorkflow",
         "evaluateCondition",
-        "canonicalStringify",
       ].includes(n),
     );
     expect(internalLeaked).toEqual([]);
@@ -63,5 +62,12 @@ describe("public API surface", () => {
     // from its content. It is part of the stable public contract.
     expect(typeof api.computeOperationId).toBe("function");
     expect(api.computeOperationId("run", "build", {})).toMatch(/^op-[0-9a-f]{64}$/);
+  });
+
+  it("exports canonicalStringify (canonical JSON primitive, ADR-006)", () => {
+    // canonicalStringify is the stable serialization primitive shared by
+    // computeOperationId and the ir package's serializePlan/computePlanId.
+    expect(typeof api.canonicalStringify).toBe("function");
+    expect(api.canonicalStringify({ b: 1, a: 2 })).toBe('{"a":2,"b":1}');
   });
 });

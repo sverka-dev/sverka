@@ -13,9 +13,9 @@ import { canonicalStringify } from "./canonical.js";
  * because each combination yields a distinct `context`. No external hashing
  * library — uses Node's built-in `node:crypto`.
  *
- * The `ir` package implements the same algorithm independently for
- * validation; both reference ADR-006 as the source of truth. The
- * core/ir consistency test guards against drift.
+ * The `ir` package re-exports this function from `@sverka/core` so both
+ * packages produce identical ids by construction. The core/ir consistency
+ * test guards against drift.
  */
 export function computeOperationId(
   kind: OperationKind,
