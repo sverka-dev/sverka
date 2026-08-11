@@ -73,6 +73,20 @@ def sanitize_for_command(value: str) -> str:
     value = value.replace("::", ": :")
     return value.strip()
 
+def encode_property_value(value: str) -> str:
+    """Encode a workflow-command property value.
+
+    GitHub Actions workflow commands parse `::`-delimited properties
+    using `%`, `:`, and `,` as structural characters. Encode them so
+    that values containing these characters do not corrupt the command.
+    """
+    value = re.sub(r"[\x00-\x1f\x7f]+", " ", value)
+    value = value.replace("%", "%25")
+    value = value.replace("\r", "%0D")
+    value = value.replace("\n", "%0A")
+    value = value.replace(":", "%3A")
+    value = value.replace(",", "%2C")
+    return value
 
 def build_title(tool_name, rule_id, properties, entries_by_id):
     """Compose the title field of a workflow-command annotation.
@@ -188,7 +202,7 @@ def build_annotation_line(result, tool_name, entries_by_id):
 
     parts = []
     if file_uri:
-        parts.append("file=" + file_uri)
+        parts.append("file=" + encode_property_value(file_uri))
     if start_line is not None:
         parts.append("line=" + str(start_line))
     if start_col is not None:
@@ -197,7 +211,7 @@ def build_annotation_line(result, tool_name, entries_by_id):
         parts.append("endLine=" + str(end_line))
     if end_col is not None:
         parts.append("endColumn=" + str(end_col))
-    parts.append("title=" + title)
+    parts.append("title=" + encode_property_value(title))
     props = ",".join(parts)
 
     safe_msg = (

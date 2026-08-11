@@ -16,11 +16,14 @@ jobs:
     name: Build, Test, Lint, Typecheck
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0 # Nx needs full history for affected detection
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -92,6 +95,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@e8e594e8799b6bc05d33c13d3d14e484b7b9cbc0 # v3.29.4

@@ -46,10 +46,40 @@ export function matrixChildId(
 }
 
 function formatMatrixValue(v: unknown): string {
-  if (typeof v === "object" && v !== null) {
-    return JSON.stringify(v);
+  // Primitives use String() for backward compatibility.
+  // Objects use a type-tagged representation that distinguishes
+  // Map, Set, Array, and plain objects without collisions.
+  // JSON.stringify maps distinct values (Map, Set, {}, {value:undefined})
+  // to "{}" and throws TypeError for cyclic objects, so we avoid it.
+  if (v === null) return "null";
+  if (v === undefined) return "undefined";
+  if (typeof v === "object") {
+    if (Array.isArray(v)) return `array:${encodeArray(v)}`;
+    if (v instanceof Map) return `map:${encodeMap(v)}`;
+    if (v instanceof Set) return `set:${encodeSet(v)}`;
+    return `object:${encodeObject(v as Record<string, unknown>)}`;
   }
   return String(v);
+}
+
+function encodeArray(arr: unknown[]): string {
+  return `[${arr.map(formatMatrixValue).join(",")}]`;
+}
+
+function encodeMap(m: Map<unknown, unknown>): string {
+  const entries = Array.from(m.entries()).map(([k, val]) => `${formatMatrixValue(k)}:${formatMatrixValue(val)}`);
+  return `{${entries.join(",")}}`;
+}
+
+function encodeSet(s: Set<unknown>): string {
+  const values = Array.from(s).map(formatMatrixValue);
+  return `{${values.join(",")}}`;
+}
+
+function encodeObject(obj: Record<string, unknown>): string {
+  const keys = Object.keys(obj).sort();
+  const entries = keys.map((k) => `${formatMatrixValue(k)}:${formatMatrixValue(obj[k])}`);
+  return `{${entries.join(",")}}`;
 }
 
 /** Validate that a kind is a known {@link OperationKind}. */

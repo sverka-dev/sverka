@@ -33,7 +33,7 @@ are included in the top PR's squash commit).
 Query all open PRs and build chains:
 
 ```bash
-gh pr list --state open --json number,title,baseRefName,headRefName \
+gh pr list --state open --limit 200 --json number,title,baseRefName,headRefName \
   --jq '.[] | "\(.number) \(.headRefName) \(.baseRefName)"'
 ```
 
@@ -48,9 +48,16 @@ Example:
 
 ## Step 2: /act --loop on the TOP PR
 
-### Pre-flight: rebase TOP PR onto main
+### Pre-flight: rebase the full stack, then flatten the TOP PR onto main
 
-The TOP PR must be rebased onto main so its diff includes ALL stack changes:
+First, rebase the entire stack so lower-branch changes cascade into the top branch:
+
+```bash
+gh stack rebase
+gh stack submit
+```
+
+Then, flatten the TOP PR onto main so its diff includes ALL stack changes:
 
 ```bash
 git checkout <top-head-branch>
@@ -93,7 +100,7 @@ gh api repos/sverka-dev/sverka/issues/comments/$COMMENT_ID \
 
 All must be 0 on the same HEAD:
 1. `open_threads == 0`
-2. `CI_REQUIRED_PENDING == 0`
+2. `CI_REQUIRED_PENDING == 0` (all required CI checks must have status COMPLETED with conclusion SUCCESS — failures and action_required are NOT passing)
 3. `SAST_FINDINGS_PENDING == 0`
 4. Bot comment count stable
 5. `mergeable == MERGEABLE`
@@ -140,27 +147,18 @@ After each stack merge + close:
 6. **Time to converge** — how many /act iterations
 7. **Stack size** — PRs merged vs closed
 
-Store:
+Store in Beads only (do NOT use `.gc/retrospects/` or any ad hoc memory files):
+
 ```bash
-mkdir -p .gc/retrospects
-cat >> .gc/retrospects/merge-stack.md << 'EOF'
-## Stack (top=#<N>) — <date>
-- Members: <list>
-- Merged: #<top>
-- Closed: <lower PRs>
-- Iterations: <N>
-- Findings: <list>
-- Pattern: <recurring pattern if any>
-- Lesson: <what to do differently next time>
-EOF
-bd remember "merge-stack retrospect stack top=#<N>: <key findings>"
+bd remember "merge-stack retrospect stack top=#<N> <date>: members=<list> merged=#<top> closed=<lower PRs> iterations=<N> findings=<list> pattern=<recurring pattern if any> lesson=<what to do differently next time>"
 ```
 
 ### Feed back into the loop
 
-Before starting /act on the next stack, read the retrospect log:
+Before starting /act on the next stack, refresh Beads context:
+
 ```bash
-cat .gc/retrospects/merge-stack.md 2>/dev/null
+bd prime
 ```
 
 Apply lessons learned — proactively fix patterns before bots find them.
@@ -196,7 +194,8 @@ After all stacks are merged:
 - **Squash merge only.** Clean history, one commit per stack.
 - **Delete branches after merge/close.** No stale branches.
 - **Escalate on blocker.** Don't loop forever on an unfixable issue.
-- **Read past retrospects before starting /act.** Apply lessons learned.
+- **Bounded retry budget.** Maximum 10 /act iterations and 2 hours per convergence attempt. Use exponential backoff (60s, 120s, 240s). Escalate to the mayor when either limit is reached.
+- **Refresh Beads context before /act.** Run `bd prime` and apply past lessons.
 
 ## Files
 

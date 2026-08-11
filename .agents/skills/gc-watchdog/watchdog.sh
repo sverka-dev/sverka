@@ -22,10 +22,17 @@ ITER=0
 # Status symbols: ○ = open, ◐ = in_progress, ● = blocked, ✓ = closed
 count_real_issues() {
   local status="$1"
-  bd list --status="$status" 2>/dev/null \
-    | grep -E '^\s*[○◐●] sv-[a-z0-9]{4} ' \
-    | grep -v "wisp\|nudge" \
-    | wc -l 2>/dev/null || echo 0
+  local count
+  if ! count=$(
+    bd list --status="$status" 2>/dev/null \
+      | grep -E '^\s*[○◐●] sv-[a-z0-9]{4} ' \
+      | grep -v "wisp\|nudge" \
+      | wc -l 2>/dev/null
+  ); then
+    printf '0\n'
+    return 0
+  fi
+  printf '%s\n' "$count"
 }
 
 while true; do
@@ -65,8 +72,17 @@ while true; do
   if [ "$MAYOR" = "lookup-error" ]; then
     ISSUES="$ISSUES MAYOR_LOOKUP_TIMEOUT"
   fi
-  [ "${SUSPENDED:-no}" != "no" ] && ISSUES="$ISSUES SUSPENDED"
-  [ "${CONTROLLER:-supervisor-managed}" != "supervisor-managed" ] && ISSUES="$ISSUES CONTROLLER(${CONTROLLER:-unknown})"
+  # Treat missing status fields as unknown, not healthy defaults
+  if [ -z "${SUSPENDED:-}" ]; then
+    ISSUES="$ISSUES SUSPENDED_MISSING"
+  elif [ "$SUSPENDED" != "no" ]; then
+    ISSUES="$ISSUES SUSPENDED"
+  fi
+  if [ -z "${CONTROLLER:-}" ]; then
+    ISSUES="$ISSUES CONTROLLER_MISSING"
+  elif [ "$CONTROLLER" != "supervisor-managed" ]; then
+    ISSUES="$ISSUES CONTROLLER($CONTROLLER)"
+  fi
 
   # 4. Report
   if [ -n "$ISSUES" ]; then
