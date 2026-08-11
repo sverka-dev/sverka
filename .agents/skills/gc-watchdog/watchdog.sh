@@ -26,20 +26,22 @@ ITER=0
 # Wisp/nudge beads have IDs like sv-wisp-XXXX or sv-nudge-XXXX.
 # Status symbols: ○ = open, ◐ = in_progress, ● = blocked, ✓ = closed
 # Returns -1 on bd failure (distinct from a legitimate 0 count) so the
-# caller can distinguish "no work" from "lookup failed".
+# caller can distinguish "no work" from "lookup failed". Adds a timeout
+# to bd list so a blocked store cannot stall the watchdog.
 count_real_issues() {
   local status="$1"
-  local count
-  if ! count=$(
-    bd list --status="$status" 2>/dev/null \
-      | grep -E '^\s*[○◐●] sv-[a-z0-9]{4,}($| )' \
-      | grep -vE 'sv-(wisp|nudge)' \
-      | wc -l 2>/dev/null
-  ); then
+  local raw
+  if ! raw=$(timeout 10 bd list --status="$status" 2>/dev/null); then
     printf -- '-1\n'
     return 1
   fi
-  printf '%s\n' "$count"
+  # grep returns 1 when no matches; with pipefail that would fail the
+  # pipeline. Use `|| true` to swallow grep's no-match exit code so
+  # an empty result yields 0, not -1.
+  printf '%s\n' "$raw" \
+    | { grep -E '^\s*[○◐●] sv-[a-z0-9]{4,}($| )' || true; } \
+    | { grep -vE 'sv-(wisp|nudge)' || true; } \
+    | wc -l
 }
 
 while true; do
@@ -67,10 +69,16 @@ while true; do
 
   # 2. bd work counts
   OPEN_COUNT=$(count_real_issues "open")
+  OPEN_FAILED=$?
   INPROG_COUNT=$(count_real_issues "in_progress")
+  INPROG_FAILED=$?
 
   # 3. Check for issues
   ISSUES=""
+  # bd lookup failures are hard issues — don't allow idle exit when store is unreachable
+  if [ "$OPEN_FAILED" -ne 0 ] || [ "$INPROG_FAILED" -ne 0 ]; then
+    ISSUES="$ISSUES BD_LOOKUP_FAILED"
+  fi
   [ -z "$MAYOR" ] && ISSUES="$ISSUES MAYOR_MISSING"
   if [ -n "$MAYOR" ] && [ "$MAYOR" != "awake" ] && [ "$MAYOR" != "running" ] && [ "$MAYOR" != "active" ] && [ "$MAYOR" != "lookup-error" ]; then
     ISSUES="$ISSUES MAYOR($MAYOR)"
@@ -98,10 +106,9 @@ while true; do
     echo "[$TS] #$ITER ✓ mayor:$MAYOR | open:$OPEN_COUNT in_progress:$INPROG_COUNT | ${SESSIONS:-no-sessions}"
   fi
 
-  # 5. Exit condition: no open AND no in-progress real work, mayor healthy.
-  # Note: lookup-error is transient, don't block exit on it — only exit on
-  # clean idle (no real issues, no hard failures). MAYOR_LOOKUP_TIMEOUT is
-  # a soft signal, so strip it from ISSUES before checking the exit condition.
+  # 5. Exit condition: no open AND no in-progress real work, mayor healthy,
+  #    and bd lookups succeeded. Soft signals (MAYOR_LOOKUP_TIMEOUT) are
+  #    stripped; hard signals (BD_LOOKUP_FAILED) prevent idle exit.
   HARD_ISSUES="${ISSUES// MAYOR_LOOKUP_TIMEOUT/}"
   if [ "$OPEN_COUNT" -eq 0 ] && [ "$INPROG_COUNT" -eq 0 ] && [ -z "$HARD_ISSUES" ]; then
     echo "[$TS] #$ITER IDLE — no open work, no in-progress work. Watchdog exiting."

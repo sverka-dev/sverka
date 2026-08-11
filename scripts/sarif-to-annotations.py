@@ -41,9 +41,11 @@ LEVEL_MAP = {
 
 
 def collect_entries(runs):
-    """Index each entry from tool.driver.entries by its identifier."""
+    """Index each rule by (tool_name, rule_id) to avoid cross-tool collisions."""
     entries_by_id = {}
     for run in runs:
+        if not isinstance(run, dict):
+            continue
         driver = run.get("tool", {}).get("driver", {})
         tool_name = driver.get("name", "tool")
         for entry in driver.get("rules", []) or []:
@@ -51,11 +53,13 @@ def collect_entries(runs):
             if not rid:
                 continue
             help_obj = entry.get("help") or {}
-            entries_by_id[rid] = {
+            default_level = (entry.get("defaultConfiguration") or {}).get("level")
+            entries_by_id[(tool_name, rid)] = {
                 "tool":  tool_name,
                 "short": entry.get("shortDescription", {}).get("text", ""),
                 "full":  entry.get("fullDescription", {}).get("text", ""),
                 "help":  help_obj.get("text", ""),
+                "default_level": default_level,
             }
     return entries_by_id
 
@@ -114,7 +118,7 @@ def build_title(tool_name, rule_id, properties, entries_by_id):
 
     category = (properties or {}).get("category")
     if not category:
-        rule = entries_by_id.get(rule_id, {})
+        rule = entries_by_id.get((tool_name, rule_id), {})
         category = rule.get("short") or rule.get("full")
     if category:
         parts.append(": " + category)
@@ -197,9 +201,14 @@ def parse_location(result):
 
 def build_annotation_line(result, tool_name, entries_by_id):
     """Build one GitHub workflow-command line for a single SARIF result."""
-    ann_level = LEVEL_MAP.get(result.get("level", "warning"), LEVEL_MAP["warning"])
-
     rule_id = result.get("ruleId", "?")
+    # Resolve effective level: result.level → rule.defaultConfiguration.level → "warning"
+    result_level = result.get("level")
+    if not result_level:
+        rule = entries_by_id.get((tool_name, rule_id), {})
+        result_level = rule.get("default_level") or "warning"
+    ann_level = LEVEL_MAP.get(result_level, LEVEL_MAP["warning"])
+
     properties = result.get("properties") or {}
     message = result.get("message", {}).get("text", "(no message)")
 
@@ -259,7 +268,20 @@ def main():
         )
         sys.exit(2)
 
+    # Validate SARIF structure: root must be an object with a list-valued runs.
+    if not isinstance(data, dict):
+        print(
+            "::error title=sarif-to-annotations::root is not a JSON object",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     runs = data.get("runs") or []
+    if not isinstance(runs, list):
+        print(
+            "::error title=sarif-to-annotations::runs is not a list",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     if not runs:
         sys.exit(0)
 
@@ -269,8 +291,16 @@ def main():
     out_lines = []
 
     for run in runs:
+        if not isinstance(run, dict):
+            print(
+                "::error title=sarif-to-annotations::run entry is not an object",
+                file=sys.stderr,
+            )
+            sys.exit(2)
         tool_name = run.get("tool", {}).get("driver", {}).get("name", "tool")
         for result in run.get("results") or []:
+            if not isinstance(result, dict):
+                continue
             line, is_error = build_annotation_line(result, tool_name, entries_by_id)
             out_lines.append(line)
             if is_error:
