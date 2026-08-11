@@ -327,6 +327,6 @@ function createExecutor(
   return new HostExecutor({
     enabled: true,
     allowlist: allowAllCommands,
-    envAllowlist: [],
+    envAllowlist: ["PATH"],
   });
 }
