@@ -123,15 +123,30 @@ function buildPlanOperation(
   } as PlanOperation;
 }
 
+type DefaultedField =
+  | "dependsOn"
+  | "network"
+  | "credentials"
+  | "timeoutSeconds"
+  | "continueOnError";
+
+const DEFAULTS: Required<Pick<PlanOperation, DefaultedField>> = {
+  dependsOn: [],
+  network: "deny",
+  credentials: [],
+  timeoutSeconds: 300,
+  continueOnError: false,
+};
+
 /** Resolve fields with default values to reduce buildPlanOperation complexity. */
 function resolveDefaults(spec: OperationSpec): Partial<PlanOperation> {
-  return {
-    dependsOn: spec.dependsOn ?? [],
-    network: spec.network ?? "deny",
-    credentials: spec.credentials ?? [],
-    timeoutSeconds: spec.timeoutSeconds ?? 300,
-    continueOnError: spec.continueOnError ?? false,
-  };
+  const result: Partial<PlanOperation> = {};
+  for (const key of Object.keys(DEFAULTS) as DefaultedField[]) {
+    const specValue = (spec as unknown as Record<string, unknown>)[key];
+    (result as unknown as Record<string, unknown>)[key] =
+      specValue === undefined ? DEFAULTS[key] : specValue;
+  }
+  return result;
 }
 
 function optionalFields(spec: OperationSpec): Partial<PlanOperation> {
