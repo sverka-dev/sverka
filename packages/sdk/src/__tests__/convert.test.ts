@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { createRequire } from "node:module";
 import { pipeline, run, task, workflow, validatePlan } from "../index.js";
+
+const { version: packageVersion } = createRequire(import.meta.url)("../../package.json") as { version: string };
 import { PlanRuntime } from "../internal/plan-runtime.js";
 import { convertToPlan } from "../convert.js";
 
@@ -60,6 +63,15 @@ describe("convertToPlan", () => {
     expect(retry.retryOn).toEqual(["failure", "timeout"]);
   });
 
+  it("clamps retries:0 to maxAttempts:1", async () => {
+    const operations = await makeOperations(
+      "test",
+      pipeline(task("op1", run({ command: "true", retries: 0 }))),
+    );
+    const plan = convertToPlan(operations, { name: "test", executor: "host" });
+    expect(plan.operations[0]!.retry.maxAttempts).toBe(1);
+  });
+
   it("network defaults to 'deny'", async () => {
     const operations = await makeOperations("test", pipeline(task("op1", run({ command: "true" }))));
     const plan = convertToPlan(operations, { name: "test", executor: "host" });
@@ -100,7 +112,7 @@ describe("convertToPlan", () => {
   it("sets metadata with sverkaVersion and generatedBy", async () => {
     const operations = await makeOperations("test", pipeline(task("op1", run({ command: "true" }))));
     const plan = convertToPlan(operations, { name: "test", executor: "host" });
-    expect(plan.metadata.sverkaVersion).toBe("0.1.0");
+    expect(plan.metadata.sverkaVersion).toBe(packageVersion);
     expect(plan.metadata.generatedBy).toBe("manual");
   });
 

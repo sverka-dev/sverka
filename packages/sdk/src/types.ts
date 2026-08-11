@@ -1,5 +1,4 @@
-import type { Workflow, Operation } from "@sverka/core";
-import type { OperationSpec } from "@sverka/core";
+import type { Workflow, Operation, OperationSpec } from "@sverka/core";
 import type { ProjectContext, PlanProposal } from "@sverka/planner";
 import type { Finding } from "@sverka/findings";
 import type { Verdict, PolicyResult, PolicyConfig } from "@sverka/policy";

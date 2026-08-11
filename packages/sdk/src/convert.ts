@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import type {
   OperationSpec,
   CacheDeclaration as CoreCache,
   ArtifactDeclaration as CoreArtifact,
 } from "@sverka/core";
+import { canonicalStringify } from "@sverka/core";
+
+const { version: SVERKA_VERSION } = createRequire(import.meta.url)("../package.json") as { version: string };
 import type {
   Plan,
   PlanOperation,
@@ -38,7 +42,7 @@ export function convertToPlan(
 
   const sourceContextHash = computeSourceContextHash(opts.context);
   const metadata: PlanMetadata = {
-    sverkaVersion: "0.1.0",
+    sverkaVersion: SVERKA_VERSION,
     generatedBy: "manual",
   };
 
@@ -95,7 +99,7 @@ function buildResources(spec: OperationSpec): ResourceLimits {
 
 function buildRetry(spec: OperationSpec): RetryPolicy {
   return {
-    maxAttempts: spec.retries ?? 1,
+    maxAttempts: Math.max(1, spec.retries ?? 1),
     backoffSeconds: 0,
     retryOn: ["failure", "timeout"],
   };
@@ -120,7 +124,7 @@ function buildPlanOperation(
     ...(cache !== undefined ? { cache } : {}),
     artifacts,
     retry,
-  } as PlanOperation;
+  };
 }
 
 type DefaultedField =
@@ -130,23 +134,17 @@ type DefaultedField =
   | "timeoutSeconds"
   | "continueOnError";
 
-const DEFAULTS: Required<Pick<PlanOperation, DefaultedField>> = {
-  dependsOn: [],
-  network: "deny",
-  credentials: [],
-  timeoutSeconds: 300,
-  continueOnError: false,
-};
-
 /** Resolve fields with default values to reduce buildPlanOperation complexity. */
-function resolveDefaults(spec: OperationSpec): Partial<PlanOperation> {
-  const result: Partial<PlanOperation> = {};
-  for (const key of Object.keys(DEFAULTS) as DefaultedField[]) {
-    const specValue = (spec as unknown as Record<string, unknown>)[key];
-    (result as unknown as Record<string, unknown>)[key] =
-      specValue === undefined ? DEFAULTS[key] : specValue;
-  }
-  return result;
+function resolveDefaults(
+  spec: OperationSpec,
+): Required<Pick<PlanOperation, DefaultedField>> {
+  return {
+    dependsOn: spec.dependsOn ?? [],
+    network: spec.network ?? "deny",
+    credentials: spec.credentials ?? [],
+    timeoutSeconds: spec.timeoutSeconds ?? 300,
+    continueOnError: spec.continueOnError ?? false,
+  };
 }
 
 function optionalFields(spec: OperationSpec): Partial<PlanOperation> {
@@ -185,12 +183,13 @@ function computeCacheKey(inputs: readonly string[]): string {
 
 function computeSourceContextHash(context?: ProjectContext): string {
   if (!context) return "";
-  const parts = [
-    context.commit,
-    String(context.dirty),
-    context.changedFiles.map((f) => f.path).join(","),
-  ];
+  const changedFiles = [...context.changedFiles.map((f) => f.path)].sort();
+  const value = {
+    commit: context.commit,
+    dirty: context.dirty,
+    changedFiles,
+  };
   return createHash("sha256")
-    .update(parts.join("|"))
+    .update(canonicalStringify(value))
     .digest("hex");
 }

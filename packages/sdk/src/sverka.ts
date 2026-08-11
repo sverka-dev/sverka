@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { mkdtempSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
 import type { OperationSpec, Workflow, Operation } from "@sverka/core";
@@ -9,8 +10,7 @@ import { validatePlan } from "@sverka/ir";
 import { createPlanner } from "@sverka/planner";
 import type { Planner, ProjectContext } from "@sverka/planner";
 import { Scheduler } from "@sverka/runtime";
-import type { Executor } from "@sverka/runtime";
-import type { ExecutionResult as RuntimeExecutionResult } from "@sverka/runtime";
+import type { Executor, ExecutionResult as RuntimeExecutionResult } from "@sverka/runtime";
 import { HostExecutor } from "@sverka/runtime-host";
 import type { CommandAllowlist } from "@sverka/runtime-host";
 import { DockerExecutor } from "@sverka/runtime-docker";
@@ -19,8 +19,13 @@ import type { Policy } from "@sverka/policy";
 import { loadBaseline, filterOnlyNew } from "@sverka/findings";
 import type { Finding } from "@sverka/findings";
 
-import type { SverkaOptions, Sverka, PlanResult, ExecutionResult } from "./types.js";
-import type { WorkflowDefinition } from "./types.js";
+import type {
+  SverkaOptions,
+  Sverka,
+  PlanResult,
+  ExecutionResult,
+  WorkflowDefinition,
+} from "./types.js";
 import { SdkError } from "./errors.js";
 import { findConfig, loadWorkflow } from "./config.js";
 import { convertToPlan } from "./convert.js";
@@ -169,7 +174,7 @@ async function executePlan(
 ): Promise<RuntimeExecutionResult> {
   const artifactDir = mkdtempSync(join(tmpdir(), "sverka-artifacts-"));
   const cacheDir = mkdtempSync(join(tmpdir(), "sverka-cache-"));
-  const executor = createExecutor(executorType, root, cacheDir);
+  const executor = createExecutor(executorType, cacheDir);
 
   const scheduler = new Scheduler({
     executors: [executor],
@@ -191,6 +196,10 @@ async function executePlan(
     );
   } finally {
     await scheduler.dispose().catch(() => {});
+    await Promise.all([
+      rm(artifactDir, { recursive: true, force: true }).catch(() => {}),
+      rm(cacheDir, { recursive: true, force: true }).catch(() => {}),
+    ]);
   }
 }
 
@@ -235,13 +244,14 @@ async function filterFindings(
   filteredFindings: readonly Finding[];
   baselineFingerprints: readonly string[];
 }> {
-  if (!options.baselinePath || !options.onlyNew) {
+  if (!options.baselinePath) {
     return { filteredFindings: findings, baselineFingerprints: [] };
   }
-  // Baseline filtering.
   const baseline = await loadBaseline(options.baselinePath);
   return {
-    filteredFindings: filterOnlyNew(findings, baseline),
+    filteredFindings: options.onlyNew
+      ? filterOnlyNew(findings, baseline)
+      : findings,
     baselineFingerprints: baseline.fingerprints,
   };
 }
@@ -254,7 +264,7 @@ function mergeOptions(
   defaults: SverkaOptions | undefined,
   callOpts: SverkaOptions | undefined,
 ): SverkaOptions {
-  return { ...(defaults ?? {}), ...(callOpts ?? {}) };
+  return { ...defaults, ...callOpts };
 }
 
 async function resolveConfigPath(
@@ -295,12 +305,11 @@ function isWorkflow(wf: Workflow | Operation): wf is Workflow {
 
 function createExecutor(
   type: "host" | "docker",
-  root: string,
   cacheDir: string,
 ): Executor {
   if (type === "docker") {
     return new DockerExecutor({
-      runAs: "1000:1000",
+      runAs: `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
       cacheDir,
     });
   }

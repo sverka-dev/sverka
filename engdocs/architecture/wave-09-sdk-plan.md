@@ -14,7 +14,7 @@
 
 ## Dependencies (workspace)
 
-```
+```text
 @sverka/core
 @sverka/ir
 @sverka/planner
@@ -29,7 +29,7 @@ No new external dependencies. Node builtins only (`node:fs`, `node:path`, `node:
 
 ## File layout
 
-```
+```text
 packages/sdk/
   package.json          # workspace deps, .mjs/.d.mts dist
   project.json          # nx targets (lint: no --ext)
@@ -100,6 +100,7 @@ Write `task.test.ts`:
 - Equivalent to `run({...}).named("lint")`
 
 Implement in `src/index.ts` (or a small `task.ts`):
+
 ```typescript
 export function task(name: string, op: Operation): Operation {
   return op.named(name);
@@ -115,6 +116,7 @@ Write `define-workflow.test.ts`:
 - Has the correct shape
 
 Implement in `src/types.ts` or `src/index.ts`:
+
 ```typescript
 export function defineWorkflow(d: WorkflowDefinition): WorkflowDefinition {
   return d;

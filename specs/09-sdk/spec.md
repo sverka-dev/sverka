@@ -249,9 +249,14 @@ export default defineWorkflow({
 
 ### Config discovery (`findConfig`)
 
-1. `sverka.config.ts` in `root`.
-2. `sverka.config.ts` in parent directories (up to 5 levels).
-3. `sverka.config.js` as fallback (same search order).
+1. Search starts at `root` and walks up to 5 parent directories.
+2. For each directory, check `sverka.config.ts` first, then `sverka.config.js`
+   as a fallback in the same directory.
+3. Return the first matching file path, or `null` if nothing is found within
+   the 5-level window.
+4. `loadWorkflow(configPath)` imports the selected file via dynamic `import()`.
+   If the import fails, throw `CONFIG_LOAD_FAILED` with the original error as
+   `cause`; do not silently retry a different extension.
 
 If no config is found, Sverka operates in **auto-discovery mode**: the
 planner discovers project context and synthesizes a `PlanProposal` with
@@ -274,16 +279,26 @@ built-in checks based on detected languages and package managers.
 
 1. Discover `ProjectContext` via `@sverka/planner`.
 2. Load the workflow config if present; otherwise auto-discover.
-3. Evaluate the `Workflow` graph → `OperationSpec[]` (plan-mode runtime).
+3. Evaluate the `Workflow` graph → `OperationSpec[]` (plan-mode runtime) when a
+   config is provided.
 4. Convert `OperationSpec[]` → IR `Plan` (fill defaults: executor type
    from `options.executor`, resources, retry, timeout, network).
 5. `validatePlan(plan)`.
 6. Construct `Scheduler` with the selected executor (`HostExecutor` or
    `DockerExecutor`) and run `scheduler.execute(plan)`.
 7. Collect findings (empty array — check providers arrive in wave 11).
-8. If `baselinePath` and `onlyNew`: load baseline, filter findings.
-9. Evaluate findings against policy via `evaluatePolicy`.
-10. Return `ExecutionResult`.
+8. If `baselinePath` is set: load baseline and, when `onlyNew` is true, filter
+   findings to only those whose fingerprints are not present in the baseline.
+9. Pass the loaded `baseline.fingerprints` to `evaluatePolicy` whenever
+   `baselinePath` is set.
+10. Evaluate findings against policy via `evaluatePolicy`.
+11. Return `ExecutionResult`.
+
+**Zero-config behavior:** when no `sverka.config.ts` is found and
+auto-discovery yields a non-empty `PlanProposal`, `execute()` runs the proposed
+checks. The `PlanProposal` is converted to `OperationSpec[]` via the built-in
+check resolver (wave 11). If the proposal produces no resolvable checks,
+throw `SdkError` with code `CONFIG_NOT_FOUND`.
 
 ### OperationSpec → PlanOperation conversion
 
@@ -294,13 +309,13 @@ The SDK maps each `OperationSpec` to a `PlanOperation` with defaults:
 | `id` | `spec.id` |
 | `kind`, `name`, `description`, `command`, `args`, `env`, `workingDir` | direct copy |
 | `dependsOn` | `spec.dependsOn ?? []` |
-| `executor` | `{ type: options.executor ?? "host", image: spec.image, imageDigest: spec.imageDigest }` |
+| `executor` | `{ type: options.executor ?? "host" }` plus `image` and `imageDigest` when present on the spec |
 | `resources` | `{ cpu: spec.cpuLimit ?? "1", memory: spec.memoryLimit ?? "512Mi" }` |
 | `network` | `spec.network ?? "deny"` |
 | `credentials` | `spec.credentials ?? []` |
 | `cache` | `spec.cache` (if present, fill defaults for optional fields) |
 | `artifacts` | `spec.artifacts ?? []` (fill `retain: false` default) |
-| `retry` | `{ maxAttempts: spec.retries ?? 1, backoffSeconds: 0, retryOn: ["failure", "timeout"] }` |
+| `retry` | `{ maxAttempts: Math.max(1, spec.retries ?? 1), backoffSeconds: 0, retryOn: ["failure", "timeout"] }` |
 | `timeoutSeconds` | `spec.timeoutSeconds ?? 300` |
 | `condition` | `spec.condition` |
 | `continueOnError` | `spec.continueOnError ?? false` |
@@ -309,8 +324,8 @@ Plan-level fields:
 - `apiVersion`: `"sverka.dev/v1"`
 - `id`: `computePlanId(plan without id/createdAt)`
 - `name`: from `WorkflowDefinition.name` or `"sverka-plan"`
-- `sourceContextHash`: SHA-256 of `context.commit + context.dirty + changedFilePaths` (empty string if no context)
-- `metadata`: `{ sverkaVersion: "0.1.0", generatedBy: config ? "manual" : "planner" }`
+- `sourceContextHash`: SHA-256 of a canonical JSON encoding of `{ commit, dirty, changedFiles: sortedChangedFilePaths }` (empty string if no context)
+- `metadata`: `{ sverkaVersion: packageJson.version, generatedBy: config ? "manual" : "planner" }`
 - `createdAt`: `new Date().toISOString()`
 
 ### `createSverka` vs top-level functions

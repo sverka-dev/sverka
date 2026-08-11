@@ -1,4 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { plan, createSverka } from "../index.js";
 import { makeTempGitRepo, cleanupTempDir, writeSimpleConfig } from "./helpers/fixtures.js";
 
@@ -34,11 +36,12 @@ describe("plan mode", () => {
   it("no side effects (plan mode does not execute commands)", async () => {
     const dir = await makeTempGitRepo();
     dirs.push(dir);
-    // Use a command that would fail if executed.
-    const configPath = await writeSimpleConfig(dir, "false");
+    // Use a command that would create a marker if executed.
+    const marker = join(dir, "marker.txt");
+    const configPath = await writeSimpleConfig(dir, "touch", [marker]);
     const result = await plan({ root: dir, configPath });
-    // Plan mode should succeed regardless of command — it doesn't execute.
     expect(result.operations.length).toBeGreaterThan(0);
+    expect(existsSync(marker)).toBe(false);
   });
 
   it("createSverka plan works the same as top-level plan", async () => {

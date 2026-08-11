@@ -23,12 +23,14 @@ export async function cleanupTempDir(dir: string): Promise<void> {
 export async function writeSimpleConfig(
   dir: string,
   command = "true",
+  args: readonly string[] = [],
 ): Promise<string> {
   const configPath = join(dir, "sverka.config.ts");
+  const argsText = args.length > 0 ? `, args: ${JSON.stringify(args)}` : "";
   const content = `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
 export default defineWorkflow({
   name: "test",
-  workflow: pipeline(task("op", run({ command: ${JSON.stringify(command)} }))),
+  workflow: pipeline(task("op", run({ command: ${JSON.stringify(command)}${argsText} }))),
 });
 `;
   await writeFile(configPath, content, "utf8");

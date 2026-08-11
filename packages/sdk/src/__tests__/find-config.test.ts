@@ -1,4 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { findConfig } from "../index.js";
 import { makeTempDir, cleanupTempDir, writeSimpleConfig, writeJsConfig, writeNestedConfig } from "./helpers/fixtures.js";
 
@@ -36,18 +38,17 @@ describe("findConfig", () => {
     expect(result).toMatch(/sverka\.config\.js$/);
   });
 
-  it("returns null when no config exists within 5 levels", async () => {
+  it("returns null when the config is beyond 5 parent levels", async () => {
     const dir = await makeTempDir();
     dirs.push(dir);
-    // Create a deep nested structure (7 levels) with no config.
+    // Config lives at the temp root; search starts 7 levels below it.
+    await writeSimpleConfig(dir);
     let deep = dir;
     for (let i = 0; i < 7; i++) {
-      deep = `${deep}/level${i}`;
+      deep = join(deep, `level${i}`);
+      await mkdir(deep, { recursive: true });
     }
     const result = await findConfig(deep);
-    // The search walks up 5 parents. With 7 levels of nesting, the config
-    // would need to be at level >= 2 from root. Since there's no config
-    // anywhere, result should be null.
     expect(result).toBeNull();
   });
 

@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { execute, createSverka } from "../index.js";
 import { makeTempGitRepo, cleanupTempDir, writeSimpleConfig, writeFailingConfig } from "./helpers/fixtures.js";
 
-describe("execute mode", () => {
+describe("execute mode", { timeout: 30_000 }, () => {
   const dirs: string[] = [];
 
   afterEach(async () => {
@@ -33,29 +33,19 @@ describe("execute mode", () => {
     expect(result.findings).toEqual([]);
   });
 
-  it("findings is empty (stub until wave 11)", async () => {
+  it("reports empty findings, a passing policy result, and per-operation outcomes", async () => {
     const dir = await makeTempGitRepo();
     dirs.push(dir);
     const configPath = await writeSimpleConfig(dir, "true");
     const result = await execute({ root: dir, configPath });
-    expect(result.findings).toEqual([]);
-  });
 
-  it("policyResult is from evaluatePolicy([], DEFAULT_POLICY, [])", async () => {
-    const dir = await makeTempGitRepo();
-    dirs.push(dir);
-    const configPath = await writeSimpleConfig(dir, "true");
-    const result = await execute({ root: dir, configPath });
-    // With no findings and DEFAULT_POLICY, verdict should be "pass".
+    // findings is a stub until wave 11.
+    expect(result.findings).toEqual([]);
+
+    // With no findings and DEFAULT_POLICY, the verdict is "pass".
     expect(result.policyResult.verdict).toBe("pass");
     expect(result.policyResult.triggered).toEqual([]);
-  });
 
-  it("outcomes map has entries for each operation", async () => {
-    const dir = await makeTempGitRepo();
-    dirs.push(dir);
-    const configPath = await writeSimpleConfig(dir, "true");
-    const result = await execute({ root: dir, configPath });
     expect(result.outcomes.size).toBeGreaterThan(0);
     for (const outcome of result.outcomes.values()) {
       expect(outcome.operationId).toBeDefined();
