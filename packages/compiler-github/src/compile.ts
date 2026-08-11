@@ -106,7 +106,7 @@ function buildJob(cfg: JobConfig): Record<string, unknown> {
         with: { "node-version": cfg.nodeVersion },
       },
       { uses: "oven-sh/setup-bun@v2", with: { version: "latest" } },
-      { run: `bun install -g sverka@${cfg.sverkaVersion}` },
+      { run: `bun install -g @sverka/cli@${cfg.sverkaVersion}` },
       { run: "sverka execute" },
       {
         uses: "actions/upload-artifact@v4",

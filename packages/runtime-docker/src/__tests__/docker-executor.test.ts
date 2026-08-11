@@ -150,12 +150,11 @@ describe("DockerExecutor.buildDockerArgs — container policy", () => {
     expect(args[args.indexOf("--cpus") + 1]).toBe("0.5");
   });
 
-  it("includes --timeout from timeoutSeconds", () => {
+  it("does not include unsupported docker run --timeout flag", () => {
     const args = exec.buildDockerArgs(
       makeRequest(makeDockerOp({ timeoutSeconds: 60 })),
     );
-    expect(args).toContain("--timeout");
-    expect(args[args.indexOf("--timeout") + 1]).toBe("60");
+    expect(args).not.toContain("--timeout");
   });
 
   it("includes --workdir /workspace", () => {

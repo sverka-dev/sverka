@@ -33,6 +33,7 @@ export class DockerCacheManager implements CacheManager {
   ): Promise<string> {
     const target = this.resolveCachePath(key);
     await mkdir(target, { recursive: true });
+    const workspaceRoot = workspace ?? process.cwd();
     for (const input of inputs) {
       const root = workspace ?? dirname(input);
       const rel = isAbsolute(input) ? relative(root, input) : input;
@@ -42,13 +43,14 @@ export class DockerCacheManager implements CacheManager {
           "CACHE_PATH_ESCAPE",
         );
       }
+      const src = isAbsolute(input) ? input : join(workspaceRoot, input);
       const dest = join(target, rel);
       await mkdir(dirname(dest), { recursive: true });
       // Only copy if the source exists; if not, the cached copy may already
       // be present from a prior run (restore-from-cache semantics).
       try {
-        await stat(input);
-        await copyFile(input, dest);
+        await stat(src);
+        await copyFile(src, dest);
       } catch {
         // Source missing — rely on existing cached copy (if any).
       }

@@ -12,7 +12,7 @@ describe("compileGitlabCi — default config", () => {
     expect(yaml).toContain("image: oven/bun:latest");
     expect(yaml).toContain('$CI_PIPELINE_SOURCE == "push"');
     expect(yaml).toContain('$CI_PIPELINE_SOURCE == "merge_request_event"');
-    expect(yaml).toContain("bun install -g sverka@latest");
+    expect(yaml).toContain("bun install -g @sverka/cli@latest");
     expect(yaml).toContain("sverka execute");
     expect(yaml).not.toContain("sverka execute .sverka/plan.json");
     expect(yaml).toContain("when: always");
@@ -27,7 +27,7 @@ describe("compileGitlabCi — custom config", () => {
       sverkaVersion: "0.1.0",
     });
     expect(yaml).toContain("image: oven/bun:1.2.4");
-    expect(yaml).toContain("bun install -g sverka@0.1.0");
+    expect(yaml).toContain("bun install -g @sverka/cli@0.1.0");
   });
 });
 

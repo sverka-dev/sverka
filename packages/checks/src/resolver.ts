@@ -56,6 +56,7 @@ const NODE_REASON = "Node project defaults";
 const PYTHON_REASON = "Python project defaults";
 const RUST_REASON = "Rust project defaults";
 const GO_REASON = "Go project defaults";
+const KNOWN_REASONS = new Set([NODE_REASON, PYTHON_REASON, RUST_REASON, GO_REASON]);
 
 const TABLE: readonly TableEntry[] = [
   // Node — typecheck
@@ -112,6 +113,9 @@ function findEntry(
 ): ResolvedCheck | null {
   for (const entry of TABLE) {
     if (entry.checkId !== check.checkId) continue;
+    // When the planner supplies a known ecosystem reason, require an exact match
+    // so polyglot projects resolve to the correct tool instead of table order.
+    if (KNOWN_REASONS.has(check.reason) && entry.reason !== check.reason) continue;
     if (!entry.packageManagers.some((pm) => pmNames.includes(pm))) continue;
     if (!isEntryApplicable(entry, ctx.root, rootPkg)) continue;
     const operation: OperationSpec = {

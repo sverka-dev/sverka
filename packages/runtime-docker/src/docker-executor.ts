@@ -96,8 +96,6 @@ export class DockerExecutor implements Executor {
       op.resources.memory,
       "--cpus",
       op.resources.cpu,
-      "--timeout",
-      String(op.timeoutSeconds),
       "--workdir",
       "/workspace",
     ];
@@ -251,6 +249,17 @@ export class DockerExecutor implements Executor {
         logs,
         artifacts: [],
         error: `timeout after ${op.timeoutSeconds}s`,
+      };
+    }
+    if (result.exitCode < 0) {
+      return {
+        operationId: op.id,
+        status: "failure",
+        durationMs,
+        logs,
+        artifacts: [],
+        error: `docker CLI failed: ${result.stderr || "unknown spawn error"}`,
+        runtimeFailure: true,
       };
     }
     const status = result.exitCode === 0 ? "success" : "failure";

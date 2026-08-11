@@ -137,13 +137,12 @@ describe("createBuiltinResolver — multiple package managers", () => {
     expect(r!.operation.args).toEqual(["run", "test"]);
   });
 
-  it("prefers table order over proposal reason in polyglot projects", () => {
+  it("honours proposal reason over table order in polyglot projects", () => {
     const rustCheck = makeCheck("test", "Rust project defaults");
     const r = resolver.resolve(rustCheck, makeContext(["cargo", "bun"]));
     expect(r).not.toBeNull();
-    // Node entries come before Rust in the table, so bun wins.
-    expect(r!.operation.command).toBe("bun");
-    expect(r!.operation.args).toEqual(["run", "test"]);
+    expect(r!.operation.command).toBe("cargo");
+    expect(r!.operation.args).toEqual(["test"]);
   });
 });
 

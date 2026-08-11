@@ -37,7 +37,7 @@ export function compileGitlabCi(
         if (r.when !== undefined) entry.when = r.when;
         return entry;
       }),
-    before_script: [`bun install -g sverka@${sverkaVersion}`],
+    before_script: [`bun install -g @sverka/cli@${sverkaVersion}`],
     script: ["sverka execute"],
     artifacts: { when: "always", paths: [".sverka/output/"] },
   };

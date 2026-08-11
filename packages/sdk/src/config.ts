@@ -38,16 +38,17 @@ export async function loadWorkflow(
   configPath: string,
   root?: string,
 ): Promise<WorkflowDefinition> {
-  if (!existsSync(configPath)) {
+  const resolved = isAbsolute(configPath)
+    ? resolve(configPath)
+    : resolve(root ?? process.cwd(), configPath);
+
+  if (!existsSync(resolved)) {
     throw new SdkError(
       `config file not found: ${configPath}`,
       "CONFIG_NOT_FOUND",
     );
   }
 
-  const resolved = isAbsolute(configPath)
-    ? resolve(configPath)
-    : resolve(root ?? process.cwd(), configPath);
   if (root !== undefined) {
     const rel = relative(resolve(root), resolved);
     if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {

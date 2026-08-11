@@ -9,7 +9,7 @@ describe("compileGithubWorkflow — default config", () => {
     expect(yaml).toContain("name: Sverka");
     expect(yaml).toContain("runs-on: ubuntu-latest");
     expect(yaml).toContain('node-version: "24"');
-    expect(yaml).toContain("bun install -g sverka@latest");
+    expect(yaml).toContain("bun install -g @sverka/cli@latest");
     expect(yaml).toContain("sverka execute");
     expect(yaml).not.toContain("sverka execute .sverka/plan.json");
     expect(yaml).toContain("actions/checkout@v4");
@@ -39,7 +39,7 @@ describe("compileGithubWorkflow — custom config", () => {
     expect(yaml).toContain("name: My CI");
     expect(yaml).toContain("runs-on: ubuntu-24.04");
     expect(yaml).toContain('node-version: "22"');
-    expect(yaml).toContain("bun install -g sverka@0.1.0");
+    expect(yaml).toContain("bun install -g @sverka/cli@0.1.0");
   });
 });
 

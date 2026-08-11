@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import type {
   OperationSpec,
   CacheDeclaration as CoreCache,
@@ -7,7 +7,9 @@ import type {
 } from "@sverka/core";
 import { canonicalStringify } from "@sverka/core";
 
-const { version: SVERKA_VERSION } = createRequire(import.meta.url)("../package.json") as { version: string };
+const SVERKA_VERSION: string = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
+).version;
 import type {
   Plan,
   PlanOperation,
@@ -20,6 +22,7 @@ import type {
 } from "@sverka/ir";
 import { computePlanId } from "@sverka/ir";
 import type { ProjectContext } from "@sverka/planner";
+import { SdkError } from "./errors.js";
 
 export interface ConvertOptions {
   /** Plan name (from WorkflowDefinition.name or default). */
@@ -65,8 +68,9 @@ function convertOperation(
   opts: ConvertOptions,
 ): PlanOperation {
   if (!spec.id || spec.id.length === 0) {
-    throw new Error(
+    throw new SdkError(
       `operation has empty id (kind=${spec.kind}, name=${spec.name})`,
+      "EXECUTION_FAILED",
     );
   }
 
@@ -189,13 +193,12 @@ function computeCacheKey(inputs: readonly string[]): string {
 }
 
 function computeSourceContextHash(context?: ProjectContext): string {
-  if (!context) return "";
-  const changedFiles = [...context.changedFiles.map((f) => f.path)].sort((a, b) =>
-    a.localeCompare(b)
-  );
+  const changedFiles = context
+    ? [...context.changedFiles.map((f) => f.path)].sort((a, b) => a.localeCompare(b))
+    : [];
   const value = {
-    commit: context.commit,
-    dirty: context.dirty,
+    commit: context?.commit ?? "",
+    dirty: context?.dirty ?? false,
     changedFiles,
   };
   return createHash("sha256")

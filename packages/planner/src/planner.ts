@@ -279,7 +279,8 @@ function parseDiffNameStatus(diff: string): ChangedFile[] {
   for (const line of diff.split("\n").filter(Boolean)) {
     const parts = line.split("\t");
     const code = parts[0] ?? "";
-    const path = parts[1] ?? "";
+    // Rename records have the format "R<score>\told\tnew"; use the new path.
+    const path = code.startsWith("R") ? (parts[2] ?? "") : (parts[1] ?? "");
     if (!path) continue;
     out.push({ path, status: diffStatusCode(code) });
   }

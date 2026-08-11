@@ -116,10 +116,10 @@ describe("convertToPlan", () => {
     expect(plan.metadata.generatedBy).toBe("manual");
   });
 
-  it("sourceContextHash is empty string when no context", async () => {
+  it("sourceContextHash is a non-empty hash when no context", async () => {
     const operations = await makeOperations("test", pipeline(task("op1", run({ command: "true" }))));
     const plan = convertToPlan(operations, { name: "test", executor: "host" });
-    expect(plan.sourceContextHash).toBe("");
+    expect(plan.sourceContextHash).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("preserves dependsOn from multi-op pipeline", async () => {

@@ -235,7 +235,7 @@ export class HostExecutor implements Executor {
         });
       });
 
-      child.on("close", (code) => {
+      child.on("close", (code, signal) => {
         if (spawnErrored) {
           // The 'error' event already resolved the promise with a runtime failure.
           return;
@@ -258,8 +258,18 @@ export class HostExecutor implements Executor {
           return;
         }
 
-        // Negative or null exit codes indicate the process could not be spawned
-        // or was terminated by a signal; treat these as runtime failures.
+        if (signal !== null) {
+          resolvePromise({
+            operationId,
+            status: "failure",
+            durationMs,
+            logs,
+            artifacts: [],
+            error: `terminated by signal ${signal}`,
+          });
+          return;
+        }
+
         if (code === null || code < 0) {
           resolvePromise({
             operationId,
