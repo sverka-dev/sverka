@@ -117,6 +117,8 @@ export function validatePlan(plan: unknown): ValidationResult {
 
   if (isPlainObject(p.metadata)) {
     validateMetadata(p.metadata as Record<string, unknown>, errors);
+  } else {
+    errors.push({ field: "metadata", code: "INVALID_METADATA", message: "metadata must be an object" });
   }
 
   const { idSet, idCounts } = collectOperationIds(ops);
@@ -146,10 +148,21 @@ function validateTopLevel(p: Record<string, unknown>, errors: ValidationErrorDet
     errors.push({ field: "id", code: "ID_MISMATCH", message: "id must be a non-empty string matching computePlanId" });
   }
 
+  if (typeof p.name !== "string" || p.name.length === 0) {
+    errors.push({ field: "name", code: "INVALID_PLAN", message: "name must be a non-empty string" });
+  }
+  if (typeof p.sourceContextHash !== "string" || p.sourceContextHash.length === 0) {
+    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a non-empty string" });
+  }
+  if (typeof p.createdAt !== "string" || p.createdAt.length === 0 || Number.isNaN(Date.parse(p.createdAt))) {
+    errors.push({ field: "createdAt", code: "INVALID_PLAN", message: "createdAt must be a non-empty ISO 8601 string" });
+  }
+
   const shapeOk =
     p.apiVersion === "sverka.dev/v1" &&
-    typeof p.name === "string" &&
-    typeof p.sourceContextHash === "string" &&
+    typeof p.name === "string" && p.name.length > 0 &&
+    typeof p.sourceContextHash === "string" && p.sourceContextHash.length > 0 &&
+    typeof p.createdAt === "string" && !Number.isNaN(Date.parse(p.createdAt)) &&
     Array.isArray(p.operations) &&
     isPlainObject(p.metadata);
 

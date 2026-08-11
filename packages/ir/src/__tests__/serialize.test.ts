@@ -1,16 +1,37 @@
 import { describe, it, expect } from "vitest";
 import { serializePlan, deserializePlan } from "../serialize.js";
 import { SerializationError, ValidationError } from "../errors.js";
-import { validPlan, twoOpPlan, dockerOperation } from "./helpers/fixtures.js";
+import { validPlan, validOperation, twoOpPlan, dockerOperation } from "./helpers/fixtures.js";
+
+/** Returns true when s contains whitespace outside of JSON string literals. */
+function hasStructuralWhitespace(s: string): boolean {
+  let inString = false;
+  let escaped = false;
+  for (const ch of s) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString && /\s/.test(ch)) return true;
+  }
+  return false;
+}
 
 describe("serializePlan", () => {
   it("produces a canonical JSON string", () => {
     const out = serializePlan(validPlan());
     expect(typeof out).toBe("string");
     expect(out.startsWith("{")).toBe(true);
-    // compact: no whitespace between tokens
-    expect(out).not.toMatch(/,\s/);
-    expect(out).not.toMatch(/:\s/);
+    // compact: no whitespace outside JSON string literals
+    expect(hasStructuralWhitespace(out)).toBe(false);
   });
 
   it("two identical plans produce byte-identical output", () => {
@@ -64,6 +85,14 @@ describe("serializePlan", () => {
     expect(out).not.toContain('"condition"');
     expect(out).not.toContain('"cache"');
     expect(out).not.toContain('"compiler"');
+  });
+
+  it("throws SerializationError for non-JSON values", () => {
+    const bad = {
+      ...validPlan(),
+      operations: [validOperation({ timeoutSeconds: Number.NaN })],
+    } as ReturnType<typeof validPlan>;
+    expect(() => serializePlan(bad)).toThrow(SerializationError);
   });
 });
 

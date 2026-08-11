@@ -78,12 +78,20 @@ describe("computePlanId", () => {
     expect(computePlanId(a)).not.toBe(computePlanId(b));
   });
 
-  it("ignores id and createdAt (not part of the input type)", () => {
-    // The input type omits id/createdAt entirely, so they cannot influence
-    // the hash. We verify by confirming the function signature accepts the
-    // body without those fields.
-    const id = computePlanId(planBody());
-    expect(typeof id).toBe("string");
+  it("ignores runtime id and createdAt fields", () => {
+    const body = planBody();
+    const first: Plan = {
+      ...body,
+      id: "plan-first",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const second: Plan = {
+      ...body,
+      id: "plan-second",
+      createdAt: "2026-02-01T00:00:00.000Z",
+    };
+
+    expect(computePlanId(first)).toBe(computePlanId(second));
   });
 
   it("matches a manual sha256 over the canonical serialization", () => {

@@ -335,6 +335,7 @@ describe("validatePlan — collects all errors (no short-circuit)", () => {
     // ID_MISMATCH; the operation also has timeout and network violations.
     const plan = {
       ...validPlanBody(),
+      createdAt: "2026-01-01T00:00:00.000Z",
       id: "plan-wrong",
       operations: [
         validOperation({ timeoutSeconds: 0, network: "open" as never }),
