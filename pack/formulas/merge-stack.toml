@@ -1,0 +1,154 @@
+formula = "merge-stack"
+description = "Merge a stack of PRs top-down: /act the top PR, rebase onto main, merge, close lower PRs, advance to next stack, until all flat"
+
+[requires]
+formula_compiler = ">=2.0.0"
+
+[[steps]]
+id = "discover"
+title = "Mayor: discover the PR stacks"
+description = """
+The mayor discovers all open PR stacks by querying `gh pr list --state open --limit 200`
+and building dependency chains from base/head ref names.
+
+For each stack, identify:
+- The TOP PR (the one nothing else depends on — its head is no other PR's base)
+- The BOTTOM PR (base = main)
+
+MERGE ORDER: TOP-DOWN. The top PR is merged FIRST.
+  - Rebase top PR onto main, change its base to main
+  - Squash merge → main gets ALL changes from the entire stack in one commit
+  - Close all lower PRs in the stack (their changes are now in main via the top PR)
+  - Move to the next stack
+
+This is the opposite of bottom-up. Top-down is faster because:
+  - Only one merge per stack (not N merges)
+  - Only one /act convergence per stack (on the top PR)
+  - Lower PRs are closed, not merged (already included)
+
+Output: list of stacks, each with its top PR number and all member PRs.
+Example: Stack A top=#18, members=[#1,#2,#3,#5,#6,#7,#8,#9,#10,#11,#12,#13,#14,#16,#17,#18]
+         Stack B top=#22, members=[#19,#20,#22]
+"""
+agent = "mayor"
+
+[[steps]]
+id = "act-loop"
+title = "Builder: /act --loop on current TOP PR until merge-ready"
+description = """
+The builder runs `/act --loop` on the current stack's TOP PR.
+
+The /act loop MUST converge before merge. Convergence requires ALL:
+1. open_threads == 0 (all review threads resolved)
+2. CI_REQUIRED_PENDING == 0 (all required CI checks pass)
+3. SAST_FINDINGS_PENDING == 0 (no unresolved security/quality findings)
+4. No new bot comments appeared in the last CI run (bot count stable)
+5. PR is mergeable (no conflicts, branch up to date with base)
+6. Quality gates passed (coverage, code quality — if configured)
+7. CodeRabbit review triggered and completed (click checkbox after each push)
+
+CodeRabbit trigger is MANDATORY after every push. CodeRabbit does not
+auto-review non-default branches. Without triggering, review threads
+stay stale and convergence check #4 is meaningless.
+
+PREREQUISITE: Before /act, rebase the full stack and then flatten the TOP PR:
+  gh stack rebase
+  gh stack submit
+  git checkout <top-head-branch>
+  git fetch origin
+  git rebase origin/main
+  git push --force-with-lease
+  gh pr edit <top-PR> --base main
+
+This ensures the top PR's diff includes ALL changes from the entire stack
+(every commit from bottom to top), and merging it brings everything into
+main in one squash commit.
+
+If /act cannot converge (context limit, unfixable issue), the builder
+reports back to the mayor with a blocker report. The mayor decides:
+retry with fresh context, or escalate to human.
+
+RETRY BUDGET: The /act --loop MUST be bounded:
+  - Maximum 10 iterations per convergence attempt
+  - Maximum 2 hours elapsed per convergence attempt
+  - Exponential backoff: 60s, 120s, 240s between retries
+  - When any limit is reached, stop retrying and send a blocker
+    report to the mayor for escalation. Do not loop indefinitely.
+"""
+needs = ["discover"]
+agent = "builder"
+
+[[steps]]
+id = "merge"
+title = "Mayor: merge the clean TOP PR into main"
+description = """
+The mayor merges the TOP PR ONLY after the builder confirms /act convergence
+AND CodeRabbit review completed.
+
+Merge method: squash (clean history, one commit per stack).
+Command:
+  gh pr merge <top-PR> --squash --delete-branch
+
+This single merge brings ALL changes from the entire stack into main.
+
+After merge:
+1. Delete the remote head branch (gh pr merge --delete-branch does this)
+2. Pull main locally: git checkout main && git pull
+3. Close all lower PRs in this stack (their changes are now in main):
+   For each lower PR in the stack:
+     gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
+     git push origin --delete <lower-head-branch> (if not already deleted)
+4. Record merge in bd: bd close <bead-id> if tracking
+
+If merge fails (conflict, CI changed), report back to builder for
+another /act iteration.
+"""
+needs = ["act-loop"]
+agent = "mayor"
+
+[[steps]]
+id = "retrospect"
+title = "Mayor: retrospect (self-learning)"
+description = """
+MANDATORY after each stack merge. This is the self-learning loop.
+
+Capture:
+1. What worked — patterns that made /act converge fast
+2. What didn't — issues that took multiple iterations
+3. Review patterns — common review feedback across PRs
+4. CI patterns — common CI failures and fixes
+5. Bot patterns — CodeRabbit/Codacy/Qodo recurring findings
+6. Time to converge — how many /act iterations
+7. Stack size — how many PRs were in this stack, how many closed vs merged
+
+Store retrospectives in Beads only using `bd remember`. Do NOT use
+.gc/retrospects/ or any ad hoc memory files.
+
+Before starting /act on the next stack's top PR, refresh Beads context
+with `bd prime` and apply lessons learned — proactively fix patterns
+before bots find them.
+"""
+needs = ["merge"]
+agent = "mayor"
+
+[[steps]]
+id = "advance"
+title = "Mayor: advance to next stack or finish"
+description = """
+After retrospect, the mayor checks if there are more stacks to merge.
+If yes:
+  - Take the next stack's TOP PR
+  - Rebase it onto main (which now has the previous stack's changes)
+  - Change its base to main
+  - Loop back to act-loop step with the new top PR
+
+If no more stacks remain:
+  - Run final retrospect (comprehensive: total stacks merged, total PRs
+    closed, total iterations, top patterns, top lessons, recommendations).
+  - Record completion: all stacks flat on main.
+  - Report final status to human.
+
+This is the loop terminator: advance until all stacks are merged.
+"""
+needs = ["retrospect"]
+agent = "mayor"

@@ -1,0 +1,43 @@
+formula = "wave"
+description = "Execute an implementation wave: architect designs, builder implements, reviewer gates"
+
+[requires]
+formula_compiler = ">=2.0.0"
+
+[[steps]]
+id = "design"
+title = "Architect: design spec and plan"
+description = """
+Read the wave spec and produce a detailed implementation plan.
+The architect reads specs/ for the relevant wave, produces or refines
+the spec, and defines interfaces the builder will implement against.
+"""
+agent = "architect"
+
+[[steps]]
+id = "implement"
+title = "Builder: implement from spec (TDD)"
+description = """
+The builder reads the spec and implementation plan, writes failing tests
+first, then implements until all tests pass and the build succeeds.
+"""
+needs = ["design"]
+agent = "builder"
+
+[[steps]]
+id = "review"
+title = "Reviewer: gate quality"
+description = """
+The reviewer checks the implementation against the spec, runs all checks
+(test, build, lint, typecheck), and approves or rejects.
+On rejection, the reviewer reports specific issues back to the mayor.
+"""
+needs = ["implement"]
+agent = "reviewer"
+
+[[steps]]
+id = "finalize"
+title = "Finalize wave"
+description = "Wave is complete. Mayor records completion and prepares next wave."
+needs = ["review"]
+agent = "mayor"

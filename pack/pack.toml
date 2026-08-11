@@ -1,0 +1,19 @@
+# sverka-gc-pack — Reusable Gas City SDD/TDD wave harness.
+#
+# Provides the four-role agent team (mayor/architect/builder/reviewer),
+# wave and address-review formulas, and project doc templates for any
+# spec-driven, test-first monorepo project.
+#
+# A consuming city imports this pack under a binding (e.g. "harness"),
+# then patches agents with append_fragments to inject project-specific
+# context (project name, description, tech stack, wave plan).
+#
+# See pack/README.md for usage.
+
+[pack]
+name = "sverka-gc-pack"
+schema = 2
+version = "0.1.0"
+description = "Reusable Gas City pack: SDD/TDD wave workflow with mayor/architect/builder/reviewer agents, wave and address-review formulas, and project doc templates."
+
+# scope is set per-agent in agents/<name>/agent.toml

@@ -1,0 +1,20 @@
+name: "Sverka CodeQL Config"
+
+# Exclude non-source paths from CodeQL analysis
+paths:
+  - packages
+paths-ignore:
+  - packages/*/dist/**
+  - "**/node_modules/**"
+  - "**/__tests__/**"
+  - "**/*.test.ts"
+  - pack/**
+  - .agents/**
+  - .gc/**
+  - website/**
+  - engdocs/**
+  - specs/**
+
+# Query suite: security-extended (set in workflow)
+queries:
+  - uses: security-extended

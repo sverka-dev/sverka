@@ -1,0 +1,76 @@
+formula = "bootstrap-sdd"
+description = "Bootstrap a spec-driven project: spec tree, engdocs structure, monorepo scaffold, README, website skeleton"
+
+[requires]
+formula_compiler = ">=2.0.0"
+
+[[steps]]
+id = "spec-tree"
+title = "Architect: create numbered spec tree"
+description = """
+Create the full spec tree in specs/ covering the entire project waterfall.
+Each spec is numbered and covers one package or concern.
+The tree must include all packages from the product spec and the website/docs.
+"""
+agent = "architect"
+
+[[steps]]
+id = "engdocs"
+title = "Architect: create engineering docs structure"
+description = """
+Create engdocs/ with architecture overview, ADR template, and contributor
+guide. Document-first means engineering docs are written before code.
+"""
+agent = "architect"
+
+[[steps]]
+id = "monorepo"
+title = "Builder: scaffold monorepo"
+description = """
+Set up the project monorepo with the package manager, build system, testing
+framework, and all package directories from the product spec.
+Create root package.json, build config, tsconfig, and lockfile.
+Each package gets a minimal package.json and src/index.ts stub.
+Follow AGENTS.md for the project's tech stack.
+"""
+needs = ["spec-tree", "engdocs"]
+agent = "builder"
+
+[[steps]]
+id = "readme"
+title = "Builder: write professional README"
+description = """
+Write a professional README.md for the project.
+Must include: project description, features, quick start, installation,
+usage examples, architecture overview, contributing, license.
+"""
+needs = ["monorepo"]
+agent = "builder"
+
+[[steps]]
+id = "website"
+title = "Builder: scaffold minimalistic website"
+description = """
+Scaffold the project website using a modern minimalistic framework.
+The site must be informative but minimal: hero, features, quick start, links to docs.
+"""
+needs = ["monorepo"]
+agent = "builder"
+
+[[steps]]
+id = "review"
+title = "Reviewer: gate bootstrap"
+description = """
+Review all bootstrap deliverables: spec tree completeness, monorepo builds,
+README quality, website runs. Run install, build, test.
+Approve or reject with specific feedback.
+"""
+needs = ["readme", "website"]
+agent = "reviewer"
+
+[[steps]]
+id = "finalize"
+title = "Finalize bootstrap"
+description = "Bootstrap complete. Mayor commits work and prepares first wave."
+needs = ["review"]
+agent = "mayor"
