@@ -168,11 +168,11 @@ describe("compileGitlabCi — default config", () => {
     expect(yaml).toContain("- verify");
     expect(yaml).toContain("sverka:");
     expect(yaml).toContain("stage: verify");
-    expect(yaml).toContain("image: node:24");
+    expect(yaml).toContain("image: oven/bun:latest");
     expect(yaml).toContain('$CI_PIPELINE_SOURCE == "push"');
     expect(yaml).toContain('$CI_PIPELINE_SOURCE == "merge_request_event"');
     expect(yaml).toContain("bun install -g sverka@latest");
-    expect(yaml).toContain("sverka execute .sverka/plan.json");
+    expect(yaml).toContain("sverka execute");
     expect(yaml).toContain("when: always");
     expect(yaml).toContain(".sverka/output/");
   });
@@ -181,10 +181,10 @@ describe("compileGitlabCi — default config", () => {
 describe("compileGitlabCi — custom config", () => {
   it("reflects custom image and sverkaVersion", () => {
     const yaml = compileGitlabCi(makePlan(), {
-      image: "node:22",
+      image: "oven/bun:1.2.4",
       sverkaVersion: "0.1.0",
     });
-    expect(yaml).toContain("image: node:22");
+    expect(yaml).toContain("image: oven/bun:1.2.4");
     expect(yaml).toContain("bun install -g sverka@0.1.0");
   });
 });
@@ -206,21 +206,23 @@ export function compileGitlabCi(
   plan: Plan,
   config?: GitlabCompilerConfig,
 ): string {
-  const image = config?.image ?? "node:24";
+  const image = config?.image ?? "oven/bun:latest";
   const sverkaVersion = config?.sverkaVersion ?? "latest";
   const rules = config?.rules ?? DEFAULT_RULES;
 
   const job: Record<string, unknown> = {
     stage: "verify",
     image,
-    rules: rules.map((r) => {
-      const entry: Record<string, unknown> = {};
-      if (r.if !== undefined) entry.if = r.if;
-      if (r.when !== undefined) entry.when = r.when;
-      return entry;
-    }),
+    rules: rules
+      .filter((r) => r.if !== undefined || r.when !== undefined)
+      .map((r) => {
+        const entry: Record<string, unknown> = {};
+        if (r.if !== undefined) entry.if = r.if;
+        if (r.when !== undefined) entry.when = r.when;
+        return entry;
+      }),
     "before_script": [`bun install -g sverka@${sverkaVersion}`],
-    script: ["sverka execute .sverka/plan.json"],
+    script: ["sverka execute"],
     artifacts: { when: "always", paths: [".sverka/output/"] },
   };
 
@@ -275,7 +277,7 @@ describe("compileGitlabCi — determinism", () => {
 describe("compileGitlabCi — empty operations", () => {
   it("produces valid YAML for empty plan", () => {
     const yaml = compileGitlabCi(makePlan({ operations: [] }));
-    expect(yaml).toContain("sverka execute .sverka/plan.json");
+    expect(yaml).toContain("sverka execute");
     expect(yaml).toContain("sverka:");
   });
 });
@@ -293,6 +295,11 @@ describe("public API", () => {
   });
   it("exports config types (type-only, checked via import)", async () => {
     expect(api).toBeDefined();
+    // Reference both types so compilation fails if either export is removed.
+    const _config: import("../index.js").GitlabCompilerConfig = { image: "oven/bun:latest" };
+    const _rule: import("../index.js").GitlabRule = { if: '$CI_PIPELINE_SOURCE == "push"' };
+    void _config;
+    void _rule;
   });
 });
 ```

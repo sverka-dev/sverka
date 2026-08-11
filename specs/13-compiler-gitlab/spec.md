@@ -7,13 +7,13 @@ a GitLab CI YAML configuration (`.gitlab-ci.yml`). The canonical plan is the
 single source of truth; GitLab CI is a compilation target.
 
 The v1 implementation is a **thin wrapper** (per ADR-004): the generated
-configuration installs Sverka and runs `sverka execute .sverka/plan.json` in
-a single job. Native job expansion is a later optimization, not in scope.
+configuration installs Sverka and runs `sverka execute` in a single job. Native
+job expansion is a later optimization, not in scope.
 
 ## Goals
 
 1. Compile a canonical `Plan` to a valid `.gitlab-ci.yml`.
-2. Thin wrapper: single job runs `sverka execute .sverka/plan.json`.
+2. Thin wrapper: single job runs `sverka execute`.
 3. Map config rules to GitLab CI `rules:` arrays (when the pipeline runs).
 4. Produce deterministic, idempotent output: same plan + config → same YAML.
 
@@ -39,7 +39,11 @@ import type { Plan } from "@sverka/ir";
 
 /** Compiler configuration. All fields optional; sensible defaults apply. */
 export interface GitlabCompilerConfig {
-  /** Base image for the job. Defaults to "node:24". */
+  /**
+   * Base image for the job. Defaults to "oven/bun:latest".
+   * The image must provide the Bun runtime because the generated job runs
+   * `bun install` in `before_script`.
+   */
   readonly image?: string;
   /** Sverka version to install. Defaults to "latest". */
   readonly sverkaVersion?: string;
@@ -72,14 +76,14 @@ stages:
 
 sverka:
   stage: verify
-  image: node:24
+  image: oven/bun:latest
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   before_script:
     - bun install -g sverka@latest
   script:
-    - sverka execute .sverka/plan.json
+    - sverka execute
   artifacts:
     when: always
     paths:
@@ -92,7 +96,7 @@ sverka:
 
 | Field           | Default                                                              |
 |-----------------|----------------------------------------------------------------------|
-| `image`         | `"node:24"`                                                          |
+| `image`         | `"oven/bun:latest"`                                                  |
 | `sverkaVersion` | `"latest"`                                                           |
 | `rules`         | `[{ if: '$CI_PIPELINE_SOURCE == "push"' }, { if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }]` |
 
@@ -111,11 +115,12 @@ well-formed input), the native `Error` propagates.
 ## Test plan
 
 1. **Minimal plan, default config:** YAML contains `stages: [verify]`,
-   `sverka` job with `stage: verify`, `image: node:24`, default rules
+   `sverka` job with `stage: verify`, `image: oven/bun:latest`, default rules
    (push + merge_request_event), `before_script: bun install -g
-   sverka@latest`, `script: sverka execute .sverka/plan.json`,
+   sverka@latest`, `script: sverka execute`,
    `artifacts: when: always, paths: [.sverka/output/]`.
 2. **Custom config:** custom image and sverkaVersion reflected in YAML.
+   Custom image should provide Bun so `bun install` succeeds.
 3. **Custom rules:** config with custom `if` conditions and `when` values
    reflected in `rules:` array.
 4. **Determinism:** same plan + config compiled twice → identical YAML.

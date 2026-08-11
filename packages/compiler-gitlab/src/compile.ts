@@ -13,9 +13,9 @@ const DEFAULT_RULES: readonly GitlabRule[] = [
  * Pure and synchronous: no I/O, no side effects. The same plan + config
  * always produces the same YAML.
  *
- * Thin wrapper (ADR-004): a single job runs `sverka execute .sverka/plan.json`.
+ * Thin wrapper (ADR-004): a single job installs Sverka and runs `sverka execute`.
  * The plan's contents do not affect the output — execution is delegated to
- * Sverka at runtime.
+ * Sverka at runtime. The chosen `image` must provide the Bun runtime.
  */
 export function compileGitlabCi(
   plan: Plan,

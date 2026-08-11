@@ -5,7 +5,11 @@ export interface GitlabRule {
 
 /** Compiler configuration. All fields optional; sensible defaults apply. */
 export interface GitlabCompilerConfig {
-  /** Base image for the job. Defaults to "node:24". */
+  /**
+   * Base image for the job. Defaults to "oven/bun:latest".
+   * The image must provide the Bun runtime because the generated job runs
+   * `bun install` in `before_script`.
+   */
   readonly image?: string;
   /** Sverka version to install. Defaults to "latest". */
   readonly sverkaVersion?: string;

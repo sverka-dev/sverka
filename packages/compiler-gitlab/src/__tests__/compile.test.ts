@@ -23,10 +23,10 @@ describe("compileGitlabCi — default config", () => {
 describe("compileGitlabCi — custom config", () => {
   it("reflects custom image and sverkaVersion", () => {
     const yaml = compileGitlabCi(makePlan(), {
-      image: "node:22",
+      image: "oven/bun:1.2.4",
       sverkaVersion: "0.1.0",
     });
-    expect(yaml).toContain("image: node:22");
+    expect(yaml).toContain("image: oven/bun:1.2.4");
     expect(yaml).toContain("bun install -g sverka@0.1.0");
   });
 });
