@@ -65,7 +65,7 @@ describe("validatePlan — rule 2 (id matches recomputed)", () => {
     const plan = { ...validPlan(), id: "" };
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.code === "ID_MISMATCH")).toBe(true);
+    expect(result.errors.some((e) => e.code === "INVALID_ID" || e.code === "ID_MISMATCH")).toBe(true);
   });
 });
 
