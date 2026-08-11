@@ -7,6 +7,9 @@
 A composable workflow SDK, local CI runtime, and multi-target compiler
 for software verification.
 
+> **⚠️ Pre-alpha — Work in progress.** Sverka is under active development.
+> APIs may change without notice. Not ready for production use.
+
 [Website](https://sverka.dev) &middot; [Documentation](https://sverka.dev/docs) &middot; [CLI Reference](https://sverka.dev/docs/cli)
 
 </div>
