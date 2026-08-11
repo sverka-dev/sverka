@@ -21,6 +21,10 @@ if ! [[ "$INTERVAL" =~ ^[1-9][0-9]*$ ]]; then
 fi
 ITER=0
 
+# test-source-begin
+# Marker used by scripts/test_gc_watchdog.py to source the helper section
+# without pulling in the endless main loop below.
+
 # Filter out ephemeral wisp/nudge beads from bd output.
 # Real issues have IDs like sv-XXXX (3+ alphanumeric chars, optionally
 # followed by .N for hierarchical IDs like sv-a1b.1).
@@ -44,6 +48,7 @@ count_real_issues() {
     | { grep -vE '^\s*[○◐●] sv-(wisp|nudge)(\.[0-9]+)?($|[[:space:]])' || true; } \
     | wc -l
 }
+# test-source-end
 
 while true; do
   ITER=$((ITER + 1))
@@ -60,7 +65,7 @@ while true; do
 
   MAYOR=$(echo "$STATUS" | grep -m1 -wF -- "harness.mayor" | awk '{print $2}')
   SESSIONS=$(echo "$STATUS" | grep "Sessions:" | head -1 | sed 's/^ *//')
-  SUSPENDED=$(echo "$STATUS" | grep -m1 -w "Suspended:" | awk '{print $2}')
+  SUSPENDED=$(echo "$STATUS" | grep -m1 -wF "Suspended:" | awk '{print $2}')
   CONTROLLER=$(echo "$STATUS" | grep "Controller:" | grep -o "supervisor-managed\|stopped\|error" | head -1 || true)
 
   # Handle transient lookup errors (mayor shows "lookup" instead of "awake")

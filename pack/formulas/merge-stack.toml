@@ -127,7 +127,7 @@ After merge:
          fi
          rm -f "$MERGE_ERR"
          if [ "$MERGE_RC" -eq 0 ] && [ -n "$MERGED_TREE" ]; then
-           if [[ "$MERGED_TREE" =~ ^[0-9a-f]{40}$ ]] && [ "$(git cat-file -t "$MERGED_TREE" 2>/dev/null)" = "tree" ]; then
+           if [[ "$MERGED_TREE" =~ ^[0-9a-f]{40,64}$ ]] && [ "$(git cat-file -t "$MERGED_TREE" 2>/dev/null)" = "tree" ]; then
              if [ "$MERGED_TREE" = "$BASE_TREE" ]; then
                CONTENT_INCLUDED=true
              fi

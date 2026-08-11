@@ -17,10 +17,17 @@ WATCHDOG = os.path.join(
 
 
 def _source_prefix() -> str:
-    """Return the top of watchdog.sh up through the function definitions."""
-    return subprocess.run(
-        ["sed", "-n", "1,46p", WATCHDOG], capture_output=True, text=True, check=True
-    ).stdout
+    """Return the helper section of watchdog.sh between marker comments."""
+    result = subprocess.run(
+        ["sed", "-n", "/# test-source-begin/,/# test-source-end/p", WATCHDOG],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    prefix = result.stdout
+    if "# test-source-begin" not in prefix or "# test-source-end" not in prefix:
+        raise AssertionError("watchdog.sh is missing test-source markers")
+    return prefix
 
 
 def _count_real_issues(bd_output: str, status: str = "open", bd_exit: int = 0) -> str:
