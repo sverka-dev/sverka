@@ -20,13 +20,14 @@ are included in the top PR's squash commit).
 
 ## The Merge Loop
 
-```
+```text
    ┌── DISCOVER STACKS ──► ACT-LOOP (top PR) ──► MERGE ──► CLOSE LOWERS ──► RETROSPECT ──► ADVANCE ──┐
    │                                                                                                    │
    │   next stack ◄──────────────────────────────────────────────────────────────────────────────────────┘
    │                                                                                                    │
    └── (no more stacks) ──► FINAL RETROSPECT ──► DONE (all flat on main)                                 │
 ```
+
 
 ## Step 1: Discover the stacks
 
@@ -77,24 +78,27 @@ After each push, the agent MUST click the checkbox to force a re-review.
 **How to click the checkbox:**
 
 1. Find the CodeRabbit comment:
-```bash
-COMMENT_ID=$(gh api repos/sverka-dev/sverka/issues/<PR>/comments \
-  --jq '[.[] | select(.user.login == "coderabbitai[bot]")] | .[0].id')
-```
 
-2. Get the comment body:
-```bash
-BODY=$(gh api repos/sverka-dev/sverka/issues/comments/$COMMENT_ID --jq '.body')
-```
+   ```bash
+   COMMENT_ID=$(gh api repos/sverka-dev/sverka/issues/<PR>/comments \
+     --jq '[.[] | select(.user.login == "coderabbitai[bot]")] | .[0].id')
+   ```
 
-3. Replace `- [ ]` with `- [x]` on the "Trigger review" line and update:
-```bash
-NEW_BODY=$(echo "$BODY" | sed 's/- \[ \] \(<!-- {"checkboxId"[^}]*} --> 🔍 Trigger review\)/- [x] \1/')
-gh api repos/sverka-dev/sverka/issues/comments/$COMMENT_ID \
-  -X PATCH -f body="$NEW_BODY"
-```
+1. Get the comment body:
 
-4. Wait for CodeRabbit to post a new review (poll for new comments).
+   ```bash
+   BODY=$(gh api repos/sverka-dev/sverka/issues/comments/$COMMENT_ID --jq '.body')
+   ```
+
+1. Replace `- [ ]` with `- [x]` on the "Trigger review" line and update:
+
+   ```bash
+   NEW_BODY=$(echo "$BODY" | sed 's/- \[ \] \(<!-- {"checkboxId"[^}]*} --> 🔍 Trigger review\)/- [x] \1/')
+   gh api repos/sverka-dev/sverka/issues/comments/$COMMENT_ID \
+     -X PATCH -f body="$NEW_BODY"
+   ```
+
+1. Wait for CodeRabbit to post a new review (poll for new comments).
 
 ### /act convergence check
 

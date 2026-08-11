@@ -106,7 +106,9 @@ describe("computePlanId", () => {
       operations: body.operations,
       metadata: body.metadata,
     });
-    const expectedHex = createHash("sha256").update(canonical, "utf8").digest("hex");
+    const expectedHex = createHash("sha256")
+      .update(canonical, "utf8")
+      .digest("hex");
     expect(id).toBe(`plan-${expectedHex}`);
   });
 });

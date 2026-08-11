@@ -67,7 +67,9 @@ function encodeArray(arr: unknown[]): string {
 }
 
 function encodeMap(m: Map<unknown, unknown>): string {
-  const entries = Array.from(m.entries()).map(([k, val]) => `${formatMatrixValue(k)}:${formatMatrixValue(val)}`);
+  const entries = Array.from(m.entries()).map(
+    ([k, val]) => `${formatMatrixValue(k)}:${formatMatrixValue(val)}`,
+  );
   return `{${entries.join(",")}}`;
 }
 
@@ -78,7 +80,9 @@ function encodeSet(s: Set<unknown>): string {
 
 function encodeObject(obj: Record<string, unknown>): string {
   const keys = Object.keys(obj).sort();
-  const entries = keys.map((k) => `${formatMatrixValue(k)}:${formatMatrixValue(obj[k])}`);
+  const entries = keys.map(
+    (k) => `${formatMatrixValue(k)}:${formatMatrixValue(obj[k])}`,
+  );
   return `{${entries.join(",")}}`;
 }
 

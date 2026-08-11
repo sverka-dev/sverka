@@ -7,10 +7,29 @@ export function concatDedupe(arr: readonly string[]): string[] {
 
 /** All valid keys of {@link OperationSpec}. Used to reject unknown/injected keys. */
 const SPEC_KEYS: ReadonlySet<string> = new Set<string>([
-  "id", "kind", "name", "description", "command", "args", "env", "workingDir",
-  "image", "imageDigest", "dependsOn", "condition", "matrix", "cpuLimit",
-  "memoryLimit", "timeoutSeconds", "retries", "continueOnError", "cache",
-  "artifacts", "network", "credentials", "tags",
+  "id",
+  "kind",
+  "name",
+  "description",
+  "command",
+  "args",
+  "env",
+  "workingDir",
+  "image",
+  "imageDigest",
+  "dependsOn",
+  "condition",
+  "matrix",
+  "cpuLimit",
+  "memoryLimit",
+  "timeoutSeconds",
+  "retries",
+  "continueOnError",
+  "cache",
+  "artifacts",
+  "network",
+  "credentials",
+  "tags",
 ]);
 
 /** Fields whose values are arrays that should be concatenated (not replaced). */
