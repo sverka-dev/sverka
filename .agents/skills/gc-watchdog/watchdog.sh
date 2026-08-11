@@ -44,7 +44,7 @@ count_real_issues() {
   # pipeline. Use `|| true` to swallow grep's no-match exit code so
   # an empty result yields 0, not -1.
   printf '%s\n' "$raw" \
-    | { grep -E '^\s*[○◐●] sv-[a-z0-9]{3,}(\.[0-9]+)?($|[[:space:]])' || true; } \
+    | { grep -E '^\s*[○◐●] sv-[a-zA-Z0-9]{3,}(\.[0-9]+)?($|[[:space:]])' || true; } \
     | { grep -vE '^\s*[○◐●] sv-(wisp|nudge)(\.[0-9]+)?($|[[:space:]])' || true; } \
     | wc -l
 }
@@ -63,10 +63,10 @@ while true; do
     continue
   fi
 
-  MAYOR=$(echo "$STATUS" | grep -m1 -wF -- "harness.mayor" | awk '{print $2}')
-  SESSIONS=$(echo "$STATUS" | grep "Sessions:" | head -1 | sed 's/^ *//')
-  SUSPENDED=$(echo "$STATUS" | grep -m1 -wF "Suspended:" | awk '{print $2}')
-  CONTROLLER=$(echo "$STATUS" | grep "Controller:" | grep -o "supervisor-managed\|stopped\|error" | head -1 || true)
+  MAYOR=$(printf '%s\n' "$STATUS" | awk '/^harness\.mayor / {print $2; exit}')
+  SESSIONS=$(printf '%s\n' "$STATUS" | awk '/^Sessions:/ {gsub(/^ */, ""); print; exit}')
+  SUSPENDED=$(printf '%s\n' "$STATUS" | awk '/^Suspended:/ {print $2; exit}')
+  CONTROLLER=$(printf '%s\n' "$STATUS" | grep -m1 '^Controller:' | grep -o "supervisor-managed\|stopped\|error" | head -1 || true)
 
   # Handle transient lookup errors (mayor shows "lookup" instead of "awake")
   if echo "$MAYOR" | grep -q "lookup"; then

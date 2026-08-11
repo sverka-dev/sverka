@@ -64,10 +64,10 @@ STATUS=$(cat <<'STATUSEOF'
 {status}
 STATUSEOF
 )
-MAYOR=$(printf '%s\\n' "$STATUS" | grep -m1 -wF -- "harness.mayor" | awk '{{print $2}}')
-SESSIONS=$(printf '%s\\n' "$STATUS" | grep "Sessions:" | head -1 | sed 's/^ *//')
-SUSPENDED=$(printf '%s\\n' "$STATUS" | grep -m1 -w "Suspended:" | awk '{{print $2}}')
-CONTROLLER=$(printf '%s\\n' "$STATUS" | grep "Controller:" | grep -o "supervisor-managed\\|stopped\\|error" | head -1 || true)
+MAYOR=$(printf '%s\\n' "$STATUS" | awk '/^harness\\.mayor / {{print $2; exit}}')
+SESSIONS=$(printf '%s\\n' "$STATUS" | awk '/^Sessions:/ {{gsub(/^ */, ""); print; exit}}')
+SUSPENDED=$(printf '%s\\n' "$STATUS" | awk '/^Suspended:/ {{print $2; exit}}')
+CONTROLLER=$(printf '%s\\n' "$STATUS" | grep -m1 '^Controller:' | grep -o "supervisor-managed\\|stopped\\|error" | head -1 || true)
 echo "$MAYOR|$SESSIONS|$SUSPENDED|$CONTROLLER"
 """
     result = subprocess.run(
@@ -87,6 +87,15 @@ def test_real_beads_counted():
         "● sv-abc\n"
         "○ sv-def.1\n"
         "◐ sv-ghi99\n"
+    ) == "3"
+
+
+def test_uppercase_bead_ids_counted():
+    """Bead IDs with uppercase letters are counted as real beads."""
+    assert _count_real_issues(
+        "● sv-ABC\n"
+        "○ sv-Def.1\n"
+        "◐ sv-GHI99\n"
     ) == "3"
 
 
@@ -159,6 +168,7 @@ def test_status_missing_fields():
 
 TESTS = [
     test_real_beads_counted,
+    test_uppercase_bead_ids_counted,
     test_wisp_nudge_exact_excluded,
     test_wispish_and_nudgeable_not_over_excluded,
     test_beads_with_hyphens_after_prefix_not_double_excluded,
