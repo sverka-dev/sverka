@@ -1,4 +1,5 @@
 import type { Workflow, Operation, OperationSpec } from "@sverka/core";
+import type { CheckResolver } from "@sverka/checks";
 import type { ProjectContext, PlanProposal } from "@sverka/planner";
 import type { Finding } from "@sverka/findings";
 import type { Verdict, PolicyResult, PolicyConfig } from "@sverka/policy";
@@ -30,6 +31,8 @@ export interface SverkaOptions {
   onlyNew?: boolean;
   /** Git base ref for changed-file discovery (e.g. "main", "HEAD~1"). */
   baseRef?: string;
+  /** Optional custom check resolver. Defaults to the built-in resolver. */
+  resolver?: CheckResolver;
 }
 
 /** The Sverka instance returned by createSverka. */

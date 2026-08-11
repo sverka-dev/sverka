@@ -48,7 +48,7 @@ describe("extractFindings — invalid SARIF", () => {
     const outputs: CheckOutput[] = [{ path: "bad.sarif", format: "sarif" }];
     try {
       await extractFindings(outputs, dir, "mycheck");
-      throw new Error("should have thrown");
+      throw new CheckError("expected extractFindings to throw", "EXTRACTION_FAILED");
     } catch (e) {
       expect(e).toBeInstanceOf(CheckError);
       const err = e as CheckError;

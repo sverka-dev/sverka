@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
-import type { OperationSpec, Workflow, Operation } from "@sverka/core";
+import type { OperationSpec, Workflow, Operation, ArtifactDeclaration } from "@sverka/core";
 import { workflow as makeWorkflow } from "@sverka/core";
 import type { Plan } from "@sverka/ir";
 import { validatePlan } from "@sverka/ir";
@@ -18,7 +18,7 @@ import type { Policy } from "@sverka/policy";
 import { loadBaseline, filterOnlyNew } from "@sverka/findings";
 import type { Finding } from "@sverka/findings";
 import { createBuiltinResolver, extractFindings } from "@sverka/checks";
-import type { ResolvedCheck } from "@sverka/checks";
+import type { CheckResolver, ResolvedCheck } from "@sverka/checks";
 
 import type {
   SverkaOptions,
@@ -90,7 +90,7 @@ async function doPlan(options: SverkaOptions): Promise<PlanResult> {
 
   // Auto-discovery mode.
   const proposal = await planner.plan(context);
-  const resolver = createBuiltinResolver();
+  const resolver = options.resolver ?? createBuiltinResolver();
   const operations = proposal.checks
     .map((check) => resolver.resolve(check, context))
     .filter((r): r is ResolvedCheck => r !== null)
@@ -124,11 +124,17 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
   } else {
     // Auto-discovery: resolve proposed checks into executable operations.
     const proposal = await planner.plan(context);
-    const resolver = createBuiltinResolver();
+    const resolver = options.resolver ?? createBuiltinResolver();
     resolvedChecks = proposal.checks
       .map((check) => resolver.resolve(check, context))
       .filter((r): r is ResolvedCheck => r !== null);
-    operations = resolvedChecks.map((r) => r.operation);
+    if (executorType === "docker" && resolvedChecks.every((r) => r.operation.image === undefined)) {
+      throw new SdkError(
+        "docker executor requires container images; auto-discovered built-in checks do not provide them",
+        "EXECUTION_FAILED",
+      );
+    }
+    operations = resolvedChecks.map((r) => buildOperationWithOutputs(r));
     if (operations.length === 0) {
       throw new SdkError(
         "no config found and auto-discovery produced no resolvable checks",
@@ -173,7 +179,7 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     });
 
     try {
-      runtimeResult = await scheduler.execute(plan as Plan);
+      runtimeResult = await scheduler.execute(plan);
     } catch (e) {
       throw new SdkError(
         `execution failed: ${e instanceof Error ? e.message : String(e)}`,
@@ -299,4 +305,16 @@ function createExecutor(
     allowlist: allowAllCommands,
     envAllowlist: ["PATH"],
   });
+}
+
+/** Merge resolved-check outputs into the operation's artifact declarations. */
+function buildOperationWithOutputs(r: ResolvedCheck): OperationSpec {
+  if (r.outputs.length === 0) {
+    return r.operation;
+  }
+  const artifacts: ArtifactDeclaration[] = [
+    ...(r.operation.artifacts ?? []),
+    ...r.outputs.map((o) => ({ path: o.path, retain: false })),
+  ];
+  return { ...r.operation, artifacts };
 }

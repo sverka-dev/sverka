@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { OperationSpec } from "@sverka/core";
 import type {
   ProposedCheck,
@@ -37,6 +39,8 @@ type PmName = DetectedPackageManager["name"];
 
 interface TableEntry {
   readonly checkId: string;
+  /** Proposal reason this entry matches (e.g. "Node project defaults"). */
+  readonly reason: string;
   readonly packageManagers: readonly PmName[];
   readonly command: string;
   readonly args: readonly string[];
@@ -48,33 +52,38 @@ interface TableEntry {
  * Rust, and Go so that Node checks take precedence when multiple
  * package managers are present.
  */
+const NODE_REASON = "Node project defaults";
+const PYTHON_REASON = "Python project defaults";
+const RUST_REASON = "Rust project defaults";
+const GO_REASON = "Go project defaults";
+
 const TABLE: readonly TableEntry[] = [
   // Node — typecheck
-  { checkId: "typecheck", packageManagers: ["bun"], command: "bun", args: ["run", "typecheck"] },
-  { checkId: "typecheck", packageManagers: ["npm"], command: "npm", args: ["run", "typecheck"] },
-  { checkId: "typecheck", packageManagers: ["yarn"], command: "yarn", args: ["run", "typecheck"] },
-  { checkId: "typecheck", packageManagers: ["pnpm"], command: "pnpm", args: ["run", "typecheck"] },
+  { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["bun"], command: "bun", args: ["run", "typecheck"] },
+  { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["npm"], command: "npm", args: ["run", "typecheck"] },
+  { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["yarn"], command: "yarn", args: ["run", "typecheck"] },
+  { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["pnpm"], command: "pnpm", args: ["run", "typecheck"] },
   // Node — lint
-  { checkId: "lint", packageManagers: ["bun"], command: "bun", args: ["run", "lint"] },
-  { checkId: "lint", packageManagers: ["npm"], command: "npm", args: ["run", "lint"] },
-  { checkId: "lint", packageManagers: ["yarn"], command: "yarn", args: ["run", "lint"] },
-  { checkId: "lint", packageManagers: ["pnpm"], command: "pnpm", args: ["run", "lint"] },
+  { checkId: "lint", reason: NODE_REASON, packageManagers: ["bun"], command: "bun", args: ["run", "lint"] },
+  { checkId: "lint", reason: NODE_REASON, packageManagers: ["npm"], command: "npm", args: ["run", "lint"] },
+  { checkId: "lint", reason: NODE_REASON, packageManagers: ["yarn"], command: "yarn", args: ["run", "lint"] },
+  { checkId: "lint", reason: NODE_REASON, packageManagers: ["pnpm"], command: "pnpm", args: ["run", "lint"] },
   // Node — test
-  { checkId: "test", packageManagers: ["bun"], command: "bun", args: ["run", "test"] },
-  { checkId: "test", packageManagers: ["npm"], command: "npm", args: ["run", "test"] },
-  { checkId: "test", packageManagers: ["yarn"], command: "yarn", args: ["run", "test"] },
-  { checkId: "test", packageManagers: ["pnpm"], command: "pnpm", args: ["run", "test"] },
+  { checkId: "test", reason: NODE_REASON, packageManagers: ["bun"], command: "bun", args: ["run", "test"] },
+  { checkId: "test", reason: NODE_REASON, packageManagers: ["npm"], command: "npm", args: ["run", "test"] },
+  { checkId: "test", reason: NODE_REASON, packageManagers: ["yarn"], command: "yarn", args: ["run", "test"] },
+  { checkId: "test", reason: NODE_REASON, packageManagers: ["pnpm"], command: "pnpm", args: ["run", "test"] },
   // Python — lint
-  { checkId: "lint", packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "ruff", args: ["check"] },
+  { checkId: "lint", reason: PYTHON_REASON, packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "ruff", args: ["check"] },
   // Python — test
-  { checkId: "test", packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "pytest", args: [] },
+  { checkId: "test", reason: PYTHON_REASON, packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "pytest", args: [] },
   // Rust
-  { checkId: "clippy", packageManagers: ["cargo"], command: "cargo", args: ["clippy"] },
-  { checkId: "fmt-check", packageManagers: ["cargo"], command: "cargo", args: ["fmt", "--check"] },
-  { checkId: "test", packageManagers: ["cargo"], command: "cargo", args: ["test"] },
+  { checkId: "clippy", reason: RUST_REASON, packageManagers: ["cargo"], command: "cargo", args: ["clippy"] },
+  { checkId: "fmt-check", reason: RUST_REASON, packageManagers: ["cargo"], command: "cargo", args: ["fmt", "--check"] },
+  { checkId: "test", reason: RUST_REASON, packageManagers: ["cargo"], command: "cargo", args: ["test"] },
   // Go
-  { checkId: "vet", packageManagers: ["go"], command: "go", args: ["vet", "./..."] },
-  { checkId: "test", packageManagers: ["go"], command: "go", args: ["test", "./..."] },
+  { checkId: "vet", reason: GO_REASON, packageManagers: ["go"], command: "go", args: ["vet", "./..."] },
+  { checkId: "test", reason: GO_REASON, packageManagers: ["go"], command: "go", args: ["test", "./..."] },
 ];
 
 /**
@@ -86,20 +95,80 @@ export function createBuiltinResolver(): CheckResolver {
   return {
     resolve(check, ctx) {
       const pmNames = ctx.packageManagers.map((p) => p.name);
-      for (const entry of TABLE) {
-        if (entry.checkId !== check.checkId) continue;
-        if (!entry.packageManagers.some((pm) => pmNames.includes(pm))) continue;
-        const operation: OperationSpec = {
-          id: check.id,
-          kind: "check",
-          name: check.checkId,
-          description: check.reason,
-          command: entry.command,
-          args: entry.args,
-        };
-        return { checkId: check.checkId, operation, outputs: [] };
+      const rootPkg = readRootPackageJson(ctx.root);
+
+      // First pass: match by checkId, reason, and a valid package manager.
+      let result = findEntry(check, ctx, pmNames, rootPkg, true);
+      if (result === null) {
+        // Fallback: ignore the reason and disambiguate by package manager only.
+        result = findEntry(check, ctx, pmNames, rootPkg, false);
       }
-      return null;
+      return result;
     },
   };
+}
+
+function findEntry(
+  check: ProposedCheck,
+  ctx: ProjectContext,
+  pmNames: PmName[],
+  rootPkg: Record<string, unknown> | null,
+  requireReason: boolean,
+): ResolvedCheck | null {
+  for (const entry of TABLE) {
+    if (entry.checkId !== check.checkId) continue;
+    if (requireReason && entry.reason !== check.reason) continue;
+    if (!entry.packageManagers.some((pm) => pmNames.includes(pm))) continue;
+    if (!isEntryApplicable(entry, ctx.root, rootPkg)) continue;
+    const operation: OperationSpec = {
+      id: check.id,
+      kind: "check",
+      name: check.checkId,
+      description: check.reason,
+      command: entry.command,
+      args: entry.args,
+    };
+    return { checkId: check.checkId, operation, outputs: [] };
+  }
+  return null;
+}
+
+/** Validate Node entries against the root package.json (packageManager field and scripts). */
+function isEntryApplicable(
+  entry: TableEntry,
+  root: string,
+  rootPkg: Record<string, unknown> | null,
+): boolean {
+  if (entry.reason !== NODE_REASON) return true;
+  if (!rootPkg) return true;
+
+  const packageManager = rootPkg["packageManager"];
+  if (typeof packageManager === "string") {
+    const tool = packageManager.split("@")[0];
+    if (tool && tool !== entry.command) return false;
+  }
+
+  const scripts = rootPkg["scripts"];
+  if (isPlainObject(scripts)) {
+    const scriptName = entry.args[1];
+    if (typeof scriptName === "string" && !(scriptName in scripts)) return false;
+  }
+
+  return true;
+}
+
+function readRootPackageJson(root: string): Record<string, unknown> | null {
+  const path = resolve(root, "package.json");
+  if (!existsSync(path)) return null;
+  try {
+    const raw = readFileSync(path, "utf8");
+    const parsed = JSON.parse(raw);
+    return isPlainObject(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
 }

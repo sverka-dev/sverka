@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { execute, createSverka } from "../index.js";
-import { makeTempGitRepo, cleanupTempDir, writeSimpleConfig, writeFailingConfig } from "./helpers/fixtures.js";
+import type { CheckResolver } from "../index.js";
+import { makeTempGitRepo, makeTempGitRepoWithPackageJson, cleanupTempDir, writeSimpleConfig, writeFailingConfig } from "./helpers/fixtures.js";
 
 describe("execute mode", { timeout: 30_000 }, () => {
   const dirs: string[] = [];
@@ -61,5 +62,54 @@ describe("execute mode", { timeout: 30_000 }, () => {
     const sverka = createSverka({ root: dir, configPath });
     const result = await sverka.execute();
     expect(result.status).toBe("success");
+  });
+
+  it("executes auto-discovered checks using a custom resolver", async () => {
+    const dir = await makeTempGitRepoWithPackageJson();
+    dirs.push(dir);
+    const customResolver: CheckResolver = {
+      resolve(check) {
+        return {
+          checkId: check.checkId,
+          operation: {
+            id: check.id,
+            kind: "check",
+            name: check.checkId,
+            description: check.reason,
+            command: "true",
+            args: [],
+          },
+          outputs: [],
+        };
+      },
+    };
+    const result = await execute({ root: dir, resolver: customResolver });
+    expect(result.status).toBe("success");
+    expect(result.verdict).toBe("pass");
+    expect(result.outcomes.size).toBeGreaterThan(0);
+  });
+
+  it("rejects docker executor for auto-discovered checks without images", async () => {
+    const dir = await makeTempGitRepoWithPackageJson();
+    dirs.push(dir);
+    const customResolver: CheckResolver = {
+      resolve(check) {
+        return {
+          checkId: check.checkId,
+          operation: {
+            id: check.id,
+            kind: "check",
+            name: check.checkId,
+            description: check.reason,
+            command: "true",
+            args: [],
+          },
+          outputs: [],
+        };
+      },
+    };
+    await expect(execute({ root: dir, executor: "docker", resolver: customResolver })).rejects.toThrow(
+      "docker executor requires container images",
+    );
   });
 });

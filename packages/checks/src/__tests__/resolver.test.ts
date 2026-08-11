@@ -136,6 +136,14 @@ describe("createBuiltinResolver — multiple package managers", () => {
     expect(r!.operation.command).toBe("bun");
     expect(r!.operation.args).toEqual(["run", "test"]);
   });
+
+  it("uses the proposal reason to disambiguate polyglot projects", () => {
+    const rustCheck = makeCheck("test", "Rust project defaults");
+    const r = resolver.resolve(rustCheck, makeContext(["cargo", "bun"]));
+    expect(r).not.toBeNull();
+    expect(r!.operation.command).toBe("cargo");
+    expect(r!.operation.args).toEqual(["test"]);
+  });
 });
 
 describe("createBuiltinResolver — outputs", () => {
