@@ -1,5 +1,6 @@
 import type { OperationKind, OperationSpec } from "../operation.js";
 import type { OperationNode } from "./node.js";
+import { canonicalJson } from "./canonical.js";
 
 /**
  * Assign a deterministic id to a node during planning.
@@ -57,7 +58,8 @@ function formatMatrixValue(v: unknown): string {
   if (typeof v === "string") return `s:${escapeSegment(v)}`;
   if (typeof v === "number") return `n:${String(v)}`;
   if (typeof v === "boolean") return `b:${String(v)}`;
-  return `u:${escapeSegment(JSON.stringify(v) ?? String(v))}`;
+  if (v === undefined) return `u:undefined`;
+  return `u:${escapeSegment(canonicalJson(v))}`;
 }
 
 /** Validate that a kind is a known {@link OperationKind}. */

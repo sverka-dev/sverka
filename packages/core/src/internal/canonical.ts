@@ -18,41 +18,140 @@
  * output is compact.
  */
 export function canonicalJson(value: unknown): string {
-  const canonical = canonicalize(value);
-  return canonical === undefined ? "null" : JSON.stringify(canonical);
+  const out: string[] = [];
+  emit(value, out);
+  return out.join("");
 }
 
-/**
- * Recursively canonicalize a value so that JSON.stringify produces
- * sorted-key, compact output with `undefined` omitted.
- */
-function canonicalize(value: unknown): unknown {
-  if (value === undefined) return undefined;
-  if (value === null) return null;
-  if (typeof value === "boolean") return value;
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    return value.map(canonicalize).filter((v) => v !== undefined);
+function emit(value: unknown, out: string[]): void {
+  if (value === undefined) {
+    out.push("null");
+    return;
+  }
+  if (value === null) {
+    out.push("null");
+    return;
   }
   if (typeof value === "object") {
-    if (value instanceof Date) return value.toISOString();
-    return canonicalizeObject(value as Record<string, unknown>);
+    if (value instanceof Date) {
+      out.push(quoteString(value.toISOString()));
+      return;
+    }
+    if (Array.isArray(value)) {
+      emitArray(value, out);
+    } else {
+      emitObject(value as Record<string, unknown>, out);
+    }
+    return;
   }
-  return undefined;
+  emitScalar(value, out);
 }
 
-/** Canonicalize an object: sort keys, omit undefined values. */
-function canonicalizeObject(obj: Record<string, unknown>): Record<string, unknown> {
+function emitScalar(value: unknown, out: string[]): void {
+  if (typeof value === "string") {
+    out.push(quoteString(value));
+    return;
+  }
+  if (typeof value === "boolean") {
+    out.push(value ? "true" : "false");
+    return;
+  }
+  if (typeof value === "number") {
+    if (Number.isNaN(value) || !Number.isFinite(value)) {
+      out.push("null");
+      return;
+    }
+    out.push(Number(value).toString());
+    return;
+  }
+  throw new TypeError(
+    `canonical JSON does not support value of type ${typeof value}`,
+  );
+}
+
+function emitArray(value: unknown[], out: string[]): void {
+  const filtered = value.filter((v) => v !== undefined);
+  out.push("[");
+  for (let i = 0; i < filtered.length; i++) {
+    emit(filtered[i], out);
+    if (i < filtered.length - 1) out.push(",");
+  }
+  out.push("]");
+}
+
+function emitObject(obj: Record<string, unknown>, out: string[]): void {
+  const keys: string[] = [];
+  for (const k of Object.keys(obj)) {
+    if (obj[k] === undefined) continue;
+    keys.push(k);
+  }
   // Code-unit order (RFC 8785). Locale-aware comparison is not deterministic
   // across runtimes and ICU builds.
-  const sortedKeys = Object.keys(obj).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  const result: Record<string, unknown> = {};
-  for (const key of sortedKeys) {
-    const canonicalized = canonicalize(obj[key]);
-    if (canonicalized !== undefined) {
-      result[key] = canonicalized;
+  keys.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  out.push("{");
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i]!;
+    out.push(quoteString(k));
+    out.push(":");
+    emit(obj[k], out);
+    if (i < keys.length - 1) out.push(",");
+  }
+  out.push("}");
+}
+
+const SHORT_ESCAPES: Readonly<Record<string, string>> = {
+  '"': '\\"',
+  "\\": "\\\\",
+  "\b": "\\b",
+  "\t": "\\t",
+  "\n": "\\n",
+  "\f": "\\f",
+  "\r": "\\r",
+};
+
+function quoteString(s: string): string {
+  const parts: string[] = ['"'];
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]!;
+    const escaped = SHORT_ESCAPES[ch];
+    if (escaped !== undefined) {
+      parts.push(escaped);
+      continue;
+    }
+    const code = ch.charCodeAt(0);
+    if (code < 0x20 || isLoneSurrogate(code, i, s)) {
+      parts.push("\\u" + code.toString(16).padStart(4, "0"));
+    } else {
+      parts.push(ch);
     }
   }
-  return result;
+  parts.push('"');
+  return parts.join("");
+}
+
+function isLoneSurrogate(code: number, i: number, s: string): boolean {
+  if (code < 0xd800 || code > 0xdfff) return false;
+  if (isLowSurrogate(code) && hasValidHighSurrogateBefore(i, s)) return false;
+  if (isHighSurrogate(code) && hasValidLowSurrogateAfter(i, s)) return false;
+  return true;
+}
+
+function isLowSurrogate(code: number): boolean {
+  return code >= 0xdc00;
+}
+
+function isHighSurrogate(code: number): boolean {
+  return code <= 0xdbff;
+}
+
+function hasValidHighSurrogateBefore(i: number, s: string): boolean {
+  if (i === 0) return false;
+  const prev = s.charCodeAt(i - 1);
+  return prev >= 0xd800 && prev <= 0xdbff;
+}
+
+function hasValidLowSurrogateAfter(i: number, s: string): boolean {
+  if (i + 1 >= s.length) return false;
+  const next = s.charCodeAt(i + 1);
+  return next >= 0xdc00 && next <= 0xdfff;
 }
