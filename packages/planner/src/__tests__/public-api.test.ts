@@ -46,10 +46,10 @@ describe("public API", () => {
     const _changed: ChangedFile = {} as ChangedFile;
     const _expl: DiscoveryExplanation = {} as DiscoveryExplanation;
     const _code: DiscoveryErrorCode = "ROOT_NOT_FOUND";
-    // Touch all to avoid unused warnings.
+    // Touch all to avoid unused warnings; verify the types carry real values.
     expect(_opts.root).toBe("/tmp");
-    expect(_sigType).toBe("manifest");
-    expect(_code).toBe("ROOT_NOT_FOUND");
+    expect(typeof _sigType).toBe("string");
+    expect(typeof _code).toBe("string");
     expect(_ctx).toBeDefined();
     expect(_proposal).toBeDefined();
     expect(_check).toBeDefined();

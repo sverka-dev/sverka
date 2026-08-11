@@ -106,7 +106,7 @@ describe("discover — local signal detection", () => {
     try {
       const ctx = await createPlanner().discover({ root });
       const ciSignals = ctx.localSignals.filter((s) => s.type === "ci-definition");
-      expect(ciSignals.length).toBe(4);
+      expect(ciSignals).toHaveLength(4);
       expect(ctx.hasCiDefinition).toBe(true);
     } finally {
       await cleanup(root);
@@ -326,7 +326,7 @@ describe("discover — git metadata", () => {
       const ctx = await createPlanner().discover({ root, baseRef: "main" });
       expect(ctx.commit).toBe("abcdef1234567890abcdef1234567890abcdef12");
       expect(ctx.dirty).toBe(false);
-      expect(ctx.changedFiles.length).toBe(2);
+      expect(ctx.changedFiles).toHaveLength(2);
       expect(ctx.changedFiles[0]).toEqual({ path: "src/index.ts", status: "modified" });
       expect(ctx.changedFiles[1]).toEqual({ path: "src/new.ts", status: "added" });
     } finally {
