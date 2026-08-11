@@ -26,16 +26,16 @@ describe("matrix expansion", () => {
   });
 
   it("multi-dimension cartesian product with distinct op- ids", async () => {
-    const op = matrix({ node: ["20", "24"], os: ["linux"] }, run({ command: "test" }));
+    const op = matrix({ node: ["20", "24"], os: ["linux", "macos"] }, run({ command: "test" }));
     const wf = workflow("matrix-2d", op);
     const result = await wf.plan(makePlanRuntime());
-    expect(result.operations).toHaveLength(2);
+    expect(result.operations).toHaveLength(4);
     const ids = result.operations.map((o) => o.id);
     for (const id of ids) expect(id).toMatch(OP_ID_RE);
     expect(new Set(ids).size).toBe(ids.length);
     for (const spec of result.operations) {
       expect(spec.env?.MATRIX_NODE).toBeDefined();
-      expect(spec.env?.MATRIX_OS).toBe("linux");
+      expect(spec.env?.MATRIX_OS).toBeDefined();
     }
   });
 
@@ -67,5 +67,20 @@ describe("matrix expansion", () => {
     const wf = workflow("matrix-3", op);
     const result = await wf.plan(makePlanRuntime());
     expect(result.operations).toHaveLength(3);
+  });
+
+  it("rejects duplicate matrix values that would produce duplicate ids", async () => {
+    const op = matrix({ node: ["20", "20"] }, run({ command: "test" }));
+    const wf = workflow("matrix-dup", op);
+    await expect(wf.plan(makePlanRuntime())).rejects.toThrow("duplicate operation id");
+  });
+
+  it("distinguishes values with identical text but different types", async () => {
+    const op = matrix({ node: [1, "1", true] as unknown[] }, run({ command: "test" }));
+    const wf = workflow("matrix-types", op);
+    const result = await wf.plan(makePlanRuntime());
+    expect(result.operations).toHaveLength(3);
+    const ids = result.operations.map((o) => o.id);
+    expect(new Set(ids).size).toBe(3);
   });
 });

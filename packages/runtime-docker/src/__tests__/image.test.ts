@@ -22,7 +22,7 @@ describe("verifyImageDigest", () => {
 
   it("resolves when local image digest matches", async () => {
     mockedRunDocker.mockResolvedValue({
-      stdout: "sha256:abc123\n",
+      stdout: JSON.stringify(["busybox:latest@sha256:abc123"]),
       stderr: "",
       exitCode: 0,
     });
@@ -35,7 +35,7 @@ describe("verifyImageDigest", () => {
 
   it("throws ImageDigestError on digest mismatch", async () => {
     mockedRunDocker.mockResolvedValue({
-      stdout: "sha256:wrongdigest\n",
+      stdout: JSON.stringify(["sha256:wrongdigest"]),
       stderr: "",
       exitCode: 0,
     });
@@ -44,7 +44,7 @@ describe("verifyImageDigest", () => {
     );
     await expect(verifyImageDigest(image, digest, config)).rejects.toMatchObject({
       code: "IMAGE_DIGEST_MISMATCH",
-      context: { image, expected: digest, actual: "sha256:wrongdigest" },
+      context: { image, expected: digest, actual: ["sha256:wrongdigest"] },
     });
   });
 
@@ -62,7 +62,7 @@ describe("verifyImageDigest", () => {
         exitCode: 0,
       })
       .mockResolvedValueOnce({
-        stdout: "sha256:abc123\n",
+        stdout: JSON.stringify(["busybox:latest@sha256:abc123"]),
         stderr: "",
         exitCode: 0,
       });
@@ -86,7 +86,7 @@ describe("verifyImageDigest", () => {
         exitCode: 0,
       })
       .mockResolvedValueOnce({
-        stdout: "sha256:wrongdigest\n",
+        stdout: JSON.stringify(["sha256:wrongdigest"]),
         stderr: "",
         exitCode: 0,
       });

@@ -18,9 +18,12 @@ export interface DockerRunOptions {
   readonly dockerPath?: string;
   /** DOCKER_HOST override. */
   readonly dockerHost?: string;
+  /** Optional output byte limit. Excess output is dropped and marked truncated. */
+  readonly maxLogBytes?: number;
 }
 
 const GRACE_PERIOD_MS = 2000;
+const TRUNCATION_NOTICE = "\n[log truncated]";
 
 /**
  * Run a Docker CLI command with the given args. Captures stdout/stderr,
@@ -46,31 +49,75 @@ export function runDocker(
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let truncated = false;
+    let byteLimit = opts.maxLogBytes;
 
     const child = spawn(binary, [...args], {
       stdio: ["ignore", "pipe", "pipe"],
       env,
     });
 
+    let closed = false;
+    let graceTimer: ReturnType<typeof setTimeout> | undefined;
+
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill("SIGTERM");
-      setTimeout(() => {
-        if (!child.killed) {
+      graceTimer = setTimeout(() => {
+        if (!closed) {
           child.kill("SIGKILL");
         }
       }, GRACE_PERIOD_MS);
     }, opts.timeoutSeconds * 1000);
 
+    function appendBytes(target: "stdout" | "stderr", data: Buffer): void {
+      if (truncated) return;
+      if (byteLimit === undefined) {
+        if (target === "stdout") {
+          stdout += data.toString();
+        } else {
+          stderr += data.toString();
+        }
+        return;
+      }
+      const incoming = data.length;
+      if (incoming <= byteLimit) {
+        if (target === "stdout") {
+          stdout += data.toString();
+        } else {
+          stderr += data.toString();
+        }
+        byteLimit -= incoming;
+        if (byteLimit === 0) {
+          truncated = true;
+        }
+        return;
+      }
+      const allowed = byteLimit;
+      const slice = data.subarray(0, allowed);
+      if (target === "stdout") {
+        stdout += slice.toString();
+      } else {
+        stderr += slice.toString();
+      }
+      byteLimit = 0;
+      truncated = true;
+    }
+
     child.stdout?.on("data", (data: Buffer) => {
-      stdout += data.toString();
+      appendBytes("stdout", data);
     });
     child.stderr?.on("data", (data: Buffer) => {
-      stderr += data.toString();
+      appendBytes("stderr", data);
     });
 
     child.on("error", (err) => {
+      closed = true;
+      if (graceTimer) clearTimeout(graceTimer);
       clearTimeout(timer);
+      if (truncated) {
+        stdout += TRUNCATION_NOTICE;
+      }
       resolvePromise({
         stdout,
         stderr: `spawn error: ${err.message}`,
@@ -80,7 +127,12 @@ export function runDocker(
     });
 
     child.on("close", (code) => {
+      closed = true;
+      if (graceTimer) clearTimeout(graceTimer);
       clearTimeout(timer);
+      if (truncated) {
+        stdout += TRUNCATION_NOTICE;
+      }
       resolvePromise({
         stdout,
         stderr,

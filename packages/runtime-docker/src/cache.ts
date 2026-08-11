@@ -1,5 +1,6 @@
 import { copyFile, mkdir, stat } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, isAbsolute, join, normalize, relative, resolve } from "node:path";
+import { DockerExecutorError } from "./errors.js";
 
 /**
  * Manages cache inputs and outputs for Docker execution. Cache directories
@@ -9,19 +10,20 @@ export interface CacheManager {
   /** Prepare a cache directory for an operation's declared inputs. */
   prepare(inputs: readonly string[], key: string): Promise<string>;
   /** Collect cache outputs after execution. */
-  collect(outputs: readonly string[], sourceDir: string): Promise<void>;
+  collect(outputs: readonly string[], sourceDir: string, key: string): Promise<void>;
 }
 
 /**
  * Filesystem-backed cache manager. `prepare` creates `<cacheDir>/<key>` and
- * copies declared inputs into it. `collect` copies declared outputs back into
- * the persistent `cacheDir`, preserving relative path structure.
+ * copies declared inputs into it. `collect` copies declared outputs from the
+ * execution `sourceDir` back into the same `<cacheDir>/<key>` directory,
+ * preserving relative path structure.
  */
 export class DockerCacheManager implements CacheManager {
   constructor(private readonly cacheDir: string) {}
 
   async prepare(inputs: readonly string[], key: string): Promise<string> {
-    const target = join(this.cacheDir, key);
+    const target = this.resolveCachePath(key);
     await mkdir(target, { recursive: true });
     for (const input of inputs) {
       const dest = join(target, relative(dirname(input), input));
@@ -38,12 +40,51 @@ export class DockerCacheManager implements CacheManager {
     return target;
   }
 
-  async collect(outputs: readonly string[], sourceDir: string): Promise<void> {
-    for (const output of outputs) {
-      const rel = relative(sourceDir, output);
-      const dest = join(this.cacheDir, rel);
+  async collect(
+    outputs: readonly string[],
+    sourceDir: string,
+    key: string,
+  ): Promise<void> {
+    const target = this.resolveCachePath(key);
+    for (const rawOutput of outputs) {
+      const output = isAbsolute(rawOutput)
+        ? relative(sourceDir, rawOutput)
+        : rawOutput;
+      if (output.startsWith("..")) {
+        throw new DockerExecutorError(
+          `cache output "${rawOutput}" escapes sourceDir "${sourceDir}"`,
+          "CACHE_PATH_ESCAPE",
+        );
+      }
+      const src = resolve(sourceDir, output);
+      this.assertInsideDir(src, sourceDir, `cache output "${rawOutput}"`);
+      const dest = resolve(target, output);
+      if (normalize(src) === normalize(dest)) {
+        continue;
+      }
       await mkdir(dirname(dest), { recursive: true });
-      await copyFile(output, dest);
+      await copyFile(src, dest);
     }
+  }
+
+  private resolveCachePath(key: string): string {
+    if (isAbsolute(key)) {
+      throw new DockerExecutorError(
+        `absolute cache key "${key}" is not allowed`,
+        "CACHE_KEY_ESCAPE",
+      );
+    }
+    const target = resolve(this.cacheDir, key);
+    this.assertInsideDir(target, this.cacheDir, `cache key "${key}"`);
+    return target;
+  }
+
+  private assertInsideDir(path: string, root: string, what: string): void {
+    const rel = relative(resolve(root), path);
+    if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) return;
+    throw new DockerExecutorError(
+      `${what} escapes cacheDir "${root}"`,
+      "CACHE_PATH_ESCAPE",
+    );
   }
 }

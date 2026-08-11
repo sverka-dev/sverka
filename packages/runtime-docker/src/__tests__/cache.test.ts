@@ -53,6 +53,7 @@ describe("DockerCacheManager", () => {
     await mgr.collect(
       [join(sourceDir, "out", "result.txt")],
       sourceDir,
+      ".",
     );
     // collect should copy outputs into cacheDir preserving relative structure.
     const collected = await readFile(
@@ -60,6 +61,28 @@ describe("DockerCacheManager", () => {
       "utf8",
     );
     expect(collected).toBe("result");
+  });
+
+  it("rejects cache keys that escape cacheDir", async () => {
+    const mgr = new DockerCacheManager(cacheDir);
+    await expect(mgr.prepare([], "../outside")).rejects.toThrow(
+      /escapes cacheDir/,
+    );
+  });
+
+  it("rejects cache outputs that escape the sourceDir", async () => {
+    await writeFile(join(sourceDir, "result.txt"), "result");
+    const mgr = new DockerCacheManager(cacheDir);
+    await expect(
+      mgr.collect(["../outside.txt"], sourceDir, "."),
+    ).rejects.toThrow(/escapes/);
+  });
+
+  it("rejects absolute cache keys", async () => {
+    const mgr = new DockerCacheManager(cacheDir);
+    await expect(mgr.prepare([], "/tmp/outside")).rejects.toThrow(
+      /absolute cache key/,
+    );
   });
 
   it("second prepare with same key restores from cache (inputs exist)", async () => {

@@ -273,7 +273,7 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       const combined = existing !== undefined ? `(${existing} && ${joinCond})` : joinCond;
       if (combined !== existing) {
         const newSpec = { ...node.spec, condition: combined };
-        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id);
+        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id, node);
       }
     }
     if (node.predecessors.length === 0) return node;
@@ -283,7 +283,7 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       newPreds.length === node.predecessors.length &&
       newPreds.every((p, i) => p === node.predecessors[i]);
     if (same) return node;
-    return makeNodeWith(node.kind, node.spec, newPreds, node.siblings, node._id);
+    return makeNodeWith(node.kind, node.spec, newPreds, node.siblings, node._id, node);
   });
 
   return rewritten.filter((n) => !isArtifact(n));
@@ -296,6 +296,7 @@ function makeNodeWith(
   predecessors: readonly OperationNode[],
   siblings: readonly OperationNode[],
   _id: string | undefined,
+  source?: OperationNode,
 ): OperationNode {
   // createNode yields a node with empty preds/siblings; reattach via the
   // immutable after()/with() API so the public contract is respected.
@@ -303,6 +304,12 @@ function makeNodeWith(
   if (predecessors.length > 0) n = asNode(n.after(...predecessors));
   if (siblings.length > 0) n = asNode(n.with(...siblings));
   if (_id !== undefined) (n as unknown as { _id: string })._id = _id;
+  if (source !== undefined) {
+    const combo = (source as unknown as { __matrixCombo?: unknown }).__matrixCombo;
+    if (combo !== undefined) {
+      (n as unknown as { __matrixCombo?: unknown }).__matrixCombo = combo;
+    }
+  }
   return n;
 }
 
@@ -505,10 +512,11 @@ function topoSort(specs: Map<OperationNode, OperationSpec>): OperationSpec[] {
   const adj = new Map<string, string[]>(all.map((s) => [s.id, []] as const));
   for (const spec of all) {
     for (const dep of spec.dependsOn ?? []) {
-      if (byId.has(dep)) {
-        adj.get(dep)!.push(spec.id);
-        indegree.set(spec.id, (indegree.get(spec.id) ?? 0) + 1);
+      if (!byId.has(dep)) {
+        throw new CompositionError(`topological sort encountered unknown dependency '${dep}'`, { dependsOn: dep });
       }
+      adj.get(dep)!.push(spec.id);
+      indegree.set(spec.id, (indegree.get(spec.id) ?? 0) + 1);
     }
   }
   const queue = all.filter((s) => (indegree.get(s.id) ?? 0) === 0).map((s) => s.id);

@@ -4,11 +4,37 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DockerExecutor } from "../docker-executor.js";
 import { ContainerPolicyError } from "../errors.js";
+import type { DockerCommandResult } from "../internal/docker-cli.js";
 import {
   makeDockerOp,
   makeRequest,
   defaultConfig,
 } from "./helpers/fixtures.js";
+
+const DEFAULT_DIGEST =
+  "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+
+function mockInspectDigest(image: string): string {
+  return JSON.stringify([`${image}@${DEFAULT_DIGEST}`]);
+}
+
+function dockerMockFor(
+  runResult: Omit<DockerCommandResult, "stderr"> & { stderr?: string },
+): (args: readonly string[]) => Promise<DockerCommandResult> {
+  return async (args: readonly string[]) => {
+    if (args[0] === "inspect") {
+      return {
+        stdout: mockInspectDigest(args[args.length - 1] ?? "busybox:latest"),
+        stderr: "",
+        exitCode: 0,
+      };
+    }
+    if (args[0] === "pull") {
+      return { stdout: "", stderr: "", exitCode: 0 };
+    }
+    return { stderr: "", ...runResult } as DockerCommandResult;
+  };
+}
 
 // Mock the docker-cli seam so no real Docker daemon is needed.
 vi.mock("../internal/docker-cli.js", () => ({
@@ -31,7 +57,9 @@ const mockedRunDocker = vi.mocked(runDocker);
 
 beforeEach(() => {
   mockedRunDocker.mockReset();
-  mockedRunDocker.mockResolvedValue({ stdout: "hello\n", stderr: "", exitCode: 0 });
+  mockedRunDocker.mockImplementation(
+    dockerMockFor({ stdout: "hello\n", stderr: "", exitCode: 0 }),
+  );
 });
 
 // --- Slice D: canExecute ---
@@ -235,7 +263,7 @@ describe("DockerExecutor.execute — timeout enforcement", () => {
     const exec = new DockerExecutor(defaultConfig());
     const op = makeDockerOp({ timeoutSeconds: 0 });
     await expect(exec.execute(makeRequest(op))).rejects.toMatchObject({
-      code: "CONTAINER_POLICY_VIOLATION",
+      code: "MISSING_TIMEOUT",
       name: "ContainerPolicyError",
     });
     expect(mockedRunDocker).not.toHaveBeenCalled();
@@ -245,18 +273,20 @@ describe("DockerExecutor.execute — timeout enforcement", () => {
     const exec = new DockerExecutor(defaultConfig());
     const op = makeDockerOp({ timeoutSeconds: -1 });
     await expect(exec.execute(makeRequest(op))).rejects.toMatchObject({
-      code: "CONTAINER_POLICY_VIOLATION",
+      code: "MISSING_TIMEOUT",
     });
     expect(mockedRunDocker).not.toHaveBeenCalled();
   });
 
   it("returns failure with timeout error when container times out", async () => {
-    mockedRunDocker.mockResolvedValue({
-      stdout: "",
-      stderr: "",
-      exitCode: 137,
-      timedOut: true,
-    });
+    mockedRunDocker.mockImplementation(
+      dockerMockFor({
+        stdout: "",
+        stderr: "",
+        exitCode: 137,
+        timedOut: true,
+      }),
+    );
     const exec = new DockerExecutor(defaultConfig());
     const op = makeDockerOp({ timeoutSeconds: 1 });
     const result = await exec.execute(makeRequest(op));
@@ -275,7 +305,7 @@ describe("DockerExecutor.execute — image digest", () => {
       executor: { type: "docker", image: "busybox:latest" },
     });
     await expect(exec.execute(makeRequest(op))).rejects.toMatchObject({
-      code: "CONTAINER_POLICY_VIOLATION",
+      code: "MISSING_DIGEST",
       name: "ContainerPolicyError",
     });
     expect(mockedRunDocker).not.toHaveBeenCalled();
@@ -318,7 +348,7 @@ describe("DockerExecutor.buildEnv — secrets allowlist", () => {
       caught = e;
     }
     expect(caught).toBeInstanceOf(ContainerPolicyError);
-    expect((caught as ContainerPolicyError).code).toBe("CONTAINER_POLICY_VIOLATION");
+    expect((caught as ContainerPolicyError).code).toBe("UNDECLARED_SECRET");
     expect((caught as ContainerPolicyError).message).toContain("MY_SECRET");
   });
 
@@ -350,11 +380,13 @@ describe("DockerExecutor.buildEnv — secrets allowlist", () => {
 
 describe("DockerExecutor.execute — logs and exit codes", () => {
   it("captures stdout and stderr into logs", async () => {
-    mockedRunDocker.mockResolvedValue({
-      stdout: "out-line\n",
-      stderr: "err-line\n",
-      exitCode: 0,
-    });
+    mockedRunDocker.mockImplementation(
+      dockerMockFor({
+        stdout: "out-line\n",
+        stderr: "err-line\n",
+        exitCode: 0,
+      }),
+    );
     const exec = new DockerExecutor(defaultConfig());
     const result = await exec.execute(makeRequest(makeDockerOp()));
     expect(result.logs).toContain("out-line");
@@ -364,11 +396,13 @@ describe("DockerExecutor.execute — logs and exit codes", () => {
   });
 
   it("returns failure for non-zero exit", async () => {
-    mockedRunDocker.mockResolvedValue({
-      stdout: "",
-      stderr: "boom",
-      exitCode: 1,
-    });
+    mockedRunDocker.mockImplementation(
+      dockerMockFor({
+        stdout: "",
+        stderr: "boom",
+        exitCode: 1,
+      }),
+    );
     const exec = new DockerExecutor(defaultConfig());
     const result = await exec.execute(makeRequest(makeDockerOp()));
     expect(result.status).toBe("failure");
@@ -377,11 +411,13 @@ describe("DockerExecutor.execute — logs and exit codes", () => {
   });
 
   it("truncates logs exceeding maxLogBytes with a notice", async () => {
-    mockedRunDocker.mockResolvedValue({
-      stdout: "A".repeat(100),
-      stderr: "",
-      exitCode: 0,
-    });
+    mockedRunDocker.mockImplementation(
+      dockerMockFor({
+        stdout: "A".repeat(100),
+        stderr: "",
+        exitCode: 0,
+      }),
+    );
     const exec = new DockerExecutor(defaultConfig({ maxLogBytes: 20 }));
     const result = await exec.execute(makeRequest(makeDockerOp()));
     expect(result.logs.length).toBeLessThanOrEqual(
@@ -434,6 +470,36 @@ describe("DockerExecutor.execute — artifacts", () => {
     expect(result.error).toContain("missing artifact");
     expect(result.artifacts).toHaveLength(0);
   });
+
+  it("rejects artifact names that escape artifactDir", async () => {
+    await mkdir(join(workspace, "out"), { recursive: true });
+    await writeFile(join(workspace, "out", "report.txt"), "test report");
+    const exec = new DockerExecutor(defaultConfig());
+    const op = makeDockerOp({
+      artifacts: [
+        { path: "out/report.txt", name: "../../outside.txt", retain: true },
+      ],
+    });
+    const result = await exec.execute(
+      makeRequest(op, { workspace, artifactDir }),
+    );
+    expect(result.status).toBe("success");
+    expect(result.error).toContain("escapes artifactDir");
+    expect(result.artifacts).toHaveLength(0);
+  });
+
+  it("rejects artifact paths that escape artifactDir", async () => {
+    const exec = new DockerExecutor(defaultConfig());
+    const op = makeDockerOp({
+      artifacts: [{ path: "../../outside.txt", retain: true }],
+    });
+    const result = await exec.execute(
+      makeRequest(op, { workspace, artifactDir }),
+    );
+    expect(result.status).toBe("success");
+    expect(result.error).toContain("escapes artifactDir");
+    expect(result.artifacts).toHaveLength(0);
+  });
 });
 
 // --- Edge cases ---
@@ -443,7 +509,7 @@ describe("DockerExecutor.execute — edge cases", () => {
     const exec = new DockerExecutor(defaultConfig());
     const op = makeDockerOp({ executor: { type: "host" } });
     await expect(exec.execute(makeRequest(op))).rejects.toMatchObject({
-      code: "CONTAINER_POLICY_VIOLATION",
+      code: "WRONG_EXECUTOR_TYPE",
     });
     expect(mockedRunDocker).not.toHaveBeenCalled();
   });

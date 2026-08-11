@@ -4,7 +4,11 @@ import { defaultConfig, makeDockerOp, makeRequest } from "./helpers/fixtures.js"
 
 // Integration tests require a real Docker daemon. Skipped by default.
 // Run with: SVERKA_DOCKER=1 bun run test
-describe.skipIf(!process.env.SVERKA_DOCKER)("DockerExecutor integration", () => {
+const enabled = Boolean(
+  process.env.SVERKA_DOCKER && process.env.SVERKA_BUSYBOX_DIGEST,
+);
+
+describe.skipIf(!enabled)("DockerExecutor integration", () => {
   it("runs echo hello in busybox and returns success", async () => {
     const exec = new DockerExecutor(defaultConfig());
     const op = makeDockerOp({

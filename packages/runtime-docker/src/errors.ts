@@ -24,8 +24,12 @@ export class ImageDigestError extends DockerExecutorError {
 
 /** Raised when a container policy violation is attempted. */
 export class ContainerPolicyError extends DockerExecutorError {
-  constructor(message: string, context?: Record<string, unknown>) {
-    super(message, "CONTAINER_POLICY_VIOLATION", context);
+  constructor(
+    message: string,
+    context?: Record<string, unknown>,
+    code = "CONTAINER_POLICY_VIOLATION",
+  ) {
+    super(message, code, context);
     this.name = "ContainerPolicyError";
   }
 }

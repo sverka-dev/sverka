@@ -1,12 +1,15 @@
 import { copyFile, mkdir } from "node:fs/promises";
-import { dirname, isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, normalize, relative, resolve } from "node:path";
 import type { Executor, ExecuteRequest, ExecuteResult } from "@sverka/runtime";
 import type { PlanOperation } from "@sverka/ir";
 import type { DockerExecutorConfig } from "./config.js";
-import { ContainerPolicyError } from "./errors.js";
+import { ContainerPolicyError, DockerExecutorError } from "./errors.js";
+import { verifyImageDigest } from "./image.js";
+import { DockerCacheManager } from "./cache.js";
 import { runDocker } from "./internal/docker-cli.js";
 
 const DEFAULT_MAX_LOG_BYTES = 10 * 1024 * 1024; // 10 MiB
+const DEFAULT_RUN_AS = "1000:1000";
 const TRUNCATION_NOTICE = "\n[log truncated]";
 const DOCKER_SOCKET_MARKER = "docker.sock";
 
@@ -22,10 +25,18 @@ export class DockerExecutor implements Executor {
   readonly name = "docker";
   private readonly config: DockerExecutorConfig;
   private readonly maxLogBytes: number;
+  private readonly cacheManager: DockerCacheManager | null;
 
   constructor(config: DockerExecutorConfig) {
     this.config = config;
     this.maxLogBytes = config.maxLogBytes ?? DEFAULT_MAX_LOG_BYTES;
+    this.cacheManager = config.cacheDir
+      ? new DockerCacheManager(config.cacheDir)
+      : null;
+  }
+
+  private get runAs(): string {
+    return this.config.runAs ?? DEFAULT_RUN_AS;
   }
 
   canExecute(operation: PlanOperation): boolean {
@@ -37,7 +48,7 @@ export class DockerExecutor implements Executor {
    * Throws `ContainerPolicyError` (DOCKER_SOCKET_DENIED) if any mount source
    * references the Docker socket.
    */
-  buildDockerArgs(request: ExecuteRequest): string[] {
+  buildDockerArgs(request: ExecuteRequest, cachePath?: string): string[] {
     const op = request.operation;
     const args: string[] = [
       "run",
@@ -46,7 +57,7 @@ export class DockerExecutor implements Executor {
       "--cap-drop",
       "ALL",
       "--user",
-      this.config.runAs,
+      this.runAs,
       "--memory",
       op.resources.memory,
       "--cpus",
@@ -65,13 +76,15 @@ export class DockerExecutor implements Executor {
 
     // Bind mounts: workspace (read-only), cache, artifacts.
     const workspaceMount = `type=bind,source=${request.workspace},target=/workspace,readonly`;
-    const cacheMount = `type=bind,source=${request.cacheDir},target=/cache`;
+    const cacheSource = cachePath ?? request.cacheDir;
+    const cacheMount = `type=bind,source=${cacheSource},target=/cache`;
     const artifactMount = `type=bind,source=${request.artifactDir},target=/artifacts`;
     for (const mount of [workspaceMount, cacheMount, artifactMount]) {
       if (mount.includes(DOCKER_SOCKET_MARKER)) {
         throw new ContainerPolicyError(
           "Docker socket must not be mounted into the container",
           { mount },
+          "DOCKER_SOCKET_DENIED",
         );
       }
       args.push("--mount", mount);
@@ -126,12 +139,14 @@ export class DockerExecutor implements Executor {
         throw new ContainerPolicyError(
           `env var "${k}" looks like a secret but is not declared in operation.credentials`,
           { envVar: k },
+          "UNDECLARED_SECRET",
         );
       }
       if (typeof v === "string" && v.includes(DOCKER_SOCKET_MARKER)) {
         throw new ContainerPolicyError(
           "Docker socket must not be referenced in env values",
           { envVar: k },
+          "DOCKER_SOCKET_DENIED",
         );
       }
       env[k] = v;
@@ -144,8 +159,25 @@ export class DockerExecutor implements Executor {
     const op = request.operation;
     const start = Date.now();
     this.validateRequest(op);
-    const args = this.buildDockerArgs(request);
+
+    let cachePath: string | undefined;
+    if (op.cache && this.cacheManager) {
+      cachePath = await this.cacheManager.prepare(op.cache.inputs, op.cache.key);
+    }
+
+    const image = op.executor.image ?? "";
+    const digest = op.executor.imageDigest;
+    if (digest !== undefined) {
+      await verifyImageDigest(image, digest, this.config);
+    }
+
+    const args = this.buildDockerArgs(request, cachePath);
     const result = await this.runContainer(args, op);
+
+    if (op.cache && this.cacheManager && cachePath !== undefined) {
+      await this.cacheManager.collect(op.cache.outputs, cachePath, op.cache.key);
+    }
+
     return this.finalizeResult(result, op, request, start);
   }
 
@@ -155,18 +187,21 @@ export class DockerExecutor implements Executor {
       throw new ContainerPolicyError(
         `expected executor.type "docker", got "${op.executor.type}"`,
         { type: op.executor.type },
+        "WRONG_EXECUTOR_TYPE",
       );
     }
     if (op.timeoutSeconds === undefined || op.timeoutSeconds <= 0) {
       throw new ContainerPolicyError(
         "timeoutSeconds must be present and > 0",
         { timeoutSeconds: op.timeoutSeconds },
+        "MISSING_TIMEOUT",
       );
     }
     if (op.executor.imageDigest === undefined) {
       throw new ContainerPolicyError(
         "docker operations require executor.imageDigest",
         { image: op.executor.image },
+        "MISSING_DIGEST",
       );
     }
   }
@@ -179,6 +214,7 @@ export class DockerExecutor implements Executor {
     const start = Date.now();
     const result = await runDocker(args, {
       timeoutSeconds: op.timeoutSeconds,
+      maxLogBytes: Math.max(0, this.maxLogBytes - TRUNCATION_NOTICE.length),
       ...(this.config.dockerPath !== undefined
         ? { dockerPath: this.config.dockerPath }
         : {}),
@@ -271,7 +307,13 @@ export class DockerExecutor implements Executor {
 
   private truncateLogs(logs: string): string {
     if (logs.length <= this.maxLogBytes) return logs;
-    return logs.slice(0, this.maxLogBytes) + TRUNCATION_NOTICE;
+    if (this.maxLogBytes <= TRUNCATION_NOTICE.length) {
+      return TRUNCATION_NOTICE.slice(0, this.maxLogBytes);
+    }
+    return (
+      logs.slice(0, this.maxLogBytes - TRUNCATION_NOTICE.length) +
+      TRUNCATION_NOTICE
+    );
   }
 
   private async collectArtifacts(
@@ -281,12 +323,18 @@ export class DockerExecutor implements Executor {
   ): Promise<{ collected: string[]; errors: string[] }> {
     const collected: string[] = [];
     const errors: string[] = [];
+    const artifactRoot = resolve(artifactDir);
 
     for (const artifact of op.artifacts) {
       const src = isAbsolute(artifact.path)
         ? artifact.path
         : join(workspace, artifact.path);
-      const dest = join(artifactDir, artifact.name ?? artifact.path);
+      const rel = artifact.name ?? artifact.path;
+      const dest = resolve(artifactDir, rel);
+      if (!this.isInsideDir(dest, artifactRoot)) {
+        errors.push(`artifact destination escapes artifactDir: ${rel}`);
+        continue;
+      }
       try {
         await mkdir(dirname(dest), { recursive: true });
         await copyFile(src, dest);
@@ -297,6 +345,11 @@ export class DockerExecutor implements Executor {
     }
 
     return { collected, errors };
+  }
+
+  private isInsideDir(path: string, root: string): boolean {
+    const rel = relative(root, path);
+    return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
   }
 }
 
