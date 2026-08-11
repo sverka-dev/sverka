@@ -57,6 +57,15 @@ export async function loadWorkflow(
   }
 
   const def = (mod as { default?: unknown }).default;
+  validateDefaultExport(def);
+  validateWorkflowShape(def.workflow as Record<string, unknown>);
+
+  return def as unknown as WorkflowDefinition;
+}
+
+function validateDefaultExport(
+  def: unknown,
+): asserts def is Record<string, unknown> {
   if (!isPlainObject(def)) {
     throw new SdkError(
       "config default export must be an object",
@@ -77,11 +86,12 @@ export async function loadWorkflow(
       "CONFIG_INVALID",
     );
   }
+}
 
-  // Accept either a Workflow (has 'roots' array and 'plan' function) or
-  // a bare Operation (has 'kind' and 'spec'). The SDK normalizes Operations
-  // to Workflows at runtime.
-  const wf = def.workflow as Record<string, unknown>;
+// Accept either a Workflow (has 'roots' array and 'plan' function) or
+// a bare Operation (has 'kind' and 'spec'). The SDK normalizes Operations
+// to Workflows at runtime.
+function validateWorkflowShape(wf: Record<string, unknown>): void {
   const isWorkflow = Array.isArray(wf.roots) && typeof wf.plan === "function";
   const isOperation = typeof wf.kind === "string" && isPlainObject(wf.spec);
   if (!isWorkflow && !isOperation) {
@@ -90,8 +100,6 @@ export async function loadWorkflow(
       "CONFIG_INVALID",
     );
   }
-
-  return def as unknown as WorkflowDefinition;
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
