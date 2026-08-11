@@ -166,3 +166,5 @@ website/node_modules/
 
 # Temporary files
 tmp/
+.evidence/
+.opencode/
