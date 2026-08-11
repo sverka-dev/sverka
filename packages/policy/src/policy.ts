@@ -1,5 +1,5 @@
 import type { Severity } from "@sverka/findings";
-import type { Policy, PolicyConfig, Verdict } from "./types.js";
+import type { FailOnRule, Policy, PolicyConfig, Verdict } from "./types.js";
 import { PolicyError } from "./errors.js";
 
 /** Severity rank map: info < low < medium < high < critical. */
@@ -54,6 +54,34 @@ export function assertValidSeverity(
 }
 
 /**
+ * Validate a single failOn rule has an object shape with a known severity.
+ * @throws {PolicyError} INVALID_RULE if the rule is not a valid object.
+ * @throws {PolicyError} INVALID_SEVERITY if the rule's severity is unknown.
+ */
+function validateFailOnRule(rule: unknown): asserts rule is FailOnRule {
+  if (!rule || typeof rule !== "object" || !("severity" in rule)) {
+    throw new PolicyError(
+      `Invalid rule in failOn: expected object with severity, got ${String(rule)}`,
+      "INVALID_RULE",
+    );
+  }
+  assertValidSeverity((rule as Record<string, unknown>).severity);
+}
+
+/**
+ * Validate the failOn value is an array of valid rules.
+ * @throws {PolicyError} INVALID_POLICY if failOn is not an array.
+ */
+function validateFailOn(failOn: unknown): asserts failOn is FailOnRule[] {
+  if (!Array.isArray(failOn)) {
+    throw new PolicyError("Policy failOn must be an array", "INVALID_POLICY");
+  }
+  for (const rule of failOn) {
+    validateFailOnRule(rule);
+  }
+}
+
+/**
  * Create a policy from a partial configuration, filling defaults.
  * @throws {PolicyError} INVALID_POLICY if the config is not an object or failOn is not an array.
  * @throws {PolicyError} INVALID_SEVERITY if a rule has an unknown severity.
@@ -65,17 +93,6 @@ export function createPolicy(config: PolicyConfig): Policy {
   const name = config.name ?? DEFAULT_POLICY.name;
   const def: Verdict = config.default ?? DEFAULT_POLICY.default;
   const failOn = config.failOn ?? DEFAULT_POLICY.failOn;
-  if (!Array.isArray(failOn)) {
-    throw new PolicyError("Policy failOn must be an array", "INVALID_POLICY");
-  }
-  for (const rule of failOn) {
-    if (!rule || typeof rule !== "object" || !("severity" in rule)) {
-      throw new PolicyError(
-        `Invalid rule in failOn: expected object with severity, got ${String(rule)}`,
-        "INVALID_RULE",
-      );
-    }
-    assertValidSeverity(rule.severity);
-  }
+  validateFailOn(failOn);
   return { name, default: def, failOn };
 }
