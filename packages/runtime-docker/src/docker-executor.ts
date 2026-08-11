@@ -1,5 +1,6 @@
+import { realpathSync } from "node:fs";
 import { copyFile, mkdir } from "node:fs/promises";
-import { dirname, isAbsolute, join, normalize, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from "node:path";
 import type { Executor, ExecuteRequest, ExecuteResult } from "@sverka/runtime";
 import type { PlanOperation } from "@sverka/ir";
 import type { DockerExecutorConfig } from "./config.js";
@@ -11,7 +12,27 @@ import { runDocker } from "./internal/docker-cli.js";
 const DEFAULT_MAX_LOG_BYTES = 10 * 1024 * 1024; // 10 MiB
 const DEFAULT_RUN_AS = "1000:1000";
 const TRUNCATION_NOTICE = "\n[log truncated]";
-const DOCKER_SOCKET_MARKER = "docker.sock";
+
+/** Resolve and normalize a path, following symlinks when possible. */
+function canonicalPath(raw: string): string {
+  const absolute = isAbsolute(raw) ? raw : resolve(raw);
+  try {
+    return normalize(realpathSync(absolute));
+  } catch {
+    return normalize(absolute);
+  }
+}
+
+/** Return true when the canonical path points to a Docker socket. */
+function refersToDockerSocket(raw: string): boolean {
+  return basename(canonicalPath(raw)) === "docker.sock";
+}
+
+/** Extract the `source=` value from a Docker `--mount` string. */
+function mountSource(mount: string): string | undefined {
+  const match = mount.match(/(?:^|,)source=([^,]+)/);
+  return match?.[1];
+}
 
 /**
  * Docker implementation of the Executor interface.
@@ -80,10 +101,11 @@ export class DockerExecutor implements Executor {
     const cacheMount = `type=bind,source=${cacheSource},target=/cache`;
     const artifactMount = `type=bind,source=${request.artifactDir},target=/artifacts`;
     for (const mount of [workspaceMount, cacheMount, artifactMount]) {
-      if (mount.includes(DOCKER_SOCKET_MARKER)) {
+      const source = mountSource(mount);
+      if (source && refersToDockerSocket(source)) {
         throw new ContainerPolicyError(
           "Docker socket must not be mounted into the container",
-          { mount },
+          { mount, source: canonicalPath(source) },
           "DOCKER_SOCKET_DENIED",
         );
       }
@@ -142,10 +164,10 @@ export class DockerExecutor implements Executor {
           "UNDECLARED_SECRET",
         );
       }
-      if (typeof v === "string" && v.includes(DOCKER_SOCKET_MARKER)) {
+      if (typeof v === "string" && refersToDockerSocket(v)) {
         throw new ContainerPolicyError(
           "Docker socket must not be referenced in env values",
-          { envVar: k },
+          { envVar: k, value: canonicalPath(v) },
           "DOCKER_SOCKET_DENIED",
         );
       }
@@ -162,7 +184,11 @@ export class DockerExecutor implements Executor {
 
     let cachePath: string | undefined;
     if (op.cache && this.cacheManager) {
-      cachePath = await this.cacheManager.prepare(op.cache.inputs, op.cache.key);
+      cachePath = await this.cacheManager.prepare(
+        op.cache.inputs,
+        op.cache.key,
+        request.workspace,
+      );
     }
 
     const image = op.executor.image ?? "";
@@ -326,9 +352,13 @@ export class DockerExecutor implements Executor {
     const artifactRoot = resolve(artifactDir);
 
     for (const artifact of op.artifacts) {
-      const src = isAbsolute(artifact.path)
-        ? artifact.path
-        : join(workspace, artifact.path);
+      if (isAbsolute(artifact.path)) {
+        errors.push(
+          `artifact path must not be absolute: ${artifact.path}`,
+        );
+        continue;
+      }
+      const src = join(workspace, artifact.path);
       const rel = artifact.name ?? artifact.path;
       const dest = resolve(artifactDir, rel);
       if (!this.isInsideDir(dest, artifactRoot)) {
@@ -353,4 +383,5 @@ export class DockerExecutor implements Executor {
   }
 }
 
-const SECRET_DENYLIST = /^(?:.*_)?(?:SECRET|TOKEN|PASSWORD|KEY|CREDENTIAL)$/i;
+const SECRET_DENYLIST =
+  /^(?:.*_)?(?:SECRET|TOKEN|PASSWORD|CREDENTIAL|(?<!PUBLIC_)KEY)$/i;

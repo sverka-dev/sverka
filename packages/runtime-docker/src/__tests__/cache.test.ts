@@ -45,6 +45,19 @@ describe("DockerCacheManager", () => {
     expect(copied).toBe("hello");
   });
 
+  it("prepare preserves input directory structure relative to workspace", async () => {
+    await mkdir(join(sourceDir, "src"), { recursive: true });
+    await writeFile(join(sourceDir, "src", "input.txt"), "hello");
+    const mgr = new DockerCacheManager(cacheDir);
+    const prepared = await mgr.prepare(
+      [join(sourceDir, "src", "input.txt")],
+      "key-2-nested",
+      sourceDir,
+    );
+    const copied = await readFile(join(prepared, "src", "input.txt"), "utf8");
+    expect(copied).toBe("hello");
+  });
+
   it("collect copies declared outputs back to the persistent cacheDir", async () => {
     // Simulate outputs written in a source dir after execution.
     await mkdir(join(sourceDir, "out"), { recursive: true });
@@ -76,6 +89,21 @@ describe("DockerCacheManager", () => {
     await expect(
       mgr.collect(["../outside.txt"], sourceDir, "."),
     ).rejects.toThrow(/escapes/);
+  });
+
+  it("collect skips missing outputs without crashing", async () => {
+    await mkdir(join(sourceDir, "out"), { recursive: true });
+    await writeFile(join(sourceDir, "out", "found.txt"), "yes");
+    const mgr = new DockerCacheManager(cacheDir);
+    await expect(
+      mgr.collect(
+        [join(sourceDir, "out", "found.txt"), join(sourceDir, "out", "missing.txt")],
+        sourceDir,
+        ".",
+      ),
+    ).resolves.not.toThrow();
+    const collected = await readFile(join(cacheDir, "out", "found.txt"), "utf8");
+    expect(collected).toBe("yes");
   });
 
   it("rejects absolute cache keys", async () => {

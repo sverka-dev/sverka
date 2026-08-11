@@ -205,6 +205,14 @@ describe("DockerExecutor.buildDockerArgs — container policy", () => {
     ).toThrow(ContainerPolicyError);
   });
 
+  it("rejects docker.sock mount sources with path traversal", () => {
+    expect(() =>
+      exec.buildDockerArgs(
+        makeRequest(makeDockerOp(), { workspace: "/var/run/../run/docker.sock" }),
+      ),
+    ).toThrow(ContainerPolicyError);
+  });
+
   it("uses image@digest as the image", () => {
     const op = makeDockerOp({
       executor: {
@@ -367,10 +375,32 @@ describe("DockerExecutor.buildEnv — secrets allowlist", () => {
     expect(env.API_TOKEN).toBe("tok");
   });
 
+  it("allows PUBLIC_KEY-like env vars without declaration", () => {
+    const env = exec.buildEnv(
+      makeRequest(makeDockerOp(), { env: { PUBLIC_KEY: "not-a-secret" } }),
+    );
+    expect(env.PUBLIC_KEY).toBe("not-a-secret");
+  });
+
+  it("allows env vars that merely contain KEY with extra suffix", () => {
+    const env = exec.buildEnv(
+      makeRequest(makeDockerOp(), { env: { MY_KEY_VALUE: "ok" } }),
+    );
+    expect(env.MY_KEY_VALUE).toBe("ok");
+  });
+
   it("raises DOCKER_SOCKET_DENIED when env value references docker.sock", () => {
     expect(() =>
       exec.buildEnv(
         makeRequest(makeDockerOp(), { env: { PATH: "/var/run/docker.sock" } }),
+      ),
+    ).toThrow(ContainerPolicyError);
+  });
+
+  it("raises DOCKER_SOCKET_DENIED when env value uses path traversal to docker.sock", () => {
+    expect(() =>
+      exec.buildEnv(
+        makeRequest(makeDockerOp(), { env: { PATH: "/var/run/../run/docker.sock" } }),
       ),
     ).toThrow(ContainerPolicyError);
   });
@@ -498,6 +528,19 @@ describe("DockerExecutor.execute — artifacts", () => {
     );
     expect(result.status).toBe("success");
     expect(result.error).toContain("escapes artifactDir");
+    expect(result.artifacts).toHaveLength(0);
+  });
+
+  it("rejects absolute artifact paths", async () => {
+    const exec = new DockerExecutor(defaultConfig());
+    const op = makeDockerOp({
+      artifacts: [{ path: "/etc/passwd", retain: true }],
+    });
+    const result = await exec.execute(
+      makeRequest(op, { workspace, artifactDir }),
+    );
+    expect(result.status).toBe("success");
+    expect(result.error).toContain("must not be absolute");
     expect(result.artifacts).toHaveLength(0);
   });
 });

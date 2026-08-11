@@ -8,7 +8,11 @@ import { DockerExecutorError } from "./errors.js";
  */
 export interface CacheManager {
   /** Prepare a cache directory for an operation's declared inputs. */
-  prepare(inputs: readonly string[], key: string): Promise<string>;
+  prepare(
+    inputs: readonly string[],
+    key: string,
+    workspace?: string,
+  ): Promise<string>;
   /** Collect cache outputs after execution. */
   collect(outputs: readonly string[], sourceDir: string, key: string): Promise<void>;
 }
@@ -22,11 +26,23 @@ export interface CacheManager {
 export class DockerCacheManager implements CacheManager {
   constructor(private readonly cacheDir: string) {}
 
-  async prepare(inputs: readonly string[], key: string): Promise<string> {
+  async prepare(
+    inputs: readonly string[],
+    key: string,
+    workspace?: string,
+  ): Promise<string> {
     const target = this.resolveCachePath(key);
     await mkdir(target, { recursive: true });
     for (const input of inputs) {
-      const dest = join(target, relative(dirname(input), input));
+      const root = workspace ?? dirname(input);
+      const rel = isAbsolute(input) ? relative(root, input) : input;
+      if (rel.startsWith("..") || isAbsolute(rel)) {
+        throw new DockerExecutorError(
+          `cache input "${input}" escapes workspace "${root}"`,
+          "CACHE_PATH_ESCAPE",
+        );
+      }
+      const dest = join(target, rel);
       await mkdir(dirname(dest), { recursive: true });
       // Only copy if the source exists; if not, the cached copy may already
       // be present from a prior run (restore-from-cache semantics).
@@ -63,7 +79,24 @@ export class DockerCacheManager implements CacheManager {
         continue;
       }
       await mkdir(dirname(dest), { recursive: true });
-      await copyFile(src, dest);
+      try {
+        await copyFile(src, dest);
+      } catch (e) {
+        // A missing or unreadable cache output should not abort the whole
+        // execution; continue collecting the remaining outputs.
+        if (
+          e instanceof Error &&
+          "code" in e &&
+          (e as { code: string }).code === "ENOENT"
+        ) {
+          continue;
+        }
+        throw new DockerExecutorError(
+          `failed to collect cache output "${rawOutput}": ${e instanceof Error ? e.message : String(e)}`,
+          "CACHE_COLLECT_FAILED",
+          { output: rawOutput, source: src, dest },
+        );
+      }
     }
   }
 
