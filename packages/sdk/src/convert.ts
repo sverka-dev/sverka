@@ -183,7 +183,9 @@ function computeCacheKey(inputs: readonly string[]): string {
 
 function computeSourceContextHash(context?: ProjectContext): string {
   if (!context) return "";
-  const changedFiles = [...context.changedFiles.map((f) => f.path)].sort();
+  const changedFiles = [...context.changedFiles.map((f) => f.path)].sort((a, b) =>
+    a.localeCompare(b)
+  );
   const value = {
     commit: context.commit,
     dirty: context.dirty,
