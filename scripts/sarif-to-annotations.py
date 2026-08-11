@@ -190,12 +190,11 @@ def parse_location(result):
     phys = locations[0].get("physicalLocation") or {}
     file_uri = phys.get("artifactLocation", {}).get("uri", "")
     # Normalize: strip scheme/authority and leading slashes so GitHub Actions
-    # receives a path relative to the repository root. Use urllib.parse for
-    # robust handling of file://, file:/, https://, and other URI schemes.
-    if "://" in file_uri or "file:/" in file_uri.lower():
-        parsed = urlparse(file_uri)
-        file_uri = unquote(parsed.path)
-    file_uri = file_uri.lstrip("/")
+    # receives a path relative to the repository root. Parse and decode every
+    # artifactLocation.uri, including relative references, so percent-encoded
+    # paths and query/fragment components are handled consistently.
+    parsed = urlparse(file_uri)
+    file_uri = unquote(parsed.path).lstrip("/")
     region = phys.get("region") or {}
     return {
         "file_uri": file_uri,
@@ -235,7 +234,7 @@ def build_annotation_line(result, tool_name, entries_by_id):
         val = loc[field]
         if val is None:
             continue
-        if not isinstance(val, int) or val < 1:
+        if isinstance(val, bool) or not isinstance(val, int) or val < 1:
             continue  # skip invalid, don't emit
         parts.append(f"{prop}={val}")
     parts.append("title=" + encode_property_value(title))
