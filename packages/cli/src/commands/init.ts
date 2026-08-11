@@ -11,6 +11,7 @@ export interface InitArgs {
   force?: boolean;
 }
 
+// codacy-disable-next-line: This is generated file content, not runtime interpolation.
 const MINIMAL_TEMPLATE = `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
 
 export default defineWorkflow({
@@ -23,6 +24,7 @@ export default defineWorkflow({
 });
 `;
 
+// codacy-disable-next-line: This is generated file content, not runtime interpolation.
 const FULL_TEMPLATE = `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
 
 export default defineWorkflow({
@@ -36,17 +38,8 @@ export default defineWorkflow({
 });
 `;
 
-/**
- * Create a sverka.config.ts in the root directory.
- */
-export async function initCommand(
-  args: InitArgs,
-  global: GlobalFlags,
-  output: OutputWriter,
-  start: number,
-): Promise<number> {
-  output.debug(`init: root=${global.root} template=${args.template ?? "minimal"} force=${Boolean(args.force)}`);
-  const template = args.template ?? "minimal";
+/** Resolve and validate the template name, returning its file content. */
+function resolveTemplateContent(template: string): string {
   if (template !== "minimal" && template !== "full") {
     throw new CliError(
       `invalid template: ${template} (expected minimal|full)`,
@@ -54,20 +47,25 @@ export async function initCommand(
       ExitCode.UsageError,
     );
   }
+  return template === "full" ? FULL_TEMPLATE : MINIMAL_TEMPLATE;
+}
 
-  const configPath = join(global.root, "sverka.config.ts");
-  if (existsSync(configPath) && !args.force) {
+/** Write the config file, using exclusive create when not forcing. */
+async function writeConfig(
+  configPath: string,
+  content: string,
+  force: boolean,
+): Promise<void> {
+  if (existsSync(configPath) && !force) {
     throw new CliError(
       `config already exists: ${configPath} (use --force to overwrite)`,
       "CONFIG_EXISTS",
       ExitCode.UsageError,
     );
   }
-
-  const content = template === "full" ? FULL_TEMPLATE : MINIMAL_TEMPLATE;
   // Use exclusive create (wx) when not forcing to close the TOCTOU race
   // between existsSync and writeFile. With --force, use standard write.
-  const flags: WriteFileOptions = args.force ? "utf8" : { encoding: "utf8", flag: "wx" };
+  const flags: WriteFileOptions = force ? "utf8" : { encoding: "utf8", flag: "wx" };
   try {
     await writeFile(configPath, content, flags);
   } catch (e) {
@@ -85,8 +83,17 @@ export async function initCommand(
     }
     throw e;
   }
+}
 
-  if (global.format === "json") {
+/** Emit the init result in the requested output format. */
+function emitInitResult(
+  output: OutputWriter,
+  format: GlobalFlags["format"],
+  configPath: string,
+  template: string,
+  start: number,
+): void {
+  if (format === "json") {
     output.writeLine(
       JSON.stringify({
         command: "init",
@@ -97,6 +104,22 @@ export async function initCommand(
   } else {
     output.writeLine(`Created ${configPath} (template: ${template})`);
   }
+}
 
+/**
+ * Create a sverka.config.ts in the root directory.
+ */
+export async function initCommand(
+  args: InitArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const template = args.template ?? "minimal";
+  output.debug(`init: root=${global.root} template=${template} force=${Boolean(args.force)}`);
+  const content = resolveTemplateContent(template);
+  const configPath = join(global.root, "sverka.config.ts");
+  await writeConfig(configPath, content, Boolean(args.force));
+  emitInitResult(output, global.format, configPath, template, start);
   return ExitCode.Success;
 }
