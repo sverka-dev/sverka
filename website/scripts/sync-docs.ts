@@ -17,8 +17,6 @@ const roots: RootMapping[] = [
   { src: "engdocs/user", dest: "user", indexNames: ["README.md"] },
 ];
 
-const singleFiles: { src: string; dest: string }[] = [];
-
 interface FileEntry {
   srcPath: string;
   destPath: string;
@@ -84,13 +82,6 @@ async function collectFiles(): Promise<FileEntry[]> {
       const destPath = path.join(destDir, ...dirParts, destFileName);
       entries.push({ srcPath: file, destPath, route: "", isIndex });
     }
-  }
-
-  for (const single of singleFiles) {
-    const srcPath = path.resolve(repoRoot, single.src);
-    const destPath = path.resolve(docsRoot, single.dest);
-    const isIndex = path.posix.basename(single.dest) === "index.md";
-    entries.push({ srcPath, destPath, route: "", isIndex });
   }
 
   return entries.map((entry) => ({
