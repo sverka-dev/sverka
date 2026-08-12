@@ -57,6 +57,9 @@ describe("sync-docs", () => {
     expect(sidebar).toContain('"label": "Workflow API"');
     expect(sidebar).toContain('"label": "CLI"');
     expect(sidebar).toContain('"directory": "user/getting-started"');
+    expect(sidebar.indexOf('"label": "Getting Started"')).toBeLessThan(sidebar.indexOf('"label": "Workflow API"'));
+    expect(sidebar.indexOf('"label": "Workflow API"')).toBeLessThan(sidebar.indexOf('"label": "CLI"'));
+    expect(sidebar.indexOf('"label": "CLI"')).toBeLessThan(sidebar.indexOf('"label": "Checks"'));
   });
 
   it("does not duplicate the generated index heading", () => {

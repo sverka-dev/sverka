@@ -389,8 +389,8 @@ async function writeSidebarConfig(entries: FileEntry[]) {
     try {
       const readme = await fs.readFile(readmeEntry.srcPath, "utf-8");
       order = readSectionOrder(readme);
-    } catch {
-      // ignore missing README
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
   }
 
@@ -411,6 +411,7 @@ async function writeSidebarConfig(entries: FileEntry[]) {
       autogenerate: { directory: `user/${dir}`, collapsed: false },
     });
   }
+  standalone.sort((a, b) => fileNameToTitle(a.srcPath).localeCompare(fileNameToTitle(b.srcPath)));
   for (const page of standalone) {
     userItems.push({ label: fileNameToTitle(page.srcPath), slug: page.slug });
   }
@@ -420,11 +421,15 @@ async function writeSidebarConfig(entries: FileEntry[]) {
     { label: "User documentation", collapsed: false, items: userItems },
   ];
 
-  await fs.writeFile(
-    path.resolve(websiteDir, "sidebar.generated.mjs"),
-    `export const sidebar = ${JSON.stringify(sidebar, null, 2)};\n`,
-    "utf-8",
-  );
+  try {
+    await fs.writeFile(
+      path.resolve(websiteDir, "sidebar.generated.mjs"),
+      `export const sidebar = ${JSON.stringify(sidebar, null, 2)};\n`,
+      "utf-8",
+    );
+  } catch (err) {
+    throw new DocsSyncError(`Failed to write generated sidebar config: ${err}`, { cause: err });
+  }
 }
 
 await syncDocs();
