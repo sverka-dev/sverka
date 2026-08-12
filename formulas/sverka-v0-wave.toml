@@ -1,0 +1,96 @@
+formula = "sverka-v0-wave"
+description = "Execute a Sverka v0 redesign wave: architect designs from architecture spec, builder implements (TDD), reviewer gates"
+
+[requires]
+formula_compiler = ">=2.0.0"
+
+[[steps]]
+id = "design"
+title = "Architect: design spec and plan from architecture spec"
+description = """
+Read the authoritative architecture spec (specs/architecture-spec.md) and the
+reconciliation plan (engdocs/architecture/v0-architecture-spec-reconciliation.md)
+for the relevant wave. Produce or fill in the numbered spec in specs/NN-*/
+and a detailed implementation plan in engdocs/architecture/v0-wave-<X>-plan.md.
+
+The architect MUST:
+1. Read the architecture spec sections referenced in the reconciliation plan
+   for this wave.
+2. Fill in the spec stub in specs/NN-*/spec.md (Overview, Goals, Non-goals,
+   Interfaces, Data models, Error handling, Test plan).
+3. Trim the spec per minimalist principles — cut everything not required by
+   the architecture spec for v0.
+4. Produce an implementation plan with TDD steps.
+5. Verify all interfaces match the architecture spec exactly.
+6. Record any new ADRs or ADR amendments in engdocs/adr/.
+
+The spec is the contract the builder implements against. Get it right.
+"""
+agent = "architect"
+
+[[steps]]
+id = "implement"
+title = "Builder: implement from spec (TDD)"
+description = """
+The builder reads the spec and implementation plan, writes failing tests
+first, then implements until all tests pass and the build succeeds.
+
+The builder MUST:
+1. Write tests first (TDD) — one test per spec test plan item.
+2. Implement until all tests pass.
+3. Run: bun run test, bun run typecheck, bun run lint, bun run build.
+4. All gates must be green (0 errors, 0 lint errors).
+5. No `any` types — use `unknown` and narrow.
+6. Public API exported from src/index.ts.
+7. Custom error classes per package with `override` on `cause`.
+8. If reusing code from the previous build, verify it still works with the
+   new types and interfaces.
+
+For waves that reuse existing packages (runtime-host, runtime-docker,
+findings, policy, checks, planner discovery, cli shell): adapt rather than
+rewrite. Only change what the new architecture requires.
+"""
+needs = ["design"]
+agent = "builder"
+
+[[steps]]
+id = "review"
+title = "Reviewer: gate quality against architecture spec"
+description = """
+The reviewer checks the implementation against BOTH the numbered spec AND
+the authoritative architecture spec (specs/architecture-spec.md).
+
+The reviewer MUST:
+1. Run all gates fresh (don't trust builder): test, typecheck, lint, build.
+2. Verify the implementation matches the architecture spec sections for this
+   wave — not just the numbered spec.
+3. Check conformance: if this wave has a conformance requirement (e.g. Wave C
+   must produce the same graph as Wave A), verify it.
+4. Reject if: spec says X, code does Y. No 'close enough.'
+5. Reject if: over-engineered (more code than the spec requires).
+6. Reject if: thin-wrapper pattern used where native lowering is required
+   (Waves H, I — targets MUST lower to native CI jobs, not wrappers).
+7. Verify no `any` types, all exports match spec, error classes use override.
+
+On rejection, report specific issues back to the mayor with the bead ID.
+"""
+needs = ["implement"]
+agent = "reviewer"
+
+[[steps]]
+id = "finalize"
+title = "Finalize wave"
+description = """
+Wave is complete. Mayor records completion, commits if authorized, prepares
+the next wave, and sends a progress report to the human.
+
+The mayor MUST:
+1. Close the wave epic and sub-tasks.
+2. Verify git status — stage only the wave's files (exclude city.toml,
+   agents/, .devin/, .gc/, .beads/, formulas/).
+3. Prepare stacked PR on v0-<wave>-<package> branch.
+4. Send mail to human: 'Wave <X> complete: <package>' with summary.
+5. Create the next wave's epic and dispatch it immediately.
+"""
+needs = ["review"]
+agent = "mayor"
