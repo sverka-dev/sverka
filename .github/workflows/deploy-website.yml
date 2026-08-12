@@ -12,13 +12,12 @@ on:
       - ".github/workflows/deploy-website.yml"
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-24.04
     name: Build website
+    permissions:
+      contents: read
     env:
       SITE_URL: https://sverka-dev.github.io
       BASE_PATH: /sverka
