@@ -12,6 +12,7 @@ import { executeCommand } from "./commands/execute.js";
 import { validateCommand } from "./commands/validate.js";
 import { baselineCommand } from "./commands/baseline.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { compileCommand } from "./commands/compile.js";
 
 /** Optional dependencies for main (testability seam). */
 export interface MainDeps {
@@ -65,6 +66,22 @@ function addExecuteCommand(y: Argv): Argv {
     .option("baseline", { type: "string" });
 }
 
+/** Configure the compile subcommand options. */
+function addCompileCommand(y: Argv): Argv {
+  return y
+    .option("target", {
+      type: "string",
+      choices: ["github", "gitlab"] as const,
+      demandOption: true,
+      describe: "CI target to compile to",
+    })
+    .option("output", {
+      type: "string",
+      alias: "o",
+      describe: "Write YAML to a file instead of stdout",
+    });
+}
+
 /** Configure the baseline subcommand tree. */
 function addBaselineCommand(y: Argv): Argv {
   return y
@@ -95,6 +112,7 @@ function buildParser(): Argv {
     )
     .command(["execute", "run"], "Execute the workflow locally", addExecuteCommand)
     .command("validate", "Validate a sverka.config.ts without executing")
+    .command("compile", "Compile the workflow to a CI target", addCompileCommand)
     .command("baseline", "Manage the findings baseline", addBaselineCommand)
     .command("doctor", "Diagnose environment and dependencies")
     .demandCommand(1, "No command given")
@@ -125,6 +143,8 @@ async function dispatch(
       return dispatchExecute(parsed, global, output, start);
     case "validate":
       return validateCommand(global, output, start);
+    case "compile":
+      return dispatchCompile(parsed, global, output, start);
     case "baseline":
       return dispatchBaseline(parsed, global, output, start);
     case "doctor":
@@ -163,6 +183,24 @@ function dispatchPlan(
 ): Promise<number> {
   return planCommand(
     { onlyNew: Boolean(parsed["only-new"]) },
+    global,
+    output,
+    start,
+  );
+}
+
+function dispatchCompile(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  return compileCommand(
+    {
+      target: String(parsed.target ?? ""),
+      output:
+        typeof parsed.output === "string" ? parsed.output : undefined,
+    },
     global,
     output,
     start,

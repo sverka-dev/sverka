@@ -2,6 +2,7 @@ import type { Workflow, Operation, OperationSpec } from "@sverka/core";
 import type { CheckResolver } from "@sverka/checks";
 import type { ProjectContext, PlanProposal } from "@sverka/planner";
 import type { Finding } from "@sverka/findings";
+import type { Plan } from "@sverka/ir";
 import type { Verdict, PolicyResult, PolicyConfig } from "@sverka/policy";
 import type { OperationOutcome as RuntimeOperationOutcome } from "@sverka/runtime";
 
@@ -38,6 +39,7 @@ export interface SverkaOptions {
 /** The Sverka instance returned by createSverka. */
 export interface Sverka {
   plan(options?: SverkaOptions): Promise<PlanResult>;
+  toPlan(options?: SverkaOptions): Promise<Plan>;
   execute(options?: SverkaOptions): Promise<ExecutionResult>;
 }
 
@@ -49,6 +51,8 @@ export interface PlanResult {
   operations: readonly OperationSpec[];
   /** Planner proposal (null if a user config was loaded). */
   proposal: PlanProposal | null;
+  /** Canonical Plan IR built from the resolved operations. */
+  plan: Plan;
 }
 
 /** Result of execute mode. */

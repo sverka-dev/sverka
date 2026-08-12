@@ -97,7 +97,7 @@ export type {
 export { findConfig, loadWorkflow } from "./config.js";
 
 // ── Sverka instance ───────────────────────────────────────────────
-export { createSverka, plan, execute } from "./sverka.js";
+export { createSverka, plan, toPlan, execute } from "./sverka.js";
 
 // ── task helper ───────────────────────────────────────────────────
 import type { Operation } from "@sverka/core";
