@@ -83,9 +83,24 @@
         "vitest": "^3.0.0",
       },
     },
+    "packages/constructs": {
+      "name": "@sverka/constructs",
+      "version": "0.0.0",
+      "dependencies": {
+        "constructs": "10.8.1",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^3.0.0",
+      },
+    },
     "packages/core": {
       "name": "@sverka/core",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/constructs": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -446,6 +461,8 @@
 
     "@sverka/compiler-gitlab": ["@sverka/compiler-gitlab@workspace:packages/compiler-gitlab"],
 
+    "@sverka/constructs": ["@sverka/constructs@workspace:packages/constructs"],
+
     "@sverka/core": ["@sverka/core@workspace:packages/core"],
 
     "@sverka/findings": ["@sverka/findings@workspace:packages/findings"],
@@ -635,6 +652,8 @@
     "combined-stream": ["combined-stream@1.0.8", "", { "dependencies": { "delayed-stream": "~1.0.0" } }, "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg=="],
 
     "concat-map": ["concat-map@0.0.1", "", {}, "sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg=="],
+
+    "constructs": ["constructs@10.8.1", "", {}, "sha512-98yGXYyhePqPYh3cYu8nzBERmAhC0DONe3UD03okK0nehZ7hYP4wgZuf02a04+uOWxnTJ5Rpp5m0GRNpwyLGGA=="],
 
     "cross-spawn": ["cross-spawn@7.0.6", "", { "dependencies": { "path-key": "^3.1.0", "shebang-command": "^2.0.0", "which": "^2.0.1" } }, "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA=="],
 
