@@ -153,8 +153,10 @@ function stripLeadingH1(body: string, title: string): string {
   const trimmed = body.replace(/^\s+/, "");
   const newlineIndex = trimmed.indexOf("\n");
   const firstLine = newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex);
-  const headingText = firstLine.trim().replace(/^#\s+/, "");
-  if (headingText === title.trim()) {
+  const lineText = firstLine.trim();
+  if (!lineText.startsWith("# ")) return body;
+  const headingText = lineText.slice(2).trim();
+  if (headingText.localeCompare(title.trim(), undefined, { sensitivity: "base" }) === 0) {
     return trimmed.slice(firstLine.length).replace(/^\s+/, "");
   }
   return body;
@@ -174,7 +176,7 @@ function parseExistingFrontmatter(rawFrontmatter: string): Record<string, unknow
   } catch (err) {
     throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, { cause: err });
   }
-  return {};
+  throw new DocsSyncError("Frontmatter must be a YAML object mapping");
 }
 
 function mergeFrontmatter(
@@ -185,7 +187,7 @@ function mergeFrontmatter(
   sidebar?: Record<string, unknown>,
 ): string {
   const existing = parseExistingFrontmatter(rawFrontmatter);
-  const excluded = new Set(["title", "description", "editUrl", "sidebar"]);
+  const excluded = new Set(["title", "description", "editUrl"]);
   const fields: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(existing)) {
     if (!excluded.has(key)) fields[key] = value;
@@ -346,25 +348,83 @@ async function syncDocs() {
   await writeRobotsTxt();
 }
 
+function readSectionOrder(readme: string): string[] {
+  const order: string[] = [];
+  const seen = new Set<string>();
+  const linkRegex = /\]\(\.\/([^\/\s\)#]+)(?:\/[^\)]*)?\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = linkRegex.exec(readme)) !== null) {
+    const dir = match[1];
+    if (!seen.has(dir)) {
+      seen.add(dir);
+      order.push(dir);
+    }
+  }
+  return order;
+}
+
 async function writeSidebarConfig(entries: FileEntry[]) {
   const userSubDirs = new Set<string>();
+  const standalone: Array<{ slug: string; srcPath: string }> = [];
+  const readmeEntry = entries.find((e) => e.isIndex && e.route === "user");
+
   for (const entry of entries) {
     if (!entry.route.startsWith("user/")) continue;
     const rest = entry.route.slice("user/".length);
+    if (!rest) continue;
     const slashIndex = rest.indexOf("/");
-    const dir = slashIndex === -1 ? rest : rest.slice(0, slashIndex);
-    if (dir) userSubDirs.add(dir);
+    if (slashIndex !== -1) {
+      userSubDirs.add(rest.slice(0, slashIndex));
+      continue;
+    }
+    if (entry.isIndex) {
+      userSubDirs.add(rest);
+    } else {
+      standalone.push({ slug: entry.route, srcPath: entry.srcPath });
+    }
   }
 
-  const sorted = Array.from(userSubDirs).sort((a, b) => a.localeCompare(b));
-  const subItems = sorted
-    .map((dir) => `      { label: "${formatLabel(dir)}", autogenerate: { directory: "user/${dir}", collapsed: false } }`)
-    .join(",\n");
-  const items = subItems ? `${subItems},\n` : "";
+  let order: string[] = [];
+  if (readmeEntry) {
+    try {
+      const readme = await fs.readFile(readmeEntry.srcPath, "utf-8");
+      order = readSectionOrder(readme);
+    } catch {
+      // ignore missing README
+    }
+  }
 
-  const contents = `export const sidebar = [\n  { slug: "index" },\n  {\n    label: "User documentation",\n    collapsed: false,\n    items: [\n      { slug: "user" },\n${items}    ]\n  }\n];\n`;
+  const orderIndex = new Map(order.map((name, idx) => [name, idx]));
+  const sortedDirs = Array.from(userSubDirs).sort((a, b) => {
+    const ia = orderIndex.get(a);
+    const ib = orderIndex.get(b);
+    if (ia !== undefined && ib !== undefined) return ia - ib;
+    if (ia !== undefined) return -1;
+    if (ib !== undefined) return 1;
+    return a.localeCompare(b);
+  });
 
-  await fs.writeFile(path.resolve(websiteDir, "sidebar.generated.mjs"), contents, "utf-8");
+  const userItems: unknown[] = [{ slug: "user" }];
+  for (const dir of sortedDirs) {
+    userItems.push({
+      label: formatLabel(dir),
+      autogenerate: { directory: `user/${dir}`, collapsed: false },
+    });
+  }
+  for (const page of standalone) {
+    userItems.push({ label: fileNameToTitle(page.srcPath), slug: page.slug });
+  }
+
+  const sidebar = [
+    { slug: "index" },
+    { label: "User documentation", collapsed: false, items: userItems },
+  ];
+
+  await fs.writeFile(
+    path.resolve(websiteDir, "sidebar.generated.mjs"),
+    `export const sidebar = ${JSON.stringify(sidebar, null, 2)};\n`,
+    "utf-8",
+  );
 }
 
 await syncDocs();
