@@ -1,0 +1,66 @@
+---
+title: Sverka
+description: Define checks once. Plan locally. Run anywhere.
+template: splash
+hero:
+  title: Sverka
+  tagline: Define checks once. Plan locally. Run anywhere.
+  actions:
+    - text: Get started
+      link: /user/getting-started/install/
+      icon: right-arrow
+      variant: primary
+    - text: Read the docs
+      link: /user/
+      icon: open-book
+      variant: secondary
+    - text: View on GitHub
+      link: https://github.com/sverka-dev/sverka
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Sverka is a composable workflow SDK, local CI runtime, and multi-target compiler for software verification. Write your verification pipeline as TypeScript, run it on your machine, and compile the same workflow to GitHub Actions, GitLab CI, and more.
+
+## What you get
+
+<CardGrid stagger>
+  <Card title="TypeScript-first" icon="seti:typescript">
+    Compose pipelines, parallel steps, conditional runs, and matrices with a typed SDK.
+  </Card>
+  <Card title="Local execution" icon="rocket">
+    Run checks in Docker, Podman, or on the host without touching a CI provider.
+  </Card>
+  <Card title="Compile anywhere" icon="external">
+    Emit GitHub Actions, GitLab CI, or other targets from the same source of truth.
+  </Card>
+  <Card title="Normalized findings" icon="approve-check">
+    SARIF, fingerprints, baselines, and policy verdicts in one model.
+  </Card>
+</CardGrid>
+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+  subgraph "Workflow SDK"
+    A[TypeScript config]
+  end
+  B[Discovery + Planner]
+  C[Canonical Plan IR]
+  D[Local Executors]
+  E[Target Compilers]
+  F[Findings + Verdict]
+
+  A --> B --> C --> D --> F
+  C --> E --> F
+```
+
+## Start here
+
+- [Install Sverka](/user/getting-started/install/) and set up your first workflow.
+- [Explore the Workflow API](/user/workflow-api/overview/) to compose checks.
+- [Read the CLI reference](/user/cli/overview/) for all commands and flags.
+- [Browse engineering docs](/engineering/) and [specs](/specs/) to understand the design.

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://sverka.dev/sitemap-index.xml
+Sitemap: https://sverka-dev.github.io/sverka/sitemap-index.xml

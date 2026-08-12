@@ -4,14 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
+    "sync-docs": "bun scripts/sync-docs.ts",
+    "dev": "bun run sync-docs && astro dev",
+    "build": "bun run sync-docs && astro build",
     "preview": "astro preview",
-    "check": "astro check"
+    "check": "bun run sync-docs && astro check"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
-    "astro": "^5.0.0"
+    "@astrojs/starlight": "0.37.7",
+    "astro": "^5.0.0",
+    "mermaid": "^11.16.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

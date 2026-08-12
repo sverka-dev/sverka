@@ -1,0 +1,12 @@
+:root {
+  --sverka-hue: 170;
+  --sl-color-accent-low: hsl(var(--sverka-hue), 60%, 18%);
+  --sl-color-accent: hsl(var(--sverka-hue), 95%, 45%);
+  --sl-color-accent-high: hsl(var(--sverka-hue), 85%, 85%);
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: hsl(var(--sverka-hue), 85%, 92%);
+  --sl-color-accent: hsl(var(--sverka-hue), 95%, 30%);
+  --sl-color-accent-high: hsl(var(--sverka-hue), 80%, 22%);
+}
