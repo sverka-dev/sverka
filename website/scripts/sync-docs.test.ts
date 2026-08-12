@@ -28,6 +28,7 @@ describe("sync-docs", () => {
   });
 
   it("does not publish engineering or specs sections", () => {
+    runSync();
     expect(fs.existsSync(path.join(docsDir, "engineering"))).toBe(false);
     expect(fs.existsSync(path.join(docsDir, "specs"))).toBe(false);
   });
