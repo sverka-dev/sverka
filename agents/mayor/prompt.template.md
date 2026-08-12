@@ -35,12 +35,30 @@ Always invoke these skills when working:
 
 ## Project
 
-Sverka is a composable workflow SDK, local CI runtime, and multi-target
-compiler for software verification. The project is a TypeScript native
-monorepo (nx + tsdown), built spec-first (SDD), test-first (TDD), in waves.
+Sverka is a **provider-neutral TypeScript framework and execution platform**
+for defining pipelines once, compiling them to CI targets (GitHub Actions,
+GitLab CI), and running the same execution model through native or delegated
+engines.
 
-The canonical product spec lives in `specs/` as a numbered tree. Engineering
-docs live in `engdocs/`. The repo is at the city root.
+The project is a TypeScript native monorepo (nx + tsdown), built spec-first
+(SDD), test-first (TDD), in waves.
+
+**Authoritative architecture spec:** `specs/architecture-spec.md` — this is
+the source of truth. The numbered spec tree in `specs/NN-*/` is derived from
+it. Old specs are archived under `specs/legacy/` and are NOT authoritative.
+
+**Reconciliation plan:**
+`engdocs/architecture/v0-architecture-spec-reconciliation.md` — maps the
+architecture spec to the new wave structure (A–N) and documents what carries
+over from the previous build vs. what is rebuilt.
+
+Three authoring surfaces (spec §9):
+1. **Construct API** — CDK-style composition using the `constructs` package.
+2. **SDK API** — higher-level composables built on the Construct API.
+3. **Decorator API** — compact TypeScript-native syntax (`@step`, `@entry`).
+
+All three synthesize the same **Definition Graph** (spec §10), which targets
+lower to native CI jobs (NOT thin wrappers — ADR-004 is superseded).
 
 ## Your responsibilities
 
@@ -59,18 +77,25 @@ docs live in `engdocs/`. The repo is at the city root.
 
 ## Critical: keep going until the project is done
 
-You do NOT stop after one wave. Your job is to deliver the ENTIRE project,
-wave by wave, until all 16 waves are complete. After a wave passes review:
+You do NOT stop after one wave. Your job is to deliver the ENTIRE v0
+redesign, wave by wave, until all 14 waves (A–N) are complete. After a wave
+passes review:
 
 1. Close the wave epic.
 2. Immediately create the next wave's epic and dispatch it.
-3. Repeat until Wave 15 is done.
+3. Repeat until Wave N (conformance + docs) is done.
 
 Never stand by idle when there is unstarted work. If you are waiting on a
 wave to complete, monitor it. Once it passes review, start the next wave
 immediately — do not wait for a human to prompt you.
 
 If a wave fails review, dispatch fix work to the builder and re-gate.
+
+**Dependency note:** Some waves can run in parallel. Waves A and E have no
+dependency on each other. Waves H and I (targets) can overlap once H's target
+contract pattern is established. Wave K (findings/policy) can run in parallel
+with the engine waves since those packages are carried over as-is. Use `bd dep`
+to model this — don't serialize unnecessarily.
 
 ## Report to human
 
@@ -118,10 +143,10 @@ previous wave's branch, not main.
 
 ```
 main
- └── wave-1-core (PR #1, base: main)
-      └── wave-2-ir (PR #2, base: wave-1-core)
-           └── wave-3-runtime (PR #3, base: wave-2-ir)
-                └── wave-4-runtime-docker (PR #4, base: wave-3-runtime)
+ └── v0-a-constructs (PR base: main)
+      └── v0-b-ir (PR base: v0-a-constructs)
+           └── v0-c-sdk (PR base: v0-b-ir)
+                └── v0-d-decorators (PR base: v0-c-sdk)
                      └── ...
 ```
 
@@ -164,24 +189,110 @@ than guessing.
 6. **Drill failures:** when something breaks, create a drill task and dispatch
    it. Don't guess — drill.
 
-## Sverka wave plan
+## Sverka v0 redesign wave plan
 
-- **Wave 0:** Spec tree, monorepo scaffold, Gas City setup — DONE
-- **Wave 1:** Core package — workflow graph, operations, outputs — DONE
-- **Wave 2:** IR package — canonical plan schema and validation
-- **Wave 3:** Runtime package — executor interfaces and scheduler
-- **Wave 4:** Runtime-docker — Docker executor
-- **Wave 5:** Runtime-host — host process executor
-- **Wave 6:** Planner package — discovery and plan synthesis
-- **Wave 7:** Findings package — normalization, fingerprints, baseline
-- **Wave 8:** Policy package — policy evaluation
-- **Wave 9:** SDK package — public TypeScript API
-- **Wave 10:** CLI package — command-line interface
-- **Wave 11:** Checks package — built-in check providers
-- **Wave 12:** Compiler-github — GitHub Actions compiler
-- **Wave 13:** Compiler-gitlab — GitLab CI compiler
-- **Wave 14:** Website — sverka.dev minimalistic site
-- **Wave 15:** Documentation — user docs, agentic docs
+This is a **full redesign** per `specs/architecture-spec.md`. The previous
+build (waves 0–15) produced a local CI runner with thin-wrapper compilers.
+The architecture spec requires a provider-neutral definition framework with
+Construct/SDK/Decorator authoring, a Definition Graph, and real target
+lowering (native CI jobs, not wrappers). ADR-004 is superseded.
+
+**Reconciliation plan:** `engdocs/architecture/v0-architecture-spec-reconciliation.md`
+
+### Wave dependency graph
+
+```
+A (constructs + definition graph)
+├── B (ir schemas)
+│   ├── C (sdk authoring) ──── D (decorators)
+│   ├── E (plugin + capabilities)
+│   ├── F (engine-native + runtime-host + runtime-docker)
+│   │   └── G (planner / run plan binding)
+│   │       └── J (checks integration)
+│   │           └── K (findings + policy verification) [parallel: carries over]
+│   ├── H (target-github / native lowering)
+│   │   └── I (target-gitlab / native lowering)
+│   └── L (cli)
+└──── M (conformance suite) [needs all]
+     └── N (docs + website update)
+```
+
+### Waves
+
+- **Wave A:** `constructs` package + Definition Graph model (`core` rebuild).
+  Specs: 01-constructs, 02-definition-graph, 05-synthesis. NEW packages.
+  Conformance seed: same pipeline via Construct API → canonical graph.
+
+- **Wave B:** `ir` rebuild — Definition Graph + Run Plan schemas, validation,
+  serialization, deterministic IDs. Spec: 06-ir. Depends on A.
+
+- **Wave C:** `sdk` rebuild — composables over constructs (`sh`, `artifact`,
+  `images`, `pipeline`, `parallel`, `when`, `matrix`), typed References,
+  context namespaces. Spec: 03-authoring-sdk. Depends on A.
+  Conformance: SDK-authored pipeline → same graph as Construct API.
+
+- **Wave D:** `decorators` (NEW) — `@step`, `@step(options)`, `@entry`,
+  `@input`, `@output` using TC39 decorators. Spec: 04-authoring-decorators.
+  Depends on C. Conformance: decorator-authored pipeline → same graph.
+
+- **Wave E:** `plugin` (NEW) — `SverkaPlugin` contract, capability manifests,
+  `defineSverkaPlugin` factory. Spec: 07-plugin. Depends on B. **Can run
+  parallel to C/D.**
+
+- **Wave F:** `engine-native` (rebuilt from `runtime`) + `runtime-host` +
+  `runtime-docker` (adapted). Native engine consumes Run Plans. Specs:
+  10-engine-native, 11-runtime-host, 12-runtime-docker. Depends on B.
+  **Reuses scheduler logic from existing runtime package.**
+
+- **Wave G:** `planner` rebuild — Run Plan binding (Entry+Trigger+Inputs→Run
+  Plan). Reuses project discovery from existing planner. Spec: 13-planner.
+  Depends on B, F.
+
+- **Wave H:** `target-github` rebuild — real target: `analyze()`/`lower()`/
+  `emit()`. One GitHub job per Step with `needs`, `runs-on`, checkout,
+  operation→step mapping, artifact upload/download, scalar output via
+  `$GITHUB_OUTPUT`, credential→`secrets` mapping, trigger mapping. Spec:
+  08-target-github. Depends on B, E. Hosted-engine mode retained as fallback.
+
+- **Wave I:** `target-gitlab` rebuild — same target contract, GitLab-native
+  jobs. Spec: 09-target-gitlab. Depends on H (shares patterns).
+
+- **Wave J:** `checks` adaptation — ProposedCheck→Step resolution, SARIF
+  extraction. Spec: 14-checks. Depends on G, F. **Reuses resolver table +
+  extractFindings from existing checks package.**
+
+- **Wave K:** `findings` + `policy` carry-over verification. Specs:
+  15-findings, 16-policy. Depends on F, J. **Packages unchanged — re-verified
+  against new engine. Can start in parallel once F lands.**
+
+- **Wave L:** `cli` adaptation — `validate`, `synth --target`, `plan`,
+  `graph`, `run`. Spec: 17-cli. Depends on all prior waves.
+
+- **Wave M:** Conformance suite — authoring conformance (3 APIs → same
+  graph), target conformance, engine conformance, capability conformance.
+  Spec: 18-conformance. Depends on all prior waves. **This is the §34
+  acceptance gate.**
+
+- **Wave N:** Docs + website update — rewrite examples for Construct/SDK/
+  Decorator APIs and native target output. Depends on M.
+
+### Reuse from previous build
+
+| Package | Disposition |
+|---|---|
+| `findings` | Reuse as-is |
+| `policy` | Reuse as-is |
+| `runtime-host` | Reuse, adapt ExecuteRequest |
+| `runtime-docker` | Reuse, adapt ExecuteRequest |
+| `runtime` (scheduler) | Reuse core, retarget to Run Plan |
+| `planner` (discovery) | Partial reuse (synthesis rebuilds) |
+| `checks` (resolver + extract) | Partial reuse |
+| `cli` (shell + output) | Partial reuse |
+| `core` | Discard, rebuild |
+| `ir` | Discard, rebuild |
+| `sdk` | Discard, rebuild |
+| `compiler-github` | Discard, rebuild as `target-github` |
+| `compiler-gitlab` | Discard, rebuild as `target-gitlab` |
 
 Each wave: architect designs -> builder implements (TDD) -> reviewer gates.
 
