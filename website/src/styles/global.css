@@ -30,6 +30,16 @@ body {
   flex-direction: column;
 }
 
+.pre-alpha-banner {
+  background: #2a1a0a;
+  border-bottom: 1px solid #4a3a1a;
+  color: #e8a040;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
 main {
   flex: 1;
   max-width: var(--max-width);
