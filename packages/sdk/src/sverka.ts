@@ -41,6 +41,9 @@ export function createSverka(defaultOptions?: SverkaOptions): Sverka {
     async plan(options?: SverkaOptions): Promise<PlanResult> {
       return doPlan(mergeOptions(defaultOptions, options));
     },
+    async toPlan(options?: SverkaOptions): Promise<Plan> {
+      return buildPlan(mergeOptions(defaultOptions, options));
+    },
     async execute(options?: SverkaOptions): Promise<ExecutionResult> {
       return doExecute(mergeOptions(defaultOptions, options));
     },
@@ -50,6 +53,11 @@ export function createSverka(defaultOptions?: SverkaOptions): Sverka {
 /** Top-level plan convenience function. */
 export async function plan(options?: SverkaOptions): Promise<PlanResult> {
   return doPlan(options ?? {});
+}
+
+/** Top-level toPlan convenience function. Returns the canonical Plan IR. */
+export async function toPlan(options?: SverkaOptions): Promise<Plan> {
+  return buildPlan(options ?? {});
 }
 
 /** Top-level execute convenience function. */
@@ -73,7 +81,8 @@ async function doPlan(options: SverkaOptions): Promise<PlanResult> {
   if (configPath !== null) {
     const def = await loadWorkflow(configPath, root);
     const operations = await evaluateWorkflow(def);
-    return { context, operations, proposal: null };
+    const plan = buildPlanFromOps(operations, def.name, context);
+    return { context, operations, proposal: null, plan };
   }
 
   // Auto-discovery mode.
@@ -88,7 +97,39 @@ async function doPlan(options: SverkaOptions): Promise<PlanResult> {
       // Skip checks whose custom resolver fails and continue with the rest.
     }
   }
-  return { context, operations, proposal };
+  const plan = buildPlanFromOps(operations, "sverka-plan", context);
+  return { context, operations, proposal, plan };
+}
+
+/** Build a canonical Plan IR from resolved operations. */
+async function buildPlan(options: SverkaOptions): Promise<Plan> {
+  const result = await doPlan(options);
+  return result.plan;
+}
+
+/** Convert operations into a validated Plan with host executor defaults. */
+function buildPlanFromOps(
+  operations: readonly OperationSpec[],
+  name: string,
+  context: ProjectContext,
+): Plan {
+  const plan = convertToPlan(operations, {
+    name,
+    executor: "host",
+    context,
+  });
+
+  if (operations.length > 0) {
+    const validation = validatePlan(plan);
+    if (!validation.valid) {
+      throw new SdkError(
+        `plan validation failed: ${validation.errors.map((e) => e.message).join("; ")}`,
+        "EXECUTION_FAILED",
+      );
+    }
+  }
+
+  return plan;
 }
 
 // ---------------------------------------------------------------------------

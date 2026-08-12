@@ -22,6 +22,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sverka/compiler-github": "workspace:*",
+    "@sverka/compiler-gitlab": "workspace:*",
     "@sverka/sdk": "workspace:*",
     "yargs": "^17.7.3"
   },
