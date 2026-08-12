@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const docsRoot = path.resolve(repoRoot, "website/src/content/docs");
@@ -17,6 +18,7 @@ const roots: RootMapping[] = [
   { src: "engdocs/architecture", dest: "engineering/architecture", indexNames: ["README.md"] },
   { src: "engdocs/adr", dest: "engineering/adrs", indexNames: ["README.md"] },
   { src: "engdocs/contributing", dest: "engineering/contributing", indexNames: ["README.md"] },
+  { src: "engdocs/runbooks", dest: "engineering/runbooks", indexNames: ["README.md"] },
   { src: "specs", dest: "specs", indexNames: ["spec.md"] },
 ];
 
@@ -29,6 +31,13 @@ interface FileEntry {
   destPath: string;
   route: string;
   isIndex: boolean;
+}
+
+class DocsSyncError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "DocsSyncError";
+  }
 }
 
 function posix(p: string): string {
@@ -69,7 +78,7 @@ async function collectFiles(): Promise<FileEntry[]> {
     try {
       files = await walk(srcDir);
     } catch (err) {
-      throw new Error(`Could not read source docs directory ${srcDir}: ${err}`);
+      throw new DocsSyncError(`Could not read source docs directory ${srcDir}`, { cause: err });
     }
 
     for (const file of files) {
@@ -97,24 +106,22 @@ async function collectFiles(): Promise<FileEntry[]> {
   }));
 }
 
-function parseFrontmatter(content: string): { frontmatter: string; body: string; fields: Record<string, string> } {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+function parseFrontmatter(content: string): { frontmatter: string; body: string; fields: Record<string, unknown> } {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(content);
   if (!match) {
     return { frontmatter: "", body: content, fields: {} };
   }
 
   const raw = match[1];
-  const fields: Record<string, string> = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (m) {
-      const key = m[1];
-      let value = m[2].trim();
-      const quote = value[0];
-      if ((quote === '"' || quote === "'") && value[value.length - 1] === quote) {
-        value = value.slice(1, -1);
+  let fields: Record<string, unknown> = {};
+  if (raw.trim()) {
+    try {
+      const parsed = parseYaml(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        fields = parsed as Record<string, unknown>;
       }
-      fields[key] = value;
+    } catch (err) {
+      throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, { cause: err });
     }
   }
 
@@ -122,7 +129,7 @@ function parseFrontmatter(content: string): { frontmatter: string; body: string;
 }
 
 function extractTitle(body: string): string | undefined {
-  const match = body.match(/^#\s+(.+)$/m);
+  const match = /^#\s+(.+)$/m.exec(body);
   return match?.[1].trim();
 }
 
@@ -144,23 +151,69 @@ function fileNameToTitle(filePath: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function mergeFrontmatter(rawFrontmatter: string, title: string, description: string | undefined): string {
-  const inner = rawFrontmatter
-    .replace(/^---\r?\n/, "")
-    .replace(/\r?\n---\r?\n?$/, "");
+function mergeFrontmatter(
+  rawFrontmatter: string,
+  title: string,
+  description: string | undefined,
+  editUrl: string,
+): string {
+  let existing: Record<string, unknown> = {};
+  if (rawFrontmatter) {
+    const inner = rawFrontmatter
+      .replace(/^---\r?\n/, "")
+      .replace(/\r?\n---\r?\n?$/, "");
+    if (inner.trim()) {
+      try {
+        const parsed = parseYaml(inner);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          existing = parsed as Record<string, unknown>;
+        }
+      } catch (err) {
+        throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, { cause: err });
+      }
+    }
+  }
 
-  const lines = inner.split(/\r?\n/).filter((line) => {
-    const trimmed = line.trimStart();
-    return !/^title:\s*/.test(trimmed) && !/^description:\s*/.test(trimmed);
-  });
+  const fields: Record<string, unknown> = { title };
+  if (description) fields.description = description;
+  fields.editUrl = editUrl;
+  for (const [key, value] of Object.entries(existing)) {
+    if (key !== "title" && key !== "description" && key !== "editUrl") {
+      fields[key] = value;
+    }
+  }
 
-  const frontLines = [
-    `title: ${JSON.stringify(title)}`,
-    ...(description ? [`description: ${JSON.stringify(description)}`] : []),
-    ...lines,
-  ];
+  const yaml = stringifyYaml(fields, { lineWidth: 0, defaultStringType: "PLAIN" });
+  return `---\n${yaml}---\n\n`;
+}
 
-  return `---\n${frontLines.join("\n")}\n---\n\n`;
+function rewriteLink(
+  text: string,
+  href: string,
+  currentSrcDir: string,
+  currentRoutePath: string,
+  sourceToRoute: Map<string, string>,
+): string {
+  if (/^(https?:|mailto:|#|\/)/.test(href)) return `[${text}](${href})`;
+
+  const [cleanHref, ...anchorParts] = href.split("#");
+  const anchor = anchorParts.length ? `#${anchorParts.join("#")}` : "";
+  const clean = cleanHref.split("?")[0];
+
+  const resolvedSrc = posix(path.resolve(currentSrcDir, clean));
+  const srcRel = posix(path.relative(repoRoot, resolvedSrc)).replace(/\.mdx?$/i, "");
+  const targetRoute = sourceToRoute.get(srcRel);
+  if (!targetRoute) {
+    let newHref = clean.replace(/\.mdx?$/i, "");
+    if (!newHref.endsWith("/")) newHref += "/";
+    return `[${text}](${newHref}${anchor})`;
+  }
+
+  const targetRoutePath = `${targetRoute}/`;
+  let relative = path.posix.relative(currentRoutePath, targetRoutePath);
+  if (relative === "") relative = "./";
+  if (!relative.endsWith("/")) relative += "/";
+  return `[${text}](${relative}${anchor})`;
 }
 
 function transformLinks(
@@ -174,31 +227,25 @@ function transformLinks(
   if (!currentRoute) return body;
   const currentRoutePath = `${currentRoute}/`;
 
-  return body.replace(/(!?)\[([^\]]*)\]\(([^)]+)\)/g, (match, bang, text, href) => {
-    if (bang) return match;
-
-    const raw = href as string;
-    if (/^(https?:|mailto:|#|\/)/.test(raw)) return match;
-
-    const [cleanHref, ...anchorParts] = raw.split("#");
-    const anchor = anchorParts.length ? `#${anchorParts.join("#")}` : "";
-    const clean = cleanHref.split("?")[0];
-
-    const resolvedSrc = posix(path.resolve(currentSrcDir, clean));
-    const srcRel = posix(path.relative(repoRoot, resolvedSrc)).replace(/\.mdx?$/i, "");
-    const targetRoute = sourceToRoute.get(srcRel);
-    if (!targetRoute) {
-      let newHref = clean.replace(/\.mdx?$/i, "");
-      if (!newHref.endsWith("/")) newHref += "/";
-      return `[${text}](${newHref}${anchor})`;
+  const linkRegex = /!?\[([^\]]*)\]\(([^)]+)\)/g;
+  const segments: string[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = linkRegex.exec(body)) !== null) {
+    const [full, text, href] = match;
+    segments.push(body.slice(lastIndex, match.index));
+    if (full.startsWith("!")) {
+      segments.push(full);
+    } else {
+      segments.push(rewriteLink(text, href, currentSrcDir, currentRoutePath, sourceToRoute));
     }
-
-    const targetRoutePath = `${targetRoute}/`;
-    let relative = path.posix.relative(currentRoutePath, targetRoutePath);
-    if (relative === "") relative = "./";
-    if (!relative.endsWith("/")) relative += "/";
-    return `[${text}](${relative}${anchor})`;
-  });
+    lastIndex = match.index + full.length;
+    if (match.index === linkRegex.lastIndex) {
+      linkRegex.lastIndex++;
+    }
+  }
+  segments.push(body.slice(lastIndex));
+  return segments.join("");
 }
 
 async function cleanDocsRoot() {
@@ -218,13 +265,13 @@ async function cleanDocsRoot() {
     if (code === "ENOENT") {
       await fs.mkdir(docsRoot, { recursive: true });
     } else {
-      throw new Error(`Failed to clean docs directory ${docsRoot}: ${err}`);
+      throw new DocsSyncError(`Failed to clean docs directory ${docsRoot}`, { cause: err });
     }
   }
 }
 
 async function writeRobotsTxt() {
-  const site = process.env.SITE_URL || "https://sverka.dev";
+  const site = (process.env.SITE_URL || "https://sverka.dev").replace(/\/+$/, "");
   const baseInput = process.env.BASE_PATH || "/";
   const basePath = baseInput === "/" ? "" : baseInput.replace(/\/$/, "");
   const sitemapUrl = `${site}${basePath}/sitemap-index.xml`;
@@ -239,8 +286,39 @@ async function copyMermaid() {
   try {
     await fs.copyFile(mermaidSrc, mermaidDest);
   } catch (err) {
-    throw new Error(`Failed to copy mermaid bundle from ${mermaidSrc}: ${err}`);
+    throw new DocsSyncError(`Failed to copy mermaid bundle from ${mermaidSrc}`, { cause: err });
   }
+}
+
+async function writeSpecsIndex(entries: FileEntry[]) {
+  const specEntries = entries
+    .filter((entry) => entry.route.startsWith("specs/") && entry.isIndex)
+    .sort((a, b) => a.route.localeCompare(b.route));
+
+  const items: string[] = [];
+  for (const entry of specEntries) {
+    const content = await fs.readFile(entry.srcPath, "utf-8");
+    const { body } = parseFrontmatter(content);
+    const title = extractTitle(body) ?? fileNameToTitle(entry.srcPath);
+    const slug = entry.route.replace("specs/", "");
+    items.push(`- [${title}](${slug}/)`);
+  }
+
+  const specIndexContent = [
+    "---",
+    "title: Specifications",
+    "description: Technical specifications for the Sverka platform.",
+    "---",
+    "",
+    "# Specifications",
+    "",
+    ...items,
+    "",
+  ].join("\n");
+
+  const specsIndexPath = path.resolve(docsRoot, "specs/index.md");
+  await fs.mkdir(path.dirname(specsIndexPath), { recursive: true });
+  await fs.writeFile(specsIndexPath, specIndexContent, "utf-8");
 }
 
 async function syncDocs() {
@@ -259,20 +337,24 @@ async function syncDocs() {
     const { frontmatter: existingFrontmatter, body, fields } = parseFrontmatter(content);
 
     const title =
-      fields.title ||
+      (typeof fields.title === "string" ? fields.title : undefined) ||
       extractTitle(body) ||
-      (entry.isIndex ? extractTitle(body) ?? undefined : undefined) ||
       fileNameToTitle(entry.srcPath);
-    const description = fields.description || extractDescription(body);
+    const description =
+      (typeof fields.description === "string" ? fields.description : undefined) ||
+      extractDescription(body);
+    const srcEditPath = posix(path.relative(repoRoot, entry.srcPath));
+    const editUrl = `https://github.com/sverka-dev/sverka/edit/main/${srcEditPath}`;
 
     const newBody = existingFrontmatter ? body : content;
     const linkedBody = transformLinks(newBody, entry.srcPath, sourceToRoute);
 
-    const frontmatter = mergeFrontmatter(existingFrontmatter, title, description ?? "");
+    const frontmatter = mergeFrontmatter(existingFrontmatter, title, description, editUrl);
     await fs.mkdir(path.dirname(entry.destPath), { recursive: true });
     await fs.writeFile(entry.destPath, frontmatter + linkedBody, "utf-8");
   }
 
+  await writeSpecsIndex(entries);
   await copyMermaid();
   await writeRobotsTxt();
 }

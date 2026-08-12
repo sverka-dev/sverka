@@ -9,6 +9,8 @@ on:
     branches: [main]
     paths:
       - "website/**"
+      - "engdocs/**"
+      - "specs/**"
       - ".github/workflows/deploy-website.yml"
   workflow_dispatch:
 

@@ -12,13 +12,12 @@ const asset = (path) => `${basePath}${path}`;
 const mermaidInit = `
 document.addEventListener("DOMContentLoaded", function () {
   if (typeof mermaid === "undefined") return;
-  const blocks = document.querySelectorAll("pre code.language-mermaid, pre code[data-language='mermaid'], pre.mermaid");
+  const blocks = document.querySelectorAll('pre[data-language="mermaid"], pre.mermaid');
   if (!blocks.length) return;
-  blocks.forEach(function (code) {
-    var pre = code.parentElement;
-    if (!pre) return;
+  blocks.forEach(function (pre) {
+    const code = pre.querySelector("code");
     pre.className = "mermaid";
-    pre.textContent = code.textContent || "";
+    pre.textContent = (code && code.textContent) || pre.textContent || "";
   });
   var theme = document.documentElement.dataset.theme === "dark" ? "dark" : "default";
   mermaid.initialize({ startOnLoad: false, theme: theme });
