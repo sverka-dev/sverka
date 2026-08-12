@@ -74,7 +74,7 @@ def _tree_included(repo: str, target_ref: str, lower_ref: str) -> bool:
 
 def _create_repo() -> str:
     tmp = tempfile.mkdtemp(prefix="merge-stack-test-")
-    _run_git(tmp, "init")
+    _run_git(tmp, "init", "-b", "main")
     _run_git(tmp, "config", "user.email", "test@example.com")
     _run_git(tmp, "config", "user.name", "Test User")
     return tmp

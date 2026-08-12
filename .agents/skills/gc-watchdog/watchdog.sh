@@ -44,8 +44,8 @@ count_real_issues() {
   # pipeline. Use `|| true` to swallow grep's no-match exit code so
   # an empty result yields 0, not -1.
   printf '%s\n' "$raw" \
-    | { grep -E '^\s*[○◐●] sv-[a-zA-Z0-9]{3,}(\.[0-9]+)?($|[[:space:]])' || true; } \
-    | { grep -vE '^\s*[○◐●] sv-(wisp|nudge)(\.[0-9]+)?($|[[:space:]])' || true; } \
+    | { grep -E '^[[:space:]]*[○◐●] sv-[a-zA-Z0-9]{3,}(\.[0-9]+)?($|[[:space:]])' || true; } \
+    | { grep -vE '^[[:space:]]*[○◐●] sv-(wisp|nudge)(\.[0-9]+)?($|[[:space:]])' || true; } \
     | wc -l
 }
 
@@ -55,9 +55,9 @@ _parse_gc_status() {
   local status="$1"
   local mayor sessions suspended controller
   mayor=$(printf '%s\n' "$status" | awk '/^harness\.mayor / {print $2; exit}')
-  sessions=$(printf '%s\n' "$status" | awk '/^Sessions:/ {gsub(/^ */, ""); print; exit}')
+  sessions=$(printf '%s\n' "$status" | awk '/^Sessions:/ {print; exit}')
   suspended=$(printf '%s\n' "$status" | awk '/^Suspended:/ {print $2; exit}')
-  controller=$(printf '%s\n' "$status" | grep -m1 '^Controller:' | grep -o "supervisor-managed\|stopped\|error" | head -1 || true)
+  controller=$(printf '%s\n' "$status" | grep -m1 '^Controller:' | grep -o "supervisor-managed\|stopped\|error" || true)
   printf '%s|%s|%s|%s\n' "$mayor" "$sessions" "$suspended" "$controller"
 }
 # test-source-end

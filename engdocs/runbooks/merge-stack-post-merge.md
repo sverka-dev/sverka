@@ -35,9 +35,9 @@ a stack is squash-merged into `main`. It is referenced by the
    else
      BASE_TREE=$(git rev-parse "origin/main^{tree}")
 
-     # For each lower PR in the stack (replace placeholders with real values):
-     for LOWER_PR in <lower-pr-1> <lower-pr-2>; do
-       LOWER_REF="origin/<lower-head-branch>"
+     # For each lower PR in the stack (replace placeholder values before running):
+     for LOWER_PR in __LOWER_PR_1__ __LOWER_PR_2__; do
+       LOWER_REF="origin/__LOWER_HEAD_BRANCH__"
        CONTENT_INCLUDED=false
 
        MERGE_BASE=$(git merge-base origin/main "$LOWER_REF") || true
@@ -64,7 +64,7 @@ a stack is squash-merged into `main`. It is referenced by the
 
        if [ "$CONTENT_INCLUDED" = "true" ]; then
          gh pr close "$LOWER_PR" --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
-         git push origin --delete "<lower-head-branch>" 2>/dev/null || true
+         git push origin --delete "__LOWER_HEAD_BRANCH__" 2>/dev/null || true
        else
          echo "WARNING: $LOWER_REF content not proven to be in main — retaining lower PR and branch for review"
          # Do not close or delete; the lower PR stays open until inclusion can be verified.
