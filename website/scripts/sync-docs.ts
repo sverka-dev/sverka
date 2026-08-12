@@ -155,9 +155,26 @@ function stripLeadingH1(body: string, title: string): string {
   const firstLine = newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex);
   const headingText = firstLine.trim().replace(/^#\s+/, "");
   if (headingText === title.trim()) {
-    return trimmed.slice(firstLine.length).replace(/^[\s\r\n]+/, "");
+    return trimmed.slice(firstLine.length).replace(/^\s+/, "");
   }
   return body;
+}
+
+function parseExistingFrontmatter(rawFrontmatter: string): Record<string, unknown> {
+  if (!rawFrontmatter) return {};
+  const inner = rawFrontmatter
+    .replace(/^---\r?\n/, "")
+    .replace(/\r?\n---\r?\n?$/, "");
+  if (!inner.trim()) return {};
+  try {
+    const parsed = parseYaml(inner);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch (err) {
+    throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, { cause: err });
+  }
+  return {};
 }
 
 function mergeFrontmatter(
@@ -167,28 +184,11 @@ function mergeFrontmatter(
   editUrl: string,
   sidebar?: Record<string, unknown>,
 ): string {
-  let existing: Record<string, unknown> = {};
-  if (rawFrontmatter) {
-    const inner = rawFrontmatter
-      .replace(/^---\r?\n/, "")
-      .replace(/\r?\n---\r?\n?$/, "");
-    if (inner.trim()) {
-      try {
-        const parsed = parseYaml(inner);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          existing = parsed as Record<string, unknown>;
-        }
-      } catch (err) {
-        throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, { cause: err });
-      }
-    }
-  }
-
+  const existing = parseExistingFrontmatter(rawFrontmatter);
+  const excluded = new Set(["title", "description", "editUrl", "sidebar"]);
   const fields: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(existing)) {
-    if (key !== "title" && key !== "description" && key !== "editUrl" && key !== "sidebar") {
-      fields[key] = value;
-    }
+    if (!excluded.has(key)) fields[key] = value;
   }
 
   fields.title = title;
@@ -356,12 +356,13 @@ async function writeSidebarConfig(entries: FileEntry[]) {
     if (dir) userSubDirs.add(dir);
   }
 
-  const sorted = Array.from(userSubDirs).sort();
+  const sorted = Array.from(userSubDirs).sort((a, b) => a.localeCompare(b));
   const subItems = sorted
     .map((dir) => `      { label: "${formatLabel(dir)}", autogenerate: { directory: "user/${dir}", collapsed: false } }`)
     .join(",\n");
+  const items = subItems ? `${subItems},\n` : "";
 
-  const contents = `export const sidebar = [\n  { slug: "index" },\n  {\n    label: "User documentation",\n    collapsed: false,\n    items: [\n      { slug: "user" },\n${subItems ? `${subItems},\n` : ""}    ]\n  }\n];\n`;
+  const contents = `export const sidebar = [\n  { slug: "index" },\n  {\n    label: "User documentation",\n    collapsed: false,\n    items: [\n      { slug: "user" },\n${items}    ]\n  }\n];\n`;
 
   await fs.writeFile(path.resolve(websiteDir, "sidebar.generated.mjs"), contents, "utf-8");
 }
