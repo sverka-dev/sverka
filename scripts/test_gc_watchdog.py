@@ -71,7 +71,7 @@ _parse_gc_status "$STATUS"
         capture_output=True,
         text=True,
         check=True,
-        env={"STATUS": status, **os.environ},
+        env={**os.environ, "STATUS": status},
     )
     parts = result.stdout.strip().split("|")
     if len(parts) != 4:
@@ -157,6 +157,7 @@ def test_status_fields_parsed():
 def test_status_first_match_wins():
     """When status lines are repeated, the first matching line is used."""
     status = (
+        "harnessXmayor false\n"
         "harness.mayor awake\n"
         "harness.mayor lookup\n"
         "Sessions: 3 active\n"

@@ -35,9 +35,16 @@ a stack is squash-merged into `main`. It is referenced by the
    else
      BASE_TREE=$(git rev-parse "origin/main^{tree}")
 
-     # For each lower PR in the stack (replace placeholder values before running):
+     # For each lower PR in the stack (replace placeholder PR numbers with real values):
      for LOWER_PR in __LOWER_PR_1__ __LOWER_PR_2__; do
-       LOWER_REF="origin/__LOWER_HEAD_BRANCH__"
+       # Resolve the PR's head branch so verification and deletion both use the
+       # same per-PR reference.
+       HEAD_REF=$(gh pr view "$LOWER_PR" --json headRefName --jq '.headRefName' 2>/dev/null || true)
+       if [ -z "$HEAD_REF" ]; then
+         echo "WARNING: could not resolve head branch for $LOWER_PR — retaining PR and branch for review" >&2
+         continue
+       fi
+       LOWER_REF="origin/$HEAD_REF"
        CONTENT_INCLUDED=false
 
        MERGE_BASE=$(git merge-base origin/main "$LOWER_REF") || true
@@ -63,10 +70,10 @@ a stack is squash-merged into `main`. It is referenced by the
        fi
 
        if [ "$CONTENT_INCLUDED" = "true" ]; then
-         gh pr close "$LOWER_PR" --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
-         git push origin --delete "__LOWER_HEAD_BRANCH__" 2>/dev/null || true
+         gh pr close "$LOWER_PR" --comment "Merged via #__TOP_PR__ (squash). All stack changes are now in main."
+         git push origin --delete "$HEAD_REF" 2>/dev/null || true
        else
-         echo "WARNING: $LOWER_REF content not proven to be in main — retaining lower PR and branch for review"
+         echo "WARNING: $LOWER_REF content not proven to be in main — retaining lower PR $LOWER_PR and branch $HEAD_REF for review" >&2
          # Do not close or delete; the lower PR stays open until inclusion can be verified.
        fi
      done

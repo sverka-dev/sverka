@@ -94,14 +94,16 @@ This single merge brings ALL changes from the entire stack into main.
 After merge, follow the post-merge cleanup runbook in
 `engdocs/runbooks/merge-stack-post-merge.md`:
 - Pull `main` locally.
-- For each lower PR, verify its content is already in `main` using a trial
-  `git merge-tree --write-tree` comparison (squash merges break ancestry checks).
+- For each lower PR, resolve its head branch with `gh pr view`, then verify its
+  content is already in `main` using a trial `git merge-tree --write-tree`
+  comparison (squash merges break ancestry checks).
 - Close verified lower PRs and delete their head branches; retain any PR whose
   inclusion cannot be proven.
 - Record the merge in `bd` if this stack is tracked.
 
-The runbook contains the full executable steps and safety notes, including the
-required git >= 2.38 caveat and OID validation logic.
+The runbook is a parameterized shell template; replace the placeholder PR numbers
+with the real lower-PR numbers before running. It includes the required git >=
+2.38 caveat and OID validation logic.
 
 If merge fails (conflict, CI changed), report back to builder for
 another /act iteration.
