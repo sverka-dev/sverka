@@ -190,6 +190,7 @@ function mergeFrontmatter(
 function rewriteLink(
   text: string,
   href: string,
+  currentSrcPath: string,
   currentSrcDir: string,
   currentRoutePath: string,
   sourceToRoute: Map<string, string>,
@@ -204,6 +205,7 @@ function rewriteLink(
   const srcRel = posix(path.relative(repoRoot, resolvedSrc)).replace(/\.mdx?$/i, "");
   const targetRoute = sourceToRoute.get(srcRel);
   if (!targetRoute) {
+    console.warn(`Unresolved internal link in ${currentSrcPath}: ${href}`);
     let newHref = clean.replace(/\.mdx?$/i, "");
     if (!newHref.endsWith("/")) newHref += "/";
     return `[${text}](${newHref}${anchor})`;
@@ -237,7 +239,7 @@ function transformLinks(
     if (full.startsWith("!")) {
       segments.push(full);
     } else {
-      segments.push(rewriteLink(text, href, currentSrcDir, currentRoutePath, sourceToRoute));
+      segments.push(rewriteLink(text, href, currentSrcPath, currentSrcDir, currentRoutePath, sourceToRoute));
     }
     lastIndex = match.index + full.length;
     if (match.index === linkRegex.lastIndex) {

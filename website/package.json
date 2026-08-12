@@ -8,7 +8,8 @@
     "dev": "bun run sync-docs && astro dev",
     "build": "bun run sync-docs && astro build",
     "preview": "astro preview",
-    "check": "bun run sync-docs && astro check"
+    "check": "bun run sync-docs && astro check",
+    "test": "bun test"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
