@@ -1,6 +1,7 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import sitemap from "@astrojs/sitemap";
+import { sidebar } from "./sidebar.generated.mjs";
 
 const site = process.env.SITE_URL || "https://sverka.dev";
 const baseInput = process.env.BASE_PATH || "/";
@@ -34,6 +35,7 @@ export default defineConfig({
     starlight({
       title: "Sverka",
       description: "Define checks once. Plan locally. Run anywhere.",
+      sidebar,
       favicon: "/favicon.svg",
       social: [
         {

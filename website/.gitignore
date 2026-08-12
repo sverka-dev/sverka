@@ -1,6 +1,7 @@
 node_modules
 dist
 .astro
+sidebar.generated.mjs
 src/content/docs/*
 !src/content/docs/index.mdx
 !src/content/docs/.gitignore

@@ -6,6 +6,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const docsRoot = path.resolve(repoRoot, "website/src/content/docs");
 const publicDir = path.resolve(repoRoot, "website/public");
+const websiteDir = path.resolve(repoRoot, "website");
 
 interface RootMapping {
   src: string;
@@ -135,11 +136,36 @@ function fileNameToTitle(filePath: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const ACRONYMS = new Set(["api", "cli", "ci", "sarif"]);
+
+function formatLabel(slug: string): string {
+  return slug
+    .split(/[-_]+/)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (ACRONYMS.has(lower)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+function stripLeadingH1(body: string, title: string): string {
+  const trimmed = body.replace(/^\s+/, "");
+  const newlineIndex = trimmed.indexOf("\n");
+  const firstLine = newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex);
+  const headingText = firstLine.trim().replace(/^#\s+/, "");
+  if (headingText === title.trim()) {
+    return trimmed.slice(firstLine.length).replace(/^[\s\r\n]+/, "");
+  }
+  return body;
+}
+
 function mergeFrontmatter(
   rawFrontmatter: string,
   title: string,
   description: string | undefined,
   editUrl: string,
+  sidebar?: Record<string, unknown>,
 ): string {
   let existing: Record<string, unknown> = {};
   if (rawFrontmatter) {
@@ -158,14 +184,17 @@ function mergeFrontmatter(
     }
   }
 
-  const fields: Record<string, unknown> = { title };
-  if (description) fields.description = description;
-  fields.editUrl = editUrl;
+  const fields: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(existing)) {
-    if (key !== "title" && key !== "description" && key !== "editUrl") {
+    if (key !== "title" && key !== "description" && key !== "editUrl" && key !== "sidebar") {
       fields[key] = value;
     }
   }
+
+  fields.title = title;
+  if (description) fields.description = description;
+  fields.editUrl = editUrl;
+  if (sidebar) fields.sidebar = sidebar;
 
   const yaml = stringifyYaml(fields, { lineWidth: 0, defaultStringType: "PLAIN" });
   return `---\n${yaml}---\n\n`;
@@ -302,16 +331,39 @@ async function syncDocs() {
     const srcEditPath = posix(path.relative(repoRoot, entry.srcPath));
     const editUrl = `https://github.com/sverka-dev/sverka/edit/main/${srcEditPath}`;
 
-    const newBody = existingFrontmatter ? body : content;
-    const linkedBody = transformLinks(newBody, entry.srcPath, sourceToRoute);
+    const rawBody = existingFrontmatter ? body : content;
+    const dedupedBody = stripLeadingH1(rawBody, title);
+    const linkedBody = transformLinks(dedupedBody, entry.srcPath, sourceToRoute);
 
-    const frontmatter = mergeFrontmatter(existingFrontmatter, title, description, editUrl);
+    const sidebar = entry.isIndex ? { label: "Overview" } : undefined;
+    const frontmatter = mergeFrontmatter(existingFrontmatter, title, description, editUrl, sidebar);
     await fs.mkdir(path.dirname(entry.destPath), { recursive: true });
     await fs.writeFile(entry.destPath, frontmatter + linkedBody, "utf-8");
   }
 
+  await writeSidebarConfig(entries);
   await copyMermaid();
   await writeRobotsTxt();
+}
+
+async function writeSidebarConfig(entries: FileEntry[]) {
+  const userSubDirs = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.route.startsWith("user/")) continue;
+    const rest = entry.route.slice("user/".length);
+    const slashIndex = rest.indexOf("/");
+    const dir = slashIndex === -1 ? rest : rest.slice(0, slashIndex);
+    if (dir) userSubDirs.add(dir);
+  }
+
+  const sorted = Array.from(userSubDirs).sort();
+  const subItems = sorted
+    .map((dir) => `      { label: "${formatLabel(dir)}", autogenerate: { directory: "user/${dir}", collapsed: false } }`)
+    .join(",\n");
+
+  const contents = `export const sidebar = [\n  { slug: "index" },\n  {\n    label: "User documentation",\n    collapsed: false,\n    items: [\n      { slug: "user" },\n${subItems ? `${subItems},\n` : ""}    ]\n  }\n];\n`;
+
+  await fs.writeFile(path.resolve(websiteDir, "sidebar.generated.mjs"), contents, "utf-8");
 }
 
 await syncDocs();
