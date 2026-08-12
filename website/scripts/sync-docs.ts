@@ -50,24 +50,26 @@ async function collectFiles(): Promise<FileEntry[]> {
   for (const root of roots) {
     const srcDir = path.resolve(repoRoot, root.src);
     const destDir = path.resolve(docsRoot, root.dest);
-    let files: string[] = [];
-    try {
-      const walk = async (dir: string): Promise<string[]> => {
-        const dirEntries = await fs.readdir(dir, { withFileTypes: true });
-        let found: string[] = [];
-        for (const entry of dirEntries) {
-          const full = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            found = found.concat(await walk(full));
-          } else if (entry.isFile() && (entry.name.endsWith(".md") || entry.name.endsWith(".mdx"))) {
-            found.push(full);
-          }
+
+    const walk = async (dir: string): Promise<string[]> => {
+      const dirEntries = await fs.readdir(dir, { withFileTypes: true });
+      let found: string[] = [];
+      for (const entry of dirEntries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          found = found.concat(await walk(full));
+        } else if (entry.isFile() && (entry.name.endsWith(".md") || entry.name.endsWith(".mdx"))) {
+          found.push(full);
         }
-        return found;
-      };
+      }
+      return found;
+    };
+
+    let files: string[];
+    try {
       files = await walk(srcDir);
-    } catch {
-      continue;
+    } catch (err) {
+      throw new Error(`Could not read source docs directory ${srcDir}: ${err}`);
     }
 
     for (const file of files) {
@@ -95,12 +97,28 @@ async function collectFiles(): Promise<FileEntry[]> {
   }));
 }
 
-function parseFrontmatter(content: string): { frontmatter: string; body: string } {
+function parseFrontmatter(content: string): { frontmatter: string; body: string; fields: Record<string, string> } {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-  if (match) {
-    return { frontmatter: match[0], body: content.slice(match[0].length) };
+  if (!match) {
+    return { frontmatter: "", body: content, fields: {} };
   }
-  return { frontmatter: "", body: content };
+
+  const raw = match[1];
+  const fields: Record<string, string> = {};
+  for (const line of raw.split(/\r?\n/)) {
+    const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (m) {
+      const key = m[1];
+      let value = m[2].trim();
+      const quote = value[0];
+      if ((quote === '"' || quote === "'") && value[value.length - 1] === quote) {
+        value = value.slice(1, -1);
+      }
+      fields[key] = value;
+    }
+  }
+
+  return { frontmatter: match[0], body: content.slice(match[0].length), fields };
 }
 
 function extractTitle(body: string): string | undefined {
@@ -117,6 +135,32 @@ function extractDescription(body: string): string | undefined {
     }
   }
   return undefined;
+}
+
+function fileNameToTitle(filePath: string): string {
+  const base = path.basename(filePath, path.extname(filePath));
+  return base
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function mergeFrontmatter(rawFrontmatter: string, title: string, description: string | undefined): string {
+  const inner = rawFrontmatter
+    .replace(/^---\r?\n/, "")
+    .replace(/\r?\n---\r?\n?$/, "");
+
+  const lines = inner.split(/\r?\n/).filter((line) => {
+    const trimmed = line.trimStart();
+    return !/^title:\s*/.test(trimmed) && !/^description:\s*/.test(trimmed);
+  });
+
+  const frontLines = [
+    `title: ${JSON.stringify(title)}`,
+    ...(description ? [`description: ${JSON.stringify(description)}`] : []),
+    ...lines,
+  ];
+
+  return `---\n${frontLines.join("\n")}\n---\n\n`;
 }
 
 function transformLinks(
@@ -142,7 +186,7 @@ function transformLinks(
 
     const resolvedSrc = posix(path.resolve(currentSrcDir, clean));
     const srcRel = posix(path.relative(repoRoot, resolvedSrc)).replace(/\.mdx?$/i, "");
-    const targetRoute = sourceToRoute.get(srcRel) ?? sourceToRoute.get(`${srcRel}.md`) ?? sourceToRoute.get(`${srcRel}.mdx`);
+    const targetRoute = sourceToRoute.get(srcRel);
     if (!targetRoute) {
       let newHref = clean.replace(/\.mdx?$/i, "");
       if (!newHref.endsWith("/")) newHref += "/";
@@ -157,6 +201,48 @@ function transformLinks(
   });
 }
 
+async function cleanDocsRoot() {
+  const keepRoot = new Set(["index.mdx", ".gitignore"]);
+  try {
+    const top = await fs.readdir(docsRoot, { withFileTypes: true });
+    for (const entry of top) {
+      const entryPath = path.join(docsRoot, entry.name);
+      if (entry.isDirectory()) {
+        await fs.rm(entryPath, { recursive: true, force: true });
+      } else if (!keepRoot.has(entry.name)) {
+        await fs.rm(entryPath, { force: true });
+      }
+    }
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      await fs.mkdir(docsRoot, { recursive: true });
+    } else {
+      throw new Error(`Failed to clean docs directory ${docsRoot}: ${err}`);
+    }
+  }
+}
+
+async function writeRobotsTxt() {
+  const site = process.env.SITE_URL || "https://sverka.dev";
+  const baseInput = process.env.BASE_PATH || "/";
+  const basePath = baseInput === "/" ? "" : baseInput.replace(/\/$/, "");
+  const sitemapUrl = `${site}${basePath}/sitemap-index.xml`;
+  const robots = `User-agent: *\nAllow: /\n\nSitemap: ${sitemapUrl}\n`;
+  await fs.mkdir(publicDir, { recursive: true });
+  await fs.writeFile(path.resolve(publicDir, "robots.txt"), robots, "utf-8");
+}
+
+async function copyMermaid() {
+  const mermaidSrc = path.resolve(repoRoot, "website/node_modules/mermaid/dist/mermaid.min.js");
+  const mermaidDest = path.resolve(publicDir, "mermaid.min.js");
+  try {
+    await fs.copyFile(mermaidSrc, mermaidDest);
+  } catch (err) {
+    throw new Error(`Failed to copy mermaid bundle from ${mermaidSrc}: ${err}`);
+  }
+}
+
 async function syncDocs() {
   const entries = await collectFiles();
   const sourceToRoute = new Map<string, string>();
@@ -166,41 +252,29 @@ async function syncDocs() {
     sourceToRoute.set(key, entry.route);
   }
 
-  const keepRoot = new Set(["index.mdx", ".gitignore"]);
-  try {
-    const top = await fs.readdir(docsRoot, { withFileTypes: true });
-    for (const entry of top) {
-      if (entry.isDirectory()) {
-        await fs.rm(path.join(docsRoot, entry.name), { recursive: true, force: true });
-      } else if (!keepRoot.has(entry.name)) {
-        await fs.rm(path.join(docsRoot, entry.name), { force: true });
-      }
-    }
-  } catch {
-    await fs.mkdir(docsRoot, { recursive: true });
-  }
+  await cleanDocsRoot();
 
   for (const entry of entries) {
     const content = await fs.readFile(entry.srcPath, "utf-8");
-    const { frontmatter: existingFrontmatter, body } = parseFrontmatter(content);
-    const title = extractTitle(body) ?? path.basename(entry.srcPath, ".md");
-    const description = extractDescription(body);
+    const { frontmatter: existingFrontmatter, body, fields } = parseFrontmatter(content);
 
-    let newBody = existingFrontmatter ? body : content;
-    newBody = transformLinks(newBody, entry.srcPath, sourceToRoute);
+    const title =
+      fields.title ||
+      extractTitle(body) ||
+      (entry.isIndex ? extractTitle(body) ?? undefined : undefined) ||
+      fileNameToTitle(entry.srcPath);
+    const description = fields.description || extractDescription(body);
 
-    const frontmatter = `---\ntitle: ${JSON.stringify(title)}\n${description ? `description: ${JSON.stringify(description)}\n` : ""}---\n\n`;
+    const newBody = existingFrontmatter ? body : content;
+    const linkedBody = transformLinks(newBody, entry.srcPath, sourceToRoute);
+
+    const frontmatter = mergeFrontmatter(existingFrontmatter, title, description ?? "");
     await fs.mkdir(path.dirname(entry.destPath), { recursive: true });
-    await fs.writeFile(entry.destPath, frontmatter + newBody, "utf-8");
+    await fs.writeFile(entry.destPath, frontmatter + linkedBody, "utf-8");
   }
 
-  const mermaidSrc = path.resolve(repoRoot, "website/node_modules/mermaid/dist/mermaid.min.js");
-  const mermaidDest = path.resolve(publicDir, "mermaid.min.js");
-  try {
-    await fs.copyFile(mermaidSrc, mermaidDest);
-  } catch {
-    // Mermaid may not be installed.
-  }
+  await copyMermaid();
+  await writeRobotsTxt();
 }
 
 await syncDocs();
