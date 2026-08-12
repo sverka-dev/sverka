@@ -18,7 +18,7 @@ function runSync() {
 }
 
 describe("sync-docs", () => {
-  it("generates user index with editUrl", () => {
+  it("generates user docs with editUrl", () => {
     runSync();
     const index = path.join(docsDir, "user/index.md");
     expect(fs.existsSync(index)).toBe(true);
@@ -27,24 +27,10 @@ describe("sync-docs", () => {
     expect(content).toContain("https://github.com/sverka-dev/sverka/edit/main/engdocs/user/README.md");
   });
 
-  it("generates engineering landing with editUrl", () => {
-    const index = path.join(docsDir, "engineering/index.md");
-    expect(fs.existsSync(index)).toBe(true);
-    const content = fs.readFileSync(index, "utf-8");
-    expect(content).toContain("editUrl: https://github.com/sverka-dev/sverka/edit/main/engdocs/README.md");
-  });
-
-  it("generates specs landing page", () => {
-    const index = path.join(docsDir, "specs/index.md");
-    expect(fs.existsSync(index)).toBe(true);
-    const content = fs.readFileSync(index, "utf-8");
-    expect(content).toMatch(/^---/);
-    expect(content).toContain("Specifications");
-  });
-
-  it("includes runbooks in generated docs", () => {
-    const runbook = path.join(docsDir, "engineering/runbooks/merge-stack-post-merge.md");
-    expect(fs.existsSync(runbook)).toBe(true);
+  it("does not publish engineering or specs sections", () => {
+    runSync();
+    expect(fs.existsSync(path.join(docsDir, "engineering"))).toBe(false);
+    expect(fs.existsSync(path.join(docsDir, "specs"))).toBe(false);
   });
 
   it("copies mermaid bundle", () => {

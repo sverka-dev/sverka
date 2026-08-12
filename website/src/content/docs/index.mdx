@@ -42,26 +42,9 @@ Sverka is a composable workflow SDK, local CI runtime, and multi-target compiler
   </Card>
 </CardGrid>
 
-## Architecture at a glance
-
-```mermaid
-flowchart LR
-  subgraph "Workflow SDK"
-    A[TypeScript config]
-  end
-  B[Discovery + Planner]
-  C[Canonical Plan IR]
-  D[Local Executors]
-  E[Target Compilers]
-  F[Findings + Verdict]
-
-  A --> B --> C --> D --> F
-  C --> E --> F
-```
-
 ## Start here
 
 - [Install Sverka](user/getting-started/install/) and set up your first workflow.
 - [Explore the Workflow API](user/workflow-api/overview/) to compose checks.
 - [Read the CLI reference](user/cli/overview/) for all commands and flags.
-- [Browse engineering docs](engineering/) and [specs](specs/) to understand the design.
+- [Browse the full user guide](user/) for all topics.
