@@ -3,7 +3,9 @@ import sitemap from "@astrojs/sitemap";
 
 const site = process.env.SITE_URL || "https://sverka.dev";
 const baseInput = process.env.BASE_PATH || "/";
-const base = baseInput === "/" ? "/" : (baseInput.endsWith("/") ? baseInput : `${baseInput}/`);
+const base = baseInput === "/" || baseInput.endsWith("/")
+  ? baseInput
+  : `${baseInput}/`;
 
 export default defineConfig({
   site,

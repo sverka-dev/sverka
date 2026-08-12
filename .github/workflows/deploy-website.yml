@@ -16,16 +16,9 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-24.04
-    name: Deploy to GitHub Pages
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    name: Build website
     env:
       SITE_URL: https://sverka-dev.github.io
       BASE_PATH: /sverka
@@ -50,6 +43,18 @@ jobs:
         with:
           path: website/dist
 
+  deploy:
+    runs-on: ubuntu-24.04
+    name: Deploy to GitHub Pages
+    needs: build
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
