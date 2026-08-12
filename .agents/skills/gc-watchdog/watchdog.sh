@@ -21,8 +21,13 @@ if ! [[ "$INTERVAL" =~ ^[1-9][0-9]*$ ]]; then
 fi
 ITER=0
 
+# test-source-begin
+# Marker used by scripts/test_gc_watchdog.py to source the helper section
+# without pulling in the endless main loop below.
+
 # Filter out ephemeral wisp/nudge beads from bd output.
-# Real issues have IDs like sv-XXXX (4+ chars after sv-).
+# Real issues have IDs like sv-XXXX (3+ alphanumeric chars, optionally
+# followed by .N for hierarchical IDs like sv-a1b.1).
 # Wisp/nudge beads have IDs like sv-wisp-XXXX or sv-nudge-XXXX.
 # Status symbols: ○ = open, ◐ = in_progress, ● = blocked, ✓ = closed
 # Returns -1 on bd failure (distinct from a legitimate 0 count) so the
@@ -39,10 +44,23 @@ count_real_issues() {
   # pipeline. Use `|| true` to swallow grep's no-match exit code so
   # an empty result yields 0, not -1.
   printf '%s\n' "$raw" \
-    | { grep -E '^\s*[○◐●] sv-[a-z0-9]{4,}($| )' || true; } \
-    | { grep -vE '^\s*[○◐●] sv-(wisp|nudge)' || true; } \
+    | { grep -E '^[[:space:]]*[○◐●] sv-[a-zA-Z0-9]{3,}(\.[0-9]+)?($|[[:space:]])' || true; } \
+    | { grep -vE '^[[:space:]]*[○◐●] sv-(wisp|nudge)(\.[0-9]+)?($|[[:space:]])' || true; } \
     | wc -l
 }
+
+# Parse gc status output into MAYOR|SESSIONS|SUSPENDED|CONTROLLER.
+# Exposed as a function so the regression tests can call the exact same parser.
+_parse_gc_status() {
+  local status="$1"
+  local mayor sessions suspended controller
+  mayor=$(printf '%s\n' "$status" | awk '/^harness\.mayor / {print $2; exit}')
+  sessions=$(printf '%s\n' "$status" | awk '/^Sessions:/ {print; exit}')
+  suspended=$(printf '%s\n' "$status" | awk '/^Suspended:/ {print $2; exit}')
+  controller=$(printf '%s\n' "$status" | grep -m1 '^Controller:' | grep -o "supervisor-managed\|stopped\|error" || true)
+  printf '%s|%s|%s|%s\n' "$mayor" "$sessions" "$suspended" "$controller"
+}
+# test-source-end
 
 while true; do
   ITER=$((ITER + 1))
@@ -57,10 +75,9 @@ while true; do
     continue
   fi
 
-  MAYOR=$(echo "$STATUS" | grep "harness.mayor" | awk '{print $2}')
-  SESSIONS=$(echo "$STATUS" | grep "Sessions:" | head -1 | sed 's/^ *//')
-  SUSPENDED=$(echo "$STATUS" | grep "Suspended:" | awk '{print $2}')
-  CONTROLLER=$(echo "$STATUS" | grep "Controller:" | grep -o "supervisor-managed\|stopped\|error" | head -1 || true)
+  IFS='|' read -r MAYOR SESSIONS SUSPENDED CONTROLLER <<EOF
+$(_parse_gc_status "$STATUS")
+EOF
 
   # Handle transient lookup errors (mayor shows "lookup" instead of "awake")
   if echo "$MAYOR" | grep -q "lookup"; then

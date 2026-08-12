@@ -91,21 +91,19 @@ Command:
 
 This single merge brings ALL changes from the entire stack into main.
 
-After merge:
-1. Delete the remote head branch (gh pr merge --delete-branch does this)
-2. Pull main locally: git checkout main && git pull
-3. Close all lower PRs in this stack (their changes are now in main):
-   For each lower PR in the stack:
-     # Verify the branch is truly in main before deleting:
-     git fetch origin
-     if git merge-base --is-ancestor origin/<lower-head-branch> origin/main; then
-       gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
-       git push origin --delete <lower-head-branch> (if not already deleted)
-     else
-       echo "WARNING: <lower-head-branch> is NOT an ancestor of main — skipping deletion"
-       gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). Branch retained for safety."
-     fi
-4. Record merge in bd: bd close <bead-id> if tracking
+After merge, follow the post-merge cleanup runbook in
+`engdocs/runbooks/merge-stack-post-merge.md`:
+- Pull `main` locally.
+- For each lower PR, resolve its head branch with `gh pr view`, then verify its
+  content is already in `main` using a trial `git merge-tree --write-tree`
+  comparison (squash merges break ancestry checks).
+- Close verified lower PRs and delete their head branches; retain any PR whose
+  inclusion cannot be proven.
+- Record the merge in `bd` if this stack is tracked.
+
+The runbook is a parameterized shell template; replace the placeholder PR numbers
+with the real lower-PR numbers before running. It includes the required git >=
+2.38 caveat and OID validation logic.
 
 If merge fails (conflict, CI changed), report back to builder for
 another /act iteration.
