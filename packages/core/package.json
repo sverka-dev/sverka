@@ -18,6 +18,9 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@sverka/constructs": "workspace:*"
+  },
   "devDependencies": {
     "tsdown": "^0.22.0",
     "typescript": "^5.8.0",
