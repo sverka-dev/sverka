@@ -6,6 +6,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const docsRoot = path.resolve(repoRoot, "website/src/content/docs");
 const publicDir = path.resolve(repoRoot, "website/public");
+const websiteDir = path.resolve(repoRoot, "website");
 
 interface RootMapping {
   src: string;
@@ -135,37 +136,67 @@ function fileNameToTitle(filePath: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const ACRONYMS = new Set(["api", "cli", "ci", "sarif"]);
+
+function formatLabel(slug: string): string {
+  return slug
+    .split(/[-_]+/)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (ACRONYMS.has(lower)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+function stripLeadingH1(body: string, title: string): string {
+  const trimmed = body.replace(/^\s+/, "");
+  const newlineIndex = trimmed.indexOf("\n");
+  const firstLine = newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex);
+  const lineText = firstLine.trim();
+  if (!lineText.startsWith("# ")) return body;
+  const headingText = lineText.slice(2).trim();
+  if (headingText.localeCompare(title.trim(), undefined, { sensitivity: "base" }) === 0) {
+    return trimmed.slice(firstLine.length).replace(/^\s+/, "");
+  }
+  return body;
+}
+
+function parseExistingFrontmatter(rawFrontmatter: string): Record<string, unknown> {
+  if (!rawFrontmatter) return {};
+  const inner = rawFrontmatter
+    .replace(/^---\r?\n/, "")
+    .replace(/\r?\n---\r?\n?$/, "");
+  if (!inner.trim()) return {};
+  try {
+    const parsed = parseYaml(inner);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch (err) {
+    throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, { cause: err });
+  }
+  throw new DocsSyncError("Frontmatter must be a YAML object mapping");
+}
+
 function mergeFrontmatter(
   rawFrontmatter: string,
   title: string,
   description: string | undefined,
   editUrl: string,
+  sidebar?: Record<string, unknown>,
 ): string {
-  let existing: Record<string, unknown> = {};
-  if (rawFrontmatter) {
-    const inner = rawFrontmatter
-      .replace(/^---\r?\n/, "")
-      .replace(/\r?\n---\r?\n?$/, "");
-    if (inner.trim()) {
-      try {
-        const parsed = parseYaml(inner);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          existing = parsed as Record<string, unknown>;
-        }
-      } catch (err) {
-        throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, { cause: err });
-      }
-    }
+  const existing = parseExistingFrontmatter(rawFrontmatter);
+  const excluded = new Set(["title", "description", "editUrl"]);
+  const fields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(existing)) {
+    if (!excluded.has(key)) fields[key] = value;
   }
 
-  const fields: Record<string, unknown> = { title };
+  fields.title = title;
   if (description) fields.description = description;
   fields.editUrl = editUrl;
-  for (const [key, value] of Object.entries(existing)) {
-    if (key !== "title" && key !== "description" && key !== "editUrl") {
-      fields[key] = value;
-    }
-  }
+  if (sidebar) fields.sidebar = sidebar;
 
   const yaml = stringifyYaml(fields, { lineWidth: 0, defaultStringType: "PLAIN" });
   return `---\n${yaml}---\n\n`;
@@ -302,16 +333,103 @@ async function syncDocs() {
     const srcEditPath = posix(path.relative(repoRoot, entry.srcPath));
     const editUrl = `https://github.com/sverka-dev/sverka/edit/main/${srcEditPath}`;
 
-    const newBody = existingFrontmatter ? body : content;
-    const linkedBody = transformLinks(newBody, entry.srcPath, sourceToRoute);
+    const rawBody = existingFrontmatter ? body : content;
+    const dedupedBody = stripLeadingH1(rawBody, title);
+    const linkedBody = transformLinks(dedupedBody, entry.srcPath, sourceToRoute);
 
-    const frontmatter = mergeFrontmatter(existingFrontmatter, title, description, editUrl);
+    const sidebar = entry.isIndex ? { label: "Overview" } : undefined;
+    const frontmatter = mergeFrontmatter(existingFrontmatter, title, description, editUrl, sidebar);
     await fs.mkdir(path.dirname(entry.destPath), { recursive: true });
     await fs.writeFile(entry.destPath, frontmatter + linkedBody, "utf-8");
   }
 
+  await writeSidebarConfig(entries);
   await copyMermaid();
   await writeRobotsTxt();
+}
+
+function readSectionOrder(readme: string): string[] {
+  const order: string[] = [];
+  const seen = new Set<string>();
+  const linkRegex = /\]\(\.\/([^\/\s\)#]+)(?:\/[^\)]*)?\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = linkRegex.exec(readme)) !== null) {
+    const dir = match[1];
+    if (!seen.has(dir)) {
+      seen.add(dir);
+      order.push(dir);
+    }
+  }
+  return order;
+}
+
+async function writeSidebarConfig(entries: FileEntry[]) {
+  const userSubDirs = new Set<string>();
+  const standalone: Array<{ slug: string; srcPath: string }> = [];
+  const readmeEntry = entries.find((e) => e.isIndex && e.route === "user");
+
+  for (const entry of entries) {
+    if (!entry.route.startsWith("user/")) continue;
+    const rest = entry.route.slice("user/".length);
+    if (!rest) continue;
+    const slashIndex = rest.indexOf("/");
+    if (slashIndex !== -1) {
+      userSubDirs.add(rest.slice(0, slashIndex));
+      continue;
+    }
+    if (entry.isIndex) {
+      userSubDirs.add(rest);
+    } else {
+      standalone.push({ slug: entry.route, srcPath: entry.srcPath });
+    }
+  }
+
+  let order: string[] = [];
+  if (readmeEntry) {
+    try {
+      const readme = await fs.readFile(readmeEntry.srcPath, "utf-8");
+      order = readSectionOrder(readme);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    }
+  }
+
+  const orderIndex = new Map(order.map((name, idx) => [name, idx]));
+  const sortedDirs = Array.from(userSubDirs).sort((a, b) => {
+    const ia = orderIndex.get(a);
+    const ib = orderIndex.get(b);
+    if (ia !== undefined && ib !== undefined) return ia - ib;
+    if (ia !== undefined) return -1;
+    if (ib !== undefined) return 1;
+    return a.localeCompare(b);
+  });
+
+  const userItems: unknown[] = [{ slug: "user" }];
+  for (const dir of sortedDirs) {
+    userItems.push({
+      label: formatLabel(dir),
+      autogenerate: { directory: `user/${dir}`, collapsed: false },
+    });
+  }
+  standalone.sort((a, b) => fileNameToTitle(a.srcPath).localeCompare(fileNameToTitle(b.srcPath)));
+  for (const page of standalone) {
+    userItems.push({ label: fileNameToTitle(page.srcPath), slug: page.slug });
+  }
+
+  const sidebar = [
+    { slug: "index" },
+    { label: "User documentation", collapsed: false, items: userItems },
+  ];
+
+  try {
+    await fs.writeFile(
+      path.resolve(websiteDir, "sidebar.generated.mjs"),
+      `export const sidebar = ${JSON.stringify(sidebar, null, 2)};\n`,
+      "utf-8",
+    );
+  } catch (err) {
+    throw new DocsSyncError(`Failed to write generated sidebar config: ${err}`, { cause: err });
+  }
 }
 
 await syncDocs();

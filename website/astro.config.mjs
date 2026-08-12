@@ -1,6 +1,17 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import sitemap from "@astrojs/sitemap";
+import { existsSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+async function loadSidebar() {
+  const generatedPath = fileURLToPath(new URL("./sidebar.generated.mjs", import.meta.url));
+  if (!existsSync(generatedPath)) return [];
+  const mod = await import(/* @vite-ignore */ pathToFileURL(generatedPath).href);
+  return mod.sidebar ?? [];
+}
+
+const sidebar = await loadSidebar();
 
 const site = process.env.SITE_URL || "https://sverka.dev";
 const baseInput = process.env.BASE_PATH || "/";
@@ -34,6 +45,7 @@ export default defineConfig({
     starlight({
       title: "Sverka",
       description: "Define checks once. Plan locally. Run anywhere.",
+      sidebar,
       favicon: "/favicon.svg",
       social: [
         {

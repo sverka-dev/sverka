@@ -48,4 +48,25 @@ describe("sync-docs", () => {
     expect(index).not.toContain("link: /user/");
     expect(index).toContain("link: user/");
   });
+
+  it("generates sidebar config with curated section order", () => {
+    runSync();
+    const sidebar = fs.readFileSync(path.join(websiteDir, "sidebar.generated.mjs"), "utf-8");
+    expect(sidebar).toContain('"label": "User documentation"');
+    expect(sidebar).toContain('"label": "Getting Started"');
+    expect(sidebar).toContain('"label": "Workflow API"');
+    expect(sidebar).toContain('"label": "CLI"');
+    expect(sidebar).toContain('"directory": "user/getting-started"');
+    expect(sidebar.indexOf('"label": "Getting Started"')).toBeLessThan(sidebar.indexOf('"label": "Workflow API"'));
+    expect(sidebar.indexOf('"label": "Workflow API"')).toBeLessThan(sidebar.indexOf('"label": "CLI"'));
+    expect(sidebar.indexOf('"label": "CLI"')).toBeLessThan(sidebar.indexOf('"label": "Checks"'));
+  });
+
+  it("does not duplicate the generated index heading", () => {
+    runSync();
+    const index = fs.readFileSync(path.join(docsDir, "user/index.md"), "utf-8");
+    const headingMatches = (index.match(/^# Sverka — User Documentation$/gm) || []).length;
+    expect(headingMatches).toBe(0);
+    expect(index).toContain("sidebar:\n  label: Overview");
+  });
 });
