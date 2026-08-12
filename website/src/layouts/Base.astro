@@ -35,8 +35,8 @@ const {
     <meta name="twitter:description" content={description} />
   </head>
   <body>
-    <div class="pre-alpha-banner">
-      ⚠️ Pre-alpha — Work in progress. APIs may change. Not ready for production use.
+    <div class="pre-alpha-banner" role="status">
+      <span aria-hidden="true">⚠️</span> Pre-alpha — Work in progress. APIs may change. Not ready for production use.
     </div>
     <slot />
     <footer>
