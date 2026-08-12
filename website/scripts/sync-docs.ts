@@ -15,16 +15,9 @@ interface RootMapping {
 
 const roots: RootMapping[] = [
   { src: "engdocs/user", dest: "user", indexNames: ["README.md"] },
-  { src: "engdocs/architecture", dest: "engineering/architecture", indexNames: ["README.md"] },
-  { src: "engdocs/adr", dest: "engineering/adrs", indexNames: ["README.md"] },
-  { src: "engdocs/contributing", dest: "engineering/contributing", indexNames: ["README.md"] },
-  { src: "engdocs/runbooks", dest: "engineering/runbooks", indexNames: ["README.md"] },
-  { src: "specs", dest: "specs", indexNames: ["spec.md"] },
 ];
 
-const singleFiles: { src: string; dest: string }[] = [
-  { src: "engdocs/README.md", dest: "engineering/index.md" },
-];
+const singleFiles: { src: string; dest: string }[] = [];
 
 interface FileEntry {
   srcPath: string;
@@ -292,36 +285,6 @@ async function copyMermaid() {
   }
 }
 
-async function writeSpecsIndex(entries: FileEntry[]) {
-  const specEntries = entries
-    .filter((entry) => entry.route.startsWith("specs/") && entry.isIndex)
-    .sort((a, b) => a.route.localeCompare(b.route));
-
-  const items: string[] = [];
-  for (const entry of specEntries) {
-    const content = await fs.readFile(entry.srcPath, "utf-8");
-    const { body } = parseFrontmatter(content);
-    const title = extractTitle(body) ?? fileNameToTitle(entry.srcPath);
-    const slug = entry.route.replace("specs/", "");
-    items.push(`- [${title}](${slug}/)`);
-  }
-
-  const specIndexContent = [
-    "---",
-    "title: Specifications",
-    "description: Technical specifications for the Sverka platform.",
-    "---",
-    "",
-    "# Specifications",
-    "",
-    ...items,
-    "",
-  ].join("\n");
-
-  const specsIndexPath = path.resolve(docsRoot, "specs/index.md");
-  await fs.mkdir(path.dirname(specsIndexPath), { recursive: true });
-  await fs.writeFile(specsIndexPath, specIndexContent, "utf-8");
-}
 
 async function syncDocs() {
   const entries = await collectFiles();
@@ -356,7 +319,6 @@ async function syncDocs() {
     await fs.writeFile(entry.destPath, frontmatter + linkedBody, "utf-8");
   }
 
-  await writeSpecsIndex(entries);
   await copyMermaid();
   await writeRobotsTxt();
 }
