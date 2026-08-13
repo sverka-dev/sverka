@@ -5,7 +5,8 @@ export type SynthesisErrorCode =
   | "CYCLE"
   | "UNKNOWN_PRODUCER"
   | "OUTPUT_COLLISION"
-  | "INCOMPATIBLE_REFERENCE";
+  | "INCOMPATIBLE_REFERENCE"
+  | "INVALID_OUTPUT";
 
 export class SynthesisError extends Error {
   override readonly cause: unknown;

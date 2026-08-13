@@ -26,6 +26,7 @@ import {
   validateOutputCollisions,
   validateReferenceTypes,
 } from "./validate.js";
+import { SynthesisError } from "./errors.js";
 
 /**
  * Transform a construct tree into a Definition Graph.
@@ -91,7 +92,14 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   // Export operations from outputs.
   for (const [name, decl] of step.outputs) {
     if (decl.type === "artifact") {
-      operations.push({ kind: "exportArtifact", name, path: decl.path ?? "" });
+      if (decl.path === undefined) {
+        throw new SynthesisError(
+          "INVALID_OUTPUT",
+          `Artifact output '${name}' on step '${stepId}' must have a path`,
+          stepId,
+        );
+      }
+      operations.push({ kind: "exportArtifact", name, path: decl.path });
     } else {
       operations.push({ kind: "exportOutput", name, type: decl.type });
     }
