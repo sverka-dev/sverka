@@ -1,13 +1,13 @@
 ---
 title: Sverka
-description: AI-first verification framework. One command. Full pipeline. Zero token waste.
+description: Code-first TypeScript pipeline engine. Run locally. Compile to CI.
 editUrl: https://github.com/sverka-dev/sverka/edit/main/website/src/content/docs/index.mdx
 sidebar:
   label: Home
 template: splash
 hero:
   title: Sverka
-  tagline: AI-first verification framework. One command. Full pipeline. Zero token waste.
+  tagline: Code-first TypeScript pipeline engine. Run locally. Compile to CI.
   actions:
     - text: Get started
       link: user/getting-started/install/
@@ -15,7 +15,7 @@ hero:
       variant: primary
     - text: AI use cases
       link: user/ai-use-cases/
-      icon: open-book
+      icon: list-format
       variant: secondary
     - text: View on GitHub
       link: https://github.com/sverka-dev/sverka
@@ -25,60 +25,69 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-An agent says `/sverka build, then lint, then sonar + codacy + trivy, output findings as SARIF`. Sverka builds the pipeline, runs everything locally, and returns structured findings. The agent spent **50 tokens, not 5000**.
+Sverka is a code-first TypeScript pipeline engine. Author workflows in
+code — not YAML, not config files, not prompts. Execute them locally
+through a native engine. Lower the same Definition Graph to GitHub Actions
+or GitLab CI.
 
-## Why Sverka
+AI agents leverage Sverka through skills and CLI. An agent says `sverka run
+--entry ci --format json` — Sverka builds the pipeline, runs everything
+locally, and returns structured findings. The agent spends ~50 tokens, not
+~5000 (estimates vary by repo, tool count, and model).
+
+## What you get
 
 <CardGrid stagger>
-  <Card title="AI-first" icon="approve-check">
-    CLI-native + structured JSON. Say `sverka run --entry ci --format json` — Sverka handles the rest. The agent declares **what** to verify, not **how**. Claude plugin and AI skill integrations are planned.
+  <Card title="Code-first" icon="seti:typescript">
+    Author pipelines in TypeScript. Construct, SDK, and Decorator APIs all
+    produce the same Definition Graph. Not YAML, not config files, not
+    prompts.
   </Card>
-  <Card title="Token-efficient" icon="seti:typescript">
-    Delegate orchestration to the pipeline, not the LLM. One command replaces 6+ tool-call round-trips. ~97% token reduction per verification run.
+  <Card title="Pipeline engine" icon="rocket">
+    Executes pipelines locally with topological scheduling, parallel steps,
+    artifact and scalar transfer. Host or Docker runtime. No cloud, no
+    remote API calls.
   </Card>
-  <Card title="Localhost engine" icon="rocket">
-    Everything runs locally. No cloud, no remote API calls. Host or container runtime. Topological scheduling, parallel steps, structured findings.
+  <Card title="AI-friendly" icon="seti:settings">
+    Localhost + CLI + structured JSON. Agents delegate orchestration to
+    Sverka, saving tokens. `--format json` on every command. One command
+    replaces 6+ tool-call round-trips.
   </Card>
-  <Card title="TypeScript SDK + DSL" icon="seti:typescript">
-    Author workflows in code. Three equivalent APIs: Construct (CDK-style), SDK (composables), Decorator (`@step`, `@pipeline`, `@entry`).
+  <Card title="Three authoring surfaces" icon="approve-check">
+    Construct API (CDK-style), SDK composables (`sh`, `pipeline`, `when`),
+    Decorator syntax (`@step`, `@pipeline`, `@entry`). All produce the
+    same graph.
   </Card>
   <Card title="CLI" icon="forward-slash">
-    `sverka plan`, `run`, `check`, `discover`, `validate`, `graph`, `synth`, `policy`, `doctor`. One tool, full pipeline. JSON output for agent consumption.
+    `sverka plan`, `run`, `check`, `synth`, `validate`, `discover`,
+    `policy`, `graph`, `doctor`. One tool, full pipeline.
   </Card>
   <Card title="Compile to CI" icon="seti:yaml">
-    Same workflow lowers to GitHub Actions or GitLab CI YAML. Native lowering — one job per step, not thin wrappers. `sverka synth --target github`.
+    Same workflow lowers to GitHub Actions or GitLab CI YAML. Native
+    lowering — one job per step, not thin wrappers.
   </Card>
 </CardGrid>
 
 ## How it works
 
-```
-Author → Plan → Run → Compile
-
-1. Author:   Write sverka.config.ts (Construct, SDK, or Decorator API)
-2. Plan:     sverka plan — bind Entry + inputs → Run Plan
-3. Run:      sverka run — execute locally, get structured findings
-4. Compile:  sverka synth --target github — lower to native CI YAML
+```text
+author → plan → run → synth
 ```
 
-## The token math
-
-A typical verification task — build + lint + 3 security scanners + findings:
-
-| Approach | Tool calls | Tokens |
-|----------|-----------|--------|
-| Without Sverka | 6+ round-trips (call, parse, decide, repeat) | ~5000 |
-| With Sverka | 1 command + 1 result | ~150 |
-| **Savings** | | **~97%** |
-
-For 20 verification runs per session: **~97,000 tokens saved**.
-
-See the [AI use case matrix](user/ai-use-cases/) for detailed scenarios.
+1. **Author** — Define your pipeline in `sverka.config.ts` using the Construct,
+   SDK, or Decorator API. Steps, dependencies, artifacts, triggers.
+2. **Plan** — `sverka plan` binds the Definition Graph to a Run Plan. Resolves
+   reachable steps from entry roots.
+3. **Run** — `sverka run` executes the Run Plan through the native engine.
+   Local, parallel, with artifact and scalar transfer between steps.
+4. **Synth** — `sverka synth --target github` lowers the same workflow to
+   GitHub Actions YAML. Or `--target gitlab` for GitLab CI.
 
 ## Start here
 
-- [Install Sverka](user/getting-started/install/) — one command setup.
-- [Your first plan](user/getting-started/first-plan/) — author, plan, run, compile.
-- [Workflow API](user/workflow-api/overview/) — Construct, SDK, and Decorator surfaces.
-- [CLI reference](user/cli/overview/) — all 10 commands and flags.
-- [AI use cases](user/ai-use-cases/) — token savings per scenario.
+- [Install Sverka](user/getting-started/install/) and set up your first workflow.
+- [Define your first plan](user/getting-started/first-plan/) — author, plan, run, synth.
+- [AI use case matrix](user/ai-use-cases/) — every command from an agent's perspective.
+- [Explore the Workflow API](user/workflow-api/overview/) — Construct, SDK, and Decorator surfaces.
+- [Read the CLI reference](user/cli/overview/) for all commands and flags.
+- [Browse the full user guide](user/) for all topics.
