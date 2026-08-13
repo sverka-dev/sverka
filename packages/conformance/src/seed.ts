@@ -62,23 +62,24 @@ export function createSeedWithConstructs(): Project {
   const proj = new Project("conf");
   const p = new Pipeline(proj, "ci", { inputs: SEED_INPUTS });
 
-  new ShellStep(p, "lint", {
+  const lint = new ShellStep(p, "lint", {
     command: lintCommand,
     outputs: lintOutputs,
   });
-  new ShellStep(p, "build", {
+  const build = new ShellStep(p, "build", {
     command: buildCommand,
     dependsOn: ["lint"],
     inputs: [statusRef],
     outputs: buildOutputs,
   });
-  new ShellStep(p, "test", {
+  const test = new ShellStep(p, "test", {
     command: testCommand,
     dependsOn: ["build"],
     inputs: [distRef],
     condition: nodeVersionContext,
   });
-  new Entry(p, "on-push", onPushEntry);
+  const entry = new Entry(p, "on-push", onPushEntry);
+  void lint; void build; void test; void entry;
 
   return proj;
 }
