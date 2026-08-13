@@ -80,7 +80,7 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
 
   // Collect pipeline-level outputs from all steps, preserving name + producer.
   const outputs: PipelineOutputDefinition[] = steps.flatMap((s) =>
-    [...s.outputs.entries()].map(([name, decl]) => ({ ...decl, name, stepId: s.id })),
+    s.outputs.map((o) => ({ ...o, stepId: s.id })),
   );
   const inputs: Record<string, Input> = Object.fromEntries(pipeline.inputs);
 
