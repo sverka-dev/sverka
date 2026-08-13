@@ -23,6 +23,8 @@
     "@sverka/core": "workspace:*",
     "@sverka/ir": "workspace:*",
     "@sverka/runtime": "workspace:*",
+    "@sverka/runtime-host": "workspace:*",
+    "@sverka/runtime-docker": "workspace:*",
     "@sverka/planner": "workspace:*",
     "@sverka/findings": "workspace:*",
     "@sverka/policy": "workspace:*",
