@@ -265,7 +265,7 @@ describe("validateGraph — entry roots", () => {
         pipelines: [
           {
             id: "ci",
-            inputs: [],
+            inputs: {},
             entries: [
               {
                 id: "ci/on-push",
@@ -303,7 +303,7 @@ describe("validateGraph — entry roots", () => {
         pipelines: [
           {
             id: "ci",
-            inputs: [],
+            inputs: {},
             entries: [
               {
                 id: "ci/on-push",
