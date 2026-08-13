@@ -95,69 +95,128 @@ function validateGraphShape(value: DefinitionGraph): void {
 
   for (let i = 0; i < pipelines.length; i++) {
     const pipeline = pipelines[i] as Record<string, unknown>;
-    if (typeof pipeline !== "object" || pipeline === null) {
-      throw new PlannerError(`graph.project.pipelines[${i}] must be an object`, "INVALID_GRAPH");
-    }
-    if (typeof pipeline.id !== "string") {
-      throw new PlannerError(`graph.project.pipelines[${i}].id must be a string`, "INVALID_GRAPH");
-    }
-    if (!Array.isArray(pipeline.entries)) {
-      throw new PlannerError(`graph.project.pipelines[${i}].entries must be an array`, "INVALID_GRAPH");
-    }
-    if (!Array.isArray(pipeline.steps)) {
-      throw new PlannerError(`graph.project.pipelines[${i}].steps must be an array`, "INVALID_GRAPH");
-    }
-    if (
-      typeof pipeline.inputs !== "object" ||
-      pipeline.inputs === null ||
-      Array.isArray(pipeline.inputs)
-    ) {
-      throw new PlannerError(`graph.project.pipelines[${i}].inputs must be an object`, "INVALID_GRAPH");
-    }
+    validatePipelineShape(pipeline, i);
+  }
+}
 
-    for (let j = 0; j < pipeline.entries.length; j++) {
-      const entry = pipeline.entries[j] as Record<string, unknown>;
-      if (typeof entry !== "object" || entry === null) {
-        throw new PlannerError(
-          `graph.project.pipelines[${i}].entries[${j}] must be an object`,
-          "INVALID_GRAPH",
-        );
-      }
-      if (typeof entry.id !== "string") {
-        throw new PlannerError(
-          `graph.project.pipelines[${i}].entries[${j}].id must be a string`,
-          "INVALID_GRAPH",
-        );
-      }
-      if (!Array.isArray(entry.roots)) {
-        throw new PlannerError(
-          `graph.project.pipelines[${i}].entries[${j}].roots must be an array`,
-          "INVALID_GRAPH",
-        );
-      }
-    }
+function validatePipelineShape(
+  value: unknown,
+  index: number,
+): void {
+  const pipeline = value as Record<string, unknown>;
+  if (typeof pipeline !== "object" || pipeline === null) {
+    throw new PlannerError(`graph.project.pipelines[${index}] must be an object`, "INVALID_GRAPH");
+  }
+  if (typeof pipeline.id !== "string") {
+    throw new PlannerError(
+      `graph.project.pipelines[${index}].id must be a string`,
+      "INVALID_GRAPH",
+    );
+  }
+  if (!Array.isArray(pipeline.entries)) {
+    throw new PlannerError(
+      `graph.project.pipelines[${index}].entries must be an array`,
+      "INVALID_GRAPH",
+    );
+  }
+  if (!Array.isArray(pipeline.steps)) {
+    throw new PlannerError(
+      `graph.project.pipelines[${index}].steps must be an array`,
+      "INVALID_GRAPH",
+    );
+  }
+  if (typeof pipeline.inputs !== "object" || pipeline.inputs === null || Array.isArray(pipeline.inputs)) {
+    throw new PlannerError(
+      `graph.project.pipelines[${index}].inputs must be an object`,
+      "INVALID_GRAPH",
+    );
+  }
 
-    for (let j = 0; j < pipeline.steps.length; j++) {
-      const step = pipeline.steps[j] as Record<string, unknown>;
-      if (typeof step !== "object" || step === null) {
-        throw new PlannerError(
-          `graph.project.pipelines[${i}].steps[${j}] must be an object`,
-          "INVALID_GRAPH",
-        );
-      }
-      if (typeof step.id !== "string") {
-        throw new PlannerError(
-          `graph.project.pipelines[${i}].steps[${j}].id must be a string`,
-          "INVALID_GRAPH",
-        );
-      }
-      if (!Array.isArray(step.dependencies)) {
-        throw new PlannerError(
-          `graph.project.pipelines[${i}].steps[${j}].dependencies must be an array`,
-          "INVALID_GRAPH",
-        );
-      }
-    }
+  const inputs = pipeline.inputs as Record<string, unknown>;
+  for (const [name, descriptor] of Object.entries(inputs)) {
+    validateInputDescriptor(descriptor, index, name);
+  }
+
+  for (let j = 0; j < pipeline.entries.length; j++) {
+    validateEntryShape(pipeline.entries[j], index, j);
+  }
+
+  for (let j = 0; j < pipeline.steps.length; j++) {
+    validateStepShape(pipeline.steps[j], index, j);
+  }
+}
+
+function validateInputDescriptor(
+  value: unknown,
+  pipelineIndex: number,
+  name: string,
+): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new PlannerError(
+      `graph.project.pipelines[${pipelineIndex}].inputs.${name} must be an object`,
+      "INVALID_GRAPH",
+    );
+  }
+
+  const descriptor = value as Record<string, unknown>;
+  const type = descriptor.type;
+  if (type !== undefined && !INPUT_TYPES.has(type as Input["type"])) {
+    throw new PlannerError(
+      `graph.project.pipelines[${pipelineIndex}].inputs.${name} has invalid type`,
+      "INVALID_GRAPH",
+    );
+  }
+}
+
+function validateEntryShape(
+  value: unknown,
+  pipelineIndex: number,
+  index: number,
+): void {
+  const entry = value as Record<string, unknown>;
+  if (typeof entry !== "object" || entry === null) {
+    throw new PlannerError(
+      `graph.project.pipelines[${pipelineIndex}].entries[${index}] must be an object`,
+      "INVALID_GRAPH",
+    );
+  }
+  if (typeof entry.id !== "string") {
+    throw new PlannerError(
+      `graph.project.pipelines[${pipelineIndex}].entries[${index}].id must be a string`,
+      "INVALID_GRAPH",
+    );
+  }
+  if (!Array.isArray(entry.roots)) {
+    throw new PlannerError(
+      `graph.project.pipelines[${pipelineIndex}].entries[${index}].roots must be an array`,
+      "INVALID_GRAPH",
+    );
+  }
+}
+
+function validateStepShape(
+  value: unknown,
+  pipelineIndex: number,
+  index: number,
+): void {
+  const step = value as Record<string, unknown>;
+  if (typeof step !== "object" || step === null) {
+    throw new PlannerError(
+      `graph.project.pipelines[${pipelineIndex}].steps[${index}] must be an object`,
+      "INVALID_GRAPH",
+    );
+  }
+  if (typeof step.id !== "string") {
+    throw new PlannerError(
+      `graph.project.pipelines[${pipelineIndex}].steps[${index}].id must be a string`,
+      "INVALID_GRAPH",
+    );
+  }
+  if (!Array.isArray(step.dependencies)) {
+    throw new PlannerError(
+      `graph.project.pipelines[${pipelineIndex}].steps[${index}].dependencies must be an array`,
+      "INVALID_GRAPH",
+    );
   }
 }
 
