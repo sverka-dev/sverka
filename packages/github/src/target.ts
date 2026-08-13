@@ -2,7 +2,7 @@
 // Spec 08 — §18.1, §19.
 
 import type { DefinitionGraph } from "@sverka/core";
-import type { CapabilityManifest } from "@sverka/plugin";
+import type { CapabilityManifest, Target } from "@sverka/plugin";
 import { analyzeCapabilities } from "@sverka/plugin";
 import { githubCapabilities } from "./capabilities.js";
 import { lowerGithub } from "./lower.js";
@@ -18,8 +18,8 @@ import type {
  * GitHub Actions target — native lowering from Definition Graph.
  * Implements the Target contract: analyze → lower → emit.
  */
-export class GithubTarget {
-  readonly id = "github";
+export class GithubTarget implements Target {
+  readonly name = "github";
   readonly capabilities: CapabilityManifest = githubCapabilities;
 
   /**
@@ -33,7 +33,7 @@ export class GithubTarget {
 
   /**
    * Lower a Definition Graph to a GithubTargetGraph.
-   * One GitHub job per Step with needs, runs-on, and operation mapping.
+   * One GitHub job per reachable Step with needs, runs-on, and operation mapping.
    */
   lower(graph: DefinitionGraph): GithubTargetGraph {
     return lowerGithub(graph);
@@ -46,15 +46,21 @@ export class GithubTarget {
   emit(targetGraph: GithubTargetGraph): readonly GeneratedArtifact[] {
     return emitGithub(targetGraph);
   }
+
+  /**
+   * Compile a Definition Graph to generated artifacts and diagnostics.
+   */
+  compile(graph: DefinitionGraph): CompilationResult {
+    const diagnostics = this.analyze(graph);
+    const targetGraph = this.lower(graph);
+    const artifacts = this.emit(targetGraph);
+    return { artifacts, diagnostics };
+  }
 }
 
 /**
  * Convenience function: analyze → lower → emit in one call.
  */
 export function compileGithub(graph: DefinitionGraph): CompilationResult {
-  const target = new GithubTarget();
-  const diagnostics = target.analyze(graph);
-  const targetGraph = target.lower(graph);
-  const artifacts = target.emit(targetGraph);
-  return { artifacts, diagnostics };
+  return new GithubTarget().compile(graph);
 }
