@@ -75,14 +75,6 @@ export function validateReferences(
  */
 export function validateOutputCollisions(steps: readonly StepDefinition[]): void {
   for (const step of steps) {
-    const seen = new Set<string>();
-    for (const out of step.outputs) {
-      // outputs is an array of OutputDeclaration with names from the map keys.
-      // Actually outputs is readonly OutputDeclaration[] — but we need names.
-      // The StepDefinition.outputs is OutputDeclaration[] without names baked in.
-      // We need to check via the operations (exportOutput/exportArtifact names).
-    }
-    // Check via operations for duplicate export names.
     const exportNames = new Set<string>();
     for (const op of step.operations) {
       if (op.kind === "exportOutput" || op.kind === "exportArtifact") {
