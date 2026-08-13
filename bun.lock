@@ -176,6 +176,18 @@
         "vitest": "^3.0.0",
       },
     },
+    "packages/plugin": {
+      "name": "@sverka/plugin",
+      "version": "0.0.0",
+      "dependencies": {
+        "@sverka/core": "workspace:*",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^3.0.0",
+      },
+    },
     "packages/policy": {
       "name": "@sverka/policy",
       "version": "0.0.0",
@@ -502,6 +514,8 @@
     "@sverka/ir": ["@sverka/ir@workspace:packages/ir"],
 
     "@sverka/planner": ["@sverka/planner@workspace:packages/planner"],
+
+    "@sverka/plugin": ["@sverka/plugin@workspace:packages/plugin"],
 
     "@sverka/policy": ["@sverka/policy@workspace:packages/policy"],
 
