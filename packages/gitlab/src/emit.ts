@@ -8,6 +8,16 @@ import type {
   GeneratedArtifact,
 } from "./types.js";
 
+const RESERVED_TOP_LEVEL_KEYS = new Set([
+  "stages",
+  "variables",
+  "workflow",
+  "include",
+  "default",
+  "image",
+  "services",
+]);
+
 /**
  * Emit a GitlabTargetGraph as YAML artifacts.
  * Produces one .gitlab-ci.yml file.
@@ -35,6 +45,11 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
   }
 
   for (const job of graph.jobs) {
+    if (RESERVED_TOP_LEVEL_KEYS.has(job.id)) {
+      throw new Error(
+        `job id '${job.id}' conflicts with a reserved top-level GitLab CI key`,
+      );
+    }
     doc[job.id] = jobToYaml(job);
   }
 
@@ -55,16 +70,10 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
   }
 
   if (job.needs.length > 0) {
-    result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
+    result.needs = [...job.needs];
   }
 
-  if (job.dependencies && job.dependencies.length > 0) {
-    result.dependencies = job.dependencies.length === 1
-      ? job.dependencies[0]
-      : [...job.dependencies];
-  }
-
-  if (job.artifacts && job.artifacts.length > 0) {
+  if (job.artifacts) {
     result.artifacts = job.artifacts;
   }
 

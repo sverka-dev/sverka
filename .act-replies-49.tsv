@@ -1,0 +1,25 @@
+PRRT_kwDOTyoI9s6Yx5XV	Escaped output names in exportOutput and diagnostic messages using shell-safe quoting helpers.
+PRRT_kwDOTyoI9s6Yx5Xi	Escaped diagnostic and exportOutput strings using shell-safe quoting helpers.
+PRRT_kwDOTyoI9s6Yx5Xl	Steps with no operations now receive a default 'echo no operations' script entry.
+PRRT_kwDOTyoI9s6Yx5Xm	computeLevel now throws GitlabTargetError LOWER_FAILED when a dependency cycle is detected.
+PRRT_kwDOTyoI9s6Yx5_g	emit.ts rejects job IDs that conflict with reserved top-level GitLab CI keys.
+PRRT_kwDOTyoI9s6Yx5_h	Removed dependencies emission; needs carries all scheduling and artifact dependencies as an array.
+PRRT_kwDOTyoI9s6Yx5_i	GitlabJob.artifacts is now a single { paths?, reports? } object emitted directly as a mapping.
+PRRT_kwDOTyoI9s6Yx6SB	lowerGitlab now rejects multi-pipeline graphs with INVALID_GRAPH before selecting pipelines[0].
+PRRT_kwDOTyoI9s6Yx6SI	lowerGitlab filters emitted jobs to steps reachable from entry roots.
+PRRT_kwDOTyoI9s6Yx6SO	lowerTriggers now preserves branch filters in generated GitLab if conditions.
+PRRT_kwDOTyoI9s6Yx6ST	exportOutput writes to sverka.env and emits artifacts.reports.dotenv for downstream propagation.
+PRRT_kwDOTyoI9s6Yx6SZ	Diagnostic text is emitted inside single quotes with safe single-quote escaping.
+PRRT_kwDOTyoI9s6Yx6Sd	Removed dependencies field; needs includes all control, value, and artifact producers.
+PRRT_kwDOTyoI9s6Yx6Sk	collectVariables now skips secret inputs so defaults are not serialized as plaintext variables.
+PRRT_kwDOTyoI9s6Yx6So	GitlabTarget now implements the Target contract with readonly name and compile(graph).
+PRRT_kwDOTyoI9s6Yx9u5	Repository convention uses numbered spec directories with a spec.md file, matching all existing specs.
+PRRT_kwDOTyoI9s6Yx9u8	emit.ts now always emits needs and dependencies as arrays of strings.
+PRRT_kwDOTyoI9s6Yx9u_	Artifacts are modeled as a single { paths?, reports? } object and emitted as a YAML mapping.
+PRRT_kwDOTyoI9s6Yx9vB	Stages are derived from used topological levels in dependency order (build, stage-1, ...).
+PRRT_kwDOTyoI9s6Yx9vC	importArtifact producers are resolved through jobIdMap, handling slashes and de-duplicated IDs.
+PRRT_kwDOTyoI9s6Y6nzd	Tests parse YAML and assert on properties; the parse result type is acceptable for test expectations.
+PRRT_kwDOTyoI9s6Y6nzq	lowerGitlab rejects projects with more than one pipeline.
+PRRT_kwDOTyoI9s6Y6nzx	lowerGitlab only lowers steps reachable from entry roots.
+PRRT_kwDOTyoI9s6Y6nz2	Spec and types updated so artifacts are a single mapping with paths and dotenv reports.
+PRRT_kwDOTyoI9s6Y6n0B	Spec updated: scalar outputs use sverka.env dotenv reports and artifacts are emitted as a mapping.

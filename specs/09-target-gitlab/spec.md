@@ -22,8 +22,8 @@ jobs, stages, needs, image, script, artifacts, rules.
 - Runtime mode → `image` (host → default, container → image:)
 - Shell operations → `script:` entries
 - Artifact outputs → `artifacts:` paths
-- Artifact imports → `dependencies:` + `needs`
-- Scalar outputs → writing to `.env` file
+- Artifact imports → `needs` (artifact producers are also scheduling dependencies)
+- Scalar outputs → writing to `sverka.env` dotenv report file
 - Trigger mapping: push→rules with if $CI_PIPELINE_SOURCE=="push", changeRequest→rules with if for merge_request_event, manual→rules with if for web
 - Stages derived from dependency graph topological order
 - Capability manifest declaring GitLab support levels
@@ -42,12 +42,13 @@ jobs, stages, needs, image, script, artifacts, rules.
 ## Interfaces
 
 ```ts
-class GitlabTarget {
-  readonly id = "gitlab";
+class GitlabTarget implements Target {
+  readonly name = "gitlab";
   readonly capabilities: CapabilityManifest;
   analyze(graph: DefinitionGraph): readonly TargetDiagnostic[];
   lower(graph: DefinitionGraph): GitlabTargetGraph;
   emit(targetGraph: GitlabTargetGraph): readonly GeneratedArtifact[];
+  compile(graph: DefinitionGraph): CompilationResult;
 }
 
 function compileGitlab(graph: DefinitionGraph): CompilationResult;
@@ -63,14 +64,21 @@ interface GitlabTargetGraph {
   readonly variables: Record<string, string>;
 }
 
+interface GitlabArtifactSpec {
+  readonly paths?: readonly string[];
+  readonly reports?: {
+    readonly dotenv?: string;
+  };
+}
+
 interface GitlabJob {
   readonly id: string;
   readonly stage: string;
   readonly image?: string;
   readonly needs: readonly string[];
   readonly script: readonly string[];
-  readonly artifacts?: readonly { readonly paths: readonly string[] }[];
-  readonly dependencies?: readonly string[];
+  readonly artifacts?: GitlabArtifactSpec;
+
   readonly variables?: Record<string, string>;
   readonly rules?: readonly GitlabRule[];
   readonly timeout?: string;
@@ -116,8 +124,8 @@ export type {
 
 | Sverka Trigger | GitLab Rule |
 |---|---|
-| `push` | `if: $CI_PIPELINE_SOURCE == "push"` |
-| `changeRequest` | `if: $CI_PIPELINE_SOURCE == "merge_request_event"` |
+| `push` | `if: $CI_PIPELINE_SOURCE == "push"` (plus branch filter when present) |
+| `changeRequest` | `if: $CI_PIPELINE_SOURCE == "merge_request_event"` (plus branch filter when present) |
 | `manual` | `if: $CI_PIPELINE_SOURCE == "web"` |
 
 ### Runtime mapping
@@ -133,9 +141,9 @@ export type {
 |---|---|
 | `shell` | `script:` entry |
 | `exportArtifact` | `artifacts:` paths |
-| `importArtifact` | `dependencies:` + `needs` |
-| `exportOutput` | `script: echo "name=value" >> .env` |
-| `diagnostic` | `script: echo "message"` |
+| `importArtifact` | `needs` (artifact producer) |
+| `exportOutput` | `script: echo "name=value" >> sverka.env` + `artifacts: reports: dotenv: sverka.env` |
+| `diagnostic` | `script: echo "message"` (shell-escaped) |
 
 ### Stage assignment
 
