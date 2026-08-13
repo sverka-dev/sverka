@@ -71,41 +71,63 @@ function filterReachableSteps(
   const queue: string[] = [];
 
   for (const entry of pipeline.entries) {
-    for (const root of entry.roots) {
-      if (!byId.has(root)) {
-        throw new GithubTargetError(
-          `entry references unknown root step '${root}'`,
-          "INVALID_GRAPH",
-        );
-      }
-      if (!reachable.has(root)) {
-        reachable.add(root);
-        queue.push(root);
-      }
-    }
+    enqueueRoots(entry.roots, byId, reachable, queue);
   }
 
   while (queue.length > 0) {
     const id = queue.shift()!;
     const step = byId.get(id);
     if (!step) continue;
-
-    for (const dep of step.dependencies) {
-      const producer = dep.producer;
-      if (!byId.has(producer)) {
-        throw new GithubTargetError(
-          `step depends on unknown producer '${producer}'`,
-          "INVALID_GRAPH",
-        );
-      }
-      if (!reachable.has(producer)) {
-        reachable.add(producer);
-        queue.push(producer);
-      }
-    }
+    enqueueDependencies(step, byId, reachable, queue);
   }
 
   return pipeline.steps.filter((step) => reachable.has(step.id));
+}
+
+function enqueueRoots(
+  roots: readonly string[],
+  byId: Map<string, StepDefinition>,
+  reachable: Set<string>,
+  queue: string[],
+): void {
+  for (const root of roots) {
+    if (!byId.has(root)) {
+      throw new GithubTargetError(
+        `entry references unknown root step '${root}'`,
+        "INVALID_GRAPH",
+      );
+    }
+    enqueueIfNew(root, reachable, queue);
+  }
+}
+
+function enqueueDependencies(
+  step: StepDefinition,
+  byId: Map<string, StepDefinition>,
+  reachable: Set<string>,
+  queue: string[],
+): void {
+  for (const dep of step.dependencies) {
+    const producer = dep.producer;
+    if (!byId.has(producer)) {
+      throw new GithubTargetError(
+        `step depends on unknown producer '${producer}'`,
+        "INVALID_GRAPH",
+      );
+    }
+    enqueueIfNew(producer, reachable, queue);
+  }
+}
+
+function enqueueIfNew(
+  id: string,
+  reachable: Set<string>,
+  queue: string[],
+): void {
+  if (!reachable.has(id)) {
+    reachable.add(id);
+    queue.push(id);
+  }
 }
 
 /**
@@ -147,22 +169,10 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
     const t = entry.trigger;
     switch (t.kind) {
       case "push":
-        if (t.filter?.branches && t.filter.branches.length > 0) {
-          for (const branch of t.filter.branches) {
-            pushBranches.add(branch);
-          }
-        } else {
-          pushAll = true;
-        }
+        collectBranches(t, pushBranches, () => (pushAll = true));
         break;
       case "changeRequest":
-        if (t.filter?.branches && t.filter.branches.length > 0) {
-          for (const branch of t.filter.branches) {
-            prBranches.add(branch);
-          }
-        } else {
-          prAll = true;
-        }
+        collectBranches(t, prBranches, () => (prAll = true));
         break;
       case "manual":
         hasManual = true;
@@ -175,6 +185,36 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
     }
   }
 
+  return assembleTriggers(
+    pushAll,
+    pushBranches,
+    prAll,
+    prBranches,
+    hasManual,
+  );
+}
+
+function collectBranches(
+  t: Trigger,
+  branches: Set<string>,
+  markAll: () => void,
+): void {
+  if (t.filter?.branches && t.filter.branches.length > 0) {
+    for (const branch of t.filter.branches) {
+      branches.add(branch);
+    }
+  } else {
+    markAll();
+  }
+}
+
+function assembleTriggers(
+  pushAll: boolean,
+  pushBranches: Set<string>,
+  prAll: boolean,
+  prBranches: Set<string>,
+  hasManual: boolean,
+): GithubTriggers {
   const triggers: Record<string, unknown> = {};
   if (pushAll) {
     triggers.push = {};
@@ -216,24 +256,8 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
   const runsOn = "ubuntu-latest";
-
-  if (mode === "container" && !runtime.image) {
-    throw new GithubTargetError(
-      `step '${step.id}' uses container mode without an image`,
-      "LOWER_FAILED",
-    );
-  }
-  const container = mode === "container" ? runtime.image : undefined;
-
-  const jobEnv: Record<string, string> = {};
-  if (runtime.env) {
-    Object.assign(jobEnv, runtime.env);
-  }
-  if (runtime.secrets) {
-    for (const secret of runtime.secrets) {
-      jobEnv[secret] = `\${{ secrets.${secret} }}`;
-    }
-  }
+  const container = resolveContainer(step, mode);
+  const jobEnv = collectJobEnv(runtime);
 
   const job: GithubJob = {
     id: jobId,
@@ -249,6 +273,32 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   };
 
   return job;
+}
+
+function resolveContainer(
+  step: StepDefinition,
+  mode: string,
+): string | undefined {
+  if (mode === "container" && !step.runtime.image) {
+    throw new GithubTargetError(
+      `step '${step.id}' uses container mode without an image`,
+      "LOWER_FAILED",
+    );
+  }
+  return mode === "container" ? step.runtime.image : undefined;
+}
+
+function collectJobEnv(runtime: StepDefinition["runtime"]): Record<string, string> {
+  const jobEnv: Record<string, string> = {};
+  if (runtime.env) {
+    Object.assign(jobEnv, runtime.env);
+  }
+  if (runtime.secrets) {
+    for (const secret of runtime.secrets) {
+      jobEnv[secret] = `\${{ secrets.${secret} }}`;
+    }
+  }
+  return jobEnv;
 }
 
 /**
