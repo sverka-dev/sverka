@@ -40,7 +40,7 @@ function normalizeSarif(log: SarifLog, ctx: NormalizeContext): readonly Finding[
 function computeFingerprint(input: FingerprintInput): string;
 function createBaseline(findings: readonly Finding[]): Baseline;
 function updateBaseline(baseline: Baseline, findings: readonly Finding[]): Baseline;
-function compareBaseline(baseline: Baseline, findings: readonly Finding[]): BaselineDiff;
+function compareBaseline(findings: readonly Finding[], baseline: Baseline): BaselineDiff;
 function loadBaseline(path: string): Promise<Baseline>;
 function saveBaseline(baseline: Baseline, path: string): Promise<void>;
 function isSuppressed(finding: Finding, suppressions: readonly Suppression[]): boolean;

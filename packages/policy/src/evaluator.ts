@@ -8,6 +8,19 @@ import type {
 import { PolicyError } from "./errors.js";
 import { severityRank, assertValidSeverity } from "./policy.js";
 
+/** Strip the `checks/` prefix so `checks/typecheck` and `typecheck` compare equal. */
+function normalizeCheckId(id: string): string {
+  return id.startsWith("checks/") ? id.slice(7) : id;
+}
+
+/** Match a finding checkId against a policy checkId, allowing rule-qualified ids. */
+function matchesCheckId(findingCheckId: string, policyCheckId: string): boolean {
+  const bareFinding = normalizeCheckId(findingCheckId);
+  const barePolicy = normalizeCheckId(policyCheckId);
+  if (bareFinding === barePolicy) return true;
+  return bareFinding.startsWith(`${barePolicy}:`);
+}
+
 /** Severity display order for summary counts (most severe first). */
 const SUMMARY_SEVERITY_ORDER: Severity[] = [
   "critical",
@@ -60,9 +73,16 @@ export function evaluatePolicy(
 
   for (let i = 0; i < policy.failOn.length; i++) {
     const rule = policy.failOn[i]!;
+    const rawCheckIds = rule.checkIds as string | string[] | undefined | null;
+    const checkIds = rawCheckIds === undefined || rawCheckIds === null
+      ? []
+      : Array.isArray(rawCheckIds)
+        ? rawCheckIds
+        : [rawCheckIds];
+
     let matched: Finding[] = findings.filter((f) => {
-      // checkIds filter (exact match)
-      if (rule.checkIds !== undefined && !rule.checkIds.includes(f.checkId)) {
+      // checkIds filter (supports bare, checks/ prefix, and rule-qualified ids)
+      if (checkIds.length > 0 && !checkIds.some((id) => matchesCheckId(f.checkId, id))) {
         return false;
       }
       // onlyNew filter

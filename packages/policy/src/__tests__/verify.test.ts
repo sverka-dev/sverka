@@ -100,4 +100,30 @@ describe("verifyPolicyAgainstGraph", () => {
     // "checks/unknown" appears in both rules but should be listed once.
     expect(result.unknownCheckIds).toEqual(["checks/unknown"]);
   });
+
+  it("accepts bare checkIds that match checks/<id> steps", () => {
+    const graph = makeGraph(["checks/typecheck", "checks/lint"]);
+    const policy = makePolicy(["typecheck", "lint"]);
+    const result = verifyPolicyAgainstGraph(policy, graph);
+    expect(result.valid).toBe(true);
+    expect(result.unknownCheckIds).toEqual([]);
+  });
+
+  it("ignores non-check steps when validating checkIds", () => {
+    const graph = makeGraph(["build/compile"]);
+    const policy = makePolicy(["compile"]);
+    const result = verifyPolicyAgainstGraph(policy, graph);
+    expect(result.valid).toBe(false);
+    expect(result.unknownCheckIds).toEqual(["compile"]);
+  });
+
+  it("returns errors for malformed policy or graph without throwing", () => {
+    const badPolicy = { name: "x" } as unknown as Policy;
+    const badGraph = { project: {} } as unknown as DefinitionGraph;
+    const result = verifyPolicyAgainstGraph(badPolicy, badGraph);
+    expect(result.valid).toBe(false);
+    expect(result.unknownCheckIds).toEqual([]);
+    expect(result.errors).toBeDefined();
+    expect(result.errors!.length).toBeGreaterThanOrEqual(1);
+  });
 });

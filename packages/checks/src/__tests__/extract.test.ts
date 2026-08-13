@@ -20,6 +20,16 @@ describe("extractFindings — SARIF", () => {
     expect(findings.length).toBeGreaterThan(0);
     expect(findings[0]!.checkId).toContain("mycheck");
   });
+
+  it("strips checks/ prefix from checkId when extracting", async () => {
+    const dir = makeDir();
+    writeFileSync(join(dir, "out.sarif"), JSON.stringify(sampleSarif()));
+    const outputs: CheckOutput[] = [{ path: "out.sarif", format: "sarif" }];
+    const findings = await extractFindings(outputs, dir, "checks/mycheck");
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings[0]!.checkId.startsWith("checks/")).toBe(false);
+    expect(findings[0]!.checkId).toContain("mycheck");
+  });
 });
 
 describe("extractFindings — missing file", () => {
