@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { canonicalStringify } from "../canonical.js";
-import { SerializationError } from "../errors.js";
 
 describe("canonicalStringify", () => {
   it("sorts object keys lexicographically", () => {
@@ -20,18 +19,18 @@ describe("canonicalStringify", () => {
   });
 
   it("rejects NaN", () => {
-    expect(() => canonicalStringify(NaN)).toThrow(SerializationError);
+    expect(() => canonicalStringify(NaN)).toThrow(TypeError);
   });
 
   it("rejects Infinity", () => {
-    expect(() => canonicalStringify(Infinity)).toThrow(SerializationError);
-    expect(() => canonicalStringify(-Infinity)).toThrow(SerializationError);
+    expect(() => canonicalStringify(Infinity)).toThrow(TypeError);
+    expect(() => canonicalStringify(-Infinity)).toThrow(TypeError);
   });
 
   it("rejects bigint, symbol, and function values", () => {
-    expect(() => canonicalStringify(BigInt(1))).toThrow(SerializationError);
-    expect(() => canonicalStringify(Symbol("x"))).toThrow(SerializationError);
-    expect(() => canonicalStringify(() => undefined)).toThrow(SerializationError);
+    expect(() => canonicalStringify(BigInt(1))).toThrow(TypeError);
+    expect(() => canonicalStringify(Symbol("x"))).toThrow(TypeError);
+    expect(() => canonicalStringify(() => undefined)).toThrow(TypeError);
   });
 
   it("emits ISO string for Date", () => {

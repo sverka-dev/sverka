@@ -354,7 +354,7 @@ function validateResources(op: PlanOperationView, opId: string | undefined, erro
 function validateRetry(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
   if (isPlainObject(op.retry)) {
     const rt = op.retry as { maxAttempts?: unknown; backoffSeconds?: unknown; retryOn?: unknown };
-    const maxOk = typeof rt.maxAttempts === "number" && Number.isFinite(rt.maxAttempts) && rt.maxAttempts >= 1;
+    const maxOk = typeof rt.maxAttempts === "number" && Number.isInteger(rt.maxAttempts) && rt.maxAttempts >= 1;
     const backOk = typeof rt.backoffSeconds === "number" && Number.isFinite(rt.backoffSeconds) && rt.backoffSeconds >= 0;
     const retryOnOk = Array.isArray(rt.retryOn) && rt.retryOn.every((v) => RETRY_ON_VALUES.has(v as string));
     if (maxOk && backOk && retryOnOk) return;
