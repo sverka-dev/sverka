@@ -205,6 +205,18 @@ describe("bindRunPlan", () => {
       expect((e as PlannerError).code).toBe("INVALID_GRAPH");
     }
   });
+
+  it("rejects null input descriptor with INVALID_GRAPH", () => {
+    const graph = makeGraph([makeStep("ci/build")], {
+      inputs: { env: null as unknown as { type: "string" } },
+    });
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    try {
+      bindRunPlan({ graph, entryId: "ci/on-push" });
+    } catch (e) {
+      expect((e as PlannerError).code).toBe("INVALID_GRAPH");
+    }
+  });
 });
 
 describe("computeReachableSteps", () => {
