@@ -13,6 +13,8 @@ describe("public API", () => {
     expect(typeof sdk.when).toBe("function");
     expect(typeof sdk.image).toBe("function");
     expect(typeof sdk.images).toBe("object");
+    expect(typeof sdk.pipelineV0).toBe("function");
+    expect(typeof sdk.whenV0).toBe("function");
   });
 
   it("exports context namespaces", () => {
