@@ -98,6 +98,7 @@ for p in json.load(open('$TMPDIR/ordered.json')):
   fi
 
   # Check 2: Unresolved review threads (via GraphQL — REST API can't filter by resolved state)
+  # shellcheck disable=SC2016 — GraphQL variables, not shell expansion
   OPEN_THREADS=$(gh api graphql -f query='
 query($owner: String!, $repo: String!, $pr: Int!) {
   repository(owner: $owner, name: $repo) {
@@ -284,7 +285,11 @@ fi
 NUDGE_MSG="${NUDGE_MSG}After all fixes: re-run this check. Goal: all_resolved=true."
 
 # Send nudge to mayor
-gc session nudge mayor "$(echo -e "$NUDGE_MSG")" 2>/dev/null && log "Nudged mayor with $NEEDS_WORK_COUNT PR action items" || log "Failed to nudge mayor"
+if gc session nudge mayor "$(echo -e "$NUDGE_MSG")" 2>/dev/null; then
+  log "Nudged mayor with $NEEDS_WORK_COUNT PR action items"
+else
+  log "Failed to nudge mayor"
+fi
 
 # Also mail human if there are conflicts or CI failures
 if [ -n "$CONFLICT_PRS" ] || [ -n "$CI_FAIL_PRS" ]; then
