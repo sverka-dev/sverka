@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Entry, push } from "@sverka/constructs";
+import { Project, Entry, push } from "@sverka/cdk";
 import { pipelineV0 as pipeline, sh, artifact } from "../index.js";
 
 describe("pipeline factory", () => {

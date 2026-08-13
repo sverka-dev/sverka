@@ -9,7 +9,7 @@ import type {
   OperationDefinition,
   Dependency,
 } from "../index.js";
-import type { Trigger, Runtime, Reference } from "@sverka/constructs";
+import type { Trigger, Runtime, Reference } from "@sverka/cdk";
 
 describe("DefinitionGraph structure", () => {
   it("Project → Pipelines → Steps/Entries", () => {

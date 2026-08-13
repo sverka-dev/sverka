@@ -1,6 +1,6 @@
 // Decorator types. Spec 04 — §9.3–9.8.
 
-import type { Runtime, OutputDeclaration, Trigger } from "@sverka/constructs";
+import type { Runtime, OutputDeclaration, Trigger } from "@sverka/cdk";
 
 export interface StepOptions {
   readonly runtime?: Runtime;

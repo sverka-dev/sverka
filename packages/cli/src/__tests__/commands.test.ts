@@ -17,7 +17,7 @@ const EMPTY_SARIF = JSON.stringify({
   ],
 });
 
-const VALID_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+const VALID_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 const proj = new Project("myproj");
 const pipeline = new Pipeline(proj, "ci");
 new ShellStep(pipeline, "build", { command: "echo build" });

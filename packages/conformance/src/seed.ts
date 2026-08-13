@@ -7,7 +7,7 @@ import {
   ShellStep,
   Entry,
   type Reference,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 import { sh, pipelineV0 as sdkPipeline } from "@sverka/sdk";
 import {
   pipeline as pipelineDecorator,

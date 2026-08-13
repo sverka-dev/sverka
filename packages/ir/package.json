@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@sverka/core": "workspace:*",
-    "@sverka/constructs": "workspace:*"
+    "@sverka/cdk": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",

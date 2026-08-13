@@ -5,12 +5,12 @@ authoring surfaces that all produce the same Definition Graph.
 
 ## Authoring surfaces
 
-### Construct API (`@sverka/constructs`)
+### Construct API (`@sverka/cdk`)
 
 Low-level construct tree: `Project`, `Pipeline`, `ShellStep`, `Entry`.
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci", {
@@ -32,7 +32,7 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 Composable builders with typed references: `sh`, `artifact`, `when`, `images`.
 
 ```ts
-import { Project, Pipeline, Entry } from "@sverka/constructs";
+import { Project, Pipeline, Entry } from "@sverka/cdk";
 import { sh, artifact, images } from "@sverka/sdk";
 
 const proj = new Project("myproj");
@@ -53,7 +53,7 @@ TC39 standard decorators for class-based pipeline definitions.
 
 ```ts
 import { pipeline, step, stepWithOptions, entry, input, decoratePipeline } from "@sverka/decorators";
-import { Project } from "@sverka/constructs";
+import { Project } from "@sverka/cdk";
 
 @pipeline
 class MyPipeline {
@@ -117,7 +117,7 @@ Steps can reference outputs from other steps or context namespaces:
 ```ts
 import { sh } from "@sverka/sdk";
 import { env, secrets, git } from "@sverka/sdk";
-import type { Reference } from "@sverka/constructs";
+import type { Reference } from "@sverka/cdk";
 
 // Step output reference
 const buildDist: Reference = {

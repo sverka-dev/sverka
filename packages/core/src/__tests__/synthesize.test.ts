@@ -6,7 +6,7 @@ import {
   Entry,
   push,
   type Reference,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 import { synthesize, SynthesisError, type StepDefinition } from "../index.js";
 
 describe("synthesize — basic", () => {

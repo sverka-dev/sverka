@@ -1,7 +1,7 @@
 // TC39 standard decorators. Spec 04 — §9.3–9.8.
 // Uses standard ECMAScript decorators (TypeScript 5.0+, no experimentalDecorators).
 
-import type { Trigger } from "@sverka/constructs";
+import type { Trigger } from "@sverka/cdk";
 import type { StepOptions, FieldMetadata, FieldKind } from "./types.js";
 import { DecoratorError } from "./errors.js";
 

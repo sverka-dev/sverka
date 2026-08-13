@@ -8,7 +8,7 @@ Graph to GitHub Actions YAML. Source: `packages/github/src/target.ts`.
 ```ts
 import { GithubTarget, compileGithub } from "@sverka/github";
 import { synthesize } from "@sverka/core";
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");
