@@ -19,6 +19,7 @@ import {
   createSeedWithSDK,
   createSeedWithDecorators,
   runConformance,
+  canonicalize,
 } from "../index.js";
 
 // Helper for host driver config — allow `sh` scripts used by the seed.
@@ -28,38 +29,6 @@ function makeDriver() {
     allowlist: createAllowlist(["sh"]),
     envAllowlist: [],
   });
-}
-
-// Canonicalize a value for stable comparison: sort object keys and arrays.
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value
-      .map(canonicalize)
-      .sort((a, b) => {
-        if (typeof a === "string" && typeof b === "string") {
-          return a.localeCompare(b);
-        }
-        if (typeof a === "number" && typeof b === "number") {
-          return a - b;
-        }
-        if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
-          return JSON.stringify(a).localeCompare(JSON.stringify(b));
-        }
-        return String(a).localeCompare(String(b));
-      });
-  }
-
-  if (value !== null && typeof value === "object") {
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
-    const entries = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => [k, canonicalize(v)] as const)
-      .sort(([a], [b]) => a.localeCompare(b));
-    return Object.fromEntries(entries);
-  }
-
-  return value;
 }
 
 // Normalize a graph for stable comparison.
@@ -131,9 +100,9 @@ describe("§33.2 Target conformance", () => {
     const targetGraph = target.lower(graph);
     const artifacts = target.emit(targetGraph);
     expect(artifacts).toHaveLength(1);
-    const yaml = parse(artifacts[0]!.content);
+    const yaml = parse(artifacts[0]!.content) as Record<string, { jobs?: Record<string, unknown> }>;
     expect(yaml.jobs).toBeDefined();
-    expect(Object.keys(yaml.jobs)).toHaveLength(3);
+    expect(Object.keys(yaml.jobs!)).toHaveLength(3);
   });
 
   it("GitLab lowering produces valid YAML with script", () => {
@@ -142,11 +111,11 @@ describe("§33.2 Target conformance", () => {
     const targetGraph = target.lower(graph);
     const artifacts = target.emit(targetGraph);
     expect(artifacts).toHaveLength(1);
-    const yaml = parse(artifacts[0]!.content);
+    const yaml = parse(artifacts[0]!.content) as Record<string, { script?: unknown; stages?: unknown }>;
     expect(yaml.stages).toBeDefined();
     for (const jobId of Object.keys(yaml)) {
       if (jobId === "stages" || jobId === "variables") continue;
-      expect(yaml[jobId].script).toBeDefined();
+      expect(yaml[jobId]?.script).toBeDefined();
     }
   });
 
@@ -304,7 +273,10 @@ describe("§34 Acceptance gate — runConformance", () => {
       "§34.10",
       "§34.11",
     ]) {
-      expect(results.some((r) => r.name.startsWith(criterion))).toBe(true);
+      expect(
+        results.some((r) => r.name.startsWith(criterion)),
+        `missing conformance criterion: ${criterion} (got: ${results.map((r) => r.name).join(", ")})`,
+      ).toBe(true);
     }
     expect(
       results.some((r) => r.name.startsWith("Serialization round-trip")),

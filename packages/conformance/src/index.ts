@@ -5,4 +5,4 @@ export {
   createSeedWithSDK,
   createSeedWithDecorators,
 } from "./seed.js";
-export { runConformance, type ConformanceResult } from "./runner.js";
+export { runConformance, canonicalize, type ConformanceResult } from "./runner.js";
