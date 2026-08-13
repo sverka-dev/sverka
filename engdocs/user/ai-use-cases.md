@@ -1,9 +1,10 @@
 # AI Agent Use Case Matrix
 
-Sverka is an AI-first verification framework. Every CLI command ships with
-`--format json` for structured agent consumption. The agent says **what** to
-verify; Sverka handles **how** — building the pipeline, running everything
-locally, and returning structured findings.
+Sverka is a code-first TypeScript pipeline engine that AI agents find
+friendly. Every CLI command ships with `--format json` for structured agent
+consumption. The agent says **what** to verify; Sverka handles **how** —
+building the pipeline, running everything locally, and returning structured
+findings.
 
 ## How token savings work
 
