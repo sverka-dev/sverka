@@ -28,9 +28,9 @@ import type {
   WorkflowDefinition,
 } from "./types.js";
 import { SdkError } from "./errors.js";
-import { findConfig, loadWorkflow } from "./config.js";
-import { convertToPlan } from "./convert.js";
-import { PlanRuntime } from "./internal/plan-runtime.js";
+import { findConfig, loadWorkflow } from "./compat/config.js";
+import { convertToPlan } from "./compat/convert.js";
+import { PlanRuntime } from "./compat/internal/plan-runtime.js";
 
 /**
  * Create a Sverka instance with default options pre-applied. Per-call

@@ -73,7 +73,30 @@ export type {
 } from "./compat/types.js";
 export { findConfig, loadWorkflow } from "./compat/config.js";
 export { createSverka, plan, toPlan, execute } from "./compat/sverka.js";
-export { task, defineWorkflow } from "./compat/index.js";
+
+// ── task helper ───────────────────────────────────────────────────
+import type { Operation } from "@sverka/core";
+
+/**
+ * Name an operation. Sugar for `op.named(name)`.
+ * @example
+ * pipeline(task("lint", run({ command: "bun", args: ["run", "lint"] })))
+ */
+export function task(name: string, op: Operation): Operation {
+  return op.named(name);
+}
+
+// ── Workflow definition ───────────────────────────────────────────
+import type { WorkflowDefinition } from "./compat/types.js";
+
+/**
+ * Type-safe helper for sverka.config.ts. Identity function.
+ */
+export function defineWorkflow(
+  definition: WorkflowDefinition,
+): WorkflowDefinition {
+  return definition;
+}
 
 // ── New SDK API (v0) — available under /v0 subpath ─────────────────
 export { sh } from "./sh.js";
