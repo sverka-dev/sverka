@@ -19,10 +19,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/constructs": "workspace:*"
+    "@sverka/constructs": "workspace:*",
+    "@sverka/core": "workspace:*",
+    "@sverka/ir": "workspace:*",
+    "@sverka/runtime": "workspace:*",
+    "@sverka/planner": "workspace:*",
+    "@sverka/findings": "workspace:*",
+    "@sverka/policy": "workspace:*",
+    "@sverka/checks": "workspace:*"
   },
   "devDependencies": {
-    "@sverka/core": "workspace:*",
     "tsdown": "^0.22.0",
     "typescript": "^5.8.0",
     "vitest": "^3.0.0"

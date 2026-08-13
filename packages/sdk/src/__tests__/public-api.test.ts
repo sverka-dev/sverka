@@ -21,7 +21,7 @@ describe("public API", () => {
     expect(typeof sdk.git).toBe("object");
     expect(typeof sdk.change).toBe("object");
     expect(typeof sdk.event).toBe("object");
-    expect(typeof sdk.run).toBe("object");
+    expect(typeof sdk.runContext).toBe("object");
     expect(typeof sdk.inputs).toBe("object");
   });
 
