@@ -31,5 +31,3 @@ jobs:
 
       - run: nx affected -t build
       - run: nx affected -t lint test
-      - run: nx fix-ci
-        if: always()
