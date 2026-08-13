@@ -1,0 +1,6 @@
+PRRT_kwDOTyoI9s6YxjZz	Fixed — `verifyPolicyAgainstGraph` now normalizes `checks/` prefixes, so bare check ids like `typecheck` match steps like `checks/typecheck` and align with `evaluatePolicy`.
+PRRT_kwDOTyoI9s6Yxmn2	Fixed — the rule iteration now guards `checkIds` against `null`, `undefined`, and non-array values, treating them as no check filter.
+PRRT_kwDOTyoI9s6Yxn9P	Fixed — bare check ids are canonical; `verifyPolicyAgainstGraph` and `evaluatePolicy` normalize `checks/` prefixes and `evaluatePolicy` matches rule-qualified finding ids (`<checkId>:<ruleId>`). `extractFindings` also strips `checks/` before normalization.
+PRRT_kwDOTyoI9s6Yxn9R	Fixed — `verifyPolicyAgainstGraph` now validates `policy.failOn` and `graph.project.pipelines` and returns structural errors in `PolicyVerification.errors` without throwing.
+PRRT_kwDOTyoI9s6Y3M-8	Fixed — `specs/15-findings/spec.md` now declares `compareBaseline(findings, baseline)` matching the implementation and tests.
+PRRT_kwDOTyoI9s6Y3M_A	Fixed — `specs/16-policy/spec.md` now defines that `failOn[].checkIds` refer to check steps (IDs starting with `checks/`), with normalization for `checks/` prefix and rule-qualified findings; implementation and tests are aligned.
