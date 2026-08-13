@@ -107,6 +107,20 @@
         "vitest": "^3.0.0",
       },
     },
+    "packages/decorators": {
+      "name": "@sverka/decorators",
+      "version": "0.0.0",
+      "dependencies": {
+        "@sverka/constructs": "workspace:*",
+        "@sverka/sdk": "workspace:*",
+      },
+      "devDependencies": {
+        "@sverka/core": "workspace:*",
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^3.0.0",
+      },
+    },
     "packages/engine-native": {
       "name": "@sverka/engine-native",
       "version": "0.0.0",
@@ -456,6 +470,8 @@
     "@sverka/constructs": ["@sverka/constructs@workspace:packages/constructs"],
 
     "@sverka/core": ["@sverka/core@workspace:packages/core"],
+
+    "@sverka/decorators": ["@sverka/decorators@workspace:packages/decorators"],
 
     "@sverka/engine-native": ["@sverka/engine-native@workspace:packages/engine-native"],
 
