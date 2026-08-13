@@ -31,7 +31,7 @@ An agent says `/sverka build, then lint, then sonar + codacy + trivy, output fin
 
 <CardGrid stagger>
   <Card title="AI-first" icon="approve-check">
-    Claude plugin + AI skill. Say `/sverka build, then lint, then sonar + trivy` — Sverka handles the rest. The agent declares **what** to verify, not **how**.
+    CLI-native + structured JSON. Say `sverka run --entry ci --format json` — Sverka handles the rest. The agent declares **what** to verify, not **how**. Claude plugin and AI skill integrations are planned.
   </Card>
   <Card title="Token-efficient" icon="seti:typescript">
     Delegate orchestration to the pipeline, not the LLM. One command replaces 6+ tool-call round-trips. ~97% token reduction per verification run.
@@ -68,10 +68,10 @@ A typical verification task — build + lint + 3 security scanners + findings:
 | Approach | Tool calls | Tokens |
 |----------|-----------|--------|
 | Without Sverka | 6+ round-trips (call, parse, decide, repeat) | ~5000 |
-| With Sverka | 1 command + 1 result | ~100 |
+| With Sverka | 1 command + 1 result | ~150 |
 | **Savings** | | **~97%** |
 
-For 20 verification runs per session: **~94,000 tokens saved**.
+For 20 verification runs per session: **~97,000 tokens saved**.
 
 See the [AI use case matrix](user/ai-use-cases/) for detailed scenarios.
 
