@@ -120,6 +120,45 @@ describe("deserializeGraph error handling", () => {
     });
     expect(() => deserializeGraph(json)).toThrow(ValidationError);
   });
+
+  it("rejects graph with mismatched content-addressed id → ValidationError", () => {
+    const graph = makeSampleGraph();
+    const obj = JSON.parse(serializeGraph(graph));
+    obj.id = "graph-tampered";
+    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(ValidationError);
+  });
+
+  it("rejects graph with malformed entry → ValidationError", () => {
+    const json = JSON.stringify({
+      apiVersion: "sverka.dev/v1graph",
+      id: "graph-test",
+      createdAt: "2026-08-13T00:00:00.000Z",
+      graph: {
+        project: {
+          id: "myproj",
+          pipelines: [
+            {
+              id: "ci",
+              inputs: [],
+              entries: [{}],
+              outputs: [],
+              steps: [
+                {
+                  id: "ci/build",
+                  runtime: {},
+                  operations: [{ kind: "shell", command: "echo" }],
+                  inputs: [],
+                  outputs: [],
+                  dependencies: [],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(() => deserializeGraph(json)).toThrow(ValidationError);
+  });
 });
 
 describe("serializeRunPlan → deserializeRunPlan round-trip", () => {
@@ -172,6 +211,20 @@ describe("deserializeRunPlan error handling", () => {
     const plan = makeSampleRunPlan(makeSampleGraph());
     const obj = JSON.parse(serializeRunPlan(plan));
     obj.entry.trigger.kind = "unknown";
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+  });
+
+  it("rejects run plan with mismatched content-addressed id → ValidationError", () => {
+    const plan = makeSampleRunPlan(makeSampleGraph());
+    const obj = JSON.parse(serializeRunPlan(plan));
+    obj.id = "rp-tampered";
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+  });
+
+  it("rejects non-scalar inputs → ValidationError", () => {
+    const plan = makeSampleRunPlan(makeSampleGraph());
+    const obj = JSON.parse(serializeRunPlan(plan));
+    obj.inputs = { env: { nested: true } };
     expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
   });
 });

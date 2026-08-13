@@ -21,8 +21,7 @@ export function computeGraphId(graph: DefinitionGraph): string {
  * `id` and `createdAt`). SHA-256 over canonical JSON, prefixed `rp-`.
  */
 export function computeRunPlanId(plan: Omit<RunPlan, "id" | "createdAt">): string {
-  const { id: _id, createdAt: _createdAt, ...body } = plan as Record<string, unknown>;
-  const canonical = canonicalStringify(body);
+  const canonical = canonicalStringify(plan);
   const hex = createHash("sha256").update(canonical, "utf8").digest("hex");
   return `rp-${hex}`;
 }
