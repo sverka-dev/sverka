@@ -53,6 +53,13 @@ const RUST_REASON = "Rust project defaults";
 const GO_REASON = "Go project defaults";
 const KNOWN_REASONS = new Set([NODE_REASON, PYTHON_REASON, RUST_REASON, GO_REASON]);
 
+const SAFE_SHELL_ARG = /^[\w.\/:@=-]+$/;
+
+function quoteShellArg(arg: string): string {
+  if (SAFE_SHELL_ARG.test(arg)) return arg;
+  return `"${arg.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
 const TABLE: readonly TableEntry[] = [
   { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["bun"], command: "bun", args: ["run", "typecheck"] },
   { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["npm"], command: "npm", args: ["run", "typecheck"] },
@@ -98,10 +105,10 @@ function findEntry(
     if (!entry.packageManagers.some((pm) => pmNames.includes(pm))) continue;
     if (!isEntryApplicable(entry, ctx.root, rootPkg)) continue;
 
-    const command = [entry.command, ...entry.args].join(" ");
+    const command = [entry.command, ...entry.args.map(quoteShellArg)].join(" ");
     const step: StepDefinition = {
       id: `checks/${check.checkId}`,
-      runtime: { mode: "host" },
+      runtime: { mode: "host", workingDir: ctx.root },
       operations: [{ kind: "shell", command }],
       inputs: [],
       outputs: [],
