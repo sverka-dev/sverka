@@ -213,6 +213,7 @@
         "@sverka/constructs": "workspace:*",
       },
       "devDependencies": {
+        "@sverka/core": "workspace:*",
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
         "vitest": "^3.0.0",

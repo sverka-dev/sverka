@@ -90,6 +90,18 @@ export function validateReferences(
         }
       }
     }
+
+    if (step.condition?.kind === "step") {
+      const ref: StepRef = step.condition;
+      const producerId = resolveStepId(pipelineId, ref.step);
+      if (!stepIds.has(producerId)) {
+        throw new SynthesisError(
+          "UNKNOWN_PRODUCER",
+          `Step '${step.id}' condition references unknown producer '${ref.step}'`,
+          step.id,
+        );
+      }
+    }
   }
 }
 
@@ -166,6 +178,22 @@ function validateInputReference(
   }
 }
 
+function validateConditionReference(
+  step: StepDefinition,
+  ref: StepRef,
+  outputTypes: Map<string, Map<string, OutputType>>,
+  pipelineId: string,
+): void {
+  validateInputReference(step, ref, outputTypes, pipelineId);
+  if (ref.type !== "boolean") {
+    throw new SynthesisError(
+      "INCOMPATIBLE_REFERENCE",
+      `Step '${step.id}' condition must reference a boolean output, got '${ref.type}'`,
+      step.id,
+    );
+  }
+}
+
 /**
  * Validate that StepRef types match the producer's output type.
  * Throws SynthesisError(INCOMPATIBLE_REFERENCE).
@@ -180,6 +208,15 @@ export function validateReferenceTypes(
       if (input.kind === "step") {
         validateInputReference(step, input as StepRef, outputTypes, pipelineId);
       }
+    }
+
+    if (step.condition?.kind === "step") {
+      validateConditionReference(
+        step,
+        step.condition as StepRef,
+        outputTypes,
+        pipelineId,
+      );
     }
   }
 }

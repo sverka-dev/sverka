@@ -48,6 +48,7 @@ interface StepBuilder {
   dependsOn(steps: readonly string[]): StepBuilder;
   runtime(runtime: Runtime): StepBuilder;
   timeout(ms: number): StepBuilder;
+  condition(ref: Reference): StepBuilder;
   /** Build a ShellStep under the given pipeline. */
   build(pipeline: Pipeline, id: string): ShellStep;
 }
@@ -80,7 +81,7 @@ interface ImageRef {
 
 const images: {
   node: { readonly latest: ImageRef; readonly [version: number]: ImageRef };
-  ubuntu: { readonly latest: ImageRef };
+  ubuntu: { readonly latest: ImageRef; readonly [tag: string]: ImageRef };
 };
 
 function image(ref: string): ImageRef;
