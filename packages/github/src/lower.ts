@@ -407,10 +407,10 @@ function lowerDiagnostic(op: Extract<OperationDefinition, { kind: "diagnostic" }
   flushRun();
   const severityFlag = severityFlagFor(op.severity);
   const escapedMessage = op.message
-    .replaceAll("%", "%25")
-    .replaceAll("\r\n", "%0D%0A")
-    .replaceAll("\n", "%0A")
-    .replaceAll("\r", "%0D");
+    .replace(/%/g, "%25")
+    .replace(/\r\n/g, "%0D%0A")
+    .replace(/\n/g, "%0A")
+    .replace(/\r/g, "%0D");
   steps.push({
     env: { SVERKA_DIAGNOSTIC_MESSAGE: escapedMessage },
     run: String.raw`printf '%s\n' "::${severityFlag}::$SVERKA_DIAGNOSTIC_MESSAGE"`,
