@@ -91,7 +91,7 @@ immediately — do not wait for a human to prompt you.
 
 If a wave fails review, dispatch fix work to the builder and re-gate.
 
-**Dependency note:** Some waves can run in parallel once their declared prerequisites are satisfied. Wave C (SDK authoring) can start after Wave A and run in parallel with Wave B. After Wave B completes, Waves E (plugin), F (engine-native), and L (CLI) can run in parallel. Wave H (target-github) requires both Wave B and Wave E; Wave I (target-gitlab) requires Wave H. Wave K (findings/policy) can run in parallel with the engine waves once Waves F and J are complete. Use `gc bd dep` to model this — don't serialize unnecessarily.
+**Dependency note:** Some waves can run in parallel once their declared prerequisites are satisfied. Wave C (SDK authoring) can start after Wave A and run in parallel with Wave B. After Wave B completes, Waves E (plugin) and F (engine-native) can run in parallel. Wave H (target-github) requires both Wave B and Wave E; Wave I (target-gitlab) requires Wave H. Wave K (findings/policy) can run in parallel with the engine waves once Waves F and J are complete. Wave L (CLI) depends on all prior waves and is scheduled after they complete. Use `gc bd dep` to model this — don't serialize unnecessarily.
 
 ## Report to human
 
@@ -115,6 +115,7 @@ previous wave's branch, not main.
    ```
    git checkout -b v0-<wave>-<package>
    ```
+
    Base it on the previous wave's branch (or `main` for Wave A).
 
 2. Stage all changes for this wave:
@@ -205,11 +206,11 @@ A (constructs + definition graph)
 │   │   └── G (planner / run plan binding)
 │   │       └── J (checks integration)
 │   │           └── K (findings + policy verification) [parallel: carries over]
-│   ├── H (target-github / native lowering)
-│   │   └── I (target-gitlab / native lowering)
-│   └── L (cli)
+│   └── H (target-github / native lowering)
+│       └── I (target-gitlab / native lowering)
 ├── C (sdk authoring)
 │   └── D (decorators)
+├── L (cli) [needs all]
 └──── M (conformance suite) [needs all]
      └── N (docs + website update)
 ```

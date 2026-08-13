@@ -261,8 +261,9 @@ v0 is accepted when:
 
 ## 9. Decisions for v0
 
-1. **`constructs` package version** — Pin `constructs` to `^10.0.0` for v0.
-   Verify Bun + ESM + tsdown compatibility during Wave A.
+1. **`constructs` package version** — Pin `constructs` to an exact version
+   (`10.8.1`) in `packages/constructs/package.json` and commit the resulting
+   `bun.lock` entry. Verify Bun + ESM + tsdown compatibility during Wave A.
 2. **Decorator compiler support** — Standard TC39 stage-3 decorators are
    supported by TypeScript 5.2+ and the Bun transpiler. Use standard decorator
    syntax; avoid `experimentalDecorators`.
