@@ -51,33 +51,32 @@ export function validateCapabilityManifest(manifest: unknown): asserts manifest 
   }
   const obj = manifest as Record<string, unknown>;
   for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      validateSupport(value);
-      continue;
-    }
-    if (typeof value === "object" && value !== null) {
-      const detail = value as Record<string, unknown>;
-      const support = validateSupport(detail.support);
-      if (detail.via !== undefined && typeof detail.via !== "string") {
-        throw new PluginError(
-          `capability '${key}' has invalid via: must be a string`,
-          "INVALID_CAPABILITY",
-        );
-      }
-      if (detail.notes !== undefined && typeof detail.notes !== "string") {
-        throw new PluginError(
-          `capability '${key}' has invalid notes: must be a string`,
-          "INVALID_CAPABILITY",
-        );
-      }
-      // Re-assign normalized support if needed.
-      void support;
-      continue;
-    }
-    throw new PluginError(
-      `capability '${key}' must be a support string or CapabilityDetail object`,
-      "INVALID_CAPABILITY",
-    );
+    validateManifestEntry(key, value);
+  }
+}
+
+function validateManifestEntry(key: string, value: unknown): void {
+  if (typeof value === "string") {
+    validateSupport(value);
+    return;
+  }
+  if (typeof value === "object" && value !== null) {
+    validateManifestDetail(key, value as Record<string, unknown>);
+    return;
+  }
+  throw new PluginError(
+    `capability '${key}' must be a support string or CapabilityDetail object`,
+    "INVALID_CAPABILITY",
+  );
+}
+
+function validateManifestDetail(key: string, detail: Record<string, unknown>): void {
+  validateSupport(detail.support);
+  if (detail.via !== undefined && typeof detail.via !== "string") {
+    throw new PluginError(`capability '${key}' has invalid via: must be a string`, "INVALID_CAPABILITY");
+  }
+  if (detail.notes !== undefined && typeof detail.notes !== "string") {
+    throw new PluginError(`capability '${key}' has invalid notes: must be a string`, "INVALID_CAPABILITY");
   }
 }
 
@@ -93,39 +92,38 @@ function detectStepCapabilities(step: {
   const mode = step.runtime?.mode ?? "host";
   caps.add(`runtime.${mode}`);
 
-  let hasScalarOutput = false;
-  let hasArtifactOutput = false;
-
-  for (const op of step.operations) {
-    switch (op.kind) {
-      case "shell":
-        caps.add("operation.shell");
-        break;
-      case "exportOutput":
-        hasScalarOutput = true;
-        break;
-      case "exportArtifact":
-        hasArtifactOutput = true;
-        break;
-      case "importArtifact":
-        caps.add("operation.import");
-        break;
-    }
-  }
-
-  for (const output of step.outputs) {
-    if (output.type === "artifact") {
-      hasArtifactOutput = true;
-    } else {
-      hasScalarOutput = true;
-    }
-  }
+  const outputFlags = { scalar: false, artifact: false };
+  detectOperationCapabilities(step.operations, caps, outputFlags);
+  detectOutputTypeCapabilities(step.outputs, outputFlags);
 
   if (step.dependencies.length > 0) {
     caps.add("graph.dependencies");
   }
-  if (hasScalarOutput) caps.add("output.scalar");
-  if (hasArtifactOutput) caps.add("output.artifact");
+  if (outputFlags.scalar) caps.add("output.scalar");
+  if (outputFlags.artifact) caps.add("output.artifact");
+}
+
+function detectOperationCapabilities(
+  operations: readonly { kind: string }[],
+  caps: Set<string>,
+  outputFlags: { scalar: boolean; artifact: boolean },
+): void {
+  for (const op of operations) {
+    if (op.kind === "shell") caps.add("operation.shell");
+    else if (op.kind === "exportOutput") outputFlags.scalar = true;
+    else if (op.kind === "exportArtifact") outputFlags.artifact = true;
+    else if (op.kind === "importArtifact") caps.add("operation.import");
+  }
+}
+
+function detectOutputTypeCapabilities(
+  outputs: readonly { type: string }[],
+  outputFlags: { scalar: boolean; artifact: boolean },
+): void {
+  for (const output of outputs) {
+    if (output.type === "artifact") outputFlags.artifact = true;
+    else outputFlags.scalar = true;
+  }
 }
 
 /**
