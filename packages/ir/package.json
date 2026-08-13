@@ -19,7 +19,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/core": "workspace:*"
+    "@sverka/core": "workspace:*",
+    "@sverka/constructs": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",
