@@ -47,7 +47,7 @@ export function createDockerDriver(config: DockerDriverConfig): RuntimeDriver {
       validateEnv(request.env);
 
       if (request.imageDigest) {
-        await verifyImageDigest(image, request.imageDigest, config);
+        await verifyImageDigest(image, request.imageDigest, config, request.timeoutMs, request.signal);
       }
 
       const containerCwd = toContainerPath(request.cwd ?? request.workspace, request.workspace);
