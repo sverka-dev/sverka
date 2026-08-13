@@ -18,8 +18,8 @@ import type {
 } from "./types.js";
 import { createValueStore } from "./value-store.js";
 import { createArtifactStore } from "./artifact-store.js";
-import { executeStep } from "./step-executor.js";
-import { buildStepExecutionGraph, transitiveDependents, type StepState } from "./scheduler.js";
+import { executeStep, type StepExecOptions } from "./step-executor.js";
+import { buildStepExecutionGraph, transitiveDependents, type StepState, type StepGraph } from "./scheduler.js";
 import { stepPrefix } from "./refs.js";
 
 /** Create a native engine with the given drivers. */
@@ -165,36 +165,26 @@ class NativeEngine implements Engine {
     const drivers = request.drivers ?? this.config.drivers;
     const maxConcurrent = request.maxConcurrent ?? this.config.maxConcurrent ?? 4;
 
-    let secrets: Record<string, string> = {};
-    if (request.secrets) {
-      try {
-        secrets = await resolveSecrets(plan, request.secrets);
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        yield* this.emitSetupFailure(runId, start, message);
-        return null;
-      }
-    }
-
-    let graph;
-    try {
-      graph = buildStepExecutionGraph(plan.steps);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      yield* this.emitSetupFailure(runId, start, message);
+    const secretsResult = await resolveRunSecrets(request, plan);
+    if (secretsResult.error) {
+      yield* this.emitSetupFailure(runId, start, secretsResult.error);
       return null;
     }
 
-    try {
-      await mkdir(request.workspace, { recursive: true });
-    } catch (e) {
-      const message = `failed to create workspace: ${e instanceof Error ? e.message : String(e)}`;
-      yield* this.emitSetupFailure(runId, start, message);
+    const graphResult = buildStepGraph(plan.steps);
+    if (graphResult.error) {
+      yield* this.emitSetupFailure(runId, start, graphResult.error);
+      return null;
+    }
+
+    const wsError = await ensureWorkspace(request.workspace);
+    if (wsError) {
+      yield* this.emitSetupFailure(runId, start, wsError);
       return null;
     }
 
     const states = new Map<string, StepState>();
-    for (const id of graph.order) states.set(id, "pending");
+    for (const id of graphResult.graph.order) states.set(id, "pending");
 
     return {
       request,
@@ -204,14 +194,14 @@ class NativeEngine implements Engine {
       plan,
       drivers,
       maxConcurrent,
-      order: graph.order,
-      stepMap: graph.stepMap,
-      dependents: graph.dependents,
-      indegree: graph.indegree,
+      order: graphResult.graph.order,
+      stepMap: graphResult.graph.stepMap,
+      dependents: graphResult.graph.dependents,
+      indegree: graphResult.graph.indegree,
       states,
       valueStore: createValueStore(),
       artifactStore: createArtifactStore(request.artifactDir),
-      secrets,
+      secrets: secretsResult.secrets,
     };
   }
 
@@ -325,18 +315,7 @@ class NativeEngine implements Engine {
     step: StepDefinition,
     driver: RuntimeDriver,
   ): Promise<void> {
-    const result = await executeStep({
-      step,
-      driver,
-      workspace: ctx.request.workspace,
-      artifactStore: ctx.artifactStore,
-      valueStore: ctx.valueStore,
-      secrets: ctx.secrets,
-      inputs: ctx.plan.inputs,
-      emit: ctx.emit,
-      isCancelled: () => this.isCancelled(ctx.abort),
-      signal: ctx.abort.signal,
-    });
+    const result = await executeStep(this.buildStepExecOptions(ctx, step, driver));
 
     if (result.status === "succeeded") {
       ctx.states.set(step.id, "succeeded");
@@ -361,6 +340,25 @@ class NativeEngine implements Engine {
       ctx.emit({ type: "step-cancelled", stepId: step.id });
       this.cancelDependents(ctx, step.id);
     }
+  }
+
+  private buildStepExecOptions(
+    ctx: RunContext,
+    step: StepDefinition,
+    driver: RuntimeDriver,
+  ): StepExecOptions {
+    return {
+      step,
+      driver,
+      workspace: ctx.request.workspace,
+      artifactStore: ctx.artifactStore,
+      valueStore: ctx.valueStore,
+      secrets: ctx.secrets,
+      inputs: ctx.plan.inputs,
+      emit: ctx.emit,
+      isCancelled: () => this.isCancelled(ctx.abort),
+      signal: ctx.abort.signal,
+    };
   }
 
   private onStepComplete(ctx: RunContext, id: string): void {
@@ -436,4 +434,35 @@ async function resolveSecrets(
     if (val !== undefined) secrets[name] = val;
   }
   return secrets;
+}
+
+async function resolveRunSecrets(
+  request: RunRequest,
+  plan: RunPlan,
+): Promise<{ secrets: Record<string, string> } | { error: string }> {
+  if (!request.secrets) return { secrets: {} };
+  try {
+    return { secrets: await resolveSecrets(plan, request.secrets) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+function buildStepGraph(
+  steps: readonly StepDefinition[],
+): { graph: StepGraph } | { error: string } {
+  try {
+    return { graph: buildStepExecutionGraph(steps) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function ensureWorkspace(workspace: string): Promise<string | undefined> {
+  try {
+    await mkdir(workspace, { recursive: true });
+    return undefined;
+  } catch (e) {
+    return `failed to create workspace: ${e instanceof Error ? e.message : String(e)}`;
+  }
 }

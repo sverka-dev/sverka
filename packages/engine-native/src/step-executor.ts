@@ -74,84 +74,118 @@ async function executeOperation(
   stepWorkspace: string,
   outputDir: string,
 ): Promise<void> {
-  const { step, driver, artifactStore, valueStore, emit, secrets, inputs, signal } = opts;
-
   switch (op.kind) {
-    case "shell": {
-      const env = buildShellEnv(step, outputDir, secrets);
-      const command = interpolateCommand(op.command, step, valueStore, inputs);
-      const cwd = step.runtime.workingDir
-        ? resolveUnder(stepWorkspace, step.runtime.workingDir)
-        : stepWorkspace;
-      const request: ShellExecuteRequest = {
-        command,
-        workspace: stepWorkspace,
-        env,
-        cwd,
-        ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
-        ...(step.runtime.image ? { image: step.runtime.image } : {}),
-        ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
-        ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
-          ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
-          : {}),
-        ...(signal !== undefined ? { signal } : {}),
-      };
-      const result: ShellResult = await driver.executeShell(request);
-      if (result.exitCode !== 0) {
-        throw new StepExecError(
-          result.timedOut
-            ? `step '${step.id}' timed out`
-            : `step '${step.id}' shell command failed with exit code ${result.exitCode}`,
-          result.timedOut ? "TIMEOUT" : "STEP_EXEC_ERROR",
-        );
-      }
+    case "shell":
+      await executeShellOperation(op, opts, stepWorkspace, outputDir);
       break;
-    }
-
-    case "exportOutput": {
-      assertSafeFileName(op.name);
-      const outputPath = join(outputDir, op.name);
-      let content: string;
-      try {
-        content = await readFile(outputPath, "utf-8");
-      } catch (e) {
-        throw new StepExecError(
-          `output '${op.name}' not found in $SVERKA_OUTPUT_DIR: ${e instanceof Error ? e.message : String(e)}`,
-          "OUTPUT_CAPTURE_ERROR",
-          e,
-        );
-      }
-      const value = parseOutputValue(content, op.type);
-      valueStore.set(step.id, op.name, value);
+    case "exportOutput":
+      await executeExportOutputOperation(op, opts, outputDir);
       break;
-    }
-
-    case "exportArtifact": {
-      assertSafeFileName(op.name);
-      const sourcePath = resolveUnder(stepWorkspace, op.path);
-      await artifactStore.store(step.id, op.name, sourcePath);
+    case "exportArtifact":
+      await executeExportArtifactOperation(op, opts, stepWorkspace);
       break;
-    }
-
-    case "importArtifact": {
-      assertSafeFileName(op.name);
-      const prefix = stepPrefix(step.id);
-      const producerId = resolveProducerId(prefix, op.from);
-      const destPath = join(stepWorkspace, op.name);
-      await artifactStore.retrieve(producerId, op.output, destPath);
+    case "importArtifact":
+      await executeImportArtifactOperation(op, opts, stepWorkspace);
       break;
-    }
-
-    case "diagnostic": {
-      emit({
-        type: "diagnostic",
-        stepId: step.id,
-        message: op.message,
-        severity: op.severity,
-      });
+    case "diagnostic":
+      executeDiagnosticOperation(op, opts);
       break;
-    }
   }
+}
+
+async function executeShellOperation(
+  op: Extract<OperationDefinition, { kind: "shell" }>,
+  opts: StepExecOptions,
+  stepWorkspace: string,
+  outputDir: string,
+): Promise<void> {
+  const { step, driver, secrets, valueStore, inputs, signal } = opts;
+  const env = buildShellEnv(step, outputDir, secrets);
+  const command = interpolateCommand(op.command, step, valueStore, inputs);
+  const cwd = step.runtime.workingDir
+    ? resolveUnder(stepWorkspace, step.runtime.workingDir)
+    : stepWorkspace;
+  const request: ShellExecuteRequest = {
+    command,
+    workspace: stepWorkspace,
+    env,
+    cwd,
+    ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
+    ...(step.runtime.image ? { image: step.runtime.image } : {}),
+    ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
+    ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
+      ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
+      : {}),
+    ...(signal !== undefined ? { signal } : {}),
+  };
+  const result: ShellResult = await driver.executeShell(request);
+  if (result.exitCode !== 0) {
+    throw new StepExecError(
+      result.timedOut
+        ? `step '${step.id}' timed out`
+        : `step '${step.id}' shell command failed with exit code ${result.exitCode}`,
+      result.timedOut ? "TIMEOUT" : "STEP_EXEC_ERROR",
+    );
+  }
+}
+
+async function executeExportOutputOperation(
+  op: Extract<OperationDefinition, { kind: "exportOutput" }>,
+  opts: StepExecOptions,
+  outputDir: string,
+): Promise<void> {
+  const { step, valueStore } = opts;
+  assertSafeFileName(op.name);
+  const outputPath = join(outputDir, op.name);
+  let content: string;
+  try {
+    content = await readFile(outputPath, "utf-8");
+  } catch (e) {
+    throw new StepExecError(
+      `output '${op.name}' not found in $SVERKA_OUTPUT_DIR: ${e instanceof Error ? e.message : String(e)}`,
+      "OUTPUT_CAPTURE_ERROR",
+      e,
+    );
+  }
+  const value = parseOutputValue(content, op.type);
+  valueStore.set(step.id, op.name, value);
+}
+
+async function executeExportArtifactOperation(
+  op: Extract<OperationDefinition, { kind: "exportArtifact" }>,
+  opts: StepExecOptions,
+  stepWorkspace: string,
+): Promise<void> {
+  const { step, artifactStore } = opts;
+  assertSafeFileName(op.name);
+  const sourcePath = resolveUnder(stepWorkspace, op.path);
+  await artifactStore.store(step.id, op.name, sourcePath);
+}
+
+async function executeImportArtifactOperation(
+  op: Extract<OperationDefinition, { kind: "importArtifact" }>,
+  opts: StepExecOptions,
+  stepWorkspace: string,
+): Promise<void> {
+  const { step, artifactStore } = opts;
+  assertSafeFileName(op.name);
+  const prefix = stepPrefix(step.id);
+  const producerId = resolveProducerId(prefix, op.from);
+  const destPath = join(stepWorkspace, op.name);
+  await artifactStore.retrieve(producerId, op.output, destPath);
+}
+
+function executeDiagnosticOperation(
+  op: Extract<OperationDefinition, { kind: "diagnostic" }>,
+  opts: StepExecOptions,
+): void {
+  const { step, emit } = opts;
+  emit({
+    type: "diagnostic",
+    stepId: step.id,
+    message: op.message,
+    severity: op.severity,
+  });
 }
 
 function buildShellEnv(
