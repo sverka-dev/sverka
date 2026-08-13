@@ -43,8 +43,8 @@ structured run events, and supports cancellation.
 ## Interfaces
 
 ```ts
-import type { RunPlan, StepDefinition, InputValue } from "@sverka/ir";
-import type { Runtime } from "@sverka/constructs";
+import type { RunPlan, InputValue } from "@sverka/ir";
+import type { StepDefinition } from "@sverka/core";
 
 // --- Engine ---
 
@@ -54,7 +54,7 @@ interface RunRequest {
   readonly artifactDir: string;     // artifact store root
   readonly secrets?: SecretProvider;
   readonly drivers?: readonly RuntimeDriver[];
-  readonly maxConcurrent?: number;  // default: number of CPU cores
+  readonly maxConcurrent?: number;  // default: 4
 }
 
 interface Engine {
@@ -94,7 +94,9 @@ interface ShellExecuteRequest {
   readonly cwd?: string;
   readonly timeoutMs?: number;
   readonly image?: string;        // OCI image ref (container drivers)
+  readonly imageDigest?: string;  // pinned digest to verify before running
   readonly mode?: "host" | "container";
+  readonly signal?: AbortSignal;  // propagate cancellation to the runtime
 }
 
 interface ShellResult {
@@ -163,7 +165,7 @@ available in the ValueStore/ArtifactStore.
 **Step execution**: The StepExecutor creates a per-step workspace directory
 under `request.workspace/<stepId>/`. It sets `SVERKA_OUTPUT_DIR` env var
 pointing to a per-step output directory. For each operation in order:
-- `shell`: call `driver.executeShell(command, env, workspace, timeout)`
+- `shell`: call `driver.executeShell({ command, env, workspace, cwd, timeoutMs, image, imageDigest, mode, signal })`
 - `exportOutput`: read `$SVERKA_OUTPUT_DIR/<name>`, parse by type, store in
   ValueStore
 - `exportArtifact`: copy from workspace path to ArtifactStore
@@ -176,12 +178,11 @@ pointing to a per-step output directory. For each operation in order:
 are parsed via `Number()`. Boolean values are `"true"` → true, else false.
 
 **Failure propagation**: When a Step fails, all Steps that depend on it
-(transitively) are cancelled. The run continues if the failed Step has no
-dependents that are roots — but for v0, any failure marks the run as failed.
+(transitively) are cancelled. The run status is `failure`.
 
-**Cancellation**: `cancel()` sets a flag. Running shell processes receive
-SIGTERM. Pending Steps are marked cancelled. The run completes with status
-`cancelled`.
+**Cancellation**: `cancel()` aborts the current run's `AbortController`. Running
+shell processes receive the abort signal. Pending Steps are marked cancelled.
+The run completes with status `cancelled`.
 
 **Driver selection**: The engine iterates `config.drivers` and selects the
 first whose `canExecute(step)` returns true. If no driver matches, the Step

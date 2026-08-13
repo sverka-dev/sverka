@@ -1,11 +1,10 @@
 // Scheduler — topological sort + concurrent execution of Step DAG.
-// Spec 10 — §22.1 component 2, §22.3. Reuses Kahn's algorithm concept
-// from the old runtime/internal/topo.ts but operates on StepDefinition.
+// Spec 10 — §22.1 component 2, §22.3.
 
-import type { StepDefinition } from "@sverka/core";
+import type { StepDefinition, Dependency } from "@sverka/core";
 import { SchedulerError } from "./errors.js";
 
-export type StepState = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled";
+export type StepState = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "skipped";
 
 export interface SchedulerEntry {
   readonly step: StepDefinition;
@@ -16,10 +15,10 @@ export interface SchedulerEntry {
 
 /**
  * Topologically sort steps by their dependency edges.
- * Returns the sorted order, or throws SchedulerError on cycle.
+ * Returns the sorted order, or throws SchedulerError on cycle or unknown producer.
  */
 export function topoSortSteps(steps: readonly StepDefinition[]): readonly string[] {
-  const ids = new Set(steps.map((s) => s.id));
+  const ids = new Set<string>(steps.map((s) => s.id));
   const dependents = new Map<string, string[]>();
   const indegree = new Map<string, number>();
 
@@ -30,7 +29,11 @@ export function topoSortSteps(steps: readonly StepDefinition[]): readonly string
 
   for (const s of steps) {
     for (const dep of s.dependencies) {
-      if (!ids.has(dep.producer)) continue;
+      if (!ids.has(dep.producer)) {
+        throw new SchedulerError(
+          `step '${s.id}' depends on unknown producer '${dep.producer}'`,
+        );
+      }
       dependents.get(dep.producer)?.push(s.id);
       indegree.set(s.id, (indegree.get(s.id) ?? 0) + 1);
     }
@@ -72,7 +75,7 @@ export function topoSortSteps(steps: readonly StepDefinition[]): readonly string
 export function transitiveDependents(steps: readonly StepDefinition[], id: string): Set<string> {
   const depMap = new Map<string, string[]>();
   for (const s of steps) {
-    for (const dep of s.dependencies) {
+    for (const dep of s.dependencies as readonly Dependency[]) {
       depMap.set(dep.producer, [...(depMap.get(dep.producer) ?? []), s.id]);
     }
   }
@@ -92,6 +95,7 @@ export function transitiveDependents(steps: readonly StepDefinition[], id: strin
 
 /**
  * Check if a step is ready to run — all producers have succeeded.
+ * Throws if a producer id is unknown.
  */
 export function isStepReady(
   step: StepDefinition,
@@ -99,7 +103,14 @@ export function isStepReady(
 ): boolean {
   const state = states.get(step.id);
   if (state !== "pending") return false;
-  return step.dependencies.every((dep) => {
+  const ids = new Set<string>();
+  for (const s of states.keys()) ids.add(s);
+  return step.dependencies.every((dep: Dependency) => {
+    if (!ids.has(dep.producer)) {
+      throw new SchedulerError(
+        `step '${step.id}' depends on unknown producer '${dep.producer}'`,
+      );
+    }
     const producerState = states.get(dep.producer);
     return producerState === "succeeded";
   });
