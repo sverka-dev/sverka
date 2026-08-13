@@ -55,13 +55,14 @@ function filterReachableSteps(
   pipeline: PipelineDefinition,
 ): readonly StepDefinition[] {
   if (pipeline.steps.length === 0) {
-    for (const entry of pipeline.entries) {
-      for (const root of entry.roots) {
-        throw new GithubTargetError(
-          `entry references unknown root step '${root}'`,
-          "INVALID_GRAPH",
-        );
-      }
+    const invalidRoot = pipeline.entries
+      .flatMap((e) => e.roots)
+      .find((root) => root.length > 0);
+    if (invalidRoot) {
+      throw new GithubTargetError(
+        `entry references unknown root step '${invalidRoot}'`,
+        "INVALID_GRAPH",
+      );
     }
     return [];
   }
@@ -349,70 +350,71 @@ function lowerOperations(step: StepDefinition): readonly GithubStep[] {
   }
 
   for (const op of step.operations) {
-    switch (op.kind) {
-      case "shell":
-        runLines.push(op.command);
-        break;
-      case "exportOutput":
-        runLines.push(
-          `echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`,
-        );
-        break;
-      case "exportArtifact":
-        flushRun();
-        steps.push({
-          name: `Upload ${op.name}`,
-          uses: "actions/upload-artifact@v4",
-          with: {
-            name: artifactName(shortStepId, op.name),
-            path: op.path,
-          },
-        });
-        break;
-      case "importArtifact": {
-        flushRun();
-        const fromShort = op.from.includes("/")
-          ? op.from.split("/").pop()!
-          : op.from;
-        steps.push({
-          name: `Download ${op.output}`,
-          uses: "actions/download-artifact@v4",
-          with: {
-            name: artifactName(fromShort, op.output),
-            path: op.output,
-          },
-        });
-        break;
-      }
-      case "diagnostic": {
-        flushRun();
-        const severityFlag =
-          op.severity === "error"
-            ? "error"
-            : op.severity === "warn"
-              ? "warning"
-              : "notice";
-        const escapedMessage = op.message
-          .replace(/%/g, "%25")
-          .replace(/\r\n/g, "%0D%0A")
-          .replace(/\n/g, "%0A")
-          .replace(/\r/g, "%0D");
-        steps.push({
-          env: { SVERKA_DIAGNOSTIC_MESSAGE: escapedMessage },
-          run: `printf '%s\\n' "::${severityFlag}::$SVERKA_DIAGNOSTIC_MESSAGE"`,
-        });
-        break;
-      }
-      default:
-        throw new GithubTargetError(
-          `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
-          "LOWER_FAILED",
-        );
-    }
+    lowerOperation(op, shortStepId, steps, runLines, flushRun);
   }
 
   flushRun();
   return steps;
+}
+
+function lowerOperation(
+  op: OperationDefinition,
+  shortStepId: string,
+  steps: GithubStep[],
+  runLines: string[],
+  flushRun: () => void,
+): void {
+  switch (op.kind) {
+    case "shell":
+      runLines.push(op.command);
+      break;
+    case "exportOutput":
+      runLines.push(`echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`);
+      break;
+    case "exportArtifact":
+      flushRun();
+      steps.push({
+        name: `Upload ${op.name}`,
+        uses: "actions/upload-artifact@v4",
+        with: { name: artifactName(shortStepId, op.name), path: op.path },
+      });
+      break;
+    case "importArtifact":
+      lowerImportArtifact(op, steps, flushRun);
+      break;
+    case "diagnostic":
+      lowerDiagnostic(op, steps, flushRun);
+      break;
+    default:
+      throw new GithubTargetError(
+        `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
+        "LOWER_FAILED",
+      );
+  }
+}
+
+function lowerImportArtifact(op: Extract<OperationDefinition, { kind: "importArtifact" }>, steps: GithubStep[], flushRun: () => void): void {
+  flushRun();
+  const fromShort = op.from.includes("/") ? op.from.split("/").pop()! : op.from;
+  steps.push({
+    name: `Download ${op.output}`,
+    uses: "actions/download-artifact@v4",
+    with: { name: artifactName(fromShort, op.output), path: op.output },
+  });
+}
+
+function lowerDiagnostic(op: Extract<OperationDefinition, { kind: "diagnostic" }>, steps: GithubStep[], flushRun: () => void): void {
+  flushRun();
+  const severityFlag = severityFlagFor(op.severity);
+  const escapedMessage = op.message
+    .replaceAll("%", "%25")
+    .replaceAll("\r\n", "%0D%0A")
+    .replaceAll("\n", "%0A")
+    .replaceAll("\r", "%0D");
+  steps.push({
+    env: { SVERKA_DIAGNOSTIC_MESSAGE: escapedMessage },
+    run: String.raw`printf '%s\n' "::${severityFlag}::$SVERKA_DIAGNOSTIC_MESSAGE"`,
+  });
 }
 
 /**
@@ -437,4 +439,10 @@ function collectEnv(pipeline: PipelineDefinition): Record<string, string> {
     }
   }
   return env;
+}
+
+function severityFlagFor(severity: string): string {
+  if (severity === "error") return "error";
+  if (severity === "warn") return "warning";
+  return "notice";
 }
