@@ -143,6 +143,21 @@
         "vitest": "^3.0.0",
       },
     },
+    "packages/github": {
+      "name": "@sverka/github",
+      "version": "0.0.0",
+      "dependencies": {
+        "@sverka/core": "workspace:*",
+        "@sverka/plugin": "workspace:*",
+        "yaml": "^2.9.0",
+      },
+      "devDependencies": {
+        "@sverka/constructs": "workspace:*",
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^3.0.0",
+      },
+    },
     "packages/ir": {
       "name": "@sverka/ir",
       "version": "0.0.0",
@@ -488,6 +503,8 @@
     "@sverka/engine-native": ["@sverka/engine-native@workspace:packages/engine-native"],
 
     "@sverka/findings": ["@sverka/findings@workspace:packages/findings"],
+
+    "@sverka/github": ["@sverka/github@workspace:packages/github"],
 
     "@sverka/ir": ["@sverka/ir@workspace:packages/ir"],
 
