@@ -89,48 +89,39 @@ function getFieldsFromMetadata(metadata: object): Map<string, FieldMetadata> {
   return fields as Map<string, FieldMetadata>;
 }
 
+const INPUT_TYPES = new Set(["string", "number", "boolean"]);
+
 function validateInput(value: unknown, name: string): Input {
   if (value === null || typeof value !== "object") {
-    throw new DecoratorError(
-      `input field '${name}' must be an object`,
-      "INVALID_FIELD",
-    );
+    throw new DecoratorError(`input field '${name}' must be an object`, "INVALID_FIELD");
   }
   const obj = value as Record<string, unknown>;
-  if (typeof obj.type !== "string" || !["string", "number", "boolean"].includes(obj.type)) {
-    throw new DecoratorError(
-      `input field '${name}' has invalid type: ${String(obj.type)}`,
-      "INVALID_FIELD",
-    );
+  if (typeof obj.type !== "string" || !INPUT_TYPES.has(obj.type)) {
+    throw new DecoratorError(`input field '${name}' has invalid type: ${String(obj.type)}`, "INVALID_FIELD");
   }
-  if (obj.required !== undefined && typeof obj.required !== "boolean") {
-    throw new DecoratorError(
-      `input field '${name}' has invalid required flag`,
-      "INVALID_FIELD",
-    );
-  }
-  if (obj.secret !== undefined && typeof obj.secret !== "boolean") {
-    throw new DecoratorError(
-      `input field '${name}' has invalid secret flag`,
-      "INVALID_FIELD",
-    );
-  }
-  if (obj.description !== undefined && typeof obj.description !== "string") {
-    throw new DecoratorError(
-      `input field '${name}' has invalid description`,
-      "INVALID_FIELD",
-    );
-  }
-  if (
-    obj.default !== undefined &&
-    !["string", "number", "boolean"].includes(typeof obj.default)
-  ) {
-    throw new DecoratorError(
-      `input field '${name}' has invalid default value`,
-      "INVALID_FIELD",
-    );
-  }
+  validateInputBoolean(obj, "required", name);
+  validateInputBoolean(obj, "secret", name);
+  validateInputString(obj, "description", name);
+  validateInputDefault(obj, name);
   return value as Input;
+}
+
+function validateInputBoolean(obj: Record<string, unknown>, field: string, name: string): void {
+  if (obj[field] !== undefined && typeof obj[field] !== "boolean") {
+    throw new DecoratorError(`input field '${name}' has invalid ${field} flag`, "INVALID_FIELD");
+  }
+}
+
+function validateInputString(obj: Record<string, unknown>, field: string, name: string): void {
+  if (obj[field] !== undefined && typeof obj[field] !== "string") {
+    throw new DecoratorError(`input field '${name}' has invalid ${field}`, "INVALID_FIELD");
+  }
+}
+
+function validateInputDefault(obj: Record<string, unknown>, name: string): void {
+  if (obj.default !== undefined && !INPUT_TYPES.has(typeof obj.default)) {
+    throw new DecoratorError(`input field '${name}' has invalid default value`, "INVALID_FIELD");
+  }
 }
 
 function createStepFromField(
