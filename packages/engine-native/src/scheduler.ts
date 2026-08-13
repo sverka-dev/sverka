@@ -32,17 +32,39 @@ export function buildStepExecutionGraph(steps: readonly StepDefinition[]): {
   dependents: Map<string, string[]>;
   indegree: Map<string, number>;
 } {
-  const ids = new Set<string>(steps.map((s) => s.id));
+  const { ids, dependents, indegree, stepMap } = initStepMaps(steps);
+  buildDependencyEdges(steps, ids, dependents, indegree);
+  const ready = collectReadySteps(steps, indegree);
+  const { order, remaining } = topoSortOrder(ready, dependents, indegree);
+  assertNoCycle(steps, order, remaining);
+  return { order, stepMap, dependents, indegree };
+}
+
+function initStepMaps(steps: readonly StepDefinition[]): {
+  ids: Set<string>;
+  dependents: Map<string, string[]>;
+  indegree: Map<string, number>;
+  stepMap: Map<string, StepDefinition>;
+} {
+  const ids = new Set<string>();
   const dependents = new Map<string, string[]>();
   const indegree = new Map<string, number>();
   const stepMap = new Map<string, StepDefinition>();
-
   for (const s of steps) {
+    ids.add(s.id);
     dependents.set(s.id, []);
     indegree.set(s.id, 0);
     stepMap.set(s.id, s);
   }
+  return { ids, dependents, indegree, stepMap };
+}
 
+function buildDependencyEdges(
+  steps: readonly StepDefinition[],
+  ids: Set<string>,
+  dependents: Map<string, string[]>,
+  indegree: Map<string, number>,
+): void {
   for (const s of steps) {
     for (const dep of s.dependencies) {
       if (!ids.has(dep.producer)) {
@@ -54,12 +76,24 @@ export function buildStepExecutionGraph(steps: readonly StepDefinition[]): {
       indegree.set(s.id, (indegree.get(s.id) ?? 0) + 1);
     }
   }
+}
 
+function collectReadySteps(
+  steps: readonly StepDefinition[],
+  indegree: Map<string, number>,
+): string[] {
   const ready: string[] = [];
   for (const s of steps) {
     if ((indegree.get(s.id) ?? 0) === 0) ready.push(s.id);
   }
+  return ready;
+}
 
+function topoSortOrder(
+  ready: string[],
+  dependents: Map<string, string[]>,
+  indegree: Map<string, number>,
+): { order: string[]; remaining: Map<string, number> } {
   const order: string[] = [];
   const remaining = new Map<string, number>(indegree);
   let head = 0;
@@ -73,15 +107,20 @@ export function buildStepExecutionGraph(steps: readonly StepDefinition[]): {
       if (next === 0) ready.push(dep);
     }
   }
+  return { order, remaining };
+}
 
+function assertNoCycle(
+  steps: readonly StepDefinition[],
+  order: string[],
+  remaining: Map<string, number>,
+): void {
   if (order.length < steps.length) {
     const bad = steps.filter((s) => (remaining.get(s.id) ?? 0) > 0);
     throw new SchedulerError(
       `dependency cycle detected among: ${bad.map((s) => s.id).join(", ")}`,
     );
   }
-
-  return { order, stepMap, dependents, indegree };
 }
 
 /**
@@ -97,13 +136,21 @@ export function topoSortSteps(steps: readonly StepDefinition[]): readonly string
  * it, directly or transitively). Used for cancellation on failure.
  */
 export function transitiveDependents(steps: readonly StepDefinition[], id: string): Set<string> {
+  const depMap = buildDependentMap(steps);
+  return collectTransitiveDependents(depMap, id);
+}
+
+function buildDependentMap(steps: readonly StepDefinition[]): Map<string, string[]> {
   const depMap = new Map<string, string[]>();
   for (const s of steps) {
     for (const dep of s.dependencies as readonly Dependency[]) {
       depMap.set(dep.producer, [...(depMap.get(dep.producer) ?? []), s.id]);
     }
   }
+  return depMap;
+}
 
+function collectTransitiveDependents(depMap: Map<string, string[]>, id: string): Set<string> {
   const result = new Set<string>();
   const queue: string[] = [...(depMap.get(id) ?? [])];
   while (queue.length > 0) {
