@@ -7,6 +7,7 @@ import {
   type ExecutionResult,
   type WorkflowDefinition,
   type Sverka,
+  type Plan,
 } from "../index.js";
 
 describe("public API — SdkError", () => {
@@ -50,6 +51,7 @@ describe("public API — types (compile-time check)", () => {
       context: {} as never,
       operations: [],
       proposal: null,
+      plan: {} as unknown as Plan,
     };
     const _exec: ExecutionResult = {
       findings: [],
