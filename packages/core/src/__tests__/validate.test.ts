@@ -114,7 +114,7 @@ describe("synthesize — validation: output collision", () => {
         pipelines: [
           {
             id: "ci",
-            inputs: [],
+            inputs: {},
             entries: [],
             outputs: [],
             steps: [

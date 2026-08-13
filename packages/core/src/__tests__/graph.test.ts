@@ -19,7 +19,7 @@ describe("DefinitionGraph structure", () => {
         pipelines: [
           {
             id: "ci",
-            inputs: [],
+            inputs: {},
             entries: [],
             steps: [],
             outputs: [],
@@ -143,12 +143,13 @@ describe("PipelineDefinition", () => {
     const input: PipelineInputDefinition = { name: "environment", type: "string", required: true };
     const pipeline: PipelineDefinition = {
       id: "ci",
-      inputs: [input],
+      inputs: { env: input },
       entries: [],
       steps: [],
       outputs: [{ name: "version", type: "string", stepId: "ci/build" }],
     };
-    expect(pipeline.inputs[0]?.name).toBe("environment");
+    expect(pipeline.inputs.env?.name).toBe("environment");
+    expect(Object.keys(pipeline.inputs).length).toBe(1);
     expect(pipeline.outputs.length).toBe(1);
   });
 });
