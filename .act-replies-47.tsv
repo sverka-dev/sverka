@@ -1,0 +1,15 @@
+PRRT_kwDOTyoI9s6YxzWQ	Changed `PluginRegistry.getCapabilities()` to return `CapabilityManifest[]` (mutable array) in `types.ts` and removed the cast in `factory.ts`.
+PRRT_kwDOTyoI9s6YxzZN	Extended `detectStepCapabilities` to handle `exportOutput`, `exportArtifact`, and `importArtifact` operations and derive scalar/artifact output capabilities.
+PRRT_kwDOTyoI9s6Yxzyn	`defineSverkaPlugin` now accepts an optional `options` argument and passes it to the factory function.
+PRRT_kwDOTyoI9s6Yxzyp	Used null-safe access `step.runtime?.mode ?? "host"` in `detectStepCapabilities`.
+PRRT_kwDOTyoI9s6Yxzyr	Refactored `detectCapabilities` into `detectPipelineCapabilities` and `detectStepCapabilities` to reduce nesting.
+PRRT_kwDOTyoI9s6Yxzyv	Removed the redundant `as CapabilityManifest[]` cast in `getCapabilities` since `filter` + `map` already narrows the type.
+PRRT_kwDOTyoI9s6Yx1ES	Added `packages/plugin/project.json` mirroring `core` so Nx can run plugin targets under `nx run-many`.
+PRRT_kwDOTyoI9s6Yx1EX	Updated the `defineSverkaPlugin` error tests to assert `PluginError` instance and `code`.
+PRRT_kwDOTyoI9s6Yx1EY	Reduced `detectCapabilities` complexity by splitting it into per-pipeline and per-step helpers.
+PRRT_kwDOTyoI9s6Yx1EZ	`analyzeCapabilities` now validates every manifest with `validateCapabilityManifest` before using it.
+PRRT_kwDOTyoI9s6Yx1Eb	`createPluginRegistry` now returns a sliced copy via the `plugins` getter so the backing array is not exposed.
+PRRT_kwDOTyoI9s6Yx1Ee	Updated `specs/07-plugin/spec.md` exports to include `detectCapabilities` and `CompilationResult` and the `options` parameter for `defineSverkaPlugin`.
+PRRT_kwDOTyoI9s6Yx2ld	Specs are organized by numbered directories with an internal `spec.md`; this matches repo convention and keeps the spec linked from the PR.
+PRRT_kwDOTyoI9s6Yx2lh	Plugin registry now validates plugins, rejects duplicate names with `DUPLICATE_PLUGIN`, and exposes plugins via a sliced copy.
+PRRT_kwDOTyoI9s6Yx2lk	Added `packages/plugin/project.json` with `build`, `test`, `lint`, and `typecheck` Nx targets.
