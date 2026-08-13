@@ -211,6 +211,52 @@ describe("synthesize — validation: incompatible reference", () => {
   });
 });
 
+describe("synthesize — validation: condition references", () => {
+  it("detects unknown StepRef condition producer → SynthesisError(UNKNOWN_PRODUCER)", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      condition: {
+        kind: "step",
+        step: "missing",
+        output: "ok",
+        type: "boolean",
+      },
+    });
+    expect(() => synthesize(proj)).toThrow(SynthesisError);
+    try {
+      synthesize(proj);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("UNKNOWN_PRODUCER");
+    }
+  });
+
+  it("detects non-boolean StepRef condition → SynthesisError(INCOMPATIBLE_REFERENCE)", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      outputs: { version: { type: "string" } },
+    });
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      condition: {
+        kind: "step",
+        step: "build",
+        output: "version",
+        type: "boolean",
+      },
+    });
+    expect(() => synthesize(proj)).toThrow(SynthesisError);
+    try {
+      synthesize(proj);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("INCOMPATIBLE_REFERENCE");
+    }
+  });
+});
+
 describe("validateGraph — entry roots", () => {
   it("rejects an entry whose root step does not exist → SynthesisError", () => {
     const graph: DefinitionGraph = {

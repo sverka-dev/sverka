@@ -7,7 +7,8 @@
 ## Package dependency
 
 ```text
-@sverka/sdk  →  @sverka/constructs  (Project, Pipeline, ShellStep, Entry, model types)
+@sverka/sdk → @sverka/constructs
+  (Project, Pipeline, ShellStep, Entry, model types)
 ```
 
 No `@sverka/core` dependency — the SDK builds construct trees, it does not
