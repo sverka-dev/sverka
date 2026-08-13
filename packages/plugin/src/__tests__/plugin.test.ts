@@ -253,6 +253,19 @@ describe("analyzeCapabilities", () => {
     const diags = analyzeCapabilities(graph, manifests);
     expect(diags).toHaveLength(0);
   });
+
+  it("info diagnostic for connector capability", () => {
+    const graph = makeGraph();
+    const manifests: CapabilityManifest[] = [{
+      "trigger.push": "native",
+      "runtime.host": "native",
+      "operation.shell": "connector",
+    }];
+    const diags = analyzeCapabilities(graph, manifests);
+    expect(diags).toHaveLength(1);
+    expect(diags[0]?.support).toBe("connector");
+    expect(diags[0]?.severity).toBe("info");
+  });
 });
 
 describe("createPluginRegistry", () => {
@@ -348,5 +361,37 @@ describe("createPluginRegistry", () => {
     const caps = registry.getCapabilities();
     (caps[0] as Record<string, string>)["trigger.push"] = "unsupported";
     expect(registry.getCapabilities()[0]?.["trigger.push"]).toBe("native");
+  });
+
+  it("getCapabilities returns defensive copies of nested CapabilityDetail objects", () => {
+    const registry = createPluginRegistry();
+    const p1 = defineSverkaPlugin(() => ({
+      name: "a",
+      apiVersion: "v1",
+      capabilities: { "trigger.push": { support: "native", via: "github" } },
+    }));
+    registry.register(p1);
+    const caps = registry.getCapabilities();
+    const detail = caps[0]?.["trigger.push"] as { support: string; via: string };
+    detail.support = "unsupported";
+    detail.via = "gitlab";
+    const stored = registry.getCapabilities()[0]?.["trigger.push"] as { support: string; via: string };
+    expect(stored.support).toBe("native");
+    expect(stored.via).toBe("github");
+  });
+
+  it("defineSverkaPlugin snapshots nested CapabilityDetail objects defensively", () => {
+    const manifest: CapabilityManifest = { "trigger.push": { support: "native", via: "github" } };
+    const plugin = defineSverkaPlugin(() => ({
+      name: "a",
+      apiVersion: "v1",
+      capabilities: manifest,
+    }));
+    const detail = manifest["trigger.push"] as { support: string; via: string };
+    detail.support = "unsupported";
+    detail.via = "gitlab";
+    const stored = plugin.capabilities?.["trigger.push"] as { support: string; via: string };
+    expect(stored.support).toBe("native");
+    expect(stored.via).toBe("github");
   });
 });

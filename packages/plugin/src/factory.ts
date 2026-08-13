@@ -34,7 +34,9 @@ function snapshotPlugin(plugin: SverkaPlugin): SverkaPlugin {
     name: plugin.name,
     apiVersion: plugin.apiVersion,
   };
-  if (plugin.capabilities) copy.capabilities = { ...plugin.capabilities };
+  if (plugin.capabilities) {
+    copy.capabilities = snapshotCapabilityManifest(plugin.capabilities);
+  }
   if (plugin.model) copy.model = [...plugin.model];
   if (plugin.transforms) copy.transforms = [...plugin.transforms];
   if (plugin.validators) copy.validators = [...plugin.validators];
@@ -44,6 +46,14 @@ function snapshotPlugin(plugin: SverkaPlugin): SverkaPlugin {
   if (plugin.connectors) copy.connectors = [...plugin.connectors];
   if (plugin.extensions) copy.extensions = [...plugin.extensions];
   return copy as unknown as SverkaPlugin;
+}
+
+function snapshotCapabilityManifest(manifest: CapabilityManifest): CapabilityManifest {
+  const copy: CapabilityManifest = {};
+  for (const [capability, value] of Object.entries(manifest)) {
+    copy[capability] = typeof value === "string" ? value : { ...value };
+  }
+  return copy;
 }
 
 /**
@@ -89,7 +99,7 @@ export function createPluginRegistry(): PluginRegistry {
     getCapabilities(): CapabilityManifest[] {
       return plugins
         .filter((p) => p.capabilities !== undefined)
-        .map((p) => ({ ...(p.capabilities as CapabilityManifest) }));
+        .map((p) => snapshotCapabilityManifest(p.capabilities as CapabilityManifest));
     },
   };
 }
