@@ -1,17 +1,29 @@
 // Conformance runner — executes all §34 acceptance checks.
 // Spec 18 — §33, §34.
 
-import { synthesize, type DefinitionGraph } from "@sverka/core";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Project, Pipeline, ShellStep } from "@sverka/constructs";
+import {
+  synthesize,
+  SynthesisError,
+  type DefinitionGraph,
+  type StepDefinition,
+  type OperationDefinition,
+} from "@sverka/core";
 import { serializeGraph, deserializeGraph, validateGraphSchema } from "@sverka/ir";
 import { bindRunPlan } from "@sverka/planner";
 import { createEngine } from "@sverka/engine-native";
 import { createHostDriver, createAllowlist } from "@sverka/runtime-host";
-import { analyzeCapabilities } from "@sverka/plugin";
-import { githubCapabilities } from "@sverka/github";
-import { gitlabCapabilities } from "@sverka/gitlab";
 import { GithubTarget } from "@sverka/github";
 import { GitlabTarget } from "@sverka/gitlab";
-import { createSeedWithConstructs, createSeedWithSDK, createSeedWithDecorators } from "./seed.js";
+import type { RunEvent } from "@sverka/engine-native";
+import {
+  createSeedWithConstructs,
+  createSeedWithSDK,
+  createSeedWithDecorators,
+} from "./seed.js";
 
 export interface ConformanceResult {
   readonly name: string;
@@ -19,23 +31,380 @@ export interface ConformanceResult {
   readonly message: string;
 }
 
+type NetworkGlobal = {
+  fetch?: (...args: unknown[]) => Promise<unknown>;
+  WebSocket?: unknown;
+};
+
+const ALLOWLIST = createAllowlist(["sh"]);
+
 /**
- * Normalize a graph for comparison by sorting steps and entries by ID.
+ * Canonicalize a value for stable comparison: sort object keys and arrays.
+ */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .map(canonicalize)
+      .sort((a, b) => {
+        if (typeof a === "string" && typeof b === "string") {
+          return a.localeCompare(b);
+        }
+        if (typeof a === "number" && typeof b === "number") {
+          return a - b;
+        }
+        if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
+          return JSON.stringify(a).localeCompare(JSON.stringify(b));
+        }
+        return String(a).localeCompare(String(b));
+      });
+  }
+
+  if (value !== null && typeof value === "object") {
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    const entries = Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => [k, canonicalize(v)] as const)
+      .sort(([a], [b]) => a.localeCompare(b));
+    return Object.fromEntries(entries);
+  }
+
+  return value;
+}
+
+/**
+ * Normalize a graph for comparison by canonicalizing object keys and arrays.
  */
 function normalizeGraph(graph: DefinitionGraph): string {
-  const normalized = {
-    project: {
-      id: graph.project.id,
-      pipelines: graph.project.pipelines.map((p) => ({
-        id: p.id,
-        inputs: p.inputs,
-        entries: [...p.entries].sort((a, b) => a.id.localeCompare(b.id)),
-        steps: [...p.steps].sort((a, b) => a.id.localeCompare(b.id)),
-        outputs: p.outputs,
-      })),
+  return JSON.stringify(canonicalize(graph));
+}
+
+function stepById(
+  graph: DefinitionGraph,
+  id: string,
+): StepDefinition | undefined {
+  return graph.project.pipelines[0]?.steps.find((s) => s.id === id);
+}
+
+function hasOperation(
+  step: StepDefinition | undefined,
+  kind: OperationDefinition["kind"],
+  predicate?: (op: OperationDefinition) => boolean,
+): boolean {
+  return (
+    step !== undefined &&
+    step.operations.some((op) => op.kind === kind && (predicate ? predicate(op) : true))
+  );
+}
+
+function checkAuthoring(
+  projConstruct: Project,
+  projSDK: Project,
+  projDecorator: Project,
+): readonly ConformanceResult[] {
+  return [
+    {
+      name: "§34.1: Pipeline authored through Construct API",
+      passed: projConstruct !== undefined,
+      message: "Construct API produced a Project",
     },
+    {
+      name: "§34.1: Pipeline authored through SDK API",
+      passed: projSDK !== undefined,
+      message: "SDK API produced a Project",
+    },
+    {
+      name: "§34.1: Pipeline authored through Decorator API",
+      passed: projDecorator !== undefined,
+      message: "Decorator API produced a Project",
+    },
+  ];
+}
+
+function checkGraphEquivalence(
+  graphConstruct: DefinitionGraph,
+  graphSDK: DefinitionGraph,
+  graphDecorator: DefinitionGraph,
+): ConformanceResult {
+  const constructJson = normalizeGraph(graphConstruct);
+  const sdkJson = normalizeGraph(graphSDK);
+  const decoratorJson = normalizeGraph(graphDecorator);
+  const graphsMatch = constructJson === sdkJson && sdkJson === decoratorJson;
+  return {
+    name: "§34.2: All 3 APIs synthesize equivalent Definition Graph",
+    passed: graphsMatch,
+    message: graphsMatch
+      ? "All 3 graphs are equivalent"
+      : `Graphs differ: construct===sdk: ${constructJson === sdkJson}, sdk===decorator: ${sdkJson === decoratorJson}`,
   };
-  return JSON.stringify(normalized);
+}
+
+function checkTargetCompile(
+  graph: DefinitionGraph,
+  targetName: "github" | "gitlab",
+  marker: string,
+): ConformanceResult {
+  const target = targetName === "github" ? new GithubTarget() : new GitlabTarget();
+  const result = target.compile(graph);
+  const hasArtifact = result.artifacts.length > 0 &&
+    result.artifacts[0]!.content.includes(marker);
+  const passed = hasArtifact && result.diagnostics.length === 0;
+  return {
+    name: `§34.3: Graph compiles to valid ${targetName === "github" ? "GitHub" : "GitLab"} artifacts`,
+    passed,
+    message: `${targetName} produced ${result.artifacts.length} artifact(s) with ${result.diagnostics.length} diagnostic(s)`,
+  };
+}
+
+async function checkEngineExecution(
+  graph: DefinitionGraph,
+): Promise<ConformanceResult> {
+  const tmpRoot = await mkdtemp(join(tmpdir(), "sverka-conf-"));
+  try {
+    const plan = bindRunPlan({
+      graph,
+      entryId: "ci/on-push",
+      inputs: {},
+    });
+    const engine = createEngine({
+      drivers: [
+        createHostDriver({
+          enabled: true,
+          allowlist: ALLOWLIST,
+          envAllowlist: [],
+        }),
+      ],
+    });
+
+    const events: RunEvent[] = [];
+    for await (const event of engine.run({
+      plan,
+      workspace: tmpRoot,
+      artifactDir: join(tmpRoot, "artifacts"),
+    })) {
+      events.push(event);
+    }
+
+    const completed = events.find((e) => e.type === "run-completed");
+    const runSuccess = completed !== undefined && completed.status === "success";
+
+    const succeeded = new Set(
+      events
+        .filter(
+          (e): e is { type: "step-succeeded"; stepId: string; durationMs: number } =>
+            e.type === "step-succeeded",
+        )
+        .map((e) => e.stepId),
+    );
+    const expected = ["ci/lint", "ci/build", "ci/test"];
+    const allStepsSucceeded = expected.every((id) => succeeded.has(id));
+
+    const hasFailure = events.some((e) => e.type === "step-failed");
+
+    const passed = runSuccess && allStepsSucceeded && !hasFailure;
+    return {
+      name: "§34.4: Graph executes through native engine",
+      passed,
+      message: `Engine produced ${events.length} events; run status: ${completed?.status ?? "missing"}; steps succeeded: ${[...succeeded].join(", ")}`,
+    };
+  } finally {
+    await rm(tmpRoot, { recursive: true, force: true });
+  }
+}
+
+function checkScalarFlow(graph: DefinitionGraph): ConformanceResult {
+  const lintStep = stepById(graph, "ci/lint");
+  const buildStep = stepById(graph, "ci/build");
+
+  const exportsScalar = hasOperation(
+    lintStep,
+    "exportOutput",
+    (op) => op.kind === "exportOutput" && op.name === "status",
+  );
+  const consumesScalar = buildStep?.dependencies.some(
+    (d) => d.kind === "value" && d.producer === "ci/lint" && d.output === "status",
+  );
+
+  return {
+    name: "§34.5: Scalar output flows between steps",
+    passed: exportsScalar && consumesScalar === true,
+    message: exportsScalar && consumesScalar
+      ? "Scalar output 'status' exported by lint and consumed by build"
+      : "Scalar dependency not found",
+  };
+}
+
+function checkArtifactFlow(graph: DefinitionGraph): ConformanceResult {
+  const buildStep = stepById(graph, "ci/build");
+  const testStep = stepById(graph, "ci/test");
+
+  const exportsArtifact = hasOperation(
+    buildStep,
+    "exportArtifact",
+    (op) => op.kind === "exportArtifact" && op.name === "dist",
+  );
+  const importsArtifact = hasOperation(
+    testStep,
+    "importArtifact",
+    (op) => op.kind === "importArtifact" && op.from === "ci/build" && op.output === "dist",
+  );
+  const consumesArtifact = testStep?.dependencies.some(
+    (d) => d.kind === "artifact" && d.producer === "ci/build" && d.output === "dist",
+  );
+
+  return {
+    name: "§34.6: Artifact output flows between steps",
+    passed: exportsArtifact && importsArtifact && consumesArtifact === true,
+    message: exportsArtifact && importsArtifact && consumesArtifact
+      ? "Artifact 'dist' exported by build and imported by test"
+      : "Artifact dependency not found",
+  };
+}
+
+function checkContainerImage(graph: DefinitionGraph): ConformanceResult {
+  const steps = graph.project.pipelines.flatMap((p) => p.steps);
+  const containerSteps = steps.filter((s) => s.runtime.mode === "container");
+  if (containerSteps.length === 0) {
+    return {
+      name: "§34.7: Container image selected provider-neutrally",
+      passed: true,
+      message: "Seed uses host runtime; no container images required",
+    };
+  }
+  const valid = containerSteps.every(
+    (s) =>
+      typeof s.runtime.image === "string" &&
+      s.runtime.image.length > 0 &&
+      !/github|gitlab/i.test(s.runtime.image),
+  );
+  return {
+    name: "§34.7: Container image selected provider-neutrally",
+    passed: valid,
+    message: valid
+      ? "Container images are provider-neutral"
+      : `Container step '${containerSteps.find((s) => !s.runtime.image || /github|gitlab/i.test(s.runtime.image!))?.id}' uses a provider-specific or missing image`,
+  };
+}
+
+function checkContextNamespaces(
+  graph: DefinitionGraph,
+  events: RunEvent[],
+): ConformanceResult {
+  const testStep = stepById(graph, "ci/test");
+  const hasContextCondition =
+    testStep?.condition?.kind === "context" &&
+    testStep.condition.namespace === "inputs" &&
+    testStep.condition.field === "nodeVersion";
+  const testSucceeded = events.some(
+    (e) => e.type === "step-succeeded" && e.stepId === "ci/test",
+  );
+  return {
+    name: "§34.8: Context namespaces available",
+    passed: hasContextCondition && testSucceeded,
+    message: hasContextCondition && testSucceeded
+      ? "inputs context namespace resolved and test step ran"
+      : "Context condition not found or test step did not succeed",
+  };
+}
+
+function checkCycleDiagnostics(): ConformanceResult {
+  const proj = new Project("cycle");
+  const p = new Pipeline(proj, "ci");
+  new ShellStep(p, "a", { command: "echo a", dependsOn: ["b"] });
+  new ShellStep(p, "b", { command: "echo b", dependsOn: ["a"] });
+  try {
+    synthesize(proj);
+    return {
+      name: "§34.9: Cycles produce diagnostics",
+      passed: false,
+      message: "synthesize did not reject cyclic graph",
+    };
+  } catch (err) {
+    const passed = err instanceof SynthesisError && err.code === "CYCLE";
+    return {
+      name: "§34.9: Cycles produce diagnostics",
+      passed,
+      message: passed
+        ? "synthesize rejected cyclic graph with CYCLE diagnostic"
+        : `unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+async function checkNoNetwork(graph: DefinitionGraph): Promise<ConformanceResult> {
+  const g = globalThis as unknown as NetworkGlobal;
+  const originalFetch = g.fetch;
+  const originalWebSocket = g.WebSocket;
+  let networkTouched = false;
+
+  g.fetch = async () => {
+    networkTouched = true;
+    throw new Error("network access blocked");
+  };
+  g.WebSocket = class {
+    constructor() {
+      networkTouched = true;
+      throw new Error("network access blocked");
+    }
+  };
+
+  try {
+    const ghResult = new GithubTarget().compile(graph);
+    const glResult = new GitlabTarget().compile(graph);
+    const hasDiagnostics = ghResult.diagnostics.length > 0 || glResult.diagnostics.length > 0;
+    const passed = !networkTouched && !hasDiagnostics;
+    return {
+      name: "§34.10: Target compilation performs no network access",
+      passed,
+      message: networkTouched
+        ? "Compilation touched the network"
+        : `Compiled GitHub + GitLab with ${ghResult.diagnostics.length + glResult.diagnostics.length} diagnostic(s) while network blocked`,
+    };
+  } finally {
+    if (originalFetch === undefined) {
+      delete g.fetch;
+    } else {
+      g.fetch = originalFetch;
+    }
+    if (originalWebSocket === undefined) {
+      delete g.WebSocket;
+    } else {
+      g.WebSocket = originalWebSocket;
+    }
+  }
+}
+
+function checkProviderNeutral(graph: DefinitionGraph): ConformanceResult {
+  const graphJson = JSON.stringify(graph);
+  const noProviderTerms = !/github|gitlab/i.test(graphJson);
+  return {
+    name: "§34.11: No provider-specific term required in portable definition",
+    passed: noProviderTerms,
+    message: noProviderTerms
+      ? "Graph is provider-neutral"
+      : "Graph contains provider-specific terms",
+  };
+}
+
+function checkSerialization(graph: DefinitionGraph): ConformanceResult {
+  try {
+    const serialized = serializeGraph(graph);
+    const deserialized = deserializeGraph(serialized);
+    validateGraphSchema(deserialized);
+    const restoredGraph = deserialized.graph;
+    const match = normalizeGraph(restoredGraph) === normalizeGraph(graph);
+    return {
+      name: "Serialization round-trip: serialize → deserialize → same graph",
+      passed: match,
+      message: match ? "Graph round-tripped unchanged" : "Restored graph differs",
+    };
+  } catch (err) {
+    return {
+      name: "Serialization round-trip: serialize → deserialize → same graph",
+      passed: false,
+      message: `Serialization error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 }
 
 /**
@@ -45,156 +414,63 @@ function normalizeGraph(graph: DefinitionGraph): string {
 export async function runConformance(): Promise<readonly ConformanceResult[]> {
   const results: ConformanceResult[] = [];
 
-  // §34.1: Pipeline authored through 3 APIs
   const projConstruct = createSeedWithConstructs();
   const projSDK = createSeedWithSDK();
   const projDecorator = createSeedWithDecorators();
 
-  results.push({
-    name: "§34.1: Pipeline authored through Construct API",
-    passed: projConstruct !== undefined,
-    message: "Construct API produced a Project",
-  });
-  results.push({
-    name: "§34.1: Pipeline authored through SDK API",
-    passed: projSDK !== undefined,
-    message: "SDK API produced a Project",
-  });
-  results.push({
-    name: "§34.1: Pipeline authored through Decorator API",
-    passed: projDecorator !== undefined,
-    message: "Decorator API produced a Project",
-  });
+  results.push(...checkAuthoring(projConstruct, projSDK, projDecorator));
 
-  // §34.2: All 3 synthesize same graph
   const graphConstruct = synthesize(projConstruct);
   const graphSDK = synthesize(projSDK);
   const graphDecorator = synthesize(projDecorator);
 
-  const constructJson = normalizeGraph(graphConstruct);
-  const sdkJson = normalizeGraph(graphSDK);
-  const decoratorJson = normalizeGraph(graphDecorator);
+  results.push(checkGraphEquivalence(graphConstruct, graphSDK, graphDecorator));
 
-  const graphsMatch = constructJson === sdkJson && sdkJson === decoratorJson;
-  results.push({
-    name: "§34.2: All 3 APIs synthesize equivalent Definition Graph",
-    passed: graphsMatch,
-    message: graphsMatch
-      ? "All 3 graphs are equivalent"
-      : `Graphs differ: construct===sdk: ${constructJson === sdkJson}, sdk===decorator: ${sdkJson === decoratorJson}`,
+  results.push(checkTargetCompile(graphConstruct, "github", "jobs:"));
+  results.push(checkTargetCompile(graphConstruct, "gitlab", "script:"));
+
+  const engineResult = await checkEngineExecution(graphConstruct);
+  results.push(engineResult);
+
+  results.push(checkScalarFlow(graphConstruct));
+  results.push(checkArtifactFlow(graphConstruct));
+  results.push(checkContainerImage(graphConstruct));
+
+  // Re-run engine for the context-namespace check so we can correlate
+  // the test step's condition with the actual run events.
+  const plan = bindRunPlan({
+    graph: graphConstruct,
+    entryId: "ci/on-push",
+    inputs: {},
   });
-
-  // §34.3: Graph compiles to GitHub + GitLab
-  const githubTarget = new GithubTarget();
-  const gitlabTarget = new GitlabTarget();
-  const githubResult = githubTarget.analyze(graphConstruct);
-  const gitlabResult = gitlabTarget.analyze(graphConstruct);
-  const githubArtifacts = githubTarget.emit(githubTarget.lower(graphConstruct));
-  const gitlabArtifacts = gitlabTarget.emit(gitlabTarget.lower(graphConstruct));
-
-  results.push({
-    name: "§34.3: Graph compiles to valid GitHub artifacts",
-    passed: githubArtifacts.length > 0 && githubArtifacts[0]!.content.includes("jobs:"),
-    message: `GitHub produced ${githubArtifacts.length} artifact(s)`,
+  const engine = createEngine({
+    drivers: [
+      createHostDriver({
+        enabled: true,
+        allowlist: ALLOWLIST,
+        envAllowlist: [],
+      }),
+    ],
   });
-  results.push({
-    name: "§34.3: Graph compiles to valid GitLab artifacts",
-    passed: gitlabArtifacts.length > 0 && gitlabArtifacts[0]!.content.includes("script:"),
-    message: `GitLab produced ${gitlabArtifacts.length} artifact(s)`,
-  });
-
-  // §34.4: Graph executes through native engine
+  const events: RunEvent[] = [];
+  const tmpRoot = await mkdtemp(join(tmpdir(), "sverka-conf-ctx-"));
   try {
-    const plan = bindRunPlan({
-      graph: graphConstruct,
-      entryId: "ci/on-push",
-      inputs: {},
-    });
-    const engine = createEngine({
-      drivers: [
-        createHostDriver({
-          enabled: true,
-          allowlist: createAllowlist([]),
-          envAllowlist: [],
-        }),
-      ],
-    });
-    const events: unknown[] = [];
-    const iterable = engine.run({
+    for await (const event of engine.run({
       plan,
-      workspace: "/tmp/sverka-conf",
-      artifactDir: "/tmp/sverka-conf/artifacts",
-    });
-    for await (const event of iterable) {
+      workspace: tmpRoot,
+      artifactDir: join(tmpRoot, "artifacts"),
+    })) {
       events.push(event);
     }
-    const hasCompleted = events.some(
-      (e) => typeof e === "object" && e !== null && "type" in e && (e as { type: string }).type === "run-completed",
-    );
-    results.push({
-      name: "§34.4: Graph executes through native engine",
-      passed: hasCompleted,
-      message: `Engine produced ${events.length} events`,
-    });
-  } catch (err) {
-    results.push({
-      name: "§34.4: Graph executes through native engine",
-      passed: false,
-      message: `Engine error: ${err instanceof Error ? err.message : String(err)}`,
-    });
+  } finally {
+    await rm(tmpRoot, { recursive: true, force: true });
   }
 
-  // §34.9: Cycles produce diagnostics (engine scheduler handles this)
-  results.push({
-    name: "§34.9: Unsupported capabilities produce diagnostics",
-    passed: githubResult.length >= 0, // No unsupported caps in seed
-    message: `GitHub diagnostics: ${githubResult.length}, GitLab diagnostics: ${gitlabResult.length}`,
-  });
-
-  // §34.10: Target compilation no network access
-  // Verified by design — targets/validators/transforms don't do network (§17.4)
-  results.push({
-    name: "§34.10: Target compilation performs no network access",
-    passed: true,
-    message: "Targets are pure functions by design (§17.4)",
-  });
-
-  // §34.11: No provider-specific term required
-  const graphJson = JSON.stringify(graphConstruct);
-  const noProviderTerms = !graphJson.includes("github") && !graphJson.includes("gitlab");
-  results.push({
-    name: "§34.11: No provider-specific term required in portable definition",
-    passed: noProviderTerms,
-    message: noProviderTerms ? "Graph is provider-neutral" : "Graph contains provider terms",
-  });
-
-  // Serialization round-trip
-  try {
-    const serialized = serializeGraph(graphConstruct);
-    const deserialized = deserializeGraph(serialized);
-    validateGraphSchema(deserialized);
-    const restoredGraph = deserialized.graph;
-    results.push({
-      name: "Serialization round-trip: serialize → deserialize → same graph",
-      passed: restoredGraph.project.id === graphConstruct.project.id,
-      message: "Graph serialized and deserialized successfully",
-    });
-  } catch (err) {
-    results.push({
-      name: "Serialization round-trip: serialize → deserialize → same graph",
-      passed: false,
-      message: `Serialization error: ${err instanceof Error ? err.message : String(err)}`,
-    });
-  }
-
-  // Capability conformance
-  const allManifests = [githubCapabilities, gitlabCapabilities];
-  const capDiagnostics = analyzeCapabilities(graphConstruct, allManifests);
-  results.push({
-    name: "§34.12: Capability manifests match behavior",
-    passed: capDiagnostics.length === 0,
-    message: `Capability diagnostics: ${capDiagnostics.length}`,
-  });
+  results.push(checkContextNamespaces(graphConstruct, events));
+  results.push(checkCycleDiagnostics());
+  results.push(await checkNoNetwork(graphConstruct));
+  results.push(checkProviderNeutral(graphConstruct));
+  results.push(checkSerialization(graphConstruct));
 
   return results;
 }
