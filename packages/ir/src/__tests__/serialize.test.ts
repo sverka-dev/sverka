@@ -1,151 +1,177 @@
 import { describe, it, expect } from "vitest";
-import { serializePlan, deserializePlan } from "../serialize.js";
-import { SerializationError, ValidationError } from "../errors.js";
-import { validPlan, validOperation, twoOpPlan, dockerOperation } from "./helpers/fixtures.js";
+import {
+  serializeGraph,
+  deserializeGraph,
+  serializeRunPlan,
+  deserializeRunPlan,
+  computeGraphId,
+  computeRunPlanId,
+  ValidationError,
+  SerializationError,
+} from "../index.js";
+import { makeSampleGraph, makeSampleRunPlan } from "./helpers/fixtures.js";
 
-/** Returns true when s contains whitespace outside of JSON string literals. */
-function hasStructuralWhitespace(s: string): boolean {
-  let inString = false;
-  let escaped = false;
-  for (const ch of s) {
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (ch === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (ch === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (!inString && /\s/.test(ch)) return true;
-  }
-  return false;
-}
-
-describe("serializePlan", () => {
-  it("produces a canonical JSON string", () => {
-    const out = serializePlan(validPlan());
-    expect(typeof out).toBe("string");
-    expect(out.startsWith("{")).toBe(true);
-    // compact: no whitespace outside JSON string literals
-    expect(hasStructuralWhitespace(out)).toBe(false);
+describe("serializeGraph → deserializeGraph round-trip", () => {
+  it("round-trips a Definition Graph", () => {
+    const graph = makeSampleGraph();
+    const json = serializeGraph(graph);
+    const parsed = deserializeGraph(json);
+    expect(parsed.apiVersion).toBe("sverka.dev/v1graph");
+    expect(parsed.graph.project.id).toBe(graph.project.id);
+    expect(parsed.graph.project.pipelines.length).toBe(graph.project.pipelines.length);
   });
 
-  it("two identical plans produce byte-identical output", () => {
-    const a = validPlan();
-    const b = validPlan();
-    expect(serializePlan(a)).toBe(serializePlan(b));
+  it("produces an id matching computeGraphId", () => {
+    const graph = makeSampleGraph();
+    const json = serializeGraph(graph);
+    const parsed = deserializeGraph(json);
+    expect(parsed.id).toBe(computeGraphId(graph));
   });
 
-  it("is key-order independent", () => {
-    // Rebuild a plan with metadata/operations swapped in key order.
-    const plan = validPlan();
-    const reordered = {
-      metadata: plan.metadata,
-      operations: plan.operations,
-      sourceContextHash: plan.sourceContextHash,
-      name: plan.name,
-      createdAt: plan.createdAt,
-      id: plan.id,
-      apiVersion: plan.apiVersion,
-    };
-    expect(serializePlan(reordered)).toBe(serializePlan(plan));
-  });
-
-  it("sorts keys lexicographically at every level", () => {
-    const out = serializePlan(validPlan());
-    // "apiVersion" < "createdAt" < "id" < "metadata" < "name" < "operations"
-    const apiIdx = out.indexOf('"apiVersion"');
-    const createdIdx = out.indexOf('"createdAt"');
-    const idIdx = out.indexOf('"id"');
-    const metaIdx = out.indexOf('"metadata"');
-    const nameIdx = out.indexOf('"name"');
-    const opsIdx = out.indexOf('"operations"');
-    expect(apiIdx).toBeLessThan(createdIdx);
-    expect(createdIdx).toBeLessThan(idIdx);
-    expect(idIdx).toBeLessThan(metaIdx);
-    expect(metaIdx).toBeLessThan(nameIdx);
-    expect(nameIdx).toBeLessThan(opsIdx);
-  });
-
-  it("preserves operation array order", () => {
-    const plan = twoOpPlan();
-    const out = serializePlan(plan);
-    expect(out.indexOf('"op-a"')).toBeLessThan(out.indexOf('"op-b"'));
-  });
-
-  it("omits undefined optional fields", () => {
-    const plan = validPlan({ operations: [dockerOperation()] });
-    const out = serializePlan(plan);
-    // dockerOperation has no `condition` or `cache` or `compiler` → those
-    // keys must not appear.
-    expect(out).not.toContain('"condition"');
-    expect(out).not.toContain('"cache"');
-    expect(out).not.toContain('"compiler"');
-  });
-
-  it("throws SerializationError for non-JSON values", () => {
-    const bad = {
-      ...validPlan(),
-      operations: [validOperation({ timeoutSeconds: Number.NaN })],
-    } as ReturnType<typeof validPlan>;
-    expect(() => serializePlan(bad)).toThrow(SerializationError);
+  it("produces canonical JSON (sorted keys, compact)", () => {
+    const graph = makeSampleGraph();
+    const json = serializeGraph(graph);
+    // No whitespace between key and value.
+    expect(json).not.toMatch(/:\s/);
+    // Keys are sorted at the top level.
+    const firstBrace = json.indexOf("{");
+    const apiVersionPos = json.indexOf('"apiVersion"');
+    const createdAtPos = json.indexOf('"createdAt"');
+    const graphPos = json.indexOf('"graph"');
+    const idPos = json.indexOf('"id"');
+    expect(apiVersionPos).toBeGreaterThan(firstBrace);
+    expect(createdAtPos).toBeGreaterThan(apiVersionPos);
+    expect(graphPos).toBeGreaterThan(createdAtPos);
+    expect(idPos).toBeGreaterThan(graphPos);
   });
 });
 
-describe("deserializePlan", () => {
-  it("round-trips a plan losslessly", () => {
-    const original = validPlan();
-    const json = serializePlan(original);
-    const restored = deserializePlan(json);
-    expect(restored).toEqual(original);
+describe("deserializeGraph error handling", () => {
+  it("rejects malformed JSON → SerializationError", () => {
+    expect(() => deserializeGraph("{ not json")).toThrow(SerializationError);
   });
 
-  it("round-trips a two-operation plan", () => {
-    const original = twoOpPlan();
-    const restored = deserializePlan(serializePlan(original));
-    expect(restored).toEqual(original);
+  it("rejects wrong apiVersion → ValidationError", () => {
+    const graph = makeSampleGraph();
+    const json = serializeGraph(graph).replace("sverka.dev/v1graph", "sverka.dev/v0");
+    expect(() => deserializeGraph(json)).toThrow(ValidationError);
   });
 
-  it("returns a deep-frozen object (readonly enforced at runtime)", () => {
-    const restored = deserializePlan(serializePlan(validPlan()));
-    expect(Object.isFrozen(restored)).toBe(true);
-    expect(Object.isFrozen(restored.operations)).toBe(true);
-    expect(Object.isFrozen(restored.operations[0])).toBe(true);
-    expect(Object.isFrozen(restored.metadata)).toBe(true);
-    expect(() => {
-      (restored as { name: string }).name = "mutated";
-    }).toThrow(TypeError);
+  it("rejects missing id → ValidationError", () => {
+    const graph = makeSampleGraph();
+    const obj = JSON.parse(serializeGraph(graph));
+    delete obj.id;
+    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(ValidationError);
   });
 
-  it("throws SerializationError on malformed JSON", () => {
-    expect(() => deserializePlan("{not json")).toThrow(SerializationError);
-    expect(() => deserializePlan("")).toThrow(SerializationError);
-    expect(() => deserializePlan("{")).toThrow(SerializationError);
+  it("rejects missing graph → ValidationError", () => {
+    const graph = makeSampleGraph();
+    const obj = JSON.parse(serializeGraph(graph));
+    delete obj.graph;
+    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(ValidationError);
   });
 
-  it("throws ValidationError on valid JSON that is not a plan object", () => {
-    // null and primitives are valid JSON but fail schema validation.
-    expect(() => deserializePlan("null")).toThrow(ValidationError);
-    expect(() => deserializePlan("42")).toThrow(ValidationError);
-    expect(() => deserializePlan('"string"')).toThrow(ValidationError);
-    expect(() => deserializePlan("[]")).toThrow(ValidationError);
+  it("rejects invalid graph structure → ValidationError", () => {
+    const json = JSON.stringify({
+      apiVersion: "sverka.dev/v1graph",
+      id: "graph-test",
+      createdAt: "2026-08-13T00:00:00.000Z",
+      graph: { project: { id: 123 } },
+    });
+    expect(() => deserializeGraph(json)).toThrow(ValidationError);
   });
 
-  it("throws ValidationError on a structurally valid but schema-invalid object", () => {
-    const plan = serializePlan(validPlan());
-    const bad = JSON.parse(plan) as Record<string, unknown>;
-    bad.apiVersion = "sverka.dev/v2";
-    expect(() => deserializePlan(JSON.stringify(bad))).toThrow(ValidationError);
+  it("rejects graph with cycles → ValidationError (semantic)", () => {
+    const json = JSON.stringify({
+      apiVersion: "sverka.dev/v1graph",
+      id: "graph-test",
+      createdAt: "2026-08-13T00:00:00.000Z",
+      graph: {
+        project: {
+          id: "myproj",
+          pipelines: [
+            {
+              id: "ci",
+              inputs: [],
+              entries: [],
+              outputs: [],
+              steps: [
+                {
+                  id: "ci/a",
+                  runtime: {},
+                  operations: [{ kind: "shell", command: "echo a" }],
+                  inputs: [],
+                  outputs: [],
+                  dependencies: [{ kind: "control", producer: "ci/b" }],
+                },
+                {
+                  id: "ci/b",
+                  runtime: {},
+                  operations: [{ kind: "shell", command: "echo b" }],
+                  inputs: [],
+                  outputs: [],
+                  dependencies: [{ kind: "control", producer: "ci/a" }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(() => deserializeGraph(json)).toThrow(ValidationError);
+  });
+});
+
+describe("serializeRunPlan → deserializeRunPlan round-trip", () => {
+  it("round-trips a Run Plan", () => {
+    const plan = makeSampleRunPlan(makeSampleGraph());
+    const json = serializeRunPlan(plan);
+    const parsed = deserializeRunPlan(json);
+    expect(parsed.apiVersion).toBe("sverka.dev/v1run");
+    expect(parsed.graphId).toBe(plan.graphId);
+    expect(parsed.entry.id).toBe(plan.entry.id);
+    expect(parsed.inputs.env).toBe("production");
+    expect(parsed.steps.length).toBe(plan.steps.length);
   });
 
-  it("throws ValidationError when the id does not match", () => {
-    const plan = serializePlan(validPlan());
-    const bad = JSON.parse(plan) as Record<string, unknown>;
-    bad.id = "plan-wrong";
-    expect(() => deserializePlan(JSON.stringify(bad))).toThrow(ValidationError);
+  it("produces an id matching computeRunPlanId", () => {
+    const plan = makeSampleRunPlan(makeSampleGraph());
+    const { id: _id, createdAt: _c, ...body } = plan;
+    const json = serializeRunPlan(plan);
+    const parsed = deserializeRunPlan(json);
+    expect(parsed.id).toBe(computeRunPlanId(body));
+  });
+});
+
+describe("deserializeRunPlan error handling", () => {
+  it("rejects malformed JSON → SerializationError", () => {
+    expect(() => deserializeRunPlan("{ not json")).toThrow(SerializationError);
+  });
+
+  it("rejects wrong apiVersion → ValidationError", () => {
+    const plan = makeSampleRunPlan(makeSampleGraph());
+    const json = serializeRunPlan(plan).replace("sverka.dev/v1run", "sverka.dev/v0");
+    expect(() => deserializeRunPlan(json)).toThrow(ValidationError);
+  });
+
+  it("rejects missing entry → ValidationError", () => {
+    const plan = makeSampleRunPlan(makeSampleGraph());
+    const obj = JSON.parse(serializeRunPlan(plan));
+    delete obj.entry;
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+  });
+
+  it("rejects missing steps → ValidationError", () => {
+    const plan = makeSampleRunPlan(makeSampleGraph());
+    const obj = JSON.parse(serializeRunPlan(plan));
+    delete obj.steps;
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+  });
+
+  it("rejects invalid trigger kind → ValidationError", () => {
+    const plan = makeSampleRunPlan(makeSampleGraph());
+    const obj = JSON.parse(serializeRunPlan(plan));
+    obj.entry.trigger.kind = "unknown";
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
   });
 });

@@ -1,7 +1,7 @@
 // Validation functions for the Definition Graph.
 // Spec 05 — §11.4.
 
-import type { StepDefinition } from "./graph.js";
+import type { StepDefinition, DefinitionGraph } from "./graph.js";
 import { SynthesisError } from "./errors.js";
 import type { StepRef, OutputType } from "@sverka/constructs";
 
@@ -195,4 +195,19 @@ export function resolveStepId(pipelineId: string, stepName: string): string {
     return stepName;
   }
   return `${pipelineId}/${stepName}`;
+}
+
+/**
+ * Validate a complete Definition Graph — runs all 4 validators per pipeline.
+ * Throws SynthesisError on first failure. Used by IR deserialization to
+ * ensure semantic validity after schema validation passes.
+ */
+export function validateGraph(graph: DefinitionGraph): void {
+  for (const pipeline of graph.project.pipelines) {
+    const steps = pipeline.steps;
+    validateOutputCollisions(steps);
+    validateReferences(steps, pipeline.id);
+    validateReferenceTypes(steps, pipeline.id);
+    detectCycles(steps);
+  }
 }

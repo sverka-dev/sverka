@@ -14,6 +14,7 @@ export type {
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";
+export { validateGraph } from "./validate.js";
 export { SynthesisError, type SynthesisErrorCode } from "./errors.js";
 
 // ── Compat: old core API (used by sdk, ir, checks until rebuilt) ───

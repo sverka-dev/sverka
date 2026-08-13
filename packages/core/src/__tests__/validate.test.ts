@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, ShellStep } from "@sverka/constructs";
-import { synthesize, SynthesisError } from "../index.js";
+import { synthesize, validateGraph, SynthesisError } from "../index.js";
 import { validateOutputCollisions } from "../validate.js";
-import type { StepDefinition } from "../index.js";
+import type { StepDefinition, DefinitionGraph } from "../graph.js";
 
 describe("synthesize — validation: cycles", () => {
   it("detects cycle → SynthesisError(CYCLE)", () => {
@@ -106,6 +106,69 @@ describe("synthesize — validation: output collision", () => {
       expect((err as SynthesisError).code).toBe("OUTPUT_COLLISION");
     }
   });
+
+  it("detects output collision via validateGraph → SynthesisError(OUTPUT_COLLISION)", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "myproj",
+        pipelines: [
+          {
+            id: "ci",
+            inputs: [],
+            entries: [],
+            outputs: [],
+            steps: [
+              {
+                id: "ci/build",
+                runtime: {},
+                operations: [
+                  { kind: "shell", command: "npm run build" },
+                  { kind: "exportOutput", name: "version", type: "string" },
+                  { kind: "exportOutput", name: "version", type: "string" },
+                ],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(() => validateGraph(graph)).toThrow(SynthesisError);
+    try {
+      validateGraph(graph);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("OUTPUT_COLLISION");
+    }
+  });
+
+  it("passes when no duplicate export names exist", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      outputs: { dist: { type: "artifact", path: "./dist" } },
+    });
+    expect(() => synthesize(proj)).not.toThrow();
+  });
+});
+
+describe("validateGraph", () => {
+  it("validates a well-formed graph without throwing", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      outputs: { dist: { type: "artifact", path: "./dist" } },
+    });
+    new ShellStep(pipeline, "test", {
+      command: "npm test",
+      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+    });
+    const graph = synthesize(proj);
+    expect(() => validateGraph(graph)).not.toThrow();
+  });
 });
 
 describe("synthesize — validation: incompatible reference", () => {
@@ -116,7 +179,6 @@ describe("synthesize — validation: incompatible reference", () => {
       command: "npm run build",
       outputs: { version: { type: "string" } },
     });
-    // Reference version as artifact when it's declared as string.
     new ShellStep(pipeline, "deploy", {
       command: "deploy",
       inputs: [{ kind: "step", step: "build", output: "version", type: "artifact" }],
@@ -136,7 +198,6 @@ describe("synthesize — validation: incompatible reference", () => {
       command: "npm run build",
       outputs: { dist: { type: "artifact", path: "./dist" } },
     });
-    // Reference an output that doesn't exist on the producer.
     new ShellStep(pipeline, "test", {
       command: "npm test",
       inputs: [{ kind: "step", step: "build", output: "nonexistent", type: "string" }],

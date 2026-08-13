@@ -120,6 +120,7 @@
       "name": "@sverka/ir",
       "version": "0.0.0",
       "dependencies": {
+        "@sverka/constructs": "workspace:*",
         "@sverka/core": "workspace:*",
       },
       "devDependencies": {
