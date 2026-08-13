@@ -1,78 +1,55 @@
-import type { Plan, PlanOperation } from "../../plan.js";
-import { computePlanId } from "../../ids.js";
+// Shared test fixtures for @sverka/ir tests.
+import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/constructs";
+import { synthesize, type DefinitionGraph } from "@sverka/core";
+import { computeGraphId, computeRunPlanId } from "../../ids.js";
+import type { RunPlan, BoundEntry, InputValue } from "../../run-plan.js";
 
-/**
- * A single valid operation. All fields satisfy the 13 validation rules.
- * `id` is set to the deterministic id computed from kind/name/context so the
- * enclosing plan's rule-2 check passes.
- */
-export function validOperation(
-  overrides: Partial<PlanOperation> = {},
-): PlanOperation {
-  const base: PlanOperation = {
-    id: "op-a",
-    kind: "run",
-    name: "build",
-    dependsOn: [],
-    executor: { type: "host" },
-    resources: { cpu: "1", memory: "512Mi" },
-    network: "deny",
-    credentials: [],
-    artifacts: [],
-    retry: { maxAttempts: 1, backoffSeconds: 0, retryOn: ["failure"] },
-    timeoutSeconds: 60,
-    continueOnError: false,
-  };
-  return { ...base, ...overrides };
-}
-
-/** A docker executor operation with a valid sha256 image digest. */
-export function dockerOperation(
-  overrides: Partial<PlanOperation> = {},
-): PlanOperation {
-  return validOperation({
-    id: "op-docker",
-    name: "container-build",
-    executor: {
-      type: "docker",
-      image: "sverka/builder:1.0",
-      imageDigest: "sha256:" + "a".repeat(64),
+/** Build a simple build→test→deploy graph with artifact + scalar transfer. */
+export function makeSampleGraph(): DefinitionGraph {
+  const proj = new Project("myproj");
+  const pipeline = new Pipeline(proj, "ci");
+  new ShellStep(pipeline, "build", {
+    command: "npm run build",
+    outputs: {
+      dist: { type: "artifact", path: "./dist" },
+      version: { type: "string" },
     },
-    ...overrides,
   });
+  new ShellStep(pipeline, "test", {
+    command: "npm test",
+    inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+  });
+  new ShellStep(pipeline, "deploy", {
+    command: "deploy",
+    inputs: [{ kind: "step", step: "build", output: "version", type: "string" }],
+    dependsOn: ["test"],
+  });
+  new Entry(pipeline, "on-push", {
+    trigger: push({ branches: ["main"] }),
+    roots: ["deploy"],
+  });
+  return synthesize(proj);
 }
 
-/**
- * A valid plan body (no id/createdAt). Use `validPlan` to get a complete Plan
- * with the deterministic id attached.
- */
-export function validPlanBody(
-  overrides: Partial<Omit<Plan, "id" | "createdAt">> = {},
-): Omit<Plan, "id" | "createdAt"> {
+/** Build a sample RunPlan with real IDs, bound to the first entry. */
+export function makeSampleRunPlan(graph: DefinitionGraph): RunPlan {
+  const pipeline = graph.project.pipelines[0]!;
+  const entry = pipeline.entries[0]!;
+  const boundEntry: BoundEntry = { id: entry.id, trigger: entry.trigger };
+  const inputs: Record<string, InputValue> = { env: "production" };
+  const graphId = computeGraphId(graph);
+  const body = {
+    apiVersion: "sverka.dev/v1run" as const,
+    graphId,
+    entry: boundEntry,
+    inputs,
+    steps: pipeline.steps,
+  };
+  const id = computeRunPlanId(body);
   return {
-    apiVersion: "sverka.dev/v1",
-    name: "ci",
-    sourceContextHash: "abc123",
-    operations: [validOperation()],
-    metadata: { sverkaVersion: "0.0.0", generatedBy: "planner" },
-    ...overrides,
+    ...body,
+    id,
+    createdAt: "2026-08-13T00:00:00.000Z",
   };
 }
 
-/** A complete, valid Plan with the deterministic id and a fixed createdAt. */
-export function validPlan(overrides: Partial<Omit<Plan, "id" | "createdAt">> = {}): Plan {
-  const body = validPlanBody(overrides);
-  const id = computePlanId(body);
-  return { ...body, id, createdAt: "2026-01-01T00:00:00.000Z" };
-}
-
-/** A two-operation plan with a real dependency edge (a → b). */
-export function twoOpPlan(): Plan {
-  const opA = validOperation({ id: "op-a", name: "build", dependsOn: [] });
-  const opB = validOperation({
-    id: "op-b",
-    name: "test",
-    dependsOn: ["op-a"],
-  });
-  return validPlan({ operations: [opA, opB] });
-}
