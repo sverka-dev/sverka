@@ -14,7 +14,7 @@ signal collection).
 
 ## Goals
 
-- `bindRunPlan(graph, entry, inputs)` → `RunPlan`
+- `bindRunPlan(options: BindRunPlanOptions)` → `RunPlan`
   - Selects reachable Steps from the Entry's roots (transitive closure
     over dependency edges)
   - Resolves pipeline inputs to concrete `InputValue`s
@@ -86,19 +86,24 @@ the transitive closure by following `dependencies[].producer` edges. Only
 reachable Steps are included in the Run Plan. The order preserves the
 graph's step order, filtered to reachable steps.
 
-**Input binding**: The pipeline's `inputs` array defines input names and
-defaults. User-supplied `inputs` override defaults. Missing required
-inputs (no default, no override) cause a `MISSING_INPUT` error. The
+**Input binding**: The pipeline's `inputs` record maps input names to input
+definitions and defaults. User-supplied `inputs` override defaults. Missing
+required inputs (no default, no override) cause a `MISSING_INPUT` error.
+Type-mismatched user values or defaults cause an `INVALID_INPUT` error. The
 bound inputs become `RunPlan.inputs` as a `Record<string, InputValue>`.
 
 **Run Plan construction**:
-1. Find the Entry by `entryId` in the graph's pipeline entries.
-2. Compute reachable steps from Entry roots.
-3. Bind inputs (defaults + overrides).
-4. Compute `graphId` via `computeGraphId(graph)`.
-5. Compute `runPlanId` via `computeRunPlanId({ apiVersion, graphId, entry, inputs, steps })`.
-6. Set `createdAt` to `new Date().toISOString()`.
-7. Return the complete `RunPlan`.
+1. Structurally validate the graph so malformed values produce `INVALID_GRAPH`
+   instead of runtime TypeError.
+2. Find the Entry by `entryId` in the graph's pipeline entries.
+3. Validate the selected pipeline (dependency cycles, unknown producers, etc.)
+   and produce `INVALID_GRAPH` on failure.
+4. Compute reachable steps from Entry roots.
+5. Bind inputs (defaults + overrides).
+6. Compute `graphId` via `computeGraphId(graph)`.
+7. Compute `runPlanId` via `computeRunPlanId({ apiVersion, graphId, entry, inputs, steps })`.
+8. Set `createdAt` to `new Date().toISOString()`.
+9. Return the complete `RunPlan`.
 
 **Graph ID**: Computed from the full Definition Graph (not just reachable
 steps). This links the Run Plan to its source graph for traceability.
@@ -118,13 +123,16 @@ type PlannerErrorCode =
   | "ENTRY_NOT_FOUND"
   | "ROOT_NOT_FOUND"
   | "MISSING_INPUT"
+  | "INVALID_INPUT"
   | "INVALID_GRAPH";
 ```
 
 `ENTRY_NOT_FOUND`: the specified `entryId` does not exist in the graph.
 `ROOT_NOT_FOUND`: an Entry root references a non-existent Step.
 `MISSING_INPUT`: a required input has no default and no override.
-`INVALID_GRAPH`: the graph has no pipelines or is structurally invalid.
+`INVALID_INPUT`: a user-supplied value or default does not match the declared input type.
+`INVALID_GRAPH`: the graph has no pipelines, is structurally invalid, or fails
+semantic validation (e.g. dependency cycle or unknown producer).
 
 ## Test plan
 
