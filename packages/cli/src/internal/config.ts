@@ -5,7 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
-import { join, resolve, isAbsolute } from "node:path";
+import { join, resolve, isAbsolute, dirname } from "node:path";
 import type { Project } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import type { DefinitionGraph } from "@sverka/core";
@@ -234,6 +234,16 @@ function ensureConstructsDeclared(pkg: Record<string, unknown>, root: string): v
   const devDeps =
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
 
+  // Migration: remove the old @sverka/constructs package if present.
+  if ("@sverka/constructs" in deps) {
+    delete (deps as Record<string, unknown>)["@sverka/constructs"];
+    pkg.dependencies = deps;
+  }
+  if ("@sverka/constructs" in devDeps) {
+    delete (devDeps as Record<string, unknown>)["@sverka/constructs"];
+    pkg.devDependencies = devDeps;
+  }
+
   if (!("@sverka/cdk" in deps) && !("@sverka/cdk" in devDeps)) {
     const version = isLocalWorkspace(root) ? "workspace:*" : getDefaultConstructsVersion();
     pkg.devDependencies = { ...devDeps, "@sverka/cdk": version };
@@ -263,8 +273,11 @@ function isLocalWorkspace(root: string): boolean {
 
 function getDefaultConstructsVersion(): string {
   try {
-    const path = require.resolve("@sverka/cdk/package.json");
-    const pkg = JSON.parse(readFileSync(path, "utf8")) as { version?: string };
+    // @sverka/cdk only exports "." in its exports map, so resolve the
+    // package entry point and read the sibling package.json.
+    const entryPath = require.resolve("@sverka/cdk");
+    const pkgPath = join(dirname(entryPath), "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: string };
     return pkg.version ? `^${pkg.version}` : "*";
   } catch {
     return "*";
