@@ -1,0 +1,33 @@
+{
+  "name": "plugin",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsdown",
+        "cwd": "packages/plugin"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run vitest run",
+        "cwd": "packages/plugin"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run eslint src",
+        "cwd": "packages/plugin"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsc --noEmit",
+        "cwd": "packages/plugin"
+      }
+    }
+  }
+}

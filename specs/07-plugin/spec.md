@@ -37,6 +37,7 @@ portability reports, and conformance tests.
 // Plugin factory
 function defineSverkaPlugin(
   factory: (options?: PluginOptions, meta?: PluginMeta) => SverkaPlugin,
+  options?: PluginOptions,
 ): SverkaPlugin;
 
 // Capability analysis
@@ -102,13 +103,13 @@ interface CapabilityDiagnostic {
 ### Exports
 
 ```ts
-export { defineSverkaPlugin, analyzeCapabilities, createPluginRegistry };
+export { defineSverkaPlugin, analyzeCapabilities, detectCapabilities, createPluginRegistry };
 export type {
   SverkaPlugin, PluginOptions, PluginMeta,
   CapabilityManifest, CapabilitySupport, CapabilityDetail,
   CapabilityDiagnostic,
   ModelContribution, GraphTransform, GraphValidator,
-  Target, Importer, Engine, ConnectorFactory, NativeExtension,
+  Target, CompilationResult, Importer, Engine, ConnectorFactory, NativeExtension,
   PluginRegistry,
 };
 export { PluginError, type PluginErrorCode } from "./errors.js";
