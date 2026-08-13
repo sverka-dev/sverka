@@ -19,7 +19,6 @@ Definition Graph as the Construct and SDK APIs.
 - `@step` — method decorator for planning methods (multiple sh operations)
 - `@entry(trigger)` — field decorator for entry definitions
 - `@input` — field decorator for pipeline inputs
-- `@output` — field decorator for pipeline outputs
 - Decorated pipeline synthesizes the same Definition Graph as Construct/SDK
 - No `experimentalDecorators`, no `reflect-metadata`
 - Sverka metadata stored via explicit registries/symbols
@@ -64,8 +63,8 @@ const graph = synthesize(project);
 ### Exports
 
 ```ts
-export { pipeline, step, entry, input, output };
-export { decoratePipeline } from "./registry.js";
+export { pipeline, step, stepWithOptions, entry, input };
+export { decoratePipeline } from "./synthesize.js";
 export type { StepOptions, EntryTarget } from "./types.js";
 export { DecoratorError, type DecoratorErrorCode } from "./errors.js";
 ```
@@ -79,7 +78,7 @@ Decorators store metadata via a `Symbol` key on the class prototype:
 
 ```ts
 interface FieldMetadata {
-  kind: "step" | "entry" | "input" | "output";
+  kind: "step" | "entry" | "input";
   options?: StepOptions;
   trigger?: Trigger;
 }
@@ -101,7 +100,7 @@ interface StepOptions {
 A `@step` field initializer can be:
 - `string` — leaf step with a shell command
 - `StepBuilder` (from `sh` tagged template) — composable step with outputs
-- `undefined` (method decorator) — planning method with operations
+- `function` (method decorator) — returns a `StepBuilder` or uses the planning context `sh` for multiple shell operations
 
 ### Entry field values
 
@@ -146,7 +145,7 @@ class DecoratorError extends Error {
 7. Multiple steps in source order → correct construct tree
 8. `decoratePipeline` → Pipeline with correct id and children
 9. Synthesized graph matches Construct API equivalent
-10. Error: `@step` without initializer → INVALID_FIELD
+10. Error: `@step` without initializer → MISSING_INITIALIZER
 11. Error: `decoratePipeline` on non-decorated class → NOT_A_PIPELINE
 12. Public API: all exports present, no any types
 13. Conformance: decorator-authored pipeline produces same graph as

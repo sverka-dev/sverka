@@ -5,7 +5,6 @@ import {
   stepWithOptions,
   entry,
   input,
-  output,
   decoratePipeline,
   DecoratorError,
   type StepOptions,
@@ -13,6 +12,7 @@ import {
   type FieldMetadata,
   type FieldKind,
   type DecoratorErrorCode,
+  type PlanningContext,
 } from "../index.js";
 
 describe("public API — exports", () => {
@@ -22,7 +22,6 @@ describe("public API — exports", () => {
     expect(typeof stepWithOptions).toBe("function");
     expect(typeof entry).toBe("function");
     expect(typeof input).toBe("function");
-    expect(typeof output).toBe("function");
     expect(typeof decoratePipeline).toBe("function");
   });
 
@@ -40,10 +39,7 @@ describe("public API — exports", () => {
     const _meta: FieldMetadata = { kind: "step" };
     const _kind: FieldKind = "step";
     const _code: DecoratorErrorCode = "INVALID_FIELD";
-    expect(_opts.timeout).toBe(1000);
-    expect(_target).toEqual(["lint"]);
-    expect(_meta.kind).toBe("step");
-    expect(_kind).toBe("step");
-    expect(_code).toBe("INVALID_FIELD");
+    const _ctx: PlanningContext = { sh() {} };
+    void [_opts, _target, _meta, _kind, _code, _ctx];
   });
 });
