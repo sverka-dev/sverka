@@ -16,6 +16,7 @@ describe("createBuiltinResolver — Node (bun)", () => {
     expect(r!.step.operations[0]!.kind).toBe("shell");
     expect((r!.step.operations[0] as { command: string }).command).toBe("bun run typecheck");
     expect(r!.step.runtime.mode).toBe("host");
+    expect(r!.step.runtime.workingDir).toBe(ctx.root);
   });
 
   it("resolves lint to bun run lint", () => {
