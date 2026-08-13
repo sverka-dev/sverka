@@ -19,15 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/core": "workspace:*",
-    "@sverka/ir": "workspace:*",
-    "@sverka/planner": "workspace:*",
-    "@sverka/runtime": "workspace:*",
-    "@sverka/runtime-host": "workspace:*",
-    "@sverka/runtime-docker": "workspace:*",
-    "@sverka/findings": "workspace:*",
-    "@sverka/policy": "workspace:*",
-    "@sverka/checks": "workspace:*"
+    "@sverka/constructs": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",
