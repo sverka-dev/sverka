@@ -8,6 +8,14 @@ Graph to GitLab CI YAML. Source: `packages/gitlab/src/target.ts`.
 ```ts
 import { GitlabTarget, compileGitlab } from "@sverka/gitlab";
 import { synthesize } from "@sverka/core";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+
+const proj = new Project("myproj");
+const p = new Pipeline(proj, "ci");
+new ShellStep(p, "build", { command: "npm run build" });
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+
+const graph = synthesize(proj);
 
 // Convenience function
 const result = compileGitlab(graph);

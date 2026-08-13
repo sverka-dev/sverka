@@ -142,7 +142,7 @@ sverka synth --target gitlab
                      │ synthesize
   ┌──────────────────▼───────────────────────────┐
   │          Definition Graph (IR)               │
-  │  Project → Pipeline → Steps → Entries        │
+  │  Project → Pipeline → Steps / Entries        │
   └──────┬──────────────────────────┬────────────┘
          │                          │ lower
   ┌──────▼──────────┐    ┌──────────▼──────────┐
@@ -230,6 +230,7 @@ The v0 redesign was organized in waves:
 
 | Wave | Description |
 |------|-------------|
+| A | Construct API |
 | B | IR schemas |
 | C | SDK authoring |
 | D | Decorator authoring |

@@ -117,9 +117,16 @@ Steps can reference outputs from other steps or context namespaces:
 ```ts
 import { sh } from "@sverka/sdk";
 import { env, secrets, git } from "@sverka/sdk";
+import type { Reference } from "@sverka/constructs";
 
 // Step output reference
-sh`deploy ${this.build.dist}`;
+const buildDist: Reference = {
+  kind: "step",
+  step: "build",
+  output: "dist",
+  type: "artifact",
+};
+sh`deploy ${buildDist}`;
 
 // Context references
 sh`echo ${env.CI_TRACE}`;

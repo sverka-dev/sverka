@@ -8,6 +8,14 @@ Graph to GitHub Actions YAML. Source: `packages/github/src/target.ts`.
 ```ts
 import { GithubTarget, compileGithub } from "@sverka/github";
 import { synthesize } from "@sverka/core";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+
+const proj = new Project("myproj");
+const p = new Pipeline(proj, "ci");
+new ShellStep(p, "build", { command: "npm run build" });
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+
+const graph = synthesize(proj);
 
 // Convenience function
 const result = compileGithub(graph);
