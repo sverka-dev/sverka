@@ -83,6 +83,29 @@
         "vitest": "^3.0.0",
       },
     },
+    "packages/conformance": {
+      "name": "@sverka/conformance",
+      "version": "0.0.0",
+      "dependencies": {
+        "@sverka/constructs": "workspace:*",
+        "@sverka/core": "workspace:*",
+        "@sverka/decorators": "workspace:*",
+        "@sverka/engine-native": "workspace:*",
+        "@sverka/github": "workspace:*",
+        "@sverka/gitlab": "workspace:*",
+        "@sverka/ir": "workspace:*",
+        "@sverka/planner": "workspace:*",
+        "@sverka/plugin": "workspace:*",
+        "@sverka/runtime-host": "workspace:*",
+        "@sverka/sdk": "workspace:*",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^3.0.0",
+        "yaml": "^2.9.0",
+      },
+    },
     "packages/constructs": {
       "name": "@sverka/constructs",
       "version": "0.0.0",
@@ -508,6 +531,8 @@
     "@sverka/compiler-github": ["@sverka/compiler-github@workspace:packages/compiler-github"],
 
     "@sverka/compiler-gitlab": ["@sverka/compiler-gitlab@workspace:packages/compiler-gitlab"],
+
+    "@sverka/conformance": ["@sverka/conformance@workspace:packages/conformance"],
 
     "@sverka/constructs": ["@sverka/constructs@workspace:packages/constructs"],
 
