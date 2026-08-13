@@ -202,12 +202,12 @@ lowering (native CI jobs, not wrappers). ADR-004 is superseded.
 A (constructs + definition graph)
 ├── B (ir schemas)
 │   ├── E (plugin + capabilities)
+│   │   └── H (target-github / native lowering)
+│   │       └── I (target-gitlab / native lowering)
 │   ├── F (engine-native + runtime-host + runtime-docker)
 │   │   └── G (planner / run plan binding)
 │   │       └── J (checks integration)
 │   │           └── K (findings + policy verification) [parallel: carries over]
-│   └── H (target-github / native lowering)
-│       └── I (target-gitlab / native lowering)
 ├── C (sdk authoring)
 │   └── D (decorators)
 ├── L (cli) [needs all]
@@ -250,7 +250,7 @@ A (constructs + definition graph)
   `emit()`. One GitHub job per Step with `needs`, `runs-on`, checkout,
   operation→step mapping, artifact upload/download, scalar output via
   `$GITHUB_OUTPUT`, credential→`secrets` mapping, trigger mapping. Spec:
-  08-target-github. Depends on B, E. Hosted-engine mode retained as fallback.
+  08-target-github. Depends on B, E.
 
 - **Wave I:** `target-gitlab` rebuild — same target contract, GitLab-native
   jobs. Spec: 09-target-gitlab. Depends on H (shares patterns).
@@ -261,7 +261,7 @@ A (constructs + definition graph)
 
 - **Wave K:** `findings` + `policy` carry-over verification. Specs:
   15-findings, 16-policy. Depends on F, J. **Packages unchanged — re-verified
-  against new engine. Can start in parallel once F lands.**
+  against new engine. Can start once Waves F and J are complete.**
 
 - **Wave L:** `cli` adaptation — `validate`, `synth --target`, `plan`,
   `graph`, `run`. Spec: 17-cli. Depends on all prior waves.

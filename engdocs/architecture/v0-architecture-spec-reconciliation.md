@@ -267,10 +267,15 @@ v0 is accepted when:
 2. **Decorator compiler support** — Standard TC39 stage-3 decorators are
    supported by TypeScript 5.2+ and the Bun transpiler. Use standard decorator
    syntax; avoid `experimentalDecorators`.
-3. **Existing PRs** — Close the old wave-0–15 feature branches and their
+3. **Decorator smoke test** — As part of the `decorators` package deliverable,
+   add a compile-and-runtime test covering `@step`, `@entry`, `@input`, and
+   `@output` with the pinned Bun, TypeScript, and `tsdown` versions. Retain
+   `tsc --noEmit` as a separate type-check step because Bun transpilation does
+   not type-check.
+4. **Existing PRs** — Close the old wave-0–15 feature branches and their
    stacked PRs. Carry over reusable packages (`findings`, `policy`,
    `runtime-host`, `runtime-docker`) into the v0 stack; rebuild the rest as
    v0 waves A–N.
-4. **Branch strategy** — Continue the v0 redesign on the existing `v0-*`
+5. **Branch strategy** — Continue the v0 redesign on the existing `v0-*`
    stacked branches (`v0-redesign-foundation` → `v0-a-constructs` → ... →
    `v0-n-docs`). Each wave PR targets the previous wave's branch.
