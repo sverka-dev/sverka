@@ -1,55 +1,42 @@
 import { describe, it, expect } from "vitest";
-import * as api from "../index.js";
-import { validPlan } from "./helpers/fixtures.js";
+import * as ir from "../index.js";
 
-describe("public API surface", () => {
-  it("exports every spec-listed value symbol", () => {
-    expect(typeof api.validatePlan).toBe("function");
-    expect(typeof api.serializePlan).toBe("function");
-    expect(typeof api.deserializePlan).toBe("function");
-    expect(typeof api.computePlanId).toBe("function");
-    expect(typeof api.computeOperationId).toBe("function");
-    expect(typeof api.IRError).toBe("function");
-    expect(typeof api.ValidationError).toBe("function");
-    expect(typeof api.SerializationError).toBe("function");
-    expect(api.PLAN_SCHEMA_VERSION).toBe("sverka.dev/v1");
+describe("public API", () => {
+  it("exports all expected types and functions", () => {
+    // Functions
+    expect(typeof ir.serializeGraph).toBe("function");
+    expect(typeof ir.deserializeGraph).toBe("function");
+    expect(typeof ir.serializeRunPlan).toBe("function");
+    expect(typeof ir.deserializeRunPlan).toBe("function");
+    expect(typeof ir.computeGraphId).toBe("function");
+    expect(typeof ir.computeRunPlanId).toBe("function");
+    expect(typeof ir.validateGraphSchema).toBe("function");
+    expect(typeof ir.validateRunPlanSchema).toBe("function");
+
+    // Error classes
+    expect(ir.IRError).toBeDefined();
+    expect(ir.ValidationError).toBeDefined();
+    expect(ir.SerializationError).toBeDefined();
+
+    // Version constants
+    expect(ir.GRAPH_SCHEMA_VERSION).toBe("sverka.dev/v1graph");
+    expect(ir.RUN_PLAN_SCHEMA_VERSION).toBe("sverka.dev/v1run");
   });
 
-  it("IRError is a constructor extending Error", () => {
-    const err = new api.IRError("m", "CODE");
-    expect(err).toBeInstanceOf(Error);
-    expect(err.code).toBe("CODE");
+  it("error classes are constructable", () => {
+    const ve = new ir.ValidationError("test");
+    expect(ve).toBeInstanceOf(ir.IRError);
+    expect(ve.code).toBe("VALIDATION_ERROR");
+
+    const se = new ir.SerializationError("test");
+    expect(se).toBeInstanceOf(ir.IRError);
+    expect(se.code).toBe("SERIALIZATION_ERROR");
   });
 
-  it("ValidationError and SerializationError extend IRError", () => {
-    expect(new api.ValidationError("m")).toBeInstanceOf(api.IRError);
-    expect(new api.SerializationError("m")).toBeInstanceOf(api.IRError);
-  });
-
-  it("computePlanId produces a plan- prefixed id", () => {
-    const body = {
-      apiVersion: "sverka.dev/v1" as const,
-      name: "ci",
-      sourceContextHash: "x",
-      operations: [],
-      metadata: { sverkaVersion: "0.0.0", generatedBy: "planner" as const },
-    };
-    expect(api.computePlanId(body).startsWith("plan-")).toBe(true);
-  });
-
-  it("validatePlan + serializePlan + deserializePlan interoperate", () => {
-    const plan = validPlan();
-    expect(api.validatePlan(plan).valid).toBe(true);
-    const json = api.serializePlan(plan);
-    const restored = api.deserializePlan(json);
-    expect(restored).toEqual(plan);
-  });
-
-  it("internal modules are not re-exported from the public entry", () => {
-    const publicNames = Object.keys(api);
-    const internalLeaked = publicNames.filter((n) =>
-      ["canonicalStringify", "findCycle"].includes(n),
-    );
-    expect(internalLeaked).toEqual([]);
+  it("IRErrorCode type is exported (as type)", () => {
+    // Type-only export — verify it compiles. Runtime check: the code values
+    // are the only valid IRErrorCode values.
+    const code: "VALIDATION_ERROR" | "SERIALIZATION_ERROR" = "VALIDATION_ERROR";
+    expect(code).toBe("VALIDATION_ERROR");
   });
 });

@@ -1,30 +1,28 @@
+// Deterministic content-addressed IDs.
+// ADR-006 (amended). Spec 06 — Data models.
+
 import { createHash } from "node:crypto";
-import { canonicalStringify, computeOperationId } from "@sverka/core";
-import type { Plan } from "./plan.js";
+import { canonicalStringify } from "./canonical.js";
+import type { DefinitionGraph } from "@sverka/core";
+import type { RunPlan } from "./run-plan.js";
 
 /**
- * Compute a deterministic plan id from the plan content (excluding `id` and
- * `createdAt`). The same workflow + source context always yields the same id.
- *
- * Algorithm: SHA-256 over the canonical serialization of the plan with `id`
- * and `createdAt` stripped, hex-encoded, prefixed with `plan-`. The hash
- * input is byte-stable because canonical JSON sorts keys and emits no
- * trailing whitespace.
+ * Compute a deterministic graph id from the Definition Graph content.
+ * SHA-256 over canonicalStringify(graph), hex-encoded, prefixed `graph-`.
  */
-export function computePlanId(plan: Omit<Plan, "id" | "createdAt">): string {
-  // Defensive: strip any runtime id/createdAt fields so the hash is always
-  // over the plan content, not the plan identity.
-  const { id: _id, createdAt: _createdAt, ...body } = plan as Record<string, unknown>;
-  const canonical = canonicalStringify(body);
+export function computeGraphId(graph: DefinitionGraph): string {
+  const canonical = canonicalStringify(graph);
   const hex = createHash("sha256").update(canonical, "utf8").digest("hex");
-  return `plan-${hex}`;
+  return `graph-${hex}`;
 }
 
 /**
- * Compute a deterministic operation id from kind, name, and a context record
- * (matrix values, position, or other discriminating fields).
- *
- * Re-exported from `@sverka/core` to ensure core and ir produce identical ids
- * by construction (ADR-006). The core/ir consistency test guards against drift.
+ * Compute a deterministic run plan id from the plan content (excluding
+ * `id` and `createdAt`). SHA-256 over canonical JSON, prefixed `rp-`.
  */
-export { computeOperationId };
+export function computeRunPlanId(plan: Omit<RunPlan, "id" | "createdAt">): string {
+  const { id: _id, createdAt: _createdAt, ...body } = plan as Record<string, unknown>;
+  const canonical = canonicalStringify(body);
+  const hex = createHash("sha256").update(canonical, "utf8").digest("hex");
+  return `rp-${hex}`;
+}

@@ -1,459 +1,166 @@
-import type { Plan } from "./plan.js";
-import { computePlanId } from "./ids.js";
-import { findCycle } from "./internal/graph.js";
+// Schema validation for SerializableGraph and RunPlan.
+// Spec 06 — Validation. Throws ValidationError on failure.
+// Delegates semantic validation to core's validateGraph.
 
-/** A single validation failure. */
-export interface ValidationErrorDetail {
-  readonly operationId?: string;
-  readonly field: string;
-  readonly message: string;
-  readonly code: string;
-}
+import { validateGraph, type DefinitionGraph } from "@sverka/core";
+import { ValidationError } from "./errors.js";
+import type { SerializableGraph } from "./serialize.js";
+import type { RunPlan } from "./run-plan.js";
+import { GRAPH_SCHEMA_VERSION, RUN_PLAN_SCHEMA_VERSION } from "./version.js";
 
-/** The outcome of validating a candidate Plan. */
-export interface ValidationResult {
-  readonly valid: boolean;
-  readonly errors: readonly ValidationErrorDetail[];
-}
-
-/** A validator object wrapping {@link validatePlan}. */
-export interface PlanValidator {
-  validate(plan: unknown): ValidationResult;
-}
-
-const NETWORK_POLICIES = new Set(["deny", "allow-host", "allow-egress"]);
-const RETRY_ON_VALUES = new Set(["failure", "timeout"]);
-const GENERATED_BY_VALUES = new Set(["planner", "manual", "compiler"]);
-const MEMORY_SUFFIXES = new Set(["Ki", "Mi", "Gi", "Ti"]);
-const OPERATION_KINDS = new Set(["run", "check", "build", "analyze", "fetch", "publish", "custom"]);
-
-/** Validate sha256 image digest without regex (avoids ReDoS false positive). */
-function isValidImageDigest(s: string): boolean {
-  if (s.length !== 71) return false; // "sha256:" + 64 hex chars
-  if (!s.startsWith("sha256:")) return false;
-  for (let i = 7; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    const isHex = (c >= 48 && c <= 57) || (c >= 97 && c <= 102); // 0-9, a-f
-    if (!isHex) return false;
+/**
+ * Validate that a value is a structurally valid SerializableGraph.
+ * Calls core validateGraph for semantic checks (cycles, unknown producers,
+ * output collisions, incompatible references).
+ */
+export function validateGraphSchema(value: unknown): asserts value is SerializableGraph {
+  if (typeof value !== "object" || value === null) {
+    throw new ValidationError("expected an object");
   }
-  return true;
-}
-
-/** Validate CPU string (digits with optional decimal) without regex. */
-function isValidCpuString(s: string): boolean {
-  if (s.length === 0 || s.length > 10) return false;
-  let hasDot = false;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    if (c === 46) { // '.'
-      if (hasDot || i === 0 || i === s.length - 1) return false;
-      hasDot = true;
-    } else if (c < 48 || c > 57) { // not '0'-'9'
-      return false;
-    }
+  const v = value as Record<string, unknown>;
+  if (v.apiVersion !== GRAPH_SCHEMA_VERSION) {
+    throw new ValidationError(`expected apiVersion '${GRAPH_SCHEMA_VERSION}', got '${String(v.apiVersion)}'`);
   }
-  return true;
-}
-
-/** Find the boundary between digit and suffix portions (from the right). */
-function findDigitBoundary(s: string): number {
-  for (let i = s.length - 1; i >= 0; i--) {
-    const c = s.charCodeAt(i);
-    if (c >= 48 && c <= 57) return i + 1; // '0'-'9'
+  if (typeof v.id !== "string") {
+    throw new ValidationError("missing or invalid 'id' field");
   }
-  return 0;
-}
-
-/** Check if all chars in s[start..end) are ASCII digits. */
-function isAllDigits(s: string, start: number, end: number): boolean {
-  for (let i = start; i < end; i++) {
-    const c = s.charCodeAt(i);
-    if (c < 48 || c > 57) return false;
+  if (typeof v.createdAt !== "string") {
+    throw new ValidationError("missing or invalid 'createdAt' field");
   }
-  return true;
-}
-
-/** Validate memory string (digits with optional suffix) without regex. */
-function isValidMemoryString(s: string): boolean {
-  if (s.length === 0 || s.length > 20) return false;
-  const digitEnd = findDigitBoundary(s);
-  if (digitEnd === 0) return false; // no digits at all
-  if (!isAllDigits(s, 0, digitEnd)) return false;
-  if (digitEnd < s.length) {
-    const suffix = s.slice(digitEnd);
-    if (!MEMORY_SUFFIXES.has(suffix)) return false;
+  if (typeof v.graph !== "object" || v.graph === null) {
+    throw new ValidationError("missing or invalid 'graph' field");
   }
-  return true;
+  // Validate the graph structure.
+  validateGraphStructure(v.graph as unknown);
+  // Semantic validation via core.
+  try {
+    validateGraph(v.graph as DefinitionGraph);
+  } catch (err) {
+    throw new ValidationError(
+      err instanceof Error ? err.message : "semantic validation failed",
+      err,
+    );
+  }
 }
 
 /**
- * Validate an unknown value as a Plan. Returns a {@link ValidationResult};
- * never throws. Collects all detectable errors (does not short-circuit) so
- * callers get the full picture.
+ * Validate that a value is a structurally valid RunPlan.
  */
-export function validatePlan(plan: unknown): ValidationResult {
-  const errors: ValidationErrorDetail[] = [];
-
-  if (!isPlainObject(plan) || Array.isArray(plan)) {
-    errors.push({ field: "", code: "INVALID_PLAN", message: "plan must be a plain object" });
-    return { valid: false, errors };
+export function validateRunPlanSchema(value: unknown): asserts value is RunPlan {
+  if (typeof value !== "object" || value === null) {
+    throw new ValidationError("expected an object");
   }
-
-  const p = plan as Record<string, unknown>;
-  validateTopLevel(p, errors);
-
-  if (isPlainObject(p.metadata)) {
-    validateMetadata(p.metadata as Record<string, unknown>, errors);
-  } else {
-    errors.push({ field: "metadata", code: "INVALID_METADATA", message: "metadata must be an object" });
+  const v = value as Record<string, unknown>;
+  if (v.apiVersion !== RUN_PLAN_SCHEMA_VERSION) {
+    throw new ValidationError(`expected apiVersion '${RUN_PLAN_SCHEMA_VERSION}', got '${String(v.apiVersion)}'`);
   }
-
-  if (!Array.isArray(p.operations)) {
-    errors.push({ field: "operations", code: "EMPTY_OPERATIONS", message: "operations must be a non-empty array" });
-    return { valid: errors.length === 0, errors };
+  if (typeof v.id !== "string") {
+    throw new ValidationError("missing or invalid 'id' field");
   }
-
-  const operations = p.operations as readonly unknown[];
-  if (operations.length === 0) {
-    errors.push({ field: "operations", code: "EMPTY_OPERATIONS", message: "operations must be non-empty" });
-    return { valid: errors.length === 0, errors };
+  if (typeof v.graphId !== "string") {
+    throw new ValidationError("missing or invalid 'graphId' field");
   }
-
-  const ops = normalizeOperations(operations, errors);
-  if (ops.length === 0) return { valid: errors.length === 0, errors };
-
-  const { idSet, idCounts } = collectOperationIds(ops);
-  detectDuplicateIds(ops, idCounts, errors);
-
-  for (const op of ops) {
-    validateOperation(op, idSet, errors);
+  if (typeof v.createdAt !== "string") {
+    throw new ValidationError("missing or invalid 'createdAt' field");
   }
-
-  validateAcyclic(ops, errors);
-
-  return { valid: errors.length === 0, errors };
-}
-
-// ---------------------------------------------------------------------------
-// Top-level validation
-// ---------------------------------------------------------------------------
-
-/** Validate top-level plan fields: apiVersion, id, structural shape, id recompute. */
-function validateTopLevel(p: Record<string, unknown>, errors: ValidationErrorDetail[]): void {
-  const apiVersionOk = validateApiVersion(p, errors);
-  const idOk = validatePlanId(p, errors);
-  const nameOk = validateName(p, errors);
-  const sourceContextHashOk = validateSourceContextHash(p, errors);
-  const createdAtOk = validateCreatedAt(p, errors);
-
-  const shapeOk =
-    apiVersionOk &&
-    nameOk &&
-    sourceContextHashOk &&
-    createdAtOk &&
-    Array.isArray(p.operations) &&
-    isPlainObject(p.metadata);
-
-  if (shapeOk && idOk) {
-    recomputeId(p, errors);
+  if (typeof v.entry !== "object" || v.entry === null) {
+    throw new ValidationError("missing or invalid 'entry' field");
+  }
+  validateBoundEntry(v.entry as unknown);
+  if (typeof v.inputs !== "object" || v.inputs === null || Array.isArray(v.inputs)) {
+    throw new ValidationError("missing or invalid 'inputs' field (expected object)");
+  }
+  if (!Array.isArray(v.steps)) {
+    throw new ValidationError("missing or invalid 'steps' field (expected array)");
+  }
+  for (const step of v.steps) {
+    validateStepStructure(step);
   }
 }
 
-function validateApiVersion(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
-  if (p.apiVersion !== "sverka.dev/v1") {
-    errors.push({ field: "apiVersion", code: "INVALID_API_VERSION", message: `apiVersion must be "sverka.dev/v1"` });
-    return false;
+function validateBoundEntry(value: unknown): void {
+  if (typeof value !== "object" || value === null) {
+    throw new ValidationError("invalid entry: expected object");
   }
-  return true;
-}
-
-function validatePlanId(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
-  const ok = typeof p.id === "string" && p.id.length > 0;
-  if (!ok) {
-    errors.push({ field: "id", code: "ID_MISMATCH", message: "id must be a non-empty string matching computePlanId" });
+  const e = value as Record<string, unknown>;
+  if (typeof e.id !== "string") {
+    throw new ValidationError("invalid entry: missing 'id'");
   }
-  return ok;
-}
-
-function validateName(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
-  const ok = typeof p.name === "string" && p.name.length > 0;
-  if (!ok) {
-    errors.push({ field: "name", code: "INVALID_PLAN", message: "name must be a non-empty string" });
+  if (typeof e.trigger !== "object" || e.trigger === null) {
+    throw new ValidationError("invalid entry: missing 'trigger'");
   }
-  return ok;
-}
-
-function validateSourceContextHash(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
-  const ok = typeof p.sourceContextHash === "string" && p.sourceContextHash.length > 0;
-  if (!ok) {
-    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a non-empty string" });
-  }
-  return ok;
-}
-
-const ISO_8601_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2}))?$/;
-
-function isValidIso8601(s: string): boolean {
-  if (!ISO_8601_RE.test(s)) return false;
-  return !Number.isNaN(Date.parse(s));
-}
-
-function validateCreatedAt(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
-  const ok = typeof p.createdAt === "string" && p.createdAt.length > 0 && isValidIso8601(p.createdAt);
-  if (!ok) {
-    errors.push({ field: "createdAt", code: "INVALID_PLAN", message: "createdAt must be a non-empty ISO 8601 string" });
-  }
-  return ok;
-}
-
-/** Recompute the plan id and compare with the declared id. */
-function recomputeId(p: Record<string, unknown>, errors: ValidationErrorDetail[]): void {
-  try {
-    const { id: _id, createdAt: _createdAt, ...body } = p;
-    const expected = computePlanId(body as Omit<Plan, "id" | "createdAt">);
-    if (expected !== p.id) {
-      errors.push({ field: "id", code: "ID_MISMATCH", message: `id does not match recomputed plan id (expected ${expected})` });
-    }
-  } catch {
-    errors.push({ field: "id", code: "ID_MISMATCH", message: "could not recompute plan id" });
+  const t = e.trigger as Record<string, unknown>;
+  if (t.kind !== "push" && t.kind !== "changeRequest" && t.kind !== "manual") {
+    throw new ValidationError(`invalid entry: unknown trigger kind '${String(t.kind)}'`);
   }
 }
 
-/** Normalize operations array into typed views, rejecting non-object entries. */
-function normalizeOperations(operations: readonly unknown[], errors: ValidationErrorDetail[]): PlanOperationView[] {
-  const ops: PlanOperationView[] = [];
-  for (let i = 0; i < operations.length; i++) {
-    const raw = operations[i];
-    if (!isPlainObject(raw)) {
-      errors.push({ field: "operations[]", code: "INVALID_OPERATION", message: `operations[${i}] must be a plain object` });
-      continue;
-    }
-    ops.push(raw as PlanOperationView);
+function validateGraphStructure(value: unknown): void {
+  if (typeof value !== "object" || value === null) {
+    throw new ValidationError("invalid graph: expected object");
   }
-  return ops;
-}
-
-/** Collect operation ids into a set and a count map. */
-function collectOperationIds(ops: readonly PlanOperationView[]): { idSet: Set<string>; idCounts: Map<string, number> } {
-  const idSet = new Set<string>();
-  const idCounts = new Map<string, number>();
-  for (const op of ops) {
-    if (typeof op.id === "string") {
-      idSet.add(op.id);
-      idCounts.set(op.id, (idCounts.get(op.id) ?? 0) + 1);
-    }
+  const g = value as Record<string, unknown>;
+  if (typeof g.project !== "object" || g.project === null) {
+    throw new ValidationError("invalid graph: missing 'project'");
   }
-  return { idSet, idCounts };
-}
-
-/** Detect and report duplicate operation ids. */
-function detectDuplicateIds(ops: readonly PlanOperationView[], idCounts: Map<string, number>, errors: ValidationErrorDetail[]): void {
-  const reported = new Set<string>();
-  for (const op of ops) {
-    if (typeof op.id === "string" && (idCounts.get(op.id) ?? 0) > 1 && !reported.has(op.id)) {
-      errors.push({ operationId: op.id, field: "operations[].id", code: "DUPLICATE_OPERATION_ID", message: `duplicate operation id "${op.id}"` });
-      reported.add(op.id);
-    }
+  const p = g.project as Record<string, unknown>;
+  if (typeof p.id !== "string") {
+    throw new ValidationError("invalid graph: project missing 'id'");
+  }
+  if (!Array.isArray(p.pipelines)) {
+    throw new ValidationError("invalid graph: project missing 'pipelines' array");
+  }
+  for (const pipeline of p.pipelines) {
+    validatePipelineStructure(pipeline);
   }
 }
 
-/** Validate acyclic dependency graph (rule 5). */
-function validateAcyclic(ops: readonly PlanOperationView[], errors: ValidationErrorDetail[]): void {
-  const cycleNodes = ops
-    .filter((op) => typeof op.id === "string" && Array.isArray(op.dependsOn))
-    .map((op) => ({
-      id: op.id as string,
-      dependsOn: (op.dependsOn as readonly unknown[]).filter((d): d is string => typeof d === "string"),
-    }));
-  const cycle = findCycle(cycleNodes);
-  if (cycle !== undefined) {
-    errors.push({ field: "operations[].dependsOn", code: "CYCLE_DETECTED", message: `cycle detected: ${cycle.join(" -> ")}` });
+function validatePipelineStructure(value: unknown): void {
+  if (typeof value !== "object" || value === null) {
+    throw new ValidationError("invalid pipeline: expected object");
+  }
+  const p = value as Record<string, unknown>;
+  if (typeof p.id !== "string") {
+    throw new ValidationError("invalid pipeline: missing 'id'");
+  }
+  if (!Array.isArray(p.inputs)) {
+    throw new ValidationError("invalid pipeline: missing 'inputs' array");
+  }
+  if (!Array.isArray(p.entries)) {
+    throw new ValidationError("invalid pipeline: missing 'entries' array");
+  }
+  if (!Array.isArray(p.steps)) {
+    throw new ValidationError("invalid pipeline: missing 'steps' array");
+  }
+  if (!Array.isArray(p.outputs)) {
+    throw new ValidationError("invalid pipeline: missing 'outputs' array");
+  }
+  for (const step of p.steps) {
+    validateStepStructure(step);
   }
 }
 
-// ---------------------------------------------------------------------------
-// Per-operation validation
-// ---------------------------------------------------------------------------
-
-type PlanOperationView = Record<string, unknown>;
-
-/** Create an error with optional operationId. */
-function opError(opId: string | undefined, field: string, code: string, message: string): ValidationErrorDetail {
-  return opId !== undefined ? { operationId: opId, field, code, message } : { field, code, message };
-}
-
-/** Validate a single operation's shape and rules 4, 7-13. */
-function validateOperation(op: PlanOperationView, idSet: Set<string>, errors: ValidationErrorDetail[]): void {
-  const opId = typeof op.id === "string" ? op.id : undefined;
-
-  validateOperationShape(op, opId, errors);
-  validateDependsOn(op, opId, idSet, errors);
-  validateImageDigest(op, opId, errors);
-  validateTimeout(op, opId, errors);
-  validateResources(op, opId, errors);
-  validateRetry(op, opId, errors);
-  validateNetwork(op, opId, errors);
-  validateCache(op, opId, errors);
-  validateCredentials(op, opId, errors);
-}
-
-/** Validate dependsOn references (rule 4). */
-function validateDependsOn(op: PlanOperationView, opId: string | undefined, idSet: Set<string>, errors: ValidationErrorDetail[]): void {
-  if (!Array.isArray(op.dependsOn)) return;
-  for (const dep of op.dependsOn) {
-    if (typeof dep !== "string") {
-      errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must contain only strings"));
-    } else if (!idSet.has(dep)) {
-      errors.push(opError(opId, "operations[].dependsOn", "UNKNOWN_DEPENDENCY", `operation depends on unknown id "${dep}"`));
-    }
+function validateStepStructure(value: unknown): void {
+  if (typeof value !== "object" || value === null) {
+    throw new ValidationError("invalid step: expected object");
   }
-}
-
-/** Validate imageDigest for docker/podman (rule 7). */
-function validateImageDigest(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (!isPlainObject(op.executor)) return;
-  const ex = op.executor as { type?: unknown; imageDigest?: unknown };
-  if (ex.type !== "docker" && ex.type !== "podman") return;
-  if (typeof ex.imageDigest !== "string" || !isValidImageDigest(ex.imageDigest)) {
-    errors.push(opError(opId, "operations[].executor.imageDigest", "MISSING_IMAGE_DIGEST", `executor of type "${ex.type}" requires a sha256 image digest`));
+  const s = value as Record<string, unknown>;
+  if (typeof s.id !== "string") {
+    throw new ValidationError("invalid step: missing 'id'");
   }
-}
-
-/** Validate timeoutSeconds > 0 (rule 8). */
-function validateTimeout(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (typeof op.timeoutSeconds === "number" && Number.isFinite(op.timeoutSeconds) && op.timeoutSeconds > 0) return;
-  errors.push(opError(opId, "operations[].timeoutSeconds", "INVALID_TIMEOUT", "timeoutSeconds must be a number greater than 0"));
-}
-
-/** Validate resources.cpu and resources.memory (rule 9). */
-function validateResources(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (isPlainObject(op.resources)) {
-    const r = op.resources as { cpu?: unknown; memory?: unknown };
-    const cpuOk = typeof r.cpu === "string" && isValidCpuString(r.cpu);
-    const memOk = typeof r.memory === "string" && isValidMemoryString(r.memory);
-    if (cpuOk && memOk) return;
+  if (typeof s.runtime !== "object" || s.runtime === null) {
+    throw new ValidationError("invalid step: missing 'runtime'");
   }
-  errors.push(opError(opId, "operations[].resources", "INVALID_RESOURCES", "resources.cpu must be a number string and resources.memory must match /^\\d+(Ki|Mi|Gi|Ti)?$/"));
-}
-
-/** Validate retry policy (rule 10). */
-function validateRetry(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (isPlainObject(op.retry)) {
-    const rt = op.retry as { maxAttempts?: unknown; backoffSeconds?: unknown; retryOn?: unknown };
-    const maxOk = typeof rt.maxAttempts === "number" && Number.isFinite(rt.maxAttempts) && rt.maxAttempts >= 1;
-    const backOk = typeof rt.backoffSeconds === "number" && Number.isFinite(rt.backoffSeconds) && rt.backoffSeconds >= 0;
-    const retryOnOk = Array.isArray(rt.retryOn) && rt.retryOn.every((v) => RETRY_ON_VALUES.has(v as string));
-    if (maxOk && backOk && retryOnOk) return;
+  if (!Array.isArray(s.operations)) {
+    throw new ValidationError("invalid step: missing 'operations' array");
   }
-  errors.push(opError(opId, "operations[].retry", "INVALID_RETRY_POLICY", "retry.maxAttempts must be >= 1, backoffSeconds >= 0, retryOn in (failure|timeout)"));
-}
-
-/** Validate network policy (rule 11). */
-function validateNetwork(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (typeof op.network === "string" && NETWORK_POLICIES.has(op.network)) return;
-  errors.push(opError(opId, "operations[].network", "INVALID_NETWORK_POLICY", 'network must be one of "deny", "allow-host", "allow-egress"'));
-}
-
-/** Validate cache.key (rule 12). */
-function validateCache(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (op.cache === undefined) return;
-  if (isPlainObject(op.cache)) {
-    const c = op.cache as { key?: unknown };
-    if (typeof c.key === "string" && c.key.length > 0) return;
-    errors.push(opError(opId, "operations[].cache.key", "MISSING_CACHE_KEY", "cache.key must be a non-empty string when cache is declared"));
-  } else {
-    errors.push(opError(opId, "operations[].cache.key", "MISSING_CACHE_KEY", "cache must be an object with a non-empty key"));
+  if (!Array.isArray(s.inputs)) {
+    throw new ValidationError("invalid step: missing 'inputs' array");
   }
-}
-
-/** Validate credentials[].envVar (rule 13). */
-function validateCredentials(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (!Array.isArray(op.credentials)) return;
-  for (const cred of op.credentials) {
-    if (isPlainObject(cred)) {
-      const c = cred as { envVar?: unknown };
-      if (typeof c.envVar !== "string" || c.envVar.length === 0) {
-        errors.push(opError(opId, "operations[].credentials[].envVar", "EMPTY_CREDENTIAL_ENVVAR", "credentials[].envVar must be a non-empty string"));
-      }
-    } else {
-      errors.push(opError(opId, "operations[].credentials[].envVar", "EMPTY_CREDENTIAL_ENVVAR", "credentials[] entries must be objects"));
-    }
+  if (!Array.isArray(s.outputs)) {
+    throw new ValidationError("invalid step: missing 'outputs' array");
   }
-}
-
-/** Validate operation identity fields (rule 15). */
-function validateOperationIdentity(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (typeof op.kind !== "string" || !OPERATION_KINDS.has(op.kind)) {
-    errors.push(opError(opId, "operations[].kind", "INVALID_OPERATION", `operation kind must be one of ${[...OPERATION_KINDS].join(", ")}`));
+  if (!Array.isArray(s.dependencies)) {
+    throw new ValidationError("invalid step: missing 'dependencies' array");
   }
-  if (typeof op.id !== "string" || op.id.length === 0) {
-    errors.push(opError(opId, "operations[].id", "INVALID_OPERATION", "operation id must be a non-empty string"));
-  }
-}
-
-/** Validate required operation fields (rule 15). */
-function validateOperationShape(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  validateOperationIdentity(op, opId, errors);
-  validateOperationName(op, opId, errors);
-  validateOperationExecutor(op, opId, errors);
-  validateOperationDependsOn(op, opId, errors);
-  validateOperationCredentialsArray(op, opId, errors);
-  validateOperationArtifacts(op, opId, errors);
-  validateOperationContinueOnError(op, opId, errors);
-}
-
-function validateOperationName(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (typeof op.name !== "string") {
-    errors.push(opError(opId, "operations[].name", "INVALID_OPERATION", "operation name must be a string"));
-  }
-}
-
-function validateOperationExecutor(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (!isPlainObject(op.executor)) {
-    errors.push(opError(opId, "operations[].executor", "INVALID_OPERATION", "operation executor must be an object"));
-  }
-}
-
-function validateOperationDependsOn(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (op.dependsOn == null) {
-    errors.push(opError(opId, "operations[].dependsOn", "INVALID_OPERATION", "operation dependsOn is required"));
-  } else if (!Array.isArray(op.dependsOn)) {
-    errors.push(opError(opId, "operations[].dependsOn", "INVALID_DEPENDS_ON", "operation dependsOn must be an array"));
-  }
-}
-
-function validateOperationCredentialsArray(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (!Array.isArray(op.credentials)) {
-    errors.push(opError(opId, "operations[].credentials", "INVALID_OPERATION", "operation credentials must be an array"));
-  }
-}
-
-function validateOperationArtifacts(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (!Array.isArray(op.artifacts)) {
-    errors.push(opError(opId, "operations[].artifacts", "INVALID_OPERATION", "operation artifacts must be an array"));
-  }
-}
-
-function validateOperationContinueOnError(op: PlanOperationView, opId: string | undefined, errors: ValidationErrorDetail[]): void {
-  if (typeof op.continueOnError !== "boolean") {
-    errors.push(opError(opId, "operations[].continueOnError", "INVALID_OPERATION", "operation continueOnError must be a boolean"));
-  }
-}
-
-/** Validate PlanMetadata fields: sverkaVersion (string), generatedBy (union). */
-function validateMetadata(metadata: Record<string, unknown>, errors: ValidationErrorDetail[]): void {
-  if (typeof metadata.sverkaVersion !== "string") {
-    errors.push({ field: "metadata.sverkaVersion", code: "INVALID_METADATA", message: "metadata.sverkaVersion must be a string" });
-  }
-  if (typeof metadata.generatedBy !== "string" || !GENERATED_BY_VALUES.has(metadata.generatedBy)) {
-    errors.push({ field: "metadata.generatedBy", code: "INVALID_METADATA", message: 'metadata.generatedBy must be one of "planner", "manual", "compiler"' });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
 }

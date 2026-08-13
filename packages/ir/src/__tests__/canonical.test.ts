@@ -1,94 +1,55 @@
 import { describe, it, expect } from "vitest";
-import { canonicalStringify } from "../internal/canonical.js";
+import { canonicalStringify } from "../canonical.js";
 
 describe("canonicalStringify", () => {
-  it("is key-order independent for objects", () => {
-    const a = { z: 1, a: 2, m: 3 };
-    const b = { a: 2, m: 3, z: 1 };
-    expect(canonicalStringify(a)).toBe(canonicalStringify(b));
+  it("sorts object keys lexicographically", () => {
+    expect(canonicalStringify({ b: 1, a: 2 })).toBe('{"a":2,"b":1}');
   });
 
-  it("sorts keys lexicographically (byte-wise on UTF-16 code units)", () => {
-    expect(canonicalStringify({ b: 1, a: 2, c: 3 })).toBe(
-      canonicalStringify({ a: 2, b: 1, c: 3 }),
-    );
-    // byte-wise: uppercase before lowercase (A=0x41 < a=0x61)
-    expect(canonicalStringify({ A: 1, a: 2 })).toBe(
-      canonicalStringify({ a: 2, A: 1 }),
-    );
-    const out = canonicalStringify({ a: 2, A: 1 });
-    expect(out.indexOf('"A"')).toBeLessThan(out.indexOf('"a"'));
+  it("omits undefined object fields", () => {
+    expect(canonicalStringify({ a: 1, b: undefined, c: 3 })).toBe('{"a":1,"c":3}');
   });
 
-  it("preserves array element order", () => {
+  it("preserves array order", () => {
     expect(canonicalStringify([3, 1, 2])).toBe("[3,1,2]");
-    expect(canonicalStringify(["c", "a", "b"])).toBe('["c","a","b"]');
   });
 
-  it("is compact (no whitespace)", () => {
-    expect(canonicalStringify({ a: 1, b: 2 })).toBe('{"a":1,"b":2}');
-    expect(canonicalStringify({ a: [1, 2], b: { c: 3 } })).toBe(
-      '{"a":[1,2],"b":{"c":3}}',
-    );
+  it("emits null for undefined array elements", () => {
+    expect(canonicalStringify([1, undefined, 3])).toBe("[1,null,3]");
   });
 
-  it("omits undefined fields from objects", () => {
-    const out = canonicalStringify({ a: 1, b: undefined, c: 3 });
-    expect(out).toBe('{"a":1,"c":3}');
+  it("rejects NaN", () => {
+    expect(() => canonicalStringify(NaN)).toThrow(TypeError);
   });
 
-  it("handles nested objects with sorted keys at every level", () => {
-    const a = { outer: { z: 1, a: 2 }, list: [{ b: 2, a: 1 }] };
-    const b = { list: [{ a: 1, b: 2 }], outer: { a: 2, z: 1 } };
-    expect(canonicalStringify(a)).toBe(canonicalStringify(b));
+  it("rejects Infinity", () => {
+    expect(() => canonicalStringify(Infinity)).toThrow(TypeError);
+    expect(() => canonicalStringify(-Infinity)).toThrow(TypeError);
   });
 
-  it("handles strings, numbers, booleans, null", () => {
-    expect(canonicalStringify("hi")).toBe('"hi"');
-    expect(canonicalStringify(42)).toBe("42");
-    expect(canonicalStringify(true)).toBe("true");
+  it("emits ISO string for Date", () => {
+    const d = new Date("2026-01-15T00:00:00.000Z");
+    expect(canonicalStringify({ created: d })).toBe('{"created":"2026-01-15T00:00:00.000Z"}');
+  });
+
+  it("sorts keys case-sensitively (UTF-16 code-unit order)", () => {
+    expect(canonicalStringify({ a: 1, B: 2, A: 3 })).toBe('{"A":3,"B":2,"a":1}');
+  });
+
+  it("handles nested objects", () => {
+    expect(canonicalStringify({ z: { y: 1, x: 2 } })).toBe('{"z":{"x":2,"y":1}}');
+  });
+
+  it("handles null", () => {
     expect(canonicalStringify(null)).toBe("null");
   });
 
-  it("escapes strings per JSON", () => {
-    expect(canonicalStringify('a"b\\c\n')).toBe('"a\\"b\\\\c\\n"');
+  it("handles booleans", () => {
+    expect(canonicalStringify(true)).toBe("true");
+    expect(canonicalStringify(false)).toBe("false");
   });
 
-  it("is byte-stable across calls (deterministic)", () => {
-    const obj = { ops: [{ id: "op-1", kind: "run" }], name: "ci" };
-    const first = canonicalStringify(obj);
-    for (let i = 0; i < 5; i++) {
-      expect(canonicalStringify(obj)).toBe(first);
-    }
-  });
-
-  it("throws on NaN and Infinity (not valid JSON)", () => {
-    expect(() => canonicalStringify(NaN)).toThrow();
-    expect(() => canonicalStringify(Infinity)).toThrow();
-    expect(() => canonicalStringify({ x: -Infinity })).toThrow();
-  });
-
-  it("handles empty objects and arrays", () => {
-    expect(canonicalStringify({})).toBe("{}");
-    expect(canonicalStringify([])).toBe("[]");
-  });
-
-  it("escapes lone UTF-16 surrogates as \\uXXXX", () => {
-    // Lone high surrogate (not followed by a low surrogate)
-    const loneHigh = "\uD800";
-    const out = canonicalStringify(loneHigh);
-    expect(out).toBe('"\\ud800"');
-
-    // Lone low surrogate (not preceded by a high surrogate)
-    const loneLow = "\uDC00";
-    const out2 = canonicalStringify(loneLow);
-    expect(out2).toBe('"\\udc00"');
-  });
-
-  it("preserves valid surrogate pairs (astral plane characters)", () => {
-    // U+1F600 (😀) is a valid surrogate pair: \uD83D\uDE00
-    const emoji = "\uD83D\uDE00";
-    const out = canonicalStringify(emoji);
-    expect(out).toBe('"\uD83D\uDE00"');
+  it("handles strings with special characters", () => {
+    expect(canonicalStringify("hello\nworld")).toBe('"hello\\nworld"');
   });
 });

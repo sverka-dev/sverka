@@ -1,30 +1,38 @@
-/**
- * Base error class for the ir package. All IR errors extend this so callers
- * can catch the full family with a single `instanceof IRError`.
- */
+// Error classes for @sverka/ir.
+// Spec 06 — Error handling.
+
+export type IRErrorCode = "VALIDATION_ERROR" | "SERIALIZATION_ERROR";
+
 export class IRError extends Error {
+  override readonly cause: unknown;
+  readonly code: IRErrorCode;
+
   constructor(
     message: string,
-    readonly code: string,
-    readonly context?: Record<string, unknown>,
+    code: IRErrorCode,
+    cause?: unknown,
   ) {
     super(message);
     this.name = "IRError";
+    this.code = code;
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
   }
 }
 
-/** Raised when a Plan fails schema validation. */
+/** Raised when a graph or run plan fails schema or semantic validation. */
 export class ValidationError extends IRError {
-  constructor(message: string, context?: Record<string, unknown>) {
-    super(message, "VALIDATION_ERROR", context);
+  constructor(message: string, cause?: unknown) {
+    super(message, "VALIDATION_ERROR", cause);
     this.name = "ValidationError";
   }
 }
 
-/** Raised when Plan (de)serialization fails (malformed JSON, parse errors). */
+/** Raised when JSON (de)serialization fails (malformed JSON, NaN/Infinity). */
 export class SerializationError extends IRError {
-  constructor(message: string, context?: Record<string, unknown>) {
-    super(message, "SERIALIZATION_ERROR", context);
+  constructor(message: string, cause?: unknown) {
+    super(message, "SERIALIZATION_ERROR", cause);
     this.name = "SerializationError";
   }
 }

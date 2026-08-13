@@ -1,23 +1,20 @@
-// @sverka/ir — public API
+// @sverka/ir — public API. Spec 06.
 
-export { type Plan, type PlanOperation, type PlanMetadata } from "./plan.js";
+export type { SerializableGraph } from "./serialize.js";
+export type { RunPlan, BoundEntry, InputValue } from "./run-plan.js";
+
 export {
-  type ExecutorSpec,
-  type RemoteExecutorRef,
-  type ResourceLimits,
-  type NetworkPolicy,
-  type CredentialDeclaration,
-  type CacheDeclaration,
-  type ArtifactDeclaration,
-  type RetryPolicy,
-} from "./plan.js";
-export {
-  type PlanValidator,
-  type ValidationResult,
-  type ValidationErrorDetail,
-  validatePlan,
-} from "./validate.js";
-export { serializePlan, deserializePlan } from "./serialize.js";
-export { computePlanId, computeOperationId } from "./ids.js";
+  serializeGraph,
+  deserializeGraph,
+  serializeRunPlan,
+  deserializeRunPlan,
+} from "./serialize.js";
+
+export { computeGraphId, computeRunPlanId } from "./ids.js";
+
+export { validateGraphSchema, validateRunPlanSchema } from "./validate.js";
+
 export { IRError, ValidationError, SerializationError } from "./errors.js";
-export { PLAN_SCHEMA_VERSION } from "./version.js";
+export type { IRErrorCode } from "./errors.js";
+
+export { GRAPH_SCHEMA_VERSION, RUN_PLAN_SCHEMA_VERSION } from "./version.js";
