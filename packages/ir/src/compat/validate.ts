@@ -198,15 +198,17 @@ const ISO_TZ_RE = /^(Z|[+-]\d{2}:?\d{2})$/;
 
 function isValidIso8601(s: string): boolean {
   if (ISO_DATE_RE.test(s)) return !Number.isNaN(Date.parse(s));
-  if (!ISO_DATETIME_RE.test(s)) return false;
-  const rest = s.slice(ISO_DATETIME_RE.source.length - 1);
+  const m = ISO_DATETIME_RE.exec(s);
+  if (!m) return false;
+  const rest = s.slice(m[0].length);
   let offset = 0;
   if (rest.startsWith(".")) {
-    const m = ISO_FRACTION_RE.exec(rest);
-    if (!m) return false;
-    offset = m[0].length;
+    const fm = ISO_FRACTION_RE.exec(rest);
+    if (!fm) return false;
+    offset = fm[0].length;
   }
   const tz = rest.slice(offset);
+  if (tz === "") return !Number.isNaN(Date.parse(s));
   return ISO_TZ_RE.test(tz) && !Number.isNaN(Date.parse(s));
 }
 
