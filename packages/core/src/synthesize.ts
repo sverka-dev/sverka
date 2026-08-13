@@ -12,7 +12,7 @@ import {
 import type {
   DefinitionGraph,
   PipelineDefinition,
-  PipelineInputDefinition,
+  Input,
   EntryDefinition,
   StepDefinition,
   OperationDefinition,
@@ -80,11 +80,9 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
 
   // Collect pipeline-level outputs from all steps, preserving name + producer.
   const outputs: PipelineOutputDefinition[] = steps.flatMap((s) =>
-    s.outputs.map((o) => ({ ...o, stepId: s.id })),
+    [...s.outputs.entries()].map(([name, decl]) => ({ ...decl, name, stepId: s.id })),
   );
-  const inputs: PipelineInputDefinition[] = [...pipeline.inputs.entries()].map(
-    ([name, decl]) => ({ ...decl, name }),
-  );
+  const inputs: Record<string, Input> = Object.fromEntries(pipeline.inputs);
 
   // Validate.
   validateOutputCollisions(steps);

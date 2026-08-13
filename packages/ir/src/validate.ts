@@ -234,7 +234,10 @@ function validateGraphStructure(value: unknown): void {
 function validatePipelineStructure(value: unknown): void {
   const p = requireObject(value, "invalid pipeline: expected object");
   requireNonEmptyString(p, "id", "invalid pipeline: missing 'id'");
-  for (const input of requireArray(p, "inputs", "invalid pipeline: missing 'inputs' array")) {
+  if (typeof p.inputs !== "object" || p.inputs === null || Array.isArray(p.inputs)) {
+    throw new ValidationError("invalid pipeline: missing 'inputs' object");
+  }
+  for (const input of Object.values(p.inputs as Record<string, unknown>)) {
     validatePipelineInput(input);
   }
   for (const entry of requireArray(p, "entries", "invalid pipeline: missing 'entries' array")) {
