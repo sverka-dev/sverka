@@ -9,10 +9,6 @@ import type { Plan } from "@sverka/ir";
 import { validatePlan } from "@sverka/ir";
 import { createPlanner } from "@sverka/planner";
 import type { ProjectContext } from "@sverka/planner";
-import { Scheduler } from "@sverka/runtime";
-import type { Executor, ExecutionResult as RuntimeExecutionResult } from "@sverka/runtime";
-import { HostExecutor, createAllowlist } from "@sverka/runtime-host";
-import { DockerExecutor } from "@sverka/runtime-docker";
 import { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/policy";
 import type { Policy } from "@sverka/policy";
 import { loadBaseline, filterOnlyNew } from "@sverka/findings";
@@ -31,6 +27,20 @@ import { SdkError } from "./errors.js";
 import { findConfig, loadWorkflow } from "./compat/config.js";
 import { convertToPlan } from "./compat/convert.js";
 import { PlanRuntime } from "./compat/internal/plan-runtime.js";
+
+// Lazy types for runtime packages that may not exist on all waves.
+// These are dynamically imported in runPlan() to avoid hard deps.
+type Scheduler = {
+  execute(plan: Plan): Promise<RuntimeExecutionResult>;
+  dispose(): Promise<void>;
+};
+type Executor = unknown;
+type RuntimeExecutionResult = {
+  status: string;
+  outcomes: Record<string, unknown>;
+  durationMs: number;
+  runtimeFailure?: unknown;
+};
 
 /**
  * Create a Sverka instance with default options pre-applied. Per-call
@@ -244,8 +254,11 @@ async function runPlan(
   const cacheDir = mkdtempSync(join(tmpdir(), "sverka-cache-"));
 
   try {
-    const executor = createExecutor(executorType, cacheDir, plan.operations);
-    const scheduler = new Scheduler({
+    // Lazy import: @sverka/runtime may not exist on later waves (replaced
+    // by @sverka/engine-native). The execute path dynamically imports it.
+    const { Scheduler } = await import("@sverka/runtime");
+    const executor = await createExecutor(executorType, cacheDir, plan.operations);
+    const scheduler: Scheduler = new Scheduler({
       executors: [executor],
       maxConcurrent: 4,
       workspace: root,
@@ -253,10 +266,10 @@ async function runPlan(
       cacheDir,
       credentials: {},
       resume: false,
-    });
+    } as unknown as ConstructorParameters<typeof Scheduler>[0]);
 
     try {
-      const runtimeResult = await scheduler.execute(plan);
+      const runtimeResult = await scheduler.execute(plan) as RuntimeExecutionResult;
       const findings = await extractResolvedFindings(resolvedChecks, artifactDir);
       return { runtimeResult, findings };
     } catch (e) {
@@ -376,17 +389,19 @@ function isWorkflow(wf: Workflow | Operation): wf is Workflow {
   return "roots" in wf && "plan" in wf;
 }
 
-function createExecutor(
+async function createExecutor(
   type: "host" | "docker",
   cacheDir: string,
   operations: readonly { command?: string }[],
-): Executor {
+): Promise<Executor> {
   if (type === "docker") {
+    const { DockerExecutor } = await import("@sverka/runtime-docker");
     return new DockerExecutor({
       runAs: `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
       cacheDir,
     });
   }
+  const { HostExecutor, createAllowlist } = await import("@sverka/runtime-host");
   const commands = operations
     .map((op) => op.command)
     .filter((c): c is string => typeof c === "string" && c.length > 0);
