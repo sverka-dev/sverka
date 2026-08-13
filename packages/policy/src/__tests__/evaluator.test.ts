@@ -111,6 +111,27 @@ describe("failOn rules", () => {
     expect(r.triggered).toHaveLength(0);
   });
 
+  it("checkIds filter matches rule-qualified finding checkIds", () => {
+    const f = makeFinding({ checkId: "check-a:rule-1", severity: "high" });
+    const policy = createPolicy({
+      failOn: [{ severity: "high", onlyNew: false, checkIds: ["check-a"] }],
+    });
+    const r = evaluatePolicy([f], policy, []);
+    expect(r.verdict).toBe("fail");
+    expect(r.triggered).toHaveLength(1);
+    expect(r.triggered[0]?.finding.checkId).toBe("check-a:rule-1");
+  });
+
+  it("checkIds filter accepts checks/ prefix", () => {
+    const f = makeFinding({ checkId: "check-a:rule-1", severity: "high" });
+    const policy = createPolicy({
+      failOn: [{ severity: "high", onlyNew: false, checkIds: ["checks/check-a"] }],
+    });
+    const r = evaluatePolicy([f], policy, []);
+    expect(r.verdict).toBe("fail");
+    expect(r.triggered[0]?.finding.checkId).toBe("check-a:rule-1");
+  });
+
   it("multiple failOn rules evaluated independently", () => {
     const low = findingAt("low");
     const crit = findingAt("critical");

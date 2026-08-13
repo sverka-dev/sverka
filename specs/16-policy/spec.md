@@ -39,6 +39,7 @@ import type { Policy } from "./types.js";
 interface PolicyVerification {
   readonly valid: boolean;
   readonly unknownCheckIds: readonly string[];
+  readonly errors?: readonly string[];
 }
 
 function verifyPolicyAgainstGraph(policy: Policy, graph: DefinitionGraph): PolicyVerification;
@@ -55,11 +56,20 @@ export type { PolicyVerification };
 ## Data models
 
 **Verification**: `verifyPolicyAgainstGraph` collects all `checkIds`
-referenced across all `failOn` rules in the policy. It then checks each
-against the step IDs in the graph's pipelines. A check ID matches if a
-step with that ID exists (typically `checks/<checkId>`). Unknown check
-IDs are collected and returned. `valid` is `true` when no unknown check
-IDs are found.
+referenced across all `failOn` rules in the policy. A policy `checkId`
+matches a graph step when it is equal to the bare check id or to the
+`checks/<checkId>` step id; e.g., both `typecheck` and `checks/typecheck`
+match a step whose id is `checks/typecheck`. Only steps whose IDs start
+with `checks/` are considered checks. Unknown check IDs are collected
+and returned. `valid` is `true` when no unknown check IDs are found.
+
+**Policy checkId matching scope**: `failOn[].checkIds` identify checks,
+not individual rules. Findings produced by a check have a `checkId` of
+`<checkId>:<ruleId>` (or `checks/<checkId>:<ruleId>`). A `checkId`
+value in a policy rule matches a finding when the bare check ids are
+equal or when the finding's checkId starts with `<policyCheckId>:`.
+`evaluatePolicy` normalizes `checks/` prefixes and rule-qualified
+finding ids consistently with `verifyPolicyAgainstGraph`.
 
 ## Error handling
 
@@ -69,7 +79,8 @@ Reuses existing `PolicyError` with codes:
 
 `verifyPolicyAgainstGraph` does not throw — it returns a
 `PolicyVerification` with `valid: false` and the list of unknown check
-IDs.
+IDs. Structural errors in the policy or graph are returned in the
+optional `errors` field of `PolicyVerification`.
 
 ## Test plan
 

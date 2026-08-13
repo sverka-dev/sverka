@@ -78,9 +78,10 @@ export async function extractFindings(
       );
     }
     try {
+      const checkIdPrefix = checkId.startsWith("checks/") ? checkId.slice(7) : checkId;
       const ctx: NormalizeContext = {
         root: artifactDir,
-        checkIdPrefix: checkId,
+        checkIdPrefix,
         defaultConfidence: 0.5,
       };
       const result = normalizeSarif(parsed as SarifLog, ctx);
