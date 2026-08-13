@@ -14,9 +14,9 @@ export interface CommandAllowlist {
 /**
  * Create a command allowlist from a list of entries.
  *
- * Matching rule:
- * - Bare-name entries match the command exactly or its basename.
- * - Absolute-path entries match only the exact path.
+ * Matching rule: an entry matches a command if:
+ * (a) the entry is an absolute path and equals the command exactly, or
+ * (b) the entry is a bare name and equals the command's basename.
  *
  * No globs. No partial matches. Empty list → nothing allowed.
  */
@@ -31,7 +31,7 @@ export function createAllowlist(entries: readonly string[]): CommandAllowlist {
         if (isAbsolute(entry)) {
           return entry === command;
         }
-        return entry === command || entry === cmdBasename;
+        return entry === cmdBasename;
       });
     },
   };

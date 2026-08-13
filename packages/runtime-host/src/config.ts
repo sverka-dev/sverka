@@ -1,11 +1,13 @@
 import type { CommandAllowlist } from "./allowlist.js";
 
 /**
- * Configuration for the host runtime driver.
- * Spec 11 — Interfaces.
+ * Configuration for the host process executor.
+ *
+ * `workspace` and `artifactDir` are NOT here — they arrive per-execution via
+ * `ExecuteRequest`. This config is executor-wide.
  */
-export interface HostDriverConfig {
-  /** Must be true to enable the host driver. Defaults to false. */
+export interface HostExecutorConfig {
+  /** Must be true to enable the host executor. Defaults to false. */
   readonly enabled: boolean;
   /** Allowlist of binary names or absolute paths that may be executed. */
   readonly allowlist: CommandAllowlist;
@@ -15,4 +17,6 @@ export interface HostDriverConfig {
   readonly env?: Readonly<Record<string, string>>;
   /** Maximum log size in bytes before truncation. Defaults to 10 MiB. */
   readonly maxLogBytes?: number;
+  /** Default uid to run as. Defaults to current user. Not elevated. */
+  readonly runAsUid?: number;
 }

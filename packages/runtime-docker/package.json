@@ -19,9 +19,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/engine-native": "workspace:*",
-    "@sverka/ir": "workspace:*",
-    "@sverka/core": "workspace:*"
+    "@sverka/runtime": "workspace:*",
+    "@sverka/ir": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",
