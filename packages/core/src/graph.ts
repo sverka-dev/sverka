@@ -19,12 +19,20 @@ export interface ProjectDefinition {
   readonly pipelines: readonly PipelineDefinition[];
 }
 
+export interface OutputDefinition extends OutputDeclaration {
+  readonly name: string;
+}
+
+export interface PipelineOutputDefinition extends OutputDefinition {
+  readonly stepId: string;
+}
+
 export interface PipelineDefinition {
   readonly id: string;
   readonly inputs: readonly Input[];
   readonly entries: readonly EntryDefinition[];
   readonly steps: readonly StepDefinition[];
-  readonly outputs: readonly OutputDeclaration[];
+  readonly outputs: readonly PipelineOutputDefinition[];
 }
 
 export interface EntryDefinition {
@@ -38,7 +46,7 @@ export interface StepDefinition {
   readonly runtime: Runtime;
   readonly operations: readonly OperationDefinition[];
   readonly inputs: readonly Reference[];
-  readonly outputs: readonly OutputDeclaration[];
+  readonly outputs: readonly OutputDefinition[];
   readonly dependencies: readonly Dependency[];
   readonly timeout?: number;
   readonly condition?: Reference;
@@ -60,8 +68,7 @@ export type OperationDefinition =
       readonly severity: "info" | "warn" | "error";
     };
 
-export interface Dependency {
-  readonly kind: "control" | "value" | "artifact";
-  readonly producer: string; // StepDefinition id that produces
-  readonly output?: string; // output name (for value/artifact)
-}
+export type Dependency =
+  | { readonly kind: "control"; readonly producer: string }
+  | { readonly kind: "value"; readonly producer: string; readonly output: string }
+  | { readonly kind: "artifact"; readonly producer: string; readonly output: string };

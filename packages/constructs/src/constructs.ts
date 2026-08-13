@@ -1,7 +1,6 @@
 // Construct classes: Project, Pipeline, Step, ShellStep, Entry.
 // Spec 01 — §9.1, §10.
 
-import { Construct } from "constructs";
 import { SverkaConstruct } from "./base.js";
 import { ConstructError } from "./errors.js";
 import type {
@@ -11,6 +10,25 @@ import type {
   Runtime,
   Trigger,
 } from "./model.js";
+
+function isDuplicateConstructError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("There is already a Construct");
+}
+
+function validateArtifactOutputs(
+  outputs: Readonly<Record<string, OutputDeclaration>> | undefined,
+  id: string,
+): void {
+  if (!outputs) return;
+  for (const [name, decl] of Object.entries(outputs)) {
+    if (decl.type === "artifact" && !decl.path) {
+      throw new ConstructError(
+        "INVALID_OUTPUT",
+        `Artifact output '${name}' on step '${id}' must have a path`,
+      );
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Project — root of the construct tree (scope = undefined).
@@ -44,7 +62,10 @@ export class Pipeline extends SverkaConstruct {
     try {
       super(scope, id);
     } catch (err) {
-      throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Project`, err);
+      if (isDuplicateConstructError(err)) {
+        throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Project`, err);
+      }
+      throw err;
     }
     this.inputs = props?.inputs
       ? new Map(Object.entries(props.inputs))
@@ -78,10 +99,14 @@ export abstract class Step extends SverkaConstruct {
         "Step must be created under a Pipeline",
       );
     }
+    validateArtifactOutputs(props.outputs, id);
     try {
       super(scope, id);
     } catch (err) {
-      throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Pipeline`, err);
+      if (isDuplicateConstructError(err)) {
+        throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Pipeline`, err);
+      }
+      throw err;
     }
     this.runtime = props.runtime ?? {};
     this.outputs = props.outputs
@@ -91,16 +116,6 @@ export abstract class Step extends SverkaConstruct {
     this.dependsOn = props.dependsOn ? [...props.dependsOn] : [];
     if (props.timeout !== undefined) {
       this.timeout = props.timeout;
-    }
-
-    // Validate artifact outputs have a path.
-    for (const [name, decl] of this.outputs) {
-      if (decl.type === "artifact" && !decl.path) {
-        throw new ConstructError(
-          "INVALID_OUTPUT",
-          `Artifact output '${name}' on step '${this.node.path}' must have a path`,
-        );
-      }
     }
   }
 }
@@ -145,7 +160,10 @@ export class Entry extends SverkaConstruct {
     try {
       super(scope, id);
     } catch (err) {
-      throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Pipeline`, err);
+      if (isDuplicateConstructError(err)) {
+        throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Pipeline`, err);
+      }
+      throw err;
     }
     this.trigger = props.trigger;
     this.roots = [...props.roots];
