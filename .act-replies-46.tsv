@@ -1,0 +1,25 @@
+PRRT_kwDOTyoI9s6Yxvtr	Implemented a shared per-class metadata store: @pipeline writes the metadata object to the class constructor via Symbol.for('sverka:pipeline:metadata'), and all field/method decorators use context.addInitializer to register on the same constructor metadata object when context.metadata is unavailable.
+PRRT_kwDOTyoI9s6Yxvtu	Instantiation is wrapped in a try/catch that throws a DecoratorError with code INVALID_FIELD, identifying the pipeline class name.
+PRRT_kwDOTyoI9s6Yxvtv	Method-based planning is intentional: the planning context exposes only this.sh and the method is invoked with that context. Arbitrary side effects are constrained by the API surface and documented in the spec.
+PRRT_kwDOTyoI9s6Yxvtw	Dead helper functions and registry.ts were removed; input and field registration now flows through registerField/registerFieldOnMetadata.
+PRRT_kwDOTyoI9s6Yxvty	Input validation now checks the value is an object, validates type is one of 'string'/'number'/'boolean', and validates optional required/secret/description/default fields, throwing DecoratorError INVALID_FIELD.
+PRRT_kwDOTyoI9s6YxwlN	@output was removed from the public API for v0 because pipeline-level output declarations are not supported in this wave; step outputs are configured via StepOptions.outputs or StepBuilder.outputs.
+PRRT_kwDOTyoI9s6YxwlQ	StepBuilder steps now apply decorator options via applyOptionsToBuilder, which chains runtime, timeout, outputs, and dependsOn before build().
+PRRT_kwDOTyoI9s6YxwlT	Method-based @step is implemented: decorator overloads accept ClassMethodDecoratorContext, the instance method value is detected in createStepFromField, and evaluateMethodStep runs it with a PlanningContext providing this.sh.
+PRRT_kwDOTyoI9s6YxwpE	Implemented a shared per-class metadata store: @pipeline writes the metadata object to the class constructor via Symbol.for('sverka:pipeline:metadata'), and all field/method decorators use context.addInitializer to register on the same constructor metadata object when context.metadata is unavailable.
+PRRT_kwDOTyoI9s6YxwpN	@step(options) is implemented as an overloaded factory: step(options) validates options and returns a StepDecorator that can be applied to fields or methods.
+PRRT_kwDOTyoI9s6YxwpQ	@output was removed from the public API for v0 because pipeline-level output declarations are not supported in this wave; step outputs are configured via StepOptions.outputs or StepBuilder.outputs.
+PRRT_kwDOTyoI9s6Yxw42	Implemented a shared per-class metadata store: @pipeline writes the metadata object to the class constructor via Symbol.for('sverka:pipeline:metadata'), and all field/method decorators use context.addInitializer to register on the same constructor metadata object when context.metadata is unavailable.
+PRRT_kwDOTyoI9s6Yxw43	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
+PRRT_kwDOTyoI9s6Yxw45	StepOptions-to-ShellStep mapping is centralized in stepProps and applyOptionsToBuilder helpers to keep the two synthesis paths consistent.
+PRRT_kwDOTyoI9s6Yxw47	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
+PRRT_kwDOTyoI9s6Yxw48	Dead helper functions and registry.ts were removed; input and field registration now flows through registerField/registerFieldOnMetadata.
+PRRT_kwDOTyoI9s6YxyTf	createStepFromField has been decomposed into stepProps, applyOptionsToBuilder, evaluateMethodStep, isStepBuilder, and isReference, keeping each helper single-purpose.
+PRRT_kwDOTyoI9s6YxyTs	The spec and tests were aligned to use MISSING_INITIALIZER for a @step field without an initializer.
+PRRT_kwDOTyoI9s6Yxywd	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
+PRRT_kwDOTyoI9s6Yxywf	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
+PRRT_kwDOTyoI9s6Yxywi	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
+PRRT_kwDOTyoI9s6Yxywm	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
+PRRT_kwDOTyoI9s6Yxywo	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
+PRRT_kwDOTyoI9s6Yxywp	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
+PRRT_kwDOTyoI9s6Yxywr	Addressed in this push: decorators now support field and method steps, options application, input validation, shared metadata, and spec/test alignment.
