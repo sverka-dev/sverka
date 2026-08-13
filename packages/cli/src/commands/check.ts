@@ -3,8 +3,14 @@
 
 import { createPlanner } from "@sverka/planner";
 import { createBuiltinResolver, synthesizeCheckSteps } from "@sverka/checks";
+import type { OperationDefinition } from "@sverka/core";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
+
+function getShellCommand(ops: readonly OperationDefinition[]): string {
+  const op = ops.find((o) => o.kind === "shell");
+  return op?.kind === "shell" ? op.command : "n/a";
+}
 
 /**
  * Discover project, plan proposed checks, resolve to StepDefinitions.
@@ -29,7 +35,7 @@ export async function checkCommand(
         command: "check",
         data: {
           proposed: proposal.checks.map((c) => c.checkId),
-          resolved: steps.map((s) => ({ id: s.id, command: (s.operations[0] as { command: string }).command })),
+          resolved: steps.map((s) => ({ id: s.step.id, command: getShellCommand(s.step.operations) })),
         },
         durationMs,
       }),
@@ -40,9 +46,8 @@ export async function checkCommand(
       output.writeLine(`  - ${check.checkId} (priority: ${check.priority})`);
     }
     output.writeLine(`Resolved steps: ${steps.length}`);
-    for (const step of steps) {
-      const cmd = (step.operations[0] as { command: string }).command;
-      output.writeLine(`  - ${step.id}: ${cmd}`);
+    for (const resolved of steps) {
+      output.writeLine(`  - ${resolved.step.id}: ${getShellCommand(resolved.step.operations)}`);
     }
   }
 

@@ -32,7 +32,9 @@ export interface StepExecResult {
 export async function executeStep(opts: StepExecOptions): Promise<StepExecResult> {
   const start = Date.now();
   const { step, workspace, isCancelled } = opts;
-  const stepWorkspace = resolveUnder(workspace, step.id);
+  // Keep per-step scratch directories inside .sverka/workspace but run commands
+  // from the project root so project-relative tooling works as expected.
+  const stepWorkspace = resolveUnder(workspace, join(".sverka", "workspace", step.id));
   const outputDir = join(stepWorkspace, ".outputs");
 
   try {
@@ -237,6 +239,12 @@ function parseOutputValue(content: string, type: string): InputValue {
     return trimmed === "true";
   }
   return trimmed;
+}
+
+function resolveCwd(base: string, workingDir: string | undefined): string {
+  if (!workingDir) return base;
+  if (isAbsolute(workingDir)) return workingDir;
+  return resolveUnder(base, workingDir);
 }
 
 function resolveUnder(base: string, subpath: string): string {

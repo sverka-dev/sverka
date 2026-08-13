@@ -2,14 +2,15 @@
 // Spec 17 — §30.
 
 import { join } from "node:path";
-import { synthesize } from "@sverka/core";
-import { bindRunPlan } from "@sverka/planner";
+import type { RuntimeDriver } from "@sverka/engine-native";
 import { createEngine, type RunEvent } from "@sverka/engine-native";
 import { createHostDriver, type CommandAllowlist } from "@sverka/runtime-host";
+import { createDockerDriver } from "@sverka/runtime-docker";
+import { bindRunPlan } from "@sverka/planner";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
-import { resolveUnderRoot } from "../internal/paths.js";
-import { findConfig, loadConfig } from "../internal/config.js";
+import { loadProjectGraph } from "../internal/config.js";
+import { resolveDefaultEntryId } from "../internal/graph.js";
 import { isBinaryAvailable } from "../internal/runtime-check.js";
 
 export interface RunArgs {
@@ -37,36 +38,19 @@ export async function runCommand(
     );
   }
 
-  let configPath: string | null = global.config
-    ? resolveUnderRoot(global.root, global.config)
-    : null;
-  if (!configPath) {
-    configPath = await findConfig(global.root);
-  }
-  if (!configPath) {
-    throw new CliError(
-      "no config found (use --config to specify a path)",
-      "MISSING_ARG",
-      ExitCode.UsageError,
-    );
-  }
+  const { graph } = await loadProjectGraph(global);
 
-  const project = await loadConfig(configPath);
-  const graph = synthesize(project);
-
-  const pipeline = graph.project.pipelines[0];
-  if (!pipeline) {
-    throw new CliError("no pipelines in config", "SDK_ERROR", ExitCode.RuntimeError);
-  }
-
-  const entryId = args.entryId ?? pipeline.entries[0]?.id;
+  const entryId = args.entryId ?? resolveDefaultEntryId(graph);
   if (!entryId) {
-    throw new CliError("no entries in pipeline", "MISSING_ARG", ExitCode.UsageError);
+    throw new CliError("no entries in graph", "MISSING_ARG", ExitCode.UsageError);
   }
 
   const plan = bindRunPlan({ graph, entryId });
 
-  const workspace = join(global.root, ".sverka", "workspace");
+  // Use the project root as the engine workspace so executed commands run
+  // against the checked-out project. The engine places per-step scratch
+  // directories under .sverka/workspace inside the root.
+  const workspace = global.root;
   const artifactDir = join(global.root, ".sverka", "artifacts");
 
   // Permissive allowlist: the CLI trusts the user's config.
@@ -80,16 +64,32 @@ export async function runCommand(
   const hostDriver = createHostDriver({
     enabled: true,
     allowlist: permissiveAllowlist,
-    envAllowlist: [],
+    envAllowlist: [
+      "PATH",
+      "HOME",
+      "USER",
+      "SHELL",
+      "TMPDIR",
+      "XDG_CONFIG_HOME",
+      "XDG_CACHE_HOME",
+      "XDG_DATA_HOME",
+      "XDG_STATE_HOME",
+      "XDG_RUNTIME_DIR",
+    ],
   });
 
+  const drivers: RuntimeDriver[] = [hostDriver];
+  if (executor === "docker") {
+    drivers.push(createDockerDriver({}));
+  }
+
   const engine = createEngine({
-    drivers: [hostDriver],
+    drivers,
     maxConcurrent: 4,
   });
 
   const events: RunEvent[] = [];
-  let runStatus: string = "success";
+  let runStatus = "failure";
 
   for await (const event of engine.run({
     plan,
@@ -118,9 +118,9 @@ export async function runCommand(
     output.writeLine(`Run completed: ${runStatus} (${events.length} events, ${durationMs}ms)`);
   }
 
+  if (runStatus === "success") return ExitCode.Success;
   if (runStatus === "failure") return ExitCode.PolicyFail;
-  if (runStatus === "cancelled") return ExitCode.RuntimeError;
-  return ExitCode.Success;
+  return ExitCode.RuntimeError;
 }
 
 function printEvent(event: RunEvent, output: OutputWriter): void {

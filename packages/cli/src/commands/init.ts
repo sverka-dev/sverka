@@ -4,6 +4,8 @@ import { dirname, isAbsolute, join } from "node:path";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import type { WriteFileOptions } from "node:fs";
+import { detectPackageManager, ensureConstructsDependency } from "../internal/config.js";
+import type { PmName } from "../internal/config.js";
 
 /** Args parsed for the init command. */
 export interface InitArgs {
@@ -11,39 +13,41 @@ export interface InitArgs {
   force?: boolean;
 }
 
-// Build template content with array.join to avoid Codacy "template string"
-// warnings on multi-line literals that have no interpolation.
-const MINIMAL_TEMPLATE = [
-  'import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";',
-  "",
-  'const proj = new Project("verify");',
-  'const ci = new Pipeline(proj, "ci");',
-  'new ShellStep(ci, "lint", { command: "bun run lint" });',
-  'new ShellStep(ci, "typecheck", { command: "bun run typecheck" });',
-  'new ShellStep(ci, "test", { command: "bun run test" });',
-  'new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["lint", "typecheck", "test"] });',
-  "",
-  "export default proj;",
-  "",
-].join("\n");
+function buildMinimalTemplate(pm: PmName): string {
+  return [
+    'import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";',
+    "",
+    'const proj = new Project("verify");',
+    'const ci = new Pipeline(proj, "ci");',
+    `new ShellStep(ci, "lint", { command: "${pm} run lint" });`,
+    `new ShellStep(ci, "typecheck", { command: "${pm} run typecheck" });`,
+    `new ShellStep(ci, "test", { command: "${pm} run test" });`,
+    'new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["lint", "typecheck", "test"] });',
+    "",
+    "export default proj;",
+    "",
+  ].join("\n");
+}
 
-const FULL_TEMPLATE = [
-  'import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";',
-  "",
-  'const proj = new Project("verify");',
-  'const ci = new Pipeline(proj, "ci");',
-  'new ShellStep(ci, "lint", { command: "bun run lint" });',
-  'new ShellStep(ci, "typecheck", { command: "bun run typecheck" });',
-  'new ShellStep(ci, "test", { command: "bun run test" });',
-  'new ShellStep(ci, "build", { command: "bun run build" });',
-  'new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["lint", "typecheck", "test", "build"] });',
-  "",
-  "export default proj;",
-  "",
-].join("\n");
+function buildFullTemplate(pm: PmName): string {
+  return [
+    'import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";',
+    "",
+    'const proj = new Project("verify");',
+    'const ci = new Pipeline(proj, "ci");',
+    `new ShellStep(ci, "lint", { command: "${pm} run lint" });`,
+    `new ShellStep(ci, "typecheck", { command: "${pm} run typecheck" });`,
+    `new ShellStep(ci, "test", { command: "${pm} run test" });`,
+    `new ShellStep(ci, "build", { command: "${pm} run build" });`,
+    'new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["lint", "typecheck", "test", "build"] });',
+    "",
+    "export default proj;",
+    "",
+  ].join("\n");
+}
 
 /** Resolve and validate the template name, returning its file content. */
-function resolveTemplateContent(template: string): string {
+function resolveTemplateContent(template: string, pm: PmName): string {
   if (template !== "minimal" && template !== "full") {
     throw new CliError(
       `invalid template: ${template} (expected minimal|full)`,
@@ -51,7 +55,7 @@ function resolveTemplateContent(template: string): string {
       ExitCode.UsageError,
     );
   }
-  return template === "full" ? FULL_TEMPLATE : MINIMAL_TEMPLATE;
+  return template === "full" ? buildFullTemplate(pm) : buildMinimalTemplate(pm);
 }
 
 /** Write the config file, creating parent directories and using exclusive create when not forcing. */
@@ -128,9 +132,11 @@ export async function initCommand(
   start: number,
 ): Promise<number> {
   const template = args.template ?? "minimal";
-  output.debug(`init: root=${global.root} template=${template} force=${Boolean(args.force)}`);
-  const content = resolveTemplateContent(template);
+  const pm = detectPackageManager(global.root);
+  output.debug(`init: root=${global.root} template=${template} pm=${pm} force=${Boolean(args.force)}`);
+  const content = resolveTemplateContent(template, pm);
   const configPath = resolveConfigPath(global.root, global.config);
+  await ensureConstructsDependency(global.root);
   await writeConfig(configPath, content, Boolean(args.force));
   emitInitResult(output, global.format, configPath, template, start);
   return ExitCode.Success;
