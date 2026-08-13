@@ -28,6 +28,11 @@ jobs:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile --ignore-scripts
       - uses: nrwl/nx-set-shas@3e9ad7370203c1e93d109be57f3b72eb0eb511b1 # v4
-
+        with:
+          nx-cloud-url: https://cloud.nx.app
       - run: bunx nx affected -t build
+        env:
+          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
       - run: bunx nx affected -t lint test
+        env:
+          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
