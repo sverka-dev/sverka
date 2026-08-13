@@ -8,53 +8,53 @@ describe("synthesizeCheckSteps", () => {
   it("converts proposed checks to StepDefinitions", () => {
     const ctx = makeContext(["bun"]);
     const checks = [makeCheck("typecheck"), makeCheck("lint"), makeCheck("test")];
-    const steps = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
-    expect(steps).toHaveLength(3);
-    expect(steps[0]!.id).toBe("checks/typecheck");
-    expect(steps[1]!.id).toBe("checks/lint");
-    expect(steps[2]!.id).toBe("checks/test");
+    const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
+    expect(resolved).toHaveLength(3);
+    expect(resolved[0]!.step.id).toBe("checks/typecheck");
+    expect(resolved[1]!.step.id).toBe("checks/lint");
+    expect(resolved[2]!.step.id).toBe("checks/test");
   });
 
   it("skips checks that fail resolution", () => {
     const ctx = makeContext(["bun"]);
     const checks = [makeCheck("typecheck"), makeCheck("clippy"), makeCheck("lint")];
     // clippy requires cargo, not bun — should be skipped.
-    const steps = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
-    expect(steps).toHaveLength(2);
-    expect(steps.map((s) => s.id)).toEqual(["checks/typecheck", "checks/lint"]);
+    const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
+    expect(resolved).toHaveLength(2);
+    expect(resolved.map((r) => r.step.id)).toEqual(["checks/typecheck", "checks/lint"]);
   });
 
   it("deduplicates by checkId", () => {
     const ctx = makeContext(["bun"]);
     const checks = [makeCheck("typecheck"), makeCheck("typecheck"), makeCheck("lint")];
-    const steps = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
-    expect(steps).toHaveLength(2);
-    expect(steps.map((s) => s.id)).toEqual(["checks/typecheck", "checks/lint"]);
+    const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
+    expect(resolved).toHaveLength(2);
+    expect(resolved.map((r) => r.step.id)).toEqual(["checks/typecheck", "checks/lint"]);
   });
 
   it("step IDs follow checks/<checkId> pattern", () => {
     const ctx = makeContext(["bun"]);
     const checks = [makeCheck("typecheck")];
-    const steps = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
-    expect(steps[0]!.id).toMatch(/^checks\//);
+    const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
+    expect(resolved[0]!.step.id).toMatch(/^checks\//);
   });
 
   it("steps have runtime.mode === host", () => {
     const ctx = makeContext(["bun"]);
     const checks = [makeCheck("typecheck"), makeCheck("lint"), makeCheck("test")];
-    const steps = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
-    for (const step of steps) {
-      expect(step.runtime.mode).toBe("host");
+    const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
+    for (const r of resolved) {
+      expect(r.step.runtime.mode).toBe("host");
     }
   });
 
   it("returns empty array for empty input", () => {
     const ctx = makeContext(["bun"]);
-    const steps = synthesizeCheckSteps([], ctx, createBuiltinResolver());
-    expect(steps).toHaveLength(0);
+    const resolved = synthesizeCheckSteps([], ctx, createBuiltinResolver());
+    expect(resolved).toHaveLength(0);
   });
 
-  it("works with custom resolver", () => {
+  it("preserves outputs from custom resolvers", () => {
     const custom: CheckResolver = {
       resolve(check) {
         return {
@@ -67,14 +67,15 @@ describe("synthesizeCheckSteps", () => {
             outputs: [],
             dependencies: [],
           },
-          outputs: [],
+          outputs: [{ path: "out.sarif", format: "sarif" }],
         };
       },
     };
     const ctx = makeContext([]);
     const checks = [makeCheck("custom1"), makeCheck("custom2")];
-    const steps = synthesizeCheckSteps(checks, ctx, custom);
-    expect(steps).toHaveLength(2);
-    expect(steps[0]!.id).toBe("checks/custom1");
+    const resolved = synthesizeCheckSteps(checks, ctx, custom);
+    expect(resolved).toHaveLength(2);
+    expect(resolved[0]!.step.id).toBe("checks/custom1");
+    expect(resolved[0]!.outputs).toEqual([{ path: "out.sarif", format: "sarif" }]);
   });
 });

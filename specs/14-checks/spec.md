@@ -19,8 +19,8 @@ checks) and the engine (Run Plan execution → findings extraction).
 - `createBuiltinResolver()`: resolver backed by the existing resolution
   table (checkId + packageManager → command)
 - `synthesizeCheckSteps(proposedChecks, ctx, resolver)`: converts
-  proposed checks into `StepDefinition[]` for inclusion in a Definition
-  Graph
+  proposed checks into `ResolvedCheck[]` for inclusion in a Definition
+  Graph, preserving each resolver's `outputs` metadata
 - `extractFindings(outputs, artifactDir, checkId)`: extracts findings
   from SARIF output files (reused from existing implementation)
 - Integration with planner: `ProposedCheck` → `ResolvedCheck` → `StepDefinition`
@@ -63,7 +63,7 @@ function synthesizeCheckSteps(
   checks: readonly ProposedCheck[],
   ctx: ProjectContext,
   resolver: CheckResolver,
-): readonly StepDefinition[];
+): readonly ResolvedCheck[];
 async function extractFindings(
   outputs: readonly CheckOutput[],
   artifactDir: string,
@@ -85,16 +85,17 @@ export type { CheckErrorCode };
 **Resolution**: The resolver table maps `(checkId, packageManager)` →
 `(command, args)`. The resolver creates a `StepDefinition` with:
 - `id`: `checks/<checkId>` (e.g., `checks/typecheck`)
-- `runtime`: `{ mode: "host" }` (checks run on host in v0)
+- `runtime`: `{ mode: "host", workingDir: <project root> }` (checks run on host in v0)
 - `operations`: a single `shell` operation with `command` and `args`
-  joined as a shell command string
+  joined as a safely-quoted shell command string
 - `inputs`: `[]` (no inputs in v0)
 - `outputs`: `[]` (findings extracted post-execution, not via graph outputs)
 - `dependencies`: `[]` (checks are independent by default)
 
 **Synthesis**: `synthesizeCheckSteps` iterates proposed checks, resolves
-each via the resolver, collects the resulting `StepDefinition[]`. Checks
-that fail resolution (resolver returns null) are skipped.
+each via the resolver, collects the resulting `ResolvedCheck[]` while
+preserving resolver `outputs`. Checks that fail resolution (resolver returns
+null) are skipped.
 
 **Step ID generation**: Check steps use the ID pattern `checks/<checkId>`.
 If multiple checks have the same checkId (e.g., from different ecosystems),
@@ -118,7 +119,7 @@ Reuses existing `CheckError` with codes:
 3. Resolver resolves lint for Node/npm → StepDefinition.
 4. Resolver returns null for unknown checkId.
 5. Resolver validates package.json scripts (Node entries).
-6. `synthesizeCheckSteps`: converts proposed checks to StepDefinition[].
+6. `synthesizeCheckSteps`: converts proposed checks to ResolvedCheck[], preserving `outputs`.
 7. `synthesizeCheckSteps`: skips checks that fail resolution.
 8. `synthesizeCheckSteps`: deduplicates by checkId.
 9. `synthesizeCheckSteps`: step IDs follow `checks/<checkId>` pattern.
