@@ -20,9 +20,9 @@ function makeGraph(opts: {
 } = {}): DefinitionGraph {
   const triggerKind = opts.triggerKind ?? "push";
   const runtimeMode = opts.runtimeMode ?? "host";
-  const outputs: { type: "string" | "artifact"; path?: string }[] = [];
-  if (opts.hasScalarOutput) outputs.push({ type: "string" });
-  if (opts.hasArtifactOutput) outputs.push({ type: "artifact", path: "./dist" });
+  const outputs: { name: string; type: "string" | "artifact"; path?: string }[] = [];
+  if (opts.hasScalarOutput) outputs.push({ name: "result", type: "string" });
+  if (opts.hasArtifactOutput) outputs.push({ name: "dist", type: "artifact", path: "./dist" });
 
   return {
     project: {
@@ -69,15 +69,42 @@ describe("defineSverkaPlugin", () => {
     expect((plugin.capabilities as CapabilityManifest)["trigger.push"]).toBe("native");
   });
 
+  it("passes options to the factory", () => {
+    const plugin = defineSverkaPlugin((options) => ({
+      name: "github",
+      apiVersion: "sverka.dev/v1",
+      capabilities: options?.foo === "bar" ? { "trigger.push": "native" } : {},
+    }), { foo: "bar" } as unknown as Record<string, unknown>);
+    expect((plugin.capabilities as CapabilityManifest)["trigger.push"]).toBe("native");
+  });
+
   it("throws INVALID_PLUGIN for missing name", () => {
-    expect(() =>
-      defineSverkaPlugin(() => ({ name: "", apiVersion: "v1" })),
-    ).toThrow(PluginError);
+    try {
+      defineSverkaPlugin(() => ({ name: "", apiVersion: "v1" }));
+      throw new Error("expected INVALID_PLUGIN");
+    } catch (err) {
+      expect(err).toBeInstanceOf(PluginError);
+      expect((err as PluginError).code).toBe("INVALID_PLUGIN");
+    }
   });
 
   it("throws INVALID_PLUGIN for missing apiVersion", () => {
+    try {
+      defineSverkaPlugin(() => ({ name: "test", apiVersion: "" }));
+      throw new Error("expected INVALID_PLUGIN");
+    } catch (err) {
+      expect(err).toBeInstanceOf(PluginError);
+      expect((err as PluginError).code).toBe("INVALID_PLUGIN");
+    }
+  });
+
+  it("throws INVALID_CAPABILITY for invalid capabilities", () => {
     expect(() =>
-      defineSverkaPlugin(() => ({ name: "test", apiVersion: "" })),
+      defineSverkaPlugin(() => ({
+        name: "bad",
+        apiVersion: "v1",
+        capabilities: { "trigger.push": "totally-invalid" as never },
+      })),
     ).toThrow(PluginError);
   });
 });
@@ -241,8 +268,13 @@ describe("createPluginRegistry", () => {
     const p1 = defineSverkaPlugin(() => ({ name: "github", apiVersion: "v1" }));
     const p2 = defineSverkaPlugin(() => ({ name: "github", apiVersion: "v1" }));
     registry.register(p1);
-    expect(() => registry.register(p2)).toThrow(PluginError);
-    expect(() => registry.register(p2)).toThrow(/already registered/);
+    try {
+      registry.register(p2);
+      throw new Error("expected DUPLICATE_PLUGIN");
+    } catch (err) {
+      expect(err).toBeInstanceOf(PluginError);
+      expect((err as PluginError).code).toBe("DUPLICATE_PLUGIN");
+    }
   });
 
   it("getCapabilities collects from all plugins", () => {

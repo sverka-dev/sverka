@@ -1,6 +1,7 @@
 // Plugin factory and registry. Spec 07 — §17.1.
 
 import type { SverkaPlugin, PluginOptions, PluginMeta, PluginRegistry, CapabilityManifest } from "./types.js";
+import { validateCapabilityManifest } from "./capabilities.js";
 import { PluginError } from "./errors.js";
 
 /**
@@ -16,15 +17,16 @@ import { PluginError } from "./errors.js";
  */
 export function defineSverkaPlugin(
   factory: (options?: PluginOptions, meta?: PluginMeta) => SverkaPlugin,
+  options?: PluginOptions,
 ): SverkaPlugin {
   const meta: PluginMeta = { version: "1.0.0" };
-  const plugin = factory(undefined, meta);
+  const plugin = factory(options, meta);
   validatePlugin(plugin);
   return plugin;
 }
 
 /**
- * Validate a plugin has required fields.
+ * Validate a plugin has required fields and a valid capabilities manifest.
  */
 function validatePlugin(plugin: SverkaPlugin): void {
   if (!plugin || typeof plugin !== "object") {
@@ -35,6 +37,9 @@ function validatePlugin(plugin: SverkaPlugin): void {
   }
   if (typeof plugin.apiVersion !== "string" || plugin.apiVersion.length === 0) {
     throw new PluginError("plugin must have an apiVersion", "INVALID_PLUGIN");
+  }
+  if (plugin.capabilities !== undefined) {
+    validateCapabilityManifest(plugin.capabilities);
   }
 }
 
@@ -58,9 +63,9 @@ export function createPluginRegistry(): PluginRegistry {
       plugins.push(plugin);
     },
     get plugins(): readonly SverkaPlugin[] {
-      return plugins;
+      return plugins.slice();
     },
-    getCapabilities(): readonly CapabilityManifest[] {
+    getCapabilities(): CapabilityManifest[] {
       return plugins
         .filter((p) => p.capabilities !== undefined)
         .map((p) => p.capabilities as CapabilityManifest);

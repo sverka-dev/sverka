@@ -114,5 +114,5 @@ export interface PluginMeta {
 export interface PluginRegistry {
   register(plugin: SverkaPlugin): void;
   readonly plugins: readonly SverkaPlugin[];
-  getCapabilities(): readonly CapabilityManifest[];
+  getCapabilities(): CapabilityManifest[];
 }
