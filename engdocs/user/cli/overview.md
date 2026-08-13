@@ -40,7 +40,7 @@ Emits step events: pending, started, succeeded/failed, run completion.
 | Flag        | Type    | Default | Description                              |
 |-------------|---------|---------|------------------------------------------|
 | `--entry`   | string  | —       | Entry ID to run                          |
-| `--executor`| string  | `host`  | `host`, `docker`                        | Runtime executor to use |
+| `--executor`| string  | `host`  | Runtime executor to use (`host` or `docker`) |
 
 ### `sverka discover`
 
