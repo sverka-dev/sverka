@@ -36,7 +36,15 @@
         "sverka": "./dist/bin.mjs",
       },
       "dependencies": {
-        "@sverka/sdk": "workspace:*",
+        "@sverka/checks": "workspace:*",
+        "@sverka/constructs": "workspace:*",
+        "@sverka/core": "workspace:*",
+        "@sverka/engine-native": "workspace:*",
+        "@sverka/findings": "workspace:*",
+        "@sverka/ir": "workspace:*",
+        "@sverka/planner": "workspace:*",
+        "@sverka/policy": "workspace:*",
+        "@sverka/runtime-host": "workspace:*",
         "yargs": "^17.7.3",
       },
       "devDependencies": {

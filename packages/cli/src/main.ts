@@ -1,16 +1,18 @@
 import process from "node:process";
 import yargs, { type Arguments, type Argv } from "yargs";
-import { SdkError } from "@sverka/sdk";
 
 import type { GlobalFlags, OutputWriter } from "./types.js";
 import { CliError, ExitCode } from "./types.js";
 import { createOutputWriter, wrapOutputWriter } from "./output.js";
 import { initCommand } from "./commands/init.js";
-import { inspectCommand } from "./commands/inspect.js";
-import { planCommand } from "./commands/plan.js";
-import { executeCommand } from "./commands/execute.js";
 import { validateCommand } from "./commands/validate.js";
-import { baselineCommand } from "./commands/baseline.js";
+import { planCommand, type PlanArgs } from "./commands/plan.js";
+import { graphCommand } from "./commands/graph.js";
+import { runCommand, type RunArgs } from "./commands/run.js";
+import { discoverCommand } from "./commands/discover.js";
+import { checkCommand } from "./commands/check.js";
+import { policyCommand, type PolicyArgs } from "./commands/policy.js";
+import { synthCommand, type SynthArgs } from "./commands/synth.js";
 import { doctorCommand } from "./commands/doctor.js";
 
 /** Optional dependencies for main (testability seam). */
@@ -53,26 +55,34 @@ function addInitCommand(y: Argv): Argv {
   }).option("force", { type: "boolean", default: false });
 }
 
-/** Configure the execute/run subcommand options. */
-function addExecuteCommand(y: Argv): Argv {
+/** Configure the run subcommand options. */
+function addRunCommand(y: Argv): Argv {
   return y
+    .option("entry", { type: "string" })
     .option("executor", {
       type: "string",
       default: "host",
       choices: ["host", "docker"],
-    })
-    .option("only-new", { type: "boolean", default: false })
-    .option("baseline", { type: "string" });
+    });
 }
 
-/** Configure the baseline subcommand tree. */
-function addBaselineCommand(y: Argv): Argv {
-  return y
-    .command("create", "Create a baseline from execution")
-    .command("update", "Update the baseline")
-    .command("show", "Display the baseline")
-    .command("clear", "Remove the baseline file")
-    .option("baseline", { type: "string" });
+/** Configure the plan subcommand options. */
+function addPlanCommand(y: Argv): Argv {
+  return y.option("entry", { type: "string" });
+}
+
+/** Configure the policy subcommand options. */
+function addPolicyCommand(y: Argv): Argv {
+  return y.option("baseline", { type: "string" });
+}
+
+/** Configure the synth subcommand options. */
+function addSynthCommand(y: Argv): Argv {
+  return y.option("target", {
+    type: "string",
+    demandOption: true,
+    choices: ["github", "gitlab"],
+  });
 }
 
 function buildParser(): Argv {
@@ -89,13 +99,14 @@ function buildParser(): Argv {
     .option("quiet", { type: "boolean", alias: "q", default: false })
     .option("verbose", { type: "boolean", alias: "v", default: false })
     .command("init", "Create a sverka.config.ts", addInitCommand)
-    .command("inspect", "Discover and display project context")
-    .command("plan", "Synthesize a plan without executing", (y) =>
-      y.option("only-new", { type: "boolean", default: false }),
-    )
-    .command(["execute", "run"], "Execute the workflow locally", addExecuteCommand)
-    .command("validate", "Validate a sverka.config.ts without executing")
-    .command("baseline", "Manage the findings baseline", addBaselineCommand)
+    .command("validate", "Validate a sverka config")
+    .command("plan", "Bind Entry + inputs → Run Plan", addPlanCommand)
+    .command("graph", "Display the Definition Graph")
+    .command(["run", "execute"], "Execute the workflow locally", addRunCommand)
+    .command("discover", "Discover and display project context")
+    .command("check", "Resolve proposed checks → StepDefinitions")
+    .command("policy", "Evaluate findings against policy", addPolicyCommand)
+    .command("synth", "Compile to a target (stub — requires Waves H/I)", addSynthCommand)
     .command("doctor", "Diagnose environment and dependencies")
     .demandCommand(1, "No command given")
     .strict()
@@ -116,17 +127,23 @@ async function dispatch(
   switch (command) {
     case "init":
       return dispatchInit(parsed, global, output, start);
-    case "inspect":
-      return inspectCommand(global, output, start);
-    case "plan":
-      return dispatchPlan(parsed, global, output, start);
-    case "execute":
-    case "run":
-      return dispatchExecute(parsed, global, output, start);
     case "validate":
       return validateCommand(global, output, start);
-    case "baseline":
-      return dispatchBaseline(parsed, global, output, start);
+    case "plan":
+      return dispatchPlan(parsed, global, output, start);
+    case "graph":
+      return graphCommand(global, output, start);
+    case "run":
+    case "execute":
+      return dispatchRun(parsed, global, output, start);
+    case "discover":
+      return discoverCommand(global, output, start);
+    case "check":
+      return checkCommand(global, output, start);
+    case "policy":
+      return dispatchPolicy(parsed, global, output, start);
+    case "synth":
+      return dispatchSynth(parsed, global, output, start);
     case "doctor":
       return doctorCommand(global, output, start);
     default:
@@ -161,52 +178,44 @@ function dispatchPlan(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  return planCommand(
-    { onlyNew: Boolean(parsed["only-new"]) },
-    global,
-    output,
-    start,
-  );
+  const args: PlanArgs = {};
+  if (typeof parsed.entry === "string") args.entryId = parsed.entry;
+  return planCommand(args, global, output, start);
 }
 
-function dispatchExecute(
+function dispatchRun(
   parsed: Arguments,
   global: GlobalFlags,
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  return executeCommand(
-    {
-      executor: typeof parsed.executor === "string" ? parsed.executor : "host",
-      onlyNew: Boolean(parsed["only-new"]),
-      baseline: typeof parsed.baseline === "string" ? parsed.baseline : undefined,
-    },
-    global,
-    output,
-    start,
-  );
+  const args: RunArgs = {
+    executor: parsed.executor === "docker" ? "docker" : "host",
+  };
+  if (typeof parsed.entry === "string") args.entryId = parsed.entry;
+  return runCommand(args, global, output, start);
 }
 
-function dispatchBaseline(
+function dispatchPolicy(
   parsed: Arguments,
   global: GlobalFlags,
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  const sub = String(parsed._[1] ?? "");
-  if (!sub) {
-    throw new CliError(
-      "baseline requires a subcommand (create, update, show, clear)",
-      "MISSING_ARG",
-      ExitCode.UsageError,
-    );
-  }
-  return baselineCommand(
-    { subcommand: sub, baselinePath: typeof parsed.baseline === "string" ? parsed.baseline : undefined },
-    global,
-    output,
-    start,
-  );
+  const args: PolicyArgs = {};
+  if (typeof parsed.baseline === "string") args.baseline = parsed.baseline;
+  return policyCommand(args, global, output, start);
+}
+
+function dispatchSynth(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const target = parsed.target === "gitlab" ? "gitlab" : "github";
+  const args: SynthArgs = { target };
+  return synthCommand(args, global, output, start);
 }
 
 /**
@@ -220,7 +229,6 @@ export async function main(
 ): Promise<number> {
   const start = Date.now();
 
-  // Output writer: injected (tests) or console (production).
   const output =
     deps?.output ??
     createOutputWriter(
@@ -233,7 +241,6 @@ export async function main(
   try {
     parsed = await buildParser().parseAsync(argv);
   } catch (e) {
-    // yargs fail handler threw — convert to CliError.
     return handleError(e, output, start);
   }
 
@@ -259,11 +266,6 @@ function handleError(
     output.errorLine(`error: ${e.message}`);
     return e.exitCode;
   }
-  if (e instanceof SdkError) {
-    output.errorLine(`error: ${e.message}`);
-    return ExitCode.RuntimeError;
-  }
-  // Unknown error.
   const msg = e instanceof Error ? e.message : String(e);
   output.errorLine(`error: ${msg}`);
   return ExitCode.RuntimeError;

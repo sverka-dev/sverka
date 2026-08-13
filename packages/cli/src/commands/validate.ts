@@ -1,11 +1,15 @@
-import { loadWorkflow, findConfig, SdkError } from "@sverka/sdk";
+// validate command — synthesize Definition Graph, run validators.
+// Spec 17 — §30.
+
+import { synthesize, validateGraph } from "@sverka/core";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { resolveUnderRoot } from "../internal/paths.js";
+import { findConfig, loadConfig } from "../internal/config.js";
 
 /**
- * Validate a sverka.config.ts without executing.
- * Exit 0 if valid, 2 if invalid/missing config, 3 if load fails.
+ * Validate a sverka config: synthesize the Definition Graph and run validators.
+ * Exit 0 if valid, 2 if missing config, 3 if load/synthesis fails.
  */
 export async function validateCommand(
   global: GlobalFlags,
@@ -13,8 +17,7 @@ export async function validateCommand(
   start: number,
 ): Promise<number> {
   output.debug(`validate: root=${global.root} config=${global.config ?? "(auto)"}`);
-  // Resolve an explicit relative --config against --root so validation honors
-  // the selected root, matching auto-discovery via findConfig(global.root).
+
   let configPath: string | null = global.config
     ? resolveUnderRoot(global.root, global.config)
     : null;
@@ -30,33 +33,25 @@ export async function validateCommand(
     );
   }
 
-  try {
-    await loadWorkflow(configPath);
-  } catch (e) {
-    if (e instanceof SdkError) {
-      if (e.code === "CONFIG_NOT_FOUND") {
-        throw new CliError(e.message, "MISSING_ARG", ExitCode.UsageError, e);
-      }
-      if (e.code === "CONFIG_INVALID") {
-        throw new CliError(e.message, "INVALID_FLAG", ExitCode.UsageError, e);
-      }
-      // CONFIG_LOAD_FAILED and others → runtime error.
-      throw new CliError(e.message, "SDK_ERROR", ExitCode.RuntimeError, e);
-    }
-    throw e;
-  }
+  const project = await loadConfig(configPath);
+  const graph = synthesize(project);
+  validateGraph(graph);
 
   const durationMs = Date.now() - start;
   if (global.format === "json") {
     output.writeLine(
       JSON.stringify({
         command: "validate",
-        data: { path: configPath, valid: true },
+        data: { path: configPath, valid: true, pipelines: graph.project.pipelines.length },
         durationMs,
       }),
     );
   } else {
     output.writeLine(`Config valid: ${configPath}`);
+    output.writeLine(`  pipelines: ${graph.project.pipelines.length}`);
+    for (const pipeline of graph.project.pipelines) {
+      output.writeLine(`    ${pipeline.id}: ${pipeline.steps.length} steps, ${pipeline.entries.length} entries`);
+    }
   }
 
   return ExitCode.Success;
