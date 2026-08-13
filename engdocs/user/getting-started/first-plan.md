@@ -1,7 +1,7 @@
 # First plan
 
-This page walks through defining a workflow, synthesizing a plan, and
-running verification.
+This page walks through defining a workflow, synthesizing a Definition Graph,
+and running verification through the native engine.
 
 ## Define a workflow
 
@@ -9,20 +9,28 @@ Create `sverka.config.ts` in your project root (or run `sverka init` to
 generate one):
 
 ```ts
-import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
 
-export default defineWorkflow({
-  name: "verify",
-  workflow: pipeline(
-    task("lint", run({ command: "bun", args: ["run", "lint"] })),
-    task("typecheck", run({ command: "bun", args: ["run", "typecheck"] })),
-    task("test", run({ command: "bun", args: ["run", "test"] })),
-  ),
+const proj = new Project("verify");
+const pipeline = new Pipeline(proj, "ci");
+
+new ShellStep(pipeline, "lint", { command: "npm run lint" });
+new ShellStep(pipeline, "typecheck", { command: "npm run typecheck" });
+new ShellStep(pipeline, "test", {
+  command: "npm run test",
+  dependsOn: ["lint", "typecheck"],
 });
+
+new Entry(pipeline, "on-push", {
+  trigger: { kind: "push" },
+  roots: ["test"],
+});
+
+export default proj;
 ```
 
-The workflow runs lint, typecheck, and test sequentially. Each `task` names
-its operation for the plan output.
+The workflow runs lint and typecheck in parallel, then test after both
+complete. Each `ShellStep` names its operation for the plan output.
 
 ## See what would run
 
@@ -30,35 +38,81 @@ its operation for the plan output.
 sverka plan
 ```
 
-This discovers your project, resolves checks, and prints the plan without
-executing anything. You see the operation order, commands, and check IDs.
+This discovers your project, synthesizes the Definition Graph, binds a
+Run Plan, and prints it without executing anything.
 
 ## Run verification
 
 ```sh
-sverka execute
+sverka run
 ```
 
-This runs the plan locally. Results are normalized into a single findings
-report. The exit code reflects the policy verdict:
+This executes the Run Plan through the native engine with the host
+runtime driver. You see step events: pending, started, succeeded/failed,
+and run completion.
 
-| Exit code | Meaning        |
-|-----------|----------------|
-| 0         | Success (pass) |
-| 1         | Policy fail    |
-| 2         | Usage error    |
-| 3         | Runtime error  |
-
-## Validate your config
+## Inspect the graph
 
 ```sh
-sverka validate
+sverka graph
 ```
 
-Checks that `sverka.config.ts` loads and the workflow is well-formed. No
-execution happens.
+This prints the synthesized Definition Graph showing pipelines, steps,
+entries, and dependencies.
 
-## Next steps
+## Compile to GitHub Actions
 
-- [Workflow API](../workflow-api/overview.md) — all composables
-- [CLI reference](../cli/overview.md) — all commands and flags
+```sh
+sverka synth --target github
+```
+
+This lowers the Definition Graph to native GitHub Actions YAML and
+writes it to `.github/workflows/ci.yml`.
+
+## Three authoring surfaces
+
+Sverka offers three equivalent ways to author pipelines:
+
+### Construct API
+
+```ts
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+
+const proj = new Project("myproj");
+const p = new Pipeline(proj, "ci");
+new ShellStep(p, "build", { command: "npm run build" });
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+```
+
+### SDK API
+
+```ts
+import { Project, Pipeline, Entry } from "@sverka/constructs";
+import { sh } from "@sverka/sdk";
+
+const proj = new Project("myproj");
+const p = new Pipeline(proj, "ci");
+sh`npm run build`.build(p, "build");
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+```
+
+### Decorator API
+
+```ts
+import { pipeline, step, entry, decoratePipeline } from "@sverka/decorators";
+import { Project } from "@sverka/constructs";
+
+@pipeline
+class MyPipeline {
+  @step
+  build = "npm run build";
+
+  @entry({ kind: "push" })
+  ["on-push"] = ["build"];
+}
+
+const proj = new Project("myproj");
+decoratePipeline(MyPipeline, proj, "ci");
+```
+
+All three produce the same Definition Graph.
