@@ -1,33 +1,85 @@
 // Conformance seed pipeline — authored through all three surfaces.
 // Spec 18 — §33.1, §34.1.
 
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  Entry,
+  type Reference,
+} from "@sverka/constructs";
 import { sh, pipeline as sdkPipeline } from "@sverka/sdk";
-import { pipeline as pipelineDecorator, step, stepWithOptions, entry, input, decoratePipeline } from "@sverka/decorators";
+import {
+  pipeline as pipelineDecorator,
+  step,
+  stepWithOptions,
+  entry,
+  input,
+  decoratePipeline,
+} from "@sverka/decorators";
 
-/**
- * The conformance seed pipeline definition:
- *
- * Project "conf"
- *   Pipeline "ci"
- *     Input: nodeVersion (string, default "22")
- *     Step "lint": shell "npm run lint"
- *     Step "build": shell "npm run build", depends on "lint"
- *     Step "test": shell "npm run test", depends on "build"
- *     Entry "on-push": trigger push, roots ["test"]
- */
+const SEED_INPUTS = {
+  nodeVersion: { type: "string" as const, default: "22" },
+};
+
+const statusRef: Reference = {
+  kind: "step",
+  step: "lint",
+  output: "status",
+  type: "string",
+};
+
+const distRef: Reference = {
+  kind: "step",
+  step: "build",
+  output: "dist",
+  type: "artifact",
+};
+
+const nodeVersionContext: Reference = {
+  kind: "context",
+  namespace: "inputs",
+  field: "nodeVersion",
+};
+
+const lintOutputs = { status: { type: "string" as const } };
+const buildOutputs = {
+  dist: { type: "artifact" as const, path: ".outputs/dist.txt" },
+};
+
+const lintCommand = `sh -c 'echo ok > "$SVERKA_OUTPUT_DIR/status"; echo lint'`;
+const buildCommand = `sh -c 'echo "got status \${lint.status}"; echo artifact-data > "$SVERKA_OUTPUT_DIR/dist.txt"; echo build'`;
+const testCommand = `sh -c 'echo test; echo "lint status was \${lint.status}"'`;
+
+const onPushEntry = {
+  trigger: { kind: "push" as const },
+  roots: ["test"],
+};
 
 // --- Construct API ---
 
 export function createSeedWithConstructs(): Project {
   const proj = new Project("conf");
-  const p = new Pipeline(proj, "ci", {
-    inputs: { nodeVersion: { type: "string", default: "22" } },
+  const p = new Pipeline(proj, "ci", { inputs: SEED_INPUTS });
+
+  new ShellStep(p, "lint", {
+    command: lintCommand,
+    outputs: lintOutputs,
   });
-  new ShellStep(p, "lint", { command: "npm run lint" });
-  new ShellStep(p, "build", { command: "npm run build", dependsOn: ["lint"] });
-  new ShellStep(p, "test", { command: "npm run test", dependsOn: ["build"] });
-  new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+  new ShellStep(p, "build", {
+    command: buildCommand,
+    dependsOn: ["lint"],
+    inputs: [statusRef],
+    outputs: buildOutputs,
+  });
+  new ShellStep(p, "test", {
+    command: testCommand,
+    dependsOn: ["build"],
+    inputs: [distRef],
+    condition: nodeVersionContext,
+  });
+  new Entry(p, "on-push", onPushEntry);
+
   return proj;
 }
 
@@ -35,15 +87,29 @@ export function createSeedWithConstructs(): Project {
 
 export function createSeedWithSDK(): Project {
   const proj = new Project("conf");
-  const p = new Pipeline(proj, "ci", {
-    inputs: { nodeVersion: { type: "string", default: "22" } },
+
+  sdkPipeline(proj, "ci", {
+    inputs: SEED_INPUTS,
+    steps: [
+      (p) => sh`${lintCommand}`.outputs(lintOutputs).build(p, "lint"),
+      (p) =>
+        sh`${buildCommand}`
+          .inputs([statusRef])
+          .dependsOn(["lint"])
+          .outputs(buildOutputs)
+          .build(p, "build"),
+      (p) =>
+        sh`${testCommand}`
+          .inputs([distRef])
+          .dependsOn(["build"])
+          .condition(nodeVersionContext)
+          .build(p, "test"),
+    ],
+    entries: [
+      (p) => new Entry(p, "on-push", onPushEntry),
+    ],
   });
 
-  // SDK sh builder creates ShellStep constructs. We add dependsOn via the builder.
-  sh`npm run lint`.build(p, "lint");
-  sh`npm run build`.dependsOn(["lint"]).build(p, "build");
-  sh`npm run test`.dependsOn(["build"]).build(p, "test");
-  new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
   return proj;
 }
 
@@ -55,13 +121,13 @@ class SeedPipeline {
   nodeVersion = { type: "string" as const, default: "22" };
 
   @step
-  lint = "npm run lint";
+  lint = sh`${lintCommand}`.outputs(lintOutputs);
 
   @stepWithOptions({ dependsOn: ["lint"] })
-  build = "npm run build";
+  build = sh`${buildCommand}`.inputs([statusRef]).outputs(buildOutputs);
 
   @stepWithOptions({ dependsOn: ["build"] })
-  test = "npm run test";
+  test = sh`${testCommand}`.inputs([distRef]).condition(nodeVersionContext);
 
   @entry({ kind: "push" })
   ["on-push"] = ["test"];

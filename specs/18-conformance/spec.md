@@ -47,7 +47,7 @@ interface ConformanceResult {
 }
 
 // Run all conformance checks
-function runConformance(): readonly ConformanceResult[];
+function runConformance(): Promise<readonly ConformanceResult[]>;
 ```
 
 ### Exports
@@ -66,13 +66,18 @@ export {
 
 The seed pipeline exercises the §34 acceptance criteria:
 
-```
+```text
 Project "conf"
   Pipeline "ci"
     Input: nodeVersion (string, default "22")
-    Step "lint": shell "npm run lint"
-    Step "build": shell "npm run build", depends on "lint"
-    Step "test": shell "npm run test", depends on "build"
+    Step "lint": shell "sh -c 'echo ok > "$SVERKA_OUTPUT_DIR/status"; echo lint'"
+        outputs: status (string)
+    Step "build": shell "sh -c 'echo "got status ${lint.status}"; ...'",
+        depends on "lint", inputs: lint.status,
+        outputs: dist (artifact, .outputs/dist.txt)
+    Step "test": shell "sh -c 'echo test; ...'",
+        depends on "build", inputs: build.dist,
+        condition: inputs.nodeVersion
     Entry "on-push": trigger push, roots ["test"]
 ```
 
@@ -90,8 +95,9 @@ Project "conf"
 | 8 | Context namespaces available | context test (SDK) |
 | 9 | Cycles produce diagnostics | cycle-detection test |
 | 10 | Target compilation no network access | target-no-network test |
-| 11 | No provider-specific term required | authoring-conformance test |
-| 12 | Feature docs from manifests | capability-conformance test |
+| 11 | No provider-specific term required | runner §34.11 check |
+
+> §34.12 (Feature docs from manifests) is listed in the Non-goals section as future work and is not part of the v0 acceptance gate.
 
 ## Test plan
 
