@@ -6,7 +6,7 @@
 
 ## Package dependency
 
-```
+```text
 @sverka/engine-native  →  @sverka/ir  (RunPlan, StepDefinition, InputValue)
                          @sverka/core  (StepDefinition, OperationDefinition types)
 @sverka/runtime-host   →  @sverka/engine-native  (RuntimeDriver interface)
@@ -56,7 +56,7 @@
 
 ### `packages/engine-native/` (renamed from `runtime`)
 
-```
+```text
 src/
   index.ts          # public exports
   engine.ts         # createEngine + Engine class
@@ -81,7 +81,7 @@ src/
 
 ### `packages/runtime-host/` (adapted)
 
-```
+```text
 src/
   index.ts          # public exports
   host-driver.ts    # createHostDriver + HostDriver (replaces host-executor.ts)
@@ -96,7 +96,7 @@ src/
 
 ### `packages/runtime-docker/` (adapted)
 
-```
+```text
 src/
   index.ts          # public exports
   docker-driver.ts  # createDockerDriver + DockerDriver (replaces docker-executor.ts)
@@ -162,7 +162,7 @@ with timeout.
 ### Step 8: Public API + gates
 
 Write `public-api.test.ts`. Implement `index.ts`. Run gates:
-```
+```text
 bun run test --filter @sverka/engine-native
 bun run typecheck --filter @sverka/engine-native
 bun run lint --filter @sverka/engine-native
@@ -183,7 +183,7 @@ Run gates.
 ### Step 11: Full gates
 
 Run all three packages:
-```
+```text
 bun run test --filter @sverka/engine-native --filter @sverka/runtime-host --filter @sverka/runtime-docker
 bun run typecheck --filter @sverka/engine-native --filter @sverka/runtime-host --filter @sverka/runtime-docker
 bun run lint --filter @sverka/engine-native --filter @sverka/runtime-host --filter @sverka/runtime-docker

@@ -9,6 +9,41 @@ export interface MockDriverConfig {
   readonly delayMs?: number;
 }
 
+/** Create a mock driver whose delay can be cancelled by an AbortSignal. */
+export function createCancellableMockDriver(delayMs: number): RuntimeDriver & { wasCancelled: boolean } {
+  const driver: RuntimeDriver & { wasCancelled: boolean } = {
+    name: "cancellable-mock",
+    canExecute: () => true,
+    wasCancelled: false,
+    executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, delayMs);
+        if (req.signal) {
+          req.signal.addEventListener(
+            "abort",
+            () => {
+              driver.wasCancelled = true;
+              clearTimeout(timer);
+              resolve();
+            },
+            { once: true },
+          );
+        }
+      });
+      // Simulate a cancelled execution; the engine will detect isCancelled and
+      // emit step-cancelled.
+      return {
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        durationMs: 0,
+        timedOut: false,
+      };
+    },
+  };
+  return driver;
+}
+
 export function createMockDriver(config: MockDriverConfig = {}): RuntimeDriver {
   return {
     name: config.name ?? "mock",
