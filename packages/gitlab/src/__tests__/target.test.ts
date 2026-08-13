@@ -56,7 +56,7 @@ describe("compileGitlab — dependencies", () => {
     const graph = makeGraphWithDeps();
     const result = compileGitlab(graph);
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.build.needs).toBe("lint");
+    expect(yaml.build.needs).toEqual(["lint"]);
   });
 
   it("maps multiple dependencies to needs array", () => {
