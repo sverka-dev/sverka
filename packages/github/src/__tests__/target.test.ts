@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
-import { synthesize } from "@sverka/core";
+import { synthesize, type DefinitionGraph } from "@sverka/core";
 import {
   GithubTarget,
   compileGithub,
+  GithubTargetError,
   type GithubTargetGraph,
   type GithubJob,
 } from "../index.js";
@@ -210,5 +211,117 @@ describe("GithubTarget — emit", () => {
     const artifacts = target.emit(targetGraph);
     expect(artifacts).toHaveLength(1);
     expect(artifacts[0]?.content).toContain("jobs:");
+  });
+});
+
+describe("compileGithub — invalid graph handling", () => {
+  it("throws INVALID_GRAPH for unknown entry root", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "test",
+        pipelines: [{
+          id: "ci",
+          inputs: {},
+          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["missing"] }],
+          steps: [],
+          outputs: [],
+        }],
+      },
+    };
+    expect(() => compileGithub(graph)).toThrow(GithubTargetError);
+    try {
+      compileGithub(graph);
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("INVALID_GRAPH");
+    }
+  });
+
+  it("throws INVALID_GRAPH for unknown dependency producer", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "test",
+        pipelines: [{
+          id: "ci",
+          inputs: {},
+          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["build"] }],
+          steps: [{
+            id: "build",
+            runtime: { mode: "host" },
+            operations: [{ kind: "shell", command: "echo hi" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [{ kind: "control", producer: "missing" }],
+          }],
+          outputs: [],
+        }],
+      },
+    };
+    expect(() => compileGithub(graph)).toThrow(GithubTargetError);
+    try {
+      compileGithub(graph);
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("INVALID_GRAPH");
+    }
+  });
+});
+
+describe("compileGithub — diagnostic operation", () => {
+  it("passes diagnostic message through step env", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "test",
+        pipelines: [{
+          id: "ci",
+          inputs: {},
+          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["build"] }],
+          steps: [{
+            id: "build",
+            runtime: { mode: "host" },
+            operations: [{ kind: "diagnostic", message: "hello", severity: "error" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [],
+          }],
+          outputs: [],
+        }],
+      },
+    };
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    const runStep = yaml.jobs.build.steps.find((s: { run?: string }) => s.run);
+    expect(runStep.env).toBeDefined();
+    expect(runStep.env.SVERKA_DIAGNOSTIC_MESSAGE).toBe("hello");
+    expect(runStep.run).toContain("::error::");
+    expect(runStep.run).toContain("$SVERKA_DIAGNOSTIC_MESSAGE");
+  });
+
+  it("escapes percent, newlines, and carriage returns in diagnostic message", () => {
+    const message = "50%\nline\rmore";
+    const graph: DefinitionGraph = {
+      project: {
+        id: "test",
+        pipelines: [{
+          id: "ci",
+          inputs: {},
+          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["build"] }],
+          steps: [{
+            id: "build",
+            runtime: { mode: "host" },
+            operations: [{ kind: "diagnostic", message, severity: "warn" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [],
+          }],
+          outputs: [],
+        }],
+      },
+    };
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    const runStep = yaml.jobs.build.steps.find((s: { run?: string }) => s.run);
+    expect(runStep.env.SVERKA_DIAGNOSTIC_MESSAGE).toBe(
+      "50%25%0Aline%0Dmore",
+    );
+    expect(runStep.run).toContain("::warning::");
   });
 });
