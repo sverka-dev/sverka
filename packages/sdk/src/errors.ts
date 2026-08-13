@@ -1,21 +1,17 @@
-/**
- * Error thrown for SDK configuration and execution errors.
- */
+// Error classes for @sverka/sdk. Spec 03 — Error handling.
+
+export type SdkErrorCode = "INVALID_INTERPOLATION" | "INVALID_IMAGE";
+
 export class SdkError extends Error {
-  readonly code: SdkErrorCode;
   override readonly cause: unknown;
+  readonly code: SdkErrorCode;
+
   constructor(message: string, code: SdkErrorCode, cause?: unknown) {
     super(message);
     this.name = "SdkError";
     this.code = code;
-    this.cause = cause;
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
   }
 }
-
-/** SDK error codes. */
-export type SdkErrorCode =
-  | "CONFIG_NOT_FOUND"
-  | "CONFIG_INVALID"
-  | "CONFIG_LOAD_FAILED"
-  | "CONFIG_PATH_ESCAPE"
-  | "EXECUTION_FAILED";
