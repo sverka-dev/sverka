@@ -12,6 +12,12 @@ export type {
   Dependency,
   OutputDefinition,
   PipelineOutputDefinition,
+  Input,
+  OutputDeclaration,
+  OutputType,
+  Reference,
+  Runtime,
+  Trigger,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";
