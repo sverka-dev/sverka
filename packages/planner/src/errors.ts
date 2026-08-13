@@ -38,4 +38,5 @@ export type PlannerErrorCode =
   | "ENTRY_NOT_FOUND"
   | "ROOT_NOT_FOUND"
   | "MISSING_INPUT"
+  | "INVALID_INPUT"
   | "INVALID_GRAPH";

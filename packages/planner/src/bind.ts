@@ -8,6 +8,7 @@ import type {
   EntryDefinition,
   Input,
 } from "@sverka/core";
+import { validateGraph } from "@sverka/core";
 import type { RunPlan, InputValue, BoundEntry } from "@sverka/ir";
 import { computeGraphId, computeRunPlanId } from "@sverka/ir";
 import { PlannerError } from "./errors.js";
@@ -27,13 +28,15 @@ const INPUT_TYPES = new Set<Input["type"]>(["string", "number", "boolean"]);
 export function bindRunPlan(options: BindRunPlanOptions): RunPlan {
   const { graph, entryId, inputs } = options;
 
+  validateGraphShape(graph);
+
   if (graph.project.pipelines.length === 0) {
     throw new PlannerError("graph has no pipelines", "INVALID_GRAPH");
   }
 
   const { pipeline, entry } = findEntry(graph, entryId);
   validateRoots(pipeline, entry);
-  validateDependencyProducers(pipeline);
+  validatePipeline(graph, pipeline);
 
   const reachableSteps = computeReachableSteps(pipeline.steps, entry.roots);
   const boundInputs = bindInputs(pipeline.inputs, inputs);
@@ -69,6 +72,96 @@ export function bindRunPlan(options: BindRunPlanOptions): RunPlan {
 }
 
 /**
+ * Validate that the runtime value has the shape of a DefinitionGraph before
+ * any field is dereferenced. Malformed values become PlannerError(INVALID_GRAPH)
+ * instead of TypeError.
+ */
+function validateGraphShape(value: DefinitionGraph): void {
+  const graph = value as unknown as Record<string, unknown>;
+
+  if (typeof graph !== "object" || graph === null) {
+    throw new PlannerError("graph must be an object", "INVALID_GRAPH");
+  }
+
+  const project = graph.project;
+  if (typeof project !== "object" || project === null) {
+    throw new PlannerError("graph.project must be an object", "INVALID_GRAPH");
+  }
+
+  const pipelines = (project as Record<string, unknown>).pipelines;
+  if (!Array.isArray(pipelines)) {
+    throw new PlannerError("graph.project.pipelines must be an array", "INVALID_GRAPH");
+  }
+
+  for (let i = 0; i < pipelines.length; i++) {
+    const pipeline = pipelines[i] as Record<string, unknown>;
+    if (typeof pipeline !== "object" || pipeline === null) {
+      throw new PlannerError(`graph.project.pipelines[${i}] must be an object`, "INVALID_GRAPH");
+    }
+    if (typeof pipeline.id !== "string") {
+      throw new PlannerError(`graph.project.pipelines[${i}].id must be a string`, "INVALID_GRAPH");
+    }
+    if (!Array.isArray(pipeline.entries)) {
+      throw new PlannerError(`graph.project.pipelines[${i}].entries must be an array`, "INVALID_GRAPH");
+    }
+    if (!Array.isArray(pipeline.steps)) {
+      throw new PlannerError(`graph.project.pipelines[${i}].steps must be an array`, "INVALID_GRAPH");
+    }
+    if (
+      typeof pipeline.inputs !== "object" ||
+      pipeline.inputs === null ||
+      Array.isArray(pipeline.inputs)
+    ) {
+      throw new PlannerError(`graph.project.pipelines[${i}].inputs must be an object`, "INVALID_GRAPH");
+    }
+
+    for (let j = 0; j < pipeline.entries.length; j++) {
+      const entry = pipeline.entries[j] as Record<string, unknown>;
+      if (typeof entry !== "object" || entry === null) {
+        throw new PlannerError(
+          `graph.project.pipelines[${i}].entries[${j}] must be an object`,
+          "INVALID_GRAPH",
+        );
+      }
+      if (typeof entry.id !== "string") {
+        throw new PlannerError(
+          `graph.project.pipelines[${i}].entries[${j}].id must be a string`,
+          "INVALID_GRAPH",
+        );
+      }
+      if (!Array.isArray(entry.roots)) {
+        throw new PlannerError(
+          `graph.project.pipelines[${i}].entries[${j}].roots must be an array`,
+          "INVALID_GRAPH",
+        );
+      }
+    }
+
+    for (let j = 0; j < pipeline.steps.length; j++) {
+      const step = pipeline.steps[j] as Record<string, unknown>;
+      if (typeof step !== "object" || step === null) {
+        throw new PlannerError(
+          `graph.project.pipelines[${i}].steps[${j}] must be an object`,
+          "INVALID_GRAPH",
+        );
+      }
+      if (typeof step.id !== "string") {
+        throw new PlannerError(
+          `graph.project.pipelines[${i}].steps[${j}].id must be a string`,
+          "INVALID_GRAPH",
+        );
+      }
+      if (!Array.isArray(step.dependencies)) {
+        throw new PlannerError(
+          `graph.project.pipelines[${i}].steps[${j}].dependencies must be an array`,
+          "INVALID_GRAPH",
+        );
+      }
+    }
+  }
+}
+
+/**
  * Compute the transitive closure of reachable steps from the given roots.
  * A step is reachable if it is connected to a root by following
  * `dependencies[].producer` edges backward (i.e. the root's prerequisites).
@@ -81,14 +174,24 @@ export function computeReachableSteps(
   const producerMap = buildProducerMap(steps);
 
   const reachable = new Set<string>();
-  const queue: string[] = [...roots];
+  const queue: string[] = [];
 
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    if (reachable.has(id)) continue;
-    reachable.add(id);
+  for (const id of roots) {
+    if (!reachable.has(id)) {
+      reachable.add(id);
+      queue.push(id);
+    }
+  }
+
+  let head = 0;
+  while (head < queue.length) {
+    const id = queue[head]!;
+    head++;
     for (const producer of producerMap.get(id) ?? []) {
-      if (!reachable.has(producer)) queue.push(producer);
+      if (!reachable.has(producer)) {
+        reachable.add(producer);
+        queue.push(producer);
+      }
     }
   }
 
@@ -136,17 +239,17 @@ function validateRoots(pipeline: PipelineDefinition, entry: EntryDefinition): vo
   }
 }
 
-function validateDependencyProducers(pipeline: PipelineDefinition): void {
-  const stepIds = new Set(pipeline.steps.map((s) => s.id));
-  for (const step of pipeline.steps) {
-    for (const dep of step.dependencies) {
-      if (!stepIds.has(dep.producer)) {
-        throw new PlannerError(
-          `step "${step.id}" depends on unknown producer "${dep.producer}" in pipeline "${pipeline.id}"`,
-          "INVALID_GRAPH",
-        );
-      }
-    }
+function validatePipeline(graph: DefinitionGraph, pipeline: PipelineDefinition): void {
+  try {
+    validateGraph({
+      project: {
+        id: graph.project.id,
+        pipelines: [pipeline],
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PlannerError(message, "INVALID_GRAPH", err);
   }
 }
 
@@ -157,6 +260,9 @@ function bindInputs(
   const result: Record<string, InputValue> = {};
 
   for (const [name, input] of Object.entries(pipelineInputs)) {
+    const type = input.type as Input["type"] | undefined;
+    validateInputType(name, type);
+
     if (input.secret) {
       // Secret values are not embedded in the RunPlan. They are resolved at
       // runtime from a secrets context by name.
@@ -165,13 +271,13 @@ function bindInputs(
 
     const userValue = userInputs?.[name];
     if (userValue !== undefined) {
-      assertInputType(userValue, input.type, name);
+      assertInputValue(userValue, type, name);
       result[name] = userValue;
       continue;
     }
 
     if (input.default !== undefined) {
-      assertInputType(input.default, input.type, name);
+      assertInputValue(input.default, type, name);
       result[name] = input.default;
       continue;
     }
@@ -187,21 +293,27 @@ function bindInputs(
   return result;
 }
 
-function assertInputType(
-  value: InputValue,
-  type: Input["type"] | undefined,
+function validateInputType(
   name: string,
-): void {
+  type: Input["type"] | undefined,
+): asserts type is Input["type"] {
   if (type === undefined || !INPUT_TYPES.has(type)) {
     throw new PlannerError(
       `input "${name}" has no valid declared type`,
       "INVALID_GRAPH",
     );
   }
+}
+
+function assertInputValue(
+  value: InputValue,
+  type: Input["type"],
+  name: string,
+): void {
   if (typeof value !== type) {
     throw new PlannerError(
       `input "${name}" value ${JSON.stringify(value)} does not match declared type "${type}"`,
-      "MISSING_INPUT",
+      "INVALID_INPUT",
     );
   }
 }
