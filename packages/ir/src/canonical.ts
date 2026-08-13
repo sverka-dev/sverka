@@ -9,7 +9,10 @@
 // - Array element order is preserved; `undefined` array elements emit `null`.
 // - `NaN`, `Infinity`, `-Infinity` are rejected (not valid JSON).
 // - `Date` instances emit their ISO string.
+// - `bigint`, `symbol`, and `function` values are rejected (not JSON serializable).
 // - Strings escaped per JSON.stringify rules.
+
+import { SerializationError } from "./errors.js";
 
 export function canonicalStringify(value: unknown): string {
   const out: string[] = [];
@@ -44,7 +47,7 @@ function emit(value: unknown, out: string[]): void {
   }
   if (typeof value === "number") {
     if (Number.isNaN(value) || !Number.isFinite(value)) {
-      throw new TypeError("NaN and Infinity are not valid canonical JSON");
+      throw new SerializationError("NaN and Infinity are not valid canonical JSON");
     }
     out.push(String(value));
     return;
@@ -53,8 +56,9 @@ function emit(value: unknown, out: string[]): void {
     out.push(value ? "true" : "false");
     return;
   }
-  // Fallback: stringify anything else (bigint, symbol, function).
-  out.push(quoteString(String(value)));
+  // Reject unsupported primitive types to prevent hash collisions and
+  // ensure canonical JSON is valid JSON.
+  throw new SerializationError(`Unsupported canonical JSON value: ${typeof value}`);
 }
 
 function emitObject(obj: Record<string, unknown>, out: string[]): void {

@@ -7,7 +7,8 @@ export type SynthesisErrorCode =
   | "OUTPUT_COLLISION"
   | "INCOMPATIBLE_REFERENCE"
   | "INVALID_OUTPUT"
-  | "INVALID_SCOPE";
+  | "INVALID_SCOPE"
+  | "INVALID_ENTRY";
 
 export class SynthesisError extends Error {
   override readonly cause: unknown;
