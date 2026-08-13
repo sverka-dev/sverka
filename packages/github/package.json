@@ -1,0 +1,32 @@
+{
+  "name": "@sverka/github",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sverka/core": "workspace:*",
+    "@sverka/plugin": "workspace:*",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@sverka/constructs": "workspace:*",
+    "tsdown": "^0.22.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}
