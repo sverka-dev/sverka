@@ -3,7 +3,7 @@ import type {
   DefinitionGraph,
   ProjectDefinition,
   PipelineDefinition,
-  PipelineInputDefinition,
+  Input,
   EntryDefinition,
   StepDefinition,
   OperationDefinition,
@@ -140,7 +140,7 @@ describe("StepDefinition optional fields", () => {
 
 describe("PipelineDefinition", () => {
   it("with inputs and outputs", () => {
-    const input: PipelineInputDefinition = { name: "environment", type: "string", required: true };
+    const input: Input = { type: "string", required: true };
     const pipeline: PipelineDefinition = {
       id: "ci",
       inputs: { env: input },
@@ -148,7 +148,8 @@ describe("PipelineDefinition", () => {
       steps: [],
       outputs: [{ name: "version", type: "string", stepId: "ci/build" }],
     };
-    expect(pipeline.inputs.env?.name).toBe("environment");
+    expect(pipeline.inputs.env?.type).toBe("string");
+    expect(pipeline.inputs.env?.required).toBe(true);
     expect(Object.keys(pipeline.inputs).length).toBe(1);
     expect(pipeline.outputs.length).toBe(1);
   });
