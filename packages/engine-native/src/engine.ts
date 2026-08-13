@@ -165,26 +165,14 @@ class NativeEngine implements Engine {
     const drivers = request.drivers ?? this.config.drivers;
     const maxConcurrent = request.maxConcurrent ?? this.config.maxConcurrent ?? 4;
 
-    const secretsResult = await resolveRunSecrets(request, plan);
-    if (secretsResult.error) {
-      yield* this.emitSetupFailure(runId, start, secretsResult.error);
-      return null;
-    }
-
-    const graphResult = buildStepGraph(plan.steps);
-    if (graphResult.error) {
-      yield* this.emitSetupFailure(runId, start, graphResult.error);
-      return null;
-    }
-
-    const wsError = await ensureWorkspace(request.workspace);
-    if (wsError) {
-      yield* this.emitSetupFailure(runId, start, wsError);
+    const setup = await this.resolveSetup(request, plan);
+    if (setup.error) {
+      yield* this.emitSetupFailure(runId, start, setup.error);
       return null;
     }
 
     const states = new Map<string, StepState>();
-    for (const id of graphResult.graph.order) states.set(id, "pending");
+    for (const id of setup.graph.order) states.set(id, "pending");
 
     return {
       request,
@@ -194,15 +182,37 @@ class NativeEngine implements Engine {
       plan,
       drivers,
       maxConcurrent,
-      order: graphResult.graph.order,
-      stepMap: graphResult.graph.stepMap,
-      dependents: graphResult.graph.dependents,
-      indegree: graphResult.graph.indegree,
+      order: setup.graph.order,
+      stepMap: setup.graph.stepMap,
+      dependents: setup.graph.dependents,
+      indegree: setup.graph.indegree,
       states,
       valueStore: createValueStore(),
       artifactStore: createArtifactStore(request.artifactDir),
-      secrets: secretsResult.secrets,
+      secrets: setup.secrets,
     };
+  }
+
+  private async resolveSetup(
+    request: RunRequest,
+    plan: RunPlan,
+  ): Promise<{ error: string | null; graph: StepGraph; secrets: Record<string, string> }> {
+    const secretsResult = await resolveRunSecrets(request, plan);
+    if (secretsResult.error) {
+      return { error: secretsResult.error, graph: emptyGraph(), secrets: {} };
+    }
+
+    const graphResult = buildStepGraph(plan.steps);
+    if (graphResult.error) {
+      return { error: graphResult.error, graph: emptyGraph(), secrets: {} };
+    }
+
+    const wsError = await ensureWorkspace(request.workspace);
+    if (wsError) {
+      return { error: wsError, graph: emptyGraph(), secrets: {} };
+    }
+
+    return { error: null, graph: graphResult.graph, secrets: secretsResult.secrets };
   }
 
   private *emitSetupFailure(
@@ -456,6 +466,10 @@ function buildStepGraph(
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+function emptyGraph(): StepGraph {
+  return { order: [], stepMap: new Map(), dependents: new Map(), indegree: new Map() };
 }
 
 async function ensureWorkspace(workspace: string): Promise<string | undefined> {
