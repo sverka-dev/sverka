@@ -105,7 +105,7 @@ describe("main — global flags", () => {
     const out = new CaptureWriter();
     await main(["init", "--root", dir], { output: out });
     const content = readFileSync(join(dir, "sverka.config.ts"), "utf8");
-    expect(content).toContain("defineWorkflow");
+    expect(content).toContain("Project");
   });
 
   it("--verbose adds debug output to stderr", async () => {
@@ -124,11 +124,12 @@ describe("main — global flags", () => {
     await writefile(
       dir,
       "custom.config.ts",
-      `import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
-export default defineWorkflow({
-  name: "test",
-  workflow: pipeline(task("op", run({ command: "true" }))),
-});
+      `import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "build", { command: "echo build" });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+export default proj;
 `,
     );
     const out = new CaptureWriter();
