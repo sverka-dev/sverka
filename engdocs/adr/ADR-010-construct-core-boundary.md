@@ -16,9 +16,10 @@ Definition Graph + synthesis.
 
 ## Decision
 
-- **`@sverka/cdk`** owns: SverkaConstruct, Project, Pipeline, Step,
-  ShellStep, Entry (construct classes) + shared model types (Trigger,
-  Reference, Runtime, Input, Output). Depends only on `constructs@10.8.1` (npm).
+- **`@sverka/cdk`** owns: Project, Pipeline, Step,
+  ShellStep, Entry (construct classes extending `Construct` from `constructs@10.8.1`)
+  + shared model types (Trigger, Reference, Runtime, Input, Output).
+  Depends only on `constructs@10.8.1` (npm).
 - **`@sverka/core`** owns: Definition Graph types (ProjectDefinition,
   StepDefinition, etc.), OperationDefinition, Dependency, `synthesize()`,
   validation. Depends on `@sverka/cdk`.
