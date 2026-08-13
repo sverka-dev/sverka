@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { bindRunPlan, computeReachableSteps } from "../bind.js";
 import { PlannerError } from "../errors.js";
-import type { DefinitionGraph, StepDefinition } from "@sverka/core";
+import type { DefinitionGraph, StepDefinition, Dependency } from "@sverka/core";
 import { computeGraphId, computeRunPlanId } from "@sverka/ir";
 
-function makeStep(id: string, deps: { kind: "control" | "value" | "artifact"; producer: string }[] = []): StepDefinition {
+function makeStep(id: string, deps: Dependency[] = []): StepDefinition {
   return {
     id,
     runtime: {},
@@ -51,7 +51,7 @@ describe("bindRunPlan", () => {
       makeStep("ci/build"),
       makeStep("ci/test", [{ kind: "control", producer: "ci/build" }]),
       makeStep("ci/deploy", [{ kind: "control", producer: "ci/test" }]),
-    ], { entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/build"] }] });
+    ], { entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/deploy"] }] });
     const plan = bindRunPlan({ graph, entryId: "ci/on-push" });
     expect(plan.steps).toHaveLength(3);
     const ids = plan.steps.map((s) => s.id);
@@ -65,7 +65,7 @@ describe("bindRunPlan", () => {
       makeStep("ci/build"),
       makeStep("ci/test", [{ kind: "control", producer: "ci/build" }]),
       makeStep("ci/unrelated"),
-    ], { entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/build"] }] });
+    ], { entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/test"] }] });
     const plan = bindRunPlan({ graph, entryId: "ci/on-push" });
     expect(plan.steps).toHaveLength(2);
     const ids = plan.steps.map((s) => s.id);

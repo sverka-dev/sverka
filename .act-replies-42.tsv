@@ -1,0 +1,12 @@
+PRRT_kwDOTyoI9s6YxYpc	Fixed: adjacency map construction now uses get/push on a Map instead of array spreads, removing the O(n²) copy behavior.
+PRRT_kwDOTyoI9s6YxZh-	Fixed: validatePipelineStructure now iterates inputs via Object.entries, and validatePipelineInput validates type, required, secret, description, and default type consistency.
+PRRT_kwDOTyoI9s6YxZ56	Fixed: findEntry now searches every pipeline in the project and returns the matching pipeline and entry instead of hard-coding pipelines[0].
+PRRT_kwDOTyoI9s6YxZ5_	Fixed: validateDependencyProducers checks every dependencies[].producer against existing step IDs before the RunPlan is built.
+PRRT_kwDOTyoI9s6YxZ6D	Fixed: secret input values are no longer embedded in RunPlan.inputs or in the content-addressed plan ID; they are omitted so the runtime resolves them from the secrets context by name.
+PRRT_kwDOTyoI9s6YxZ8r	Fixed: computeReachableSteps now follows only dependencies[].producer edges backward from the roots, matching the spec.
+PRRT_kwDOTyoI9s6YxZ80	Fixed: bindRunPlan calls validateDependencyProducers before reachability computation so unknown producers fail fast with PlannerError(INVALID_GRAPH).
+PRRT_kwDOTyoI9s6YxZ84	Fixed: graph preprocessing is split into buildProducerMap, keeping traversal logic separate from adjacency construction.
+PRRT_kwDOTyoI9s6Yxdyl	Fixed: every step dependency is validated to reference an existing step ID before the RunPlan is built.
+PRRT_kwDOTyoI9s6Yxdyt	Fixed: bindInputs now asserts that user overrides and defaults match the declared input type and rejects mismatches with PlannerError.
+PRRT_kwDOTyoI9s6Yxdyy	Fixed: reachability now follows only producer/prerequisite edges backward, so siblings of ancestors are no longer pulled in.
+PRRT_kwDOTyoI9s6Yxdy3	Fixed: findEntry now searches every pipeline in the project instead of defaulting to the first one.
