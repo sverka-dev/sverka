@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "@sverka/runtime": "workspace:*",
-    "@sverka/ir": "workspace:*"
+    "@sverka/ir": "workspace:*",
+    "@sverka/core": "workspace:*",
+    "@sverka/engine-native": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",
