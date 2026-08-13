@@ -47,11 +47,12 @@ and trigger mapping.
 ```ts
 // Target contract (§19)
 class GithubTarget implements Target {
-  readonly id = "github";
+  readonly name = "github";
   readonly capabilities: CapabilityManifest;
   analyze(graph: DefinitionGraph): readonly TargetDiagnostic[];
   lower(graph: DefinitionGraph): GithubTargetGraph;
   emit(targetGraph: GithubTargetGraph): readonly GeneratedArtifact[];
+  compile(graph: DefinitionGraph): CompilationResult;
 }
 
 // Convenience function
@@ -152,9 +153,9 @@ export type {
 
 ### Dependency mapping
 
-Step `dependencies` → job `needs` array. Only `control` and `artifact`
-dependencies create `needs`. Value dependencies also create `needs` since
-GitHub jobs can't share values without artifacts.
+Step `dependencies` → job `needs` array. All dependency kinds (`control`,
+`value`, and `artifact`) create `needs` because GitHub jobs can't share
+values without artifacts.
 
 ### Capability manifest
 
