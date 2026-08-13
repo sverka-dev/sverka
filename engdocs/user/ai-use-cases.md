@@ -81,7 +81,7 @@ This is the flagship use case. The agent declares the pipeline once in
 
 | Aspect | Without Sverka | With Sverka |
 |--------|----------------|-------------|
-| Agent action | git diff, map changed files to checks, run subset, parse output | `sverka plan --entry ci --format json && sverka run --format json` |
+| Agent action | git diff, map changed files to checks, run subset, parse output | `sverka plan --entry ci --format json && sverka run --entry ci --format json` |
 | Tokens (est.) | ~2500 (diff analysis + selective execution + output parsing) | ~50 (plan + run) |
 | Sverka pipeline | Run Plan binding resolves reachable steps from entry roots; only those execute | |
 | Integration | CLI with `--format json` | |
