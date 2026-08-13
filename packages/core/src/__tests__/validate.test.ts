@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, ShellStep } from "@sverka/constructs";
-import { synthesize, SynthesisError } from "../index.js";
+import { synthesize, validateGraph, SynthesisError } from "../index.js";
+import type { DefinitionGraph } from "../graph.js";
 
 describe("synthesize — validation: cycles", () => {
   it("detects cycle → SynthesisError(CYCLE)", () => {
@@ -42,24 +43,69 @@ describe("synthesize — validation: unknown producer", () => {
 
 describe("synthesize — validation: output collision", () => {
   it("detects output collision → SynthesisError(OUTPUT_COLLISION)", () => {
+    // The constructs API deduplicates output names by Record key, so a
+    // collision can only arise from a deserialized graph with duplicate
+    // export operations. Test validateGraph directly with a crafted graph.
+    const graph: DefinitionGraph = {
+      project: {
+        id: "myproj",
+        pipelines: [
+          {
+            id: "ci",
+            inputs: [],
+            entries: [],
+            outputs: [],
+            steps: [
+              {
+                id: "ci/build",
+                runtime: {},
+                operations: [
+                  { kind: "shell", command: "npm run build" },
+                  { kind: "exportOutput", name: "version", type: "string" },
+                  { kind: "exportOutput", name: "version", type: "string" },
+                ],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(() => validateGraph(graph)).toThrow(SynthesisError);
+    try {
+      validateGraph(graph);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("OUTPUT_COLLISION");
+    }
+  });
+
+  it("passes when no duplicate export names exist", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci");
-    // Create a step with duplicate output names by using the same key.
-    // The constructs Map deduplicates by key, so we need to test at the
-    // operations level. We can create a custom step that has duplicate exports.
-    // Since ShellStep uses a Record (dedup by key), we test via direct synthesis.
-    // Instead, test with two outputs of the same name via different types.
-    // Actually, Record<string, OutputDeclaration> can't have duplicate keys.
-    // The OUTPUT_COLLISION check is for the operations array — which can't
-    // have duplicates if the outputs map can't have duplicate keys.
-    // So this test verifies the validation function works if called directly.
-    // We'll test it by creating a step with outputs and checking no error.
     new ShellStep(pipeline, "build", {
       command: "npm run build",
       outputs: { dist: { type: "artifact", path: "./dist" } },
     });
-    // No collision — should pass.
     expect(() => synthesize(proj)).not.toThrow();
+  });
+});
+
+describe("validateGraph", () => {
+  it("validates a well-formed graph without throwing", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      outputs: { dist: { type: "artifact", path: "./dist" } },
+    });
+    new ShellStep(pipeline, "test", {
+      command: "npm test",
+      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+    });
+    const graph = synthesize(proj);
+    expect(() => validateGraph(graph)).not.toThrow();
   });
 });
 

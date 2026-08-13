@@ -2,49 +2,53 @@ import { describe, it, expect } from "vitest";
 import { IRError, ValidationError, SerializationError } from "../errors.js";
 
 describe("IRError", () => {
-  it("is an Error subclass with name, code, and context", () => {
-    const err = new IRError("boom", "BOOM", { key: "value" });
+  it("extends Error", () => {
+    const err = new IRError("test", "VALIDATION_ERROR");
     expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe("IRError");
-    expect(err.code).toBe("BOOM");
-    expect(err.message).toBe("boom");
-    expect(err.context).toEqual({ key: "value" });
+    expect(err.message).toBe("test");
+    expect(err.code).toBe("VALIDATION_ERROR");
   });
 
-  it("context is optional", () => {
-    const err = new IRError("boom", "BOOM");
-    expect(err.context).toBeUndefined();
+  it("stores cause when provided", () => {
+    const cause = new Error("root");
+    const err = new IRError("test", "SERIALIZATION_ERROR", cause);
+    expect(err.cause).toBe(cause);
+  });
+
+  it("has undefined cause when not provided", () => {
+    const err = new IRError("test", "VALIDATION_ERROR");
+    expect(err.cause).toBeUndefined();
   });
 });
 
 describe("ValidationError", () => {
   it("extends IRError with code VALIDATION_ERROR", () => {
-    const err = new ValidationError("bad plan", { field: "id" });
+    const err = new ValidationError("bad schema");
     expect(err).toBeInstanceOf(IRError);
     expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe("ValidationError");
     expect(err.code).toBe("VALIDATION_ERROR");
-    expect(err.context).toEqual({ field: "id" });
+    expect(err.name).toBe("ValidationError");
   });
 
-  it("context is optional", () => {
-    const err = new ValidationError("bad plan");
-    expect(err.context).toBeUndefined();
+  it("passes cause through", () => {
+    const cause = new Error("root");
+    const err = new ValidationError("bad schema", cause);
+    expect(err.cause).toBe(cause);
   });
 });
 
 describe("SerializationError", () => {
   it("extends IRError with code SERIALIZATION_ERROR", () => {
-    const err = new SerializationError("bad json", { raw: "{" });
+    const err = new SerializationError("bad json");
     expect(err).toBeInstanceOf(IRError);
     expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe("SerializationError");
     expect(err.code).toBe("SERIALIZATION_ERROR");
-    expect(err.context).toEqual({ raw: "{" });
+    expect(err.name).toBe("SerializationError");
   });
 
-  it("context is optional", () => {
-    const err = new SerializationError("bad json");
-    expect(err.context).toBeUndefined();
+  it("passes cause through", () => {
+    const cause = new Error("root");
+    const err = new SerializationError("bad json", cause);
+    expect(err.cause).toBe(cause);
   });
 });
