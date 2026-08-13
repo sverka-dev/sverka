@@ -6,7 +6,7 @@
 
 ## Package dependency
 
-```
+```text
 @sverka/constructs  →  constructs@10.8.1 (npm)
 @sverka/core        →  @sverka/constructs
 ```
@@ -17,7 +17,7 @@ No other `@sverka/*` deps. Foundation layer.
 
 ### `packages/constructs/`
 
-```
+```text
 src/
   index.ts          # public exports
   base.ts           # SverkaConstruct extends Construct
@@ -31,7 +31,7 @@ src/
 
 ### `packages/core/`
 
-```
+```text
 src/
   index.ts          # public exports
   graph.ts          # Definition Graph types (spec 02)

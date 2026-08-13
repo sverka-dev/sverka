@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, ShellStep } from "@sverka/constructs";
 import { synthesize, SynthesisError } from "../index.js";
+import { validateOutputCollisions } from "../validate.js";
+import type { StepDefinition } from "../index.js";
 
 describe("synthesize — validation: cycles", () => {
   it("detects cycle → SynthesisError(CYCLE)", () => {
@@ -24,7 +26,7 @@ describe("synthesize — validation: cycles", () => {
 });
 
 describe("synthesize — validation: unknown producer", () => {
-  it("detects unknown producer → SynthesisError(UNKNOWN_PRODUCER)", () => {
+  it("detects unknown StepRef producer → SynthesisError(UNKNOWN_PRODUCER)", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci");
     new ShellStep(pipeline, "test", {
@@ -38,28 +40,71 @@ describe("synthesize — validation: unknown producer", () => {
       expect((err as SynthesisError).code).toBe("UNKNOWN_PRODUCER");
     }
   });
+
+  it("detects unknown dependsOn target → SynthesisError(UNKNOWN_PRODUCER)", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "test", {
+      command: "npm test",
+      dependsOn: ["missing"],
+    });
+    expect(() => synthesize(proj)).toThrow(SynthesisError);
+    try {
+      synthesize(proj);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("UNKNOWN_PRODUCER");
+    }
+  });
 });
 
 describe("synthesize — validation: output collision", () => {
-  it("detects output collision → SynthesisError(OUTPUT_COLLISION)", () => {
-    const proj = new Project("myproj");
-    const pipeline = new Pipeline(proj, "ci");
-    // Create a step with duplicate output names by using the same key.
-    // The constructs Map deduplicates by key, so we need to test at the
-    // operations level. We can create a custom step that has duplicate exports.
-    // Since ShellStep uses a Record (dedup by key), we test via direct synthesis.
-    // Instead, test with two outputs of the same name via different types.
-    // Actually, Record<string, OutputDeclaration> can't have duplicate keys.
-    // The OUTPUT_COLLISION check is for the operations array — which can't
-    // have duplicates if the outputs map can't have duplicate keys.
-    // So this test verifies the validation function works if called directly.
-    // We'll test it by creating a step with outputs and checking no error.
-    new ShellStep(pipeline, "build", {
-      command: "npm run build",
-      outputs: { dist: { type: "artifact", path: "./dist" } },
-    });
-    // No collision — should pass.
-    expect(() => synthesize(proj)).not.toThrow();
+  it("detects duplicate export output names → SynthesisError(OUTPUT_COLLISION)", () => {
+    const steps: StepDefinition[] = [
+      {
+        id: "ci/build",
+        runtime: {},
+        operations: [
+          { kind: "exportOutput", name: "dist", type: "string" },
+          { kind: "exportArtifact", name: "dist", path: "./dist" },
+        ],
+        inputs: [],
+        outputs: [],
+        dependencies: [],
+      },
+    ];
+    expect(() => validateOutputCollisions(steps)).toThrow(SynthesisError);
+    try {
+      validateOutputCollisions(steps);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("OUTPUT_COLLISION");
+    }
+  });
+
+  it("detects importArtifact/exportArtifact name collision → SynthesisError(OUTPUT_COLLISION)", () => {
+    const steps: StepDefinition[] = [
+      {
+        id: "ci/test",
+        runtime: {},
+        operations: [
+          {
+            kind: "importArtifact",
+            name: "dist",
+            from: "ci/build",
+            output: "dist",
+          },
+          { kind: "exportArtifact", name: "dist", path: "./dist" },
+        ],
+        inputs: [],
+        outputs: [],
+        dependencies: [],
+      },
+    ];
+    expect(() => validateOutputCollisions(steps)).toThrow(SynthesisError);
+    try {
+      validateOutputCollisions(steps);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("OUTPUT_COLLISION");
+    }
   });
 });
 

@@ -6,25 +6,27 @@ import {
   ShellStep,
   Entry,
   type Project,
-  type Step,
+  Step,
   type StepRef,
-  type OutputDeclaration,
   type Input,
 } from "@sverka/constructs";
 import type {
   DefinitionGraph,
-  ProjectDefinition,
   PipelineDefinition,
   EntryDefinition,
   StepDefinition,
   OperationDefinition,
   Dependency,
+  OutputDefinition,
+  PipelineOutputDefinition,
 } from "./graph.js";
 import {
   detectCycles,
   validateReferences,
   validateOutputCollisions,
   validateReferenceTypes,
+  validateDependencies,
+  resolveStepId,
 } from "./validate.js";
 import { SynthesisError } from "./errors.js";
 
@@ -39,9 +41,14 @@ export function synthesize(project: Project): DefinitionGraph {
   const pipelines: PipelineDefinition[] = [];
 
   for (const child of project.node.children) {
-    if (child instanceof Pipeline) {
-      pipelines.push(synthesizePipeline(child, projectId));
+    if (!(child instanceof Pipeline)) {
+      throw new SynthesisError(
+        "INVALID_SCOPE",
+        `Project can only contain Pipelines, found '${child.node.id}'`,
+        projectId,
+      );
     }
+    pipelines.push(synthesizePipeline(child, projectId));
   }
 
   return {
@@ -58,21 +65,30 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
   const entries: EntryDefinition[] = [];
 
   for (const child of pipeline.node.children) {
-    if (child instanceof ShellStep) {
+    if (child instanceof Step) {
       steps.push(synthesizeStep(child, pipelineId));
     } else if (child instanceof Entry) {
       entries.push(synthesizeEntry(child, pipelineId));
+    } else {
+      throw new SynthesisError(
+        "INVALID_SCOPE",
+        `Pipeline '${pipelineId}' can only contain Steps and Entries, found '${child.node.id}'`,
+        `${projectId}/${pipelineId}`,
+      );
     }
   }
 
-  // Collect pipeline-level outputs from all steps.
-  const outputs: OutputDeclaration[] = steps.flatMap((s) => s.outputs);
+  // Collect pipeline-level outputs from all steps, preserving name + producer.
+  const outputs: PipelineOutputDefinition[] = steps.flatMap((s) =>
+    s.outputs.map((o) => ({ ...o, stepId: s.id })),
+  );
   const inputs: Input[] = [...pipeline.inputs.values()];
 
   // Validate.
   validateOutputCollisions(steps);
   validateReferences(steps, pipelineId);
   validateReferenceTypes(steps, pipelineId);
+  validateDependencies(steps);
   detectCycles(steps);
 
   return { id: pipelineId, inputs, entries, steps, outputs };
@@ -109,12 +125,19 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   for (const input of step.inputs) {
     if (input.kind === "step") {
       const ref: StepRef = input;
-      const producerId = `${pipelineId}/${ref.step}`;
+      const producerId = resolveStepId(pipelineId, ref.step);
+      const depKey =
+        ref.type === "artifact"
+          ? `artifact:${producerId}:${ref.output}`
+          : `value:${producerId}:${ref.output}`;
+
+      if (seenDeps.has(depKey)) continue;
+
       if (ref.type === "artifact") {
         operations.push({
           kind: "importArtifact",
           name: ref.output,
-          from: ref.step,
+          from: producerId,
           output: ref.output,
         });
         addDependency(dependencies, seenDeps, {
@@ -136,16 +159,20 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   for (const depName of step.dependsOn) {
     addDependency(dependencies, seenDeps, {
       kind: "control",
-      producer: `${pipelineId}/${depName}`,
+      producer: resolveStepId(pipelineId, depName),
     });
   }
+
+  const stepOutputs: OutputDefinition[] = [...step.outputs.entries()].map(
+    ([name, decl]) => ({ ...decl, name }),
+  );
 
   const def: StepDefinition = {
     id: stepId,
     runtime: step.runtime,
     operations,
     inputs: [...step.inputs],
-    outputs: [...step.outputs.values()],
+    outputs: stepOutputs,
     dependencies,
     ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
   };
@@ -157,7 +184,7 @@ function synthesizeEntry(entry: Entry, pipelineId: string): EntryDefinition {
   return {
     id: `${pipelineId}/${entry.node.id}`,
     trigger: entry.trigger,
-    roots: entry.roots.map((r) => `${pipelineId}/${r}`),
+    roots: entry.roots.map((r) => resolveStepId(pipelineId, r)),
   };
 }
 
@@ -169,7 +196,7 @@ function addDependency(
   const key =
     dep.kind === "control"
       ? `control:${dep.producer}`
-      : `${dep.kind}:${dep.producer}:${dep.output ?? ""}`;
+      : `${dep.kind}:${dep.producer}:${dep.output}`;
   if (seen.has(key)) return;
 
   // If a more specific (value/artifact) dep exists, skip control dep.
