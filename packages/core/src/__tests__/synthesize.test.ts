@@ -5,8 +5,9 @@ import {
   ShellStep,
   Entry,
   push,
+  type Reference,
 } from "@sverka/constructs";
-import { synthesize, type StepDefinition } from "../index.js";
+import { synthesize, SynthesisError, type StepDefinition } from "../index.js";
 
 describe("synthesize — basic", () => {
   it("empty Pipeline → DefinitionGraph with empty steps/entries", () => {
@@ -284,5 +285,54 @@ describe("synthesize — determinism", () => {
     const g1 = synthesize(buildTree());
     const g2 = synthesize(buildTree());
     expect(JSON.stringify(g1)).toBe(JSON.stringify(g2));
+  });
+});
+
+describe("synthesize — step conditions", () => {
+  it("StepRef condition adds a value dependency", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      outputs: { ok: { type: "boolean" } },
+    });
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      condition: {
+        kind: "step",
+        step: "build",
+        output: "ok",
+        type: "boolean",
+      },
+    });
+    const graph = synthesize(proj);
+    const deploy = graph.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/deploy",
+    );
+    expect(deploy?.dependencies).toContainEqual({
+      kind: "value",
+      producer: "ci/build",
+      output: "ok",
+    });
+  });
+
+  it("ContextRef condition does not add a dependency", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const condition: Reference = {
+      kind: "context",
+      namespace: "env",
+      field: "DEPLOY",
+    };
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      condition,
+    });
+    const graph = synthesize(proj);
+    const deploy = graph.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/deploy",
+    );
+    expect(deploy?.dependencies).toEqual([]);
   });
 });
