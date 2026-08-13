@@ -13,5 +13,5 @@ export type {
 export { EngineError, SchedulerError, StepExecError } from "./errors.js";
 export type { EngineErrorCode } from "./errors.js";
 
-export { topoSortSteps, transitiveDependents, isStepReady } from "./scheduler.js";
-export type { StepState } from "./scheduler.js";
+export { buildStepExecutionGraph, topoSortSteps, transitiveDependents, isStepReady } from "./scheduler.js";
+export type { StepState, StepGraph } from "./scheduler.js";

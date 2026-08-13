@@ -7,6 +7,7 @@ import type { StepDefinition, OperationDefinition } from "@sverka/core";
 import type { InputValue } from "@sverka/ir";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore, RunEvent } from "./types.js";
 import { StepExecError, EngineError } from "./errors.js";
+import { stepPrefix, resolveProducerId } from "./refs.js";
 
 export interface StepExecOptions {
   readonly step: StepDefinition;
@@ -225,14 +226,11 @@ function assertSafeFileName(name: string): void {
   }
 }
 
-function stepPrefix(stepId: string): string {
-  const idx = stepId.lastIndexOf("/");
-  return idx === -1 ? "" : stepId.slice(0, idx);
-}
-
-function resolveProducerId(prefix: string, from: string): string {
-  if (from.includes("/")) return from;
-  return prefix ? `${prefix}/${from}` : from;
+/** Quote a value so it is safe for POSIX shell interpolation. */
+function shellQuote(value: InputValue): string {
+  const s = String(value);
+  if (/^[a-zA-Z0-9_\/.\-]+$/.test(s)) return s;
+  return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
 function interpolateCommand(
@@ -242,24 +240,24 @@ function interpolateCommand(
   inputs: Readonly<Record<string, InputValue>> | undefined,
 ): string {
   const prefix = stepPrefix(step.id);
-  return command.replace(/\$\{([^}]+)\}/g, (_, key: string) => {
+  return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
     const dot = key.lastIndexOf(".");
     if (dot === -1) {
-      if (inputs && key in inputs) {
-        return String(inputs[key]);
+      if (inputs && inputs[key] !== undefined) {
+        return shellQuote(inputs[key] as InputValue);
       }
       throw new StepExecError(`unresolved input reference '\${${key}}'`, "STEP_EXEC_ERROR");
     }
     const ns = key.slice(0, dot);
     const field = key.slice(dot + 1);
-    const stepId = ns.includes("/") ? ns : prefix ? `${prefix}/${ns}` : ns;
+    const stepId = resolveProducerId(prefix, ns);
     const value = valueStore.get(stepId, field);
     if (value !== undefined) {
-      return String(value);
+      return shellQuote(value as InputValue);
     }
     const inputKey = `${ns}.${field}`;
-    if (inputs && inputKey in inputs) {
-      return String(inputs[inputKey]);
+    if (inputs && inputs[inputKey] !== undefined) {
+      return shellQuote(inputs[inputKey] as InputValue);
     }
     throw new StepExecError(`unresolved step reference '\${${key}}'`, "STEP_EXEC_ERROR");
   });

@@ -5,11 +5,17 @@ import { runDocker } from "./internal/docker-cli.js";
 
 type DockerResult = Awaited<ReturnType<typeof runDocker>>;
 
-function dockerOptions(config: DockerDriverConfig): DockerRunOptions {
+function dockerOptions(
+  config: DockerDriverConfig,
+  timeoutMs?: number,
+  signal?: AbortSignal,
+): DockerRunOptions {
   return {
-    timeoutSeconds: 300,
+    timeoutSeconds:
+      timeoutMs !== undefined ? Math.ceil(timeoutMs / 1000) : 300,
     ...(config.dockerPath !== undefined ? { dockerPath: config.dockerPath } : {}),
     ...(config.dockerHost !== undefined ? { dockerHost: config.dockerHost } : {}),
+    ...(signal !== undefined ? { signal } : {}),
   };
 }
 
@@ -54,8 +60,10 @@ export async function verifyImageDigest(
   image: string,
   expectedDigest: string,
   config: DockerDriverConfig,
+  timeoutMs?: number,
+  signal?: AbortSignal,
 ): Promise<void> {
-  const opts = dockerOptions(config);
+  const opts = dockerOptions(config, timeoutMs, signal);
 
   let inspectResult = await dockerInspect(image, opts);
 
