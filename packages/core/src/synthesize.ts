@@ -157,6 +157,17 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
     }
   }
 
+  // Condition dependencies.
+  if (step.condition?.kind === "step") {
+    const ref = step.condition;
+    const producerId = resolveStepId(pipelineId, ref.step);
+    addDependency(dependencies, seenDeps, {
+      kind: "value",
+      producer: producerId,
+      output: ref.output,
+    });
+  }
+
   // Control dependencies from dependsOn.
   for (const depName of step.dependsOn) {
     addDependency(dependencies, seenDeps, {

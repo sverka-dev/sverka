@@ -83,7 +83,7 @@ describe("SDK conformance — same graph as Construct API", () => {
     expect(sdkGraph.project.id).toBe(constructGraph.project.id);
 
     // Same number of pipelines.
-    expect(sdkGraph.project.pipelines.length).toBe(constructGraph.project.pipelines.length);
+    expect(sdkGraph.project.pipelines).toHaveLength(constructGraph.project.pipelines.length);
 
     const sdkPip = sdkGraph.project.pipelines[0]!;
     const constructPip = constructGraph.project.pipelines[0]!;
@@ -92,7 +92,7 @@ describe("SDK conformance — same graph as Construct API", () => {
     expect(sdkPip.id).toBe(constructPip.id);
 
     // Same number of steps.
-    expect(sdkPip.steps.length).toBe(constructPip.steps.length);
+    expect(sdkPip.steps).toHaveLength(constructPip.steps.length);
 
     // Verify each step matches.
     for (const constructStep of constructPip.steps) {
@@ -105,7 +105,7 @@ describe("SDK conformance — same graph as Construct API", () => {
     }
 
     // Same entries.
-    expect(sdkPip.entries.length).toBe(constructPip.entries.length);
+    expect(sdkPip.entries).toHaveLength(constructPip.entries.length);
     for (const constructEntry of constructPip.entries) {
       const sdkEntry = sdkPip.entries.find((e) => e.id === constructEntry.id);
       expect(sdkEntry).toBeDefined();
@@ -118,6 +118,6 @@ describe("SDK conformance — same graph as Construct API", () => {
     const constructGraph = buildViaConstructAPI();
     const sdkGraph = buildViaSdkAPI();
     // Structural equality implies content-addressed IDs would match.
-    expect(JSON.stringify(sdkGraph)).toBe(JSON.stringify(constructGraph));
+    expect(sdkGraph).toEqual(constructGraph);
   });
 });

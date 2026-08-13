@@ -42,7 +42,7 @@ const nodeImages = new Proxy({} as Record<string, ImageRef> & { readonly latest:
 });
 
 /** Ubuntu image proxy — images.ubuntu.latest → { ref: "ubuntu:latest" }. */
-const ubuntuImages = new Proxy({} as { readonly latest: ImageRef; readonly [version: string]: ImageRef }, {
+const ubuntuImages = new Proxy({} as { readonly latest: ImageRef; readonly [tag: string]: ImageRef }, {
   get(target, prop: string | symbol): ImageRef | unknown {
     if (typeof prop === "symbol" || PROTECTED_IMAGE_PROPS.has(prop)) {
       return Reflect.get(target, prop);

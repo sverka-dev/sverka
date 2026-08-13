@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
 import * as sdk from "../index.js";
+import type { StepBuilder, PipelineConfig, ImageRef, SdkErrorCode } from "../index.js";
+
+// Compile-time guard: the public type surface must stay exported.
+type _TypeSurface = [StepBuilder, PipelineConfig, ImageRef, SdkErrorCode];
 
 describe("public API", () => {
   it("exports all expected functions", () => {

@@ -34,24 +34,30 @@ interface StepBuilderState {
 }
 
 function createBuilder(state: StepBuilderState): StepBuilder {
-  return {
+  const builder: StepBuilder = {
     outputs(outputs: Readonly<Record<string, OutputDeclaration>>): StepBuilder {
-      return createBuilder({ ...state, outputs });
+      state.outputs = outputs;
+      return builder;
     },
     inputs(inputs: readonly Reference[]): StepBuilder {
-      return createBuilder({ ...state, inputs });
+      state.inputs = inputs;
+      return builder;
     },
     dependsOn(steps: readonly string[]): StepBuilder {
-      return createBuilder({ ...state, dependsOn: steps });
+      state.dependsOn = steps;
+      return builder;
     },
     runtime(runtime: Runtime): StepBuilder {
-      return createBuilder({ ...state, runtime });
+      state.runtime = runtime;
+      return builder;
     },
     timeout(ms: number): StepBuilder {
-      return createBuilder({ ...state, timeout: ms });
+      state.timeout = ms;
+      return builder;
     },
     condition(ref: Reference): StepBuilder {
-      return createBuilder({ ...state, condition: ref });
+      state.condition = ref;
+      return builder;
     },
     build(pipeline: Pipeline, id: string): ShellStep {
       // Merge collected inputs (from interpolation) with explicit inputs.
@@ -68,6 +74,7 @@ function createBuilder(state: StepBuilderState): StepBuilder {
       });
     },
   };
+  return builder;
 }
 
 /**

@@ -41,6 +41,12 @@ describe("sh tagged template", () => {
     expect(step.command).toBe("echo ${env.CI_TRACE}");
     expect(step.inputs).toContainEqual({ kind: "context", namespace: "env", field: "CI_TRACE" });
   });
+
+  it("rejects unsupported interpolation values", () => {
+    expect(() => sh`echo ${{ foo: "bar" } as unknown as string}`).toThrowError(
+      expect.objectContaining({ code: "INVALID_INTERPOLATION" }),
+    );
+  });
 });
 
 describe("StepBuilder", () => {
@@ -70,5 +76,16 @@ describe("StepBuilder", () => {
     const pipeline = new Pipeline(proj, "ci");
     const step = sh`npm test`.runtime({ image: "node:22" }).build(pipeline, "test");
     expect(step.runtime.image).toBe("node:22");
+  });
+
+  it("preserves configuration when methods are called without reassignment", () => {
+    const proj = new Project("test");
+    const pipeline = new Pipeline(proj, "ci");
+    const builder = sh`npm test`;
+    builder.dependsOn(["build"]);
+    builder.timeout(5000);
+    const step = builder.build(pipeline, "test");
+    expect(step.dependsOn).toEqual(["build"]);
+    expect(step.timeout).toBe(5000);
   });
 });
