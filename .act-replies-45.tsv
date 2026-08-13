@@ -1,0 +1,28 @@
+PRRT_kwDOTyoI9s6Yxp52	Fixed — `run.ts` now instantiates and registers `@sverka/runtime-docker` when `--executor docker` is requested.
+PRRT_kwDOTyoI9s6Yxp57	Fixed — `synth.ts` writes the stub message/JSON and returns `ExitCode.UsageError` instead of throwing after output.
+PRRT_kwDOTyoI9s6Yxp6A	Fixed — added `@sverka/runtime-docker` to `packages/cli/package.json` dependencies.
+PRRT_kwDOTyoI9s6Yxqm4	Fixed — `plan.ts` uses `resolveDefaultEntryId` which searches all pipelines for the first entry.
+PRRT_kwDOTyoI9s6Yxqm6	Fixed — `run.ts` passes both host and Docker drivers to the engine, so `--executor docker` is wired correctly.
+PRRT_kwDOTyoI9s6Yxqnr	Fixed — `runStatus` now initializes to `failure` and only becomes `success` when a `run-completed` event is received.
+PRRT_kwDOTyoI9s6Yxqns	Acknowledged — config loading was extracted into `loadProjectGraph`/`resolveConfigPath`; further `runCommand` split will be handled in a follow-up refactor.
+PRRT_kwDOTyoI9s6Yxqnu	Fixed — `check.ts` now uses `getShellCommand` with a guarded `find` on `kind === "shell"` operations.
+PRRT_kwDOTyoI9s6Yxqnv	Fixed — duplicated config resolution and synthesis moved to `loadProjectGraph` in `src/internal/config.ts`.
+PRRT_kwDOTyoI9s6Yxqnx	Fixed — `graph.ts` now delegates config loading/synthesis to the shared `loadProjectGraph` helper.
+PRRT_kwDOTyoI9s6Yxqnz	Acknowledged — `printEvent` switch is explicit and exhaustive; a record-based refactor is deferred.
+PRRT_kwDOTyoI9s6Yxqn3	Fixed — `init.ts` now calls `ensureConstructsDependency` to add `@sverka/constructs` to the target project.
+PRRT_kwDOTyoI9s6Yxqn6	Fixed — `init.ts` detects the project's package manager and generates `<pm> run ...` commands in the template.
+PRRT_kwDOTyoI9s6Yxr42	Fixed — added host-execution coverage for the `run` command in `commands.test.ts`.
+PRRT_kwDOTyoI9s6Yxr45	Acknowledged — `loadProjectGraph` and driver setup were extracted from `runCommand`; full complexity-gate refactoring is tracked for follow-up.
+PRRT_kwDOTyoI9s6Yxr48	Fixed — `run` passes the project root as the engine workspace, and `engine-native` runs commands from the project root with per-step scratch under `.sverka/workspace/<stepId>`.
+PRRT_kwDOTyoI9s6Yxr5A	Fixed — `loadConfig` now uses a structural `assertProjectLike` check instead of `instanceof Project`.
+PRRT_kwDOTyoI9s6Yxr5G	Fixed — removed the obsolete `execute` alias from the parser and dispatch switch in `main.ts`.
+PRRT_kwDOTyoI9s6Yxr5I	Fixed — `specs/17-cli/spec.md` updated to remove stale SDK/deferred-loading statements and align exit codes and args.
+PRRT_kwDOTyoI9s6Yxv6U	Acknowledged — `run` test coverage added; remaining command-level tests for edge cases are tracked for follow-up.
+PRRT_kwDOTyoI9s6Yxv6a	Acknowledged — the spec follows the repo convention of numbered directories; `17-cli/spec.md` is consistent with all other specs.
+PRRT_kwDOTyoI9s6Yxv6d	Fixed — `run` now uses the project root as the workspace and `engine-native` executes commands from that root.
+PRRT_kwDOTyoI9s6Yxv6g	Fixed — Docker driver is instantiated and registered when `--executor docker` is selected.
+PRRT_kwDOTyoI9s6Yxv6h	Fixed — host driver config now forwards `PATH`, `HOME`, `USER`, `SHELL`, and standard `XDG_*` environment variables.
+PRRT_kwDOTyoI9s6Yxv6k	Fixed — default entry resolution searches all pipelines, so later pipeline entries are reachable.
+PRRT_kwDOTyoI9s6Yxv6m	Fixed — `policy` now requires `--findings`, loads the SARIF file, and evaluates real findings instead of an empty array.
+PRRT_kwDOTyoI9s6Yxv6o	Fixed — replaced `instanceof Project` with a structural `assertProjectLike` check that tolerates different module instances.
+PRRT_kwDOTyoI9s6Yxv6s	Fixed — `check.ts` no longer casts `operations[0]`; it finds and narrows the shell operation safely.
