@@ -22,7 +22,28 @@ export function defineSverkaPlugin(
   const meta: PluginMeta = { version: "1.0.0" };
   const plugin = factory(options, meta);
   validatePlugin(plugin);
-  return plugin;
+  return snapshotPlugin(plugin);
+}
+
+/**
+ * Store a validated, defensive copy of a plugin so callers cannot mutate
+ * the registry's internal state after registration.
+ */
+function snapshotPlugin(plugin: SverkaPlugin): SverkaPlugin {
+  const copy: Record<string, unknown> = {
+    name: plugin.name,
+    apiVersion: plugin.apiVersion,
+  };
+  if (plugin.capabilities) copy.capabilities = { ...plugin.capabilities };
+  if (plugin.model) copy.model = [...plugin.model];
+  if (plugin.transforms) copy.transforms = [...plugin.transforms];
+  if (plugin.validators) copy.validators = [...plugin.validators];
+  if (plugin.targets) copy.targets = [...plugin.targets];
+  if (plugin.importers) copy.importers = [...plugin.importers];
+  if (plugin.engines) copy.engines = [...plugin.engines];
+  if (plugin.connectors) copy.connectors = [...plugin.connectors];
+  if (plugin.extensions) copy.extensions = [...plugin.extensions];
+  return copy as unknown as SverkaPlugin;
 }
 
 /**
@@ -60,15 +81,15 @@ export function createPluginRegistry(): PluginRegistry {
         );
       }
       names.add(plugin.name);
-      plugins.push(plugin);
+      plugins.push(snapshotPlugin(plugin));
     },
     get plugins(): readonly SverkaPlugin[] {
-      return plugins.slice();
+      return plugins.map((p) => snapshotPlugin(p));
     },
     getCapabilities(): CapabilityManifest[] {
       return plugins
         .filter((p) => p.capabilities !== undefined)
-        .map((p) => p.capabilities as CapabilityManifest);
+        .map((p) => ({ ...(p.capabilities as CapabilityManifest) }));
     },
   };
 }

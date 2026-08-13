@@ -6,7 +6,7 @@
 
 ## Overview
 
-The plugin package provides the extensibility model for Sverika. Plugins
+The plugin package provides the extensibility model for Sverka. Plugins
 are typed factories with domain-specific facets (targets, importers,
 engines, connectors, validators, transforms). The capability model
 declares support levels for features across plugins, driving diagnostics,
