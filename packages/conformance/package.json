@@ -27,7 +27,6 @@
     "@sverka/planner": "workspace:*",
     "@sverka/engine-native": "workspace:*",
     "@sverka/runtime-host": "workspace:*",
-    "@sverka/plugin": "workspace:*",
     "@sverka/github": "workspace:*",
     "@sverka/gitlab": "workspace:*"
   },
@@ -35,6 +34,7 @@
     "tsdown": "^0.22.0",
     "typescript": "^5.8.0",
     "vitest": "^3.0.0",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "@sverka/plugin": "workspace:*"
   }
 }

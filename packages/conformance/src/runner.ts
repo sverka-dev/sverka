@@ -40,22 +40,16 @@ const ALLOWLIST = createAllowlist(["sh"]);
 
 /**
  * Canonicalize a value for stable comparison: sort object keys and arrays.
+ * Exported for test suites to avoid duplicating the helper.
  */
-function canonicalize(value: unknown): unknown {
+export function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value
       .map(canonicalize)
       .sort((a, b) => {
-        if (typeof a === "string" && typeof b === "string") {
-          return a.localeCompare(b);
-        }
-        if (typeof a === "number" && typeof b === "number") {
-          return a - b;
-        }
-        if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
-          return JSON.stringify(a).localeCompare(JSON.stringify(b));
-        }
-        return String(a).localeCompare(String(b));
+        const sa = typeof a === "string" ? a : JSON.stringify(a);
+        const sb = typeof b === "string" ? b : JSON.stringify(b);
+        return sa < sb ? -1 : sa > sb ? 1 : 0;
       });
   }
 
@@ -65,7 +59,7 @@ function canonicalize(value: unknown): unknown {
     }
     const entries = Object.entries(value as Record<string, unknown>)
       .map(([k, v]) => [k, canonicalize(v)] as const)
-      .sort(([a], [b]) => a.localeCompare(b));
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
     return Object.fromEntries(entries);
   }
 
@@ -158,7 +152,7 @@ function checkTargetCompile(
 
 async function checkEngineExecution(
   graph: DefinitionGraph,
-): Promise<ConformanceResult> {
+): Promise<{ result: ConformanceResult; events: RunEvent[] }> {
   const tmpRoot = await mkdtemp(join(tmpdir(), "sverka-conf-"));
   try {
     const plan = bindRunPlan({
@@ -190,10 +184,7 @@ async function checkEngineExecution(
 
     const succeeded = new Set(
       events
-        .filter(
-          (e): e is { type: "step-succeeded"; stepId: string; durationMs: number } =>
-            e.type === "step-succeeded",
-        )
+        .filter((e): e is Extract<RunEvent, { type: "step-succeeded" }> => e.type === "step-succeeded")
         .map((e) => e.stepId),
     );
     const expected = ["ci/lint", "ci/build", "ci/test"];
@@ -203,9 +194,12 @@ async function checkEngineExecution(
 
     const passed = runSuccess && allStepsSucceeded && !hasFailure;
     return {
-      name: "§34.4: Graph executes through native engine",
-      passed,
-      message: `Engine produced ${events.length} events; run status: ${completed?.status ?? "missing"}; steps succeeded: ${[...succeeded].join(", ")}`,
+      result: {
+        name: "§34.4: Graph executes through native engine",
+        passed,
+        message: `Engine produced ${events.length} events; run status: ${completed?.status ?? "missing"}; steps succeeded: ${[...succeeded].join(", ")}`,
+      },
+      events,
     };
   } finally {
     await rm(tmpRoot, { recursive: true, force: true });
@@ -268,7 +262,7 @@ function checkContainerImage(graph: DefinitionGraph): ConformanceResult {
     return {
       name: "§34.7: Container image selected provider-neutrally",
       passed: true,
-      message: "Seed uses host runtime; no container images required",
+      message: "Skipped: seed uses host runtime; no container steps to verify",
     };
   }
   const valid = containerSteps.every(
@@ -433,7 +427,7 @@ export async function runConformance(): Promise<readonly ConformanceResult[]> {
     checkTargetCompile(graphConstruct, "gitlab", "script:"),
   );
 
-  const engineResult = await checkEngineExecution(graphConstruct);
+  const { result: engineResult, events } = await checkEngineExecution(graphConstruct);
   results.push(engineResult);
 
   results.push(
@@ -442,36 +436,7 @@ export async function runConformance(): Promise<readonly ConformanceResult[]> {
     checkContainerImage(graphConstruct),
   );
 
-  // Re-run engine for the context-namespace check so we can correlate
-  // the test step's condition with the actual run events.
-  const plan = bindRunPlan({
-    graph: graphConstruct,
-    entryId: "ci/on-push",
-    inputs: {},
-  });
-  const engine = createEngine({
-    drivers: [
-      createHostDriver({
-        enabled: true,
-        allowlist: ALLOWLIST,
-        envAllowlist: [],
-      }),
-    ],
-  });
-  const events: RunEvent[] = [];
-  const tmpRoot = await mkdtemp(join(tmpdir(), "sverka-conf-ctx-"));
-  try {
-    for await (const event of engine.run({
-      plan,
-      workspace: tmpRoot,
-      artifactDir: join(tmpRoot, "artifacts"),
-    })) {
-      events.push(event);
-    }
-  } finally {
-    await rm(tmpRoot, { recursive: true, force: true });
-  }
-
+  // Reuse events from checkEngineExecution for the context-namespace check.
   results.push(
     checkContextNamespaces(graphConstruct, events),
     checkCycleDiagnostics(),
