@@ -133,6 +133,7 @@ The analyzer detects capabilities from the graph:
 - `trigger.<kind>` for each entry trigger kind
 - `runtime.<mode>` for each step runtime mode
 - `operation.shell` for shell operations
+- `operation.import` for importArtifact operations
 - `output.scalar` for scalar outputs
 - `output.artifact` for artifact outputs
 - `graph.dependencies` when any step has dependencies
