@@ -26,7 +26,6 @@ it without executing.
 | Flag        | Type    | Default | Description                              |
 |-------------|---------|---------|------------------------------------------|
 | `--entry`   | string  | —       | Entry ID to plan for                     |
-| `--inputs`  | string  | —       | JSON string of input values              |
 
 ### `sverka graph`
 
@@ -41,7 +40,7 @@ Emits step events: pending, started, succeeded/failed, run completion.
 | Flag        | Type    | Default | Description                              |
 |-------------|---------|---------|------------------------------------------|
 | `--entry`   | string  | —       | Entry ID to run                          |
-| `--inputs`  | string  | —       | JSON string of input values              |
+| `--executor`| string  | `host`  | `host`, `docker`                        | Runtime executor to use |
 
 ### `sverka discover`
 
@@ -70,12 +69,12 @@ Evaluate policy against findings and baseline.
 
 ### `sverka synth --target github|gitlab`
 
-Lower the Definition Graph to native GitHub Actions or GitLab CI YAML.
+Stub for future target compilation (requires Waves H/I). Currently returns a
+not-yet-implemented message.
 
 | Flag        | Type    | Default | Description                              |
 |-------------|---------|---------|------------------------------------------|
 | `--target`  | string  | —       | Target: `github` or `gitlab`             |
-| `--output`  | string  | —       | Output file path                         |
 
 ### `sverka doctor`
 
@@ -87,10 +86,13 @@ Check installation health, dependencies, and configuration.
 
 ## Global flags
 
-| Flag        | Description                              |
-|-------------|------------------------------------------|
-| `--config`  | Path to config file (default: `sverka.config.ts`) |
-| `--verbose` | Verbose output                           |
+| Flag        | Type    | Default            | Choices         | Description                              |
+|-------------|---------|--------------------|-----------------|------------------------------------------|
+| `--config`  | string  | —                  |                 | Path to config file (default: `sverka.config.ts`) |
+| `--root`    | string  | `process.cwd()`    |                 | Project root directory                   |
+| `--format`  | string  | `human`            | `human`, `json` | Output format                            |
+| `--verbose` | boolean | `false`            |                 | Verbose output                           |
+| `--quiet`   | boolean | `false`            |                 | Suppress non-essential output            |
 
 ## Exit codes
 

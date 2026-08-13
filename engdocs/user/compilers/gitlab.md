@@ -73,8 +73,5 @@ const gitlabCapabilities = {
 
 ## CLI usage
 
-```sh
-sverka synth --target gitlab
-```
-
-This writes `.gitlab-ci.yml`.
+`sverka synth --target gitlab` is not yet implemented in the CLI and currently
+returns a stub error. Use the `compileGitlab` package API to generate YAML.

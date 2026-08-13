@@ -66,14 +66,12 @@ const githubCapabilities = {
   "operation.shell": "native",
   "output.scalar": "lowered",    // via $GITHUB_OUTPUT
   "output.artifact": "native",
+  "runtime.secrets": "lowered",  // via job-level `env` referencing `secrets.<name>`
   "graph.dependencies": "native",
 };
 ```
 
 ## CLI usage
 
-```sh
-sverka synth --target github
-```
-
-This writes `.github/workflows/<pipeline-id>.yml`.
+`sverka synth --target github` is not yet implemented in the CLI and currently
+returns a stub error. Use the `compileGithub` package API to generate YAML.
