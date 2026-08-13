@@ -8,7 +8,7 @@ import {
   Entry,
   type Reference,
 } from "@sverka/constructs";
-import { sh, pipeline as sdkPipeline } from "@sverka/sdk";
+import { sh, pipelineV0 as sdkPipeline } from "@sverka/sdk";
 import {
   pipeline as pipelineDecorator,
   step,
