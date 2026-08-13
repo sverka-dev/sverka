@@ -28,23 +28,35 @@ export function verifyPolicyAgainstGraph(
   policy: Policy,
   graph: DefinitionGraph,
 ): PolicyVerification {
-  const errors: string[] = [];
+  const errors = collectValidationErrors(policy, graph);
+  if (errors.length > 0) {
+    return { valid: false, unknownCheckIds: [], errors };
+  }
 
+  const knownCheckIds = collectKnownCheckIds(graph);
+  const referencedCheckIds = collectReferencedCheckIds(policy);
+  const unknownCheckIds = findUnknownCheckIds(referencedCheckIds, knownCheckIds);
+
+  return {
+    valid: unknownCheckIds.length === 0,
+    unknownCheckIds,
+  };
+}
+
+function collectValidationErrors(policy: Policy, graph: DefinitionGraph): string[] {
+  const errors: string[] = [];
   if (!policy || typeof policy !== "object") {
     errors.push("invalid policy: expected object");
   } else if (!Array.isArray(policy.failOn)) {
     errors.push("invalid policy: failOn must be an array");
   }
-
   if (!graph || typeof graph !== "object" || !Array.isArray(graph.project?.pipelines)) {
     errors.push("invalid graph: project.pipelines must be an array");
   }
+  return errors;
+}
 
-  if (errors.length > 0) {
-    return { valid: false, unknownCheckIds: [], errors };
-  }
-
-  // Collect check IDs from check steps across all pipelines.
+function collectKnownCheckIds(graph: DefinitionGraph): Set<string> {
   const knownCheckIds = new Set<string>();
   for (const pipeline of graph.project.pipelines) {
     if (!Array.isArray(pipeline.steps)) continue;
@@ -54,8 +66,10 @@ export function verifyPolicyAgainstGraph(
       }
     }
   }
+  return knownCheckIds;
+}
 
-  // Collect all checkIds referenced in failOn rules.
+function collectReferencedCheckIds(policy: Policy): Set<string> {
   const referencedCheckIds = new Set<string>();
   for (const rule of policy.failOn) {
     const raw = (rule as { checkIds?: unknown }).checkIds;
@@ -65,17 +79,15 @@ export function verifyPolicyAgainstGraph(
       if (typeof id === "string") referencedCheckIds.add(id);
     }
   }
+  return referencedCheckIds;
+}
 
-  // Find unknown check IDs.
-  const unknownCheckIds: string[] = [];
-  for (const id of referencedCheckIds) {
-    if (!knownCheckIds.has(normalizeCheckId(id))) {
-      unknownCheckIds.push(id);
+function findUnknownCheckIds(referenced: Set<string>, known: Set<string>): string[] {
+  const unknown: string[] = [];
+  for (const id of referenced) {
+    if (!known.has(normalizeCheckId(id))) {
+      unknown.push(id);
     }
   }
-
-  return {
-    valid: unknownCheckIds.length === 0,
-    unknownCheckIds,
-  };
+  return unknown;
 }
