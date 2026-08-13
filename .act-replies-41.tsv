@@ -1,0 +1,55 @@
+PRRT_kwDOTyoI9s6YxThy	Fixed: `retrieve` now validates `stepId` containment and `outputName` basename, and `copyRecursive` refuses symlinks.
+PRRT_kwDOTyoI9s6YxTiA	Fixed: `store` validates `stepId` containment and `outputName` basename, and `copyRecursive` refuses symlinks.
+PRRT_kwDOTyoI9s6YxTiD	Fixed: guarded `child.pid` before `process.kill` in the SIGKILL fallback.
+PRRT_kwDOTyoI9s6YxTiK	Fixed: `validateEnv` now rejects invalid environment names and unsafe values (newlines/nulls).
+PRRT_kwDOTyoI9s6YxTiP	Fixed: guarded `child.pid` before `process.kill` in the timeout/SIGTERM path.
+PRRT_kwDOTyoI9s6YxUMJ	Fixed: absolute-path allowlist entries now require an exact path match.
+PRRT_kwDOTyoI9s6YxUv9	Fixed: `copyRecursive` uses `lstat` and rejects symlinks.
+PRRT_kwDOTyoI9s6YxUwB	Fixed: host `spawn` now uses `shell: false` with a quote-aware tokenizer.
+PRRT_kwDOTyoI9s6YxUwE	Fixed: `ShellExecuteRequest` now includes `signal?: AbortSignal`.
+PRRT_kwDOTyoI9s6YxUwG	Fixed: `topoSortSteps` throws `SchedulerError` when a step depends on an unknown producer.
+PRRT_kwDOTyoI9s6YxUwK	Fixed: events now wake the scheduler loop via a deferred promise so diagnostics are yielded live.
+PRRT_kwDOTyoI9s6YxUwN	Acknowledged: the run loop is intentionally a single async generator; the logic is sequential scheduling.
+PRRT_kwDOTyoI9s6YxUwS	Acknowledged: Kahn's algorithm is compact and correct for v0; splitting would not improve clarity.
+PRRT_kwDOTyoI9s6YxUwU	Acknowledged: the switch dispatch is idiomatic for operation kinds.
+PRRT_kwDOTyoI9s6YxUwY	Acknowledged: `isStepReady` is exported as part of the public API and tested.
+PRRT_kwDOTyoI9s6YxUzN	Fixed: artifact paths are validated for containment and basename safety.
+PRRT_kwDOTyoI9s6YxVg1	Fixed: per-run `AbortController`; overlapping runs are rejected.
+PRRT_kwDOTyoI9s6YxVg8	Fixed: `run-started` is emitted first and secret-resolution errors are caught and reported.
+PRRT_kwDOTyoI9s6YxVhA	Fixed: `topoSortSteps` throws for missing producer IDs.
+PRRT_kwDOTyoI9s6YxVhD	Fixed: `resolveUnder` and `assertSafeFileName` prevent workspace/path escapes.
+PRRT_kwDOTyoI9s6YxVhG	Fixed: reserved `SVERKA_OUTPUT_DIR`/`SVERKA_STEP_ID` are set after runtime env so they cannot be overwritten.
+PRRT_kwDOTyoI9s6YxVhJ	Fixed: `${step.output}` references are resolved with namespace prefix and input fallback.
+PRRT_kwDOTyoI9s6YxVhN	Fixed: timeout logic moved to `runDocker` with `closed`/`graceTimer` SIGTERM/SIGKILL escalation.
+PRRT_kwDOTyoI9s6YxVhR	Fixed: command is tokenized; first token is allowlist-checked and remaining args are checked for unquoted metacharacters.
+PRRT_kwDOTyoI9s6YxVhT	Fixed: host output is now bounded while streaming using byte-length appender.
+PRRT_kwDOTyoI9s6YxZE2	Acknowledged: spec files live in numbered directories (`10-engine-native/spec.md`) per repo convention.
+PRRT_kwDOTyoI9s6YxZE3	Fixed: absolute-path allowlist entries require exact path match.
+PRRT_kwDOTyoI9s6YxZE6	Fixed: `project.json` targets now use `cwd: packages/engine-native`.
+PRRT_kwDOTyoI9s6YxZE7	Fixed: only transitive dependents are cancelled; independent steps continue.
+PRRT_kwDOTyoI9s6YxZE9	Fixed: `cancel()` aborts the per-run `AbortController` and propagates `signal` to drivers.
+PRRT_kwDOTyoI9s6YxZFI	Fixed: `SVERKA_OUTPUT_DIR` and `cwd` are translated to `/workspace/...` container paths.
+PRRT_kwDOTyoI9s6YxZFL	Fixed: `launch` evaluates `step.condition` and emits `step-skipped`.
+PRRT_kwDOTyoI9s6YxZFS	Fixed: `runDocker` handles timeout with SIGTERM/SIGKILL escalation.
+PRRT_kwDOTyoI9s6YxZFX	Fixed: `runDocker` caps each stream at `maxLogBytes` while chunks arrive.
+PRRT_kwDOTyoI9s6YxZFe	Fixed: ready queue with `onStepComplete` updates; no O(n²) rescan.
+PRRT_kwDOTyoI9s6YxZFm	Fixed: `executeShell` calls `verifyImageDigest` when `imageDigest` is present.
+PRRT_kwDOTyoI9s6YxZFq	Fixed: `executeShell` rejects workspace paths containing `docker.sock`.
+PRRT_kwDOTyoI9s6Y4jL9	Fixed: added `text` language tags to all unlabeled Markdown code fences in the plan.
+PRRT_kwDOTyoI9s6Y4jMA	Fixed: cancellation test now uses an abort-observing mock driver and asserts `step-cancelled`.
+PRRT_kwDOTyoI9s6Y4jME	Fixed: `topoSortSteps` errors are emitted as diagnostics before `run-completed`.
+PRRT_kwDOTyoI9s6Y4jMG	Fixed: the no-driver branch no longer adds a promise to the `running` map.
+PRRT_kwDOTyoI9s6Y4jMM	Fixed: unknown/missing producers are caught by `topoSortSteps`; no pending steps remain at loop end.
+PRRT_kwDOTyoI9s6Y4jMP	Fixed: only transitive dependents are cancelled on failure.
+PRRT_kwDOTyoI9s6Y4jMS	Fixed: per-run `AbortController` signal is forwarded to `executeShell` and drivers.
+PRRT_kwDOTyoI9s6Y4jMV	Acknowledged: `EngineError` is used by `resolveUnder`/`assertSafeFileName`; `writeFile` is not imported.
+PRRT_kwDOTyoI9s6Y4jMZ	Fixed: `runDocker` handles timeout escalation with `closed`/`graceTimer`.
+PRRT_kwDOTyoI9s6Y4jMd	Fixed: `runDocker` applies `maxLogBytes` while reading streams.
+PRRT_kwDOTyoI9s6Y4jMi	Fixed: `request.cwd` is translated to a `/workspace/...` path in the container.
+PRRT_kwDOTyoI9s6Y4jMk	Fixed: `--` is inserted before the image; added regression test.
+PRRT_kwDOTyoI9s6Y4jMq	Fixed: absolute-path allowlist entries require exact path match.
+PRRT_kwDOTyoI9s6Y4jMt	Fixed: grace-period timer is cleared on child close/error.
+PRRT_kwDOTyoI9s6Y4jMw	Fixed: host output is bounded while streaming using a byte-length appender.
+PRRT_kwDOTyoI9s6Y4jMz	Acknowledged: close handler no longer binds an unused `signal` parameter.
+PRRT_kwDOTyoI9s6Y4jM3	Fixed: corrected `StepDefinition` import, `maxConcurrent` default, and `executeShell` call shape in spec.
+PRRT_kwDOTyoI9s6Y4jM7	Fixed: documented `executeShell` call shape updated to use the `ShellExecuteRequest` object.

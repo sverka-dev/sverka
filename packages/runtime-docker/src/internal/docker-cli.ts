@@ -20,6 +20,8 @@ export interface DockerRunOptions {
   readonly dockerHost?: string;
   /** Optional output byte limit. Excess output is dropped and marked truncated. */
   readonly maxLogBytes?: number;
+  /** Optional AbortSignal to cancel the invocation. */
+  readonly signal?: AbortSignal;
 }
 
 const GRACE_PERIOD_MS = 2000;
@@ -55,6 +57,7 @@ export function runDocker(
     const child = spawn(binary, [...args], {
       stdio: ["ignore", "pipe", "pipe"],
       env,
+      signal: opts.signal,
     });
 
     let closed = false;

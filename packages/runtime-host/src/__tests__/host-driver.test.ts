@@ -135,7 +135,7 @@ describe("createAllowlist", () => {
   it("matches by absolute path", () => {
     const list = createAllowlist(["/usr/bin/echo"]);
     expect(list.isAllowed("/usr/bin/echo")).toBe(true);
-    expect(list.isAllowed("echo")).toBe(true); // basename match
+    expect(list.isAllowed("echo")).toBe(false); // absolute entries require exact path
   });
 
   it("empty list → nothing allowed", () => {

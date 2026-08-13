@@ -1,18 +1,20 @@
 // HostDriver — host process runtime driver.
 // Spec 11 — §22.4, §14. Implements RuntimeDriver from @sverka/engine-native.
-// Reuses allowlist, env building, timeout, and log truncation patterns
-// from the old host-executor.ts.
 
+import { basename } from "node:path";
 import { spawn } from "node:child_process";
 import type { StepDefinition } from "@sverka/core";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "@sverka/engine-native";
 import type { HostDriverConfig } from "./config.js";
-import type { CommandAllowlist } from "./allowlist.js";
 import { HostDriverError, CommandNotAllowedError } from "./errors.js";
 
 const DEFAULT_MAX_LOG_BYTES = 10 * 1024 * 1024; // 10 MiB
 const GRACE_PERIOD_MS = 2000;
 const TRUNCATION_NOTICE = "\n[log truncated]";
+
+// Shell metacharacters that should not appear outside a quoted script token.
+const UNSAFE_SHELL_METACHARS = /[<>&|;`$\[\](){}\\!*?~#]/;
+const SHELL_BINARIES = new Set(["sh", "bash", "dash", "zsh", "ksh", "fish", "cmd", "powershell", "pwsh"]);
 
 /** Create a host process runtime driver. */
 export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
@@ -25,91 +27,133 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
       if (!config.enabled) return false;
       const mode = step.runtime.mode;
       if (mode !== undefined && mode !== "host") return false;
-      // Check the first shell operation's command against the allowlist.
       const shellOp = step.operations.find((op: { kind: string }) => op.kind === "shell");
       if (!shellOp || shellOp.kind !== "shell") return false;
-      return config.allowlist.isAllowed(extractBinary(shellOp.command));
+      const tokens = tokenize(shellOp.command);
+      if (tokens.length === 0) return false;
+      return config.allowlist.isAllowed(tokens[0]!);
     },
 
     async executeShell(request: ShellExecuteRequest): Promise<ShellResult> {
       if (!config.enabled) {
         throw new HostDriverError("host driver is disabled", "EXECUTOR_DISABLED");
       }
-      if (!config.allowlist.isAllowed(extractBinary(request.command))) {
+
+      const tokens = tokenize(request.command);
+      if (tokens.length === 0) {
+        throw new CommandNotAllowedError("empty command is not allowed", { command: request.command });
+      }
+      const binary = tokens[0]!;
+      if (!config.allowlist.isAllowed(binary)) {
         throw new CommandNotAllowedError(
           `command "${request.command}" is not in the allowlist`,
+          { command: request.command },
+        );
+      }
+      if (tokens.length > 1 && containsUnsafe(binary, tokens.slice(1))) {
+        throw new CommandNotAllowedError(
+          `command contains unquoted shell metacharacters outside of an allowed shell script`,
           { command: request.command },
         );
       }
 
       const env = buildEnv(request, config);
       const cwd = request.cwd ?? request.workspace;
+      const args = tokens.slice(1);
       const start = Date.now();
 
       return new Promise((resolve) => {
-        let stdout = "";
-        let stderr = "";
+        let stdout: Uint8Array = Buffer.alloc(0);
+        let stderr: Uint8Array = Buffer.alloc(0);
         let timedOut = false;
         let spawnErrored = false;
+        let closed = false;
+        let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
 
-        const child = spawn(request.command, [], {
+        const spawnOptions: {
+          cwd: string | undefined;
+          env: Record<string, string>;
+          stdio: ["ignore", "pipe", "pipe"];
+          shell: false;
+          detached: true;
+          signal?: AbortSignal;
+        } = {
           cwd,
           env,
           stdio: ["ignore", "pipe", "pipe"],
-          shell: true,
+          shell: false,
           detached: true,
-        });
+        };
+        if (request.signal !== undefined) {
+          spawnOptions.signal = request.signal;
+        }
+        const child = spawn(binary, args, spawnOptions);
 
         const timer = request.timeoutMs
           ? setTimeout(() => {
               timedOut = true;
-              try {
-                process.kill(-child.pid!, "SIGTERM");
-              } catch {
+              if (child.pid !== undefined) {
+                try {
+                  process.kill(-child.pid, "SIGTERM");
+                } catch {
+                  child.kill("SIGTERM");
+                }
+              } else {
                 child.kill("SIGTERM");
               }
-              setTimeout(() => {
-                try {
-                  process.kill(-child.pid!, "SIGKILL");
-                } catch {
-                  if (!child.killed) child.kill("SIGKILL");
+              sigkillTimer = setTimeout(() => {
+                if (closed) return;
+                if (child.pid !== undefined) {
+                  try {
+                    process.kill(-child.pid, "SIGKILL");
+                  } catch {
+                    child.kill("SIGKILL");
+                  }
+                } else {
+                  child.kill("SIGKILL");
                 }
               }, GRACE_PERIOD_MS);
             }, request.timeoutMs)
           : undefined;
 
+        const appendStdout = makeAppender(maxLogBytes);
+        const appendStderr = makeAppender(maxLogBytes);
+
         child.stdout?.on("data", (data: Buffer) => {
-          stdout += data.toString();
+          stdout = appendStdout(stdout, data);
         });
         child.stderr?.on("data", (data: Buffer) => {
-          stderr += data.toString();
+          stderr = appendStderr(stderr, data);
         });
 
-        child.on("error", (err) => {
+        const finish = (): void => {
+          if (closed) return;
+          closed = true;
           if (timer) clearTimeout(timer);
+          if (sigkillTimer) clearTimeout(sigkillTimer);
+        };
+
+        child.on("error", (err) => {
+          finish();
           spawnErrored = true;
           resolve({
             exitCode: -1,
             stdout: "",
-            stderr: truncate(`spawn error: ${err.message}`, maxLogBytes),
+            stderr: truncateBytes(Buffer.from(`spawn error: ${err.message}`, "utf8"), maxLogBytes).toString("utf8"),
             durationMs: Date.now() - start,
             timedOut: false,
           });
         });
 
-        child.on("close", (code, signal) => {
-          if (spawnErrored) return;
-          if (timer) clearTimeout(timer);
-          const logs = truncate(stdout + (stderr ? "\n" + stderr : ""), maxLogBytes);
+        child.on("close", (code) => {
+          finish();
           resolve({
-            exitCode: code ?? -1,
-            stdout: truncate(stdout, maxLogBytes),
-            stderr: truncate(stderr, maxLogBytes),
+            exitCode: spawnErrored ? -1 : (code ?? -1),
+            stdout: truncateBytes(stdout, maxLogBytes).toString("utf8"),
+            stderr: truncateBytes(stderr, maxLogBytes).toString("utf8"),
             durationMs: Date.now() - start,
             timedOut,
           });
-          // Signal is unused but available if needed.
-          void signal;
         });
       });
     },
@@ -121,30 +165,90 @@ function buildEnv(
   config: HostDriverConfig,
 ): Record<string, string> {
   const env: Record<string, string> = {};
-  // Forward allowlisted host env vars.
   for (const key of config.envAllowlist) {
     const val = process.env[key];
     if (val !== undefined) env[key] = val;
   }
-  // Merge config env overrides.
   if (config.env) {
-    for (const [k, v] of Object.entries(config.env)) env[k] = v;
+    for (const [k, v] of Object.entries(config.env)) {
+      if (v !== undefined) env[k] = v as string;
+    }
   }
-  // Merge request env (includes SVERKA_OUTPUT_DIR).
-  for (const [k, v] of Object.entries(request.env)) env[k] = v;
+  for (const [k, v] of Object.entries(request.env)) {
+    if (v !== undefined) env[k] = v as string;
+  }
   return env;
 }
 
-function truncate(logs: string, maxBytes: number): string {
-  if (logs.length <= maxBytes) return logs;
-  return logs.slice(0, maxBytes) + TRUNCATION_NOTICE;
+function truncateBytes(buffer: Uint8Array, maxBytes: number): Buffer {
+  if (buffer.length <= maxBytes) return Buffer.from(buffer);
+  const prefix = buffer.subarray(0, maxBytes);
+  return Buffer.concat([prefix, Buffer.from(TRUNCATION_NOTICE, "utf8")]);
 }
 
-/** Extract the binary name from a command string (first word). */
-function extractBinary(command: string): string {
-  const trimmed = command.trim();
-  if (!trimmed) return "";
-  // Handle shell builtins and complex commands by taking the first token.
-  const firstToken = trimmed.split(/\s+/)[0] ?? "";
-  return firstToken;
+function makeAppender(maxBytes: number) {
+  return (buffer: Uint8Array, chunk: Uint8Array): Buffer => {
+    if (buffer.length >= maxBytes) return Buffer.from(buffer);
+    const free = maxBytes - buffer.length;
+    if (chunk.length <= free) {
+      return Buffer.concat([buffer, chunk]);
+    }
+    const prefix = chunk.subarray(0, free);
+    return Buffer.concat([buffer, prefix, Buffer.from(TRUNCATION_NOTICE, "utf8")]);
+  };
+}
+
+/** Tokenize a command string respecting single quotes, double quotes, and backslash escapes. */
+function tokenize(input: string): string[] {
+  const tokens: string[] = [];
+  let current = "";
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+
+  for (const ch of input) {
+    if (escaped) {
+      current += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      if (quote === "'") {
+        current += ch;
+      } else {
+        escaped = true;
+      }
+      continue;
+    }
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+      } else {
+        current += ch;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (current.length > 0) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+    current += ch;
+  }
+
+  if (current.length > 0) tokens.push(current);
+  return tokens;
+}
+
+function containsUnsafe(binary: string, args: string[]): boolean {
+  // When the binary is an interpreter (sh/bash), its script argument may
+  // legitimately contain shell metacharacters; otherwise the tokens are
+  // direct command arguments and must not contain metacharacters.
+  if (SHELL_BINARIES.has(basename(binary).toLowerCase())) return false;
+  return args.some((arg) => UNSAFE_SHELL_METACHARS.test(arg));
 }

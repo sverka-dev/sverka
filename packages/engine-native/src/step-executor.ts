@@ -1,8 +1,8 @@
 // StepExecutor — runs ordered Operations inside one Step.
 // Spec 10 — §22.1 component 3.
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile } from "node:fs/promises";
+import { isAbsolute, join, normalize, relative } from "node:path";
 import type { StepDefinition, OperationDefinition } from "@sverka/core";
 import type { InputValue } from "@sverka/ir";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore, RunEvent } from "./types.js";
@@ -15,8 +15,10 @@ export interface StepExecOptions {
   readonly artifactStore: ArtifactStore;
   readonly valueStore: ValueStore;
   readonly secrets: Readonly<Record<string, string>>;
+  readonly inputs?: Readonly<Record<string, InputValue>>;
   readonly emit: (event: RunEvent) => void;
   readonly isCancelled: () => boolean;
+  readonly signal?: AbortSignal;
 }
 
 export interface StepExecResult {
@@ -28,8 +30,8 @@ export interface StepExecResult {
 /** Execute all operations in a step in order. */
 export async function executeStep(opts: StepExecOptions): Promise<StepExecResult> {
   const start = Date.now();
-  const { step, driver, workspace, artifactStore, valueStore, emit, isCancelled } = opts;
-  const stepWorkspace = join(workspace, step.id);
+  const { step, workspace, isCancelled } = opts;
+  const stepWorkspace = resolveUnder(workspace, step.id);
   const outputDir = join(stepWorkspace, ".outputs");
 
   try {
@@ -51,8 +53,14 @@ export async function executeStep(opts: StepExecOptions): Promise<StepExecResult
     try {
       await executeOperation(op, opts, stepWorkspace, outputDir);
     } catch (e) {
+      if (isCancelled()) {
+        return { status: "cancelled", durationMs: Date.now() - start };
+      }
       const error = e instanceof Error ? e.message : String(e);
       return { status: "failed", error, durationMs: Date.now() - start };
+    }
+    if (isCancelled()) {
+      return { status: "cancelled", durationMs: Date.now() - start };
     }
   }
 
@@ -65,29 +73,27 @@ async function executeOperation(
   stepWorkspace: string,
   outputDir: string,
 ): Promise<void> {
-  const { step, driver, artifactStore, valueStore, emit, secrets } = opts;
+  const { step, driver, artifactStore, valueStore, emit, secrets, inputs, signal } = opts;
 
   switch (op.kind) {
     case "shell": {
-      const env: Record<string, string> = {
-        SVERKA_OUTPUT_DIR: outputDir,
-        SVERKA_STEP_ID: step.id,
-        ...buildSecretEnv(step, secrets),
-      };
-      // Merge step runtime env vars.
-      if (step.runtime.env) {
-        for (const [k, v] of Object.entries(step.runtime.env)) {
-          if (v !== undefined) env[k] = v;
-        }
-      }
+      const env = buildShellEnv(step, outputDir, secrets);
+      const command = interpolateCommand(op.command, step, valueStore, inputs);
+      const cwd = step.runtime.workingDir
+        ? resolveUnder(stepWorkspace, step.runtime.workingDir)
+        : stepWorkspace;
       const request: ShellExecuteRequest = {
-        command: op.command,
+        command,
         workspace: stepWorkspace,
         env,
-        ...(step.runtime.workingDir ? { cwd: join(stepWorkspace, step.runtime.workingDir) } : {}),
+        cwd,
         ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
         ...(step.runtime.image ? { image: step.runtime.image } : {}),
         ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
+        ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
+          ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
+          : {}),
+        ...(signal !== undefined ? { signal } : {}),
       };
       const result: ShellResult = await driver.executeShell(request);
       if (result.exitCode !== 0) {
@@ -102,6 +108,7 @@ async function executeOperation(
     }
 
     case "exportOutput": {
+      assertSafeFileName(op.name);
       const outputPath = join(outputDir, op.name);
       let content: string;
       try {
@@ -119,14 +126,18 @@ async function executeOperation(
     }
 
     case "exportArtifact": {
-      const sourcePath = join(stepWorkspace, op.path);
+      assertSafeFileName(op.name);
+      const sourcePath = resolveUnder(stepWorkspace, op.path);
       await artifactStore.store(step.id, op.name, sourcePath);
       break;
     }
 
     case "importArtifact": {
+      assertSafeFileName(op.name);
+      const prefix = stepPrefix(step.id);
+      const producerId = resolveProducerId(prefix, op.from);
       const destPath = join(stepWorkspace, op.name);
-      await artifactStore.retrieve(op.from, op.output, destPath);
+      await artifactStore.retrieve(producerId, op.output, destPath);
       break;
     }
 
@@ -140,6 +151,39 @@ async function executeOperation(
       break;
     }
   }
+}
+
+function buildShellEnv(
+  step: StepDefinition,
+  outputDir: string,
+  secrets: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+
+  // Inject secrets first.
+  if (step.runtime.secrets) {
+    for (const secretRef of step.runtime.secrets) {
+      const val = secrets[secretRef];
+      if (val !== undefined) {
+        env[secretRef] = val;
+      }
+    }
+  }
+
+  // Merge runtime-provided env vars.
+  if (step.runtime.env) {
+    for (const [k, v] of Object.entries(step.runtime.env)) {
+      if (v !== undefined) {
+        env[k] = v;
+      }
+    }
+  }
+
+  // Restore engine-reserved values last so they cannot be overwritten.
+  env.SVERKA_OUTPUT_DIR = outputDir;
+  env.SVERKA_STEP_ID = step.id;
+
+  return env;
 }
 
 function parseOutputValue(content: string, type: string): InputValue {
@@ -160,15 +204,63 @@ function parseOutputValue(content: string, type: string): InputValue {
   return trimmed;
 }
 
-function buildSecretEnv(step: StepDefinition, secrets: Readonly<Record<string, string>>): Record<string, string> {
-  const env: Record<string, string> = {};
-  if (step.runtime.secrets) {
-    for (const secretRef of step.runtime.secrets) {
-      const val = secrets[secretRef];
-      if (val !== undefined) {
-        env[secretRef] = val;
-      }
-    }
+function resolveUnder(base: string, subpath: string): string {
+  if (isAbsolute(subpath)) {
+    throw new EngineError(`path must be relative: '${subpath}'`, "STEP_EXEC_ERROR");
   }
-  return env;
+  const resolved = normalize(join(base, subpath));
+  const rel = relative(base, resolved);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new EngineError(`path escapes workspace: '${subpath}'`, "STEP_EXEC_ERROR");
+  }
+  return resolved;
+}
+
+function assertSafeFileName(name: string): void {
+  if (!name || name === "." || name === "..") {
+    throw new EngineError(`invalid file name: '${name}'`, "STEP_EXEC_ERROR");
+  }
+  if (isAbsolute(name) || name.includes("/") || name.includes("\\")) {
+    throw new EngineError(`file name must be a base name: '${name}'`, "STEP_EXEC_ERROR");
+  }
+}
+
+function stepPrefix(stepId: string): string {
+  const idx = stepId.lastIndexOf("/");
+  return idx === -1 ? "" : stepId.slice(0, idx);
+}
+
+function resolveProducerId(prefix: string, from: string): string {
+  if (from.includes("/")) return from;
+  return prefix ? `${prefix}/${from}` : from;
+}
+
+function interpolateCommand(
+  command: string,
+  step: StepDefinition,
+  valueStore: ValueStore,
+  inputs: Readonly<Record<string, InputValue>> | undefined,
+): string {
+  const prefix = stepPrefix(step.id);
+  return command.replace(/\$\{([^}]+)\}/g, (_, key: string) => {
+    const dot = key.lastIndexOf(".");
+    if (dot === -1) {
+      if (inputs && key in inputs) {
+        return String(inputs[key]);
+      }
+      throw new StepExecError(`unresolved input reference '\${${key}}'`, "STEP_EXEC_ERROR");
+    }
+    const ns = key.slice(0, dot);
+    const field = key.slice(dot + 1);
+    const stepId = ns.includes("/") ? ns : prefix ? `${prefix}/${ns}` : ns;
+    const value = valueStore.get(stepId, field);
+    if (value !== undefined) {
+      return String(value);
+    }
+    const inputKey = `${ns}.${field}`;
+    if (inputs && inputKey in inputs) {
+      return String(inputs[inputKey]);
+    }
+    throw new StepExecError(`unresolved step reference '\${${key}}'`, "STEP_EXEC_ERROR");
+  });
 }

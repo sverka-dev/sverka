@@ -108,4 +108,42 @@ describe("buildDockerArgs", () => {
     expect(args).toContain("-c");
     expect(args).toContain("echo hi");
   });
+
+  it("terminates Docker options before the image", () => {
+    const args = buildDockerArgs(
+      { command: "echo hi", workspace: "/ws", env: {} },
+      "1000:1000",
+      "none",
+      "node:22",
+    );
+    const dashIdx = args.indexOf("--");
+    expect(dashIdx).toBeGreaterThanOrEqual(0);
+    expect(args[dashIdx + 1]).toBe("node:22");
+  });
+
+  it("translates cwd into the container workspace", () => {
+    const args = buildDockerArgs(
+      { command: "echo hi", workspace: "/my/ws", cwd: "/my/ws/sub", env: {} },
+      "1000:1000",
+      "none",
+      "node:22",
+    );
+    const wIdx = args.indexOf("-w");
+    expect(wIdx).toBeGreaterThanOrEqual(0);
+    expect(args[wIdx + 1]).toBe("/workspace/sub");
+  });
+
+  it("translates SVERKA_OUTPUT_DIR into the container workspace", () => {
+    const args = buildDockerArgs(
+      {
+        command: "echo hi",
+        workspace: "/my/ws",
+        env: { SVERKA_OUTPUT_DIR: "/my/ws/step1/.outputs" },
+      },
+      "1000:1000",
+      "none",
+      "node:22",
+    );
+    expect(args.some((a) => a === "SVERKA_OUTPUT_DIR=/workspace/step1/.outputs")).toBe(true);
+  });
 });

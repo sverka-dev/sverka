@@ -51,7 +51,9 @@ export interface ShellExecuteRequest {
   readonly cwd?: string;
   readonly timeoutMs?: number;
   readonly image?: string;
+  readonly imageDigest?: string;
   readonly mode?: "host" | "container";
+  readonly signal?: AbortSignal;
 }
 
 export interface ShellResult {

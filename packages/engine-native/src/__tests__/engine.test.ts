@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEngine } from "../engine.js";
-import { createMockDriver, createOutputWritingMockDriver } from "./helpers/mock-driver.js";
+import { createMockDriver, createOutputWritingMockDriver, createCancellableMockDriver } from "./helpers/mock-driver.js";
 import { makeSingleStepPlan, makeDependencyPlan, makeFailingPlan } from "./helpers/fixtures.js";
 
 describe("createEngine", () => {
@@ -82,7 +82,7 @@ describe("Engine.run", () => {
   });
 
   it("supports cancellation", async () => {
-    const slowDriver = createMockDriver({ delayMs: 500 });
+    const slowDriver = createCancellableMockDriver(500);
     const engine = createEngine({ drivers: [slowDriver] });
     const events: { type: string; stepId?: string }[] = [];
     const iter = engine.run({
@@ -98,6 +98,9 @@ describe("Engine.run", () => {
     // Cancel after a short delay.
     setTimeout(() => engine.cancel(), 50);
     await collectPromise;
+    const cancelled = events.find((e) => e.type === "step-cancelled");
+    expect(cancelled).toBeDefined();
+    expect(slowDriver.wasCancelled).toBe(true);
     const completed = events.find((e) => e.type === "run-completed") as unknown as { status: string };
     expect(completed.status).toBe("cancelled");
   });

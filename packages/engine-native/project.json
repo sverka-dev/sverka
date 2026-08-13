@@ -5,28 +5,28 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "bun run tsdown",
-        "cwd": "packages/runtime"
+        "cwd": "packages/engine-native"
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
         "command": "bun run vitest run --passWithNoTests",
-        "cwd": "packages/runtime"
+        "cwd": "packages/engine-native"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
         "command": "bun run eslint src --ext .ts",
-        "cwd": "packages/runtime"
+        "cwd": "packages/engine-native"
       }
     },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
         "command": "bun run tsc --noEmit",
-        "cwd": "packages/runtime"
+        "cwd": "packages/engine-native"
       }
     }
   }
