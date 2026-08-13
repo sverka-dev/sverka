@@ -51,7 +51,7 @@ describe("StepExecutor", () => {
     const artifactStore = createArtifactStore(join(testDir, "art"));
     const events: RunEvent[] = [];
     // Create a file in the step workspace first.
-    const wsDir = join(testDir, "ws", "ci/build");
+    const wsDir = join(testDir, "ws", ".sverka", "workspace", "ci/build");
     await mkdir(wsDir, { recursive: true });
     await writeFile(join(wsDir, "dist.txt"), "artifact data");
     const step: StepDefinition = {
@@ -102,7 +102,7 @@ describe("StepExecutor", () => {
     });
     expect(result.status).toBe("succeeded");
     // Verify artifact was imported into workspace.
-    const imported = await readFile(join(testDir, "ws", "ci/test", "dist"), "utf-8");
+    const imported = await readFile(join(testDir, "ws", ".sverka", "workspace", "ci/test", "dist"), "utf-8");
     expect(imported).toBe("imported data");
   });
 

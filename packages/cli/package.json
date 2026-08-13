@@ -28,6 +28,7 @@
     "@sverka/planner": "workspace:*",
     "@sverka/engine-native": "workspace:*",
     "@sverka/runtime-host": "workspace:*",
+    "@sverka/runtime-docker": "workspace:*",
     "@sverka/checks": "workspace:*",
     "@sverka/findings": "workspace:*",
     "@sverka/policy": "workspace:*",

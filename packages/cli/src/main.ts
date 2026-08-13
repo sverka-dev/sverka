@@ -73,7 +73,9 @@ function addPlanCommand(y: Argv): Argv {
 
 /** Configure the policy subcommand options. */
 function addPolicyCommand(y: Argv): Argv {
-  return y.option("baseline", { type: "string" });
+  return y
+    .option("findings", { type: "string", demandOption: true })
+    .option("baseline", { type: "string" });
 }
 
 /** Configure the synth subcommand options. */
@@ -102,7 +104,7 @@ function buildParser(): Argv {
     .command("validate", "Validate a sverka config")
     .command("plan", "Bind Entry + inputs → Run Plan", addPlanCommand)
     .command("graph", "Display the Definition Graph")
-    .command(["run", "execute"], "Execute the workflow locally", addRunCommand)
+    .command("run", "Execute the workflow locally", addRunCommand)
     .command("discover", "Discover and display project context")
     .command("check", "Resolve proposed checks → StepDefinitions")
     .command("policy", "Evaluate findings against policy", addPolicyCommand)
@@ -134,7 +136,6 @@ async function dispatch(
     case "graph":
       return graphCommand(global, output, start);
     case "run":
-    case "execute":
       return dispatchRun(parsed, global, output, start);
     case "discover":
       return discoverCommand(global, output, start);
@@ -202,7 +203,7 @@ function dispatchPolicy(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  const args: PolicyArgs = {};
+  const args: PolicyArgs = { findings: String(parsed.findings) };
   if (typeof parsed.baseline === "string") args.baseline = parsed.baseline;
   return policyCommand(args, global, output, start);
 }

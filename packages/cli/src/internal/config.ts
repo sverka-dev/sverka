@@ -1,11 +1,18 @@
 // Config loading — loads a sverka.config.ts file and returns the Project.
 // Spec 17 — §30.
 
+import { readFile, writeFile } from "node:fs/promises";
+import { readFileSync, existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
-import { Project } from "@sverka/constructs";
+import type { Project } from "@sverka/constructs";
+import { synthesize } from "@sverka/core";
+import type { DefinitionGraph } from "@sverka/core";
+import { resolveUnderRoot } from "./paths.js";
 import { CliError, ExitCode } from "../types.js";
+
+/** Package-manager names supported by `init` templates. */
+export type PmName = "npm" | "pnpm" | "yarn" | "bun";
 
 /**
  * Find a sverka.config.ts or sverka.config.js file in the given root.
@@ -25,9 +32,60 @@ export async function findConfig(root: string): Promise<string | null> {
 }
 
 /**
+ * Resolve the effective config path from global flags.
+ * Throws a usage error when no config can be found.
+ */
+export async function resolveConfigPath(global: {
+  root: string;
+  config: string | null;
+}): Promise<string> {
+  let configPath: string | null = global.config
+    ? resolveUnderRoot(global.root, global.config)
+    : null;
+  if (!configPath) {
+    configPath = await findConfig(global.root);
+  }
+  if (!configPath) {
+    throw new CliError(
+      "no config found (use --config to specify a path)",
+      "MISSING_ARG",
+      ExitCode.UsageError,
+    );
+  }
+  return configPath;
+}
+
+/**
+ * Structural check that avoids `instanceof` across package boundaries.
+ * A Project-like object has a `node` with an `id` string and `children` array.
+ */
+function assertProjectLike(value: unknown): asserts value is Project {
+  if (value === null || typeof value !== "object") {
+    throw new CliError(
+      "config must export a Project instance (default or named 'project')",
+      "SDK_ERROR",
+      ExitCode.RuntimeError,
+    );
+  }
+  const node = (value as { node?: unknown }).node;
+  if (
+    typeof node !== "object" ||
+    node === null ||
+    typeof (node as { id?: unknown }).id !== "string" ||
+    !Array.isArray((node as { children?: unknown }).children)
+  ) {
+    throw new CliError(
+      "config must export a Project instance (default or named 'project')",
+      "SDK_ERROR",
+      ExitCode.RuntimeError,
+    );
+  }
+}
+
+/**
  * Load a sverka config file and return the Project construct.
- * The config file must export a `default` Project instance or a named
- * `project` Project instance.
+ * The config file must export a `default` Project-like instance or a named
+ * `project` Project-like instance.
  *
  * @throws CliError if the config cannot be loaded or doesn't export a Project.
  */
@@ -58,13 +116,85 @@ export async function loadConfig(configPath: string): Promise<Project> {
 
   // Check for default export or named project export.
   const project = mod.default ?? mod.project;
-  if (!(project instanceof Project)) {
-    throw new CliError(
-      "config must export a Project instance (default or named 'project')",
-      "SDK_ERROR",
-      ExitCode.RuntimeError,
-    );
-  }
+  assertProjectLike(project);
 
   return project;
+}
+
+/**
+ * Resolve, load, and synthesize the config for commands that need a graph.
+ */
+export async function loadProjectGraph(global: {
+  root: string;
+  config: string | null;
+}): Promise<{ configPath: string; project: Project; graph: DefinitionGraph }> {
+  const configPath = await resolveConfigPath(global);
+  const project = await loadConfig(configPath);
+  const graph = synthesize(project);
+  return { configPath, project, graph };
+}
+
+/**
+ * Detect the package manager used by the project at `root`.
+ * Falls back to `npm` when no lockfile or packageManager field is found.
+ */
+export function detectPackageManager(root: string): PmName {
+  if (existsSync(join(root, "bun.lockb")) || existsSync(join(root, "bun.lock"))) {
+    return "bun";
+  }
+  if (existsSync(join(root, "pnpm-lock.yaml"))) {
+    return "pnpm";
+  }
+  if (existsSync(join(root, "yarn.lock"))) {
+    return "yarn";
+  }
+  if (existsSync(join(root, "package-lock.json"))) {
+    return "npm";
+  }
+
+  const pkgPath = join(root, "package.json");
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+        packageManager?: string;
+      };
+      if (typeof pkg.packageManager === "string") {
+        if (pkg.packageManager.startsWith("npm")) return "npm";
+        if (pkg.packageManager.startsWith("pnpm")) return "pnpm";
+        if (pkg.packageManager.startsWith("yarn")) return "yarn";
+        if (pkg.packageManager.startsWith("bun")) return "bun";
+      }
+    } catch {
+      // ignore malformed package.json
+    }
+  }
+
+  return "npm";
+}
+
+/**
+ * Ensure `@sverka/constructs` is declared as a devDependency of the target
+ * project. Creates a minimal package.json when one does not exist.
+ */
+export async function ensureConstructsDependency(root: string): Promise<void> {
+  const pkgPath = join(root, "package.json");
+  const base = existsSync(pkgPath)
+    ? (JSON.parse(await readFile(pkgPath, "utf8")) as Record<string, unknown>)
+    : { name: "sverka-project", version: "0.0.0" };
+
+  const pkg: Record<string, unknown> = {
+    name: base.name ?? "sverka-project",
+    version: base.version ?? "0.0.0",
+    ...base,
+  };
+
+  const deps = (pkg.dependencies as Record<string, unknown> | undefined) ?? {};
+  const devDeps =
+    (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
+
+  if (!("@sverka/constructs" in deps) && !("@sverka/constructs" in devDeps)) {
+    pkg.devDependencies = { ...devDeps, "@sverka/constructs": "workspace:*" };
+  }
+
+  await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
 }
