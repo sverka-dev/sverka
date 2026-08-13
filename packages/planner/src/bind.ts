@@ -107,6 +107,11 @@ function validatePipelineShape(
   if (typeof pipeline !== "object" || pipeline === null) {
     throw new PlannerError(`graph.project.pipelines[${index}] must be an object`, "INVALID_GRAPH");
   }
+  validatePipelineFields(pipeline, index);
+  validatePipelineChildren(pipeline, index);
+}
+
+function validatePipelineFields(pipeline: Record<string, unknown>, index: number): void {
   if (typeof pipeline.id !== "string") {
     throw new PlannerError(
       `graph.project.pipelines[${index}].id must be a string`,
@@ -131,16 +136,16 @@ function validatePipelineShape(
       "INVALID_GRAPH",
     );
   }
+}
 
+function validatePipelineChildren(pipeline: Record<string, unknown>, index: number): void {
   const inputs = pipeline.inputs as Record<string, unknown>;
   for (const [name, descriptor] of Object.entries(inputs)) {
     validateInputDescriptor(descriptor, index, name);
   }
-
   for (let j = 0; j < pipeline.entries.length; j++) {
     validateEntryShape(pipeline.entries[j], index, j);
   }
-
   for (let j = 0; j < pipeline.steps.length; j++) {
     validateStepShape(pipeline.steps[j], index, j);
   }
