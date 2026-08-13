@@ -31,19 +31,8 @@ export function createDockerDriver(config: DockerDriverConfig): RuntimeDriver {
     },
 
     async executeShell(request: ShellExecuteRequest): Promise<ShellResult> {
-      const image = request.image;
-      if (!image) {
-        throw new DockerExecutorError("no image specified for container execution", "NO_IMAGE");
-      }
-
-      if (request.workspace.toLowerCase().includes("docker.sock")) {
-        throw new ContainerPolicyError(
-          `refusing to mount workspace path containing docker.sock: ${request.workspace}`,
-          undefined,
-          "DOCKER_SOCK_MOUNT",
-        );
-      }
-
+      const image = requireImage(request.image);
+      assertNoDockerSock(request.workspace);
       validateEnv(request.env);
 
       if (request.imageDigest) {
@@ -55,25 +44,7 @@ export function createDockerDriver(config: DockerDriverConfig): RuntimeDriver {
 
       const args = buildDockerArgs(request, runAs, network, image, containerCwd, containerEnv);
       const start = Date.now();
-      const timeoutSeconds = Math.ceil((request.timeoutMs ?? DEFAULT_TIMEOUT_MS) / 1000);
-
-      const runDockerOptions: {
-        timeoutSeconds: number;
-        dockerPath: string;
-        maxLogBytes: number;
-        dockerHost?: string;
-        signal?: AbortSignal;
-      } = {
-        timeoutSeconds,
-        dockerPath,
-        maxLogBytes,
-      };
-      if (config.dockerHost !== undefined) {
-        runDockerOptions.dockerHost = config.dockerHost;
-      }
-      if (request.signal !== undefined) {
-        runDockerOptions.signal = request.signal;
-      }
+      const runDockerOptions = buildRunDockerOptions(config, request, dockerPath, maxLogBytes);
       const result = await runDocker(args, runDockerOptions);
 
       return {
@@ -127,6 +98,56 @@ export function buildDockerArgs(
   args.push("sh", "-c", request.command);
 
   return args;
+}
+
+function requireImage(image: string | undefined): string {
+  if (!image) {
+    throw new DockerExecutorError("no image specified for container execution", "NO_IMAGE");
+  }
+  return image;
+}
+
+function assertNoDockerSock(workspace: string): void {
+  if (workspace.toLowerCase().includes("docker.sock")) {
+    throw new ContainerPolicyError(
+      `refusing to mount workspace path containing docker.sock: ${workspace}`,
+      undefined,
+      "DOCKER_SOCK_MOUNT",
+    );
+  }
+}
+
+function buildRunDockerOptions(
+  config: DockerDriverConfig,
+  request: ShellExecuteRequest,
+  dockerPath: string,
+  maxLogBytes: number,
+): {
+  timeoutSeconds: number;
+  dockerPath: string;
+  maxLogBytes: number;
+  dockerHost?: string;
+  signal?: AbortSignal;
+} {
+  const timeoutSeconds = Math.ceil((request.timeoutMs ?? DEFAULT_TIMEOUT_MS) / 1000);
+  const options: {
+    timeoutSeconds: number;
+    dockerPath: string;
+    maxLogBytes: number;
+    dockerHost?: string;
+    signal?: AbortSignal;
+  } = {
+    timeoutSeconds,
+    dockerPath,
+    maxLogBytes,
+  };
+  if (config.dockerHost !== undefined) {
+    options.dockerHost = config.dockerHost;
+  }
+  if (request.signal !== undefined) {
+    options.signal = request.signal;
+  }
+  return options;
 }
 
 function validateEnv(env: Readonly<Record<string, string>>): void {

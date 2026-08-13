@@ -29,6 +29,25 @@ export async function policyCommand(
   output.debug(`policy: root=${global.root} findings=${args.findings} baseline=${args.baseline ?? "(none)"}`);
 
   const findingsPath = resolveUnderRoot(global.root, args.findings);
+  const raw = await loadFindingsFile(findingsPath);
+
+  const ctx: NormalizeContext = {
+    root: global.root,
+    checkIdPrefix: "",
+    defaultConfidence: 0.5,
+  };
+  const findings = normalizeFindings(raw, ctx);
+  const baselineFingerprints = await loadBaselineFingerprints(global.root, args.baseline);
+
+  const result = evaluatePolicy(findings, DEFAULT_POLICY, [...baselineFingerprints]);
+
+  const durationMs = Date.now() - start;
+  writePolicyOutput(result, global, output, durationMs);
+
+  return result.verdict === "pass" ? ExitCode.Success : ExitCode.PolicyFail;
+}
+
+async function loadFindingsFile(findingsPath: string): Promise<unknown> {
   if (!existsSync(findingsPath)) {
     throw new CliError(
       `findings file not found: ${findingsPath}`,
@@ -36,10 +55,8 @@ export async function policyCommand(
       ExitCode.UsageError,
     );
   }
-
-  let raw: unknown;
   try {
-    raw = JSON.parse(await readFile(findingsPath, "utf8"));
+    return JSON.parse(await readFile(findingsPath, "utf8"));
   } catch (e) {
     throw new CliError(
       `failed to parse findings file: ${e instanceof Error ? e.message : String(e)}`,
@@ -48,16 +65,11 @@ export async function policyCommand(
       e,
     );
   }
+}
 
-  const ctx: NormalizeContext = {
-    root: global.root,
-    checkIdPrefix: "",
-    defaultConfidence: 0.5,
-  };
-
-  let findings: readonly Finding[];
+function normalizeFindings(raw: unknown, ctx: NormalizeContext): readonly Finding[] {
   try {
-    findings = normalizeSarif(raw as SarifLog, ctx);
+    return normalizeSarif(raw as SarifLog, ctx);
   } catch (e) {
     throw new CliError(
       `failed to normalize findings: ${e instanceof Error ? e.message : String(e)}`,
@@ -66,26 +78,33 @@ export async function policyCommand(
       e,
     );
   }
+}
 
-  let baselineFingerprints: readonly string[] = [];
-  if (args.baseline) {
-    const baselinePath = resolveUnderRoot(global.root, args.baseline);
-    try {
-      const baseline = await loadBaseline(baselinePath);
-      baselineFingerprints = baseline.fingerprints;
-    } catch (e) {
-      throw new CliError(
-        `failed to load baseline: ${e instanceof Error ? e.message : String(e)}`,
-        "SDK_ERROR",
-        ExitCode.RuntimeError,
-        e,
-      );
-    }
+async function loadBaselineFingerprints(
+  root: string,
+  baseline?: string,
+): Promise<readonly string[]> {
+  if (!baseline) return [];
+  const baselinePath = resolveUnderRoot(root, baseline);
+  try {
+    const loaded = await loadBaseline(baselinePath);
+    return loaded.fingerprints;
+  } catch (e) {
+    throw new CliError(
+      `failed to load baseline: ${e instanceof Error ? e.message : String(e)}`,
+      "SDK_ERROR",
+      ExitCode.RuntimeError,
+      e,
+    );
   }
+}
 
-  const result = evaluatePolicy(findings, DEFAULT_POLICY, [...baselineFingerprints]);
-
-  const durationMs = Date.now() - start;
+function writePolicyOutput(
+  result: ReturnType<typeof evaluatePolicy>,
+  global: GlobalFlags,
+  output: OutputWriter,
+  durationMs: number,
+): void {
   if (global.format === "json") {
     output.writeLine(
       JSON.stringify({
@@ -98,6 +117,4 @@ export async function policyCommand(
     output.writeLine(`Policy: ${result.verdict}`);
     output.writeLine(`  ${result.summary}`);
   }
-
-  return result.verdict === "pass" ? ExitCode.Success : ExitCode.PolicyFail;
 }
