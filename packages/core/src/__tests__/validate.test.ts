@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep } from "@sverka/cdk";
 import { synthesize, validateGraph, SynthesisError } from "../index.js";
 import { validateOutputCollisions } from "../validate.js";
 import type { StepDefinition, DefinitionGraph } from "../graph.js";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline } from "@sverka/constructs";
+import { Project, Pipeline } from "@sverka/cdk";
 import { sh, artifact } from "../index.js";
 import { env } from "../context.js";
 

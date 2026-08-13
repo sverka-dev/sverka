@@ -22,7 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/constructs": "workspace:*",
+    "@sverka/cdk": "workspace:*",
     "@sverka/core": "workspace:*",
     "@sverka/ir": "workspace:*",
     "@sverka/planner": "workspace:*",

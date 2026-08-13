@@ -2,7 +2,7 @@
 // Spec 06 — §22.1, §16. Architecture spec §22.
 
 import type { StepDefinition } from "@sverka/core";
-import type { Trigger } from "@sverka/constructs";
+import type { Trigger } from "@sverka/cdk";
 
 export type InputValue = string | number | boolean;
 

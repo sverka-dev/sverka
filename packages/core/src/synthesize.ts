@@ -8,7 +8,7 @@ import {
   type Project,
   Step,
   type StepRef,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 import type {
   DefinitionGraph,
   PipelineDefinition,

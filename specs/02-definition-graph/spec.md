@@ -22,7 +22,7 @@ scheduling, dependencies, and data transfer.
 - Dependency type: control, value, artifact (§11.2)
 - Operation types: shell, exportOutput, exportArtifact, importArtifact,
   diagnostic (§15)
-- Reuse model types from `@sverka/constructs` (Reference, Trigger, Runtime,
+- Reuse model types from `@sverka/cdk` (Reference, Trigger, Runtime,
   Input, OutputDeclaration)
 
 ## Non-goals
@@ -39,7 +39,7 @@ scheduling, dependencies, and data transfer.
 ```ts
 import type {
   Reference, Trigger, Runtime, Input, OutputDeclaration, OutputType,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 
 interface DefinitionGraph {
   project: ProjectDefinition;

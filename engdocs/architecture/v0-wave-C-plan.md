@@ -7,7 +7,7 @@
 ## Package dependency
 
 ```text
-@sverka/sdk  →  @sverka/constructs  (Project, Pipeline, ShellStep, Entry, model types)
+@sverka/sdk  →  @sverka/cdk  (Project, Pipeline, ShellStep, Entry, model types)
 ```
 
 No `@sverka/core` dependency — the SDK builds construct trees, it does not
@@ -20,7 +20,7 @@ runtime/findings/policy. That entire API (`defineWorkflow`, `task`, `run`,
 `pipeline`, `createSverka`) is **discarded** — it was the flat Plan model.
 
 The new SDK is much simpler: composables that build construct trees. No
-runtime, no IR, no policy. Just factory functions over `@sverka/constructs`.
+runtime, no IR, no policy. Just factory functions over `@sverka/cdk`.
 
 ## File layout
 
@@ -52,7 +52,7 @@ src/
 
 ### Step 1: Scaffold
 
-Delete old SDK source. Update `package.json` deps: `@sverka/constructs:
+Delete old SDK source. Update `package.json` deps: `@sverka/cdk:
 "workspace:*"` only (remove all old deps). Fix `project.json` lint target
 (remove `--ext .ts`). Create empty `src/index.ts`.
 

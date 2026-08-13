@@ -1,7 +1,7 @@
 // Context namespaces — typed references to context values.
 // Spec 03 — §12.3. Architecture spec §12.3.
 
-import type { ContextRef, ContextNamespace } from "@sverka/constructs";
+import type { ContextRef, ContextNamespace } from "@sverka/cdk";
 
 /** Create a ContextRef for a namespace + field. */
 function ctx(namespace: ContextNamespace, field: string): ContextRef {

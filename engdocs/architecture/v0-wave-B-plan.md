@@ -8,7 +8,7 @@
 
 ```
 @sverka/ir     →  @sverka/core  (DefinitionGraph types + validateGraph)
-@sverka/core   →  @sverka/constructs  (unchanged from Wave A)
+@sverka/core   →  @sverka/cdk  (unchanged from Wave A)
 ```
 
 No new external dependencies. Uses `node:crypto` (built-in).

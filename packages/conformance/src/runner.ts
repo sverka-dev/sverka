@@ -4,7 +4,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Project, Pipeline, ShellStep } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep } from "@sverka/cdk";
 import {
   synthesize,
   SynthesisError,

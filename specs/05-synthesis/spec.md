@@ -6,7 +6,7 @@
 
 ## Overview
 
-Synthesis transforms a construct tree (`@sverka/constructs`) into a Definition
+Synthesis transforms a construct tree (`@sverka/cdk`) into a Definition
 Graph (§16). The lifecycle phases in scope for v0 Wave A:
 
 ```text
@@ -44,7 +44,7 @@ Capability analysis, target lowering, and Run Plan building are later waves.
 ## Interfaces
 
 ```ts
-import type { Project } from "@sverka/constructs";
+import type { Project } from "@sverka/cdk";
 import type { DefinitionGraph } from "./graph.js";
 
 function synthesize(project: Project): DefinitionGraph;

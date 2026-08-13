@@ -5,7 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { readFileSync, existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { join, resolve, isAbsolute } from "node:path";
-import type { Project } from "@sverka/constructs";
+import type { Project } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import type { DefinitionGraph } from "@sverka/core";
 import { resolveUnderRoot } from "./paths.js";
@@ -173,7 +173,7 @@ export function detectPackageManager(root: string): PmName {
 }
 
 /**
- * Ensure `@sverka/constructs` is declared as a devDependency of the target
+ * Ensure `@sverka/cdk` is declared as a devDependency of the target
  * project. Creates a minimal package.json when one does not exist.
  */
 export async function ensureConstructsDependency(root: string): Promise<void> {
@@ -192,8 +192,8 @@ export async function ensureConstructsDependency(root: string): Promise<void> {
   const devDeps =
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
 
-  if (!("@sverka/constructs" in deps) && !("@sverka/constructs" in devDeps)) {
-    pkg.devDependencies = { ...devDeps, "@sverka/constructs": "workspace:*" };
+  if (!("@sverka/cdk" in deps) && !("@sverka/cdk" in devDeps)) {
+    pkg.devDependencies = { ...devDeps, "@sverka/cdk": "workspace:*" };
   }
 
   await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");

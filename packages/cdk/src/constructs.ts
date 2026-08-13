@@ -1,7 +1,7 @@
 // Construct classes: Project, Pipeline, Step, ShellStep, Entry.
 // Spec 01 — §9.1, §10.
 
-import { SverkaConstruct } from "./base.js";
+import { Construct } from "constructs";
 import { ConstructError } from "./errors.js";
 import type {
   Input,
@@ -34,10 +34,10 @@ function validateArtifactOutputs(
 // Project — root of the construct tree (scope = undefined).
 // ---------------------------------------------------------------------------
 
-export class Project extends SverkaConstruct {
+export class Project extends Construct {
   constructor(id: string) {
     // constructs.Construct accepts undefined scope at runtime for root.
-    super(undefined as unknown as SverkaConstruct, id);
+    super(undefined as unknown as Construct, id);
   }
 }
 
@@ -49,7 +49,7 @@ export interface PipelineProps {
   readonly inputs?: Readonly<Record<string, Input>>;
 }
 
-export class Pipeline extends SverkaConstruct {
+export class Pipeline extends Construct {
   readonly inputs: ReadonlyMap<string, Input>;
 
   constructor(scope: Project, id: string, props?: PipelineProps) {
@@ -86,7 +86,7 @@ export interface StepProps {
   readonly condition?: Reference;
 }
 
-export abstract class Step extends SverkaConstruct {
+export abstract class Step extends Construct {
   readonly runtime: Runtime;
   readonly outputs: ReadonlyMap<string, OutputDeclaration>;
   readonly inputs: ReadonlyArray<Reference>;
@@ -151,7 +151,7 @@ export interface EntryProps {
   readonly roots: readonly string[];
 }
 
-export class Entry extends SverkaConstruct {
+export class Entry extends Construct {
   readonly trigger: Trigger;
   readonly roots: ReadonlyArray<string>;
 

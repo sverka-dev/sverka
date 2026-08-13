@@ -73,7 +73,7 @@ export { ConsoleOutputWriter, createOutputWriter, wrapOutputWriter, type WriteSi
 ## Data models
 
 **Config loading**: The CLI loads a sverka.config.ts file from the root
-directory. This file uses `@sverka/constructs` directly to define a
+directory. This file uses `@sverka/cdk` directly to define a
 Project with Pipelines, Entries, and Steps. The CLI synthesizes it into
 a Definition Graph via `@sverka/core.synthesize`. If no config is found,
 commands that require a graph report a usage error.

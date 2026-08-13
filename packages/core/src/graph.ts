@@ -8,11 +8,11 @@ import type {
   Input,
   OutputDeclaration,
   OutputType,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 
 // Re-export types used in the graph schema so consumers can access them
-// from @sverka/core without depending on @sverka/constructs directly.
-export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger } from "@sverka/constructs";
+// from @sverka/core without depending on @sverka/cdk directly.
+export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger } from "@sverka/cdk";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;

@@ -5,7 +5,7 @@
 
 ## Context
 
-Wave A of the v0 redesign creates two packages: `@sverka/constructs` (new) and
+Wave A of the v0 redesign creates two packages: `@sverka/cdk` (new) and
 `@sverka/core` (rebuilt). The architecture spec (§8, §10, §16) requires a
 construct tree (ownership, identity, composition) separate from a Definition
 Graph (scheduling, dependencies, data transfer). Shared model types — Trigger,
@@ -16,12 +16,12 @@ Definition Graph + synthesis.
 
 ## Decision
 
-- **`@sverka/constructs`** owns: SverkaConstruct, Project, Pipeline, Step,
+- **`@sverka/cdk`** owns: SverkaConstruct, Project, Pipeline, Step,
   ShellStep, Entry (construct classes) + shared model types (Trigger,
   Reference, Runtime, Input, Output). Depends only on `constructs@10.8.1` (npm).
 - **`@sverka/core`** owns: Definition Graph types (ProjectDefinition,
   StepDefinition, etc.), OperationDefinition, Dependency, `synthesize()`,
-  validation. Depends on `@sverka/constructs`.
+  validation. Depends on `@sverka/cdk`.
 
 Dependency direction: `core → constructs`. No circular dependencies. The
 foundation layer (`constructs`) has zero `@sverka/*` deps.
@@ -39,10 +39,10 @@ authored directly. They live in `core`.
 
 ## Consequences
 
-- `@sverka/constructs` is the foundation: no `@sverka/*` dependencies.
-- `@sverka/core` depends on `@sverka/constructs` for model types and the
+- `@sverka/cdk` is the foundation: no `@sverka/*` dependencies.
+- `@sverka/core` depends on `@sverka/cdk` for model types and the
   Project input to `synthesize()`.
-- SDK (Wave C) and Decorators (Wave D) depend on `@sverka/constructs` (they
+- SDK (Wave C) and Decorators (Wave D) depend on `@sverka/cdk` (they
   build construct trees) and optionally `@sverka/core` (for `synthesize()`).
 - IR (Wave B) depends on `@sverka/core` for Definition Graph types to
   serialize.

@@ -8,7 +8,7 @@ Graph to GitLab CI YAML. Source: `packages/gitlab/src/target.ts`.
 ```ts
 import { GitlabTarget, compileGitlab } from "@sverka/gitlab";
 import { synthesize } from "@sverka/core";
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");

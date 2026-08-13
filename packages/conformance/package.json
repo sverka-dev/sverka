@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/constructs": "workspace:*",
+    "@sverka/cdk": "workspace:*",
     "@sverka/sdk": "workspace:*",
     "@sverka/decorators": "workspace:*",
     "@sverka/core": "workspace:*",

@@ -1,12 +1,12 @@
-# Spec 01 — Constructs
+# Spec 01 — CDK
 
 **Status:** Active
 **Source:** specs/architecture-spec.md §8, §9.1, §12, §13, §14, §15
-**Package:** `@sverka/constructs`
+**Package:** `@sverka/cdk`
 
 ## Overview
 
-The `constructs` package wraps the npm `constructs` library with Sverka-specific
+The `cdk` package wraps the npm `constructs` library with Sverka-specific
 construct types. It provides the construct tree for ownership, identity,
 composition, and metadata (§8.2). It also defines the shared model types
 (Trigger, Reference, Runtime, Input, Output) used by both the construct tree

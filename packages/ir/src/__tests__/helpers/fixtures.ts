@@ -1,5 +1,5 @@
 // Shared test fixtures for @sverka/ir tests.
-import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
 import { synthesize, type DefinitionGraph } from "@sverka/core";
 import { computeGraphId, computeRunPlanId } from "../../ids.js";
 import type { RunPlan, BoundEntry, InputValue } from "../../run-plan.js";

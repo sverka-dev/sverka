@@ -3,7 +3,7 @@
 
 import type { StepDefinition, DefinitionGraph } from "./graph.js";
 import { SynthesisError } from "./errors.js";
-import type { StepRef, OutputType } from "@sverka/constructs";
+import type { StepRef, OutputType } from "@sverka/cdk";
 
 /**
  * Detect cycles in the dependency graph using DFS.

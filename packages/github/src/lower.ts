@@ -9,7 +9,7 @@ import type {
   OperationDefinition,
   Dependency,
 } from "@sverka/core";
-import type { Trigger } from "@sverka/constructs";
+import type { Trigger } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,

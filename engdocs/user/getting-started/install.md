@@ -16,13 +16,13 @@ This installs the `sverka` command globally.
 
 ## Add the SDK to your project
 
-The CLI generates a `sverka.config.ts` that imports from `@sverka/constructs`.
+The CLI generates a `sverka.config.ts` that imports from `@sverka/cdk`.
 The constructs package must be installed in your project so the config can
 resolve its imports.
 
 ```sh
 cd your-project
-bun add @sverka/constructs @sverka/sdk @sverka/decorators
+bun add @sverka/cdk @sverka/sdk @sverka/decorators
 ```
 
 You only need one of the three authoring packages. Install all three if you

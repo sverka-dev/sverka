@@ -9,7 +9,7 @@ Create `sverka.config.ts` in your project root (or run `sverka init` to
 generate one):
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
 const proj = new Project("verify");
 const pipeline = new Pipeline(proj, "ci");
@@ -76,7 +76,7 @@ Sverka offers three equivalent ways to author pipelines:
 ### Construct API
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");
@@ -87,7 +87,7 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ### SDK API
 
 ```ts
-import { Project, Pipeline, Entry } from "@sverka/constructs";
+import { Project, Pipeline, Entry } from "@sverka/cdk";
 import { sh } from "@sverka/sdk";
 
 const proj = new Project("myproj");
@@ -100,7 +100,7 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 
 ```ts
 import { pipeline, step, entry, decoratePipeline } from "@sverka/decorators";
-import { Project } from "@sverka/constructs";
+import { Project } from "@sverka/cdk";
 
 @pipeline
 class MyPipeline {

@@ -37,8 +37,8 @@ identical regardless of which authoring surface is used.
 ```ts
 import type {
   Runtime, Input, OutputDeclaration, Reference, Trigger,
-} from "@sverka/constructs";
-import type { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+} from "@sverka/cdk";
+import type { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
 // --- sh: shell command step builder ---
 

@@ -1,8 +1,8 @@
 // decoratePipeline — creates a Pipeline construct from a decorated class.
 // Spec 04 — §9.3–9.8.
 
-import { Pipeline, ShellStep, Entry } from "@sverka/constructs";
-import type { Project, Input, Trigger, Reference, ShellStepProps } from "@sverka/constructs";
+import { Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import type { Project, Input, Trigger, Reference, ShellStepProps } from "@sverka/cdk";
 import type { StepBuilder } from "@sverka/sdk";
 import { getPipelineMetadata } from "./decorators.js";
 import { DecoratorError } from "./errors.js";

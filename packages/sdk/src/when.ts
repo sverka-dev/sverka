@@ -3,7 +3,7 @@
 // boolean-producing References. `when` is an identity function that marks
 // a reference as a condition for readability.
 
-import type { Reference } from "@sverka/constructs";
+import type { Reference } from "@sverka/cdk";
 
 /** Mark a reference as a step condition. Returns the reference unchanged. */
 export function when(ref: Reference): Reference {
