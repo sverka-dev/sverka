@@ -179,16 +179,32 @@ function validateStepOptions(options: StepOptions): void {
   if (typeof options !== "object" || options === null) {
     throw new DecoratorError("step options must be an object", "INVALID_OPTIONS");
   }
-  if (options.timeout !== undefined && typeof options.timeout !== "number") {
-    throw new DecoratorError("step timeout must be a number", "INVALID_OPTIONS");
+  validateOptionalNumber(options.timeout, "timeout");
+  validateOptionalArray(options.dependsOn, "dependsOn");
+  validateOptionalObject(options.runtime, "runtime");
+  validateOptionalRecord(options.outputs, "outputs");
+}
+
+function validateOptionalNumber(val: unknown, field: string): void {
+  if (val !== undefined && typeof val !== "number") {
+    throw new DecoratorError(`step ${field} must be a number`, "INVALID_OPTIONS");
   }
-  if (options.dependsOn !== undefined && !Array.isArray(options.dependsOn)) {
-    throw new DecoratorError("step dependsOn must be an array", "INVALID_OPTIONS");
+}
+
+function validateOptionalArray(val: unknown, field: string): void {
+  if (val !== undefined && !Array.isArray(val)) {
+    throw new DecoratorError(`step ${field} must be an array`, "INVALID_OPTIONS");
   }
-  if (options.runtime !== undefined && (typeof options.runtime !== "object" || options.runtime === null)) {
-    throw new DecoratorError("step runtime must be an object", "INVALID_OPTIONS");
+}
+
+function validateOptionalObject(val: unknown, field: string): void {
+  if (val !== undefined && (typeof val !== "object" || val === null)) {
+    throw new DecoratorError(`step ${field} must be an object`, "INVALID_OPTIONS");
   }
-  if (options.outputs !== undefined && (typeof options.outputs !== "object" || options.outputs === null || Array.isArray(options.outputs))) {
-    throw new DecoratorError("step outputs must be a record", "INVALID_OPTIONS");
+}
+
+function validateOptionalRecord(val: unknown, field: string): void {
+  if (val !== undefined && (typeof val !== "object" || val === null || Array.isArray(val))) {
+    throw new DecoratorError(`step ${field} must be a record`, "INVALID_OPTIONS");
   }
 }
