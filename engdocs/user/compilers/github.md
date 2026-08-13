@@ -1,108 +1,71 @@
-# GitHub Actions compiler
+# GitHub Actions target
 
-The `@sverka/compiler-github` package compiles a Plan to a GitHub Actions
-workflow YAML string. Source: `packages/compiler-github/src/compile.ts`.
+The `@sverka/github` package performs native lowering from a Definition
+Graph to GitHub Actions YAML. Source: `packages/github/src/target.ts`.
 
 ## Usage
 
 ```ts
-import { compileGithubWorkflow } from "@sverka/compiler-github";
-import type { Plan } from "@sverka/ir";
+import { GithubTarget, compileGithub } from "@sverka/github";
+import { synthesize } from "@sverka/core";
 
-const yaml = compileGithubWorkflow(plan, {
-  name: "Sverka",
-  runner: "ubuntu-latest",
-  sverkaVersion: "latest",
-  nodeVersion: "24",
-  on: {
-    push: ["main"],
-    pullRequest: [],
-    workflowDispatch: true,
-  },
-  permissions: {
-    contents: "read",
-    securityEvents: "write",
-  },
-});
+// Convenience function
+const result = compileGithub(graph);
+// result.artifacts[0].content → YAML string
+// result.diagnostics → capability diagnostics
+
+// Or use the Target contract directly
+const target = new GithubTarget();
+const diagnostics = target.analyze(graph);
+const targetGraph = target.lower(graph);
+const artifacts = target.emit(targetGraph);
 ```
 
-## Config
+## Target contract
 
-All fields optional. Defaults apply when omitted.
+The GitHub target implements the Target contract (architecture spec §19):
 
-| Field            | Type                | Default          | Description                    |
-|------------------|---------------------|------------------|--------------------------------|
-| `name`           | `string`            | `"Sverka"`       | Workflow name                  |
-| `on`             | `GithubTriggers`    | push + pull_request | Trigger events              |
-| `runner`         | `string`            | `"ubuntu-latest"`| Runner image label             |
-| `sverkaVersion`  | `string`            | `"latest"`       | Sverka version to install      |
-| `nodeVersion`    | `string`            | `"24"`           | Node version for setup-node    |
-| `permissions`    | `GithubPermissions` | `{ contents: "read" }` | Token permissions       |
+1. **analyze(graph)** — checks capability support via `@sverka/plugin`
+2. **lower(graph)** — maps Definition Graph → GithubTargetGraph (IR)
+3. **emit(targetGraph)** — converts IR → YAML artifacts
 
-### Triggers
+## Lowering mappings
 
-| Field              | Type       | Description                          |
-|--------------------|------------|--------------------------------------|
-| `push`             | `string[]` | Branches to trigger on push          |
-| `pullRequest`      | `string[]` | Branches for pull request (empty = all) |
-| `workflowDispatch` | `boolean`  | Enable manual dispatch               |
+| Sverka | GitHub Actions |
+|---|---|
+| Step | Job (1:1) |
+| Dependencies | `needs` |
+| Runtime host | `runs-on: ubuntu-latest` |
+| Runtime container | `container: <image>` |
+| Shell operation | `run:` step |
+| Artifact output | `actions/upload-artifact@v4` |
+| Artifact import | `actions/download-artifact@v4` + checkout |
+| Scalar output | `$GITHUB_OUTPUT` |
+| Push trigger | `on: push` |
+| ChangeRequest trigger | `on: pull_request` |
+| Manual trigger | `on: workflow_dispatch` |
+| Timeout | `timeout-minutes` |
 
-### Permissions
+## Capability manifest
 
-| Field            | Type             | Description              |
-|------------------|------------------|--------------------------|
-| `contents`       | `"read" \| "write"` | Repository contents  |
-| `actions`        | `"read" \| "write"` | Actions API          |
-| `checks`         | `"read" \| "write"` | Checks API           |
-| `securityEvents` | `"read" \| "write"` | Security events      |
-| `idToken`        | `"write"`        | OIDC token (write only)  |
-
-Permission keys are converted from camelCase to kebab-case in the YAML
-output (e.g. `securityEvents` → `security-events`).
-
-## Output
-
-The generated workflow:
-
-1. Checks out the repository.
-2. Sets up Node.js and Bun.
-3. Installs Sverka globally.
-4. Runs `sverka execute`.
-5. Uploads `.sverka/output/` as an artifact.
-
-### Credential mapping
-
-Credentials declared in the Plan are mapped to job-level `env:` entries
-referencing GitHub secrets. Each credential's `envVar` becomes
-`${{ secrets.<ENV_VAR> }}`.
-
-### Example output
-
-```yaml
-name: Sverka
-on:
-  push:
-    branches:
-      - main
-  pull_request: null
-permissions:
-  contents: read
-jobs:
-  sverka:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - uses: oven-sh/setup-bun@v2
-        with:
-          version: latest
-      - run: bun install -g @sverka/cli
-      - run: sverka execute
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: sverka-output
-          path: .sverka/output/
+```ts
+const githubCapabilities = {
+  "trigger.push": "native",
+  "trigger.changeRequest": "native",
+  "trigger.manual": "native",
+  "runtime.host": "native",
+  "runtime.container": "native",
+  "operation.shell": "native",
+  "output.scalar": "lowered",    // via $GITHUB_OUTPUT
+  "output.artifact": "native",
+  "graph.dependencies": "native",
+};
 ```
+
+## CLI usage
+
+```sh
+sverka synth --target github
+```
+
+This writes `.github/workflows/<pipeline-id>.yml`.
