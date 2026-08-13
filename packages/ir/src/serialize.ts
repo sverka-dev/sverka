@@ -1,7 +1,6 @@
 // Serialization for Definition Graph and Run Plan.
 // Spec 06 — Functions. ADR-006 (amended).
 
-import { createHash } from "node:crypto";
 import type { DefinitionGraph } from "@sverka/core";
 import { canonicalStringify } from "./canonical.js";
 import { validateGraphSchema, validateRunPlanSchema } from "./validate.js";

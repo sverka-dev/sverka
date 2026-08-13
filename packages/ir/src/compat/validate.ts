@@ -32,7 +32,7 @@ function isValidImageDigest(s: string): boolean {
   if (s.length !== 71) return false; // "sha256:" + 64 hex chars
   if (!s.startsWith("sha256:")) return false;
   for (let i = 7; i < s.length; i++) {
-    const c = s.charCodeAt(i);
+    const c = s.codePointAt(i);
     const isHex = (c >= 48 && c <= 57) || (c >= 97 && c <= 102); // 0-9, a-f
     if (!isHex) return false;
   }
@@ -44,7 +44,7 @@ function isValidCpuString(s: string): boolean {
   if (s.length === 0 || s.length > 10) return false;
   let hasDot = false;
   for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
+    const c = s.codePointAt(i);
     if (c === 46) { // '.'
       if (hasDot || i === 0 || i === s.length - 1) return false;
       hasDot = true;
@@ -58,7 +58,7 @@ function isValidCpuString(s: string): boolean {
 /** Find the boundary between digit and suffix portions (from the right). */
 function findDigitBoundary(s: string): number {
   for (let i = s.length - 1; i >= 0; i--) {
-    const c = s.charCodeAt(i);
+    const c = s.codePointAt(i);
     if (c >= 48 && c <= 57) return i + 1; // '0'-'9'
   }
   return 0;
@@ -67,7 +67,7 @@ function findDigitBoundary(s: string): number {
 /** Check if all chars in s[start..end) are ASCII digits. */
 function isAllDigits(s: string, start: number, end: number): boolean {
   for (let i = start; i < end; i++) {
-    const c = s.charCodeAt(i);
+    const c = s.codePointAt(i);
     if (c < 48 || c > 57) return false;
   }
   return true;
@@ -191,11 +191,23 @@ function validateSourceContextHash(p: Record<string, unknown>, errors: Validatio
   return ok;
 }
 
-const ISO_8601_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2}))?$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+const ISO_FRACTION_RE = /^\.\d+/;
+const ISO_TZ_RE = /^(Z|[+-]\d{2}:?\d{2})$/;
 
 function isValidIso8601(s: string): boolean {
-  if (!ISO_8601_RE.test(s)) return false;
-  return !Number.isNaN(Date.parse(s));
+  if (ISO_DATE_RE.test(s)) return !Number.isNaN(Date.parse(s));
+  if (!ISO_DATETIME_RE.test(s)) return false;
+  const rest = s.slice(ISO_DATETIME_RE.source.length - 1);
+  let offset = 0;
+  if (rest.startsWith(".")) {
+    const m = ISO_FRACTION_RE.exec(rest);
+    if (!m) return false;
+    offset = m[0].length;
+  }
+  const tz = rest.slice(offset);
+  return ISO_TZ_RE.test(tz) && !Number.isNaN(Date.parse(s));
 }
 
 function validateCreatedAt(p: Record<string, unknown>, errors: ValidationErrorDetail[]): boolean {
@@ -333,7 +345,7 @@ function validateResources(op: PlanOperationView, opId: string | undefined, erro
     const memOk = typeof r.memory === "string" && isValidMemoryString(r.memory);
     if (cpuOk && memOk) return;
   }
-  errors.push(opError(opId, "operations[].resources", "INVALID_RESOURCES", "resources.cpu must be a number string and resources.memory must match /^\\d+(Ki|Mi|Gi|Ti)?$/"));
+  errors.push(opError(opId, "operations[].resources", "INVALID_RESOURCES", String.raw`resources.cpu must be a number string and resources.memory must match /^\d+(Ki|Mi|Gi|Ti)?$/`));
 }
 
 /** Validate retry policy (rule 10). */

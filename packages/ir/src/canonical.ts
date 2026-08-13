@@ -54,13 +54,12 @@ function emitObjectLike(value: object, out: string[]): void {
 
 function emitObject(obj: Record<string, unknown>, out: string[]): void {
   const keys = Object.keys(obj).filter((k) => obj[k] !== undefined);
-  keys.sort();
+  keys.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   out.push("{");
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i]!;
     if (i > 0) out.push(",");
-    out.push(quoteString(key));
-    out.push(":");
+    out.push(`${quoteString(key)}:`);
     emit(obj[key], out);
   }
   out.push("}");

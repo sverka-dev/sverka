@@ -160,7 +160,7 @@ function validateInputs(inputs: Record<string, unknown>): void {
 }
 
 function validateInputValue(value: unknown, name: string): asserts value is InputValue {
-  if (value === null || typeof value === "undefined") {
+  if (value === null || value === undefined) {
     throw new ValidationError(`input '${name}' must be a string, number, or boolean`);
   }
   if (typeof value === "number") {
@@ -280,6 +280,10 @@ function validateStepStructure(value: unknown): void {
   if (typeof s.runtime !== "object" || s.runtime === null) {
     throw new ValidationError("invalid step: missing 'runtime'");
   }
+  validateStepArrays(s);
+}
+
+function validateStepArrays(s: Record<string, unknown>): void {
   for (const op of requireArray(s, "operations", "invalid step: missing 'operations' array")) {
     validateOperation(op);
   }

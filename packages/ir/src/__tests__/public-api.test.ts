@@ -36,7 +36,8 @@ describe("public API", () => {
   it("IRErrorCode type is exported (as type)", () => {
     // Type-only export — verify it compiles. Runtime check: the code values
     // are the only valid IRErrorCode values.
-    const code: "VALIDATION_ERROR" | "SERIALIZATION_ERROR" = "VALIDATION_ERROR";
-    expect(code).toBe("VALIDATION_ERROR");
+    const codes: ("VALIDATION_ERROR" | "SERIALIZATION_ERROR")[] = ["VALIDATION_ERROR", "SERIALIZATION_ERROR"];
+    expect(codes).toContain("VALIDATION_ERROR");
+    expect(codes).toContain("SERIALIZATION_ERROR");
   });
 });

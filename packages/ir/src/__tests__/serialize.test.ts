@@ -18,7 +18,7 @@ describe("serializeGraph → deserializeGraph round-trip", () => {
     const parsed = deserializeGraph(json);
     expect(parsed.apiVersion).toBe("sverka.dev/v1graph");
     expect(parsed.graph.project.id).toBe(graph.project.id);
-    expect(parsed.graph.project.pipelines.length).toBe(graph.project.pipelines.length);
+    expect(parsed.graph.project.pipelines).toHaveLength(graph.project.pipelines.length);
   });
 
   it("produces an id matching computeGraphId", () => {
@@ -170,7 +170,7 @@ describe("serializeRunPlan → deserializeRunPlan round-trip", () => {
     expect(parsed.graphId).toBe(plan.graphId);
     expect(parsed.entry.id).toBe(plan.entry.id);
     expect(parsed.inputs.env).toBe("production");
-    expect(parsed.steps.length).toBe(plan.steps.length);
+    expect(parsed.steps).toHaveLength(plan.steps.length);
   });
 
   it("produces an id matching computeRunPlanId", () => {

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { canonicalStringify, computeOperationId } from "@sverka/core";
+import { canonicalStringify } from "@sverka/core";
+export { computeOperationId } from "@sverka/core";
 import type { Plan } from "./plan.js";
 
 /**
@@ -27,4 +28,3 @@ export function computePlanId(plan: Omit<Plan, "id" | "createdAt">): string {
  * Re-exported from `@sverka/core` to ensure core and ir produce identical ids
  * by construction (ADR-006). The core/ir consistency test guards against drift.
  */
-export { computeOperationId };
