@@ -78,7 +78,7 @@ describe("synthesize — basic", () => {
     expect(testStep?.operations).toContainEqual({
       kind: "importArtifact",
       name: "dist",
-      from: "build",
+      from: "ci/build",
       output: "dist",
     });
     expect(testStep?.dependencies).toContainEqual({
@@ -121,6 +121,32 @@ describe("synthesize — basic", () => {
     expect(testStep?.dependencies).toContainEqual({
       kind: "control",
       producer: "ci/build",
+    });
+  });
+
+  it("uses already-prefixed step reference as-is", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      outputs: { dist: { type: "artifact", path: "./dist" } },
+    });
+    new ShellStep(pipeline, "test", {
+      command: "npm test",
+      inputs: [{ kind: "step", step: "ci/build", output: "dist", type: "artifact" }],
+    });
+    const graph = synthesize(proj);
+    const testStep = graph.project.pipelines[0]?.steps.find((s) => s.id === "ci/test");
+    expect(testStep?.operations).toContainEqual({
+      kind: "importArtifact",
+      name: "dist",
+      from: "ci/build",
+      output: "dist",
+    });
+    expect(testStep?.dependencies).toContainEqual({
+      kind: "artifact",
+      producer: "ci/build",
+      output: "dist",
     });
   });
 
@@ -211,7 +237,7 @@ describe("synthesize — conformance seed", () => {
     expect(test.operations).toContainEqual({
       kind: "importArtifact",
       name: "dist",
-      from: "build",
+      from: "ci/build",
       output: "dist",
     });
     // dependsOn + artifact ref to same producer → only artifact dep (more specific).
