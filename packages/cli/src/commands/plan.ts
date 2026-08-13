@@ -1,14 +1,19 @@
-import { createSverka } from "@sverka/sdk";
-import type { GlobalFlags, OutputWriter } from "../types.js";
-import { ExitCode } from "../types.js";
-import { resolveUnderRoot } from "../internal/paths.js";
+// plan command — bind Entry + inputs → Run Plan, display steps.
+// Spec 17 — §30.
 
-/** Args parsed for the plan command. */
+import { synthesize } from "@sverka/core";
+import { bindRunPlan } from "@sverka/planner";
+import type { GlobalFlags, OutputWriter } from "../types.js";
+import { CliError, ExitCode } from "../types.js";
+import { resolveUnderRoot } from "../internal/paths.js";
+import { findConfig, loadConfig } from "../internal/config.js";
+
 export interface PlanArgs {
-  onlyNew?: boolean;
+  entryId?: string;
 }
+
 /**
- * Run SDK plan() and print the PlanResult. Does not execute checks.
+ * Bind an Entry and Inputs into a Run Plan and display it.
  */
 export async function planCommand(
   args: PlanArgs,
@@ -16,39 +21,61 @@ export async function planCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  output.debug(`plan: root=${global.root} onlyNew=${Boolean(args.onlyNew)}`);
-  const sverka = createSverka({
-    root: global.root,
-    // Resolve a relative --config against --root (matches auto-discovery).
-    ...(global.config
-      ? { configPath: resolveUnderRoot(global.root, global.config) }
-      : {}),
-    // Forward onlyNew to the SDK. plan() currently has no findings to filter
-    // (check providers arrive in wave 11), so this is a forward-compatible
-    // no-op until then — but the flag is no longer silently dropped.
-    onlyNew: Boolean(args.onlyNew),
-  });
-  const result = await sverka.plan();
+  output.debug(`plan: root=${global.root} entry=${args.entryId ?? "(first)"}`);
+
+  let configPath: string | null = global.config
+    ? resolveUnderRoot(global.root, global.config)
+    : null;
+  if (!configPath) {
+    configPath = await findConfig(global.root);
+  }
+  if (!configPath) {
+    throw new CliError(
+      "no config found (use --config to specify a path)",
+      "MISSING_ARG",
+      ExitCode.UsageError,
+    );
+  }
+
+  const project = await loadConfig(configPath);
+  const graph = synthesize(project);
+
+  const pipeline = graph.project.pipelines[0];
+  if (!pipeline) {
+    throw new CliError("no pipelines in config", "SDK_ERROR", ExitCode.RuntimeError);
+  }
+
+  const entryId = args.entryId ?? pipeline.entries[0]?.id;
+  if (!entryId) {
+    throw new CliError("no entries in pipeline", "MISSING_ARG", ExitCode.UsageError);
+  }
+
+  const plan = bindRunPlan({ graph, entryId });
 
   const durationMs = Date.now() - start;
   if (global.format === "json") {
     output.writeLine(
       JSON.stringify({
         command: "plan",
-        data: result,
+        data: {
+          id: plan.id,
+          graphId: plan.graphId,
+          entry: plan.entry,
+          steps: plan.steps.map((s) => s.id),
+          inputs: plan.inputs,
+        },
         durationMs,
       }),
     );
   } else {
-    output.writeLine(`Plan for ${result.context.root}`);
-    output.writeLine(`  operations: ${result.operations.length}`);
-    if (result.proposal) {
-      output.writeLine(`  proposed checks: ${result.proposal.checks.length}`);
-      for (const check of result.proposal.checks) {
-        output.writeLine(`    - ${check.checkId} (priority: ${check.priority})`);
-      }
-    } else {
-      output.writeLine("  proposal: (from config)");
+    output.writeLine(`Run Plan: ${plan.id}`);
+    output.writeLine(`  entry: ${plan.entry.id}`);
+    output.writeLine(`  steps: ${plan.steps.length}`);
+    for (const step of plan.steps) {
+      const deps = step.dependencies.length > 0
+        ? ` (depends: ${step.dependencies.map((d) => d.producer).join(", ")})`
+        : "";
+      output.writeLine(`    - ${step.id}${deps}`);
     }
   }
 

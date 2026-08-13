@@ -4,46 +4,58 @@ import {
   makeTempDir,
   cleanupTempDir,
   CaptureWriter,
-  initGitRepo,
+  writefile,
 } from "./helpers/fixtures.js";
+
+const VALID_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "build", { command: "echo build" });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+export default proj;
+`;
 
 describe("plan command", () => {
   let dir: string;
 
   beforeEach(async () => {
     dir = await makeTempDir();
-    await initGitRepo(dir);
   });
 
   afterEach(async () => {
     await cleanupTempDir(dir);
   });
 
-  it("prints the plan result in human format", async () => {
+  it("prints the run plan in human format", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
     const code = await main(["plan", "--root", dir], { output: out });
     expect(code).toBe(0);
-    expect(out.stdoutText).toContain("Plan for");
+    expect(out.stdoutText).toContain("Run Plan");
+    expect(out.stdoutText).toContain("ci/build");
   });
 
-  it("does not execute checks (no execution output)", async () => {
+  it("prints JSON format", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
-    await main(["plan", "--root", dir], { output: out });
-    // Plan output should not contain execution verdict/status
-    expect(out.stdoutText).not.toContain("verdict:");
-    expect(out.stdoutText).not.toContain("Execution:");
-  });
-
-  it("--format json prints plan as JSON", async () => {
-    const out = new CaptureWriter();
-    const code = await main(
-      ["plan", "--format", "json", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["plan", "--root", dir, "--format", "json"], { output: out });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("plan");
-    expect(parsed.data.context.root).toBe(dir);
-    expect(Array.isArray(parsed.data.operations)).toBe(true);
+    expect(parsed.data.steps).toContain("ci/build");
+  });
+
+  it("exits 2 when no config found", async () => {
+    const out = new CaptureWriter();
+    const code = await main(["plan", "--root", dir], { output: out });
+    expect(code).toBe(2);
+  });
+
+  it("accepts --entry flag", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(["plan", "--root", dir, "--entry", "ci/on-push"], { output: out });
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("ci/on-push");
   });
 });
