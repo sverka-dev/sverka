@@ -1,4 +1,6 @@
-# ADR-006: SHA-256 content-addressed Plan and Operation IDs
+# ADR-006: SHA-256 content-addressed Graph and Run Plan IDs
+
+**Status: AMENDED** (2026-08-13, v0 redesign — Wave B)
 
 ## Context
 
@@ -15,7 +17,28 @@ The id scheme must be:
 - Dependency-free (no external hashing library).
 - Self-describing (a reader can tell a plan id from an operation id).
 
-## Decision
+## Amendment (v0 redesign — Wave B)
+
+The flat `Plan { operations: PlanOperation[] }` schema is replaced by the
+Definition Graph + Run Plan (ADR-003 amended). The ID scheme changes:
+
+1. **Graph ID** — `computeGraphId(graph: DefinitionGraph): string`.
+   SHA-256 over `canonicalStringify(graph)`, prefixed `graph-`.
+   Form: `graph-<64 hex chars>`.
+2. **Run Plan ID** — `computeRunPlanId(plan: Omit<RunPlan, "id"|"createdAt">): string`.
+   SHA-256 over canonical JSON with `id`/`createdAt` stripped, prefixed `rp-`.
+   Form: `rp-<64 hex chars>`.
+3. **Operation IDs** — removed. Operations are nested inside steps,
+   identified by `(stepId, index)`. No hash-based operation IDs.
+4. **`canonicalStringify`** — moved from `@sverka/core` to `@sverka/ir`
+   (internal). The new core (Wave A) does not compute IDs; only IR needs
+   canonical serialization.
+
+The original principles (deterministic, collision-resistant, dependency-free,
+self-describing) are retained. The prefix scheme changes from `plan-`/`op-`
+to `graph-`/`rp-`.
+
+## Decision (original — superseded by amendment above)
 
 Use SHA-256 (Node built-in `node:crypto`) over the canonical JSON
 serialization defined in `serializePlan`:
