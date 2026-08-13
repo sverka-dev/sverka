@@ -252,6 +252,9 @@ function validatePipelineInput(value: unknown): void {
     throw new ValidationError("invalid pipeline input: expected object");
   }
   const i = value as Record<string, unknown>;
+  if (typeof i.name !== "string" || i.name.length === 0) {
+    throw new ValidationError("invalid pipeline input: missing or invalid 'name'");
+  }
   if (typeof i.type !== "string" || !OUTPUT_TYPES.has(i.type)) {
     throw new ValidationError("invalid pipeline input: missing or invalid 'type'");
   }

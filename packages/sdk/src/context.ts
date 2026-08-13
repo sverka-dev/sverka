@@ -8,10 +8,24 @@ function ctx(namespace: ContextNamespace, field: string): ContextRef {
   return { kind: "context", namespace, field };
 }
 
+const PROTECTED_PROPS = new Set<string | symbol>([
+  "then",
+  "toJSON",
+  "inspect",
+  "constructor",
+  "valueOf",
+  Symbol.toPrimitive,
+  Symbol.iterator,
+  Symbol.toStringTag,
+]);
+
 /** Dynamic namespace proxy — any property access returns a ContextRef. */
 function dynamicNamespace(namespace: ContextNamespace): Record<string, ContextRef> {
   return new Proxy({} as Record<string, ContextRef>, {
-    get(_target, prop: string): ContextRef {
+    get(target, prop: string | symbol): ContextRef | unknown {
+      if (typeof prop === "symbol" || PROTECTED_PROPS.has(prop)) {
+        return Reflect.get(target, prop);
+      }
       return ctx(namespace, prop);
     },
   });

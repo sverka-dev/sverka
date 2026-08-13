@@ -5,6 +5,7 @@ export type {
   DefinitionGraph,
   ProjectDefinition,
   PipelineDefinition,
+  PipelineInputDefinition,
   EntryDefinition,
   StepDefinition,
   OperationDefinition,
