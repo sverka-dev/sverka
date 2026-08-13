@@ -260,15 +260,25 @@ function validatePipelineInput(name: string, value: unknown): void {
     throw new ValidationError(`invalid pipeline input "${name}": missing or invalid 'type'`);
   }
   const type = i.type;
-  if (i.required !== undefined && typeof i.required !== "boolean") {
-    throw new ValidationError(`invalid pipeline input "${name}": 'required' must be a boolean`);
+  validateOptionalBoolean(i, "required", name);
+  validateOptionalBoolean(i, "secret", name);
+  validateOptionalString(i, "description", name);
+  validateDefaultType(i, type, name);
+}
+
+function validateOptionalBoolean(i: Record<string, unknown>, field: string, name: string): void {
+  if (i[field] !== undefined && typeof i[field] !== "boolean") {
+    throw new ValidationError(`invalid pipeline input "${name}": '${field}' must be a boolean`);
   }
-  if (i.secret !== undefined && typeof i.secret !== "boolean") {
-    throw new ValidationError(`invalid pipeline input "${name}": 'secret' must be a boolean`);
+}
+
+function validateOptionalString(i: Record<string, unknown>, field: string, name: string): void {
+  if (i[field] !== undefined && typeof i[field] !== "string") {
+    throw new ValidationError(`invalid pipeline input "${name}": '${field}' must be a string`);
   }
-  if (i.description !== undefined && typeof i.description !== "string") {
-    throw new ValidationError(`invalid pipeline input "${name}": 'description' must be a string`);
-  }
+}
+
+function validateDefaultType(i: Record<string, unknown>, type: string, name: string): void {
   if (i.default !== undefined && typeof i.default !== type) {
     throw new ValidationError(
       `invalid pipeline input "${name}": 'default' does not match declared type "${type}"`,
