@@ -34,12 +34,17 @@ describe("public API — exports", () => {
   });
 
   it("all types are importable (compile-time check)", () => {
-    const _opts: StepOptions = { timeout: 1000 };
-    const _target: EntryTarget = ["lint"];
-    const _meta: FieldMetadata = { kind: "step" };
-    const _kind: FieldKind = "step";
-    const _code: DecoratorErrorCode = "INVALID_FIELD";
-    const _ctx: PlanningContext = { sh() {} };
-    void [_opts, _target, _meta, _kind, _code, _ctx];
+    const opts: StepOptions = { timeout: 1000 };
+    const target: EntryTarget = ["lint"];
+    const meta: FieldMetadata = { kind: "step" };
+    const kind: FieldKind = "step";
+    const code: DecoratorErrorCode = "INVALID_FIELD";
+    const ctx: PlanningContext = { sh() {} };
+    expect(opts.timeout).toBe(1000);
+    expect(target).toEqual(["lint"]);
+    expect(meta.kind).toBe("step");
+    expect(kind).toBe("step");
+    expect(code).toBe("INVALID_FIELD");
+    expect(typeof ctx.sh).toBe("function");
   });
 });

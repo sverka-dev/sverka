@@ -133,7 +133,7 @@ function createStepFromField(
   const value = (instance as Record<string, unknown>)[name];
 
   if (typeof value === "string") {
-    new ShellStep(pipeline, name, stepProps(value, options));
+    void new ShellStep(pipeline, name, stepProps(value, options));
     return;
   }
 
@@ -143,16 +143,7 @@ function createStepFromField(
   }
 
   if (typeof value === "function") {
-    const spec = evaluateMethodStep(value as (this: unknown, ...args: unknown[]) => unknown, name, options);
-    if (spec.kind === "builder") {
-      applyOptionsToBuilder(spec.builder, options).build(pipeline, name);
-    } else {
-      const props: ShellStepProps = {
-        ...stepProps(spec.command, options),
-        ...(spec.inputs.length > 0 ? { inputs: spec.inputs } : {}),
-      };
-      new ShellStep(pipeline, name, props);
-    }
+    createStepFromMethod(pipeline, name, value as (this: unknown, ...args: unknown[]) => unknown, options);
     return;
   }
 
@@ -167,6 +158,24 @@ function createStepFromField(
     `step field '${name}' has invalid value type: ${typeof value}`,
     "INVALID_FIELD",
   );
+}
+
+function createStepFromMethod(
+  pipeline: Pipeline,
+  name: string,
+  method: (this: unknown, ...args: unknown[]) => unknown,
+  options?: StepOptions,
+): void {
+  const spec = evaluateMethodStep(method, name, options);
+  if (spec.kind === "builder") {
+    applyOptionsToBuilder(spec.builder, options).build(pipeline, name);
+    return;
+  }
+  const props: ShellStepProps = {
+    ...stepProps(spec.command, options),
+    ...(spec.inputs.length > 0 ? { inputs: spec.inputs } : {}),
+  };
+  void new ShellStep(pipeline, name, props);
 }
 
 function stepProps(command: string, options?: StepOptions): ShellStepProps {
@@ -306,5 +315,5 @@ function createEntryFromField(
       "INVALID_FIELD",
     );
   }
-  new Entry(pipeline, name, { trigger, roots });
+  void new Entry(pipeline, name, { trigger, roots });
 }
