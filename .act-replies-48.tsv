@@ -1,0 +1,25 @@
+PRRT_kwDOTyoI9s6Yx2sr	Diagnostic commands now emit properly quoted strings: `echo "::error::message"`, etc.
+PRRT_kwDOTyoI9s6Yx2sw	`exportOutput` is now emitted as part of the same run step as the preceding shell commands, so the shell variable `${name}` is in scope.
+PRRT_kwDOTyoI9s6Yx2s2	`lowerOperations` now processes operations in order and interleaves shell/exportOutput commands into one run step, preserving execution order.
+PRRT_kwDOTyoI9s6Yx3f5	Scalar outputs are now written to `$GITHUB_OUTPUT` inside the same run step as the shell commands that produce the values.
+PRRT_kwDOTyoI9s6Yx3f8	Execution order is preserved: consecutive `shell`/`exportOutput` operations are grouped into one run step and `exportArtifact`/`importArtifact`/`diagnostic` operations flush the group before being emitted.
+PRRT_kwDOTyoI9s6Yx3f-	Unbalanced diagnostic quotes fixed: each `echo` command now closes its double-quoted string.
+PRRT_kwDOTyoI9s6Yx3gC	`lowerTriggers` now aggregates branch filters for multiple entries of the same trigger kind instead of overwriting.
+PRRT_kwDOTyoI9s6Yx3gF	Checkout (`actions/checkout@v4`) is now added at the start of every job, not only for artifact imports.
+PRRT_kwDOTyoI9s6Yx3xP	`GithubTarget` now implements the `Target` contract with `readonly name` and a `compile(graph)` method.
+PRRT_kwDOTyoI9s6Yx35I	`lowerGithub` now throws `GithubTargetError` when more than one pipeline is present so additional pipelines are not silently discarded.
+PRRT_kwDOTyoI9s6Yx35M	Only steps reachable from entry roots via dependencies are emitted as jobs; unreachable steps are filtered out.
+PRRT_kwDOTyoI9s6Yx35R	Repeated entries of the same trigger kind have their branch filters merged into a single GitHub trigger.
+PRRT_kwDOTyoI9s6Yx35U	Container mode without a `runtime.image` now throws `GithubTargetError` instead of silently falling back to host.
+PRRT_kwDOTyoI9s6Yx35V	`runtime.secrets` are now mapped to the job `env` block as `${{ secrets.<name> }}`.
+PRRT_kwDOTyoI9s6Yx35W	Scalar export commands are now emitted after the shell commands in the same run step, not before.
+PRRT_kwDOTyoI9s6Yx35Y	Diagnostic `echo` commands are now properly closed with double quotes.
+PRRT_kwDOTyoI9s6Yx35b	Secret pipeline inputs are now referenced via `${{ secrets.<name> }}` instead of copying literal default values into the workflow `env` block.
+PRRT_kwDOTyoI9s6Yx6rm	Specs are organized by numbered directories with an internal `spec.md`; this matches repo convention.
+PRRT_kwDOTyoI9s6Yx6ro	Shell and scalar-export operations are now interleaved in the generated `run` step, and the step is emitted in the correct order.
+PRRT_kwDOTyoI9s6Yx6rp	Diagnostic echo strings are now fully quoted and terminated.
+PRRT_kwDOTyoI9s6Yx6rq	`actions/checkout@v4` is now added unconditionally to every job.
+PRRT_kwDOTyoI9s6Yx6rs	Trigger lowering now merges branch filters for duplicate trigger kinds and supports manual triggers.
+PRRT_kwDOTyoI9s6Yx6rx	`exportArtifact`, `importArtifact`, and `diagnostic` operations flush accumulated shell/exportOutput commands before emitting their own steps.
+PRRT_kwDOTyoI9s6Y3OvS	`runtime.secrets` are mapped to job `env` references to `secrets.<name>`.
+PRRT_kwDOTyoI9s6Yx3OvZ	Spec dependency mapping text updated to state that all dependency kinds create `needs`.
