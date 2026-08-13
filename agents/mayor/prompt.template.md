@@ -83,7 +83,7 @@ passes review:
 
 1. Close the wave epic.
 2. Immediately create the next wave's epic and dispatch it.
-3. Repeat until Wave N (conformance + docs) is done.
+3. Repeat until Wave N (docs + website update) is done (Wave M conformance must pass first).
 
 Never stand by idle when there is unstarted work. If you are waiting on a
 wave to complete, monitor it. Once it passes review, start the next wave
@@ -91,11 +91,7 @@ immediately — do not wait for a human to prompt you.
 
 If a wave fails review, dispatch fix work to the builder and re-gate.
 
-**Dependency note:** Some waves can run in parallel. Waves A and E have no
-dependency on each other. Waves H and I (targets) can overlap once H's target
-contract pattern is established. Wave K (findings/policy) can run in parallel
-with the engine waves since those packages are carried over as-is. Use `bd dep`
-to model this — don't serialize unnecessarily.
+**Dependency note:** Some waves can run in parallel once their declared prerequisites are satisfied. Wave C (SDK authoring) can start after Wave A and run in parallel with Wave B. After Wave B completes, Waves E (plugin), F (engine-native), and L (CLI) can run in parallel. Wave H (target-github) requires both Wave B and Wave E; Wave I (target-gitlab) requires Wave H. Wave K (findings/policy) can run in parallel with the engine waves once Waves F and J are complete. Use `gc bd dep` to model this — don't serialize unnecessarily.
 
 ## Report to human
 
@@ -117,9 +113,9 @@ previous wave's branch, not main.
 
 1. Create a branch for the wave:
    ```
-   git checkout -b wave-N-<package>
+   git checkout -b v0-<wave>-<package>
    ```
-   Base it on the previous wave's branch (or main for Wave 1).
+   Base it on the previous wave's branch (or `main` for Wave A).
 
 2. Stage all changes for this wave:
 
@@ -130,11 +126,11 @@ previous wave's branch, not main.
 
 4. Only after the human authorizes (or an active profile grants that authority):
    - commit the staged changes,
-   - push the branch with `git push -u origin wave-N-<package>`,
-   - create the stacked PR with `gh pr create --base wave-(N-1)-<prev-package>
-     --head wave-N-<package> --title "Wave N: <package>" --body "..."`.
+   - push the branch with `git push -u origin v0-<wave>-<package>`,
+   - create the stacked PR with `gh pr create --base v0-<prev-wave>-<prev-package>
+     --head v0-<wave>-<package> --title "Wave <wave>: <package>" --body "..."`.
 
-5. For Wave 1, target `main`. For all subsequent waves, target the previous
+5. For Wave A, target `main`. For all subsequent waves, target the previous
    wave's branch.
 
 6. Report the PR number to the human via mail.
@@ -204,7 +200,6 @@ lowering (native CI jobs, not wrappers). ADR-004 is superseded.
 ```
 A (constructs + definition graph)
 ├── B (ir schemas)
-│   ├── C (sdk authoring) ──── D (decorators)
 │   ├── E (plugin + capabilities)
 │   ├── F (engine-native + runtime-host + runtime-docker)
 │   │   └── G (planner / run plan binding)
@@ -213,6 +208,8 @@ A (constructs + definition graph)
 │   ├── H (target-github / native lowering)
 │   │   └── I (target-gitlab / native lowering)
 │   └── L (cli)
+├── C (sdk authoring)
+│   └── D (decorators)
 └──── M (conformance suite) [needs all]
      └── N (docs + website update)
 ```
