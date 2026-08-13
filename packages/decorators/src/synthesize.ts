@@ -214,6 +214,8 @@ function evaluateMethodStep(
           const v = values[i]!;
           if (typeof v === "string") {
             command += v;
+          } else if (typeof v === "number" || typeof v === "boolean") {
+            command += String(v);
           } else if (isReference(v)) {
             collectedInputs.push(v);
             const ref = v as Reference;
