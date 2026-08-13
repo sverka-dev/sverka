@@ -1,9 +1,9 @@
 // Validation functions for the Definition Graph.
 // Spec 05 — §11.4.
 
-import type { StepDefinition, Dependency } from "./graph.js";
+import type { StepDefinition } from "./graph.js";
 import { SynthesisError } from "./errors.js";
-import type { StepRef, OutputDeclaration } from "@sverka/constructs";
+import type { StepRef, OutputType } from "@sverka/constructs";
 
 /**
  * Detect cycles in the dependency graph using DFS.
@@ -25,12 +25,17 @@ export function detectCycles(steps: readonly StepDefinition[]): void {
     if (c === GRAY) {
       throw new SynthesisError("CYCLE", `Dependency cycle detected at step '${id}'`, id);
     }
-    color.set(id, GRAY);
     const step = stepMap.get(id);
-    if (step) {
-      for (const dep of step.dependencies) {
-        dfs(dep.producer);
-      }
+    if (!step) {
+      throw new SynthesisError(
+        "UNKNOWN_PRODUCER",
+        `Step '${id}' not found during cycle detection`,
+        id,
+      );
+    }
+    color.set(id, GRAY);
+    for (const dep of step.dependencies) {
+      dfs(dep.producer);
     }
     color.set(id, BLACK);
   }
@@ -38,6 +43,26 @@ export function detectCycles(steps: readonly StepDefinition[]): void {
   for (const s of steps) {
     if (color.get(s.id) === WHITE) {
       dfs(s.id);
+    }
+  }
+}
+
+/**
+ * Validate that all explicit dependencies (including control dependencies from
+ * dependsOn) point to existing steps in the pipeline.
+ * Throws SynthesisError(UNKNOWN_PRODUCER).
+ */
+export function validateDependencies(steps: readonly StepDefinition[]): void {
+  const stepIds = new Set(steps.map((s) => s.id));
+  for (const step of steps) {
+    for (const dep of step.dependencies) {
+      if (!stepIds.has(dep.producer)) {
+        throw new SynthesisError(
+          "UNKNOWN_PRODUCER",
+          `Step '${step.id}' depends on unknown producer '${dep.producer}'`,
+          step.id,
+        );
+      }
     }
   }
 }
@@ -55,7 +80,6 @@ export function validateReferences(
     for (const input of step.inputs) {
       if (input.kind === "step") {
         const ref: StepRef = input;
-        // Step references are relative within the pipeline — resolve to full id.
         const producerId = resolveStepId(pipelineId, ref.step);
         if (!stepIds.has(producerId)) {
           throw new SynthesisError(
@@ -75,19 +99,70 @@ export function validateReferences(
  */
 export function validateOutputCollisions(steps: readonly StepDefinition[]): void {
   for (const step of steps) {
-    const exportNames = new Set<string>();
+    const names = new Set<string>();
     for (const op of step.operations) {
-      if (op.kind === "exportOutput" || op.kind === "exportArtifact") {
-        if (exportNames.has(op.name)) {
+      if (
+        op.kind === "exportOutput" ||
+        op.kind === "exportArtifact" ||
+        op.kind === "importArtifact"
+      ) {
+        if (names.has(op.name)) {
           throw new SynthesisError(
             "OUTPUT_COLLISION",
             `Step '${step.id}' has duplicate output name '${op.name}'`,
             step.id,
           );
         }
-        exportNames.add(op.name);
+        names.add(op.name);
       }
     }
+  }
+}
+
+function buildOutputTypeMap(
+  steps: readonly StepDefinition[],
+): Map<string, Map<string, OutputType>> {
+  const outputTypes = new Map<string, Map<string, OutputType>>();
+  for (const step of steps) {
+    const outs = new Map<string, OutputType>();
+    for (const op of step.operations) {
+      if (op.kind === "exportOutput") {
+        outs.set(op.name, op.type);
+      } else if (op.kind === "exportArtifact") {
+        outs.set(op.name, "artifact");
+      }
+    }
+    outputTypes.set(step.id, outs);
+  }
+  return outputTypes;
+}
+
+function validateInputReference(
+  step: StepDefinition,
+  ref: StepRef,
+  outputTypes: Map<string, Map<string, OutputType>>,
+  pipelineId: string,
+): void {
+  const producerId = resolveStepId(pipelineId, ref.step);
+  const producerOutputs = outputTypes.get(producerId);
+  if (!producerOutputs) {
+    // UNKNOWN_PRODUCER is reported by validateReferences/validateDependencies.
+    return;
+  }
+  const declaredType = producerOutputs.get(ref.output);
+  if (declaredType === undefined) {
+    throw new SynthesisError(
+      "INCOMPATIBLE_REFERENCE",
+      `Step '${step.id}' references output '${ref.output}' which doesn't exist on producer '${ref.step}'`,
+      step.id,
+    );
+  }
+  if (declaredType !== ref.type) {
+    throw new SynthesisError(
+      "INCOMPATIBLE_REFERENCE",
+      `Step '${step.id}' references '${ref.output}' as type '${ref.type}' but producer declares '${declaredType}'`,
+      step.id,
+    );
   }
 }
 
@@ -99,42 +174,11 @@ export function validateReferenceTypes(
   steps: readonly StepDefinition[],
   pipelineId: string,
 ): void {
-  // Build a map of stepId → output name → OutputType.
-  const outputTypes = new Map<string, Map<string, string>>();
-  for (const step of steps) {
-    const outs = new Map<string, string>();
-    for (const op of step.operations) {
-      if (op.kind === "exportOutput") {
-        outs.set(op.name, op.type);
-      } else if (op.kind === "exportArtifact") {
-        outs.set(op.name, "artifact");
-      }
-    }
-    outputTypes.set(step.id, outs);
-  }
-
+  const outputTypes = buildOutputTypeMap(steps);
   for (const step of steps) {
     for (const input of step.inputs) {
       if (input.kind === "step") {
-        const ref: StepRef = input;
-        const producerId = resolveStepId(pipelineId, ref.step);
-        const producerOutputs = outputTypes.get(producerId);
-        if (!producerOutputs) continue; // UNKNOWN_PRODUCER handles this
-        const declaredType = producerOutputs.get(ref.output);
-        if (declaredType === undefined) {
-          throw new SynthesisError(
-            "INCOMPATIBLE_REFERENCE",
-            `Step '${step.id}' references output '${ref.output}' which doesn't exist on producer '${ref.step}'`,
-            step.id,
-          );
-        }
-        if (declaredType !== ref.type) {
-          throw new SynthesisError(
-            "INCOMPATIBLE_REFERENCE",
-            `Step '${step.id}' references '${ref.output}' as type '${ref.type}' but producer declares '${declaredType}'`,
-            step.id,
-          );
-        }
+        validateInputReference(step, input as StepRef, outputTypes, pipelineId);
       }
     }
   }
@@ -145,7 +189,7 @@ export function validateReferenceTypes(
  * Step references use the step's local name (e.g. "build"), while step ids
  * include the pipeline path (e.g. "ci/build").
  */
-function resolveStepId(pipelineId: string, stepName: string): string {
+export function resolveStepId(pipelineId: string, stepName: string): string {
   // If the reference already includes the pipeline prefix, use as-is.
   if (stepName.startsWith(`${pipelineId}/`)) {
     return stepName;

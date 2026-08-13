@@ -9,7 +9,7 @@
 Synthesis transforms a construct tree (`@sverka/constructs`) into a Definition
 Graph (§16). The lifecycle phases in scope for v0 Wave A:
 
-```
+```text
 discover → instantiate → normalize → build graph → validate
 ```
 
@@ -57,7 +57,9 @@ type SynthesisErrorCode =
   | "CYCLE"
   | "UNKNOWN_PRODUCER"
   | "OUTPUT_COLLISION"
-  | "INCOMPATIBLE_REFERENCE";
+  | "INCOMPATIBLE_REFERENCE"
+  | "INVALID_OUTPUT"
+  | "INVALID_SCOPE";
 
 class SynthesisError extends Error {
   override readonly cause: unknown;
@@ -84,7 +86,8 @@ A scalar output `{ version: { type: "string" } }` normalizes to
 `{ kind: "exportOutput", name: "version", type: "string" }`.
 
 An artifact input (StepRef with `type: "artifact"`) normalizes to
-`{ kind: "importArtifact", name: <output>, from: <step>, output: <output> }`.
+`{ kind: "importArtifact", name: <output>, from: <producerId>, output: <output> }`
+where `<producerId>` is the fully qualified step id (e.g. `ci/build`).
 
 ### Dependency inference
 
@@ -103,9 +106,11 @@ output and explicitly depends on it, the value/artifact dependency is kept
 | Code | Condition |
 |---|---|
 | `CYCLE` | Dependency graph has a cycle (DFS detection) |
-| `UNKNOWN_PRODUCER` | StepRef references a step that doesn't exist in the Pipeline |
+| `UNKNOWN_PRODUCER` | StepRef or `dependsOn` references a step that doesn't exist in the Pipeline |
 | `OUTPUT_COLLISION` | Two outputs in a Step have the same name |
 | `INCOMPATIBLE_REFERENCE` | StepRef type doesn't match the producer's output type |
+| `INVALID_OUTPUT` | An artifact output is missing `path` |
+| `INVALID_SCOPE` | A Project or Pipeline contains an unexpected construct type |
 
 Validation runs after graph construction. First error thrown stops synthesis.
 

@@ -8,7 +8,7 @@ import type {
   OperationDefinition,
   Dependency,
 } from "../index.js";
-import type { Trigger, Runtime, Input, OutputDeclaration, Reference } from "@sverka/constructs";
+import type { Trigger, Runtime, Input, Reference } from "@sverka/constructs";
 
 describe("DefinitionGraph structure", () => {
   it("Project → Pipelines → Steps/Entries", () => {
@@ -40,7 +40,7 @@ describe("StepDefinition", () => {
       runtime,
       operations: [{ kind: "shell", command: "npm run build" }],
       inputs: [],
-      outputs: [{ type: "artifact", path: "./dist" }],
+      outputs: [{ name: "dist", type: "artifact", path: "./dist" }],
       dependencies: [],
     };
     expect(step.id).toBe("ci/build");
@@ -70,7 +70,7 @@ describe("OperationDefinition variants", () => {
     const op: OperationDefinition = {
       kind: "importArtifact",
       name: "dist",
-      from: "build",
+      from: "ci/build",
       output: "dist",
     };
     expect(op.kind).toBe("importArtifact");
@@ -86,7 +86,7 @@ describe("Dependency variants", () => {
   it("control dependency (no output)", () => {
     const dep: Dependency = { kind: "control", producer: "ci/build" };
     expect(dep.kind).toBe("control");
-    expect(dep.output).toBeUndefined();
+    expect("output" in dep).toBe(false);
   });
 
   it("value dependency (output + scalar type)", () => {
@@ -140,13 +140,12 @@ describe("StepDefinition optional fields", () => {
 describe("PipelineDefinition", () => {
   it("with inputs and outputs", () => {
     const input: Input = { type: "string", required: true };
-    const output: OutputDeclaration = { type: "string" };
     const pipeline: PipelineDefinition = {
       id: "ci",
       inputs: [input],
       entries: [],
       steps: [],
-      outputs: [output],
+      outputs: [{ name: "version", type: "string", stepId: "ci/build" }],
     };
     expect(pipeline.inputs.length).toBe(1);
     expect(pipeline.outputs.length).toBe(1);

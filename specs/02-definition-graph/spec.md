@@ -50,12 +50,20 @@ interface ProjectDefinition {
   pipelines: PipelineDefinition[];
 }
 
+interface OutputDefinition extends OutputDeclaration {
+  name: string;
+}
+
+interface PipelineOutputDefinition extends OutputDefinition {
+  stepId: string;
+}
+
 interface PipelineDefinition {
   id: string;
   inputs: Input[];
   entries: EntryDefinition[];
   steps: StepDefinition[];
-  outputs: OutputDeclaration[];
+  outputs: PipelineOutputDefinition[];
 }
 
 interface EntryDefinition {
@@ -69,7 +77,7 @@ interface StepDefinition {
   runtime: Runtime;
   operations: OperationDefinition[];
   inputs: Reference[];
-  outputs: OutputDeclaration[];
+  outputs: OutputDefinition[];
   dependencies: Dependency[];
   timeout?: number;            // milliseconds
   // §10 specifies Expression<boolean>; v0 narrows to a boolean-producing
@@ -87,11 +95,10 @@ type OperationDefinition =
 // §15 "shell command sequence" is represented as multiple ordered {kind:"shell"}
 // operations in the operations array. No separate sequence variant needed.
 
-interface Dependency {
-  kind: "control" | "value" | "artifact";
-  producer: string;            // StepDefinition id that produces
-  output?: string;             // output name (for value/artifact)
-}
+type Dependency =
+  | { kind: "control"; producer: string }
+  | { kind: "value"; producer: string; output: string }
+  | { kind: "artifact"; producer: string; output: string };
 ```
 
 ### Exports
@@ -100,6 +107,7 @@ interface Dependency {
 export type {
   DefinitionGraph, ProjectDefinition, PipelineDefinition,
   EntryDefinition, StepDefinition, OperationDefinition, Dependency,
+  OutputDefinition, PipelineOutputDefinition,
 };
 ```
 

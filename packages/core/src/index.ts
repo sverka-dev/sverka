@@ -8,6 +8,8 @@ export type {
   StepDefinition,
   OperationDefinition,
   Dependency,
+  OutputDefinition,
+  PipelineOutputDefinition,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";
