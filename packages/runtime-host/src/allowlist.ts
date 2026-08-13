@@ -29,9 +29,10 @@ export function createAllowlist(entries: readonly string[]): CommandAllowlist {
       const cmdBasename = basename(command);
       return normalized.some((entry) => {
         if (isAbsolute(entry)) {
-          return entry === command;
+          // Match exact path OR basename of the entry against the command.
+          return entry === command || basename(entry) === command || basename(entry) === cmdBasename;
         }
-        return entry === cmdBasename;
+        return entry === command || entry === cmdBasename;
       });
     },
   };

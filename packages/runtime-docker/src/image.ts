@@ -1,11 +1,11 @@
 import type { DockerRunOptions } from "./internal/docker-cli.js";
-import type { DockerExecutorConfig } from "./config.js";
+import type { DockerDriverConfig } from "./config.js";
 import { ImageDigestError } from "./errors.js";
 import { runDocker } from "./internal/docker-cli.js";
 
 type DockerResult = Awaited<ReturnType<typeof runDocker>>;
 
-function dockerOptions(config: DockerExecutorConfig): DockerRunOptions {
+function dockerOptions(config: DockerDriverConfig): DockerRunOptions {
   return {
     timeoutSeconds: 300,
     ...(config.dockerPath !== undefined ? { dockerPath: config.dockerPath } : {}),
@@ -53,7 +53,7 @@ function assertInspectOk(
 export async function verifyImageDigest(
   image: string,
   expectedDigest: string,
-  config: DockerExecutorConfig,
+  config: DockerDriverConfig,
 ): Promise<void> {
   const opts = dockerOptions(config);
 
