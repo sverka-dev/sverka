@@ -12,6 +12,10 @@ describe("public API", () => {
     expect(typeof api.createBuiltinResolver).toBe("function");
   });
 
+  it("exports synthesizeCheckSteps function", () => {
+    expect(typeof api.synthesizeCheckSteps).toBe("function");
+  });
+
   it("exports extractFindings function", () => {
     expect(typeof api.extractFindings).toBe("function");
   });
@@ -23,6 +27,6 @@ describe("public API", () => {
 
   it("does not export unexpected runtime values", () => {
     const runtimeKeys = Object.keys(api).sort();
-    expect(runtimeKeys).toEqual(["CheckError", "createBuiltinResolver", "extractFindings"]);
+    expect(runtimeKeys).toEqual(["CheckError", "createBuiltinResolver", "extractFindings", "synthesizeCheckSteps"]);
   });
 });
