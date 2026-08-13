@@ -16,7 +16,16 @@ describe("pipeline factory", () => {
       ],
     });
     expect(p.node.id).toBe("ci");
-    expect(p.node.children.length).toBe(2);
+    expect(p.node.children).toHaveLength(2);
+  });
+
+  it("forwards named inputs to the Pipeline", () => {
+    const proj = new Project("test");
+    const p = pipeline(proj, "ci", {
+      inputs: { ref: { type: "string" } },
+      steps: [(pip) => sh`npm run build`.build(pip, "build")],
+    });
+    expect(p.inputs.get("ref")).toEqual({ type: "string" });
   });
 
   it("runs entry functions", () => {
@@ -29,6 +38,6 @@ describe("pipeline factory", () => {
         (pip) => new Entry(pip, "on-push", { trigger: push(), roots: ["build"] }),
       ],
     });
-    expect(p.node.children.length).toBe(2);
+    expect(p.node.children).toHaveLength(2);
   });
 });

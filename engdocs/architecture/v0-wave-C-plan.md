@@ -6,7 +6,7 @@
 
 ## Package dependency
 
-```
+```text
 @sverka/sdk  →  @sverka/constructs  (Project, Pipeline, ShellStep, Entry, model types)
 ```
 
@@ -26,7 +26,7 @@ runtime, no IR, no policy. Just factory functions over `@sverka/constructs`.
 
 ### `packages/sdk/`
 
-```
+```text
 src/
   index.ts          # public exports
   sh.ts             # sh tagged template + StepBuilder
@@ -102,7 +102,8 @@ Construct API version. They must be identical.
 ### Step 10: Public API + gates
 
 Write `public-api.test.ts`. Implement `index.ts`. Run all gates:
-```
+
+```bash
 bun run test --filter @sverka/sdk
 bun run typecheck --filter @sverka/sdk
 bun run lint --filter @sverka/sdk
