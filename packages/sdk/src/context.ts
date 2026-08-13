@@ -2,7 +2,7 @@
 // Spec 03 — §12.3. Architecture spec §12.3.
 
 import type { ContextRef, ContextNamespace } from "@sverka/constructs";
-import { PROTECTED_PROXY_PROPS } from "./internal/proxy-props.js";
+import { createDynamicProxy } from "./internal/proxy-props.js";
 
 /** Create a ContextRef for a namespace + field. */
 function ctx(namespace: ContextNamespace, field: string): ContextRef {
@@ -11,14 +11,7 @@ function ctx(namespace: ContextNamespace, field: string): ContextRef {
 
 /** Dynamic namespace proxy — any property access returns a ContextRef. */
 function dynamicNamespace(namespace: ContextNamespace): Record<string, ContextRef> {
-  return new Proxy({} as Record<string, ContextRef>, {
-    get(target, prop: string | symbol): ContextRef | unknown {
-      if (typeof prop === "symbol" || PROTECTED_PROXY_PROPS.has(prop)) {
-        return Reflect.get(target, prop);
-      }
-      return ctx(namespace, prop);
-    },
-  });
+  return createDynamicProxy((prop) => ctx(namespace, prop));
 }
 
 /** Environment variable references: env.CI_TRACE, env.MY_VAR. */

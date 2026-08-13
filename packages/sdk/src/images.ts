@@ -2,7 +2,7 @@
 // Spec 03 — §14.2. Architecture spec §14.2.
 
 import { SdkError } from "./errors.js";
-import { PROTECTED_PROXY_PROPS } from "./internal/proxy-props.js";
+import { createDynamicProxy } from "./internal/proxy-props.js";
 
 export interface ImageRef {
   readonly ref: string;
@@ -21,14 +21,7 @@ export function image(ref: string): ImageRef {
 
 /** Create a Proxy that maps property access to `image(prefix:prop)`. */
 function createImageProxy(prefix: string): Record<string, ImageRef> & { readonly latest: ImageRef } {
-  return new Proxy({} as Record<string, ImageRef> & { readonly latest: ImageRef }, {
-    get(target, prop: string | symbol): ImageRef | unknown {
-      if (typeof prop === "symbol" || PROTECTED_PROXY_PROPS.has(prop)) {
-        return Reflect.get(target, prop);
-      }
-      return image(`${prefix}:${prop}`);
-    },
-  });
+  return createDynamicProxy((prop) => image(`${prefix}:${prop}`)) as Record<string, ImageRef> & { readonly latest: ImageRef };
 }
 
 /** Node image proxy — images.node[22] → { ref: "node:22" }, images.node.latest → { ref: "node:latest" }. */
