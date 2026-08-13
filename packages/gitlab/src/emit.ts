@@ -2,6 +2,7 @@
 // Spec 09 — §19.
 
 import { stringify } from "yaml";
+import { GitlabTargetError } from "./errors.js";
 import type {
   GitlabTargetGraph,
   GitlabJob,
@@ -16,6 +17,10 @@ const RESERVED_TOP_LEVEL_KEYS = new Set([
   "default",
   "image",
   "services",
+  "before_script",
+  "after_script",
+  "cache",
+  "pages:deploy",
 ]);
 
 /**
@@ -46,8 +51,9 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
 
   for (const job of graph.jobs) {
     if (RESERVED_TOP_LEVEL_KEYS.has(job.id)) {
-      throw new Error(
+      throw new GitlabTargetError(
         `job id '${job.id}' conflicts with a reserved top-level GitLab CI key`,
+        "EMIT_FAILED",
       );
     }
     doc[job.id] = jobToYaml(job);

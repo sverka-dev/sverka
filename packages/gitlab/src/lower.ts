@@ -37,10 +37,10 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
   // Compute stages from topological levels.
   const { stageMap, stages } = computeStages(reachableSteps, jobIdMap);
 
-  // Collect rules from entries.
-  const rules = lowerTriggers(pipeline.entries);
+  // Derive per-job rules from the entries whose closure reaches that job.
+  const jobRulesMap = buildJobRulesMap(pipeline, reachableSteps, jobIdMap);
 
-  const jobs = lowerSteps(reachableSteps, jobIdMap, stageMap, rules);
+  const jobs = lowerSteps(reachableSteps, jobIdMap, stageMap, jobRulesMap);
 
   return {
     name: pipeline.id,
@@ -51,43 +51,122 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
 }
 
 /**
- * Return the steps reachable from any entry root by following dependencies.
+ * Return the ids of all producer steps referenced by a step, including
+ * explicit dependencies and artifact imports.
  */
-function filterReachableSteps(
-  pipeline: PipelineDefinition,
-): readonly StepDefinition[] {
-  if (pipeline.steps.length === 0) {
-    return [];
+function producerIds(step: StepDefinition): readonly string[] {
+  const ids: string[] = [];
+  for (const dep of step.dependencies) {
+    ids.push(dep.producer);
   }
+  for (const op of step.operations) {
+    if (op.kind === "importArtifact") {
+      ids.push(op.from);
+    }
+  }
+  return ids;
+}
 
+/**
+ * Compute the set of step IDs reachable from the given roots.
+ * Throws INVALID_GRAPH for unknown roots or producers.
+ */
+function reachableStepIds(
+  roots: readonly string[],
+  pipeline: PipelineDefinition,
+): Set<string> {
   const byId = new Map(pipeline.steps.map((step) => [step.id, step]));
   const reachable = new Set<string>();
   const queue: string[] = [];
 
-  for (const entry of pipeline.entries) {
-    for (const root of entry.roots) {
-      if (byId.has(root) && !reachable.has(root)) {
-        reachable.add(root);
-        queue.push(root);
-      }
+  for (const root of roots) {
+    if (!byId.has(root)) {
+      throw new GitlabTargetError(
+        `entry references unknown root step '${root}'`,
+        "INVALID_GRAPH",
+      );
+    }
+    if (!reachable.has(root)) {
+      reachable.add(root);
+      queue.push(root);
     }
   }
 
-  while (queue.length > 0) {
-    const id = queue.shift()!;
+  let head = 0;
+  while (head < queue.length) {
+    const id = queue[head]!;
+    head++;
     const step = byId.get(id);
     if (!step) continue;
 
-    for (const dep of step.dependencies) {
-      const producer = dep.producer;
-      if (byId.has(producer) && !reachable.has(producer)) {
+    for (const producer of producerIds(step)) {
+      if (!byId.has(producer)) {
+        throw new GitlabTargetError(
+          `step '${step.id}' references unknown producer '${producer}'`,
+          "INVALID_GRAPH",
+        );
+      }
+      if (!reachable.has(producer)) {
         reachable.add(producer);
         queue.push(producer);
       }
     }
   }
 
+  return reachable;
+}
+
+/**
+ * Return the steps reachable from any entry root by following dependencies
+ * and artifact imports.
+ */
+function filterReachableSteps(
+  pipeline: PipelineDefinition,
+): readonly StepDefinition[] {
+  if (pipeline.steps.length === 0) {
+    for (const entry of pipeline.entries) {
+      if (entry.roots.length > 0) {
+        throw new GitlabTargetError(
+          `entry '${entry.id}' references root steps but pipeline has no steps`,
+          "INVALID_GRAPH",
+        );
+      }
+    }
+    return [];
+  }
+
+  const allRoots = pipeline.entries.flatMap((entry) => [...entry.roots]);
+  const reachable = reachableStepIds(allRoots, pipeline);
   return pipeline.steps.filter((step) => reachable.has(step.id));
+}
+
+/**
+ * Build a map from each job ID to the rules of entries that reach that job.
+ */
+function buildJobRulesMap(
+  pipeline: PipelineDefinition,
+  reachableSteps: readonly StepDefinition[],
+  jobIdMap: ReadonlyMap<string, string>,
+): ReadonlyMap<string, readonly GitlabRule[]> {
+  const map = new Map<string, readonly GitlabRule[]>();
+  const entryReachable = new Map<string, Set<string>>();
+
+  for (const entry of pipeline.entries) {
+    entryReachable.set(entry.id, reachableStepIds(entry.roots, pipeline));
+  }
+
+  for (const step of reachableSteps) {
+    const rules: GitlabRule[] = [];
+    for (const entry of pipeline.entries) {
+      if (entryReachable.get(entry.id)?.has(step.id)) {
+        rules.push(...lowerTriggers([entry]));
+      }
+    }
+    const jobId = jobIdMap.get(step.id)!;
+    map.set(jobId, rules);
+  }
+
+  return map;
 }
 
 /**
@@ -133,8 +212,8 @@ function computeStages(
   const depsByJob = new Map<string, string[]>();
   for (const step of steps) {
     const jobId = jobIdMap.get(step.id) ?? step.id;
-    const deps = step.dependencies.map(
-      (d) => jobIdMap.get(d.producer) ?? d.producer,
+    const deps = producerIds(step).map(
+      (id) => jobIdMap.get(id) ?? id,
     );
     depsByJob.set(jobId, deps);
   }
@@ -220,7 +299,7 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
         });
         break;
       case "manual":
-        rules.push({ if: '$CI_PIPELINE_SOURCE == "web"', when: "manual" });
+        rules.push({ if: '$CI_PIPELINE_SOURCE == "web"' });
         break;
       default:
         throw new GitlabTargetError(
@@ -256,9 +335,9 @@ function lowerSteps(
   steps: readonly StepDefinition[],
   jobIdMap: Map<string, string>,
   stageMap: ReadonlyMap<string, string>,
-  rules: readonly GitlabRule[],
+  rulesMap: ReadonlyMap<string, readonly GitlabRule[]>,
 ): readonly GitlabJob[] {
-  return steps.map((step) => lowerStep(step, jobIdMap, stageMap, rules));
+  return steps.map((step) => lowerStep(step, jobIdMap, stageMap, rulesMap));
 }
 
 /**
@@ -268,10 +347,11 @@ function lowerStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
   stageMap: ReadonlyMap<string, string>,
-  rules: readonly GitlabRule[],
+  rulesMap: ReadonlyMap<string, readonly GitlabRule[]>,
 ): GitlabJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const stage = stageMap.get(jobId) ?? "build";
+  const rules = rulesMap.get(jobId) ?? [];
   const { script, artifacts, needs: importNeeds, variables } = lowerOperations(
     step,
     jobIdMap,

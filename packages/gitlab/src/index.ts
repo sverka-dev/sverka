@@ -6,6 +6,7 @@ export type {
   GitlabTargetGraph,
   GitlabJob,
   GitlabRule,
+  GitlabArtifactSpec,
   GeneratedArtifact,
   TargetDiagnostic,
   CompilationResult,
