@@ -213,12 +213,12 @@ export async function ensureConstructsDependency(root: string): Promise<void> {
 }
 
 async function loadPackageBase(pkgPath: string): Promise<Record<string, unknown>> {
-  if (!existsSync(pkgPath)) {
-    return { name: "sverka-project", version: "0.0.0" };
-  }
   try {
     return JSON.parse(await readFile(pkgPath, "utf8")) as Record<string, unknown>;
   } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return { name: "sverka-project", version: "0.0.0" };
+    }
     const reason = e instanceof Error ? e.message : String(e);
     throw new CliError(
       `failed to read package.json: ${reason}`,
