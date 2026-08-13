@@ -136,6 +136,17 @@ export async function initCommand(
   output.debug(`init: root=${global.root} template=${template} pm=${pm} force=${Boolean(args.force)}`);
   const content = resolveTemplateContent(template, pm);
   const configPath = resolveConfigPath(global.root, global.config);
+
+  // Fail fast if the config already exists and --force is not set before any
+  // persistent side effects (e.g. mutating package.json) are applied.
+  if (existsSync(configPath) && !args.force) {
+    throw new CliError(
+      `config already exists: ${configPath} (use --force to overwrite)`,
+      "CONFIG_EXISTS",
+      ExitCode.UsageError,
+    );
+  }
+
   await ensureConstructsDependency(global.root);
   await writeConfig(configPath, content, Boolean(args.force));
   emitInitResult(output, global.format, configPath, template, start);

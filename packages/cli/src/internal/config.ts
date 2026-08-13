@@ -3,6 +3,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { readFileSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { join, resolve, isAbsolute } from "node:path";
 import type { Project } from "@sverka/constructs";
@@ -10,6 +11,8 @@ import { synthesize } from "@sverka/core";
 import type { DefinitionGraph } from "@sverka/core";
 import { resolveUnderRoot } from "./paths.js";
 import { CliError, ExitCode } from "../types.js";
+
+const require = createRequire(import.meta.url);
 
 /** Package-manager names supported by `init` templates. */
 export type PmName = "npm" | "pnpm" | "yarn" | "bun";
@@ -178,9 +181,23 @@ export function detectPackageManager(root: string): PmName {
  */
 export async function ensureConstructsDependency(root: string): Promise<void> {
   const pkgPath = join(root, "package.json");
-  const base = existsSync(pkgPath)
-    ? (JSON.parse(await readFile(pkgPath, "utf8")) as Record<string, unknown>)
-    : { name: "sverka-project", version: "0.0.0" };
+  let base: Record<string, unknown>;
+
+  if (existsSync(pkgPath)) {
+    try {
+      base = JSON.parse(await readFile(pkgPath, "utf8")) as Record<string, unknown>;
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      throw new CliError(
+        `failed to read package.json: ${reason}`,
+        "PACKAGE_ERROR",
+        ExitCode.RuntimeError,
+        e,
+      );
+    }
+  } else {
+    base = { name: "sverka-project", version: "0.0.0" };
+  }
 
   const pkg: Record<string, unknown> = {
     name: base.name ?? "sverka-project",
@@ -193,8 +210,41 @@ export async function ensureConstructsDependency(root: string): Promise<void> {
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
 
   if (!("@sverka/constructs" in deps) && !("@sverka/constructs" in devDeps)) {
-    pkg.devDependencies = { ...devDeps, "@sverka/constructs": "workspace:*" };
+    const version = isLocalWorkspace(root) ? "workspace:*" : getDefaultConstructsVersion();
+    pkg.devDependencies = { ...devDeps, "@sverka/constructs": version };
   }
 
   await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+}
+
+function isLocalWorkspace(root: string): boolean {
+  const rootPkg = join(root, "package.json");
+  const constructsPkg = join(root, "packages", "constructs", "package.json");
+  if (!existsSync(rootPkg) || !existsSync(constructsPkg)) return false;
+
+  try {
+    const root = JSON.parse(readFileSync(rootPkg, "utf8")) as {
+      workspaces?: string[] | { packages?: string[] };
+    };
+    const constructs = JSON.parse(readFileSync(constructsPkg, "utf8")) as {
+      name?: string;
+    };
+    if (constructs.name !== "@sverka/constructs") return false;
+    const patterns = Array.isArray(root.workspaces)
+      ? root.workspaces
+      : root.workspaces?.packages ?? [];
+    return patterns.some((pattern) => pattern.startsWith("packages"));
+  } catch {
+    return false;
+  }
+}
+
+function getDefaultConstructsVersion(): string {
+  try {
+    const path = require.resolve("@sverka/constructs/package.json");
+    const pkg = JSON.parse(readFileSync(path, "utf8")) as { version?: string };
+    return pkg.version ? `^${pkg.version}` : "*";
+  } catch {
+    return "*";
+  }
 }

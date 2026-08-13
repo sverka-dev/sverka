@@ -41,7 +41,8 @@ export type CliErrorCode =
   | "INVALID_FLAG"
   | "CONFIG_EXISTS"
   | "RUNTIME_NOT_AVAILABLE"
-  | "SDK_ERROR";
+  | "SDK_ERROR"
+  | "PACKAGE_ERROR";
 
 /** Error thrown when CLI argument parsing or command execution fails. */
 export class CliError extends Error {
