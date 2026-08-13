@@ -47,13 +47,26 @@ Emits step events: pending, started, succeeded/failed, run completion.
 
 Discover and display project context (package manager, languages, checks).
 
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| *(none)* | — | — | Uses global flags only |
+
 ### `sverka check`
 
 Run checks and report findings.
 
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| *(none)* | — | — | Uses global flags only |
+
 ### `sverka policy`
 
 Evaluate policy against findings and baseline.
+
+| Flag        | Type    | Default | Description                              |
+|-------------|---------|---------|------------------------------------------|
+| `--findings`| string  | —       | Path to findings JSON file (required)    |
+| `--baseline`| string  | —       | Path to baseline findings JSON file      |
 
 ### `sverka synth --target github|gitlab`
 
@@ -67,6 +80,10 @@ Lower the Definition Graph to native GitHub Actions or GitLab CI YAML.
 ### `sverka doctor`
 
 Check installation health, dependencies, and configuration.
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| *(none)* | — | — | Uses global flags only |
 
 ## Global flags
 
