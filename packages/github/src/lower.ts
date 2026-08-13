@@ -55,6 +55,14 @@ function filterReachableSteps(
   pipeline: PipelineDefinition,
 ): readonly StepDefinition[] {
   if (pipeline.steps.length === 0) {
+    for (const entry of pipeline.entries) {
+      for (const root of entry.roots) {
+        throw new GithubTargetError(
+          `entry references unknown root step '${root}'`,
+          "INVALID_GRAPH",
+        );
+      }
+    }
     return [];
   }
 
@@ -64,7 +72,13 @@ function filterReachableSteps(
 
   for (const entry of pipeline.entries) {
     for (const root of entry.roots) {
-      if (byId.has(root) && !reachable.has(root)) {
+      if (!byId.has(root)) {
+        throw new GithubTargetError(
+          `entry references unknown root step '${root}'`,
+          "INVALID_GRAPH",
+        );
+      }
+      if (!reachable.has(root)) {
         reachable.add(root);
         queue.push(root);
       }
@@ -78,7 +92,13 @@ function filterReachableSteps(
 
     for (const dep of step.dependencies) {
       const producer = dep.producer;
-      if (byId.has(producer) && !reachable.has(producer)) {
+      if (!byId.has(producer)) {
+        throw new GithubTargetError(
+          `step depends on unknown producer '${producer}'`,
+          "INVALID_GRAPH",
+        );
+      }
+      if (!reachable.has(producer)) {
         reachable.add(producer);
         queue.push(producer);
       }
@@ -242,7 +262,13 @@ function lowerDependencies(
   const needs = new Set<string>();
   for (const dep of deps) {
     // Map full step ID to GitHub job ID.
-    const jobId = jobIdMap.get(dep.producer) ?? dep.producer;
+    const jobId = jobIdMap.get(dep.producer);
+    if (!jobId) {
+      throw new GithubTargetError(
+        `step depends on unknown producer '${dep.producer}'`,
+        "INVALID_GRAPH",
+      );
+    }
     needs.add(jobId);
   }
   return [...needs];
@@ -310,14 +336,21 @@ function lowerOperations(step: StepDefinition): readonly GithubStep[] {
       }
       case "diagnostic": {
         flushRun();
-        const message = op.message.replace(/"/g, '\\"');
-        const cmd =
+        const severityFlag =
           op.severity === "error"
-            ? `echo "::error::${message}"`
+            ? "error"
             : op.severity === "warn"
-              ? `echo "::warning::${message}"`
-              : `echo "::notice::${message}"`;
-        steps.push({ run: cmd });
+              ? "warning"
+              : "notice";
+        const escapedMessage = op.message
+          .replace(/%/g, "%25")
+          .replace(/\r\n/g, "%0D%0A")
+          .replace(/\n/g, "%0A")
+          .replace(/\r/g, "%0D");
+        steps.push({
+          env: { SVERKA_DIAGNOSTIC_MESSAGE: escapedMessage },
+          run: `printf '%s\\n' "::${severityFlag}::$SVERKA_DIAGNOSTIC_MESSAGE"`,
+        });
         break;
       }
       default:
