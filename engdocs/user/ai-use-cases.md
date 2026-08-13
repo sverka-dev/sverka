@@ -45,16 +45,16 @@ This is the flagship use case. The agent declares the pipeline once in
 
 | Aspect | Without Sverka | With Sverka |
 |--------|----------------|-------------|
-| Agent action | Run each check, parse output, normalize to common format, deduplicate | `sverka run --format json && sverka check --format json` |
-| Tokens (est.) | ~3000 (multiple tool calls + output normalization) | ~50 (two commands + structured findings) |
-| Sverka pipeline | Checks resolve to StepDefinitions, execute through engine, findings extracted from SARIF | |
+| Agent action | Run each check, parse output, normalize to common format, deduplicate | `sverka run --entry ci --format json` (findings included in run result) |
+| Tokens (est.) | ~3000 (multiple tool calls + output normalization) | ~50 (one command + structured findings) |
+| Sverka pipeline | Checks resolve to StepDefinitions, execute through engine, findings extracted from SARIF in the run result | |
 | Integration | CLI with `--format json` | |
 
-### 4. "Compile this workflow to GitHub Actions"
+### 4. "Compile this workflow to GitHub Actions" (planned)
 
 | Aspect | Without Sverka | With Sverka |
 |--------|----------------|-------------|
-| Agent action | Write YAML by hand: jobs, needs, runs-on, checkout, cache, artifact upload, matrix, triggers — 100+ lines of YAML | `sverka synth --target github` |
+| Agent action | Write YAML by hand: jobs, needs, runs-on, checkout, cache, artifact upload, matrix, triggers — 100+ lines of YAML | `sverka synth --target github` (planned — CLI stub exists, full lowering in progress) |
 | Tokens (est.) | ~8000 (YAML generation + syntax verification) | ~30 (one command + YAML output) |
 | Sverka command | Native lowering: 1 GitHub job per Step, deps → needs, artifacts → upload/download, scalar → GITHUB_OUTPUT | |
 | Integration | CLI | |
@@ -77,13 +77,13 @@ This is the flagship use case. The agent declares the pipeline once in
 | Sverka command | Discovery: detects bun/npm/yarn/pnpm, Python, Rust, Go — proposes typecheck/lint/test/clippy/vet/fmt-check | |
 | Integration | CLI with `--format json` | |
 
-### 7. "Run only the checks that changed since last commit"
+### 7. "Run only the checks for this entry"
 
 | Aspect | Without Sverka | With Sverka |
 |--------|----------------|-------------|
 | Agent action | git diff, map changed files to checks, run subset, parse output | `sverka plan --entry ci --format json && sverka run --entry ci --format json` |
 | Tokens (est.) | ~2500 (diff analysis + selective execution + output parsing) | ~50 (plan + run) |
-| Sverka pipeline | Run Plan binding resolves reachable steps from entry roots; only those execute | |
+| Sverka pipeline | Run Plan binding resolves reachable steps from entry roots; only those steps execute | |
 | Integration | CLI with `--format json` | |
 
 ### 8. "Gate this PR — build + test + lint must pass"
