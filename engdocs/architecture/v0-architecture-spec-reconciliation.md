@@ -6,7 +6,7 @@
 
 ## 1. The gap
 
-The architecture spec (`sverka-architecture-spec.md`) describes a
+The architecture spec (`specs/architecture-spec.md`) describes a
 **provider-neutral pipeline definition framework** with three authoring
 surfaces (Construct / SDK / Decorator), a canonical Definition Graph, and
 **real target lowering** (one native CI job per Step).
@@ -185,8 +185,6 @@ Each wave: architect (spec + design) → builder (TDD) → reviewer (gates).
   `runs-on`, checkout, operation→step mapping, artifact upload/download,
   scalar output via `$GITHUB_OUTPUT`, credential→`secrets` mapping, trigger
   mapping (Push/ChangeRequest/Manual), capability manifest.
-- **Hosted-engine mode** (§28 strategy 2) retained as a *fallback option*
-  for capabilities the target cannot lower natively.
 - Depends on: Wave B, Wave E.
 
 ### Wave I — GitLab target (native lowering)
@@ -250,8 +248,8 @@ v0 is accepted when:
 ## 8. Decisions to supersede
 
 - **ADR-004** (thin wrapper first): **Superseded.** Native lowering is the
-  primary target mode. Hosted-engine mode remains as a fallback for
-  unsupported capabilities.
+  primary target mode for v0. Hosted-engine mode and delegated adapters are
+  deferred to M1 per `specs/architecture-spec.md` §31.
 - **Spec 00 §94-95** ("thin wrapper first, native later"): **Superseded.**
 - **ADR-003** (canonical Plan IR): **Amended.** The flat `Plan` becomes the
   Definition Graph + Run Plan (two schemas, one versioned family).
@@ -261,20 +259,17 @@ v0 is accepted when:
 - **ADR-006** (SHA-256 content-addressed IDs): **Retained.** Applied to
   Definition Graph node IDs.
 
-## 9. Open questions for review
+## 9. Decisions for v0
 
-1. **`constructs` package version** — spec §8.1 says "SHOULD use `constructs`
-   directly." Need to pin a version and confirm it works with Bun + ESM +
-   tsdown. (Latest is 10.x.)
-2. **Decorator compiler support** — spec §9.3 requires standard TC39
-   decorators (not `experimentalDecorators`). Need to confirm the TypeScript
-   version + tsdown + Bun stack supports stage-3 decorators for field and
-   method decorators. TS 5.0+ supports auto-accessor field decorators; need
-   to verify method decorators and the `@entry` accessor pattern.
-3. **Existing PRs** — 18 stacked PRs exist on GitHub from the old wave
-   structure. Do we merge them as-is (the local-runner product) and then
-   build v0 on top, or close them and start fresh? Recommendation: merge the
-   reusable layers (findings, policy, runtime-host, runtime-docker) and
-   rebuild the rest.
-4. **Branch strategy** — new work on a `v0` branch off main, or continue
-   stacking on the existing wave branches?
+1. **`constructs` package version** — Pin `constructs` to `^10.0.0` for v0.
+   Verify Bun + ESM + tsdown compatibility during Wave A.
+2. **Decorator compiler support** — Standard TC39 stage-3 decorators are
+   supported by TypeScript 5.2+ and the Bun transpiler. Use standard decorator
+   syntax; avoid `experimentalDecorators`.
+3. **Existing PRs** — Close the old wave-0–15 feature branches and their
+   stacked PRs. Carry over reusable packages (`findings`, `policy`,
+   `runtime-host`, `runtime-docker`) into the v0 stack; rebuild the rest as
+   v0 waves A–N.
+4. **Branch strategy** — Continue the v0 redesign on the existing `v0-*`
+   stacked branches (`v0-redesign-foundation` → `v0-a-constructs` → ... →
+   `v0-n-docs`). Each wave PR targets the previous wave's branch.

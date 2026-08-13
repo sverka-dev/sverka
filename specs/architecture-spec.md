@@ -410,7 +410,7 @@ The default Step identifier is derived from its construct path and decorated mem
 
 In v0, decorated field initializers are evaluated in normal JavaScript source order. Therefore:
 
-- a field initializer MAY directly reference only an already initialized Step field;
+- a field initializer MUST directly reference only an already initialized Step field;
 - Entry fields SHOULD be declared after the Steps they reference;
 - forward references MUST use an explicit lazy reference helper or the SDK/Construct API;
 - decorated initializers MUST avoid arbitrary side effects;
