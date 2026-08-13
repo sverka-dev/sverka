@@ -1,0 +1,7 @@
+PRRT_kwDOTyoI9s6YxeZ4	Fixed: resolved steps now set runtime.workingDir to ctx.root so checks execute in the project directory.
+PRRT_kwDOTyoI9s6Yxe3t	Fixed: synthesizeCheckSteps now returns ResolvedCheck[] and preserves resolver outputs for findings extraction.
+PRRT_kwDOTyoI9s6Yxgj9	Fixed: shell command arguments are individually quoted before joining, preventing unsafe space-join behavior.
+PRRT_kwDOTyoI9s6YxgkA	Fixed: synthesis now preserves ResolvedCheck.outputs instead of discarding them.
+PRRT_kwDOTyoI9s6YxgkD	Fixed: deduplication and the generated step ID both use resolved.checkId consistently (checks/${resolved.checkId}).
+PRRT_kwDOTyoI9s6YxkDh	Fixed: shell command args are safely quoted and runtime.workingDir is set to ctx.root.
+PRRT_kwDOTyoI9s6YxkDs	Fixed: synthesizeCheckSteps preserves outputs and uses the same resolved.checkId for dedup and step id.
