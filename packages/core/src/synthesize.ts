@@ -67,7 +67,10 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
 
   // Collect pipeline-level outputs from all steps.
   const outputs: OutputDeclaration[] = steps.flatMap((s) => s.outputs);
-  const inputs: Input[] = [...pipeline.inputs.values()];
+  const inputs: Record<string, Input> = {};
+  for (const [name, input] of pipeline.inputs) {
+    inputs[name] = input;
+  }
 
   // Validate.
   validateOutputCollisions(steps);

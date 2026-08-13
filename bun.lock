@@ -143,6 +143,10 @@
     "packages/planner": {
       "name": "@sverka/planner",
       "version": "0.0.0",
+      "dependencies": {
+        "@sverka/core": "workspace:*",
+        "@sverka/ir": "workspace:*",
+      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",

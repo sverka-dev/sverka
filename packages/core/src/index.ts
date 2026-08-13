@@ -8,6 +8,12 @@ export type {
   StepDefinition,
   OperationDefinition,
   Dependency,
+  Input,
+  OutputDeclaration,
+  OutputType,
+  Reference,
+  Runtime,
+  Trigger,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";

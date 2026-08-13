@@ -10,6 +10,10 @@ import type {
   OutputType,
 } from "@sverka/constructs";
 
+// Re-export types used in the graph schema so consumers can access them
+// from @sverka/core without depending on @sverka/constructs directly.
+export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger } from "@sverka/constructs";
+
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;
 }
@@ -21,7 +25,7 @@ export interface ProjectDefinition {
 
 export interface PipelineDefinition {
   readonly id: string;
-  readonly inputs: readonly Input[];
+  readonly inputs: Readonly<Record<string, Input>>;
   readonly entries: readonly EntryDefinition[];
   readonly steps: readonly StepDefinition[];
   readonly outputs: readonly OutputDeclaration[];

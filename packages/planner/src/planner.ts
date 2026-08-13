@@ -9,6 +9,8 @@ import {
 } from "./detect.js";
 import { buildExplanation } from "./explain.js";
 import { DiscoveryError } from "./errors.js";
+import { bindRunPlan as bindRunPlanImpl, type BindRunPlanOptions } from "./bind.js";
+import type { RunPlan } from "@sverka/ir";
 
 /**
  * Top-level entry point for discovery and plan synthesis.
@@ -16,6 +18,7 @@ import { DiscoveryError } from "./errors.js";
 export interface Planner {
   discover(options: DiscoverOptions): Promise<ProjectContext>;
   plan(context: ProjectContext): Promise<PlanProposal>;
+  bindRunPlan(options: BindRunPlanOptions): RunPlan;
 }
 
 export function createPlanner(): Planner {
@@ -175,6 +178,10 @@ class PlannerImpl implements Planner {
 
   async plan(context: ProjectContext): Promise<PlanProposal> {
     return synthesizePlan(context);
+  }
+
+  bindRunPlan(options: BindRunPlanOptions): RunPlan {
+    return bindRunPlanImpl(options);
   }
 }
 

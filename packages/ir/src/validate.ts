@@ -123,8 +123,8 @@ function validatePipelineStructure(value: unknown): void {
   if (typeof p.id !== "string") {
     throw new ValidationError("invalid pipeline: missing 'id'");
   }
-  if (!Array.isArray(p.inputs)) {
-    throw new ValidationError("invalid pipeline: missing 'inputs' array");
+  if (typeof p.inputs !== "object" || p.inputs === null || Array.isArray(p.inputs)) {
+    throw new ValidationError("invalid pipeline: missing 'inputs' object");
   }
   if (!Array.isArray(p.entries)) {
     throw new ValidationError("invalid pipeline: missing 'entries' array");
