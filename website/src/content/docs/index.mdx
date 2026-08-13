@@ -1,20 +1,20 @@
 ---
 title: Sverka
-description: Define checks once. Plan locally. Run anywhere.
+description: AI-first verification framework. One command. Full pipeline. Zero token waste.
 editUrl: https://github.com/sverka-dev/sverka/edit/main/website/src/content/docs/index.mdx
 sidebar:
   label: Home
 template: splash
 hero:
   title: Sverka
-  tagline: Define checks once. Plan locally. Run anywhere.
+  tagline: AI-first verification framework. One command. Full pipeline. Zero token waste.
   actions:
     - text: Get started
       link: user/getting-started/install/
       icon: right-arrow
       variant: primary
-    - text: Read the docs
-      link: user/
+    - text: AI use cases
+      link: user/ai-use-cases/
       icon: open-book
       variant: secondary
     - text: View on GitHub
@@ -25,35 +25,60 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-Sverka is a provider-neutral workflow framework and execution platform for software verification. Author workflows in TypeScript through three equivalent APIs, execute them locally through a native engine, and compile the same Definition Graph to GitHub Actions or GitLab CI.
+An agent says `/sverka build, then lint, then sonar + codacy + trivy, output findings as SARIF`. Sverka builds the pipeline, runs everything locally, and returns structured findings. The agent spent **50 tokens, not 5000**.
 
-## What you get
+## Why Sverka
 
 <CardGrid stagger>
-  <Card title="Three authoring surfaces" icon="seti:typescript">
-    Construct, SDK, and Decorator APIs all produce the same Definition Graph.
+  <Card title="AI-first" icon="approve-check">
+    Claude plugin + AI skill. Say `/sverka build, then lint, then sonar + trivy` — Sverka handles the rest. The agent declares **what** to verify, not **how**.
   </Card>
-  <Card title="Provider-neutral" icon="external">
-    No GitHub or GitLab terms in your workflow. The Definition Graph is the source of truth.
+  <Card title="Token-efficient" icon="seti:typescript">
+    Delegate orchestration to the pipeline, not the LLM. One command replaces 6+ tool-call round-trips. ~97% token reduction per verification run.
   </Card>
-  <Card title="Native execution" icon="rocket">
-    Run through the native engine with host or container runtime. Topological scheduling, parallel steps.
+  <Card title="Localhost engine" icon="rocket">
+    Everything runs locally. No cloud, no remote API calls. Host or container runtime. Topological scheduling, parallel steps, structured findings.
   </Card>
-  <Card title="Native target lowering" icon="seti:yaml">
-    Lower to GitHub Actions or GitLab CI YAML. Not thin wrappers — real native lowering.
+  <Card title="TypeScript SDK + DSL" icon="seti:typescript">
+    Author workflows in code. Three equivalent APIs: Construct (CDK-style), SDK (composables), Decorator (`@step`, `@pipeline`, `@entry`).
   </Card>
-  <Card title="Capability model" icon="seti:settings">
-    Plugin system declares what each target supports. Unsupported features produce diagnostics.
+  <Card title="CLI" icon="forward-slash">
+    `sverka plan`, `run`, `check`, `discover`, `validate`, `graph`, `synth`, `policy`, `doctor`. One tool, full pipeline. JSON output for agent consumption.
   </Card>
-  <Card title="Conformance suite" icon="approve-check">
-    §34 acceptance gate verifies all authoring surfaces produce equivalent graphs.
+  <Card title="Compile to CI" icon="seti:yaml">
+    Same workflow lowers to GitHub Actions or GitLab CI YAML. Native lowering — one job per step, not thin wrappers. `sverka synth --target github`.
   </Card>
 </CardGrid>
 
+## How it works
+
+```
+Author → Plan → Run → Compile
+
+1. Author:   Write sverka.config.ts (Construct, SDK, or Decorator API)
+2. Plan:     sverka plan — bind Entry + inputs → Run Plan
+3. Run:      sverka run — execute locally, get structured findings
+4. Compile:  sverka synth --target github — lower to native CI YAML
+```
+
+## The token math
+
+A typical verification task — build + lint + 3 security scanners + findings:
+
+| Approach | Tool calls | Tokens |
+|----------|-----------|--------|
+| Without Sverka | 6+ round-trips (call, parse, decide, repeat) | ~5000 |
+| With Sverka | 1 command + 1 result | ~100 |
+| **Savings** | | **~97%** |
+
+For 20 verification runs per session: **~94,000 tokens saved**.
+
+See the [AI use case matrix](user/ai-use-cases/) for detailed scenarios.
+
 ## Start here
 
-- [Install Sverka](user/getting-started/install/) and set up your first workflow.
-- [Define your first plan](user/getting-started/first-plan/) — author, plan, run, compile.
-- [Explore the Workflow API](user/workflow-api/overview/) — Construct, SDK, and Decorator surfaces.
-- [Read the CLI reference](user/cli/overview/) for all commands and flags.
-- [Browse the full user guide](user/) for all topics.
+- [Install Sverka](user/getting-started/install/) — one command setup.
+- [Your first plan](user/getting-started/first-plan/) — author, plan, run, compile.
+- [Workflow API](user/workflow-api/overview/) — Construct, SDK, and Decorator surfaces.
+- [CLI reference](user/cli/overview/) — all 10 commands and flags.
+- [AI use cases](user/ai-use-cases/) — token savings per scenario.
