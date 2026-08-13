@@ -1,0 +1,10 @@
+# pr-stack-resolve — permanent PR stack resolution watchdog.
+# Runs every 20m via cooldown trigger. Monitors all open PRs in the stack:
+# CI status, review threads, merge conflicts, branch divergence.
+# Nudges mayor with specific /act instructions when action is needed.
+# Does NOT self-modify city config. Agents do the work; this script detects.
+[order]
+description = "PR stack watchdog: CI, review threads, conflicts, rebase needs"
+exec = "/home/pepl/projects/sverka/assets/scripts/pr-stack-resolve.sh"
+trigger = "cooldown"
+interval = "20m"
