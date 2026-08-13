@@ -98,7 +98,8 @@ for p in json.load(open('$TMPDIR/ordered.json')):
   fi
 
   # Check 2: Unresolved review threads (via GraphQL — REST API can't filter by resolved state)
-  # shellcheck disable=SC2016 — GraphQL variables, not shell expansion
+  # GraphQL variables ($owner, $repo, $pr) are not shell expansion
+  # shellcheck disable=SC2016
   OPEN_THREADS=$(gh api graphql -f query='
 query($owner: String!, $repo: String!, $pr: Int!) {
   repository(owner: $owner, name: $repo) {
