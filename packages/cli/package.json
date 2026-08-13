@@ -22,7 +22,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/sdk": "workspace:*",
+    "@sverka/constructs": "workspace:*",
+    "@sverka/core": "workspace:*",
+    "@sverka/ir": "workspace:*",
+    "@sverka/planner": "workspace:*",
+    "@sverka/engine-native": "workspace:*",
+    "@sverka/runtime-host": "workspace:*",
+    "@sverka/checks": "workspace:*",
+    "@sverka/findings": "workspace:*",
+    "@sverka/policy": "workspace:*",
     "yargs": "^17.7.3"
   },
   "devDependencies": {

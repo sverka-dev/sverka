@@ -1,15 +1,22 @@
 import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { OutputWriter } from "../../index.js";
 
+const PKG_ROOT = resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..");
+
 /**
- * Create a temporary directory and return its path.
+ * Create a temporary directory inside the package's __tests__/.tmp/ dir.
+ * This ensures config files can resolve @sverka/* workspace packages via
+ * Bun's workspace resolution (which walks up from the file location).
  */
 export async function makeTempDir(
   prefix = "sverka-cli-test-",
 ): Promise<string> {
-  return mkdtemp(join(tmpdir(), prefix));
+  const tmpBase = join(PKG_ROOT, "__tests__", ".tmp");
+  await mkdir(tmpBase, { recursive: true });
+  return mkdtemp(join(tmpBase, prefix));
 }
 
 /** Remove a temporary directory recursively. */
