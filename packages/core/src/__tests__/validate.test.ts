@@ -210,3 +210,76 @@ describe("synthesize — validation: incompatible reference", () => {
     }
   });
 });
+
+describe("validateGraph — entry roots", () => {
+  it("rejects an entry whose root step does not exist → SynthesisError", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "myproj",
+        pipelines: [
+          {
+            id: "ci",
+            inputs: [],
+            entries: [
+              {
+                id: "ci/on-push",
+                trigger: { kind: "push" },
+                roots: ["ci/missing"],
+              },
+            ],
+            outputs: [],
+            steps: [
+              {
+                id: "ci/build",
+                runtime: {},
+                operations: [{ kind: "shell", command: "npm run build" }],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(() => validateGraph(graph)).toThrow(SynthesisError);
+    try {
+      validateGraph(graph);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("UNKNOWN_PRODUCER");
+    }
+  });
+
+  it("accepts an entry whose root step exists", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "myproj",
+        pipelines: [
+          {
+            id: "ci",
+            inputs: [],
+            entries: [
+              {
+                id: "ci/on-push",
+                trigger: { kind: "push" },
+                roots: ["ci/build"],
+              },
+            ],
+            outputs: [],
+            steps: [
+              {
+                id: "ci/build",
+                runtime: {},
+                operations: [{ kind: "shell", command: "npm run build" }],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(() => validateGraph(graph)).not.toThrow();
+  });
+});
