@@ -3,12 +3,13 @@ import type {
   DefinitionGraph,
   ProjectDefinition,
   PipelineDefinition,
+  PipelineInputDefinition,
   EntryDefinition,
   StepDefinition,
   OperationDefinition,
   Dependency,
 } from "../index.js";
-import type { Trigger, Runtime, Input, Reference } from "@sverka/constructs";
+import type { Trigger, Runtime, Reference } from "@sverka/constructs";
 
 describe("DefinitionGraph structure", () => {
   it("Project → Pipelines → Steps/Entries", () => {
@@ -139,7 +140,7 @@ describe("StepDefinition optional fields", () => {
 
 describe("PipelineDefinition", () => {
   it("with inputs and outputs", () => {
-    const input: Input = { type: "string", required: true };
+    const input: PipelineInputDefinition = { name: "environment", type: "string", required: true };
     const pipeline: PipelineDefinition = {
       id: "ci",
       inputs: [input],
@@ -147,7 +148,7 @@ describe("PipelineDefinition", () => {
       steps: [],
       outputs: [{ name: "version", type: "string", stepId: "ci/build" }],
     };
-    expect(pipeline.inputs.length).toBe(1);
+    expect(pipeline.inputs[0]?.name).toBe("environment");
     expect(pipeline.outputs.length).toBe(1);
   });
 });

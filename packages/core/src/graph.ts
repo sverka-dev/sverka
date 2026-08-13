@@ -27,9 +27,13 @@ export interface PipelineOutputDefinition extends OutputDefinition {
   readonly stepId: string;
 }
 
+export interface PipelineInputDefinition extends Input {
+  readonly name: string;
+}
+
 export interface PipelineDefinition {
   readonly id: string;
-  readonly inputs: readonly Input[];
+  readonly inputs: readonly PipelineInputDefinition[];
   readonly entries: readonly EntryDefinition[];
   readonly steps: readonly StepDefinition[];
   readonly outputs: readonly PipelineOutputDefinition[];

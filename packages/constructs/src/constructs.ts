@@ -83,6 +83,7 @@ export interface StepProps {
   readonly inputs?: readonly Reference[];
   readonly dependsOn?: readonly string[];
   readonly timeout?: number;
+  readonly condition?: Reference;
 }
 
 export abstract class Step extends SverkaConstruct {
@@ -91,6 +92,7 @@ export abstract class Step extends SverkaConstruct {
   readonly inputs: ReadonlyArray<Reference>;
   readonly dependsOn: ReadonlyArray<string>;
   readonly timeout?: number;
+  readonly condition?: Reference;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
     if (!(scope instanceof Pipeline)) {
@@ -116,6 +118,9 @@ export abstract class Step extends SverkaConstruct {
     this.dependsOn = props.dependsOn ? [...props.dependsOn] : [];
     if (props.timeout !== undefined) {
       this.timeout = props.timeout;
+    }
+    if (props.condition !== undefined) {
+      this.condition = props.condition;
     }
   }
 }
