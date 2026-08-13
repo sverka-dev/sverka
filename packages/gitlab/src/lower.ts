@@ -206,41 +206,59 @@ function computeStages(
   steps: readonly StepDefinition[],
   jobIdMap: Map<string, string>,
 ): StageResult {
-  const levels = new Map<string, number>();
+  const depsByJob = buildDepsByJob(steps, jobIdMap);
+  const levels = computeAllLevels(steps, jobIdMap, depsByJob);
+  return deriveStageResult(levels);
+}
 
+function buildDepsByJob(
+  steps: readonly StepDefinition[],
+  jobIdMap: Map<string, string>,
+): Map<string, string[]> {
   // Build dependency graph using job IDs.
   const depsByJob = new Map<string, string[]>();
   for (const step of steps) {
     const jobId = jobIdMap.get(step.id) ?? step.id;
-    const deps = producerIds(step).map(
-      (id) => jobIdMap.get(id) ?? id,
-    );
+    const deps = producerIds(step).map((id) => jobIdMap.get(id) ?? id);
     depsByJob.set(jobId, deps);
   }
+  return depsByJob;
+}
 
+function computeAllLevels(
+  steps: readonly StepDefinition[],
+  jobIdMap: Map<string, string>,
+  depsByJob: Map<string, string[]>,
+): Map<string, number> {
+  const levels = new Map<string, number>();
   // Compute levels iteratively.
   for (const step of steps) {
     const jobId = jobIdMap.get(step.id) ?? step.id;
     const level = computeLevel(jobId, depsByJob, levels, new Set());
     levels.set(jobId, level);
   }
+  return levels;
+}
 
+function stageNameForLevel(level: number): string {
+  return level === 0 ? "build" : `stage-${level}`;
+}
+
+function deriveStageResult(levels: Map<string, number>): StageResult {
   // Derive ordered stage list from used levels.
   const maxLevel = Math.max(0, ...levels.values());
   const usedLevels = new Set(levels.values());
   const stages: string[] = [];
   for (let level = 0; level <= maxLevel; level++) {
     if (usedLevels.has(level)) {
-      stages.push(level === 0 ? "build" : `stage-${level}`);
+      stages.push(stageNameForLevel(level));
     }
   }
-
   // Map job IDs to stage names.
   const stageMap = new Map<string, string>();
   for (const [jobId, level] of levels) {
-    stageMap.set(jobId, level === 0 ? "build" : `stage-${level}`);
+    stageMap.set(jobId, stageNameForLevel(level));
   }
-
   return { stageMap, stages };
 }
 
@@ -322,8 +340,8 @@ function buildSourceRule(
 
   const branchCondition =
     branches.length === 1
-      ? `$CI_COMMIT_BRANCH == ${JSON.stringify(branches[0])}`
-      : `(${branches.map((b) => `$CI_COMMIT_BRANCH == ${JSON.stringify(b)}`).join(" || ")})`;
+      ? `$CI_COMMIT_BRANCH == ${quoteJsonString(branches[0]!)}`
+      : `(${branches.map((b) => `$CI_COMMIT_BRANCH == ${quoteJsonString(b)}`).join(" || ")})`;
 
   return `${sourceCondition} && ${branchCondition}`;
 }
@@ -357,18 +375,41 @@ function lowerStep(
     jobIdMap,
   );
 
-  // Merge explicit scheduling dependencies with artifact-import dependencies.
-  const needs = [
-    ...new Set([
-      ...lowerDependencies(step.dependencies, jobIdMap),
-      ...importNeeds,
-    ]),
-  ];
+  const needs = mergeNeeds(step, jobIdMap, importNeeds);
 
   if (script.length === 0) {
     script.push("echo 'no operations'");
   }
 
+  const { image, variables: jobVariables } = lowerRuntime(step, variables);
+
+  return {
+    id: jobId,
+    stage,
+    needs,
+    script,
+    ...buildJobFields(image, artifacts, jobVariables, rules, step.timeout),
+  };
+}
+
+function mergeNeeds(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+  importNeeds: readonly string[],
+): string[] {
+  // Merge explicit scheduling dependencies with artifact-import dependencies.
+  return [
+    ...new Set([
+      ...lowerDependencies(step.dependencies, jobIdMap),
+      ...importNeeds,
+    ]),
+  ];
+}
+
+function lowerRuntime(
+  step: StepDefinition,
+  baseVariables: Record<string, string>,
+): { image?: string; variables: Record<string, string> } {
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
 
@@ -380,28 +421,33 @@ function lowerStep(
   }
   const image = mode === "container" ? runtime.image : undefined;
 
-  const jobVariables: Record<string, string> = { ...variables };
+  const variables: Record<string, string> = { ...baseVariables };
   if (runtime.env) {
-    Object.assign(jobVariables, runtime.env);
+    Object.assign(variables, runtime.env);
   }
   if (runtime.secrets) {
     for (const secret of runtime.secrets) {
-      jobVariables[secret] = `$${secret}`;
+      variables[secret] = `$${secret}`;
     }
   }
 
+  return { ...(image ? { image } : {}), variables };
+}
+
+function buildJobFields(
+  image: string | undefined,
+  artifacts: { paths?: string[]; reports?: { dotenv?: string } } | undefined,
+  variables: Record<string, string>,
+  rules: readonly GitlabRule[],
+  timeout: number | undefined,
+): Partial<GitlabJob> {
   return {
-    id: jobId,
-    stage,
-    needs,
-    script,
     ...(image ? { image } : {}),
     ...(artifacts ? { artifacts } : {}),
-
-    ...(Object.keys(jobVariables).length > 0 ? { variables: jobVariables } : {}),
+    ...(Object.keys(variables).length > 0 ? { variables } : {}),
     ...(rules.length > 0 ? { rules } : {}),
-    ...(step.timeout !== undefined
-      ? { timeout: `${Math.ceil(step.timeout / 60000)}m` }
+    ...(timeout !== undefined
+      ? { timeout: `${Math.ceil(timeout / 60000)}m` }
       : {}),
   };
 }
@@ -488,6 +534,26 @@ function lowerOperations(
     variables: jobVariables,
   };
 }
+
+/**
+ * Produce a deterministic JSON string literal (quoted) for a value.
+ */
+function quoteJsonString(value: string): string {
+  return `"${value.replace(/[\\"\n\r\t\b\f\u0000-\u001f]/g, (ch) => {
+    const mapped = JSON_STRING_ESCAPES[ch];
+    return mapped ?? `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`;
+  })}"`;
+}
+
+const JSON_STRING_ESCAPES: Readonly<Record<string, string>> = {
+  '"': '\\"',
+  "\\": "\\\\",
+  "\n": "\\n",
+  "\r": "\\r",
+  "\t": "\\t",
+  "\b": "\\b",
+  "\f": "\\f",
+};
 
 /**
  * Escape a string for use inside double quotes in a POSIX shell.
