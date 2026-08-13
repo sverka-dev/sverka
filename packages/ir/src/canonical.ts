@@ -21,44 +21,35 @@ export function canonicalStringify(value: unknown): string {
 }
 
 function emit(value: unknown, out: string[]): void {
-  if (value === undefined) {
+  if (value === undefined || value === null) {
     out.push("null");
     return;
   }
-  if (value === null) {
-    out.push("null");
+  const tp = typeof value;
+  if (tp === "string") { out.push(quoteString(value)); return; }
+  if (tp === "number") { emitNumber(value, out); return; }
+  if (tp === "boolean") { out.push(value ? "true" : "false"); return; }
+  if (tp === "object") { emitObjectLike(value, out); return; }
+  throw new SerializationError(`Unsupported canonical JSON value: ${tp}`);
+}
+
+function emitNumber(value: number, out: string[]): void {
+  if (Number.isNaN(value) || !Number.isFinite(value)) {
+    throw new SerializationError("NaN and Infinity are not valid canonical JSON");
+  }
+  out.push(String(value));
+}
+
+function emitObjectLike(value: object, out: string[]): void {
+  if (value instanceof Date) {
+    out.push(quoteString(value.toISOString()));
     return;
   }
-  if (typeof value === "object") {
-    if (value instanceof Date) {
-      out.push(quoteString(value.toISOString()));
-      return;
-    }
-    if (Array.isArray(value)) {
-      emitArray(value, out);
-      return;
-    }
-    emitObject(value as Record<string, unknown>, out);
+  if (Array.isArray(value)) {
+    emitArray(value, out);
     return;
   }
-  if (typeof value === "string") {
-    out.push(quoteString(value));
-    return;
-  }
-  if (typeof value === "number") {
-    if (Number.isNaN(value) || !Number.isFinite(value)) {
-      throw new SerializationError("NaN and Infinity are not valid canonical JSON");
-    }
-    out.push(String(value));
-    return;
-  }
-  if (typeof value === "boolean") {
-    out.push(value ? "true" : "false");
-    return;
-  }
-  // Reject unsupported primitive types to prevent hash collisions and
-  // ensure canonical JSON is valid JSON.
-  throw new SerializationError(`Unsupported canonical JSON value: ${typeof value}`);
+  emitObject(value as Record<string, unknown>, out);
 }
 
 function emitObject(obj: Record<string, unknown>, out: string[]): void {

@@ -37,27 +37,21 @@ const DEPENDENCY_KINDS = new Set(["control", "value", "artifact"]);
  * output collisions, incompatible references).
  */
 export function validateGraphSchema(value: unknown): asserts value is SerializableGraph {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("expected an object");
-  }
-  const v = value as Record<string, unknown>;
-  if (v.apiVersion !== GRAPH_SCHEMA_VERSION) {
-    throw new ValidationError(`expected apiVersion '${GRAPH_SCHEMA_VERSION}', got '${String(v.apiVersion)}'`);
-  }
-  if (typeof v.id !== "string") {
-    throw new ValidationError("missing or invalid 'id' field");
-  }
-  if (typeof v.createdAt !== "string") {
-    throw new ValidationError("missing or invalid 'createdAt' field");
-  }
+  const v = requireObject(value, "expected an object");
+  requireStringField(v, "apiVersion", GRAPH_SCHEMA_VERSION);
+  requireString(v, "id", "missing or invalid 'id' field");
+  requireString(v, "createdAt", "missing or invalid 'createdAt' field");
   if (typeof v.graph !== "object" || v.graph === null) {
     throw new ValidationError("missing or invalid 'graph' field");
   }
-  // Validate the graph structure and element shapes.
   validateGraphStructure(v.graph as unknown);
 
-  // Enforce the content-addressed id contract before semantic validation.
   const graph = v.graph as DefinitionGraph;
+  validateGraphId(v.id, graph);
+  validateGraphSemantics(graph);
+}
+
+function validateGraphId(actualId: unknown, graph: DefinitionGraph): void {
   let expectedId: string;
   try {
     expectedId = computeGraphId(graph);
@@ -67,11 +61,12 @@ export function validateGraphSchema(value: unknown): asserts value is Serializab
       err,
     );
   }
-  if (v.id !== expectedId) {
+  if (actualId !== expectedId) {
     throw new ValidationError("graph id does not match content-addressed hash");
   }
+}
 
-  // Semantic validation via core.
+function validateGraphSemantics(graph: DefinitionGraph): void {
   try {
     validateGraph(graph);
   } catch (err) {
@@ -86,22 +81,11 @@ export function validateGraphSchema(value: unknown): asserts value is Serializab
  * Validate that a value is a structurally valid RunPlan.
  */
 export function validateRunPlanSchema(value: unknown): asserts value is RunPlan {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("expected an object");
-  }
-  const v = value as Record<string, unknown>;
-  if (v.apiVersion !== RUN_PLAN_SCHEMA_VERSION) {
-    throw new ValidationError(`expected apiVersion '${RUN_PLAN_SCHEMA_VERSION}', got '${String(v.apiVersion)}'`);
-  }
-  if (typeof v.id !== "string") {
-    throw new ValidationError("missing or invalid 'id' field");
-  }
-  if (typeof v.graphId !== "string") {
-    throw new ValidationError("missing or invalid 'graphId' field");
-  }
-  if (typeof v.createdAt !== "string") {
-    throw new ValidationError("missing or invalid 'createdAt' field");
-  }
+  const v = requireObject(value, "expected an object");
+  requireStringField(v, "apiVersion", RUN_PLAN_SCHEMA_VERSION);
+  requireString(v, "id", "missing or invalid 'id' field");
+  requireString(v, "graphId", "missing or invalid 'graphId' field");
+  requireString(v, "createdAt", "missing or invalid 'createdAt' field");
   if (typeof v.entry !== "object" || v.entry === null) {
     throw new ValidationError("missing or invalid 'entry' field");
   }
@@ -116,9 +100,10 @@ export function validateRunPlanSchema(value: unknown): asserts value is RunPlan 
   for (const step of v.steps) {
     validateStepStructure(step);
   }
+  validateRunPlanId(value as RunPlan);
+}
 
-  // Enforce the content-addressed id contract.
-  const plan = value as RunPlan;
+function validateRunPlanId(plan: RunPlan): void {
   const { id: _id, createdAt: _createdAt, ...body } = plan;
   let expectedId: string;
   try {
@@ -132,6 +117,40 @@ export function validateRunPlanSchema(value: unknown): asserts value is RunPlan 
   if (plan.id !== expectedId) {
     throw new ValidationError("run plan id does not match content-addressed hash");
   }
+}
+
+// ── Shared validation helpers ──────────────────────────────────────
+
+function requireObject(value: unknown, msg: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null) {
+    throw new ValidationError(msg);
+  }
+  return value as Record<string, unknown>;
+}
+
+function requireString(v: Record<string, unknown>, field: string, msg: string): void {
+  if (typeof v[field] !== "string") {
+    throw new ValidationError(msg);
+  }
+}
+
+function requireStringField(v: Record<string, unknown>, field: string, expected: string): void {
+  if (v[field] !== expected) {
+    throw new ValidationError(`expected ${field} '${expected}', got '${String(v[field])}'`);
+  }
+}
+
+function requireNonEmptyString(v: Record<string, unknown>, field: string, msg: string): void {
+  if (typeof v[field] !== "string" || !v[field]) {
+    throw new ValidationError(msg);
+  }
+}
+
+function requireArray(v: Record<string, unknown>, field: string, msg: string): unknown[] {
+  if (!Array.isArray(v[field])) {
+    throw new ValidationError(msg);
+  }
+  return v[field] as unknown[];
 }
 
 function validateInputs(inputs: Record<string, unknown>): void {
@@ -201,52 +220,29 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 function validateGraphStructure(value: unknown): void {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("invalid graph: expected object");
-  }
-  const g = value as Record<string, unknown>;
+  const g = requireObject(value, "invalid graph: expected object");
   if (typeof g.project !== "object" || g.project === null) {
     throw new ValidationError("invalid graph: missing 'project'");
   }
   const p = g.project as Record<string, unknown>;
-  if (typeof p.id !== "string") {
-    throw new ValidationError("invalid graph: project missing 'id'");
-  }
-  if (!Array.isArray(p.pipelines)) {
-    throw new ValidationError("invalid graph: project missing 'pipelines' array");
-  }
-  for (const pipeline of p.pipelines) {
+  requireString(p, "id", "invalid graph: project missing 'id'");
+  for (const pipeline of requireArray(p, "pipelines", "invalid graph: project missing 'pipelines' array")) {
     validatePipelineStructure(pipeline);
   }
 }
 
 function validatePipelineStructure(value: unknown): void {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("invalid pipeline: expected object");
-  }
-  const p = value as Record<string, unknown>;
-  if (typeof p.id !== "string" || p.id.length === 0) {
-    throw new ValidationError("invalid pipeline: missing 'id'");
-  }
-  if (!Array.isArray(p.inputs)) {
-    throw new ValidationError("invalid pipeline: missing 'inputs' array");
-  }
-  for (const input of p.inputs) {
+  const p = requireObject(value, "invalid pipeline: expected object");
+  requireNonEmptyString(p, "id", "invalid pipeline: missing 'id'");
+  for (const input of requireArray(p, "inputs", "invalid pipeline: missing 'inputs' array")) {
     validatePipelineInput(input);
   }
-  if (!Array.isArray(p.entries)) {
-    throw new ValidationError("invalid pipeline: missing 'entries' array");
-  }
-  for (const entry of p.entries) {
+  for (const entry of requireArray(p, "entries", "invalid pipeline: missing 'entries' array")) {
     validateEntryDefinition(entry);
   }
-  if (!Array.isArray(p.steps)) {
-    throw new ValidationError("invalid pipeline: missing 'steps' array");
-  }
-  if (!Array.isArray(p.outputs)) {
-    throw new ValidationError("invalid pipeline: missing 'outputs' array");
-  }
-  for (const step of p.steps) {
+  requireArray(p, "steps", "invalid pipeline: missing 'steps' array");
+  requireArray(p, "outputs", "invalid pipeline: missing 'outputs' array");
+  for (const step of p.steps as unknown[]) {
     validateStepStructure(step);
   }
 }
@@ -279,150 +275,114 @@ function validateEntryDefinition(value: unknown): void {
 }
 
 function validateStepStructure(value: unknown): void {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("invalid step: expected object");
-  }
-  const s = value as Record<string, unknown>;
-  if (typeof s.id !== "string" || s.id.length === 0) {
-    throw new ValidationError("invalid step: missing 'id'");
-  }
+  const s = requireObject(value, "invalid step: expected object");
+  requireNonEmptyString(s, "id", "invalid step: missing 'id'");
   if (typeof s.runtime !== "object" || s.runtime === null) {
     throw new ValidationError("invalid step: missing 'runtime'");
   }
-  if (!Array.isArray(s.operations)) {
-    throw new ValidationError("invalid step: missing 'operations' array");
-  }
-  for (const op of s.operations) {
+  for (const op of requireArray(s, "operations", "invalid step: missing 'operations' array")) {
     validateOperation(op);
   }
-  if (!Array.isArray(s.inputs)) {
-    throw new ValidationError("invalid step: missing 'inputs' array");
-  }
-  for (const input of s.inputs) {
+  for (const input of requireArray(s, "inputs", "invalid step: missing 'inputs' array")) {
     validateReference(input);
   }
-  if (!Array.isArray(s.outputs)) {
-    throw new ValidationError("invalid step: missing 'outputs' array");
-  }
-  for (const output of s.outputs) {
+  for (const output of requireArray(s, "outputs", "invalid step: missing 'outputs' array")) {
     validateOutputDefinition(output);
   }
-  if (!Array.isArray(s.dependencies)) {
-    throw new ValidationError("invalid step: missing 'dependencies' array");
-  }
-  for (const dep of s.dependencies) {
+  for (const dep of requireArray(s, "dependencies", "invalid step: missing 'dependencies' array")) {
     validateDependency(dep);
   }
 }
 
 function validateOperation(value: unknown): void {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("invalid operation: expected object");
-  }
-  const op = value as Record<string, unknown>;
+  const op = requireObject(value, "invalid operation: expected object");
   if (typeof op.kind !== "string" || !OPERATION_KINDS.has(op.kind)) {
     throw new ValidationError(`invalid operation: unknown kind '${String(op.kind)}'`);
   }
-  switch (op.kind) {
-    case "shell":
-      if (typeof op.command !== "string") {
-        throw new ValidationError("invalid shell operation: missing 'command'");
-      }
-      return;
-    case "exportOutput":
-      if (typeof op.name !== "string" || !op.name) {
-        throw new ValidationError("invalid exportOutput operation: missing 'name'");
-      }
-      if (typeof op.type !== "string" || !OUTPUT_TYPES.has(op.type)) {
-        throw new ValidationError("invalid exportOutput operation: missing or invalid 'type'");
-      }
-      return;
-    case "exportArtifact":
-      if (typeof op.name !== "string" || !op.name) {
-        throw new ValidationError("invalid exportArtifact operation: missing 'name'");
-      }
-      if (typeof op.path !== "string" || !op.path) {
-        throw new ValidationError("invalid exportArtifact operation: missing 'path'");
-      }
-      return;
-    case "importArtifact":
-      if (typeof op.name !== "string" || !op.name) {
-        throw new ValidationError("invalid importArtifact operation: missing 'name'");
-      }
-      if (typeof op.from !== "string" || !op.from) {
-        throw new ValidationError("invalid importArtifact operation: missing 'from'");
-      }
-      if (typeof op.output !== "string" || !op.output) {
-        throw new ValidationError("invalid importArtifact operation: missing 'output'");
-      }
-      return;
-    case "diagnostic":
-      if (typeof op.message !== "string") {
-        throw new ValidationError("invalid diagnostic operation: missing 'message'");
-      }
-      if (typeof op.severity !== "string" || !SEVERITIES.has(op.severity)) {
-        throw new ValidationError("invalid diagnostic operation: missing or invalid 'severity'");
-      }
-      return;
-    // exhaustive
+  const validators: Record<string, (op: Record<string, unknown>) => void> = {
+    shell: validateShellOp,
+    exportOutput: validateExportOutputOp,
+    exportArtifact: validateExportArtifactOp,
+    importArtifact: validateImportArtifactOp,
+    diagnostic: validateDiagnosticOp,
+  };
+  validators[op.kind]!(op);
+}
+
+function validateShellOp(op: Record<string, unknown>): void {
+  if (typeof op.command !== "string") {
+    throw new ValidationError("invalid shell operation: missing 'command'");
+  }
+}
+
+function validateExportOutputOp(op: Record<string, unknown>): void {
+  requireNonEmptyString(op, "name", "invalid exportOutput operation: missing 'name'");
+  if (typeof op.type !== "string" || !OUTPUT_TYPES.has(op.type)) {
+    throw new ValidationError("invalid exportOutput operation: missing or invalid 'type'");
+  }
+}
+
+function validateExportArtifactOp(op: Record<string, unknown>): void {
+  requireNonEmptyString(op, "name", "invalid exportArtifact operation: missing 'name'");
+  requireNonEmptyString(op, "path", "invalid exportArtifact operation: missing 'path'");
+}
+
+function validateImportArtifactOp(op: Record<string, unknown>): void {
+  requireNonEmptyString(op, "name", "invalid importArtifact operation: missing 'name'");
+  requireNonEmptyString(op, "from", "invalid importArtifact operation: missing 'from'");
+  requireNonEmptyString(op, "output", "invalid importArtifact operation: missing 'output'");
+}
+
+function validateDiagnosticOp(op: Record<string, unknown>): void {
+  if (typeof op.message !== "string") {
+    throw new ValidationError("invalid diagnostic operation: missing 'message'");
+  }
+  if (typeof op.severity !== "string" || !SEVERITIES.has(op.severity)) {
+    throw new ValidationError("invalid diagnostic operation: missing or invalid 'severity'");
   }
 }
 
 function validateDependency(value: unknown): void {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("invalid dependency: expected object");
-  }
-  const d = value as Record<string, unknown>;
+  const d = requireObject(value, "invalid dependency: expected object");
   if (typeof d.kind !== "string" || !DEPENDENCY_KINDS.has(d.kind)) {
     throw new ValidationError(`invalid dependency: unknown kind '${String(d.kind)}'`);
   }
-  if (typeof d.producer !== "string" || !d.producer) {
-    throw new ValidationError("invalid dependency: missing 'producer'");
-  }
-  if (d.kind === "value" || d.kind === "artifact") {
-    if (typeof d.output !== "string" || !d.output) {
-      throw new ValidationError(`invalid ${d.kind} dependency: missing 'output'`);
-    }
+  requireNonEmptyString(d, "producer", "invalid dependency: missing 'producer'");
+  if ((d.kind === "value" || d.kind === "artifact") && (typeof d.output !== "string" || !d.output)) {
+    throw new ValidationError(`invalid ${d.kind} dependency: missing 'output'`);
   }
 }
 
 function validateReference(value: unknown): void {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("invalid input reference: expected object");
-  }
-  const r = value as Record<string, unknown>;
+  const r = requireObject(value, "invalid input reference: expected object");
   if (typeof r.kind !== "string" || !REFERENCE_KINDS.has(r.kind)) {
     throw new ValidationError(`invalid input reference: unknown kind '${String(r.kind)}'`);
   }
   if (r.kind === "step") {
-    if (typeof r.step !== "string" || !r.step) {
-      throw new ValidationError("invalid step reference: missing 'step'");
-    }
-    if (typeof r.output !== "string" || !r.output) {
-      throw new ValidationError("invalid step reference: missing 'output'");
-    }
-    if (typeof r.type !== "string" || !OUTPUT_TYPES.has(r.type)) {
-      throw new ValidationError("invalid step reference: missing or invalid 'type'");
-    }
+    validateStepReference(r);
     return;
   }
-  // context
-  if (typeof r.namespace !== "string" || !CONTEXT_NAMESPACES.has(r.namespace)) {
-    throw new ValidationError("invalid context reference: missing or invalid 'namespace'");
-  }
-  if (typeof r.field !== "string" || !r.field) {
-    throw new ValidationError("invalid context reference: missing 'field'");
+  validateContextReference(r);
+}
+
+function validateStepReference(r: Record<string, unknown>): void {
+  requireNonEmptyString(r, "step", "invalid step reference: missing 'step'");
+  requireNonEmptyString(r, "output", "invalid step reference: missing 'output'");
+  if (typeof r.type !== "string" || !OUTPUT_TYPES.has(r.type)) {
+    throw new ValidationError("invalid step reference: missing or invalid 'type'");
   }
 }
 
+function validateContextReference(r: Record<string, unknown>): void {
+  if (typeof r.namespace !== "string" || !CONTEXT_NAMESPACES.has(r.namespace)) {
+    throw new ValidationError("invalid context reference: missing or invalid 'namespace'");
+  }
+  requireNonEmptyString(r, "field", "invalid context reference: missing 'field'");
+}
+
 function validateOutputDefinition(value: unknown): void {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("invalid output definition: expected object");
-  }
-  const o = value as Record<string, unknown>;
-  if (typeof o.name !== "string" || !o.name) {
-    throw new ValidationError("invalid output definition: missing 'name'");
-  }
+  const o = requireObject(value, "invalid output definition: expected object");
+  requireNonEmptyString(o, "name", "invalid output definition: missing 'name'");
   if (typeof o.type !== "string" || !OUTPUT_TYPES.has(o.type)) {
     throw new ValidationError("invalid output definition: missing or invalid 'type'");
   }
