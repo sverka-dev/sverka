@@ -1,5 +1,5 @@
 {
-  "name": "@sverka/runtime-host",
+  "name": "@sverka/runtime",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.mjs",
@@ -19,7 +19,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/runtime": "workspace:*",
     "@sverka/ir": "workspace:*"
   },
   "devDependencies": {
