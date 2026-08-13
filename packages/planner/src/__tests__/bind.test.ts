@@ -19,7 +19,7 @@ function makeGraph(
   steps: StepDefinition[],
   opts?: {
     entries?: { id: string; trigger: { kind: "push" }; roots: string[] }[];
-    inputs?: Record<string, { type: "string" | "number" | "boolean"; default?: string | number | boolean; required?: boolean }>;
+    inputs?: Record<string, { type: "string" | "number" | "boolean"; default?: string | number | boolean; required?: boolean; secret?: boolean }>;
   },
 ): DefinitionGraph {
   return {
@@ -145,6 +145,65 @@ describe("bindRunPlan", () => {
     const plan = bindRunPlan({ graph, entryId: "ci/on-push" });
     expect(() => new Date(plan.createdAt).toISOString()).not.toThrow();
     expect(plan.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("rejects cyclic dependency graphs with INVALID_GRAPH", () => {
+    const graph = makeGraph([
+      makeStep("ci/build", [{ kind: "control", producer: "ci/test" }]),
+      makeStep("ci/test", [{ kind: "control", producer: "ci/build" }]),
+    ]);
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    try {
+      bindRunPlan({ graph, entryId: "ci/on-push" });
+    } catch (e) {
+      expect((e as PlannerError).code).toBe("INVALID_GRAPH");
+    }
+  });
+
+  it("rejects malformed graphs with INVALID_GRAPH before dereferencing fields", () => {
+    const graph = { project: {} } as unknown as DefinitionGraph;
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    try {
+      bindRunPlan({ graph, entryId: "ci/on-push" });
+    } catch (e) {
+      expect((e as PlannerError).code).toBe("INVALID_GRAPH");
+    }
+  });
+
+  it("rejects type-mismatched user inputs with INVALID_INPUT", () => {
+    const graph = makeGraph([makeStep("ci/build")], {
+      inputs: { env: { type: "string" } },
+    });
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push", inputs: { env: 123 } })).toThrow(PlannerError);
+    try {
+      bindRunPlan({ graph, entryId: "ci/on-push", inputs: { env: 123 } });
+    } catch (e) {
+      expect((e as PlannerError).code).toBe("INVALID_INPUT");
+    }
+  });
+
+  it("rejects secret inputs with invalid declared types", () => {
+    const graph = makeGraph([makeStep("ci/build")], {
+      inputs: { token: { type: "invalid" as "string", secret: true } },
+    });
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    try {
+      bindRunPlan({ graph, entryId: "ci/on-push" });
+    } catch (e) {
+      expect((e as PlannerError).code).toBe("INVALID_GRAPH");
+    }
+  });
+
+  it("rejects optional inputs with invalid declared types", () => {
+    const graph = makeGraph([makeStep("ci/build")], {
+      inputs: { env: { type: "invalid" as "string", required: false } },
+    });
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    try {
+      bindRunPlan({ graph, entryId: "ci/on-push" });
+    } catch (e) {
+      expect((e as PlannerError).code).toBe("INVALID_GRAPH");
+    }
   });
 });
 
