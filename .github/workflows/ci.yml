@@ -29,5 +29,5 @@ jobs:
       - run: bun install --frozen-lockfile --ignore-scripts
       - uses: nrwl/nx-set-shas@3e9ad7370203c1e93d109be57f3b72eb0eb511b1 # v4
 
-      - run: nx affected -t build
-      - run: nx affected -t lint test
+      - run: bunx nx affected -t build
+      - run: bunx nx affected -t lint test
