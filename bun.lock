@@ -15,6 +15,18 @@
         "vitest": "3.2.7",
       },
     },
+    "packages/cdk": {
+      "name": "@sverka/cdk",
+      "version": "0.0.0",
+      "dependencies": {
+        "constructs": "10.8.1",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^3.0.0",
+      },
+    },
     "packages/checks": {
       "name": "@sverka/checks",
       "version": "0.0.0",
@@ -36,9 +48,16 @@
         "sverka": "./dist/bin.mjs",
       },
       "dependencies": {
-        "@sverka/compiler-github": "workspace:*",
-        "@sverka/compiler-gitlab": "workspace:*",
-        "@sverka/sdk": "workspace:*",
+        "@sverka/cdk": "workspace:*",
+        "@sverka/checks": "workspace:*",
+        "@sverka/core": "workspace:*",
+        "@sverka/engine-native": "workspace:*",
+        "@sverka/findings": "workspace:*",
+        "@sverka/ir": "workspace:*",
+        "@sverka/planner": "workspace:*",
+        "@sverka/policy": "workspace:*",
+        "@sverka/runtime-docker": "workspace:*",
+        "@sverka/runtime-host": "workspace:*",
         "yargs": "^17.7.3",
       },
       "devDependencies": {
@@ -87,7 +106,7 @@
       "name": "@sverka/conformance",
       "version": "0.0.0",
       "dependencies": {
-        "@sverka/constructs": "workspace:*",
+        "@sverka/cdk": "workspace:*",
         "@sverka/core": "workspace:*",
         "@sverka/decorators": "workspace:*",
         "@sverka/engine-native": "workspace:*",
@@ -106,23 +125,11 @@
         "yaml": "^2.9.0",
       },
     },
-    "packages/constructs": {
-      "name": "@sverka/constructs",
-      "version": "0.0.0",
-      "dependencies": {
-        "constructs": "10.8.1",
-      },
-      "devDependencies": {
-        "tsdown": "^0.22.0",
-        "typescript": "^5.8.0",
-        "vitest": "^3.0.0",
-      },
-    },
     "packages/core": {
       "name": "@sverka/core",
       "version": "0.0.0",
       "dependencies": {
-        "@sverka/constructs": "workspace:*",
+        "@sverka/cdk": "workspace:*",
       },
       "devDependencies": {
         "tsdown": "^0.22.0",
@@ -134,7 +141,7 @@
       "name": "@sverka/decorators",
       "version": "0.0.0",
       "dependencies": {
-        "@sverka/constructs": "workspace:*",
+        "@sverka/cdk": "workspace:*",
         "@sverka/sdk": "workspace:*",
       },
       "devDependencies": {
@@ -175,7 +182,7 @@
         "yaml": "^2.9.0",
       },
       "devDependencies": {
-        "@sverka/constructs": "workspace:*",
+        "@sverka/cdk": "workspace:*",
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
         "vitest": "^3.0.0",
@@ -190,7 +197,7 @@
         "yaml": "^2.9.0",
       },
       "devDependencies": {
-        "@sverka/constructs": "workspace:*",
+        "@sverka/cdk": "workspace:*",
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
         "vitest": "^3.0.0",
@@ -200,7 +207,7 @@
       "name": "@sverka/ir",
       "version": "0.0.0",
       "dependencies": {
-        "@sverka/constructs": "workspace:*",
+        "@sverka/cdk": "workspace:*",
         "@sverka/core": "workspace:*",
       },
       "devDependencies": {
@@ -263,6 +270,8 @@
       "name": "@sverka/runtime-docker",
       "version": "0.0.0",
       "dependencies": {
+        "@sverka/core": "workspace:*",
+        "@sverka/engine-native": "workspace:*",
         "@sverka/ir": "workspace:*",
         "@sverka/runtime": "workspace:*",
       },
@@ -276,6 +285,8 @@
       "name": "@sverka/runtime-host",
       "version": "0.0.0",
       "dependencies": {
+        "@sverka/core": "workspace:*",
+        "@sverka/engine-native": "workspace:*",
         "@sverka/ir": "workspace:*",
         "@sverka/runtime": "workspace:*",
       },
@@ -307,8 +318,8 @@
       "name": "@sverka/sdk",
       "version": "0.0.0",
       "dependencies": {
+        "@sverka/cdk": "workspace:*",
         "@sverka/checks": "workspace:*",
-        "@sverka/constructs": "workspace:*",
         "@sverka/core": "workspace:*",
         "@sverka/findings": "workspace:*",
         "@sverka/ir": "workspace:*",
@@ -522,6 +533,8 @@
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.62.4", "", { "os": "win32", "cpu": "x64" }, "sha512-zD6NdeWEByGE9QF9vCrlJ5YQB4oq9q91kPZS37Jwj5hOkvR1lTBSpsKhKDw4IJtbQ35LsTS1HD9DZYGKIshU1Q=="],
 
+    "@sverka/cdk": ["@sverka/cdk@workspace:packages/cdk"],
+
     "@sverka/checks": ["@sverka/checks@workspace:packages/checks"],
 
     "@sverka/cli": ["@sverka/cli@workspace:packages/cli"],
@@ -533,8 +546,6 @@
     "@sverka/compiler-gitlab": ["@sverka/compiler-gitlab@workspace:packages/compiler-gitlab"],
 
     "@sverka/conformance": ["@sverka/conformance@workspace:packages/conformance"],
-
-    "@sverka/constructs": ["@sverka/constructs@workspace:packages/constructs"],
 
     "@sverka/core": ["@sverka/core@workspace:packages/core"],
 
