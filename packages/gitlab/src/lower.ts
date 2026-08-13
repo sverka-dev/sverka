@@ -8,46 +8,86 @@ import type {
   EntryDefinition,
   OperationDefinition,
   Dependency,
+  Trigger,
 } from "@sverka/core";
-import type { Trigger } from "@sverka/constructs";
-import type {
-  GitlabTargetGraph,
-  GitlabJob,
-  GitlabRule,
-} from "./types.js";
+import type { GitlabTargetGraph, GitlabJob, GitlabRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
+
+const DOTENV_REPORT_FILE = "sverka.env";
 
 /**
  * Lower a Definition Graph to a GitlabTargetGraph.
- * One GitLab job per Step. Stages derived from dependency depth.
+ * One GitLab job per reachable Step. Stages derived from dependency depth.
  */
 export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
   if (graph.project.pipelines.length === 0) {
     throw new GitlabTargetError("graph has no pipelines", "INVALID_GRAPH");
   }
+  if (graph.project.pipelines.length > 1) {
+    throw new GitlabTargetError(
+      "multi-pipeline graphs are not supported in v0",
+      "INVALID_GRAPH",
+    );
+  }
 
   const pipeline = graph.project.pipelines[0]!;
-
-  // Build job ID map (strip pipeline prefix).
-  const jobIdMap = buildJobIdMap(pipeline.steps);
+  const reachableSteps = filterReachableSteps(pipeline);
+  const jobIdMap = buildJobIdMap(reachableSteps);
 
   // Compute stages from topological levels.
-  const stageMap = computeStages(pipeline.steps, jobIdMap);
+  const { stageMap, stages } = computeStages(reachableSteps, jobIdMap);
 
   // Collect rules from entries.
   const rules = lowerTriggers(pipeline.entries);
 
-  const jobs = lowerSteps(pipeline.steps, jobIdMap, stageMap, rules);
-
-  // Collect unique stage names in order.
-  const stageOrder = [...new Set(jobs.map((j) => j.stage))];
+  const jobs = lowerSteps(reachableSteps, jobIdMap, stageMap, rules);
 
   return {
     name: pipeline.id,
-    stages: stageOrder,
+    stages,
     jobs,
     variables: collectVariables(pipeline),
   };
+}
+
+/**
+ * Return the steps reachable from any entry root by following dependencies.
+ */
+function filterReachableSteps(
+  pipeline: PipelineDefinition,
+): readonly StepDefinition[] {
+  if (pipeline.steps.length === 0) {
+    return [];
+  }
+
+  const byId = new Map(pipeline.steps.map((step) => [step.id, step]));
+  const reachable = new Set<string>();
+  const queue: string[] = [];
+
+  for (const entry of pipeline.entries) {
+    for (const root of entry.roots) {
+      if (byId.has(root) && !reachable.has(root)) {
+        reachable.add(root);
+        queue.push(root);
+      }
+    }
+  }
+
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const step = byId.get(id);
+    if (!step) continue;
+
+    for (const dep of step.dependencies) {
+      const producer = dep.producer;
+      if (byId.has(producer) && !reachable.has(producer)) {
+        reachable.add(producer);
+        queue.push(producer);
+      }
+    }
+  }
+
+  return pipeline.steps.filter((step) => reachable.has(step.id));
 }
 
 /**
@@ -72,18 +112,30 @@ function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
   return map;
 }
 
+interface StageResult {
+  readonly stageMap: ReadonlyMap<string, string>;
+  readonly stages: readonly string[];
+}
+
 /**
  * Compute stages by topological level.
  * Level 0 → "build", Level N → "stage-N".
+ * Returns stages in dependency order (build first, then stage-1, etc.).
+ * Throws when a dependency cycle is detected.
  */
-function computeStages(steps: readonly StepDefinition[], jobIdMap: Map<string, string>): Map<string, string> {
+function computeStages(
+  steps: readonly StepDefinition[],
+  jobIdMap: Map<string, string>,
+): StageResult {
   const levels = new Map<string, number>();
 
   // Build dependency graph using job IDs.
   const depsByJob = new Map<string, string[]>();
   for (const step of steps) {
     const jobId = jobIdMap.get(step.id) ?? step.id;
-    const deps = step.dependencies.map((d) => jobIdMap.get(d.producer) ?? d.producer);
+    const deps = step.dependencies.map(
+      (d) => jobIdMap.get(d.producer) ?? d.producer,
+    );
     depsByJob.set(jobId, deps);
   }
 
@@ -94,13 +146,23 @@ function computeStages(steps: readonly StepDefinition[], jobIdMap: Map<string, s
     levels.set(jobId, level);
   }
 
-  // Map level to stage name.
+  // Derive ordered stage list from used levels.
+  const maxLevel = Math.max(0, ...levels.values());
+  const usedLevels = new Set(levels.values());
+  const stages: string[] = [];
+  for (let level = 0; level <= maxLevel; level++) {
+    if (usedLevels.has(level)) {
+      stages.push(level === 0 ? "build" : `stage-${level}`);
+    }
+  }
+
+  // Map job IDs to stage names.
   const stageMap = new Map<string, string>();
   for (const [jobId, level] of levels) {
     stageMap.set(jobId, level === 0 ? "build" : `stage-${level}`);
   }
 
-  return stageMap;
+  return { stageMap, stages };
 }
 
 function computeLevel(
@@ -110,7 +172,12 @@ function computeLevel(
   visiting: Set<string>,
 ): number {
   if (levels.has(jobId)) return levels.get(jobId)!;
-  if (visiting.has(jobId)) return 0; // cycle protection
+  if (visiting.has(jobId)) {
+    throw new GitlabTargetError(
+      `dependency cycle detected involving job '${jobId}'`,
+      "LOWER_FAILED",
+    );
+  }
   visiting.add(jobId);
 
   const deps = depsByJob.get(jobId) ?? [];
@@ -131,6 +198,7 @@ function computeLevel(
 
 /**
  * Map Sverka triggers to GitLab rules.
+ * Branch filters are preserved in the generated `if` expressions.
  */
 function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule[] {
   const rules: GitlabRule[] = [];
@@ -139,17 +207,24 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
     const t = entry.trigger;
     switch (t.kind) {
       case "push":
-        rules.push({ if: '$CI_PIPELINE_SOURCE == "push"' });
+        rules.push({
+          if: buildSourceRule('$CI_PIPELINE_SOURCE == "push"', t.filter?.branches),
+        });
         break;
       case "changeRequest":
-        rules.push({ if: '$CI_PIPELINE_SOURCE == "merge_request_event"' });
+        rules.push({
+          if: buildSourceRule(
+            '$CI_PIPELINE_SOURCE == "merge_request_event"',
+            t.filter?.branches,
+          ),
+        });
         break;
       case "manual":
         rules.push({ if: '$CI_PIPELINE_SOURCE == "web"', when: "manual" });
         break;
       default:
         throw new GitlabTargetError(
-          `unsupported trigger kind: ${(t as Trigger).kind}`,
+          `unsupported trigger kind: ${JSON.stringify((t as Trigger).kind)}`,
           "UNSUPPORTED_TRIGGER",
         );
     }
@@ -158,13 +233,29 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
   return rules;
 }
 
+function buildSourceRule(
+  sourceCondition: string,
+  branches: readonly string[] | undefined,
+): string {
+  if (!branches || branches.length === 0) {
+    return sourceCondition;
+  }
+
+  const branchCondition =
+    branches.length === 1
+      ? `$CI_COMMIT_BRANCH == ${JSON.stringify(branches[0])}`
+      : `(${branches.map((b) => `$CI_COMMIT_BRANCH == ${JSON.stringify(b)}`).join(" || ")})`;
+
+  return `${sourceCondition} && ${branchCondition}`;
+}
+
 /**
  * Lower steps to GitLab jobs.
  */
 function lowerSteps(
   steps: readonly StepDefinition[],
   jobIdMap: Map<string, string>,
-  stageMap: Map<string, string>,
+  stageMap: ReadonlyMap<string, string>,
   rules: readonly GitlabRule[],
 ): readonly GitlabJob[] {
   return steps.map((step) => lowerStep(step, jobIdMap, stageMap, rules));
@@ -176,17 +267,48 @@ function lowerSteps(
 function lowerStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
-  stageMap: Map<string, string>,
+  stageMap: ReadonlyMap<string, string>,
   rules: readonly GitlabRule[],
 ): GitlabJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const stage = stageMap.get(jobId) ?? "build";
-  const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const { script, artifacts, dependencies } = lowerOperations(step, needs);
+  const { script, artifacts, needs: importNeeds, variables } = lowerOperations(
+    step,
+    jobIdMap,
+  );
+
+  // Merge explicit scheduling dependencies with artifact-import dependencies.
+  const needs = [
+    ...new Set([
+      ...lowerDependencies(step.dependencies, jobIdMap),
+      ...importNeeds,
+    ]),
+  ];
+
+  if (script.length === 0) {
+    script.push("echo 'no operations'");
+  }
 
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
+
+  if (mode === "container" && !runtime.image) {
+    throw new GitlabTargetError(
+      `step '${step.id}' uses container mode without an image`,
+      "LOWER_FAILED",
+    );
+  }
   const image = mode === "container" ? runtime.image : undefined;
+
+  const jobVariables: Record<string, string> = { ...variables };
+  if (runtime.env) {
+    Object.assign(jobVariables, runtime.env);
+  }
+  if (runtime.secrets) {
+    for (const secret of runtime.secrets) {
+      jobVariables[secret] = `$${secret}`;
+    }
+  }
 
   return {
     id: jobId,
@@ -194,18 +316,23 @@ function lowerStep(
     needs,
     script,
     ...(image ? { image } : {}),
-    ...(artifacts.length > 0 ? { artifacts } : {}),
-    ...(dependencies.length > 0 ? { dependencies } : {}),
-    ...(runtime.env ? { variables: { ...runtime.env } } : {}),
+    ...(artifacts ? { artifacts } : {}),
+
+    ...(Object.keys(jobVariables).length > 0 ? { variables: jobVariables } : {}),
     ...(rules.length > 0 ? { rules } : {}),
-    ...(step.timeout !== undefined ? { timeout: `${Math.ceil(step.timeout / 60000)}m` } : {}),
+    ...(step.timeout !== undefined
+      ? { timeout: `${Math.ceil(step.timeout / 60000)}m` }
+      : {}),
   };
 }
 
 /**
  * Map dependencies to job needs.
  */
-function lowerDependencies(deps: readonly Dependency[], jobIdMap: Map<string, string>): readonly string[] {
+function lowerDependencies(
+  deps: readonly Dependency[],
+  jobIdMap: Map<string, string>,
+): readonly string[] {
   const needs = new Set<string>();
   for (const dep of deps) {
     const jobId = jobIdMap.get(dep.producer) ?? dep.producer;
@@ -216,58 +343,96 @@ function lowerDependencies(deps: readonly Dependency[], jobIdMap: Map<string, st
 
 /**
  * Map operations to script entries, artifacts, and dependencies.
+ * Scalar outputs are written to a dotenv report file.
  */
 function lowerOperations(
   step: StepDefinition,
-  needs: readonly string[],
+  jobIdMap: Map<string, string>,
 ): {
-  script: readonly string[];
-  artifacts: readonly { paths: readonly string[] }[];
-  dependencies: readonly string[];
+  script: string[];
+  artifacts?: { paths?: string[]; reports?: { dotenv?: string } };
+  needs: string[];
+  variables: Record<string, string>;
 } {
   const script: string[] = [];
   const artifactPaths: string[] = [];
-  const importDeps: string[] = [];
-  const shortStepId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
+  const importNeeds: string[] = [];
+  const jobVariables: Record<string, string> = {};
+  let hasDotenv = false;
 
   for (const op of step.operations) {
     switch (op.kind) {
       case "shell":
         script.push(op.command);
         break;
-      case "exportOutput":
-        script.push(`echo "${op.name}=\${${op.name}}" >> .env`);
+      case "exportOutput": {
+        const name = shellEscapeDoubleQuoted(op.name);
+        script.push(
+          `echo "${name}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`,
+        );
+        hasDotenv = true;
         break;
+      }
       case "exportArtifact":
         artifactPaths.push(op.path);
         break;
       case "importArtifact": {
-        const fromShort = op.from.includes("/") ? op.from.split("/").pop()! : op.from;
-        importDeps.push(fromShort);
+        const producerJob = jobIdMap.get(op.from) ?? op.from;
+        importNeeds.push(producerJob);
         break;
       }
-      case "diagnostic":
-        script.push(`echo "${op.message}"`);
+      case "diagnostic": {
+        script.push(`echo ${shellQuoteSingle(op.message)}`);
         break;
+      }
+      default:
+        throw new GitlabTargetError(
+          `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
+          "LOWER_FAILED",
+        );
     }
   }
 
-  // Combine needs with import dependencies for the dependencies field.
-  const allDeps = [...new Set([...needs, ...importDeps])];
+  const artifacts: { paths?: string[]; reports?: { dotenv?: string } } = {};
+  if (artifactPaths.length > 0) {
+    artifacts.paths = artifactPaths;
+  }
+  if (hasDotenv) {
+    artifacts.reports = { dotenv: DOTENV_REPORT_FILE };
+  }
 
   return {
     script,
-    artifacts: artifactPaths.length > 0 ? [{ paths: [...artifactPaths] }] : [],
-    dependencies: allDeps,
+    ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
+    needs: importNeeds,
+    variables: jobVariables,
   };
 }
 
 /**
+ * Escape a string for use inside double quotes in a POSIX shell.
+ */
+function shellEscapeDoubleQuoted(value: string): string {
+  return value.replace(/[\\"`$]/g, "\\$&");
+}
+
+/**
+ * Quote a literal string using single quotes for a POSIX shell.
+ */
+function shellQuoteSingle(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+/**
  * Collect pipeline-level variables from inputs.
+ * Secret inputs are omitted from the generated variables block.
  */
 function collectVariables(pipeline: PipelineDefinition): Record<string, string> {
   const vars: Record<string, string> = {};
   for (const [name, input] of Object.entries(pipeline.inputs)) {
+    if (input.secret) {
+      continue;
+    }
     if (input.default !== undefined) {
       vars[name] = String(input.default);
     }

@@ -7,14 +7,20 @@ export interface GitlabRule {
   readonly when?: string;
 }
 
+export interface GitlabArtifactSpec {
+  readonly paths?: readonly string[];
+  readonly reports?: {
+    readonly dotenv?: string;
+  };
+}
+
 export interface GitlabJob {
   readonly id: string;
   readonly stage: string;
   readonly image?: string;
   readonly needs: readonly string[];
   readonly script: readonly string[];
-  readonly artifacts?: readonly { readonly paths: readonly string[] }[];
-  readonly dependencies?: readonly string[];
+  readonly artifacts?: GitlabArtifactSpec;
   readonly variables?: Record<string, string>;
   readonly rules?: readonly GitlabRule[];
   readonly timeout?: string;
