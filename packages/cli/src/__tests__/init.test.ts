@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { main } from "../index.js";
 import {
@@ -117,5 +117,13 @@ describe("init command", () => {
     expect(parsed.command).toBe("init");
     expect(typeof parsed.durationMs).toBe("number");
     expect(parsed.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("exits 3 when package.json is malformed", async () => {
+    await writeFile(join(dir, "package.json"), "not json", "utf8");
+    const out = new CaptureWriter();
+    const code = await main(["init", "--root", dir], { output: out });
+    expect(code).toBe(3);
+    expect(out.stderrText).toContain("package.json");
   });
 });

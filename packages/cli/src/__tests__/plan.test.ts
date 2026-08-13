@@ -58,4 +58,12 @@ describe("plan command", () => {
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("ci/on-push");
   });
+
+  it("exits 2 for unknown --entry", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(["plan", "--root", dir, "--entry", "missing"], { output: out });
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("missing");
+  });
 });

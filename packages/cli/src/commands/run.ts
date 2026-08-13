@@ -10,7 +10,7 @@ import { bindRunPlan } from "@sverka/planner";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";
-import { resolveDefaultEntryId } from "../internal/graph.js";
+import { resolveDefaultEntryId, entryExists } from "../internal/graph.js";
 import { isBinaryAvailable } from "../internal/runtime-check.js";
 
 export interface RunArgs {
@@ -43,6 +43,13 @@ export async function runCommand(
   const entryId = args.entryId ?? resolveDefaultEntryId(graph);
   if (!entryId) {
     throw new CliError("no entries in graph", "MISSING_ARG", ExitCode.UsageError);
+  }
+  if (!entryExists(graph, entryId)) {
+    throw new CliError(
+      `entry "${entryId}" not found in graph`,
+      "MISSING_ARG",
+      ExitCode.UsageError,
+    );
   }
 
   const plan = bindRunPlan({ graph, entryId });
