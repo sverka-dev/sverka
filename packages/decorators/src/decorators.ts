@@ -2,7 +2,7 @@
 // Uses standard ECMAScript decorators (TypeScript 5.0+, no experimentalDecorators).
 
 import type { Trigger } from "@sverka/constructs";
-import type { StepOptions, FieldMetadata, FieldKind, PlanningContext } from "./types.js";
+import type { StepOptions, FieldMetadata, FieldKind } from "./types.js";
 import { DecoratorError } from "./errors.js";
 
 const PIPELINE_SYMBOL = Symbol.for("sverka:pipeline:metadata");
@@ -73,7 +73,7 @@ export function step(
 ): unknown {
   if (second !== undefined) {
     const context = second;
-    return registerField(context, String(context.name), "step", first, undefined);
+    return registerField(context, String(context.name), "step", first);
   }
   const options = first as StepOptions;
   validateStepOptions(options);
