@@ -17,16 +17,17 @@ This installs the `sverka` command globally.
 ## Add the SDK to your project
 
 The CLI generates a `sverka.config.ts` that imports from `@sverka/constructs`.
-The constructs package must be installed in your project so the config can
-resolve its imports.
+`@sverka/constructs` is required in your project so the config can resolve its
+imports. Add `@sverka/sdk` and/or `@sverka/decorators` for the authoring
+surfaces you use.
 
 ```sh
 cd your-project
-bun add @sverka/constructs @sverka/sdk @sverka/decorators
+bun add @sverka/constructs
 ```
 
-You only need one of the three authoring packages. Install all three if you
-want to try each surface.
+Install `@sverka/sdk` and/or `@sverka/decorators` only when you want those
+API surfaces. Install all three if you want to try each surface.
 
 ## Initialize
 
