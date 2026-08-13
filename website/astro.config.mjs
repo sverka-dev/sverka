@@ -44,7 +44,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Sverka",
-      description: "Define checks once. Plan locally. Run anywhere.",
+      description: "AI-first verification framework. One command. Full pipeline. Zero token waste.",
       sidebar,
       favicon: "/favicon.svg",
       social: [
