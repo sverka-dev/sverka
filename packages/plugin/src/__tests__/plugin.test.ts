@@ -99,13 +99,17 @@ describe("defineSverkaPlugin", () => {
   });
 
   it("throws INVALID_CAPABILITY for invalid capabilities", () => {
-    expect(() =>
+    try {
       defineSverkaPlugin(() => ({
         name: "bad",
         apiVersion: "v1",
         capabilities: { "trigger.push": "totally-invalid" as never },
-      })),
-    ).toThrow(PluginError);
+      }));
+      throw new Error("expected INVALID_CAPABILITY");
+    } catch (err) {
+      expect(err).toBeInstanceOf(PluginError);
+      expect((err as PluginError).code).toBe("INVALID_CAPABILITY");
+    }
   });
 });
 
@@ -306,5 +310,43 @@ describe("createPluginRegistry", () => {
     registry.register(p1);
     registry.register(p2);
     expect(registry.getCapabilities()).toHaveLength(1);
+  });
+
+  it("plugins getter returns a defensive array copy", () => {
+    const registry = createPluginRegistry();
+    const p1 = defineSverkaPlugin(() => ({ name: "a", apiVersion: "v1" }));
+    registry.register(p1);
+    const plugins = registry.plugins as { name: string; apiVersion: string }[];
+    plugins.push(
+      defineSverkaPlugin(() => ({ name: "b", apiVersion: "v1" })),
+    );
+    expect(registry.plugins).toHaveLength(1);
+  });
+
+  it("returned plugin objects cannot mutate registry state", () => {
+    const registry = createPluginRegistry();
+    const p1 = defineSverkaPlugin(() => ({ name: "a", apiVersion: "v1" }));
+    registry.register(p1);
+    const stored = registry.plugins[0];
+    (stored as { name: string }).name = "b";
+    expect(registry.plugins[0]?.name).toBe("a");
+    expect(() =>
+      registry.register(
+        defineSverkaPlugin(() => ({ name: "b", apiVersion: "v1" })),
+      ),
+    ).not.toThrow();
+  });
+
+  it("getCapabilities returns defensive manifest copies", () => {
+    const registry = createPluginRegistry();
+    const p1 = defineSverkaPlugin(() => ({
+      name: "a",
+      apiVersion: "v1",
+      capabilities: { "trigger.push": "native" },
+    }));
+    registry.register(p1);
+    const caps = registry.getCapabilities();
+    (caps[0] as Record<string, string>)["trigger.push"] = "unsupported";
+    expect(registry.getCapabilities()[0]?.["trigger.push"]).toBe("native");
   });
 });
