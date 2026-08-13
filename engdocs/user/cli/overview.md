@@ -1,83 +1,84 @@
 # CLI reference
 
-Sverka's CLI has 7 commands plus global flags. Source of truth:
-`packages/cli/src/main.ts`.
+Sverka's CLI has 10 commands. Source of truth: `packages/cli/src/main.ts`.
 
 ## Commands
 
 ### `sverka init`
 
-Create a `sverka.config.ts` file with a default verification workflow.
+Create a `sverka.config.ts` file with a default Construct-based workflow.
 
 | Flag        | Type    | Default    | Choices       | Description                    |
 |-------------|---------|------------|---------------|--------------------------------|
 | `--template`| string  | `minimal`  | `minimal`, `full` | Config template to use     |
 | `--force`   | boolean | `false`    |               | Overwrite existing config      |
 
-### `sverka inspect`
+### `sverka validate`
 
-Discover and display project context (package manager, languages, checks).
+Synthesize the Definition Graph and run validators. Reports graph errors
+and validation diagnostics.
 
 ### `sverka plan`
 
-Synthesize a plan without executing.
+Synthesize the Definition Graph, bind a Run Plan for an entry, and print
+it without executing.
 
 | Flag        | Type    | Default | Description                              |
 |-------------|---------|---------|------------------------------------------|
-| `--only-new`| boolean | `false` | Only show checks not in the baseline     |
+| `--entry`   | string  | —       | Entry ID to plan for                     |
+| `--inputs`  | string  | —       | JSON string of input values              |
 
-### `sverka execute` (alias: `sverka run`)
+### `sverka graph`
 
-Execute the workflow locally.
+Print the synthesized Definition Graph showing pipelines, steps, entries,
+and dependencies.
 
-| Flag         | Type    | Default | Choices       | Description                          |
-|--------------|---------|---------|---------------|--------------------------------------|
-| `--executor` | string  | `host`  | `host`, `docker` | Executor to use                 |
-| `--only-new` | boolean | `false` |               | Skip checks in the baseline          |
-| `--baseline` | string  |         |               | Path to a baseline file              |
+### `sverka run`
 
-### `sverka validate`
+Execute a Run Plan through the native engine with the host runtime driver.
+Emits step events: pending, started, succeeded/failed, run completion.
 
-Validate `sverka.config.ts` without executing. Checks that the config
-loads and the workflow is well-formed.
+| Flag        | Type    | Default | Description                              |
+|-------------|---------|---------|------------------------------------------|
+| `--entry`   | string  | —       | Entry ID to run                          |
+| `--inputs`  | string  | —       | JSON string of input values              |
 
-### `sverka baseline`
+### `sverka discover`
 
-Manage the findings baseline. Has 4 subcommands:
+Discover and display project context (package manager, languages, checks).
 
-| Subcommand | Description                        |
-|------------|------------------------------------|
-| `create`   | Create a baseline from execution   |
-| `update`   | Update the baseline                |
-| `show`     | Display the baseline               |
-| `clear`    | Remove the baseline file           |
+### `sverka check`
 
-| Flag         | Type   | Description                    |
-|--------------|--------|--------------------------------|
-| `--baseline` | string | Path to a baseline file        |
+Run checks and report findings.
+
+### `sverka policy`
+
+Evaluate policy against findings and baseline.
+
+### `sverka synth --target github|gitlab`
+
+Lower the Definition Graph to native GitHub Actions or GitLab CI YAML.
+
+| Flag        | Type    | Default | Description                              |
+|-------------|---------|---------|------------------------------------------|
+| `--target`  | string  | —       | Target: `github` or `gitlab`             |
+| `--output`  | string  | —       | Output file path                         |
 
 ### `sverka doctor`
 
-Diagnose environment and dependencies. Checks that required tools are
-available on PATH.
+Check installation health, dependencies, and configuration.
 
 ## Global flags
 
-Available on all commands:
-
-| Flag       | Alias | Type    | Default     | Choices       | Description                    |
-|------------|-------|---------|-------------|---------------|--------------------------------|
-| `--format` | `-f`  | string  | `human`     | `human`, `json` | Output format              |
-| `--config` | `-c`  | string  | auto-discover |              | Path to config file           |
-| `--root`   | `-r`  | string  | `process.cwd()` |            | Project root                  |
-| `--quiet`  | `-q`  | boolean | `false`     |               | Suppress non-error output      |
-| `--verbose`| `-v`  | boolean | `false`     |               | Show debug output              |
+| Flag        | Description                              |
+|-------------|------------------------------------------|
+| `--config`  | Path to config file (default: `sverka.config.ts`) |
+| `--verbose` | Verbose output                           |
 
 ## Exit codes
 
-| Code | Meaning        |
-|------|----------------|
-| 0    | Success (pass) |
-| 1    | Policy fail    |
-| 2    | Usage error    |
-| 3    | Runtime error  |
+| Code | Meaning         |
+|------|-----------------|
+| 0    | Success         |
+| 1    | Validation error |
+| 2    | Execution error  |

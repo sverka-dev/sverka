@@ -25,28 +25,35 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-Sverka is a composable workflow SDK, local CI runtime, and multi-target compiler for software verification. Write your verification pipeline as TypeScript, run it on your machine, and compile the same workflow to GitHub Actions, GitLab CI, and more.
+Sverka is a provider-neutral workflow framework and execution platform for software verification. Author workflows in TypeScript through three equivalent APIs, execute them locally through a native engine, and compile the same Definition Graph to GitHub Actions or GitLab CI.
 
 ## What you get
 
 <CardGrid stagger>
-  <Card title="TypeScript-first" icon="seti:typescript">
-    Compose pipelines, parallel steps, conditional runs, and matrices with a typed SDK.
+  <Card title="Three authoring surfaces" icon="seti:typescript">
+    Construct, SDK, and Decorator APIs all produce the same Definition Graph.
   </Card>
-  <Card title="Local execution" icon="rocket">
-    Run checks in Docker, Podman, or on the host without touching a CI provider.
+  <Card title="Provider-neutral" icon="external">
+    No GitHub or GitLab terms in your workflow. The Definition Graph is the source of truth.
   </Card>
-  <Card title="Compile anywhere" icon="external">
-    Emit GitHub Actions, GitLab CI, or other targets from the same source of truth.
+  <Card title="Native execution" icon="rocket">
+    Run through the native engine with host or container runtime. Topological scheduling, parallel steps.
   </Card>
-  <Card title="Normalized findings" icon="approve-check">
-    SARIF, fingerprints, baselines, and policy verdicts in one model.
+  <Card title="Native target lowering" icon="seti:yaml">
+    Lower to GitHub Actions or GitLab CI YAML. Not thin wrappers — real native lowering.
+  </Card>
+  <Card title="Capability model" icon="seti:settings">
+    Plugin system declares what each target supports. Unsupported features produce diagnostics.
+  </Card>
+  <Card title="Conformance suite" icon="approve-check">
+    §34 acceptance gate verifies all authoring surfaces produce equivalent graphs.
   </Card>
 </CardGrid>
 
 ## Start here
 
 - [Install Sverka](user/getting-started/install/) and set up your first workflow.
-- [Explore the Workflow API](user/workflow-api/overview/) to compose checks.
+- [Define your first plan](user/getting-started/first-plan/) — author, plan, run, compile.
+- [Explore the Workflow API](user/workflow-api/overview/) — Construct, SDK, and Decorator surfaces.
 - [Read the CLI reference](user/cli/overview/) for all commands and flags.
 - [Browse the full user guide](user/) for all topics.
