@@ -142,6 +142,16 @@ export async function loadProjectGraph(global: {
  * Falls back to `npm` when no lockfile or packageManager field is found.
  */
 export function detectPackageManager(root: string): PmName {
+  const fromLockfile = detectFromLockfile(root);
+  if (fromLockfile) return fromLockfile;
+
+  const fromPkg = detectFromPackageJson(root);
+  if (fromPkg) return fromPkg;
+
+  return "npm";
+}
+
+function detectFromLockfile(root: string): PmName | undefined {
   if (existsSync(join(root, "bun.lockb")) || existsSync(join(root, "bun.lock"))) {
     return "bun";
   }
@@ -154,25 +164,31 @@ export function detectPackageManager(root: string): PmName {
   if (existsSync(join(root, "package-lock.json"))) {
     return "npm";
   }
+  return undefined;
+}
 
+function detectFromPackageJson(root: string): PmName | undefined {
   const pkgPath = join(root, "package.json");
-  if (existsSync(pkgPath)) {
-    try {
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
-        packageManager?: string;
-      };
-      if (typeof pkg.packageManager === "string") {
-        if (pkg.packageManager.startsWith("npm")) return "npm";
-        if (pkg.packageManager.startsWith("pnpm")) return "pnpm";
-        if (pkg.packageManager.startsWith("yarn")) return "yarn";
-        if (pkg.packageManager.startsWith("bun")) return "bun";
-      }
-    } catch {
-      // ignore malformed package.json
+  if (!existsSync(pkgPath)) return undefined;
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+      packageManager?: string;
+    };
+    if (typeof pkg.packageManager === "string") {
+      return pmFromPackageManagerField(pkg.packageManager);
     }
+  } catch {
+    // ignore malformed package.json
   }
+  return undefined;
+}
 
-  return "npm";
+function pmFromPackageManagerField(packageManager: string): PmName | undefined {
+  if (packageManager.startsWith("npm")) return "npm";
+  if (packageManager.startsWith("pnpm")) return "pnpm";
+  if (packageManager.startsWith("yarn")) return "yarn";
+  if (packageManager.startsWith("bun")) return "bun";
+  return undefined;
 }
 
 /**
@@ -181,23 +197,7 @@ export function detectPackageManager(root: string): PmName {
  */
 export async function ensureConstructsDependency(root: string): Promise<void> {
   const pkgPath = join(root, "package.json");
-  let base: Record<string, unknown>;
-
-  if (existsSync(pkgPath)) {
-    try {
-      base = JSON.parse(await readFile(pkgPath, "utf8")) as Record<string, unknown>;
-    } catch (e) {
-      const reason = e instanceof Error ? e.message : String(e);
-      throw new CliError(
-        `failed to read package.json: ${reason}`,
-        "PACKAGE_ERROR",
-        ExitCode.RuntimeError,
-        e,
-      );
-    }
-  } else {
-    base = { name: "sverka-project", version: "0.0.0" };
-  }
+  const base = await loadPackageBase(pkgPath);
 
   const pkg: Record<string, unknown> = {
     name: base.name ?? "sverka-project",
@@ -205,6 +205,29 @@ export async function ensureConstructsDependency(root: string): Promise<void> {
     ...base,
   };
 
+  ensureConstructsDeclared(pkg, root);
+
+  await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+}
+
+async function loadPackageBase(pkgPath: string): Promise<Record<string, unknown>> {
+  if (!existsSync(pkgPath)) {
+    return { name: "sverka-project", version: "0.0.0" };
+  }
+  try {
+    return JSON.parse(await readFile(pkgPath, "utf8")) as Record<string, unknown>;
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    throw new CliError(
+      `failed to read package.json: ${reason}`,
+      "PACKAGE_ERROR",
+      ExitCode.RuntimeError,
+      e,
+    );
+  }
+}
+
+function ensureConstructsDeclared(pkg: Record<string, unknown>, root: string): void {
   const deps = (pkg.dependencies as Record<string, unknown> | undefined) ?? {};
   const devDeps =
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
@@ -213,26 +236,23 @@ export async function ensureConstructsDependency(root: string): Promise<void> {
     const version = isLocalWorkspace(root) ? "workspace:*" : getDefaultConstructsVersion();
     pkg.devDependencies = { ...devDeps, "@sverka/constructs": version };
   }
-
-  await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
 }
 
 function isLocalWorkspace(root: string): boolean {
   const rootPkg = join(root, "package.json");
   const constructsPkg = join(root, "packages", "constructs", "package.json");
-  if (!existsSync(rootPkg) || !existsSync(constructsPkg)) return false;
 
   try {
-    const root = JSON.parse(readFileSync(rootPkg, "utf8")) as {
+    const rootData = JSON.parse(readFileSync(rootPkg, "utf8")) as {
       workspaces?: string[] | { packages?: string[] };
     };
     const constructs = JSON.parse(readFileSync(constructsPkg, "utf8")) as {
       name?: string;
     };
     if (constructs.name !== "@sverka/constructs") return false;
-    const patterns = Array.isArray(root.workspaces)
-      ? root.workspaces
-      : root.workspaces?.packages ?? [];
+    const patterns = Array.isArray(rootData.workspaces)
+      ? rootData.workspaces
+      : rootData.workspaces?.packages ?? [];
     return patterns.some((pattern) => pattern.startsWith("packages"));
   } catch {
     return false;
