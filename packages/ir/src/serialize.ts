@@ -6,7 +6,7 @@ import type { DefinitionGraph } from "@sverka/core";
 import { canonicalStringify } from "./canonical.js";
 import { validateGraphSchema, validateRunPlanSchema } from "./validate.js";
 import { ValidationError, SerializationError } from "./errors.js";
-import { computeGraphId } from "./ids.js";
+import { computeGraphId, computeRunPlanId } from "./ids.js";
 import { GRAPH_SCHEMA_VERSION } from "./version.js";
 import type { RunPlan } from "./run-plan.js";
 
@@ -23,13 +23,13 @@ export interface SerializableGraph {
  * Produces a SerializableGraph envelope with deterministic id.
  */
 export function serializeGraph(graph: DefinitionGraph): string {
-  const envelope: SerializableGraph = {
-    apiVersion: GRAPH_SCHEMA_VERSION,
-    id: computeGraphId(graph),
-    graph,
-    createdAt: new Date().toISOString(),
-  };
   try {
+    const envelope: SerializableGraph = {
+      apiVersion: GRAPH_SCHEMA_VERSION,
+      id: computeGraphId(graph),
+      graph,
+      createdAt: new Date().toISOString(),
+    };
     return canonicalStringify(envelope);
   } catch (e) {
     throw new SerializationError(
@@ -55,6 +55,9 @@ export function deserializeGraph(json: string): SerializableGraph {
     );
   }
   validateGraphSchema(parsed);
+  if (parsed.id !== computeGraphId(parsed.graph)) {
+    throw new ValidationError("graph id does not match content-addressed hash");
+  }
   return parsed;
 }
 
@@ -88,6 +91,10 @@ export function deserializeRunPlan(json: string): RunPlan {
     );
   }
   validateRunPlanSchema(parsed);
+  const { id: _id, createdAt: _createdAt, ...body } = parsed;
+  if (parsed.id !== computeRunPlanId(body)) {
+    throw new ValidationError("run plan id does not match content-addressed hash");
+  }
   return parsed;
 }
 

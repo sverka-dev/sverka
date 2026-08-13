@@ -205,9 +205,29 @@ export function resolveStepId(pipelineId: string, stepName: string): string {
 export function validateGraph(graph: DefinitionGraph): void {
   for (const pipeline of graph.project.pipelines) {
     const steps = pipeline.steps;
+    const stepIds = new Set(steps.map((s) => s.id));
     validateOutputCollisions(steps);
+    validateDependencies(steps);
     validateReferences(steps, pipeline.id);
     validateReferenceTypes(steps, pipeline.id);
     detectCycles(steps);
+    for (const entry of pipeline.entries) {
+      if (entry.roots.length === 0) {
+        throw new SynthesisError(
+          "INVALID_ENTRY",
+          `Entry '${entry.id}' in pipeline '${pipeline.id}' has no roots`,
+          entry.id,
+        );
+      }
+      for (const root of entry.roots) {
+        if (!stepIds.has(root)) {
+          throw new SynthesisError(
+            "UNKNOWN_PRODUCER",
+            `Entry '${entry.id}' in pipeline '${pipeline.id}' references unknown root step '${root}'`,
+            root,
+          );
+        }
+      }
+    }
   }
 }
