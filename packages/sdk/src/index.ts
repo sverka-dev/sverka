@@ -27,13 +27,6 @@ export type {
 export { CoreError, PlanningError, CompositionError } from "@sverka/core";
 export type { Plan, PlanOperation, PlanMetadata, ExecutorSpec } from "@sverka/ir";
 export { validatePlan, computePlanId } from "@sverka/ir";
-export { Scheduler, type SchedulerConfig } from "@sverka/runtime";
-export type { Executor, ExecuteRequest, ExecuteResult } from "@sverka/runtime";
-export type {
-  ExecutionResult as RuntimeExecutionResult,
-  OperationOutcome as RuntimeOperationOutcome,
-  ExecutionState,
-} from "@sverka/runtime";
 export { createPlanner } from "@sverka/planner";
 export type {
   Planner,
@@ -73,30 +66,7 @@ export type {
 } from "./compat/types.js";
 export { findConfig, loadWorkflow } from "./compat/config.js";
 export { createSverka, plan, toPlan, execute } from "./compat/sverka.js";
-
-// ── task helper ───────────────────────────────────────────────────
-import type { Operation } from "@sverka/core";
-
-/**
- * Name an operation. Sugar for `op.named(name)`.
- * @example
- * pipeline(task("lint", run({ command: "bun", args: ["run", "lint"] })))
- */
-export function task(name: string, op: Operation): Operation {
-  return op.named(name);
-}
-
-// ── Workflow definition ───────────────────────────────────────────
-import type { WorkflowDefinition } from "./compat/types.js";
-
-/**
- * Type-safe helper for sverka.config.ts. Identity function.
- */
-export function defineWorkflow(
-  definition: WorkflowDefinition,
-): WorkflowDefinition {
-  return definition;
-}
+export { task, defineWorkflow } from "./compat/helpers.js";
 
 // ── New SDK API (v0) — available under /v0 subpath ─────────────────
 export { sh } from "./sh.js";
