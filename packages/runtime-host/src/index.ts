@@ -1,7 +1,6 @@
-// @sverka/runtime-host — public API
+// @sverka/runtime-host — public API. Spec 11.
 
-export { HostExecutor } from "./host-executor.js";
-export { type HostExecutorConfig } from "./config.js";
+export { createHostDriver } from "./host-driver.js";
+export type { HostDriverConfig } from "./config.js";
 export { type CommandAllowlist, createAllowlist } from "./allowlist.js";
-export { HostExecutorError, HostTimeoutError, CommandNotAllowedError }
-  from "./errors.js";
+export { HostDriverError, HostTimeoutError, CommandNotAllowedError } from "./errors.js";

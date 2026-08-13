@@ -1,5 +1,5 @@
 {
-  "name": "@sverka/runtime-docker",
+  "name": "@sverka/engine-native",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.mjs",
@@ -19,7 +19,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/engine-native": "workspace:*",
     "@sverka/ir": "workspace:*",
     "@sverka/core": "workspace:*"
   },
