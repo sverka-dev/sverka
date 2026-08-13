@@ -11,26 +11,23 @@ describe("createBuiltinResolver — Node (bun)", () => {
   it("resolves typecheck to bun run typecheck", () => {
     const r = resolver.resolve(makeCheck("typecheck"), ctx);
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("bun");
-    expect(r!.operation.args).toEqual(["run", "typecheck"]);
-    expect(r!.operation.kind).toBe("check");
-    expect(r!.operation.id).toBe("prop-typecheck");
-    expect(r!.operation.name).toBe("typecheck");
-    expect(r!.operation.description).toBe("test");
+    expect(r!.step.id).toBe("checks/typecheck");
+    expect(r!.step.operations).toHaveLength(1);
+    expect(r!.step.operations[0]!.kind).toBe("shell");
+    expect((r!.step.operations[0] as { command: string }).command).toBe("bun run typecheck");
+    expect(r!.step.runtime.mode).toBe("host");
   });
 
   it("resolves lint to bun run lint", () => {
     const r = resolver.resolve(makeCheck("lint"), ctx);
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("bun");
-    expect(r!.operation.args).toEqual(["run", "lint"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("bun run lint");
   });
 
   it("resolves test to bun run test", () => {
     const r = resolver.resolve(makeCheck("test"), ctx);
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("bun");
-    expect(r!.operation.args).toEqual(["run", "test"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("bun run test");
   });
 });
 
@@ -38,22 +35,19 @@ describe("createBuiltinResolver — Node (npm/yarn/pnpm)", () => {
   it("resolves typecheck with npm", () => {
     const r = resolver.resolve(makeCheck("typecheck"), makeContext(["npm"]));
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("npm");
-    expect(r!.operation.args).toEqual(["run", "typecheck"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("npm run typecheck");
   });
 
   it("resolves lint with yarn", () => {
     const r = resolver.resolve(makeCheck("lint"), makeContext(["yarn"]));
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("yarn");
-    expect(r!.operation.args).toEqual(["run", "lint"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("yarn run lint");
   });
 
   it("resolves test with pnpm", () => {
     const r = resolver.resolve(makeCheck("test"), makeContext(["pnpm"]));
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("pnpm");
-    expect(r!.operation.args).toEqual(["run", "test"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("pnpm run test");
   });
 });
 
@@ -61,15 +55,13 @@ describe("createBuiltinResolver — Python", () => {
   it("resolves lint to ruff check", () => {
     const r = resolver.resolve(makeCheck("lint"), makeContext(["poetry"]));
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("ruff");
-    expect(r!.operation.args).toEqual(["check"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("ruff check");
   });
 
   it("resolves test to pytest", () => {
     const r = resolver.resolve(makeCheck("test"), makeContext(["pip"]));
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("pytest");
-    expect(r!.operation.args).toEqual([]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("pytest");
   });
 });
 
@@ -79,22 +71,19 @@ describe("createBuiltinResolver — Rust", () => {
   it("resolves clippy to cargo clippy", () => {
     const r = resolver.resolve(makeCheck("clippy"), ctx);
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("cargo");
-    expect(r!.operation.args).toEqual(["clippy"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("cargo clippy");
   });
 
   it("resolves fmt-check to cargo fmt --check", () => {
     const r = resolver.resolve(makeCheck("fmt-check"), ctx);
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("cargo");
-    expect(r!.operation.args).toEqual(["fmt", "--check"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("cargo fmt --check");
   });
 
   it("resolves test to cargo test", () => {
     const r = resolver.resolve(makeCheck("test"), ctx);
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("cargo");
-    expect(r!.operation.args).toEqual(["test"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("cargo test");
   });
 });
 
@@ -104,15 +93,13 @@ describe("createBuiltinResolver — Go", () => {
   it("resolves vet to go vet ./...", () => {
     const r = resolver.resolve(makeCheck("vet"), ctx);
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("go");
-    expect(r!.operation.args).toEqual(["vet", "./..."]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("go vet ./...");
   });
 
   it("resolves test to go test ./...", () => {
     const r = resolver.resolve(makeCheck("test"), ctx);
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("go");
-    expect(r!.operation.args).toEqual(["test", "./..."]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("go test ./...");
   });
 });
 
@@ -133,16 +120,14 @@ describe("createBuiltinResolver — multiple package managers", () => {
     const r = resolver.resolve(makeCheck("test"), makeContext(["cargo", "bun"]));
     expect(r).not.toBeNull();
     // Node entries come before cargo in table order, so bun wins.
-    expect(r!.operation.command).toBe("bun");
-    expect(r!.operation.args).toEqual(["run", "test"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("bun run test");
   });
 
   it("honours proposal reason over table order in polyglot projects", () => {
     const rustCheck = makeCheck("test", "Rust project defaults");
     const r = resolver.resolve(rustCheck, makeContext(["cargo", "bun"]));
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("cargo");
-    expect(r!.operation.args).toEqual(["test"]);
+    expect((r!.step.operations[0] as { command: string }).command).toBe("cargo test");
   });
 });
 
@@ -173,12 +158,13 @@ describe("custom CheckResolver", () => {
       resolve() {
         return {
           checkId: "custom",
-          operation: {
-            id: "op-1",
-            kind: "check",
-            name: "custom",
-            command: "my-tool",
-            args: ["--sarif", "out.sarif"],
+          step: {
+            id: "checks/custom",
+            runtime: { mode: "host" },
+            operations: [{ kind: "shell", command: "my-tool --sarif out.sarif" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [],
           },
           outputs: [{ path: "out.sarif", format: "sarif" }],
         };
@@ -186,7 +172,7 @@ describe("custom CheckResolver", () => {
     };
     const r = custom.resolve(makeCheck("custom"), makeContext([]));
     expect(r).not.toBeNull();
-    expect(r!.operation.command).toBe("my-tool");
+    expect((r!.step.operations[0] as { command: string }).command).toBe("my-tool --sarif out.sarif");
     expect(r!.outputs).toHaveLength(1);
     expect(r!.outputs[0]!.format).toBe("sarif");
   });
