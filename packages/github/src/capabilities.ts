@@ -8,6 +8,7 @@ export const githubCapabilities: CapabilityManifest = {
   "runtime.host": "native",
   "runtime.container": "native",
   "operation.shell": "native",
+  "operation.import": "lowered",
   "output.scalar": "lowered",
   "output.artifact": "native",
   "graph.dependencies": "native",

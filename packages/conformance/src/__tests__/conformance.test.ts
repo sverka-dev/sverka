@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { parse } from "yaml";
 import { synthesize } from "@sverka/core";
 import { serializeGraph, deserializeGraph, validateGraphSchema } from "@sverka/ir";
@@ -10,6 +13,7 @@ import { GitlabTarget } from "@sverka/gitlab";
 import { analyzeCapabilities } from "@sverka/plugin";
 import { githubCapabilities } from "@sverka/github";
 import { gitlabCapabilities } from "@sverka/gitlab";
+import type { RunEvent } from "@sverka/engine-native";
 import {
   createSeedWithConstructs,
   createSeedWithSDK,
@@ -17,13 +21,50 @@ import {
   runConformance,
 } from "../index.js";
 
-// Helper for host driver config
+// Helper for host driver config — allow `sh` scripts used by the seed.
 function makeDriver() {
   return createHostDriver({
     enabled: true,
-    allowlist: createAllowlist([]),
+    allowlist: createAllowlist(["sh"]),
     envAllowlist: [],
   });
+}
+
+// Canonicalize a value for stable comparison: sort object keys and arrays.
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .map(canonicalize)
+      .sort((a, b) => {
+        if (typeof a === "string" && typeof b === "string") {
+          return a.localeCompare(b);
+        }
+        if (typeof a === "number" && typeof b === "number") {
+          return a - b;
+        }
+        if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
+          return JSON.stringify(a).localeCompare(JSON.stringify(b));
+        }
+        return String(a).localeCompare(String(b));
+      });
+  }
+
+  if (value !== null && typeof value === "object") {
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    const entries = Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => [k, canonicalize(v)] as const)
+      .sort(([a], [b]) => a.localeCompare(b));
+    return Object.fromEntries(entries);
+  }
+
+  return value;
+}
+
+// Normalize a graph for stable comparison.
+function normalize(g: unknown): string {
+  return JSON.stringify(canonicalize(g));
 }
 
 // §33.1 — Authoring conformance
@@ -32,20 +73,6 @@ describe("§33.1 Authoring conformance", () => {
     const g1 = synthesize(createSeedWithConstructs());
     const g2 = synthesize(createSeedWithSDK());
     const g3 = synthesize(createSeedWithDecorators());
-
-    // Compare normalized graphs (sorted by step/entry ID)
-    const normalize = (g: typeof g1) => ({
-      project: {
-        id: g.project.id,
-        pipelines: g.project.pipelines.map((p) => ({
-          id: p.id,
-          inputs: p.inputs,
-          entries: [...p.entries].sort((a, b) => a.id.localeCompare(b.id)),
-          steps: [...p.steps].sort((a, b) => a.id.localeCompare(b.id)),
-          outputs: p.outputs,
-        })),
-      },
-    });
 
     expect(normalize(g1)).toEqual(normalize(g2));
     expect(normalize(g2)).toEqual(normalize(g3));
@@ -71,6 +98,29 @@ describe("§33.1 Authoring conformance", () => {
     expect(graph.project.pipelines[0]?.inputs.nodeVersion).toBeDefined();
     expect(graph.project.pipelines[0]?.inputs.nodeVersion?.default).toBe("22");
   });
+
+  it("seed pipeline has scalar and artifact data flow", () => {
+    const graph = synthesize(createSeedWithConstructs());
+    const steps = graph.project.pipelines[0]!.steps;
+
+    const lint = steps.find((s) => s.id === "ci/lint")!;
+    const build = steps.find((s) => s.id === "ci/build")!;
+    const test = steps.find((s) => s.id === "ci/test")!;
+
+    expect(lint.operations.some((op) => op.kind === "exportOutput")).toBe(true);
+    expect(
+      build.dependencies.some(
+        (d) => d.kind === "value" && d.producer === "ci/lint" && d.output === "status",
+      ),
+    ).toBe(true);
+
+    expect(build.operations.some((op) => op.kind === "exportArtifact")).toBe(true);
+    expect(
+      test.dependencies.some(
+        (d) => d.kind === "artifact" && d.producer === "ci/build" && d.output === "dist",
+      ),
+    ).toBe(true);
+  });
 });
 
 // §33.2 — Target conformance
@@ -94,7 +144,6 @@ describe("§33.2 Target conformance", () => {
     expect(artifacts).toHaveLength(1);
     const yaml = parse(artifacts[0]!.content);
     expect(yaml.stages).toBeDefined();
-    // Each job should have script
     for (const jobId of Object.keys(yaml)) {
       if (jobId === "stages" || jobId === "variables") continue;
       expect(yaml[jobId].script).toBeDefined();
@@ -120,7 +169,17 @@ describe("§33.2 Target conformance", () => {
 
 // §33.3 — Engine conformance
 describe("§33.3 Engine conformance", () => {
-  it("native engine executes seed pipeline", async () => {
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = await mkdtemp(join(tmpdir(), "sverka-engine-"));
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  it("native engine executes seed pipeline successfully", async () => {
     const graph = synthesize(createSeedWithConstructs());
     const plan = bindRunPlan({
       graph,
@@ -130,40 +189,56 @@ describe("§33.3 Engine conformance", () => {
     const engine = createEngine({
       drivers: [makeDriver()],
     });
-    const events: unknown[] = [];
-    const iterable = engine.run({
+    const events: RunEvent[] = [];
+    for await (const event of engine.run({
       plan,
-      workspace: "/tmp/sverka-conf",
-      artifactDir: "/tmp/sverka-conf/artifacts",
-    });
-    for await (const event of iterable) {
+      workspace: testDir,
+      artifactDir: join(testDir, "artifacts"),
+    })) {
       events.push(event);
     }
-    const completed = events.find(
-      (e) => typeof e === "object" && e !== null && "type" in e && (e as { type: string }).type === "run-completed",
-    );
+    const completed = events.find((e) => e.type === "run-completed");
     expect(completed).toBeDefined();
+    expect(completed!.status).toBe("success");
+
+    for (const stepId of ["ci/lint", "ci/build", "ci/test"]) {
+      expect(
+        events.some((e) => e.type === "step-succeeded" && e.stepId === stepId),
+      ).toBe(true);
+    }
   });
 });
 
 // Full pipeline: Project → Graph → RunPlan → Engine → Events
 describe("Full pipeline: Project → Graph → RunPlan → Engine → Events", () => {
-  it("end-to-end execution produces events", async () => {
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = await mkdtemp(join(tmpdir(), "sverka-e2e-"));
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  it("end-to-end execution produces success events", async () => {
     const proj = createSeedWithConstructs();
     const graph = synthesize(proj);
     const plan = bindRunPlan({ graph, entryId: "ci/on-push", inputs: {} });
     const engine = createEngine({
       drivers: [makeDriver()],
     });
-    const events: unknown[] = [];
+    const events: RunEvent[] = [];
     for await (const event of engine.run({
       plan,
-      workspace: "/tmp/sverka-e2e",
-      artifactDir: "/tmp/sverka-e2e/artifacts",
+      workspace: testDir,
+      artifactDir: join(testDir, "artifacts"),
     })) {
       events.push(event);
     }
     expect(events.length).toBeGreaterThan(0);
+    const completed = events.find((e) => e.type === "run-completed");
+    expect(completed?.status).toBe("success");
   });
 });
 
@@ -190,8 +265,7 @@ describe("Serialization round-trip", () => {
     const json = serializeGraph(graph);
     const restored = deserializeGraph(json);
     validateGraphSchema(restored);
-    expect(restored.graph.project.id).toBe(graph.project.id);
-    expect(restored.graph.project.pipelines.length).toBe(graph.project.pipelines.length);
+    expect(normalize(restored.graph)).toEqual(normalize(graph));
   });
 });
 
@@ -217,7 +291,23 @@ describe("§34 Acceptance gate — runConformance", () => {
 
   it("conformance covers all §34 criteria", async () => {
     const results = await runConformance();
-    // Should have results for §34.1 through §34.12 + serialization
-    expect(results.length).toBeGreaterThanOrEqual(10);
+    for (const criterion of [
+      "§34.1",
+      "§34.2",
+      "§34.3",
+      "§34.4",
+      "§34.5",
+      "§34.6",
+      "§34.7",
+      "§34.8",
+      "§34.9",
+      "§34.10",
+      "§34.11",
+    ]) {
+      expect(results.some((r) => r.name.startsWith(criterion))).toBe(true);
+    }
+    expect(
+      results.some((r) => r.name.startsWith("Serialization round-trip")),
+    ).toBe(true);
   });
 });
