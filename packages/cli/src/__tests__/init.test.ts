@@ -27,9 +27,9 @@ describe("init command", () => {
     const configPath = join(dir, "sverka.config.ts");
     expect(existsSync(configPath)).toBe(true);
     const content = await readFile(configPath, "utf8");
-    expect(content).toContain("defineWorkflow");
-    expect(content).toContain("pipeline");
-    expect(content).toContain('name: "verify"');
+    expect(content).toContain("Project");
+    expect(content).toContain("Pipeline");
+    expect(content).toContain('"verify"');
   });
 
   it("fails with CONFIG_EXISTS (exit 2) when config exists without --force", async () => {
@@ -75,7 +75,7 @@ describe("init command", () => {
     );
     expect(code).toBe(0);
     const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
-    expect(content).toContain("defineWorkflow");
+    expect(content).toContain("Project");
   });
 
   it("--config with a relative path creates the file under root", async () => {

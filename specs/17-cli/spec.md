@@ -1,34 +1,128 @@
-# Spec 17 — Cli
+# Spec 17 — CLI
 
-**Status:** Stub — to be written by architect during the corresponding wave.
-**Source:** specs/architecture-spec.md (authoritative)
+**Status:** Active
+**Source:** specs/architecture-spec.md §28, §30
+**Package:** `@sverka/cli` (rebuilt)
 
 ## Overview
 
-TODO — architect fills in during wave design phase. Reference the architecture
-spec section(s) listed in the reconciliation plan
-(engdocs/architecture/v0-architecture-spec-reconciliation.md).
+The v0 CLI provides commands for validating, planning, inspecting, and
+running Sverka workflows. It uses the new packages directly:
+constructs/core for synthesis, ir for Run Plans, planner for binding,
+engine-native for execution, checks for resolution, findings/policy for
+post-execution analysis.
 
 ## Goals
 
-TODO
+- `sverka validate` — synthesize Definition Graph, run validators
+- `sverka plan` — bind Entry + inputs → Run Plan, display steps
+- `sverka graph` — display Definition Graph structure (steps, deps, entries)
+- `sverka run` — execute Run Plan through native engine, show events
+- `sverka discover` — run planner discovery, show project context
+- `sverka check` — resolve proposed checks → StepDefinitions, display
+- `sverka policy` — evaluate findings against policy (post-execution)
+- `sverka synth --target github|gitlab` — STUB (requires Waves H/I)
+- Reuse existing output writer, types, error handling
+- JSON and human output formats
+- Exit codes: 0 success, 1 policy fail, 2 usage error, 3 runtime error
 
 ## Non-goals
 
-TODO
+- `synth` implementation (stubbed — requires Waves H/I targets)
+- Config file loading (sverka.config.ts loading via SDK — deferred)
+- Decorator-based authoring in config (Wave D)
+- Plugin system (Wave E)
+- Provider-native delegated engines (Wave E)
+- Interactive TUI
+- Watch mode
 
 ## Interfaces
 
-TODO
+```ts
+// Commands
+function validateCommand(global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+function planCommand(args: PlanArgs, global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+function graphCommand(global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+function runCommand(args: RunArgs, global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+function discoverCommand(global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+function checkCommand(global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+function policyCommand(args: PolicyArgs, global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+function synthCommand(args: SynthArgs, global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+
+// Entry point
+function main(argv: string[], deps?: MainDeps): Promise<number>;
+```
+
+### Args
+
+```ts
+interface PlanArgs { entryId?: string; }
+interface RunArgs { entryId?: string; executor?: "host" | "docker"; }
+interface PolicyArgs { baseline?: string; }
+interface SynthArgs { target: "github" | "gitlab"; }
+```
+
+### Exports
+
+```ts
+export { main, type MainDeps };
+export * from "./types.js";
+export { ConsoleOutputWriter, createOutputWriter, wrapOutputWriter, type WriteSink };
+```
 
 ## Data models
 
-TODO
+**Config loading**: The CLI loads a sverka.config.ts file from the root
+directory. This file uses the SDK to define a Project with Pipelines,
+Entries, and Steps. The CLI synthesizes it into a Definition Graph via
+`@sverka/core.synthesize`. If no config is found, commands that require
+a graph report an error.
+
+**Run Plan binding**: `plan` and `run` use `@sverka/planner.bindRunPlan`
+to bind the first entry (or a specified `--entry`) with empty inputs
+(v0: no user input override via CLI).
+
+**Execution**: `run` uses `@sverka/engine-native.createEngine` with a
+host driver (`@sverka/runtime-host.createHostDriver`). It collects
+events and prints them. Exit code reflects run status.
+
+**Discovery**: `discover` uses `@sverka/planner.createPlanner().discover()`
+to inspect the project and print the context.
+
+**Check resolution**: `check` uses the planner to discover, plan, then
+`@sverka/checks.synthesizeCheckSteps` to resolve proposed checks into
+StepDefinitions.
+
+**Policy**: `policy` loads findings from a baseline or execution output
+and evaluates against the default policy via `@sverka/policy`.
+
+**Synth stub**: `synth` prints a message that target compilation is not
+yet implemented and returns ExitCode.UsageError. This will be replaced
+in Waves H/I.
 
 ## Error handling
 
-TODO
+Reuses existing `CliError` with codes:
+- `UNKNOWN_COMMAND`, `MISSING_ARG`, `INVALID_FLAG`
+- `CONFIG_EXISTS` (init)
+- `RUNTIME_NOT_AVAILABLE` (docker not on PATH)
+- `SDK_ERROR` (config loading or synthesis failure)
 
 ## Test plan
 
-TODO
+1. `main` with no command → usage error (exit 2).
+2. `main` with unknown command → usage error (exit 2).
+3. `validate` with valid config → success (exit 0), prints graph info.
+4. `validate` with no config → runtime error (exit 3).
+5. `plan` with valid config → success, prints run plan steps.
+6. `plan` with --entry → uses specified entry.
+7. `graph` with valid config → success, prints step DAG.
+8. `run` with valid config → executes, prints events.
+9. `run` with --executor docker (no docker) → runtime error.
+10. `discover` → success, prints project context.
+11. `check` → success, prints resolved check steps.
+12. `policy` → success or policy fail based on findings.
+13. `synth --target github` → stub message, usage error.
+14. JSON format produces valid JSON output.
+15. Public API: all exports present, no any types.
+16. Regression: existing CLI tests for output writer, types pass.
