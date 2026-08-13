@@ -63,6 +63,45 @@ describe("decorator API — @stepWithOptions(options)", () => {
   });
 });
 
+describe("decorator API — @step(options) overloaded form", () => {
+  it("supports @step({ timeout }) factory form", () => {
+    @pipeline
+    class TestPipeline {
+      @step({ timeout: 30000 })
+      build = "npm run build";
+    }
+
+    const proj = new Project("test");
+    const p = decoratePipeline(TestPipeline, proj, "ci");
+    const stepInstance = p.node.children.find((c) => c.node.id === "build") as ShellStep;
+    expect(stepInstance).toBeInstanceOf(ShellStep);
+    expect(stepInstance.command).toBe("npm run build");
+    expect(stepInstance.timeout).toBe(30000);
+  });
+
+  it("supports @step and @step(options) in the same pipeline", () => {
+    @pipeline
+    class TestPipeline {
+      @step
+      lint = "npm run lint";
+
+      @step({ timeout: 120000 })
+      build = "npm run build";
+    }
+
+    const proj = new Project("test");
+    const p = decoratePipeline(TestPipeline, proj, "ci");
+    const lintStep = p.node.children.find((c) => c.node.id === "lint") as ShellStep;
+    const buildStep = p.node.children.find((c) => c.node.id === "build") as ShellStep;
+    expect(lintStep).toBeInstanceOf(ShellStep);
+    expect(lintStep.command).toBe("npm run lint");
+    expect(lintStep.timeout).toBeUndefined();
+    expect(buildStep).toBeInstanceOf(ShellStep);
+    expect(buildStep.command).toBe("npm run build");
+    expect(buildStep.timeout).toBe(120000);
+  });
+});
+
 describe("decorator API — @step with sh builder", () => {
   it("creates a ShellStep with outputs", () => {
     @pipeline
