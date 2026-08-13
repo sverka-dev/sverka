@@ -9,6 +9,7 @@ import type { RunPlan, InputValue } from "./run-plan.js";
 import { computeGraphId, computeRunPlanId } from "./ids.js";
 import { GRAPH_SCHEMA_VERSION, RUN_PLAN_SCHEMA_VERSION } from "./version.js";
 
+const INPUT_TYPES = new Set(["string", "number", "boolean"]);
 const OUTPUT_TYPES = new Set(["string", "number", "boolean", "artifact"]);
 const TRIGGER_KINDS = new Set(["push", "changeRequest", "manual"]);
 const SEVERITIES = new Set(["info", "warn", "error"]);
@@ -231,8 +232,8 @@ function validatePipelineStructure(value: unknown): void {
   if (typeof p.inputs !== "object" || p.inputs === null || Array.isArray(p.inputs)) {
     throw new ValidationError("invalid pipeline: missing 'inputs' object");
   }
-  for (const input of p.inputs) {
-    validatePipelineInput(input);
+  for (const [name, input] of Object.entries(p.inputs as Record<string, unknown>)) {
+    validatePipelineInput(name, input);
   }
   if (!Array.isArray(p.entries)) {
     throw new ValidationError("invalid pipeline: missing 'entries' array");
@@ -251,16 +252,28 @@ function validatePipelineStructure(value: unknown): void {
   }
 }
 
-function validatePipelineInput(value: unknown): void {
+function validatePipelineInput(name: string, value: unknown): void {
   if (typeof value !== "object" || value === null) {
-    throw new ValidationError("invalid pipeline input: expected object");
+    throw new ValidationError(`invalid pipeline input "${name}": expected object`);
   }
   const i = value as Record<string, unknown>;
-  if (typeof i.name !== "string" || i.name.length === 0) {
-    throw new ValidationError("invalid pipeline input: missing or invalid 'name'");
+  if (typeof i.type !== "string" || !INPUT_TYPES.has(i.type)) {
+    throw new ValidationError(`invalid pipeline input "${name}": missing or invalid 'type'`);
   }
-  if (typeof i.type !== "string" || !OUTPUT_TYPES.has(i.type)) {
-    throw new ValidationError("invalid pipeline input: missing or invalid 'type'");
+  const type = i.type;
+  if (i.required !== undefined && typeof i.required !== "boolean") {
+    throw new ValidationError(`invalid pipeline input "${name}": 'required' must be a boolean`);
+  }
+  if (i.secret !== undefined && typeof i.secret !== "boolean") {
+    throw new ValidationError(`invalid pipeline input "${name}": 'secret' must be a boolean`);
+  }
+  if (i.description !== undefined && typeof i.description !== "string") {
+    throw new ValidationError(`invalid pipeline input "${name}": 'description' must be a string`);
+  }
+  if (i.default !== undefined && typeof i.default !== type) {
+    throw new ValidationError(
+      `invalid pipeline input "${name}": 'default' does not match declared type "${type}"`,
+    );
   }
 }
 
