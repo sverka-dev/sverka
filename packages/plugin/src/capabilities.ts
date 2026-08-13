@@ -46,7 +46,7 @@ export function validateSupport(value: unknown): CapabilitySupport {
  * Validate a capability manifest object.
  */
 export function validateCapabilityManifest(manifest: unknown): asserts manifest is CapabilityManifest {
-  if (typeof manifest !== "object" || manifest === null) {
+  if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
     throw new PluginError("capability manifest must be an object", "INVALID_CAPABILITY");
   }
   const obj = manifest as Record<string, unknown>;
