@@ -159,6 +159,7 @@
       "name": "@sverka/policy",
       "version": "0.0.0",
       "dependencies": {
+        "@sverka/core": "workspace:*",
         "@sverka/findings": "workspace:*",
       },
       "devDependencies": {
