@@ -29,7 +29,7 @@ post-execution analysis.
 ## Non-goals
 
 - `synth` implementation (stubbed — requires Waves H/I targets)
-- Config file loading (sverka.config.ts loading via SDK — deferred)
+- Multiple config formats / dynamic import loading (deferred)
 - Decorator-based authoring in config (Wave D)
 - Plugin system (Wave E)
 - Provider-native delegated engines (Wave E)
@@ -58,7 +58,7 @@ function main(argv: string[], deps?: MainDeps): Promise<number>;
 ```ts
 interface PlanArgs { entryId?: string; }
 interface RunArgs { entryId?: string; executor?: "host" | "docker"; }
-interface PolicyArgs { baseline?: string; }
+interface PolicyArgs { findings: string; baseline?: string; }
 interface SynthArgs { target: "github" | "gitlab"; }
 ```
 
@@ -73,18 +73,22 @@ export { ConsoleOutputWriter, createOutputWriter, wrapOutputWriter, type WriteSi
 ## Data models
 
 **Config loading**: The CLI loads a sverka.config.ts file from the root
-directory. This file uses the SDK to define a Project with Pipelines,
-Entries, and Steps. The CLI synthesizes it into a Definition Graph via
-`@sverka/core.synthesize`. If no config is found, commands that require
-a graph report an error.
+directory. This file uses `@sverka/constructs` directly to define a
+Project with Pipelines, Entries, and Steps. The CLI synthesizes it into
+a Definition Graph via `@sverka/core.synthesize`. If no config is found,
+commands that require a graph report a usage error.
 
 **Run Plan binding**: `plan` and `run` use `@sverka/planner.bindRunPlan`
-to bind the first entry (or a specified `--entry`) with empty inputs
-(v0: no user input override via CLI).
+to bind the first entry found across all pipelines (or a specified
+`--entry`) with empty inputs (v0: no user input override via CLI).
 
 **Execution**: `run` uses `@sverka/engine-native.createEngine` with a
-host driver (`@sverka/runtime-host.createHostDriver`). It collects
-events and prints them. Exit code reflects run status.
+host driver (`@sverka/runtime-host.createHostDriver`) and, when
+`--executor docker` is chosen, a Docker driver
+(`@sverka/runtime-docker.createDockerDriver`). It collects events and
+prints them. Exit code reflects run status. The workspace passed to
+the engine is the project root; the engine creates per-step scratch
+directories under `.sverka/workspace` inside the root.
 
 **Discovery**: `discover` uses `@sverka/planner.createPlanner().discover()`
 to inspect the project and print the context.
@@ -93,12 +97,13 @@ to inspect the project and print the context.
 `@sverka/checks.synthesizeCheckSteps` to resolve proposed checks into
 StepDefinitions.
 
-**Policy**: `policy` loads findings from a baseline or execution output
+**Policy**: `policy` loads findings from a SARIF file specified with
+`--findings`, optionally applies a `--baseline` for `onlyNew` filtering,
 and evaluates against the default policy via `@sverka/policy`.
 
-**Synth stub**: `synth` prints a message that target compilation is not
-yet implemented and returns ExitCode.UsageError. This will be replaced
-in Waves H/I.
+**Synth stub**: `synth` prints a message (human output to stderr, JSON
+to stdout) that target compilation is not yet implemented and returns
+ExitCode.UsageError. This will be replaced in Waves H/I.
 
 ## Error handling
 
@@ -113,7 +118,7 @@ Reuses existing `CliError` with codes:
 1. `main` with no command → usage error (exit 2).
 2. `main` with unknown command → usage error (exit 2).
 3. `validate` with valid config → success (exit 0), prints graph info.
-4. `validate` with no config → runtime error (exit 3).
+4. `validate` with no config → usage error (exit 2).
 5. `plan` with valid config → success, prints run plan steps.
 6. `plan` with --entry → uses specified entry.
 7. `graph` with valid config → success, prints step DAG.
@@ -121,7 +126,7 @@ Reuses existing `CliError` with codes:
 9. `run` with --executor docker (no docker) → runtime error.
 10. `discover` → success, prints project context.
 11. `check` → success, prints resolved check steps.
-12. `policy` → success or policy fail based on findings.
+12. `policy` → success or policy fail based on `--findings` SARIF and optional `--baseline`.
 13. `synth --target github` → stub message, usage error.
 14. JSON format produces valid JSON output.
 15. Public API: all exports present, no any types.

@@ -44,6 +44,7 @@
         "@sverka/ir": "workspace:*",
         "@sverka/planner": "workspace:*",
         "@sverka/policy": "workspace:*",
+        "@sverka/runtime-docker": "workspace:*",
         "@sverka/runtime-host": "workspace:*",
         "yargs": "^17.7.3",
       },

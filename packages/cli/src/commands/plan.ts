@@ -1,12 +1,11 @@
 // plan command — bind Entry + inputs → Run Plan, display steps.
 // Spec 17 — §30.
 
-import { synthesize } from "@sverka/core";
 import { bindRunPlan } from "@sverka/planner";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
-import { resolveUnderRoot } from "../internal/paths.js";
-import { findConfig, loadConfig } from "../internal/config.js";
+import { loadProjectGraph } from "../internal/config.js";
+import { resolveDefaultEntryId } from "../internal/graph.js";
 
 export interface PlanArgs {
   entryId?: string;
@@ -23,31 +22,11 @@ export async function planCommand(
 ): Promise<number> {
   output.debug(`plan: root=${global.root} entry=${args.entryId ?? "(first)"}`);
 
-  let configPath: string | null = global.config
-    ? resolveUnderRoot(global.root, global.config)
-    : null;
-  if (!configPath) {
-    configPath = await findConfig(global.root);
-  }
-  if (!configPath) {
-    throw new CliError(
-      "no config found (use --config to specify a path)",
-      "MISSING_ARG",
-      ExitCode.UsageError,
-    );
-  }
+  const { graph } = await loadProjectGraph(global);
 
-  const project = await loadConfig(configPath);
-  const graph = synthesize(project);
-
-  const pipeline = graph.project.pipelines[0];
-  if (!pipeline) {
-    throw new CliError("no pipelines in config", "SDK_ERROR", ExitCode.RuntimeError);
-  }
-
-  const entryId = args.entryId ?? pipeline.entries[0]?.id;
+  const entryId = args.entryId ?? resolveDefaultEntryId(graph);
   if (!entryId) {
-    throw new CliError("no entries in pipeline", "MISSING_ARG", ExitCode.UsageError);
+    throw new CliError("no entries in graph", "MISSING_ARG", ExitCode.UsageError);
   }
 
   const plan = bindRunPlan({ graph, entryId });

@@ -7,6 +7,16 @@ import {
   writefile,
 } from "./helpers/fixtures.js";
 
+const EMPTY_SARIF = JSON.stringify({
+  version: "2.1.0",
+  runs: [
+    {
+      tool: { driver: { name: "test" } },
+      results: [],
+    },
+  ],
+});
+
 const VALID_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
 const proj = new Project("myproj");
 const pipeline = new Pipeline(proj, "ci");
@@ -88,6 +98,27 @@ describe("synth command (stub)", () => {
   });
 });
 
+describe("run command", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await makeTempDir();
+  });
+
+  afterEach(async () => {
+    await cleanupTempDir(dir);
+  });
+
+  it("executes a valid config and reports success", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(["run", "--root", dir], { output: out });
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("Run completed: success");
+  });
+
+});
+
 describe("policy command", () => {
   let dir: string;
 
@@ -99,16 +130,30 @@ describe("policy command", () => {
     await cleanupTempDir(dir);
   });
 
-  it("passes with no findings and no baseline", async () => {
+  it("requires --findings", async () => {
     const out = new CaptureWriter();
     const code = await main(["policy", "--root", dir], { output: out });
+    expect(code).toBe(2);
+  });
+
+  it("passes with empty findings", async () => {
+    await writefile(dir, "findings.sarif", EMPTY_SARIF);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["policy", "--root", dir, "--findings", "findings.sarif"],
+      { output: out },
+    );
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("pass");
   });
 
   it("prints JSON format", async () => {
+    await writefile(dir, "findings.sarif", EMPTY_SARIF);
     const out = new CaptureWriter();
-    const code = await main(["policy", "--root", dir, "--format", "json"], { output: out });
+    const code = await main(
+      ["policy", "--root", dir, "--findings", "findings.sarif", "--format", "json"],
+      { output: out },
+    );
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("policy");

@@ -1,11 +1,10 @@
 // validate command — synthesize Definition Graph, run validators.
 // Spec 17 — §30.
 
-import { synthesize, validateGraph } from "@sverka/core";
+import { validateGraph } from "@sverka/core";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
-import { resolveUnderRoot } from "../internal/paths.js";
-import { findConfig, loadConfig } from "../internal/config.js";
+import { loadProjectGraph } from "../internal/config.js";
 
 /**
  * Validate a sverka config: synthesize the Definition Graph and run validators.
@@ -18,23 +17,7 @@ export async function validateCommand(
 ): Promise<number> {
   output.debug(`validate: root=${global.root} config=${global.config ?? "(auto)"}`);
 
-  let configPath: string | null = global.config
-    ? resolveUnderRoot(global.root, global.config)
-    : null;
-  if (!configPath) {
-    configPath = await findConfig(global.root);
-  }
-
-  if (!configPath) {
-    throw new CliError(
-      "no config found (use --config to specify a path)",
-      "MISSING_ARG",
-      ExitCode.UsageError,
-    );
-  }
-
-  const project = await loadConfig(configPath);
-  const graph = synthesize(project);
+  const { configPath, graph } = await loadProjectGraph(global);
   validateGraph(graph);
 
   const durationMs = Date.now() - start;

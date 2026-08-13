@@ -2,7 +2,7 @@
 // Spec 17 — §30.
 
 import type { GlobalFlags, OutputWriter } from "../types.js";
-import { CliError, ExitCode } from "../types.js";
+import { ExitCode } from "../types.js";
 
 export interface SynthArgs {
   target: "github" | "gitlab";
@@ -30,12 +30,8 @@ export async function synthCommand(
       }),
     );
   } else {
-    output.writeLine(`synth --target ${args.target}: not yet implemented (requires Waves H/I)`);
+    output.errorLine(`synth --target ${args.target}: not yet implemented (requires Waves H/I)`);
   }
 
-  throw new CliError(
-    `synth --target ${args.target} is not yet implemented`,
-    "INVALID_FLAG",
-    ExitCode.UsageError,
-  );
+  return ExitCode.UsageError;
 }
