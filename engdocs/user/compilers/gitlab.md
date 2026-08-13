@@ -1,76 +1,72 @@
-# GitLab CI compiler
+# GitLab CI target
 
-The `@sverka/compiler-gitlab` package compiles a Plan to a GitLab CI YAML
-string. Source: `packages/compiler-gitlab/src/compile.ts`.
+The `@sverka/gitlab` package performs native lowering from a Definition
+Graph to GitLab CI YAML. Source: `packages/gitlab/src/target.ts`.
 
 ## Usage
 
 ```ts
-import { compileGitlabCi } from "@sverka/compiler-gitlab";
-import type { Plan } from "@sverka/ir";
+import { GitlabTarget, compileGitlab } from "@sverka/gitlab";
+import { synthesize } from "@sverka/core";
 
-const yaml = compileGitlabCi(plan, {
-  image: "oven/bun:latest",
-  sverkaVersion: "latest",
-  rules: [
-    { if: '$CI_PIPELINE_SOURCE == "push"' },
-    { if: '$CI_PIPELINE_SOURCE == "merge_request_event"' },
-  ],
-});
+// Convenience function
+const result = compileGitlab(graph);
+// result.artifacts[0].content → YAML string
+// result.diagnostics → capability diagnostics
+
+// Or use the Target contract directly
+const target = new GitlabTarget();
+const diagnostics = target.analyze(graph);
+const targetGraph = target.lower(graph);
+const artifacts = target.emit(targetGraph);
 ```
 
-## Config
+## Target contract
 
-All fields optional. Defaults apply when omitted.
+The GitLab target implements the Target contract (architecture spec §19):
 
-| Field            | Type              | Default          | Description                    |
-|------------------|-------------------|------------------|--------------------------------|
-| `image`          | `string`          | `"oven/bun:latest"` | Base image for the job     |
-| `sverkaVersion`  | `string`          | `"latest"`       | Sverka version to install      |
-| `rules`          | `GitlabRule[]`    | push + merge_request | When the pipeline runs    |
+1. **analyze(graph)** — checks capability support via `@sverka/plugin`
+2. **lower(graph)** — maps Definition Graph → GitlabTargetGraph (IR)
+3. **emit(targetGraph)** — converts IR → `.gitlab-ci.yml`
 
-### Rules
+## Lowering mappings
 
-| Field   | Type                                          | Description                          |
-|---------|-----------------------------------------------|--------------------------------------|
-| `if`    | `string`                                      | GitLab CI condition expression       |
-| `when`  | `"on_success" \| "never" \| "always" \| "manual"` | When to run the job            |
+| Sverka | GitLab CI |
+|---|---|
+| Step | Job (1:1) |
+| Dependencies | `needs` |
+| Runtime host | no `image` (runner default) |
+| Runtime container | `image: <image>` |
+| Shell operation | `script:` entry |
+| Artifact output | `artifacts:` paths |
+| Artifact import | `dependencies` + `needs` |
+| Scalar output | `.env` file via script |
+| Push trigger | `rules: if $CI_PIPELINE_SOURCE == "push"` |
+| ChangeRequest trigger | `rules: if merge_request_event` |
+| Manual trigger | `rules: if web, when: manual` |
+| Timeout | `timeout:` string (e.g., `10m`) |
+| Stages | Topological level (`build`, `stage-1`, ...) |
 
-Empty rule objects (`{}`) are filtered out before serialization to avoid
-producing invalid GitLab CI YAML.
+## Capability manifest
 
-## Output
-
-The generated pipeline has a single `verify` stage with one `sverka` job:
-
-1. Uses the specified image (default: `oven/bun:latest`, which includes Bun).
-2. Installs Sverka globally via `before_script`.
-3. Runs `sverka execute` as the script.
-4. Uploads `.sverka/output/` as an artifact (always, even on failure).
-
-### Credential mapping
-
-GitLab CI/CD variables defined in project settings are auto-injected into
-jobs as `$VAR` — no explicit `env:` mapping is needed in the YAML, unlike
-GitHub Actions which requires explicit `env:` entries to expose secrets.
-
-### Example output
-
-```yaml
-stages:
-  - verify
-sverka:
-  stage: verify
-  image: oven/bun:latest
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  before_script:
-    - bun install -g @sverka/cli
-  script:
-    - sverka execute
-  artifacts:
-    when: always
-    paths:
-      - .sverka/output/
+```ts
+const gitlabCapabilities = {
+  "trigger.push": "native",
+  "trigger.changeRequest": "native",
+  "trigger.manual": "native",
+  "runtime.host": "native",
+  "runtime.container": "native",
+  "operation.shell": "native",
+  "output.scalar": "lowered",    // via .env file
+  "output.artifact": "native",
+  "graph.dependencies": "native",
+};
 ```
+
+## CLI usage
+
+```sh
+sverka synth --target gitlab
+```
+
+This writes `.gitlab-ci.yml`.

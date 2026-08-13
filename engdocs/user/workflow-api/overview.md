@@ -1,161 +1,143 @@
 # Workflow API
 
-Sverka workflows are TypeScript. Compose operations with seven functions
-exported from `@sverka/sdk`.
+Sverka workflows are TypeScript. The v0 redesign provides three equivalent
+authoring surfaces that all produce the same Definition Graph.
 
-## `pipeline(...operations)`
+## Authoring surfaces
 
-Sequential composition. Each operation depends on the previous one,
-forming a linear chain.
+### Construct API (`@sverka/constructs`)
 
-```ts
-import { pipeline, run } from "@sverka/sdk";
-
-const p = pipeline(
-  run({ command: "bun", args: ["run", "lint"] }),
-  run({ command: "bun", args: ["run", "test"] }),
-);
-```
-
-## `run(spec)`
-
-Define a single run operation. Lazy: no side effects at call time.
+Low-level construct tree: `Project`, `Pipeline`, `ShellStep`, `Entry`.
 
 ```ts
-import { run } from "@sverka/sdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
 
-const lint = run({ command: "eslint", args: ["."], image: "node:24" });
-```
-
-`spec` is a `Partial<OperationSpec>`. Common fields:
-
-| Field     | Type     | Description                          |
-|-----------|----------|--------------------------------------|
-| `command` | `string` | Shell command to run                 |
-| `args`    | `string[]` | Arguments to pass to the command   |
-| `image`   | `string` | Container image (for Docker executor) |
-| `kind`    | `string` | Operation kind (defaults to `"run"`)  |
-
-## `parallel(...operations)`
-
-Concurrent composition. Siblings share the same implicit join point; no
-dependency edges between them.
-
-```ts
-import { parallel, run } from "@sverka/sdk";
-
-const all = parallel(
-  run({ command: "bun", args: ["run", "lint"] }),
-  run({ command: "bun", args: ["run", "test"] }),
-  run({ command: "bun", args: ["run", "typecheck"] }),
-);
-```
-
-## `when(condition, operation)`
-
-Conditionally include an operation. The condition is an expression string
-evaluated at plan time against the plan context. When false, the operation
-is recorded but marked skipped.
-
-```ts
-import { when, run } from "@sverka/sdk";
-
-const nightly = when("schedule == 'nightly'", run({ command: "bun", args: ["run", "test"] }));
-```
-
-## `matrix(dimensions, operation)`
-
-Expand an operation across a matrix of variable values. Each combination
-becomes a separate node in the graph.
-
-```ts
-import { matrix, run } from "@sverka/sdk";
-
-const multi = matrix({ node: ["20", "22", "24"] }, run({ command: "bun", args: ["run", "test"] }));
-```
-
-## `task(name, operation)`
-
-Name an operation. Sugar for `op.named(name)`. Useful for labeling
-operations in plan output.
-
-```ts
-import { task, run } from "@sverka/sdk";
-
-const lint = task("lint", run({ command: "bun", args: ["run", "lint"] }));
-```
-
-## `defineWorkflow(definition)`
-
-Type-safe helper for `sverka.config.ts`. Identity function that ensures
-the workflow definition matches the expected shape.
-
-```ts
-import { defineWorkflow, pipeline, task, run } from "@sverka/sdk";
-
-export default defineWorkflow({
-  name: "verify",
-  workflow: pipeline(
-    task("lint", run({ command: "bun", args: ["run", "lint"] })),
-  ),
+const proj = new Project("myproj");
+const p = new Pipeline(proj, "ci", {
+  inputs: { nodeVersion: { type: "string", default: "22" } },
 });
+
+new ShellStep(p, "lint", { command: "npm run lint" });
+new ShellStep(p, "build", {
+  command: "npm run build",
+  dependsOn: ["lint"],
+  outputs: { dist: { type: "artifact", path: "./dist" } },
+});
+
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
-## Runtime SDK exports
+### SDK API (`@sverka/sdk`)
 
-In addition to the composables above, `@sverka/sdk` re-exports runtime
-functions, error classes, and the Sverka facade. These are used by the CLI
-and by programmatic consumers that need direct access to planning, execution,
-or configuration loading.
-
-### Sverka facade
-
-| Export | Type | Description |
-|--------|------|-------------|
-| `createSverka(options)` | function | Create a Sverka instance with root, config path, executor, baseline, and onlyNew options. Provides `plan()` and `execute()` methods. |
-| `plan(options)` | function | Top-level convenience: discover context, propose checks, resolve to operations. Returns `PlanResult`. |
-| `execute(options)` | function | Top-level convenience: plan + execute. Returns `ExecutionResult` with verdict, findings, and outcomes. |
-| `findConfig(root)` | function | Auto-discover `sverka.config.ts` in the given root directory. Returns the path or `null`. |
-| `loadWorkflow(configPath)` | function | Load and import a `sverka.config.ts` file. Returns the `WorkflowDefinition`. |
-
-### Planning
-
-| Export | Type | Description |
-|--------|------|-------------|
-| `createPlanner(options)` | function | Create a planner instance for project context discovery and check proposal. |
-| `computePlanId(plan)` | function | Compute the deterministic plan ID from a `Plan` object. |
-| `validatePlan(plan)` | function | Validate a `Plan` against the IR schema. Returns the plan or throws. |
-
-### Error classes
-
-| Export | Type | Description |
-|--------|------|-------------|
-| `CoreError` | class | Base error for core composition failures. |
-| `PlanningError` | class | Error thrown during planning (discovery, proposal). |
-| `CompositionError` | class | Error thrown during workflow composition (invalid graph). |
+Composable builders with typed references: `sh`, `artifact`, `when`, `images`.
 
 ```ts
-import { createSverka, findConfig, loadWorkflow, validatePlan, computePlanId } from "@sverka/sdk";
-import { CoreError, PlanningError, CompositionError } from "@sverka/sdk";
-import { createPlanner } from "@sverka/sdk";
+import { Project, Pipeline, Entry } from "@sverka/constructs";
+import { sh, artifact, images } from "@sverka/sdk";
+
+const proj = new Project("myproj");
+const p = new Pipeline(proj, "ci");
+
+sh`npm run lint`.build(p, "lint");
+sh`npm run build`
+  .outputs({ dist: artifact("./dist") })
+  .dependsOn(["lint"])
+  .build(p, "build");
+
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
-## Combining composables
+### Decorator API (`@sverka/decorators`)
 
-Composables compose freely:
+TC39 standard decorators for class-based pipeline definitions.
 
 ```ts
-import { defineWorkflow, pipeline, parallel, task, run, when } from "@sverka/sdk";
+import { pipeline, step, stepWithOptions, entry, input, decoratePipeline } from "@sverka/decorators";
+import { Project } from "@sverka/constructs";
 
-export default defineWorkflow({
-  name: "verify",
-  workflow: pipeline(
-    task("lint", run({ command: "bun", args: ["run", "lint"] })),
-    parallel(
-      task("typecheck", run({ command: "bun", args: ["run", "typecheck"] })),
-      task("test", run({ command: "bun", args: ["run", "test"] })),
-    ),
-    when("schedule == 'nightly'", run({ command: "bun", args: ["run", "test:integration"] })),
-  ),
+@pipeline
+class MyPipeline {
+  @input
+  nodeVersion = { type: "string" as const, default: "22" };
+
+  @step
+  lint = "npm run lint";
+
+  @stepWithOptions({ dependsOn: ["lint"] })
+  build = "npm run build";
+
+  @entry({ kind: "push" })
+  ["on-push"] = ["build"];
+}
+
+const proj = new Project("myproj");
+decoratePipeline(MyPipeline, proj, "ci");
+```
+
+## Core types
+
+### Project
+
+Root of the construct tree. Contains Pipelines.
+
+### Pipeline
+
+Contains Steps, Entries, and Inputs.
+
+### ShellStep
+
+A step that executes a shell command. Supports:
+- `command`: shell command string
+- `dependsOn`: step IDs this step depends on
+- `outputs`: artifact and scalar outputs
+- `runtime`: host or container execution
+- `timeout`: maximum execution time in milliseconds
+
+### Entry
+
+Binds a trigger to root steps. Triggers:
+- `push`: on push to branches
+- `changeRequest`: on pull/merge request
+- `manual`: manually triggered
+
+### Inputs
+
+Typed pipeline inputs: string, number, boolean. With defaults, required
+flags, descriptions, and secret classification.
+
+### Outputs
+
+Step outputs: string, number, boolean, artifact. Artifact outputs require
+a path. Outputs are addressable through typed SDK references.
+
+## References
+
+Steps can reference outputs from other steps or context namespaces:
+
+```ts
+import { sh } from "@sverka/sdk";
+import { env, secrets, git } from "@sverka/sdk";
+
+// Step output reference
+sh`deploy ${this.build.dist}`;
+
+// Context references
+sh`echo ${env.CI_TRACE}`;
+sh`echo ${secrets.NPM_TOKEN}`;
+sh`echo ${git.sha}`;
+```
+
+## Runtime
+
+Steps can run on the host or in a container:
+
+```ts
+// Host execution (default)
+new ShellStep(p, "test", { command: "npm test" });
+
+// Container execution
+new ShellStep(p, "test", {
+  command: "npm test",
+  runtime: { mode: "container", image: "node:22" },
 });
 ```
