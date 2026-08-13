@@ -7,6 +7,7 @@ import {
   type GitlabTargetGraph,
   type GitlabJob,
   type GitlabRule,
+  type GitlabArtifactSpec,
   type GeneratedArtifact,
   type TargetDiagnostic,
   type CompilationResult,
@@ -43,7 +44,8 @@ describe("public API — exports", () => {
       script: [],
     };
     const _rule: GitlabRule = { if: "true" };
-    const _artifact: GeneratedArtifact = { path: "test.yml", content: "" };
+    const _artifact: GitlabArtifactSpec = { paths: ["dist"] };
+    const _generated: GeneratedArtifact = { path: "test.yml", content: "" };
     const _diag: TargetDiagnostic = {
       capability: "x",
       support: "native",
@@ -55,7 +57,8 @@ describe("public API — exports", () => {
     expect(_graph.name).toBe("ci");
     expect(_job.id).toBe("build");
     expect(_rule.if).toBe("true");
-    expect(_artifact.path).toBe("test.yml");
+    expect(_artifact.paths).toEqual(["dist"]);
+    expect(_generated.path).toBe("test.yml");
     expect(_diag.capability).toBe("x");
     expect(_result.artifacts).toHaveLength(0);
     expect(_code).toBe("INVALID_GRAPH");

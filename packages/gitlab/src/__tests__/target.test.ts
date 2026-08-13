@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
-import { synthesize } from "@sverka/core";
-import { GitlabTarget, compileGitlab, type GitlabJob } from "../index.js";
+import { synthesize, type DefinitionGraph } from "@sverka/core";
+import { GitlabTarget, compileGitlab, GitlabTargetError, type GitlabJob } from "../index.js";
 
 function makeSimpleGraph(): ReturnType<typeof synthesize> {
   const proj = new Project("test");
@@ -96,7 +96,7 @@ describe("compileGitlab — trigger mapping", () => {
     expect(yaml.build.rules[0].if).toContain("merge_request_event");
   });
 
-  it("maps manual trigger to web", () => {
+  it("maps manual trigger to web source without when: manual", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi" });
@@ -104,7 +104,7 @@ describe("compileGitlab — trigger mapping", () => {
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.build.rules[0].if).toContain('"web"');
-    expect(yaml.build.rules[0].when).toBe("manual");
+    expect(yaml.build.rules[0].when).toBeUndefined();
   });
 
   it("maps multiple triggers to multiple rules", () => {
@@ -217,5 +217,106 @@ describe("GitlabTarget — emit", () => {
     const artifacts = target.emit(targetGraph);
     expect(artifacts).toHaveLength(1);
     expect(artifacts[0]?.content).toContain("script:");
+  });
+});
+
+describe("compileGitlab — rule scoping", () => {
+  it("scopes rules to jobs reachable from each entry", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo build" });
+    new ShellStep(p, "deploy", { command: "echo deploy" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["deploy"],
+    });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules).toHaveLength(1);
+    expect(yaml.build.rules[0]?.if).toContain('"push"');
+    expect(yaml.deploy.rules).toHaveLength(1);
+    expect(yaml.deploy.rules[0]?.if).toContain('"web"');
+  });
+});
+
+describe("compileGitlab — artifact imports", () => {
+  it("includes artifact-import producers in reachability and needs", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "test",
+        pipelines: [{
+          id: "ci",
+          inputs: {},
+          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["deploy"] }],
+          steps: [
+            {
+              id: "build",
+              runtime: { mode: "host" },
+              operations: [{ kind: "exportArtifact", name: "dist", path: "dist" }],
+              inputs: [],
+              outputs: [],
+              dependencies: [],
+            },
+            {
+              id: "deploy",
+              runtime: { mode: "host" },
+              operations: [{ kind: "importArtifact", name: "dist", from: "build", output: "dist" }],
+              inputs: [],
+              outputs: [],
+              dependencies: [],
+            },
+          ],
+          outputs: [],
+        }],
+      },
+    };
+    const result = compileGitlab(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build).toBeDefined();
+    expect(yaml.deploy.needs).toContain("build");
+  });
+
+  it("throws INVALID_GRAPH for unknown artifact-import producer", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "test",
+        pipelines: [{
+          id: "ci",
+          inputs: {},
+          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["deploy"] }],
+          steps: [{
+            id: "deploy",
+            runtime: { mode: "host" },
+            operations: [{ kind: "importArtifact", name: "dist", from: "missing", output: "dist" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [],
+          }],
+          outputs: [],
+        }],
+      },
+    };
+    expect(() => compileGitlab(graph)).toThrow(GitlabTargetError);
+    try {
+      compileGitlab(graph);
+    } catch (err) {
+      expect((err as GitlabTargetError).code).toBe("INVALID_GRAPH");
+    }
+  });
+});
+
+describe("compileGitlab — emission validation", () => {
+  it("throws EMIT_FAILED for job id conflicting with reserved top-level key", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "image", { command: "echo hi" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["image"] });
+    expect(() => compileGitlab(synthesize(proj))).toThrow(GitlabTargetError);
+    try {
+      compileGitlab(synthesize(proj));
+    } catch (err) {
+      expect((err as GitlabTargetError).code).toBe("EMIT_FAILED");
+    }
   });
 });
