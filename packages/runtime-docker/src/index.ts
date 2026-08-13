@@ -1,8 +1,5 @@
-// @sverka/runtime-docker — public API
+// @sverka/runtime-docker — public API. Spec 12.
 
-export { DockerExecutor } from "./docker-executor.js";
-export { type DockerExecutorConfig } from "./config.js";
-export { verifyImageDigest } from "./image.js";
-export { type CacheManager, DockerCacheManager } from "./cache.js";
-export { DockerExecutorError, ImageDigestError, ContainerPolicyError }
-  from "./errors.js";
+export { createDockerDriver, buildDockerArgs } from "./docker-driver.js";
+export type { DockerDriverConfig } from "./config.js";
+export { DockerExecutorError, ContainerPolicyError, ImageDigestError } from "./errors.js";
