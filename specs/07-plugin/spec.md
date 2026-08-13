@@ -125,6 +125,7 @@ For each capability, it checks the provided manifests to find the support
 level. If no manifest declares the capability, it produces an "unsupported"
 diagnostic. If a manifest declares it as "native" or "lowered", no
 diagnostic is produced. "emulated" and "partial" produce warnings.
+"connector" produces an info diagnostic.
 
 ### Capability detection
 
@@ -175,7 +176,9 @@ class PluginError extends Error {
 8. `analyzeCapabilities` detects runtime.host from step runtime
 9. `analyzeCapabilities` detects operation.shell from shell operations
 10. `analyzeCapabilities` detects graph.dependencies from step deps
-11. `createPluginRegistry` → register and retrieve plugins
-12. `createPluginRegistry` → duplicate name throws DUPLICATE_PLUGIN
-13. `createPluginRegistry` → getCapabilities collects from all plugins
-14. Public API: all exports present, no any types
+11. `analyzeCapabilities` with connector support → info diagnostic
+12. `createPluginRegistry` → register and retrieve plugins
+13. `createPluginRegistry` → duplicate name throws DUPLICATE_PLUGIN
+14. `createPluginRegistry` → getCapabilities collects from all plugins
+15. `createPluginRegistry` → getCapabilities returns deeply cloned CapabilityDetail objects
+16. Public API: all exports present, no any types
