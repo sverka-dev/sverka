@@ -117,8 +117,10 @@ export async function loadConfig(configPath: string): Promise<Project> {
     );
   }
 
-  // Check for default export or named project export.
-  const project = mod.default ?? mod.project;
+  // Prefer the named `project` export, then fall back to `default`.
+  // This avoids selecting an unrelated default export when a valid
+  // named `project` export exists.
+  const project = mod.project ?? mod.default;
   assertProjectLike(project);
 
   return project;
