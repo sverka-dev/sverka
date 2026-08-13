@@ -1,6 +1,10 @@
+// Check resolver — resolves ProposedCheck into StepDefinition.
+// Spec 14 — §24, §25. Reuses the existing resolution table but produces
+// StepDefinition (new graph model) instead of the old OperationSpec.
+
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { OperationSpec } from "@sverka/core";
+import type { StepDefinition } from "@sverka/core";
 import type {
   ProposedCheck,
   ProjectContext,
@@ -8,21 +12,20 @@ import type {
 } from "@sverka/planner";
 
 /**
- * Resolves a ProposedCheck into an executable OperationSpec with output
- * declarations. Returns null when the resolver has no mapping for the
- * given check + context (the caller skips the check).
+ * Resolves a ProposedCheck into a ResolvedCheck containing a StepDefinition.
+ * Returns null when the resolver has no mapping for the given check + context.
  */
 export interface CheckResolver {
   resolve(check: ProposedCheck, ctx: ProjectContext): ResolvedCheck | null;
 }
 
 /**
- * A fully-resolved check: an OperationSpec for the IR plus output
- * declarations for findings extraction.
+ * A fully-resolved check: a StepDefinition for the Definition Graph plus
+ * output declarations for findings extraction.
  */
 export interface ResolvedCheck {
   readonly checkId: string;
-  readonly operation: OperationSpec;
+  readonly step: StepDefinition;
   readonly outputs: readonly CheckOutput[];
 }
 
@@ -30,7 +33,6 @@ export interface ResolvedCheck {
  * An output file a check produces, used for findings extraction.
  */
 export interface CheckOutput {
-  /** Relative path within the artifact directory. */
   readonly path: string;
   readonly format: "sarif" | "json" | "junit" | "text";
 }
@@ -39,19 +41,12 @@ type PmName = DetectedPackageManager["name"];
 
 interface TableEntry {
   readonly checkId: string;
-  /** Proposal reason this entry matches (e.g. "Node project defaults"). */
   readonly reason: string;
   readonly packageManagers: readonly PmName[];
   readonly command: string;
   readonly args: readonly string[];
 }
 
-/**
- * Built-in resolution table. Order matters: the first matching entry
- * (by checkId + packageManager) wins. Node entries come before Python,
- * Rust, and Go so that Node checks take precedence when multiple
- * package managers are present.
- */
 const NODE_REASON = "Node project defaults";
 const PYTHON_REASON = "Python project defaults";
 const RUST_REASON = "Rust project defaults";
@@ -59,42 +54,28 @@ const GO_REASON = "Go project defaults";
 const KNOWN_REASONS = new Set([NODE_REASON, PYTHON_REASON, RUST_REASON, GO_REASON]);
 
 const TABLE: readonly TableEntry[] = [
-  // Node — typecheck
   { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["bun"], command: "bun", args: ["run", "typecheck"] },
   { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["npm"], command: "npm", args: ["run", "typecheck"] },
   { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["yarn"], command: "yarn", args: ["run", "typecheck"] },
   { checkId: "typecheck", reason: NODE_REASON, packageManagers: ["pnpm"], command: "pnpm", args: ["run", "typecheck"] },
-  // Node — lint
   { checkId: "lint", reason: NODE_REASON, packageManagers: ["bun"], command: "bun", args: ["run", "lint"] },
   { checkId: "lint", reason: NODE_REASON, packageManagers: ["npm"], command: "npm", args: ["run", "lint"] },
   { checkId: "lint", reason: NODE_REASON, packageManagers: ["yarn"], command: "yarn", args: ["run", "lint"] },
   { checkId: "lint", reason: NODE_REASON, packageManagers: ["pnpm"], command: "pnpm", args: ["run", "lint"] },
-  // Node — test
   { checkId: "test", reason: NODE_REASON, packageManagers: ["bun"], command: "bun", args: ["run", "test"] },
   { checkId: "test", reason: NODE_REASON, packageManagers: ["npm"], command: "npm", args: ["run", "test"] },
   { checkId: "test", reason: NODE_REASON, packageManagers: ["yarn"], command: "yarn", args: ["run", "test"] },
   { checkId: "test", reason: NODE_REASON, packageManagers: ["pnpm"], command: "pnpm", args: ["run", "test"] },
-  // Python — lint
   { checkId: "lint", reason: PYTHON_REASON, packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "ruff", args: ["check"] },
-  // Python — test
   { checkId: "test", reason: PYTHON_REASON, packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "pytest", args: [] },
-  // Rust
   { checkId: "clippy", reason: RUST_REASON, packageManagers: ["cargo"], command: "cargo", args: ["clippy"] },
   { checkId: "fmt-check", reason: RUST_REASON, packageManagers: ["cargo"], command: "cargo", args: ["fmt", "--check"] },
   { checkId: "test", reason: RUST_REASON, packageManagers: ["cargo"], command: "cargo", args: ["test"] },
-  // Go
   { checkId: "vet", reason: GO_REASON, packageManagers: ["go"], command: "go", args: ["vet", "./..."] },
   { checkId: "test", reason: GO_REASON, packageManagers: ["go"], command: "go", args: ["test", "./..."] },
 ];
 
-/**
- * Built-in resolver backed by a (checkId, packageManager) → command table.
- * Covers the 6 checkIds the planner proposes across Node/Python/Rust/Go.
- * Never throws — returns null for unknown mappings.
- *
- * Table order determines precedence: Node entries come before Python/Rust/Go,
- * so when multiple package managers are present the first matching entry wins.
- */
+/** Create the built-in check resolver backed by the resolution table. */
 export function createBuiltinResolver(): CheckResolver {
   return {
     resolve(check, ctx) {
@@ -113,25 +94,24 @@ function findEntry(
 ): ResolvedCheck | null {
   for (const entry of TABLE) {
     if (entry.checkId !== check.checkId) continue;
-    // When the planner supplies a known ecosystem reason, require an exact match
-    // so polyglot projects resolve to the correct tool instead of table order.
     if (KNOWN_REASONS.has(check.reason) && entry.reason !== check.reason) continue;
     if (!entry.packageManagers.some((pm) => pmNames.includes(pm))) continue;
     if (!isEntryApplicable(entry, ctx.root, rootPkg)) continue;
-    const operation: OperationSpec = {
-      id: check.id,
-      kind: "check",
-      name: check.checkId,
-      description: check.reason,
-      command: entry.command,
-      args: entry.args,
+
+    const command = [entry.command, ...entry.args].join(" ");
+    const step: StepDefinition = {
+      id: `checks/${check.checkId}`,
+      runtime: { mode: "host" },
+      operations: [{ kind: "shell", command }],
+      inputs: [],
+      outputs: [],
+      dependencies: [],
     };
-    return { checkId: check.checkId, operation, outputs: [] };
+    return { checkId: check.checkId, step, outputs: [] };
   }
   return null;
 }
 
-/** Validate Node entries against the root package.json (packageManager field and scripts). */
 function isEntryApplicable(
   entry: TableEntry,
   root: string,
