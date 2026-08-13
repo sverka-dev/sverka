@@ -40,7 +40,7 @@ native engine (§22).
 
 ```ts
 import type { DefinitionGraph, StepDefinition } from "@sverka/core";
-import type { Trigger } from "@sverka/constructs";
+import type { Trigger } from "@sverka/cdk";
 
 // --- Serializable Definition Graph ---
 

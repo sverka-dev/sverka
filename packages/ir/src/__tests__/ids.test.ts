@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import { computeGraphId, computeRunPlanId } from "../ids.js";
 import { makeSampleGraph, makeSampleRunPlan } from "./helpers/fixtures.js";

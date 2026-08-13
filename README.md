@@ -28,7 +28,7 @@ intermediate representation. Not GitHub Actions YAML. Not GitLab CI YAML.
 Your workflow, defined once, lowered everywhere.
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
 const proj = new Project("verify");
 const p = new Pipeline(proj, "ci");
@@ -57,7 +57,7 @@ All three produce the **same Definition Graph**:
 ### Construct API
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");
@@ -68,7 +68,7 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ### SDK API
 
 ```ts
-import { Project, Pipeline, Entry } from "@sverka/constructs";
+import { Project, Pipeline, Entry } from "@sverka/cdk";
 import { sh } from "@sverka/sdk";
 
 const proj = new Project("myproj");
@@ -81,7 +81,7 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 
 ```ts
 import { pipeline, step, entry, decoratePipeline } from "@sverka/decorators";
-import { Project } from "@sverka/constructs";
+import { Project } from "@sverka/cdk";
 
 @pipeline
 class MyPipeline {
@@ -165,7 +165,7 @@ sverka synth --target gitlab
 
 | Package | Description |
 |---------|-------------|
-| `@sverka/constructs` | Construct API: Project, Pipeline, ShellStep, Entry |
+| `@sverka/cdk` | Construct API: Project, Pipeline, ShellStep, Entry |
 | `@sverka/sdk` | SDK API: sh, artifact, when, images, context refs |
 | `@sverka/decorators` | Decorator API: @pipeline, @step, @entry, @input |
 | `@sverka/core` | Definition Graph synthesis and validation |

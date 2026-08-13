@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 import { synthesize, type DefinitionGraph } from "@sverka/core";
 import { GitlabTarget, compileGitlab, GitlabTargetError, type GitlabJob } from "../index.js";
 

@@ -1,6 +1,5 @@
-// Public exports for @sverka/constructs. Spec 01.
+// Public exports for @sverka/cdk. Spec 01.
 
-export { SverkaConstruct } from "./base.js";
 export { Project, Pipeline, Step, ShellStep, Entry } from "./constructs.js";
 export type { PipelineProps, StepProps, ShellStepProps, EntryProps } from "./constructs.js";
 

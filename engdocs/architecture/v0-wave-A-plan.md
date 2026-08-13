@@ -1,14 +1,14 @@
 # Wave A Implementation Plan — Constructs + Definition Graph
 
 **Specs:** 01-constructs, 02-definition-graph, 05-synthesis
-**Packages:** `@sverka/constructs` (new), `@sverka/core` (rebuilt)
+**Packages:** `@sverka/cdk` (new), `@sverka/core` (rebuilt)
 **Date:** 2026-08-13
 
 ## Package dependency
 
 ```text
-@sverka/constructs  →  constructs@10.8.1 (npm)
-@sverka/core        →  @sverka/constructs
+@sverka/cdk  →  constructs@10.8.1 (npm)
+@sverka/core        →  @sverka/cdk
 ```
 
 No other `@sverka/*` deps. Foundation layer.
@@ -56,7 +56,7 @@ Create `packages/constructs/` and rebuild `packages/core/` with:
 - `src/index.ts` (empty exports)
 
 Add `constructs@10.8.1` to `packages/constructs/package.json` dependencies.
-Add `@sverka/constructs: "workspace:*"` to `packages/core/package.json` dependencies.
+Add `@sverka/cdk: "workspace:*"` to `packages/core/package.json` dependencies.
 
 Delete old `packages/core/src/` contents (composables, operation.ts, runtime.ts,
 errors.ts, internal/, __tests__/) — full rebuild.
@@ -233,7 +233,7 @@ and D will assert SDK and Decorator APIs produce the same graph.
 - `tsdown.config.ts`: copy findings template. Entry: `src/index.ts`.
 - `tsconfig.json`: copy findings template.
 - `constructs` package: add `"constructs": "10.8.1"` to dependencies.
-- `core` package: add `"@sverka/constructs": "workspace:*"` to dependencies.
+- `core` package: add `"@sverka/cdk": "workspace:*"` to dependencies.
   Delete all old src/ files first.
 - `verbatimModuleSyntax: true` — use `import type` for type-only imports.
 - `exactOptionalPropertyTypes: true` — don't set optional props to `undefined`.

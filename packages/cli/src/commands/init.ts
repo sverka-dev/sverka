@@ -15,7 +15,7 @@ export interface InitArgs {
 
 function buildMinimalTemplate(pm: PmName): string {
   return [
-    'import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";',
+    'import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";',
     "",
     'const proj = new Project("verify");',
     'const ci = new Pipeline(proj, "ci");',
@@ -31,7 +31,7 @@ function buildMinimalTemplate(pm: PmName): string {
 
 function buildFullTemplate(pm: PmName): string {
   return [
-    'import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";',
+    'import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";',
     "",
     'const proj = new Project("verify");',
     'const ci = new Pipeline(proj, "ci");',

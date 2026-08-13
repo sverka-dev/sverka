@@ -3,7 +3,7 @@
 // Spec 03 — Conformance. Architecture spec §33.1.
 
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/constructs";
+import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
 import { synthesize, type DefinitionGraph } from "@sverka/core";
 import { sh, artifact, pipelineV0 as pipeline } from "../index.js";
 

@@ -7,7 +7,7 @@ import {
   writefile,
 } from "./helpers/fixtures.js";
 
-const VALID_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/constructs";
+const VALID_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 const proj = new Project("myproj");
 const pipeline = new Pipeline(proj, "ci");
 new ShellStep(pipeline, "build", { command: "echo build" });

@@ -9,7 +9,7 @@ import {
   type OutputDeclaration,
   type StepRef,
   type ContextRef,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 import { SdkError } from "./errors.js";
 
 export interface StepBuilder {

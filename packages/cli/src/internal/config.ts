@@ -6,7 +6,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { join, resolve, isAbsolute } from "node:path";
-import type { Project } from "@sverka/constructs";
+import type { Project } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import type { DefinitionGraph } from "@sverka/core";
 import { resolveUnderRoot } from "./paths.js";
@@ -194,7 +194,7 @@ function pmFromPackageManagerField(packageManager: string): PmName | undefined {
 }
 
 /**
- * Ensure `@sverka/constructs` is declared as a devDependency of the target
+ * Ensure `@sverka/cdk` is declared as a devDependency of the target
  * project. Creates a minimal package.json when one does not exist.
  */
 export async function ensureConstructsDependency(root: string): Promise<void> {
@@ -234,15 +234,15 @@ function ensureConstructsDeclared(pkg: Record<string, unknown>, root: string): v
   const devDeps =
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
 
-  if (!("@sverka/constructs" in deps) && !("@sverka/constructs" in devDeps)) {
+  if (!("@sverka/cdk" in deps) && !("@sverka/cdk" in devDeps)) {
     const version = isLocalWorkspace(root) ? "workspace:*" : getDefaultConstructsVersion();
-    pkg.devDependencies = { ...devDeps, "@sverka/constructs": version };
+    pkg.devDependencies = { ...devDeps, "@sverka/cdk": version };
   }
 }
 
 function isLocalWorkspace(root: string): boolean {
   const rootPkg = join(root, "package.json");
-  const constructsPkg = join(root, "packages", "constructs", "package.json");
+  const constructsPkg = join(root, "packages", "cdk", "package.json");
 
   try {
     const rootData = JSON.parse(readFileSync(rootPkg, "utf8")) as {
@@ -251,7 +251,7 @@ function isLocalWorkspace(root: string): boolean {
     const constructs = JSON.parse(readFileSync(constructsPkg, "utf8")) as {
       name?: string;
     };
-    if (constructs.name !== "@sverka/constructs") return false;
+    if (constructs.name !== "@sverka/cdk") return false;
     const patterns = Array.isArray(rootData.workspaces)
       ? rootData.workspaces
       : rootData.workspaces?.packages ?? [];
@@ -263,7 +263,7 @@ function isLocalWorkspace(root: string): boolean {
 
 function getDefaultConstructsVersion(): string {
   try {
-    const path = require.resolve("@sverka/constructs/package.json");
+    const path = require.resolve("@sverka/cdk/package.json");
     const pkg = JSON.parse(readFileSync(path, "utf8")) as { version?: string };
     return pkg.version ? `^${pkg.version}` : "*";
   } catch {
