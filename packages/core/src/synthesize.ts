@@ -100,12 +100,34 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   const dependencies: Dependency[] = [];
   const seenDeps = new Set<string>();
 
-  // Shell operation (only ShellStep has a command in v0).
   if (step instanceof ShellStep) {
     operations.push({ kind: "shell", command: step.command });
   }
 
-  // Export operations from outputs.
+  collectExportOperations(step, stepId, operations);
+  collectImportOperations(step, pipelineId, operations, dependencies, seenDeps);
+  collectControlDeps(step, pipelineId, dependencies, seenDeps);
+
+  const stepOutputs: OutputDefinition[] = [...step.outputs.entries()].map(
+    ([name, decl]) => ({ ...decl, name }),
+  );
+
+  return {
+    id: stepId,
+    runtime: step.runtime,
+    operations,
+    inputs: [...step.inputs],
+    outputs: stepOutputs,
+    dependencies,
+    ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
+  };
+}
+
+function collectExportOperations(
+  step: Step,
+  stepId: string,
+  operations: OperationDefinition[],
+): void {
   for (const [name, decl] of step.outputs) {
     if (decl.type === "artifact") {
       if (decl.path === undefined) {
@@ -120,64 +142,53 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
       operations.push({ kind: "exportOutput", name, type: decl.type });
     }
   }
+}
 
-  // Import operations + dependency inference from inputs.
+function collectImportOperations(
+  step: Step,
+  pipelineId: string,
+  operations: OperationDefinition[],
+  dependencies: Dependency[],
+  seenDeps: Set<string>,
+): void {
   for (const input of step.inputs) {
-    if (input.kind === "step") {
-      const ref: StepRef = input;
-      const producerId = resolveStepId(pipelineId, ref.step);
-      const depKey =
-        ref.type === "artifact"
-          ? `artifact:${producerId}:${ref.output}`
-          : `value:${producerId}:${ref.output}`;
+    if (input.kind !== "step") continue;
+    const ref: StepRef = input;
+    const producerId = resolveStepId(pipelineId, ref.step);
+    const depKey =
+      ref.type === "artifact"
+        ? `artifact:${producerId}:${ref.output}`
+        : `value:${producerId}:${ref.output}`;
+    if (seenDeps.has(depKey)) continue;
 
-      if (seenDeps.has(depKey)) continue;
-
-      if (ref.type === "artifact") {
-        operations.push({
-          kind: "importArtifact",
-          name: ref.output,
-          from: producerId,
-          output: ref.output,
-        });
-        addDependency(dependencies, seenDeps, {
-          kind: "artifact",
-          producer: producerId,
-          output: ref.output,
-        });
-      } else {
-        addDependency(dependencies, seenDeps, {
-          kind: "value",
-          producer: producerId,
-          output: ref.output,
-        });
-      }
+    if (ref.type === "artifact") {
+      operations.push({
+        kind: "importArtifact",
+        name: ref.output,
+        from: producerId,
+        output: ref.output,
+      });
     }
+    addDependency(dependencies, seenDeps, {
+      kind: ref.type === "artifact" ? "artifact" : "value",
+      producer: producerId,
+      output: ref.output,
+    });
   }
+}
 
-  // Control dependencies from dependsOn.
+function collectControlDeps(
+  step: Step,
+  pipelineId: string,
+  dependencies: Dependency[],
+  seenDeps: Set<string>,
+): void {
   for (const depName of step.dependsOn) {
     addDependency(dependencies, seenDeps, {
       kind: "control",
       producer: resolveStepId(pipelineId, depName),
     });
   }
-
-  const stepOutputs: OutputDefinition[] = [...step.outputs.entries()].map(
-    ([name, decl]) => ({ ...decl, name }),
-  );
-
-  const def: StepDefinition = {
-    id: stepId,
-    runtime: step.runtime,
-    operations,
-    inputs: [...step.inputs],
-    outputs: stepOutputs,
-    dependencies,
-    ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
-  };
-
-  return def;
 }
 
 function synthesizeEntry(entry: Entry, pipelineId: string): EntryDefinition {
