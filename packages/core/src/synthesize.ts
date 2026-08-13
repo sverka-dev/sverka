@@ -8,11 +8,11 @@ import {
   type Project,
   Step,
   type StepRef,
-  type Input,
 } from "@sverka/constructs";
 import type {
   DefinitionGraph,
   PipelineDefinition,
+  PipelineInputDefinition,
   EntryDefinition,
   StepDefinition,
   OperationDefinition,
@@ -82,7 +82,9 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
   const outputs: PipelineOutputDefinition[] = steps.flatMap((s) =>
     s.outputs.map((o) => ({ ...o, stepId: s.id })),
   );
-  const inputs: Input[] = [...pipeline.inputs.values()];
+  const inputs: PipelineInputDefinition[] = [...pipeline.inputs.entries()].map(
+    ([name, decl]) => ({ ...decl, name }),
+  );
 
   // Validate.
   validateOutputCollisions(steps);
@@ -120,6 +122,7 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
     outputs: stepOutputs,
     dependencies,
     ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
+    ...(step.condition !== undefined ? { condition: step.condition } : {}),
   };
 }
 
