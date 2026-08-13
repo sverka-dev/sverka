@@ -6,6 +6,7 @@ import {
   DEFAULT_POLICY,
   createPolicy,
   evaluatePolicy,
+  verifyPolicyAgainstGraph,
   PolicyError,
   type Verdict,
   type Policy,
@@ -14,6 +15,7 @@ import {
   type RuleResult,
   type PolicyResult,
   type PolicyConfig,
+  type PolicyVerification,
   type PolicyErrorCode,
 } from "../index.js";
 
@@ -29,6 +31,10 @@ describe("public API — functions and constants", () => {
 
   it("exports evaluatePolicy function", () => {
     expect(typeof evaluatePolicy).toBe("function");
+  });
+
+  it("exports verifyPolicyAgainstGraph function", () => {
+    expect(typeof verifyPolicyAgainstGraph).toBe("function");
   });
 });
 
@@ -66,6 +72,7 @@ describe("public API — types (compile-time check)", () => {
       summary: "",
     };
     const _config: PolicyConfig = {};
+    const _verification: PolicyVerification = { valid: true, unknownCheckIds: [] };
     const _code: PolicyErrorCode = "INVALID_POLICY";
     // Touch all to avoid unused warnings.
     expect(_verdict).toBe("pass");
@@ -75,6 +82,7 @@ describe("public API — types (compile-time check)", () => {
     expect(_ruleResult.triggered).toBe(false);
     expect(_result.verdict).toBe("pass");
     expect(_config).toBeDefined();
+    expect(_verification.valid).toBe(true);
     expect(_code).toBe("INVALID_POLICY");
   });
 });
