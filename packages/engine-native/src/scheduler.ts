@@ -13,18 +13,34 @@ export interface SchedulerEntry {
   durationMs?: number;
 }
 
+export interface StepGraph {
+  readonly order: readonly string[];
+  readonly stepMap: ReadonlyMap<string, StepDefinition>;
+  readonly dependents: ReadonlyMap<string, readonly string[]>;
+  readonly indegree: ReadonlyMap<string, number>;
+}
+
 /**
- * Topologically sort steps by their dependency edges.
- * Returns the sorted order, or throws SchedulerError on cycle or unknown producer.
+ * Build the dependency graph for a step DAG.
+ * Returns order, step map, dependents, and indegree, or throws SchedulerError
+ * on cycle or unknown producer. The returned maps are mutable copies the caller
+ * can update during scheduling.
  */
-export function topoSortSteps(steps: readonly StepDefinition[]): readonly string[] {
+export function buildStepExecutionGraph(steps: readonly StepDefinition[]): {
+  order: readonly string[];
+  stepMap: Map<string, StepDefinition>;
+  dependents: Map<string, string[]>;
+  indegree: Map<string, number>;
+} {
   const ids = new Set<string>(steps.map((s) => s.id));
   const dependents = new Map<string, string[]>();
   const indegree = new Map<string, number>();
+  const stepMap = new Map<string, StepDefinition>();
 
   for (const s of steps) {
     dependents.set(s.id, []);
     indegree.set(s.id, 0);
+    stepMap.set(s.id, s);
   }
 
   for (const s of steps) {
@@ -39,33 +55,41 @@ export function topoSortSteps(steps: readonly StepDefinition[]): readonly string
     }
   }
 
-  // Kahn's algorithm, preserving input order among ready siblings.
   const ready: string[] = [];
   for (const s of steps) {
     if ((indegree.get(s.id) ?? 0) === 0) ready.push(s.id);
   }
 
   const order: string[] = [];
+  const remaining = new Map<string, number>(indegree);
   let head = 0;
   while (head < ready.length) {
     const id = ready[head]!;
     head++;
     order.push(id);
     for (const dep of dependents.get(id) ?? []) {
-      const next = (indegree.get(dep) ?? 0) - 1;
-      indegree.set(dep, next);
+      const next = (remaining.get(dep) ?? 0) - 1;
+      remaining.set(dep, next);
       if (next === 0) ready.push(dep);
     }
   }
 
   if (order.length < steps.length) {
-    const remaining = steps.filter((s) => (indegree.get(s.id) ?? 0) > 0);
+    const bad = steps.filter((s) => (remaining.get(s.id) ?? 0) > 0);
     throw new SchedulerError(
-      `dependency cycle detected among: ${remaining.map((s) => s.id).join(", ")}`,
+      `dependency cycle detected among: ${bad.map((s) => s.id).join(", ")}`,
     );
   }
 
-  return order;
+  return { order, stepMap, dependents, indegree };
+}
+
+/**
+ * Topologically sort steps by their dependency edges.
+ * Returns the sorted order, or throws SchedulerError on cycle or unknown producer.
+ */
+export function topoSortSteps(steps: readonly StepDefinition[]): readonly string[] {
+  return buildStepExecutionGraph(steps).order;
 }
 
 /**

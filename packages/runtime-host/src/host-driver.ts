@@ -29,8 +29,8 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
       if (mode !== undefined && mode !== "host") return false;
       const shellOp = step.operations.find((op: { kind: string }) => op.kind === "shell");
       if (!shellOp || shellOp.kind !== "shell") return false;
-      const tokens = tokenize(shellOp.command);
-      if (tokens.length === 0) return false;
+      const { tokens, valid } = tokenize(shellOp.command);
+      if (!valid || tokens.length === 0) return false;
       return config.allowlist.isAllowed(tokens[0]!);
     },
 
@@ -39,7 +39,10 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
         throw new HostDriverError("host driver is disabled", "EXECUTOR_DISABLED");
       }
 
-      const tokens = tokenize(request.command);
+      const { tokens, valid } = tokenize(request.command);
+      if (!valid) {
+        throw new CommandNotAllowedError("command has unterminated quote or trailing escape", { command: request.command });
+      }
       if (tokens.length === 0) {
         throw new CommandNotAllowedError("empty command is not allowed", { command: request.command });
       }
@@ -89,6 +92,35 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
         }
         const child = spawn(binary, args, spawnOptions);
 
+        let abortSigkillTimer: ReturnType<typeof setTimeout> | undefined;
+        const abortListener = (): void => {
+          if (child.pid !== undefined) {
+            try {
+              process.kill(-child.pid, "SIGTERM");
+            } catch {
+              child.kill("SIGTERM");
+            }
+            abortSigkillTimer = setTimeout(() => {
+              if (closed) return;
+              if (child.pid !== undefined) {
+                try {
+                  process.kill(-child.pid, "SIGKILL");
+                } catch {
+                  child.kill("SIGKILL");
+                }
+              } else {
+                child.kill("SIGKILL");
+              }
+            }, GRACE_PERIOD_MS);
+          } else {
+            child.kill("SIGTERM");
+          }
+        };
+
+        if (request.signal !== undefined) {
+          request.signal.addEventListener("abort", abortListener, { once: true });
+        }
+
         const timer = request.timeoutMs
           ? setTimeout(() => {
               timedOut = true;
@@ -131,6 +163,10 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
           closed = true;
           if (timer) clearTimeout(timer);
           if (sigkillTimer) clearTimeout(sigkillTimer);
+          if (abortSigkillTimer) clearTimeout(abortSigkillTimer);
+          if (request.signal !== undefined) {
+            request.signal.removeEventListener("abort", abortListener);
+          }
         };
 
         child.on("error", (err) => {
@@ -174,9 +210,12 @@ function buildEnv(
       if (v !== undefined) env[k] = v as string;
     }
   }
+  const trustedPath = env.PATH;
   for (const [k, v] of Object.entries(request.env)) {
+    if (k.toUpperCase() === "PATH") continue;
     if (v !== undefined) env[k] = v as string;
   }
+  env.PATH = trustedPath ?? process.env.PATH ?? process.env.Path ?? "";
   return env;
 }
 
@@ -198,12 +237,24 @@ function makeAppender(maxBytes: number) {
   };
 }
 
+interface TokenizeResult {
+  readonly tokens: readonly string[];
+  readonly valid: boolean;
+}
+
 /** Tokenize a command string respecting single quotes, double quotes, and backslash escapes. */
-function tokenize(input: string): string[] {
+function tokenize(input: string): TokenizeResult {
   const tokens: string[] = [];
   let current = "";
+  let hasToken = false;
   let quote: '"' | "'" | null = null;
   let escaped = false;
+
+  const pushToken = (): void => {
+    tokens.push(current);
+    current = "";
+    hasToken = false;
+  };
 
   for (const ch of input) {
     if (escaped) {
@@ -225,24 +276,31 @@ function tokenize(input: string): string[] {
       } else {
         current += ch;
       }
+      hasToken = true;
       continue;
     }
     if (ch === '"' || ch === "'") {
       quote = ch;
+      hasToken = true;
       continue;
     }
     if (/\s/.test(ch)) {
-      if (current.length > 0) {
-        tokens.push(current);
-        current = "";
+      if (current.length > 0 || hasToken) {
+        pushToken();
       }
       continue;
     }
     current += ch;
+    hasToken = true;
   }
 
-  if (current.length > 0) tokens.push(current);
-  return tokens;
+  if (escaped || quote !== null) {
+    return { tokens, valid: false };
+  }
+  if (current.length > 0 || hasToken) {
+    pushToken();
+  }
+  return { tokens, valid: true };
 }
 
 function containsUnsafe(binary: string, args: string[]): boolean {
