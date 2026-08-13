@@ -310,8 +310,9 @@ function checkContextNamespaces(
 function checkCycleDiagnostics(): ConformanceResult {
   const proj = new Project("cycle");
   const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "a", { command: "echo a", dependsOn: ["b"] });
-  new ShellStep(p, "b", { command: "echo b", dependsOn: ["a"] });
+  const stepA = new ShellStep(p, "a", { command: "echo a", dependsOn: ["b"] });
+  const stepB = new ShellStep(p, "b", { command: "echo b", dependsOn: ["a"] });
+  void stepA; void stepB;
   try {
     synthesize(proj);
     return {
@@ -347,6 +348,7 @@ async function checkNoNetwork(graph: DefinitionGraph): Promise<ConformanceResult
       throw new Error("network access blocked");
     }
   };
+  void g.WebSocket;
 
   try {
     const ghResult = new GithubTarget().compile(graph);
@@ -426,15 +428,19 @@ export async function runConformance(): Promise<readonly ConformanceResult[]> {
 
   results.push(checkGraphEquivalence(graphConstruct, graphSDK, graphDecorator));
 
-  results.push(checkTargetCompile(graphConstruct, "github", "jobs:"));
-  results.push(checkTargetCompile(graphConstruct, "gitlab", "script:"));
+  results.push(
+    checkTargetCompile(graphConstruct, "github", "jobs:"),
+    checkTargetCompile(graphConstruct, "gitlab", "script:"),
+  );
 
   const engineResult = await checkEngineExecution(graphConstruct);
   results.push(engineResult);
 
-  results.push(checkScalarFlow(graphConstruct));
-  results.push(checkArtifactFlow(graphConstruct));
-  results.push(checkContainerImage(graphConstruct));
+  results.push(
+    checkScalarFlow(graphConstruct),
+    checkArtifactFlow(graphConstruct),
+    checkContainerImage(graphConstruct),
+  );
 
   // Re-run engine for the context-namespace check so we can correlate
   // the test step's condition with the actual run events.
@@ -466,11 +472,13 @@ export async function runConformance(): Promise<readonly ConformanceResult[]> {
     await rm(tmpRoot, { recursive: true, force: true });
   }
 
-  results.push(checkContextNamespaces(graphConstruct, events));
-  results.push(checkCycleDiagnostics());
-  results.push(await checkNoNetwork(graphConstruct));
-  results.push(checkProviderNeutral(graphConstruct));
-  results.push(checkSerialization(graphConstruct));
+  results.push(
+    checkContextNamespaces(graphConstruct, events),
+    checkCycleDiagnostics(),
+    await checkNoNetwork(graphConstruct),
+    checkProviderNeutral(graphConstruct),
+    checkSerialization(graphConstruct),
+  );
 
   return results;
 }
