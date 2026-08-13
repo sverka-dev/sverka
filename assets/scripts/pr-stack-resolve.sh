@@ -212,12 +212,83 @@ print(json.dumps(entry))
 done
 
 ALL_RESOLVED_JSON=$( [ "$ALL_RESOLVED" = "true" ] && echo "true" || echo "false" )
-echo "{\"timestamp\":\"$TIMESTAMP\",\"prs\":[$ENTRIES],\"all_resolved\":$ALL_RESOLVED_JSON,\"prs_resolved\":$RESOLVED_COUNT,\"prs_needs_work\":$NEEDS_WORK_COUNT}"
+ENTRIES_JSON="$ENTRIES"
+echo "{\"timestamp\":\"$TIMESTAMP\",\"prs\":[$ENTRIES_JSON],\"all_resolved\":$ALL_RESOLVED_JSON,\"prs_resolved\":$RESOLVED_COUNT,\"prs_needs_work\":$NEEDS_WORK_COUNT}"
 
+# --- 5. Nudge mayor if action is needed ---
 if [ "$ALL_RESOLVED" = "true" ]; then
   log "All $RESOLVED_COUNT PR(s) resolved."
   exit 0
-else
-  log "$NEEDS_WORK_COUNT PR(s) need work, $RESOLVED_COUNT resolved."
-  exit 1
 fi
+
+log "$NEEDS_WORK_COUNT PR(s) need work, $RESOLVED_COUNT resolved. Building nudge for mayor..."
+
+# Build a prioritized action message for the mayor
+NUDGE_MSG="PR stack resolve: $NEEDS_WORK_COUNT of $PR_COUNT PR(s) need work.\n\n"
+
+# Priority 1: Merge conflicts (must fix first — blocks everything above)
+CONFLICT_PRS=$(echo "$ENTRIES_JSON" | python3 -c "
+import json, sys
+entries = json.loads('[' + sys.stdin.read() + ']')
+conflicts = [e for e in entries if e.get('merge_state') in ('DIRTY', 'BLOCKED')]
+for e in conflicts:
+    print(f\"PR #{e['number']} ({e['head']}): {e['reasons']}\")
+" 2>/dev/null || true)
+
+if [ -n "$CONFLICT_PRS" ]; then
+  NUDGE_MSG="${NUDGE_MSG}PRIORITY 1 — MERGE CONFLICTS (fix first, cascade rebase up):\n$CONFLICT_PRS\n\n"
+  NUDGE_MSG="${NUDGE_MSG}For each: git fetch origin, checkout branch, rebase onto origin/<base>, resolve conflicts, git push --force-with-lease. Then rebase all PRs above onto the new base.\n\n"
+fi
+
+# Priority 2: Branches behind base (rebase needed)
+BEHIND_PRS=$(echo "$ENTRIES_JSON" | python3 -c "
+import json, sys
+entries = json.loads('[' + sys.stdin.read() + ']')
+behind = [e for e in entries if e.get('behind') and e.get('merge_state') not in ('DIRTY', 'BLOCKED')]
+for e in behind:
+    print(f\"PR #{e['number']} ({e['head']}): {e['behind_count']} commits behind {e['base']}\")
+" 2>/dev/null || true)
+
+if [ -n "$BEHIND_PRS" ]; then
+  NUDGE_MSG="${NUDGE_MSG}PRIORITY 2 — BEHIND BASE (rebase):\n$BEHIND_PRS\n\n"
+fi
+
+# Priority 3: CI failures
+CI_FAIL_PRS=$(echo "$ENTRIES_JSON" | python3 -c "
+import json, sys
+entries = json.loads('[' + sys.stdin.read() + ']')
+fails = [e for e in entries if e.get('ci_state', '').startswith('FAIL')]
+for e in fails:
+    print(f\"PR #{e['number']} ({e['head']}): {e['ci_state']}\")
+" 2>/dev/null || true)
+
+if [ -n "$CI_FAIL_PRS" ]; then
+  NUDGE_MSG="${NUDGE_MSG}PRIORITY 3 — CI FAILING:\n$CI_FAIL_PRS\n\n"
+  NUDGE_MSG="${NUDGE_MSG}Read logs with: gh pr checks <PR> --watch. /act to fix, push, wait for re-run.\n\n"
+fi
+
+# Priority 4: Open review threads
+THREAD_PRS=$(echo "$ENTRIES_JSON" | python3 -c "
+import json, sys
+entries = json.loads('[' + sys.stdin.read() + ']')
+threads = [e for e in entries if e.get('open_threads', 0) > 0]
+for e in threads:
+    print(f\"PR #{e['number']} ({e['head']}): {e['open_threads']} open thread(s)\")
+" 2>/dev/null || true)
+
+if [ -n "$THREAD_PRS" ]; then
+  NUDGE_MSG="${NUDGE_MSG}PRIORITY 4 — OPEN REVIEW THREADS:\n$THREAD_PRS\n\n"
+  NUDGE_MSG="${NUDGE_MSG}For each PR: fetch comments with gh api repos/sverka-dev/sverka/pulls/<PR>/comments. For each thread: read comment, /act to fix or reply, push fix, resolve thread. AFTER each /act, RE-FETCH comments to check for NEW replies. Loop until no new comments.\n\n"
+fi
+
+NUDGE_MSG="${NUDGE_MSG}After all fixes: re-run this check. Goal: all_resolved=true."
+
+# Send nudge to mayor
+gc session nudge mayor "$(echo -e "$NUDGE_MSG")" 2>/dev/null && log "Nudged mayor with $NEEDS_WORK_COUNT PR action items" || log "Failed to nudge mayor"
+
+# Also mail human if there are conflicts or CI failures
+if [ -n "$CONFLICT_PRS" ] || [ -n "$CI_FAIL_PRS" ]; then
+  gc mail send human "PR stack: critical issues" "$(echo -e "$NUDGE_MSG")" 2>/dev/null || true
+fi
+
+exit 1
