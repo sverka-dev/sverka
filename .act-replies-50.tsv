@@ -1,0 +1,26 @@
+PRRT_kwDOTyoI9s6Yx-Wp	Replaced hardcoded `passed: true` with a network-blocking wrapper around `GithubTarget.compile`/`GitlabTarget.compile`; the check now fails if the network is touched or diagnostics are emitted.
+PRRT_kwDOTyoI9s6Yx-Wq	Removed the tautology. The §34.3 check now calls `target.compile()`, validates that artifacts were produced, that the YAML contains the expected marker, and that no diagnostics were emitted.
+PRRT_kwDOTyoI9s6Yx-Wt	Engine execution now uses `os.tmpdir()` and `fs.mkdtemp` for the workspace, and cleans up with `rm(..., { recursive: true })` in a `finally` block.
+PRRT_kwDOTyoI9s6Yx-Wx	Test workspaces now use `os.tmpdir()`/`mkdtemp` with per-test `beforeEach`/`afterEach` cleanup instead of hardcoded `/tmp` paths.
+PRRT_kwDOTyoI9s6Yx-W0	Test workspaces now use `os.tmpdir()`/`mkdtemp` with per-test `beforeEach`/`afterEach` cleanup instead of hardcoded `/tmp` paths.
+PRRT_kwDOTyoI9s6Yx_jH	Removed the tautology. The §34.3 check now calls `target.compile()`, validates that artifacts were produced, that the YAML contains the expected marker, and that no diagnostics were emitted.
+PRRT_kwDOTyoI9s6Yx_jK	Seed pipeline now declares scalar and artifact outputs (`lint.status`, `build.dist`), value/artifact inputs on dependent steps, and a context condition on `test`.
+PRRT_kwDOTyoI9s6Yx_jM	`runConformance` is now composed of focused per-criterion helper functions (`checkAuthoring`, `checkGraphEquivalence`, `checkEngineExecution`, `checkScalarFlow`, etc.).
+PRRT_kwDOTyoI9s6Yx_jO	Extracted shared inputs, commands, references, and outputs into module-level constants and reused them across the Construct, SDK, and Decorator seeds.
+PRRT_kwDOTyoI9s6Yx_jT	Serialization round-trip now canonicalizes the full graph (sorted object keys and arrays) and compares the entire structure, not just the project ID.
+PRRT_kwDOTyoI9s6Yx_jW	Engine execution now uses `os.tmpdir()` and `fs.mkdtemp` for the workspace, and cleans up with `rm(..., { recursive: true })` in a `finally` block.
+PRRT_kwDOTyoI9s6Yx_4S	`makeDriver` now uses `createAllowlist(["sh"])` so the seed shell scripts are allowed to execute.
+PRRT_kwDOTyoI9s6Yx_4Z	The acceptance-criteria coverage test now asserts the presence of §34.1–§34.11 and the serialization round-trip result by name prefix.
+PRRT_kwDOTyoI9s6Yx_4e	Serialization round-trip now canonicalizes the full graph (sorted object keys and arrays) and compares the entire structure, not just the project ID.
+PRRT_kwDOTyoI9s6Yx_4n	The execution check now asserts `run-completed.status === "success"` and verifies `step-succeeded` events for `ci/lint`, `ci/build`, and `ci/test`.
+PRRT_kwDOTyoI9s6Yx_4q	Implemented a dedicated cycle-detection check that creates a cyclic `Project`/`Pipeline`, calls `synthesize`, and asserts a `SynthesisError` with code `CYCLE`.
+PRRT_kwDOTyoI9s6Yx_4x	The SDK seed now uses `sdkPipeline` with `sh` builders rather than constructing `Pipeline`/`Entry` directly from `@sverka/constructs`.
+PRRT_kwDOTyoI9s6YyCsw	Spec updated: `runConformance` is async, the seed pipeline fence uses `text`, and §34.12 is kept in Non-goals/future work instead of the acceptance gate.
+PRRT_kwDOTyoI9s6YyCs3	The execution check now asserts `run-completed.status === "success"` and verifies `step-succeeded` events for `ci/lint`, `ci/build`, and `ci/test`.
+PRRT_kwDOTyoI9s6YyCs_	Test workspaces now use `os.tmpdir()`/`mkdtemp` with per-test `beforeEach`/`afterEach` cleanup instead of hardcoded `/tmp` paths.
+PRRT_kwDOTyoI9s6YyCtC	Removed the tautology. The §34.3 check now calls `target.compile()`, validates that artifacts were produced, that the YAML contains the expected marker, and that no diagnostics were emitted.
+PRRT_kwDOTyoI9s6Y5KUE	The acceptance-criteria coverage test now asserts the presence of §34.1–§34.11 and the serialization round-trip result by name prefix.
+PRRT_kwDOTyoI9s6Y5KUJ	The execution check now asserts `run-completed.status === "success"` and verifies `step-succeeded` events for `ci/lint`, `ci/build`, and `ci/test`.
+PRRT_kwDOTyoI9s6Y5KUM	Spec updated: §34.12 is explicitly listed in Non-goals as future work and removed from the §34 acceptance-criteria mapping.
+PRRT_kwDOTyoI9s6Y5KUQ	Spec updated: `runConformance` signature is now `Promise<readonly ConformanceResult[]>`, matching the public async implementation.
+PRRT_kwDOTyoI9s6Y5KUc	Spec updated: the seed pipeline code block now uses the `text` fence language.
