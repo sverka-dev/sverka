@@ -20,21 +20,25 @@ import { GithubTargetError } from "./errors.js";
 
 /**
  * Lower a Definition Graph to a GithubTargetGraph.
- * One GitHub job per Step. Triggers collected from all entries.
+ * One GitHub job per reachable Step. Triggers collected from all entries.
  */
 export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph {
   if (graph.project.pipelines.length === 0) {
     throw new GithubTargetError("graph has no pipelines", "INVALID_GRAPH");
   }
+  if (graph.project.pipelines.length > 1) {
+    throw new GithubTargetError(
+      "multi-pipeline graphs are not supported in v0",
+      "INVALID_GRAPH",
+    );
+  }
 
-  // For v0, lower the first pipeline (multi-pipeline is future).
   const pipeline = graph.project.pipelines[0]!;
-
-  // Build a mapping from full step IDs to GitHub-safe job IDs.
-  const jobIdMap = buildJobIdMap(pipeline.steps);
+  const reachableSteps = filterReachableSteps(pipeline);
+  const jobIdMap = buildJobIdMap(reachableSteps);
 
   const triggers = lowerTriggers(pipeline.entries);
-  const jobs = lowerSteps(pipeline.steps, jobIdMap);
+  const jobs = lowerSteps(reachableSteps, jobIdMap);
 
   return {
     name: pipeline.id,
@@ -42,6 +46,46 @@ export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph {
     jobs,
     env: collectEnv(pipeline),
   };
+}
+
+/**
+ * Return the steps reachable from any entry root by following dependencies.
+ */
+function filterReachableSteps(
+  pipeline: PipelineDefinition,
+): readonly StepDefinition[] {
+  if (pipeline.steps.length === 0) {
+    return [];
+  }
+
+  const byId = new Map(pipeline.steps.map((step) => [step.id, step]));
+  const reachable = new Set<string>();
+  const queue: string[] = [];
+
+  for (const entry of pipeline.entries) {
+    for (const root of entry.roots) {
+      if (byId.has(root) && !reachable.has(root)) {
+        reachable.add(root);
+        queue.push(root);
+      }
+    }
+  }
+
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const step = byId.get(id);
+    if (!step) continue;
+
+    for (const dep of step.dependencies) {
+      const producer = dep.producer;
+      if (byId.has(producer) && !reachable.has(producer)) {
+        reachable.add(producer);
+        queue.push(producer);
+      }
+    }
+  }
+
+  return pipeline.steps.filter((step) => reachable.has(step.id));
 }
 
 /**
@@ -70,45 +114,74 @@ function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
 
 /**
  * Map Sverka triggers to GitHub triggers.
+ * Multiple entries of the same kind have their branch filters merged.
  */
 function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
-  const triggers: {
-    push?: { branches?: readonly string[] };
-    pull_request?: { branches?: readonly string[] };
-    workflow_dispatch?: null;
-  } = {};
+  const pushBranches = new Set<string>();
+  let pushAll = false;
+  const prBranches = new Set<string>();
+  let prAll = false;
+  let hasManual = false;
 
   for (const entry of entries) {
     const t = entry.trigger;
     switch (t.kind) {
       case "push":
-        triggers.push = {
-          ...(t.filter?.branches ? { branches: [...t.filter.branches] } : {}),
-        };
+        if (t.filter?.branches && t.filter.branches.length > 0) {
+          for (const branch of t.filter.branches) {
+            pushBranches.add(branch);
+          }
+        } else {
+          pushAll = true;
+        }
         break;
       case "changeRequest":
-        triggers.pull_request = {
-          ...(t.filter?.branches ? { branches: [...t.filter.branches] } : {}),
-        };
+        if (t.filter?.branches && t.filter.branches.length > 0) {
+          for (const branch of t.filter.branches) {
+            prBranches.add(branch);
+          }
+        } else {
+          prAll = true;
+        }
         break;
       case "manual":
-        triggers.workflow_dispatch = null;
+        hasManual = true;
         break;
       default:
         throw new GithubTargetError(
-          `unsupported trigger kind: ${(t as Trigger).kind}`,
+          `unsupported trigger kind: ${JSON.stringify((t as Trigger).kind)}`,
           "UNSUPPORTED_TRIGGER",
         );
     }
   }
 
-  return triggers;
+  const triggers: Record<string, unknown> = {};
+  if (pushAll) {
+    triggers.push = {};
+  } else if (pushBranches.size > 0) {
+    triggers.push = { branches: [...pushBranches] };
+  }
+
+  if (prAll) {
+    triggers.pull_request = {};
+  } else if (prBranches.size > 0) {
+    triggers.pull_request = { branches: [...prBranches] };
+  }
+
+  if (hasManual) {
+    triggers.workflow_dispatch = null;
+  }
+
+  return triggers as GithubTriggers;
 }
 
 /**
- * Lower steps to GitHub jobs. One job per step.
+ * Lower reachable steps to GitHub jobs. One job per step.
  */
-function lowerSteps(steps: readonly StepDefinition[], jobIdMap: Map<string, string>): readonly GithubJob[] {
+function lowerSteps(
+  steps: readonly StepDefinition[],
+  jobIdMap: Map<string, string>,
+): readonly GithubJob[] {
   return steps.map((step) => lowerStep(step, jobIdMap));
 }
 
@@ -123,7 +196,24 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
   const runsOn = "ubuntu-latest";
+
+  if (mode === "container" && !runtime.image) {
+    throw new GithubTargetError(
+      `step '${step.id}' uses container mode without an image`,
+      "LOWER_FAILED",
+    );
+  }
   const container = mode === "container" ? runtime.image : undefined;
+
+  const jobEnv: Record<string, string> = {};
+  if (runtime.env) {
+    Object.assign(jobEnv, runtime.env);
+  }
+  if (runtime.secrets) {
+    for (const secret of runtime.secrets) {
+      jobEnv[secret] = `\${{ secrets.${secret} }}`;
+    }
+  }
 
   const job: GithubJob = {
     id: jobId,
@@ -131,8 +221,10 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
     runsOn,
     needs,
     steps,
-    ...(step.timeout !== undefined ? { timeoutMinutes: Math.ceil(step.timeout / 60000) } : {}),
-    ...(runtime.env ? { env: { ...runtime.env } } : {}),
+    ...(step.timeout !== undefined
+      ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
+      : {}),
+    ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
     ...(container ? { container } : {}),
   };
 
@@ -143,7 +235,10 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
  * Map dependencies to job needs.
  * All dependency kinds create needs (GitHub jobs can't share values without artifacts).
  */
-function lowerDependencies(deps: readonly Dependency[], jobIdMap: Map<string, string>): readonly string[] {
+function lowerDependencies(
+  deps: readonly Dependency[],
+  jobIdMap: Map<string, string>,
+): readonly string[] {
   const needs = new Set<string>();
   for (const dep of deps) {
     // Map full step ID to GitHub job ID.
@@ -154,53 +249,41 @@ function lowerDependencies(deps: readonly Dependency[], jobIdMap: Map<string, st
 }
 
 /**
- * Map operations to GitHub steps.
- * Always starts with checkout for artifact-aware steps.
+ * Map operations to GitHub steps in original order.
+ * Consecutive shell/exportOutput operations are combined into one run step.
  */
 function lowerOperations(step: StepDefinition): readonly GithubStep[] {
   const steps: GithubStep[] = [];
-  // Use the short ID for artifact naming (strip pipeline prefix).
   const shortStepId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
 
-  // Add checkout if the step has artifact imports (needs repo context).
-  const hasImports = step.operations.some((op) => op.kind === "importArtifact");
-  if (hasImports) {
+  // Every job needs the repository checked out.
+  steps.push({
+    name: "Checkout",
+    uses: "actions/checkout@v4",
+  });
+
+  let runLines: string[] = [];
+
+  function flushRun(): void {
+    if (runLines.length === 0) return;
     steps.push({
-      name: "Checkout",
-      uses: "actions/checkout@v4",
+      run: runLines.join("\n"),
     });
+    runLines = [];
   }
 
-  // Add download-artifact steps for imports.
-  for (const op of step.operations) {
-    if (op.kind === "importArtifact") {
-      const fromShort = op.from.includes("/") ? op.from.split("/").pop()! : op.from;
-      steps.push({
-        name: `Download ${op.output}`,
-        uses: "actions/download-artifact@v4",
-        with: {
-          name: artifactName(fromShort, op.output),
-          path: op.output,
-        },
-      });
-    }
-  }
-
-  // Map shell and other operations.
-  const shellCommands: string[] = [];
   for (const op of step.operations) {
     switch (op.kind) {
       case "shell":
-        shellCommands.push(op.command);
+        runLines.push(op.command);
         break;
       case "exportOutput":
-        // Scalar output via $GITHUB_OUTPUT
-        steps.push({
-          id: `output-${op.name}`,
-          run: `echo "${op.name}=${"$"}{${op.name}}" >> "$GITHUB_OUTPUT"`,
-        });
+        runLines.push(
+          `echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`,
+        );
         break;
       case "exportArtifact":
+        flushRun();
         steps.push({
           name: `Upload ${op.name}`,
           uses: "actions/upload-artifact@v4",
@@ -210,28 +293,42 @@ function lowerOperations(step: StepDefinition): readonly GithubStep[] {
           },
         });
         break;
-      case "importArtifact":
-        // Already handled above
+      case "importArtifact": {
+        flushRun();
+        const fromShort = op.from.includes("/")
+          ? op.from.split("/").pop()!
+          : op.from;
+        steps.push({
+          name: `Download ${op.output}`,
+          uses: "actions/download-artifact@v4",
+          with: {
+            name: artifactName(fromShort, op.output),
+            path: op.output,
+          },
+        });
         break;
+      }
       case "diagnostic": {
-        const cmd = op.severity === "error"
-          ? `echo "::error::${op.message}`
-          : op.severity === "warn"
-            ? `echo "::warning::${op.message}`
-            : `echo "::notice::${op.message}`;
+        flushRun();
+        const message = op.message.replace(/"/g, '\\"');
+        const cmd =
+          op.severity === "error"
+            ? `echo "::error::${message}"`
+            : op.severity === "warn"
+              ? `echo "::warning::${message}"`
+              : `echo "::notice::${message}"`;
         steps.push({ run: cmd });
         break;
       }
+      default:
+        throw new GithubTargetError(
+          `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
+          "LOWER_FAILED",
+        );
     }
   }
 
-  // Combine consecutive shell commands into one step.
-  if (shellCommands.length > 0) {
-    steps.push({
-      run: shellCommands.join("\n"),
-    });
-  }
-
+  flushRun();
   return steps;
 }
 
@@ -244,11 +341,15 @@ function artifactName(stepId: string, outputName: string): string {
 
 /**
  * Collect pipeline-level env vars from inputs.
+ * Secret inputs are referenced via `${{ secrets.<name> }}` instead of
+ * literal defaults.
  */
 function collectEnv(pipeline: PipelineDefinition): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [name, input] of Object.entries(pipeline.inputs)) {
-    if (input.default !== undefined) {
+    if (input.secret) {
+      env[name] = `\${{ secrets.${name} }}`;
+    } else if (input.default !== undefined) {
       env[name] = String(input.default);
     }
   }
