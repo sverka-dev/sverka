@@ -157,6 +157,616 @@ describe("compileGitlab — timeout", () => {
   });
 });
 
+describe("compileGitlab — interruptible", () => {
+  it("emits interruptible: true on job when step.interruptible === true", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo", interruptible: true });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.interruptible).toBe(true);
+  });
+
+  it("emits interruptible: false on job when step.interruptible === false", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", { command: "echo", interruptible: false });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.deploy.interruptible).toBe(false);
+  });
+
+  it("omits interruptible key when not set on step", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.interruptible).toBeUndefined();
+  });
+
+  it("emits workflow.auto_cancel when any step is interruptible", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo", interruptible: true });
+    new ShellStep(p, "deploy", { command: "echo", dependsOn: ["build"] });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.workflow).toBeDefined();
+    expect(yaml.workflow.auto_cancel).toBeDefined();
+    expect(yaml.workflow.auto_cancel.on_new_commit).toBe("interruptible");
+  });
+
+  it("omits workflow.auto_cancel when no step is interruptible", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.workflow).toBeUndefined();
+  });
+
+  it("emits workflow.auto_cancel when only one of several steps is interruptible", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo", interruptible: true });
+    new ShellStep(p, "deploy", { command: "echo", dependsOn: ["build"], interruptible: false });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.workflow.auto_cancel.on_new_commit).toBe("interruptible");
+    expect(yaml.build.interruptible).toBe(true);
+    expect(yaml.deploy.interruptible).toBe(false);
+  });
+});
+
+describe("compileGitlab — permissions", () => {
+  it("emits error diagnostic for permissions (unsupported on GitLab)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      permissions: { contents: "read" },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const target = new GitlabTarget();
+    const diags = target.analyze(synthesize(proj));
+    const permDiag = diags.find((d) => d.capability === "environment.permissions");
+    expect(permDiag).toBeDefined();
+    expect(permDiag?.support).toBe("unsupported");
+    expect(permDiag?.severity).toBe("error");
+  });
+
+  it("does not emit permissions in YAML (GitLab has no YAML equivalent)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      permissions: { contents: "read" },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.permissions).toBeUndefined();
+  });
+});
+
+describe("compileGitlab — defaults", () => {
+  it("emits default with before_script and after_script", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      defaults: {
+        beforeScript: ["install-deps"],
+        afterScript: ["cleanup"],
+        interruptible: true,
+      },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.default).toBeDefined();
+    expect(yaml.default.before_script).toEqual(["install-deps"]);
+    expect(yaml.default.after_script).toEqual(["cleanup"]);
+    expect(yaml.default.interruptible).toBe(true);
+  });
+
+  it("emits default with timeout and retry", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      defaults: { timeout: 300000, retry: { max: 2 } },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.default.timeout).toBe("5m");
+    expect(yaml.default.retry.max).toBe(2);
+  });
+
+  it("omits default when not set", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.default).toBeUndefined();
+  });
+
+  it("emits error diagnostic for shell (unsupported on GitLab)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      defaults: { shell: "bash" },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const target = new GitlabTarget();
+    const diags = target.analyze(synthesize(proj));
+    const shellDiag = diags.find((d) => d.capability === "workflow.defaults.shell");
+    expect(shellDiag).toBeDefined();
+    expect(shellDiag?.support).toBe("unsupported");
+  });
+});
+
+describe("compileGitlab — runner", () => {
+  it("emits tags from runner.labels", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo", runner: { labels: ["linux", "x64"] } });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.tags).toEqual(["linux", "x64"]);
+  });
+
+  it("omits tags when no runner specified", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.tags).toBeUndefined();
+  });
+
+  it("emits warning diagnostic for runner.group (unsupported on GitLab)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo",
+      runner: { labels: ["linux"], group: "my-group" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const target = new GitlabTarget();
+    const diags = target.analyze(synthesize(proj));
+    const groupDiag = diags.find((d) => d.capability === "runner.group");
+    expect(groupDiag).toBeDefined();
+    expect(groupDiag?.support).toBe("unsupported");
+    expect(groupDiag?.severity).toBe("error");
+  });
+});
+
+describe("compileGitlab — identity (OIDC)", () => {
+  it("emits id_tokens map from identity tokens", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      identity: {
+        tokens: {
+          AWS_TOKEN: { audience: "https://sts.amazonaws.com" },
+          VAULT_TOKEN: { audience: "https://vault.example.com" },
+        },
+      },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.deploy.id_tokens).toBeDefined();
+    expect(yaml.deploy.id_tokens.AWS_TOKEN.aud).toBe("https://sts.amazonaws.com");
+    expect(yaml.deploy.id_tokens.VAULT_TOKEN.aud).toBe("https://vault.example.com");
+  });
+
+  it("omits id_tokens when no identity", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.id_tokens).toBeUndefined();
+  });
+});
+
+describe("compileGitlab — rules", () => {
+  it("emits step-level rules appended to trigger rules", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo",
+      rules: [
+        { if: "$CI_COMMIT_BRANCH == main", changes: ["src/**"] },
+        { when: "never" },
+      ],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules).toBeDefined();
+    const rules = yaml.build.rules as Record<string, unknown>[];
+    // First rule(s) come from trigger (push → CI_PIPELINE_SOURCE == push)
+    // Then step-level rules are appended
+    const stepRule1 = rules.find((r) => r.if === "$CI_COMMIT_BRANCH == main");
+    expect(stepRule1).toBeDefined();
+    expect(stepRule1?.changes).toEqual(["src/**"]);
+    const stepRule2 = rules.find((r) => r.when === "never");
+    expect(stepRule2).toBeDefined();
+  });
+
+  it("emits exists and variables in rules", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo",
+      rules: [
+        { exists: ["Makefile"], variables: { ENV: "prod" } },
+      ],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const rules = yaml.build.rules as Record<string, unknown>[];
+    const stepRule = rules.find((r) => r.exists !== undefined);
+    expect(stepRule).toBeDefined();
+    expect(stepRule?.exists).toEqual(["Makefile"]);
+    expect(stepRule?.variables).toEqual({ ENV: "prod" });
+  });
+
+  it("omits step-level rules when none specified", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    // Trigger-derived rules still present
+    expect(yaml.build.rules).toBeDefined();
+    const rules = yaml.build.rules as Record<string, unknown>[];
+    // Only trigger rules, no step-level rules
+    const stepRule = rules.find((r) => r.exists !== undefined || r.changes !== undefined);
+    expect(stepRule).toBeUndefined();
+  });
+});
+
+describe("compileGitlab — reports", () => {
+  it("emits artifacts:reports with junit", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "test", {
+      command: "make test",
+      reports: [{ type: "junit", path: "test-results.xml" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.test.artifacts).toBeDefined();
+    expect(yaml.test.artifacts.reports).toBeDefined();
+    expect(yaml.test.artifacts.reports.junit).toBe("test-results.xml");
+  });
+
+  it("emits coverage_report with format and path", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "test", {
+      command: "make test",
+      reports: [{ type: "coverage", path: "coverage.xml", format: "cobertura" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.test.artifacts.reports.coverage_report).toBeDefined();
+    expect(yaml.test.artifacts.reports.coverage_report.coverage_format).toBe("cobertura");
+    expect(yaml.test.artifacts.reports.coverage_report.path).toBe("coverage.xml");
+  });
+
+  it("maps sarif to sast report", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "scan", {
+      command: "echo scan",
+      reports: [{ type: "sarif", path: "results.sarif" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["scan"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.scan.artifacts.reports.sast).toBe("results.sarif");
+  });
+});
+
+describe("compileGitlab — typed inputs", () => {
+  it("emits spec:inputs with typed inputs", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: {
+        environment: {
+          type: "choice",
+          options: ["staging", "production"],
+          required: true,
+        },
+        version: {
+          type: "string",
+          pattern: "^v\\d+$",
+        },
+      },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.spec).toBeDefined();
+    expect(yaml.spec.inputs).toBeDefined();
+    // choice → string with options
+    expect(yaml.spec.inputs.environment.type).toBe("string");
+    expect(yaml.spec.inputs.environment.options).toEqual(["staging", "production"]);
+    expect(yaml.spec.inputs.environment.required).toBe(true);
+    // pattern preserved
+    expect(yaml.spec.inputs.version.type).toBe("string");
+    expect(yaml.spec.inputs.version.pattern).toBe("^v\\d+$");
+  });
+
+  it("emits array type natively", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: { targets: { type: "array", default: ["build"] } },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.spec.inputs.targets.type).toBe("array");
+  });
+
+  it("omits spec when no inputs", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.spec).toBeUndefined();
+  });
+});
+
+describe("compileGitlab — services", () => {
+  it("emits services array with name, alias, variables", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "test", {
+      command: "make test",
+      services: [
+        { name: "postgres", image: "postgres:16", alias: "pg", env: { POSTGRES_PASSWORD: "secret" } },
+        { name: "redis", image: "redis:7" },
+      ],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.test.services).toBeDefined();
+    expect(yaml.test.services).toHaveLength(2);
+    expect(yaml.test.services[0].name).toBe("postgres:16");
+    expect(yaml.test.services[0].alias).toBe("pg");
+    expect(yaml.test.services[0].variables.POSTGRES_PASSWORD).toBe("secret");
+    expect(yaml.test.services[1].name).toBe("redis:7");
+  });
+
+  it("emits error diagnostic for ports (unsupported on GitLab)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "test", {
+      command: "make test",
+      services: [{ name: "pg", image: "postgres:16", ports: [5432] }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+    const target = new GitlabTarget();
+    const diags = target.analyze(synthesize(proj));
+    const portsDiag = diags.find((d) => d.capability === "environment.services.ports");
+    expect(portsDiag).toBeDefined();
+    expect(portsDiag?.support).toBe("unsupported");
+  });
+
+  it("omits services when not set", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.services).toBeUndefined();
+  });
+});
+
+describe("compileGitlab — environment", () => {
+  it("emits environment with name, url, action, and deployment_tier", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      environment: {
+        name: "production",
+        url: "https://app.example.com",
+        action: "start",
+        tier: "production",
+      },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.deploy.environment).toBeDefined();
+    expect(yaml.deploy.environment.name).toBe("production");
+    expect(yaml.deploy.environment.url).toBe("https://app.example.com");
+    expect(yaml.deploy.environment.action).toBe("start");
+    expect(yaml.deploy.environment.deployment_tier).toBe("production");
+  });
+
+  it("emits environment with action stop", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "stop-deploy", {
+      command: "stop",
+      environment: { name: "production", action: "stop" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["stop-deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml["stop-deploy"].environment.action).toBe("stop");
+  });
+
+  it("omits environment when not set", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.environment).toBeUndefined();
+  });
+});
+
+describe("compileGitlab — artifact retention and access", () => {
+  it("emits expire_in and access on artifacts", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      outputs: { dist: { type: "artifact", path: "dist/", retention: "7d", access: "developer" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.artifacts.expire_in).toBe("7 days");
+    expect(yaml.build.artifacts.access).toBe("developer");
+  });
+
+  it("converts never retention to never", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      outputs: { dist: { type: "artifact", path: "dist/", retention: "never" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.artifacts.expire_in).toBe("never");
+  });
+
+  it("omits expire_in and access when not set", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      outputs: { dist: { type: "artifact", path: "dist/" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.artifacts.expire_in).toBeUndefined();
+    expect(yaml.build.artifacts.access).toBeUndefined();
+  });
+});
+
+describe("compileGitlab — cache", () => {
+  it("emits cache with paths, key, policy, and fallback_keys", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      cache: {
+        paths: ["node_modules", ".cache"],
+        key: "node-1",
+        restoreKeys: ["node-main"],
+        policy: "pull-push",
+      },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.cache).toBeDefined();
+    expect(yaml.build.cache.paths).toEqual(["node_modules", ".cache"]);
+    expect(yaml.build.cache.key).toBe("node-1");
+    expect(yaml.build.cache.policy).toBe("pull-push");
+    expect(yaml.build.cache.fallback_keys).toEqual(["node-main"]);
+  });
+
+  it("omits cache when not set", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.cache).toBeUndefined();
+  });
+});
+
+describe("compileGitlab — concurrency", () => {
+  it("emits resource_group from step-level concurrency", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      concurrency: { group: "production" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.deploy.resource_group).toBe("production");
+  });
+
+  it("applies pipeline-level concurrency to all jobs", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      concurrency: { group: "deploy-group" },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new ShellStep(p, "test", { command: "make test" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build", "test"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.resource_group).toBe("deploy-group");
+    expect(yaml.test.resource_group).toBe("deploy-group");
+  });
+
+  it("emits error diagnostic for cancelInProgress (unsupported on GitLab)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      concurrency: { group: "production", cancelInProgress: true },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const target = new GitlabTarget();
+    const diags = target.analyze(synthesize(proj));
+    const cancelDiag = diags.find((d) => d.capability === "concurrency.cancelInProgress");
+    expect(cancelDiag).toBeDefined();
+    expect(cancelDiag?.support).toBe("unsupported");
+  });
+
+  it("omits resource_group when not set", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.resource_group).toBeUndefined();
+  });
+});
+
 describe("compileGitlab — stages", () => {
   it("assigns build stage to steps with no deps", () => {
     const graph = makeSimpleGraph();

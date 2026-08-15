@@ -93,6 +93,14 @@ function detectStepCapabilities(step: {
   afterScript?: readonly unknown[];
   continueOnError?: unknown;
   retry?: { max?: number };
+  interruptible?: boolean;
+  runner?: { labels?: readonly string[]; group?: string };
+  identity?: { tokens?: Readonly<Record<string, { audience: string }>> };
+  rules?: readonly { changes?: readonly string[]; exists?: readonly string[] }[];
+  services?: readonly { ports?: readonly number[] }[];
+  environment?: { name?: string; action?: string; tier?: string };
+  cache?: { policy?: string; restoreKeys?: readonly string[] };
+  concurrency?: { group?: string; cancelInProgress?: boolean };
 }, caps: Set<string>): void {
   const mode = step.runtime?.mode ?? "host";
   caps.add(`runtime.${mode}`);
@@ -100,6 +108,50 @@ function detectStepCapabilities(step: {
   if (step.runtime?.shell) caps.add("execution.shell");
   if (step.runtime?.env && Object.keys(step.runtime.env).length > 0) caps.add("environment.variables");
   if (step.runtime?.secrets && step.runtime.secrets.length > 0) caps.add("secrets.runtime");
+  if (step.interruptible === true) caps.add("concurrency.interruptible");
+  if (step.runner !== undefined) {
+    caps.add("runner.selection");
+    if (step.runner.group !== undefined) caps.add("runner.group");
+  }
+  if (step.identity !== undefined) {
+    caps.add("secrets.oidc");
+    const audiences = new Set<string>();
+    for (const token of Object.values(step.identity.tokens ?? {})) {
+      audiences.add(token.audience);
+    }
+    if (audiences.size > 1) {
+      caps.add("secrets.oidc.multiAudience");
+    }
+  }
+  if (step.rules !== undefined && step.rules.length > 0) {
+    caps.add("workflow.rules");
+    for (const rule of step.rules) {
+      if (rule.changes !== undefined) caps.add("workflow.rules.changes");
+      if (rule.exists !== undefined) caps.add("workflow.rules.exists");
+    }
+  }
+  if (step.services !== undefined && step.services.length > 0) {
+    caps.add("environment.services");
+    for (const service of step.services) {
+      if (service.ports !== undefined && service.ports.length > 0) {
+        caps.add("environment.services.ports");
+      }
+    }
+  }
+  if (step.environment !== undefined) {
+    caps.add("deployment.environment");
+    if (step.environment.action !== undefined) caps.add("deployment.environment.action");
+    if (step.environment.tier !== undefined) caps.add("deployment.environment.tier");
+  }
+  if (step.cache !== undefined) {
+    caps.add("cache");
+    if (step.cache.policy !== undefined) caps.add("cache.policy");
+    if (step.cache.restoreKeys !== undefined && step.cache.restoreKeys.length > 0) caps.add("cache.fallbackKeys");
+  }
+  if (step.concurrency !== undefined) {
+    caps.add("concurrency.group");
+    if (step.concurrency.cancelInProgress !== undefined) caps.add("concurrency.cancelInProgress");
+  }
 
   const outputFlags = { scalar: false, artifact: false };
   detectOperationCapabilities(step.operations, caps, outputFlags);
@@ -141,15 +193,25 @@ function detectScriptCapabilities(
 }
 
 function detectOperationCapabilities(
-  operations: readonly { kind: string }[],
+  operations: readonly { kind: string; spec?: { type?: string }; retention?: string; access?: string }[],
   caps: Set<string>,
   outputFlags: { scalar: boolean; artifact: boolean },
 ): void {
   for (const op of operations) {
     if (op.kind === "shell") caps.add("operation.shell");
     else if (op.kind === "exportOutput") outputFlags.scalar = true;
-    else if (op.kind === "exportArtifact") outputFlags.artifact = true;
+    else if (op.kind === "exportArtifact") {
+      outputFlags.artifact = true;
+      if (op.retention !== undefined) caps.add("artifact.retention");
+      if (op.access !== undefined) caps.add("artifact.access");
+    }
     else if (op.kind === "importArtifact") caps.add("operation.import");
+    else if (op.kind === "report") {
+      caps.add("artifact.report");
+      if (op.spec?.type !== undefined) {
+        caps.add(`artifact.report.${op.spec.type}`);
+      }
+    }
   }
 }
 
@@ -175,7 +237,27 @@ function detectPipelineCapabilities(pipeline: {
     outputs: readonly { type: string }[];
     dependencies: readonly unknown[];
     matrix?: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number };
+    interruptible?: boolean;
+    runner?: { labels?: readonly string[]; group?: string };
+    identity?: { tokens?: Readonly<Record<string, { audience: string }>> };
+    rules?: readonly { changes?: readonly string[]; exists?: readonly string[] }[];
+    services?: readonly { ports?: readonly number[] }[];
+  environment?: { name?: string; action?: string; tier?: string };
+  cache?: { policy?: string; restoreKeys?: readonly string[] };
+  concurrency?: { group?: string; cancelInProgress?: boolean };
   }[];
+  permissions?: unknown;
+  defaults?: {
+    shell?: unknown;
+    workdir?: unknown;
+    env?: unknown;
+    beforeScript?: unknown;
+    afterScript?: unknown;
+    timeout?: unknown;
+    retry?: unknown;
+    interruptible?: unknown;
+  };
+  inputs?: Readonly<Record<string, { type?: string; options?: readonly string[]; pattern?: string }>>;
 }, caps: Set<string>): void {
   for (const entry of pipeline.entries) {
     caps.add(`trigger.${entry.trigger.kind}`);
@@ -184,6 +266,29 @@ function detectPipelineCapabilities(pipeline: {
     for (const input of Object.values(pipeline.inputs)) {
       if (input.secret) caps.add("secrets.pipeline-input");
     }
+  }
+  if (pipeline.permissions !== undefined) {
+    caps.add("environment.permissions");
+  }
+  if (pipeline.inputs !== undefined && Object.keys(pipeline.inputs).length > 0) {
+    caps.add("workflow.inputs");
+    for (const input of Object.values(pipeline.inputs)) {
+      if (input.type === "choice") caps.add("workflow.inputs.choice");
+      if (input.type === "array") caps.add("workflow.inputs.array");
+      if (input.pattern !== undefined) caps.add("workflow.inputs.pattern");
+    }
+  }
+  if (pipeline.defaults !== undefined) {
+    caps.add("workflow.defaults");
+    const d = pipeline.defaults;
+    if (d.shell !== undefined) caps.add("workflow.defaults.shell");
+    if (d.workdir !== undefined) caps.add("workflow.defaults.workdir");
+    if (d.env !== undefined) caps.add("workflow.defaults.env");
+    if (d.beforeScript !== undefined) caps.add("workflow.defaults.beforeScript");
+    if (d.afterScript !== undefined) caps.add("workflow.defaults.afterScript");
+    if (d.timeout !== undefined) caps.add("workflow.defaults.timeout");
+    if (d.retry !== undefined) caps.add("workflow.defaults.retry");
+    if (d.interruptible !== undefined) caps.add("workflow.defaults.interruptible");
   }
   for (const step of pipeline.steps) {
     detectStepCapabilities(step, caps);

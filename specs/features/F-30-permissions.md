@@ -3,7 +3,7 @@
 **ID:** F-30
 **Category:** environment
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -98,10 +98,20 @@ Permissions are entirely GitHub-specific. GitLab manages access through project 
 - **Depends on:** none.
 - **Blocks:** F-38 (OIDC uses `id-token: write` permission).
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should permissions be in the portable model with "unsupported on GitLab" or strictly a provider extension?
-- Should `read-all`/`write-all` shorthand be supported?
+- **Permissions live in the portable model** as a Pipeline-level field
+  (`permissions?: Readonly<Record<string, PermissionLevel>>`), not behind a
+  provider-extension mechanism. Rationale: Sverka has no extension framework
+  yet; adding one for a single field would be over-engineering. The field is
+  optional and GitLab emits an info diagnostic. When an extension framework
+  arrives, permissions can migrate without breaking the authoring API.
+- **No `read-all`/`write-all` shorthand.** Users enumerate scopes explicitly.
+  Shorthand can be added later as sugar. The portable model stays explicit.
+- **Scope names authored in kebab-case** (`contents`, `id-token`,
+  `pull-requests`). No camelCase conversion needed — GitHub already uses
+  kebab-case, and GitLab doesn't support permissions. This avoids a
+  conversion layer and matches the GitHub YAML directly.
 
 ## References
 

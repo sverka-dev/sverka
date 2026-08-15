@@ -3,7 +3,7 @@
 **ID:** F-47
 **Category:** workflow-control
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -129,11 +129,17 @@ Both providers support typed inputs but with different type sets and validation 
 - **Depends on:** F-04 (manual trigger — uses inputs), F-31 (reusable workflows — use inputs).
 - **Blocks:** F-04, F-31, F-32, F-44.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should `environment` be a separate type or mapped to `choice`?
-- Should `pattern` be validated at synthesis time or runtime?
-- Should the native engine support interactive input prompts?
+- **`environment` is mapped to `choice`.** GitHub's `environment` type is
+  essentially a choice of environments. Users use `type: "choice"` with
+  `options: ["staging", "production"]`. No separate `environment` type.
+- **`pattern` is validated at runtime, not synthesis time.** Synthesis
+  only records the pattern. The native engine or target runtime validates
+  it. This avoids regex engine differences at synthesis time.
+- **Native engine: no interactive prompts in this feature.** Interactive
+  prompts are a CLI feature (F-04). This feature only adds the typed input
+  model and target lowering.
 
 ## References
 

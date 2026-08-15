@@ -185,6 +185,491 @@ describe("GithubTarget — analyze", () => {
     const diags = target.analyze(graph);
     expect(diags).toHaveLength(0);
   });
+
+  it("warning diagnostic for interruptible step (partial support)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo", interruptible: true });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const target = new GithubTarget();
+    const diags = target.analyze(synthesize(proj));
+    const interruptibleDiag = diags.find((d) => d.capability === "concurrency.interruptible");
+    expect(interruptibleDiag).toBeDefined();
+    expect(interruptibleDiag?.support).toBe("partial");
+    expect(interruptibleDiag?.severity).toBe("warning");
+  });
+
+  it("no interruptible diagnostic when step is not interruptible", () => {
+    const graph = makeSimpleGraph();
+    const target = new GithubTarget();
+    const diags = target.analyze(graph);
+    expect(diags.find((d) => d.capability === "concurrency.interruptible")).toBeUndefined();
+  });
+});
+
+describe("compileGithub — interruptible", () => {
+  it("does not emit per-job interruptible field (GitHub has no such construct)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo", interruptible: true });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    // GitHub has no per-job interruptible; the field is silently dropped.
+    expect(yaml.jobs.build.interruptible).toBeUndefined();
+    // No concurrency block is emitted (that is F-28's surface).
+    expect(yaml.concurrency).toBeUndefined();
+  });
+});
+
+describe("compileGithub — permissions", () => {
+  it("emits permissions: map at workflow level", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      permissions: { contents: "read", "id-token": "write" },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.permissions).toBeDefined();
+    expect(yaml.permissions.contents).toBe("read");
+    expect(yaml.permissions["id-token"]).toBe("write");
+  });
+
+  it("omits permissions key when not set", () => {
+    const graph = makeSimpleGraph();
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.permissions).toBeUndefined();
+  });
+});
+
+describe("compileGithub — defaults", () => {
+  it("emits defaults.run with shell and working-directory", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      defaults: { shell: "bash", workdir: "./src" },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.defaults).toBeDefined();
+    expect(yaml.defaults.run.shell).toBe("bash");
+    expect(yaml.defaults.run["working-directory"]).toBe("./src");
+  });
+
+  it("omits defaults when not set", () => {
+    const graph = makeSimpleGraph();
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.defaults).toBeUndefined();
+  });
+});
+
+describe("compileGithub — runner", () => {
+  it("emits runs-on as string for single label", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo", runner: { labels: ["ubuntu-latest"] } });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build["runs-on"]).toBe("ubuntu-latest");
+  });
+
+  it("emits runs-on as array for multiple labels", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo", runner: { labels: ["self-hosted", "linux"] } });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build["runs-on"]).toEqual(["self-hosted", "linux"]);
+  });
+
+  it("emits runs-on as object with group and labels", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo",
+      runner: { labels: ["self-hosted", "linux"], group: "my-group" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build["runs-on"]).toEqual({
+      group: "my-group",
+      labels: ["self-hosted", "linux"],
+    });
+  });
+
+  it("defaults to ubuntu-latest when no runner specified", () => {
+    const graph = makeSimpleGraph();
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build["runs-on"]).toBe("ubuntu-latest");
+  });
+});
+
+describe("compileGithub — identity (OIDC)", () => {
+  it("emits job-level permissions with id-token: write", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      identity: { tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.deploy.permissions).toBeDefined();
+    expect(yaml.jobs.deploy.permissions["id-token"]).toBe("write");
+  });
+
+  it("emits error diagnostic for multiAudience (unsupported on GitHub)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      identity: {
+        tokens: {
+          AWS: { audience: "https://sts.amazonaws.com" },
+          VAULT: { audience: "https://vault.example.com" },
+        },
+      },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const target = new GithubTarget();
+    const diags = target.analyze(synthesize(proj));
+    const multiDiag = diags.find((d) => d.capability === "secrets.oidc.multiAudience");
+    expect(multiDiag).toBeDefined();
+    expect(multiDiag?.support).toBe("unsupported");
+    expect(multiDiag?.severity).toBe("error");
+  });
+
+  it("omits job-level permissions when no identity", () => {
+    const graph = makeSimpleGraph();
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build.permissions).toBeUndefined();
+  });
+});
+
+describe("compileGithub — rules", () => {
+  it("emits if: from first rule with if expression", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo",
+      rules: [{ if: "github.ref == 'refs/heads/main'", changes: ["src/**"] }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build.if).toBe("github.ref == 'refs/heads/main'");
+  });
+
+  it("omits if: when first rule has no if", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo",
+      rules: [{ when: "never" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build.if).toBeUndefined();
+  });
+
+  it("omits if: when no rules", () => {
+    const graph = makeSimpleGraph();
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build.if).toBeUndefined();
+  });
+
+  it("emits error diagnostic for changes (unsupported on GitHub)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo",
+      rules: [{ if: "true", changes: ["src/**"] }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const target = new GithubTarget();
+    const diags = target.analyze(synthesize(proj));
+    const changesDiag = diags.find((d) => d.capability === "workflow.rules.changes");
+    expect(changesDiag).toBeDefined();
+    expect(changesDiag?.support).toBe("unsupported");
+  });
+});
+
+describe("compileGithub — reports", () => {
+  it("emits dorny/test-reporter for junit reports", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "test", {
+      command: "make test",
+      reports: [{ type: "junit", path: "test-results.xml" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const steps = yaml.jobs.test.steps as Record<string, unknown>[];
+    const reportStep = steps.find((s) => s.uses === "dorny/test-reporter@v1");
+    expect(reportStep).toBeDefined();
+    expect(reportStep?.with).toMatchObject({ path: "test-results.xml" });
+  });
+
+  it("emits upload-sarif for sarif reports", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "scan", {
+      command: "echo scan",
+      reports: [{ type: "sarif", path: "results.sarif" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["scan"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const steps = yaml.jobs.scan.steps as Record<string, unknown>[];
+    const reportStep = steps.find((s) => s.uses === "github/codeql-action/upload-sarif@v3");
+    expect(reportStep).toBeDefined();
+    expect(reportStep?.with).toMatchObject({ sarif_file: "results.sarif" });
+  });
+
+  it("emits upload-artifact for unknown report types", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "perf", {
+      command: "echo perf",
+      reports: [{ type: "performance", path: "perf.json" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["perf"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const steps = yaml.jobs.perf.steps as Record<string, unknown>[];
+    const reportStep = steps.find((s) => s.uses === "actions/upload-artifact@v4");
+    expect(reportStep).toBeDefined();
+  });
+});
+
+describe("compileGithub — typed inputs", () => {
+  it("emits workflow_dispatch.inputs for manual trigger with inputs", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: {
+        environment: {
+          type: "choice",
+          options: ["staging", "production"],
+          required: true,
+          description: "Deployment environment",
+        },
+        debug: { type: "boolean", default: false },
+      },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.workflow_dispatch).toBeDefined();
+    expect(yaml.on.workflow_dispatch.inputs).toBeDefined();
+    expect(yaml.on.workflow_dispatch.inputs.environment.type).toBe("choice");
+    expect(yaml.on.workflow_dispatch.inputs.environment.options).toEqual(["staging", "production"]);
+    expect(yaml.on.workflow_dispatch.inputs.debug.type).toBe("boolean");
+  });
+
+  it("emits error diagnostic for array input (unsupported on GitHub)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: { targets: { type: "array" } },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const target = new GithubTarget();
+    const diags = target.analyze(synthesize(proj));
+    const arrayDiag = diags.find((d) => d.capability === "workflow.inputs.array");
+    expect(arrayDiag).toBeDefined();
+    expect(arrayDiag?.support).toBe("unsupported");
+  });
+});
+
+describe("compileGithub — services", () => {
+  it("emits services map keyed by name", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "test", {
+      command: "make test",
+      services: [
+        { name: "postgres", image: "postgres:16", env: { POSTGRES_PASSWORD: "secret" }, ports: [5432] },
+        { name: "redis", image: "redis:7", ports: [6379] },
+      ],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.test.services).toBeDefined();
+    expect(yaml.jobs.test.services.postgres.image).toBe("postgres:16");
+    expect(yaml.jobs.test.services.postgres.env.POSTGRES_PASSWORD).toBe("secret");
+    expect(yaml.jobs.test.services.postgres.ports).toEqual(["5432:5432"]);
+    expect(yaml.jobs.test.services.redis.image).toBe("redis:7");
+  });
+
+  it("omits services when not set", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build.services).toBeUndefined();
+  });
+});
+
+describe("compileGithub — environment", () => {
+  it("emits environment with name and url", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      environment: { name: "production", url: "https://app.example.com" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.deploy.environment).toBeDefined();
+    expect(yaml.jobs.deploy.environment.name).toBe("production");
+    expect(yaml.jobs.deploy.environment.url).toBe("https://app.example.com");
+  });
+
+  it("emits error diagnostic for action (unsupported on GitHub)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      environment: { name: "production", action: "stop" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const target = new GithubTarget();
+    const diags = target.analyze(synthesize(proj));
+    const actionDiag = diags.find((d) => d.capability === "deployment.environment.action");
+    expect(actionDiag).toBeDefined();
+    expect(actionDiag?.support).toBe("unsupported");
+  });
+});
+
+describe("compileGithub — artifact retention", () => {
+  it("emits retention-days on upload-artifact", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      outputs: { dist: { type: "artifact", path: "dist/", retention: "7d" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const uploadStep = yaml.jobs.build.steps.find((s: { uses?: string }) => s.uses?.includes("upload-artifact"));
+    expect(uploadStep.with["retention-days"]).toBe(7);
+  });
+
+  it("emits error diagnostic for artifact.access (unsupported on GitHub)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      outputs: { dist: { type: "artifact", path: "dist/", access: "developer" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const target = new GithubTarget();
+    const diags = target.analyze(synthesize(proj));
+    const accessDiag = diags.find((d) => d.capability === "artifact.access");
+    expect(accessDiag).toBeDefined();
+    expect(accessDiag?.support).toBe("unsupported");
+  });
+});
+
+describe("compileGithub — cache", () => {
+  it("emits actions/cache step with path, key, and restore-keys", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      cache: {
+        paths: ["node_modules", ".cache"],
+        key: "node-${{ hashFiles('bun.lock') }}",
+        restoreKeys: ["node-"],
+      },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) => s.uses?.includes("actions/cache"));
+    expect(cacheStep).toBeDefined();
+    expect(cacheStep.uses).toBe("actions/cache@v4");
+    expect(cacheStep.with.key).toBe("node-${{ hashFiles('bun.lock') }}");
+    expect(cacheStep.with["restore-keys"]).toBe("node-");
+  });
+
+  it("uses actions/cache/restore for pull policy", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      cache: { paths: ["node_modules"], key: "k", policy: "pull" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) => s.uses?.includes("cache"));
+    expect(cacheStep.uses).toBe("actions/cache/restore@v4");
+  });
+
+  it("uses actions/cache/save for push policy", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "make build",
+      cache: { paths: ["node_modules"], key: "k", policy: "push" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) => s.uses?.includes("cache"));
+    expect(cacheStep.uses).toBe("actions/cache/save@v4");
+  });
+});
+
+describe("compileGithub — concurrency", () => {
+  it("emits workflow-level concurrency from pipeline-level setting", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      concurrency: { group: "deploy-${{ github.ref }}", cancelInProgress: true },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.concurrency).toBeDefined();
+    expect(yaml.concurrency.group).toBe("deploy-${{ github.ref }}");
+    expect(yaml.concurrency["cancel-in-progress"]).toBe(true);
+  });
+
+  it("emits job-level concurrency from step-level setting", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "deploy",
+      concurrency: { group: "production" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.deploy.concurrency).toBeDefined();
+    expect(yaml.jobs.deploy.concurrency.group).toBe("production");
+  });
 });
 
 describe("GithubTarget — lower", () => {

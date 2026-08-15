@@ -8,7 +8,6 @@ import {
   type Project,
   Step,
   type StepRef,
-  type Expression,
 } from "@sverka/cdk";
 import type {
   DefinitionGraph,
@@ -94,12 +93,13 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
 
   return {
     id: pipelineId,
-    ...(pipeline.name !== undefined ? { name: pipeline.name } : {}),
-    ...(pipeline.runName !== undefined ? { runName: String(pipeline.runName) } : {}),
     inputs,
     entries,
     steps,
     outputs,
+    ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
+    ...(pipeline.defaults !== undefined ? { defaults: pipeline.defaults } : {}),
+    ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
   };
 }
 
@@ -116,6 +116,7 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   collectExportOperations(step, stepId, operations);
   collectImportOperations(step, pipelineId, operations, dependencies, seenDeps);
   collectControlDeps(step, pipelineId, dependencies, seenDeps);
+  collectReportOperations(step, operations);
 
   const stepOutputs: OutputDefinition[] = [...step.outputs.entries()].map(
     ([name, decl]) => ({ ...decl, name }),
@@ -135,7 +136,26 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
     ...(step.afterScript !== undefined ? { afterScript: [...step.afterScript] } : {}),
     ...(step.continueOnError !== undefined ? { continueOnError: step.continueOnError } : {}),
     ...(step.retry !== undefined ? { retry: step.retry } : {}),
+    ...(step.interruptible !== undefined ? { interruptible: step.interruptible } : {}),
+    ...(step.runner !== undefined ? { runner: step.runner } : {}),
+    ...(step.identity !== undefined ? { identity: step.identity } : {}),
+    ...(step.rules !== undefined ? { rules: step.rules } : {}),
+    ...(step.reports !== undefined ? { reports: step.reports } : {}),
+    ...(step.services !== undefined ? { services: step.services } : {}),
+    ...(step.environment !== undefined ? { environment: step.environment } : {}),
+    ...(step.cache !== undefined ? { cache: step.cache } : {}),
+    ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
   };
+}
+
+function collectReportOperations(
+  step: Step,
+  operations: OperationDefinition[],
+): void {
+  if (step.reports === undefined) return;
+  for (const report of step.reports) {
+    operations.push({ kind: "report", spec: report });
+  }
 }
 
 function collectExportOperations(
@@ -152,7 +172,13 @@ function collectExportOperations(
           stepId,
         );
       }
-      operations.push({ kind: "exportArtifact", name, path: decl.path });
+      operations.push({
+        kind: "exportArtifact",
+        name,
+        path: decl.path,
+        ...(decl.retention !== undefined ? { retention: decl.retention } : {}),
+        ...(decl.access !== undefined ? { access: decl.access } : {}),
+      });
     } else {
       operations.push({ kind: "exportOutput", name, type: decl.type });
     }
@@ -208,13 +234,11 @@ function collectControlDeps(
       output: ref.output,
     });
   } else if (step.condition?.kind === "expression") {
-    // Expression conditions may reference step outputs — infer value deps.
-    const expr = step.condition as Expression;
-    for (const ref of expr.refs) {
+    for (const ref of step.condition.refs) {
       if (ref.kind === "step") {
         const producerId = resolveStepId(pipelineId, ref.step);
         addDependency(dependencies, seenDeps, {
-          kind: ref.type === "artifact" ? "artifact" : "value",
+          kind: "value",
           producer: producerId,
           output: ref.output,
         });

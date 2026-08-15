@@ -9,6 +9,15 @@ import type {
   OutputDeclaration,
   Reference,
   Runtime,
+  RunnerSpec,
+  IdentitySpec,
+  Rule,
+  PipelineDefaults,
+  ReportSpec,
+  ServiceContainer,
+  EnvironmentSpec,
+  CacheSpec,
+  ConcurrencySpec,
   Trigger,
   Condition,
   MatrixSpec,
@@ -50,16 +59,24 @@ export class Project extends Construct {
 // Pipeline — contains Steps and Entries.
 // ---------------------------------------------------------------------------
 
+export type PermissionLevel = "read" | "write" | "none";
+
 export interface PipelineProps {
   readonly inputs?: Readonly<Record<string, Input>>;
   readonly name?: string;
   readonly runName?: Expression;
+  readonly permissions?: Readonly<Record<string, PermissionLevel>>;
+  readonly defaults?: PipelineDefaults;
+  readonly concurrency?: ConcurrencySpec;
 }
 
 export class Pipeline extends Construct {
   readonly inputs: ReadonlyMap<string, Input>;
   readonly name?: string;
   readonly runName?: Expression;
+  readonly permissions?: Readonly<Record<string, PermissionLevel>>;
+  readonly defaults?: PipelineDefaults;
+  readonly concurrency?: ConcurrencySpec;
 
   constructor(scope: Project, id: string, props?: PipelineProps) {
     if (!(scope instanceof Project)) {
@@ -85,6 +102,15 @@ export class Pipeline extends Construct {
     if (props?.runName !== undefined) {
       this.runName = props.runName;
     }
+    if (props?.permissions !== undefined) {
+      this.permissions = props.permissions;
+    }
+    if (props?.defaults !== undefined) {
+      this.defaults = props.defaults;
+    }
+    if (props?.concurrency !== undefined) {
+      this.concurrency = props.concurrency;
+    }
   }
 }
 
@@ -104,6 +130,15 @@ export interface StepProps {
   readonly afterScript?: readonly string[];
   readonly continueOnError?: ContinueOnError;
   readonly retry?: RetryPolicy;
+  readonly interruptible?: boolean;
+  readonly runner?: RunnerSpec;
+  readonly identity?: IdentitySpec;
+  readonly rules?: readonly Rule[];
+  readonly reports?: readonly ReportSpec[];
+  readonly services?: readonly ServiceContainer[];
+  readonly environment?: EnvironmentSpec;
+  readonly cache?: CacheSpec;
+  readonly concurrency?: ConcurrencySpec;
 }
 
 export abstract class Step extends Construct {
@@ -118,6 +153,15 @@ export abstract class Step extends Construct {
   readonly afterScript?: readonly string[];
   readonly continueOnError?: ContinueOnError;
   readonly retry?: RetryPolicy;
+  readonly interruptible?: boolean;
+  readonly runner?: RunnerSpec;
+  readonly identity?: IdentitySpec;
+  readonly rules?: readonly Rule[];
+  readonly reports?: readonly ReportSpec[];
+  readonly services?: readonly ServiceContainer[];
+  readonly environment?: EnvironmentSpec;
+  readonly cache?: CacheSpec;
+  readonly concurrency?: ConcurrencySpec;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
     if (!(scope instanceof Pipeline)) {
@@ -161,6 +205,33 @@ export abstract class Step extends Construct {
     }
     if (props.retry !== undefined) {
       this.retry = props.retry;
+    }
+    if (props.interruptible !== undefined) {
+      this.interruptible = props.interruptible;
+    }
+    if (props.runner !== undefined) {
+      this.runner = props.runner;
+    }
+    if (props.identity !== undefined) {
+      this.identity = props.identity;
+    }
+    if (props.rules !== undefined) {
+      this.rules = props.rules;
+    }
+    if (props.reports !== undefined) {
+      this.reports = props.reports;
+    }
+    if (props.services !== undefined) {
+      this.services = props.services;
+    }
+    if (props.environment !== undefined) {
+      this.environment = props.environment;
+    }
+    if (props.cache !== undefined) {
+      this.cache = props.cache;
+    }
+    if (props.concurrency !== undefined) {
+      this.concurrency = props.concurrency;
     }
   }
 }

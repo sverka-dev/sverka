@@ -114,7 +114,7 @@ describe("§33.2 Target conformance", () => {
     const yaml = parse(artifacts[0]!.content) as Record<string, { script?: unknown; stages?: unknown }>;
     expect(yaml.stages).toBeDefined();
     for (const jobId of Object.keys(yaml)) {
-      if (jobId === "stages" || jobId === "variables") continue;
+      if (jobId === "stages" || jobId === "variables" || jobId === "default" || jobId === "spec" || jobId === "workflow") continue;
       expect(yaml[jobId]?.script).toBeDefined();
     }
   });

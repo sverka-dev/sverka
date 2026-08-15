@@ -9,8 +9,6 @@ import {
   type OutputDeclaration,
   type MatrixSpec,
   type Condition,
-  type ContinueOnError,
-  type RetryPolicy,
 } from "@sverka/cdk";
 import { SdkError } from "./errors.js";
 import { isReference } from "./internal/is-reference.js";
@@ -21,12 +19,9 @@ export interface StepBuilder {
   dependsOn(steps: readonly string[]): StepBuilder;
   runtime(runtime: Runtime): StepBuilder;
   timeout(ms: number): StepBuilder;
-  condition(cond: Condition): StepBuilder;
+  condition(ref: Condition): StepBuilder;
   matrix(spec: MatrixSpec): StepBuilder;
-  beforeScript(commands: readonly string[]): StepBuilder;
-  afterScript(commands: readonly string[]): StepBuilder;
-  continueOnError(value: ContinueOnError): StepBuilder;
-  retry(policy: RetryPolicy): StepBuilder;
+  interruptible(value?: boolean): StepBuilder;
   build(pipeline: Pipeline, id: string): ShellStep;
 }
 
@@ -40,10 +35,7 @@ interface StepBuilderState {
   timeout?: number;
   condition?: Condition;
   matrix?: MatrixSpec;
-  beforeScript?: readonly string[];
-  afterScript?: readonly string[];
-  continueOnError?: ContinueOnError;
-  retry?: RetryPolicy;
+  interruptible?: boolean;
 }
 
 function createBuilder(state: StepBuilderState): StepBuilder {
@@ -68,28 +60,16 @@ function createBuilder(state: StepBuilderState): StepBuilder {
       state.timeout = ms;
       return builder;
     },
-    condition(cond: Condition): StepBuilder {
-      state.condition = cond;
+    condition(ref: Condition): StepBuilder {
+      state.condition = ref;
       return builder;
     },
     matrix(spec: MatrixSpec): StepBuilder {
       state.matrix = spec;
       return builder;
     },
-    beforeScript(commands: readonly string[]): StepBuilder {
-      state.beforeScript = commands;
-      return builder;
-    },
-    afterScript(commands: readonly string[]): StepBuilder {
-      state.afterScript = commands;
-      return builder;
-    },
-    continueOnError(value: ContinueOnError): StepBuilder {
-      state.continueOnError = value;
-      return builder;
-    },
-    retry(policy: RetryPolicy): StepBuilder {
-      state.retry = policy;
+    interruptible(value?: boolean): StepBuilder {
+      state.interruptible = value ?? true;
       return builder;
     },
     build(pipeline: Pipeline, id: string): ShellStep {
@@ -105,10 +85,7 @@ function createBuilder(state: StepBuilderState): StepBuilder {
         ...(state.timeout !== undefined ? { timeout: state.timeout } : {}),
         ...(state.condition !== undefined ? { condition: state.condition } : {}),
         ...(state.matrix !== undefined ? { matrix: state.matrix } : {}),
-        ...(state.beforeScript ? { beforeScript: state.beforeScript } : {}),
-        ...(state.afterScript ? { afterScript: state.afterScript } : {}),
-        ...(state.continueOnError !== undefined ? { continueOnError: state.continueOnError } : {}),
-        ...(state.retry !== undefined ? { retry: state.retry } : {}),
+        ...(state.interruptible !== undefined ? { interruptible: state.interruptible } : {}),
       });
     },
   };

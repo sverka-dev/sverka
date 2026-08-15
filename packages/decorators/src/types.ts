@@ -1,6 +1,6 @@
 // Decorator types. Spec 04 — §9.3–9.8.
 
-import type { Runtime, OutputDeclaration, Trigger, MatrixSpec, Condition, ContinueOnError, RetryPolicy } from "@sverka/cdk";
+import type { Runtime, OutputDeclaration, Trigger, MatrixSpec } from "@sverka/cdk";
 
 export interface StepOptions {
   readonly runtime?: Runtime;
@@ -8,11 +8,7 @@ export interface StepOptions {
   readonly outputs?: Readonly<Record<string, OutputDeclaration>>;
   readonly dependsOn?: readonly string[];
   readonly matrix?: MatrixSpec;
-  readonly condition?: Condition;
-  readonly beforeScript?: readonly string[];
-  readonly afterScript?: readonly string[];
-  readonly continueOnError?: ContinueOnError;
-  readonly retry?: RetryPolicy;
+  readonly interruptible?: boolean;
 }
 
 export type EntryTarget = readonly string[];

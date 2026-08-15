@@ -11,12 +11,18 @@ import type {
   Reference,
   Expression,
 } from "@sverka/core";
-import type { Trigger, MatrixSpec, StepRef, StatusCondition } from "@sverka/cdk";
+import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, Input, ServiceContainer, CacheSpec } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
   GithubJob,
   GithubStep,
+  GithubRunsOn,
+  GithubDefaults,
+  GithubDefaultsRun,
+  GithubInput,
+  GithubService,
+  GithubCache,
 } from "./types.js";
 import { GithubTargetError } from "./errors.js";
 
@@ -39,7 +45,7 @@ export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph {
   const reachableSteps = filterReachableSteps(pipeline);
   const jobIdMap = buildJobIdMap(reachableSteps);
 
-  const triggers = lowerTriggers(pipeline.entries);
+  const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
   const jobs = lowerSteps(reachableSteps, jobIdMap);
 
   return {
@@ -48,7 +54,21 @@ export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph {
     on: triggers,
     jobs,
     env: collectEnv(pipeline),
+    ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
+    ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
+    ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
   };
+}
+
+/**
+ * Lower pipeline defaults to GitHub defaults.run (shell + working-directory only).
+ */
+function lowerDefaults(defaults: PipelineDefaults): GithubDefaults {
+  const run: GithubDefaultsRun = {
+    ...(defaults.shell !== undefined ? { shell: defaults.shell } : {}),
+    ...(defaults.workdir !== undefined ? { "working-directory": defaults.workdir } : {}),
+  };
+  return { run };
 }
 
 /**
@@ -162,7 +182,10 @@ function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
  * Map Sverka triggers to GitHub triggers.
  * Multiple entries of the same kind have their filters merged.
  */
-function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
+function lowerTriggers(
+  entries: readonly EntryDefinition[],
+  inputs: Readonly<Record<string, Input>>,
+): GithubTriggers {
   const pushBranches = new Set<string>();
   const pushTags = new Set<string>();
   const pushPaths = new Set<string>();
@@ -209,7 +232,8 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
     prPaths,
     hasManual,
     scheduleEntries,
-  });
+    inputs,
+  );
 }
 
 function collectFilters(
@@ -261,6 +285,7 @@ interface TriggerFilters {
   readonly prPaths: Set<string>;
   readonly hasManual: boolean;
   readonly scheduleEntries: readonly { cron: string; timezone?: string }[];
+  readonly inputs: Readonly<Record<string, Input>>;
 }
 
 function assembleTriggers(f: TriggerFilters): GithubTriggers {
@@ -269,7 +294,10 @@ function assembleTriggers(f: TriggerFilters): GithubTriggers {
   if (push) triggers.push = push;
   const pr = assemblePullRequestTrigger(f);
   if (pr) triggers.pull_request = pr;
-  if (f.hasManual) triggers.workflow_dispatch = null;
+  if (f.hasManual) {
+    const loweredInputs = lowerInputs(f.inputs);
+    triggers.workflow_dispatch = loweredInputs !== undefined ? { inputs: loweredInputs } : null;
+  }
   if (f.scheduleEntries.length > 0) triggers.schedule = f.scheduleEntries;
   return triggers as GithubTriggers;
 }
@@ -291,6 +319,32 @@ function assemblePullRequestTrigger(f: TriggerFilters): Record<string, string[]>
   if (f.prBranches.size > 0) pr.branches = [...f.prBranches];
   if (f.prPaths.size > 0) pr.paths = [...f.prPaths];
   return pr;
+}
+
+/**
+ * Lower pipeline inputs to GitHub workflow_dispatch inputs.
+ * Returns undefined if no inputs are present.
+ * Maps Sverka types to GitHub types: choice→choice, array→unsupported (dropped),
+ * others map directly. pattern is dropped (unsupported on GitHub).
+ */
+function lowerInputs(
+  inputs: Readonly<Record<string, Input>>,
+): Readonly<Record<string, GithubInput>> | undefined {
+  if (Object.keys(inputs).length === 0) return undefined;
+  const result: Record<string, GithubInput> = {};
+  for (const [name, input] of Object.entries(inputs)) {
+    const ghInput: GithubInput = {
+      type: input.type === "array" ? "string" : input.type,
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.required !== undefined ? { required: input.required } : {}),
+      ...(input.default !== undefined && typeof input.default !== "object"
+        ? { default: input.default as string | number | boolean }
+        : {}),
+      ...(input.options !== undefined ? { options: input.options } : {}),
+    };
+    result[name] = ghInput;
+  }
+  return result;
 }
 
 /**
@@ -334,7 +388,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
 
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
-  const runsOn = "ubuntu-latest";
+  const runsOn = resolveRunsOn(step);
   const container = resolveContainer(step, mode);
   const jobEnv = collectJobEnv(runtime);
 
@@ -343,7 +397,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
     name: jobId,
     runsOn,
     needs,
-    steps,
+    steps: step.cache !== undefined ? [lowerCacheStep(step.cache), ...steps] : steps,
     ...(step.timeout !== undefined
       ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
       : {}),
@@ -352,9 +406,77 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
     ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
     ...(Object.keys(outputs).length > 0 ? { outputs } : {}),
     ...(step.condition !== undefined ? { if: lowerCondition(step.condition, jobIdMap) } : {}),
+    ...(step.identity !== undefined ? { permissions: { "id-token": "write" } } : {}),
+    ...(step.rules !== undefined && step.rules.length > 0 && step.rules[0]?.if !== undefined
+      ? { if: step.rules[0].if }
+      : {}),
+    ...(step.services !== undefined && step.services.length > 0
+      ? { services: lowerServices(step.services) }
+      : {}),
+    ...(step.environment !== undefined
+      ? { environment: { name: step.environment.name, ...(step.environment.url !== undefined ? { url: step.environment.url } : {}) } }
+      : {}),
+    ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
   };
 
   return job;
+}
+
+/**
+ * Lower a cache spec to a GitHub cache step.
+ * pull-push → actions/cache@v4
+ * pull → actions/cache/restore@v4
+ * push → actions/cache/save@v4
+ */
+function lowerCacheStep(cache: CacheSpec): GithubStep {
+  const policy = cache.policy ?? "pull-push";
+  const action =
+    policy === "pull" ? "actions/cache/restore@v4" :
+    policy === "push" ? "actions/cache/save@v4" :
+    "actions/cache@v4";
+  const withMap: Record<string, unknown> = {
+    path: cache.paths.length === 1 ? cache.paths[0] : cache.paths.join("\n"),
+    key: cache.key,
+  };
+  if (cache.restoreKeys !== undefined && cache.restoreKeys.length > 0) {
+    withMap["restore-keys"] = cache.restoreKeys.length === 1 ? cache.restoreKeys[0] : cache.restoreKeys.join("\n");
+  }
+  return {
+    name: "Restore cache",
+    uses: action,
+    with: withMap,
+  };
+}
+
+/**
+ * Lower service containers to GitHub services map (keyed by name).
+ */
+function lowerServices(services: readonly ServiceContainer[]): Readonly<Record<string, GithubService>> {
+  const result: Record<string, GithubService> = {};
+  for (const svc of services) {
+    result[svc.name] = {
+      image: svc.image,
+      ...(svc.env !== undefined ? { env: { ...svc.env } } : {}),
+      ...(svc.ports !== undefined ? { ports: svc.ports.map((p) => `${p}:${p}`) } : {}),
+      ...(svc.entrypoint !== undefined ? { entrypoint: [...svc.entrypoint] } : {}),
+      ...(svc.command !== undefined ? { command: [...svc.command] } : {}),
+    };
+  }
+  return result;
+}
+
+function resolveRunsOn(step: StepDefinition): GithubRunsOn {
+  if (step.runner === undefined) {
+    return "ubuntu-latest";
+  }
+  const { labels, group } = step.runner;
+  if (group !== undefined) {
+    return { group, labels };
+  }
+  if (labels.length === 1) {
+    return labels[0]!;
+  }
+  return labels;
 }
 
 function resolveContainer(
@@ -488,7 +610,11 @@ function lowerOperation(
       steps.push({
         name: `Upload ${op.name}`,
         uses: "actions/upload-artifact@v4",
-        with: { name: artifactName(shortStepId, op.name), path: op.path },
+        with: {
+          name: artifactName(shortStepId, op.name),
+          path: op.path,
+          ...(op.retention !== undefined ? { "retention-days": parseRetentionDays(op.retention) } : {}),
+        },
       });
       break;
     case "importArtifact":
@@ -496,6 +622,10 @@ function lowerOperation(
       break;
     case "diagnostic":
       lowerDiagnostic(op, steps, flushRun);
+      break;
+    case "report":
+      flushRun();
+      steps.push(lowerReport(op.spec));
       break;
     default:
       throw new GithubTargetError(
@@ -534,6 +664,55 @@ function lowerDiagnostic(op: Extract<OperationDefinition, { kind: "diagnostic" }
  */
 function artifactName(stepId: string, outputName: string): string {
   return `${stepId}-${outputName}`;
+}
+
+/**
+ * Parse a duration string (e.g., "7d", "1h", "30m", "never") into days.
+ * Returns undefined for "never" (no retention limit).
+ */
+function parseRetentionDays(retention: string): number | undefined {
+  if (retention === "never") return undefined;
+  const match = /^(\d+)([dhm])$/.exec(retention);
+  if (match === null) return undefined;
+  const value = parseInt(match[1]!, 10);
+  const unit = match[2];
+  if (unit === "d") return value;
+  if (unit === "h") return Math.ceil(value / 24);
+  if (unit === "m") return Math.ceil(value / (60 * 24));
+  return undefined;
+}
+
+/**
+ * Lower a report spec to a GitHub action step.
+ * Maps report types to known GitHub actions.
+ */
+function lowerReport(spec: ReportSpec): GithubStep {
+  switch (spec.type) {
+    case "junit":
+      return {
+        name: `Report ${spec.type}`,
+        uses: "dorny/test-reporter@v1",
+        with: {
+          name: "Tests",
+          path: spec.path,
+          reporter: "java-junit",
+        },
+      };
+    case "sarif":
+    case "sast":
+      return {
+        name: `Upload ${spec.type}`,
+        uses: "github/codeql-action/upload-sarif@v3",
+        with: { sarif_file: spec.path },
+      };
+    default:
+      // No standard action — upload as generic artifact
+      return {
+        name: `Upload ${spec.type} report`,
+        uses: "actions/upload-artifact@v4",
+        with: { name: `${spec.type}-report`, path: spec.path },
+      };
+  }
 }
 
 /**

@@ -3,7 +3,7 @@
 **ID:** F-37
 **Category:** runner
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -105,11 +105,16 @@ GitHub uses `runs-on` with labels and optional groups. GitLab uses `tags`. Both 
 - **Depends on:** F-17 (host runtime), F-18 (container runtime).
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should the portable model include a `kind` field (github-hosted vs self-hosted)?
-- Should `labels` be validated against known runner labels?
-- Should the native engine use `runner.labels` for anything?
+- **No `kind` field.** The `labels` array is sufficient. `ubuntu-latest` vs
+  `self-hosted` is implicit in the label choice. Adding a `kind` field would
+  leak provider concepts into the portable model.
+- **No label validation.** Labels are provider-specific and may change.
+  Validation would require maintaining a registry. Users get feedback at
+  runtime when no runner matches.
+- **Native engine ignores `runner.labels`.** The native engine runs on the
+  host machine. Runner labels are metadata for target compilation only.
 
 ## References
 

@@ -78,6 +78,27 @@ describe("StepBuilder", () => {
     expect(step.runtime.image).toBe("node:22");
   });
 
+  it("interruptible() defaults to true", () => {
+    const proj = new Project("test");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = sh`npm test`.interruptible().build(pipeline, "test");
+    expect(step.interruptible).toBe(true);
+  });
+
+  it("interruptible(true) sets true explicitly", () => {
+    const proj = new Project("test");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = sh`npm test`.interruptible(true).build(pipeline, "test");
+    expect(step.interruptible).toBe(true);
+  });
+
+  it("interruptible(false) sets false", () => {
+    const proj = new Project("test");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = sh`npm run deploy`.interruptible(false).build(pipeline, "deploy");
+    expect(step.interruptible).toBe(false);
+  });
+
   it("preserves configuration when methods are called without reassignment", () => {
     const proj = new Project("test");
     const pipeline = new Pipeline(proj, "ci");

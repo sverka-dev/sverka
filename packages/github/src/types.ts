@@ -2,6 +2,14 @@
 
 import type { CapabilitySupport } from "@sverka/plugin";
 
+export interface GithubInput {
+  readonly type: string;
+  readonly description?: string;
+  readonly required?: boolean;
+  readonly default?: string | number | boolean;
+  readonly options?: readonly string[];
+}
+
 export interface GithubTriggers {
   readonly push?: {
     readonly branches?: readonly string[];
@@ -12,7 +20,7 @@ export interface GithubTriggers {
     readonly branches?: readonly string[];
     readonly paths?: readonly string[];
   };
-  readonly workflow_dispatch?: null;
+  readonly workflow_dispatch?: null | { readonly inputs?: Readonly<Record<string, GithubInput>> };
   readonly schedule?: readonly {
     readonly cron: string;
     readonly timezone?: string;
@@ -32,10 +40,23 @@ export interface GithubStep {
   readonly shell?: string;
 }
 
+export type GithubRunsOn = string | readonly string[] | {
+  readonly group: string;
+  readonly labels: readonly string[];
+};
+
+export interface GithubService {
+  readonly image: string;
+  readonly env?: Record<string, string>;
+  readonly ports?: readonly string[];
+  readonly entrypoint?: readonly string[];
+  readonly command?: readonly string[];
+}
+
 export interface GithubJob {
   readonly id: string;
   readonly name: string;
-  readonly runsOn: string;
+  readonly runsOn: GithubRunsOn;
   readonly needs: readonly string[];
   readonly steps: readonly GithubStep[];
   readonly timeoutMinutes?: number;
@@ -48,6 +69,26 @@ export interface GithubJob {
   };
   readonly outputs?: Record<string, string>;
   readonly if?: string;
+  readonly permissions?: Readonly<Record<string, string>>;
+  readonly services?: Readonly<Record<string, GithubService>>;
+  readonly environment?: { readonly name: string; readonly url?: string };
+  readonly cache?: GithubCache;
+  readonly concurrency?: { readonly group: string; readonly cancelInProgress?: boolean };
+}
+
+export interface GithubCache {
+  readonly path: readonly string[];
+  readonly key: string;
+  readonly restoreKeys?: readonly string[];
+}
+
+export interface GithubDefaultsRun {
+  readonly shell?: string;
+  readonly "working-directory"?: string;
+}
+
+export interface GithubDefaults {
+  readonly run: GithubDefaultsRun;
 }
 
 export interface GithubTargetGraph {
@@ -56,6 +97,9 @@ export interface GithubTargetGraph {
   readonly on: GithubTriggers;
   readonly jobs: readonly GithubJob[];
   readonly env: Record<string, string>;
+  readonly permissions?: Readonly<Record<string, string>>;
+  readonly defaults?: GithubDefaults;
+  readonly concurrency?: { readonly group: string; readonly cancelInProgress?: boolean };
 }
 
 export interface GeneratedArtifact {
