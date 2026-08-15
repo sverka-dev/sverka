@@ -6,6 +6,12 @@ import type {
   Trigger,
   Runtime,
   Input,
+  InputLiteral,
+  ComponentRef,
+  ChildPipelineTrigger,
+  DownstreamTrigger,
+  PipelineRule,
+  IncludeRef,
   OutputDeclaration,
   OutputType,
   MatrixSpec,
@@ -27,7 +33,7 @@ import type {
 
 // Re-export types used in the graph schema so consumers can access them
 // from @sverka/core without depending on @sverka/cdk directly.
-export type { Input, OutputDeclaration, OutputType, Reference, Expression, Runtime, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, EnvironmentAction, EnvironmentTier, ArtifactAccess, CacheSpec, CachePolicy, ConcurrencySpec } from "@sverka/cdk";
+export type { Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, Reference, Expression, Runtime, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, EnvironmentAction, EnvironmentTier, ArtifactAccess, CacheSpec, CachePolicy, ConcurrencySpec } from "@sverka/cdk";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;
@@ -59,12 +65,19 @@ export interface PipelineDefinition {
   readonly permissions?: Readonly<Record<string, PermissionLevel>>;
   readonly defaults?: PipelineDefaults;
   readonly concurrency?: ConcurrencySpec;
+  readonly rules?: readonly PipelineRule[];
+  readonly includes?: readonly IncludeRef[];
 }
 
 export interface EntryDefinition {
   readonly id: string;
   readonly trigger: Trigger;
   readonly roots: readonly string[]; // StepDefinition ids
+}
+
+export interface PipelineCall {
+  readonly callee: string;
+  readonly inputs: Readonly<Record<string, Reference | InputLiteral>>;
 }
 
 export interface StepDefinition {
@@ -93,10 +106,15 @@ export interface StepDefinition {
   readonly environment?: EnvironmentSpec;
   readonly cache?: CacheSpec;
   readonly concurrency?: ConcurrencySpec;
+  readonly delay?: string;
+  readonly call?: PipelineCall;
+  readonly component?: ComponentRef;
+  readonly childPipeline?: ChildPipelineTrigger;
+  readonly downstream?: DownstreamTrigger;
 }
 
 export type OperationDefinition =
-  | { readonly kind: "shell"; readonly command: string }
+  | { readonly kind: "shell"; readonly command: string; readonly background?: boolean }
   | { readonly kind: "exportOutput"; readonly name: string; readonly type: OutputType }
   | { readonly kind: "exportArtifact"; readonly name: string; readonly path: string; readonly retention?: string; readonly access?: string }
   | {
@@ -113,6 +131,20 @@ export type OperationDefinition =
   | {
       readonly kind: "report";
       readonly spec: ReportSpec;
+    }
+  | {
+      readonly kind: "release";
+      readonly tag: string;
+      readonly name?: string;
+      readonly description?: string;
+      readonly assets?: readonly string[];
+      readonly draft?: boolean;
+      readonly prerelease?: boolean;
+    }
+  | {
+      readonly kind: "deployPages";
+      readonly path: string;
+      readonly prefix?: string;
     };
 
 export type Dependency =

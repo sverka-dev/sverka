@@ -12,3 +12,7 @@ export type {
   CompilationResult,
 } from "./types.js";
 export { GithubTargetError, type GithubTargetErrorCode } from "./errors.js";
+
+// F-43: Importer
+export { importGithub, importGithubWithDiagnostics } from "./importer.js";
+export type { ImportDiagnostic, ImportResult } from "./importer.js";

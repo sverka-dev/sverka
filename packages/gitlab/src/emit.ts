@@ -76,6 +76,42 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
     doc.spec = { inputs: graph.specInputs };
   }
 
+  // F-32: emit component includes.
+  // F-44: emit local includes alongside component includes.
+  const allIncludes: Record<string, unknown>[] = [];
+  for (const inc of graph.includes) {
+    allIncludes.push({
+      component: inc.component,
+      ...(Object.keys(inc.inputs).length > 0 ? { inputs: inc.inputs } : {}),
+    });
+  }
+  if (graph.localIncludes) {
+    for (const inc of graph.localIncludes) {
+      allIncludes.push({
+        local: inc.local,
+        ...(inc.inputs && Object.keys(inc.inputs).length > 0 ? { inputs: inc.inputs } : {}),
+      });
+    }
+  }
+  if (allIncludes.length > 0) {
+    doc.include = allIncludes;
+  }
+
+  // F-42: emit workflow rules.
+  if (graph.workflowRules && graph.workflowRules.length > 0) {
+    doc.workflow = {
+      rules: graph.workflowRules.map((rule) => {
+        const r: Record<string, unknown> = {};
+        if (rule.if) r.if = rule.if;
+        if (rule.changes) r.changes = rule.changes;
+        if (rule.exists) r.exists = rule.exists;
+        if (rule.variables) r.variables = rule.variables;
+        if (rule.when) r.when = rule.when;
+        return r;
+      }),
+    };
+  }
+
   for (const job of graph.jobs) {
     if (RESERVED_TOP_LEVEL_KEYS.has(job.id)) {
       throw new GitlabTargetError(
@@ -203,6 +239,26 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
 
   if (job.resourceGroup !== undefined) {
     result.resource_group = job.resourceGroup;
+  }
+
+  if (job.trigger) {
+    result.trigger = job.trigger;
+  }
+
+  if (job.release) {
+    result.release = job.release;
+  }
+
+  if (job.pages) {
+    result.pages = job.pages;
+  }
+
+  if (job.when) {
+    result.when = job.when;
+  }
+
+  if (job.start_in) {
+    result.start_in = job.start_in;
   }
 
   return result;

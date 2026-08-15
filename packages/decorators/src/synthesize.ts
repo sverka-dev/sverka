@@ -131,19 +131,20 @@ function createStepFromField(
   options?: StepOptions,
 ): void {
   const value = (instance as Record<string, unknown>)[name];
+  const stepId = options?.id ?? name;
 
   if (typeof value === "string") {
-    void new ShellStep(pipeline, name, stepProps(value, options));
+    void new ShellStep(pipeline, stepId, stepProps(value, options));
     return;
   }
 
   if (isStepBuilder(value)) {
-    applyOptionsToBuilder(value as StepBuilder, options).build(pipeline, name);
+    applyOptionsToBuilder(value as StepBuilder, options).build(pipeline, stepId);
     return;
   }
 
   if (typeof value === "function") {
-    createStepFromMethod(pipeline, name, value as (this: unknown, ...args: unknown[]) => unknown, options);
+    createStepFromMethod(pipeline, stepId, value as (this: unknown, ...args: unknown[]) => unknown, options);
     return;
   }
 
@@ -162,20 +163,20 @@ function createStepFromField(
 
 function createStepFromMethod(
   pipeline: Pipeline,
-  name: string,
+  stepId: string,
   method: (this: unknown, ...args: unknown[]) => unknown,
   options?: StepOptions,
 ): void {
-  const spec = evaluateMethodStep(method, name, options);
+  const spec = evaluateMethodStep(method, stepId, options);
   if (spec.kind === "builder") {
-    applyOptionsToBuilder(spec.builder, options).build(pipeline, name);
+    applyOptionsToBuilder(spec.builder, options).build(pipeline, stepId);
     return;
   }
   const props: ShellStepProps = {
     ...stepProps(spec.command, options),
     ...(spec.inputs.length > 0 ? { inputs: spec.inputs } : {}),
   };
-  void new ShellStep(pipeline, name, props);
+  void new ShellStep(pipeline, stepId, props);
 }
 
 function stepProps(command: string, options?: StepOptions): ShellStepProps {

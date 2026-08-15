@@ -3,6 +3,7 @@
 import type { Runtime, OutputDeclaration, Trigger, MatrixSpec } from "@sverka/cdk";
 
 export interface StepOptions {
+  readonly id?: string;
   readonly runtime?: Runtime;
   readonly timeout?: number;
   readonly outputs?: Readonly<Record<string, OutputDeclaration>>;
