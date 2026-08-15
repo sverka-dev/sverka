@@ -61,6 +61,11 @@ export interface GitlabJob {
   readonly environment?: GitlabEnvironment;
   readonly cache?: GitlabCache;
   readonly resourceGroup?: string;
+  readonly trigger?: GitlabTrigger;
+  readonly release?: GitlabRelease;
+  readonly pages?: GitlabPages;
+  readonly when?: "on_success" | "on_failure" | "always" | "manual" | "delayed" | "never";
+  readonly start_in?: string;
 }
 
 export interface GitlabCache {
@@ -88,6 +93,49 @@ export interface GitlabSpecInput {
   readonly pattern?: string;
 }
 
+export interface GitlabPages {
+  readonly publish: string;
+  readonly path_prefix?: string;
+}
+
+export interface GitlabRelease {
+  readonly tag_name: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly assets?: { readonly links: readonly { readonly name: string; readonly url: string }[] };
+  readonly draft?: boolean;
+}
+
+export interface GitlabTrigger {
+  readonly include?: readonly GitlabTriggerInclude[];
+  readonly project?: string;
+  readonly branch?: string;
+  readonly strategy?: string;
+}
+
+export interface GitlabTriggerInclude {
+  readonly artifact: string;
+  readonly job: string;
+}
+
+export interface GitlabComponentInclude {
+  readonly component: string;
+  readonly inputs: Record<string, unknown>;
+}
+
+export interface GitlabLocalInclude {
+  readonly local: string;
+  readonly inputs?: Record<string, unknown>;
+}
+
+export interface GitlabWorkflowRule {
+  readonly if?: string;
+  readonly changes?: readonly string[];
+  readonly exists?: readonly string[];
+  readonly variables?: Record<string, string>;
+  readonly when?: "always" | "never";
+}
+
 export interface GitlabTargetGraph {
   readonly name: string;
   readonly stages: readonly string[];
@@ -96,6 +144,9 @@ export interface GitlabTargetGraph {
   readonly autoCancel?: boolean;
   readonly default?: GitlabDefault;
   readonly specInputs?: Readonly<Record<string, GitlabSpecInput>>;
+  readonly includes: readonly GitlabComponentInclude[];
+  readonly localIncludes?: readonly GitlabLocalInclude[];
+  readonly workflowRules?: readonly GitlabWorkflowRule[];
 }
 
 export interface GeneratedArtifact {

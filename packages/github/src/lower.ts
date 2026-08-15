@@ -93,6 +93,7 @@ function lowerDefaults(defaults: PipelineDefaults): GithubDefaults {
  */
 function lowerMultiPipeline(graph: DefinitionGraph): readonly GithubTargetGraph[] {
   const pipelines = graph.project.pipelines;
+  const byId = new Map(pipelines.map((p) => [p.id, p]));
 
   // Find which pipelines are called by some call step.
   const calledPipelineIds = new Set<string>();

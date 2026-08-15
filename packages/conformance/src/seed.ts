@@ -5,10 +5,11 @@ import {
   Project,
   Pipeline,
   ShellStep,
+  PipelineCallStep,
   Entry,
   type Reference,
 } from "@sverka/cdk";
-import { sh, pipelineV0 as sdkPipeline } from "@sverka/sdk";
+import { sh, callPipeline, pipelineV0 as sdkPipeline } from "@sverka/sdk";
 import {
   pipeline as pipelineDecorator,
   step,
@@ -137,5 +138,82 @@ class SeedPipeline {
 export function createSeedWithDecorators(): Project {
   const proj = new Project("conf");
   decoratePipeline(SeedPipeline, proj, "ci");
+  return proj;
+}
+
+// --- F-31: Reusable pipeline seed (two-pipeline project) ---
+
+const REUSABLE_CALLEE_INPUTS = {
+  env: { type: "string" as const, required: true as const },
+};
+
+const REUSABLE_CALLEE_COMMAND = `echo "deploying to $\{env}"`;
+
+// --- Construct API ---
+
+export function createReusableSeedWithConstructs(): Project {
+  const proj = new Project("conf-rw");
+  const deploy = new Pipeline(proj, "deploy", { inputs: REUSABLE_CALLEE_INPUTS });
+  new ShellStep(deploy, "deploy", { command: REUSABLE_CALLEE_COMMAND });
+  const ci = new Pipeline(proj, "ci");
+  new ShellStep(ci, "build", { command: "make build" });
+  new PipelineCallStep(ci, "deploy-staging", {
+    callee: "deploy",
+    callInputs: { env: "staging" },
+    dependsOn: ["build"],
+  });
+  new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+  return proj;
+}
+
+// --- SDK API ---
+
+export function createReusableSeedWithSDK(): Project {
+  const proj = new Project("conf-rw");
+  sdkPipeline(proj, "deploy", {
+    inputs: REUSABLE_CALLEE_INPUTS,
+    steps: [
+      (p) => sh`${REUSABLE_CALLEE_COMMAND}`.build(p, "deploy"),
+    ],
+  });
+  sdkPipeline(proj, "ci", {
+    steps: [
+      (p) => sh`make build`.build(p, "build"),
+      (p) => callPipeline("deploy", { env: "staging" }).dependsOn(["build"]).build(p, "deploy-staging"),
+    ],
+    entries: [
+      (p) => new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] }),
+    ],
+  });
+  return proj;
+}
+
+// --- Decorator API ---
+
+@pipelineDecorator
+class CalleePipeline {
+  @input
+  env = { type: "string" as const, required: true as const };
+
+  @step
+  deploy = sh`${REUSABLE_CALLEE_COMMAND}`;
+}
+
+@pipelineDecorator
+class CallerPipeline {
+  @step
+  build = sh`make build`;
+
+  @stepWithOptions({ id: "deploy-staging", dependsOn: ["build"] })
+  deployStaging = callPipeline("deploy", { env: "staging" });
+
+  @entry({ kind: "push" })
+  ["on-push"] = ["deploy-staging"];
+}
+
+export function createReusableSeedWithDecorators(): Project {
+  const proj = new Project("conf-rw");
+  decoratePipeline(CalleePipeline, proj, "deploy");
+  decoratePipeline(CallerPipeline, proj, "ci");
   return proj;
 }

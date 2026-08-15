@@ -1,5 +1,5 @@
 // Emit: GithubTargetGraph → YAML artifacts.
-// Spec 08 — §19.
+// Spec 08 — §19. F-31: multi-workflow emission.
 
 import { stringify } from "yaml";
 import type {
@@ -10,17 +10,17 @@ import type {
 } from "./types.js";
 
 /**
- * Emit a GithubTargetGraph as YAML artifacts.
- * Produces one .github/workflows/<name>.yml file.
+ * Emit one or more GithubTargetGraphs as YAML artifacts.
+ * Produces one .github/workflows/<name>.yml file per target graph.
  */
-export function emitGithub(targetGraph: GithubTargetGraph): readonly GeneratedArtifact[] {
-  const yaml = stringifyTargetGraph(targetGraph);
-  return [
-    {
-      path: `.github/workflows/${targetGraph.name}.yml`,
-      content: yaml,
-    },
-  ];
+export function emitGithub(
+  targetGraph: GithubTargetGraph | readonly GithubTargetGraph[],
+): readonly GeneratedArtifact[] {
+  const graphs = Array.isArray(targetGraph) ? targetGraph : [targetGraph];
+  return graphs.map((g) => ({
+    path: `.github/workflows/${g.name}.yml`,
+    content: stringifyTargetGraph(g),
+  }));
 }
 
 /**
@@ -67,8 +67,25 @@ function stringifyTargetGraph(graph: GithubTargetGraph): string {
 function jobToYaml(job: GithubJob): Record<string, unknown> {
   const result: Record<string, unknown> = {
     name: job.name,
-    "runs-on": job.runsOn,
   };
+
+  // Reusable workflow call job: uses/with/secrets (no runs-on/steps).
+  if (job.uses) {
+    result.uses = job.uses;
+    if (job.needs.length > 0) {
+      result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
+    }
+    if (job.with && Object.keys(job.with).length > 0) {
+      result.with = job.with;
+    }
+    if (job.secrets) {
+      result.secrets = job.secrets;
+    }
+    return result;
+  }
+
+  // Normal job.
+  result["runs-on"] = job.runsOn;
 
   if (job.needs.length > 0) {
     result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];

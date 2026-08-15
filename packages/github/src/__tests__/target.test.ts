@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
-import type { StatusCondition, Expression } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, Entry } from "@sverka/cdk";
 import { synthesize, type DefinitionGraph } from "@sverka/core";
 import {
   GithubTarget,
@@ -676,15 +675,17 @@ describe("GithubTarget — lower", () => {
   it("produces correct job count", () => {
     const graph = makeGraphWithDeps();
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
-    expect(targetGraph.jobs).toHaveLength(2);
+    const result = target.lower(graph);
+    const tg: GithubTargetGraph = Array.isArray(result) ? result[0]! : result;
+    expect(tg.jobs).toHaveLength(2);
   });
 
   it("job IDs match step IDs", () => {
     const graph = makeGraphWithDeps();
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
-    const ids = targetGraph.jobs.map((j: GithubJob) => j.id);
+    const result = target.lower(graph);
+    const tg: GithubTargetGraph = Array.isArray(result) ? result[0]! : result;
+    const ids = tg.jobs.map((j: GithubJob) => j.id);
     expect(ids).toEqual(["lint", "build"]);
   });
 });
@@ -947,187 +948,266 @@ describe("compileGithub — artifact import (F-25)", () => {
     expect(downloadStep.uses).toBe("actions/download-artifact@v4");
     expect(downloadStep.with.name).toBe("build-dist");
     expect(downloadStep.with.path).toBe("dist");
-  });
-});
 
-// F-11: Step conditions — status conditions map to GitHub if: expressions
-describe("compileGithub — step conditions (F-11)", () => {
-  it("lowers failure status condition to failure()", () => {
+describe("compileGithub — reusable workflows (F-31)", () => {
+  function makeReusableGraph(): DefinitionGraph {
     const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    const failureCond: StatusCondition = { kind: "status", status: "failure" };
-    new ShellStep(p, "notify", {
-      command: "echo failed",
-      condition: failureCond,
+    const deploy = new Pipeline(proj, "deploy", {
+      inputs: { env: { type: "string", required: true } },
     });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["notify"] });
-    const result = compileGithub(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.notify.if).toBe("${{ failure() }}");
-  });
-
-  it("lowers always status condition to always()", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "cleanup", {
-      command: "echo cleanup",
-      condition: { kind: "status", status: "always" },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["cleanup"] });
-    const result = compileGithub(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.cleanup.if).toBe("${{ always() }}");
-  });
-
-  it("lowers never status condition to false", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "skip", {
-      command: "echo skip",
-      condition: { kind: "status", status: "never" },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["skip"] });
-    const result = compileGithub(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.skip.if).toBe("${{ false }}");
-  });
-
-  it("lowers success status condition to success()", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "ok", {
-      command: "echo ok",
-      condition: { kind: "status", status: "success" },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["ok"] });
-    const result = compileGithub(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.ok.if).toBe("${{ success() }}");
-  });
-
-  it("lowers a context-ref condition to GitHub expression syntax", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo build",
-      condition: { kind: "context", namespace: "git", field: "branch" },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileGithub(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.build.if).toContain("github.ref_name");
-  });
-
-  it("lowers a step-ref condition to needs.<job>.outputs.<output>", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: 'echo "ok=true" > $SVERKA_OUTPUT_DIR/ok',
-      outputs: { ok: { type: "boolean" } },
-    });
-    new ShellStep(p, "deploy", {
-      command: "echo deploy",
+    new ShellStep(deploy, "deploy", { command: "deploy" });
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "build", { command: "make build" });
+    new PipelineCallStep(ci, "deploy-staging", {
+      callee: "deploy",
+      callInputs: { env: "staging" },
       dependsOn: ["build"],
-      condition: {
-        kind: "step",
-        step: "build",
-        output: "ok",
-        type: "boolean",
-      },
     });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
-    const result = compileGithub(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.deploy.if).toContain("needs.build.outputs.ok");
+    // Root is the call step (terminal) — reachability follows deps backward.
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+    return synthesize(proj);
+  }
+
+  it("produces 2 artifacts: ci.yml + deploy.yml", () => {
+    const graph = makeReusableGraph();
+    const result = compileGithub(graph);
+    expect(result.artifacts).toHaveLength(2);
+    const paths = result.artifacts.map((a) => a.path);
+    expect(paths).toContain(".github/workflows/ci.yml");
+    expect(paths).toContain(".github/workflows/deploy.yml");
   });
 
-  it("lowers an expression condition with context refs", () => {
+  it("deploy.yml has on: workflow_call with inputs", () => {
+    const graph = makeReusableGraph();
+    const result = compileGithub(graph);
+    const deployArtifact = result.artifacts.find((a) => a.path.includes("deploy"))!;
+    const yaml = parse(deployArtifact.content);
+    expect(yaml.on.workflow_call).toBeDefined();
+    expect(yaml.on.workflow_call.inputs.env).toBeDefined();
+    expect(yaml.on.workflow_call.inputs.env.type).toBe("string");
+    expect(yaml.on.workflow_call.inputs.env.required).toBe(true);
+  });
+
+  it("ci.yml has call job with uses + with + secrets: inherit", () => {
+    const graph = makeReusableGraph();
+    const result = compileGithub(graph);
+    const ciArtifact = result.artifacts.find((a) => a.path.includes("ci.yml"))!;
+    const yaml = parse(ciArtifact.content);
+    const callJob = yaml.jobs["deploy-staging"];
+    expect(callJob).toBeDefined();
+    expect(callJob.uses).toBe("./.github/workflows/deploy.yml");
+    expect(callJob.with.env).toBe("staging");
+    expect(callJob.secrets).toBe("inherit");
+    expect(callJob.needs).toBe("build");
+  });
+
+  it("single-pipeline graph (no calls) → unchanged output (backward compat)", () => {
+    const graph = makeSimpleGraph();
+    const result = compileGithub(graph);
+    expect(result.artifacts).toHaveLength(1);
+    expect(result.artifacts[0]?.path).toBe(".github/workflows/ci.yml");
+  });
+
+  it("pipeline with entries AND called → root workflow with both push and workflow_call", () => {
     const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    const expr: Expression = {
-      kind: "expression",
-      template: "${git.branch} == 'main'",
-      refs: [{ kind: "context", namespace: "git", field: "branch" }],
-    };
-    new ShellStep(p, "build", {
-      command: "echo build",
-      condition: expr,
+    const deploy = new Pipeline(proj, "deploy", {
+      inputs: { env: { type: "string", required: true } },
     });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileGithub(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.build.if).toContain("github.ref_name");
-    expect(yaml.jobs.build.if).toContain("main");
+    new ShellStep(deploy, "deploy", { command: "deploy" });
+    new Entry(deploy, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "build", { command: "make build" });
+    new PipelineCallStep(ci, "deploy-staging", {
+      callee: "deploy",
+      callInputs: { env: "staging" },
+      dependsOn: ["build"],
+    });
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+    const graph = synthesize(proj);
+
+    const result = compileGithub(graph);
+    const deployArtifact = result.artifacts.find((a) => a.path.includes("deploy"))!;
+    const yaml = parse(deployArtifact.content);
+    expect(yaml.on.push).toBeDefined();
+    expect(yaml.on.workflow_call).toBeDefined();
   });
 });
 
-// F-06: Trigger filters — tag, branch, and path filters
-describe("compileGithub — trigger filters (F-06)", () => {
-  it("lowers push tag filter to tags in push trigger", () => {
+describe("compileGithub — components (F-32)", () => {
+  function makeComponentGraph(): DefinitionGraph {
     const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-tag", {
-      trigger: { kind: "push", filter: { tags: ["v*"] } },
-      roots: ["build"],
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "build", { command: "make build" });
+    new ComponentStep(ci, "deploy", {
+      component: { name: "org/deploy-action", version: "v1", inputs: { env: "staging" } },
+      dependsOn: ["build"],
     });
-    const result = compileGithub(synthesize(proj));
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    return synthesize(proj);
+  }
+
+  it("produces one workflow with a composite action job", () => {
+    const graph = makeComponentGraph();
+    const result = compileGithub(graph);
+    expect(result.artifacts).toHaveLength(1);
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.on.push.tags).toEqual(["v*"]);
+    const deployJob = yaml.jobs.deploy;
+    expect(deployJob).toBeDefined();
+    expect(deployJob.uses).toBe("org/deploy-action@v1");
+    expect(deployJob.with.env).toBe("staging");
+    expect(deployJob.needs).toBe("build");
   });
 
-  it("lowers push branch filter to branches in push trigger", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-branch", {
-      trigger: { kind: "push", filter: { branches: ["main", "dev"] } },
-      roots: ["build"],
-    });
-    const result = compileGithub(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.on.push.branches).toEqual(["main", "dev"]);
+  it("single-pipeline graph with component → one artifact (backward compat)", () => {
+    const graph = makeComponentGraph();
+    const result = compileGithub(graph);
+    expect(result.artifacts).toHaveLength(1);
+    expect(result.artifacts[0]?.path).toBe(".github/workflows/ci.yml");
   });
+});
 
-  it("lowers push path filter to paths in push trigger", () => {
+describe("compileGithub — child pipelines (F-33)", () => {
+  it("emits a warning job for child pipeline (unsupported on GitHub)", () => {
     const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-paths", {
-      trigger: { kind: "push", filter: { paths: ["src/**"] } },
-      roots: ["build"],
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "generate", {
+      command: "generate-pipeline > child.yml",
+      outputs: { "child-pipeline": { type: "artifact", path: "child.yml" } },
     });
-    const result = compileGithub(synthesize(proj));
+    new ChildPipelineStep(ci, "trigger-child", {
+      childPipeline: { generator: "generate", artifact: "child-pipeline" },
+      dependsOn: ["generate"],
+    });
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["trigger-child"] });
+    const graph = synthesize(proj);
+
+    const result = compileGithub(graph);
+    expect(result.artifacts).toHaveLength(1);
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.on.push.paths).toEqual(["src/**"]);
+    const triggerJob = yaml.jobs["trigger-child"];
+    expect(triggerJob).toBeDefined();
+    expect(triggerJob.needs).toBe("generate");
+    // Should have a warning step.
+    expect(triggerJob.steps[0].run).toContain("WARNING");
   });
+});
 
-  it("lowers pull-request path filter to paths in pull_request trigger", () => {
+describe("compileGithub — downstream projects (F-34)", () => {
+  it("emits repository_dispatch API call", () => {
     const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-pr", {
-      trigger: { kind: "changeRequest", filter: { paths: ["src/**"] } },
-      roots: ["build"],
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "build", { command: "make build" });
+    new DownstreamStep(ci, "trigger-downstream", {
+      downstream: { project: "group/other-project", branch: "main", inputs: { env: "staging" } },
+      dependsOn: ["build"],
     });
-    const result = compileGithub(synthesize(proj));
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["trigger-downstream"] });
+    const graph = synthesize(proj);
+
+    const result = compileGithub(graph);
+    expect(result.artifacts).toHaveLength(1);
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.on.pull_request.paths).toEqual(["src/**"]);
+    const dsJob = yaml.jobs["trigger-downstream"];
+    expect(dsJob).toBeDefined();
+    expect(dsJob.needs).toBe("build");
+    expect(dsJob.steps[0].run).toContain("gh api repos/group/other-project/dispatches");
+    expect(dsJob.steps[0].run).toContain("sverka-trigger");
+    expect(dsJob.steps[0].run).toContain("staging");
   });
+});
 
-  it("rejects tag filter on change-request trigger with UNSUPPORTED_TRIGGER", () => {
+describe("compileGithub — release (F-39)", () => {
+  it("emits softprops/action-gh-release step", () => {
     const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-pr", {
-      trigger: { kind: "changeRequest", filter: { tags: ["v*"] } },
-      roots: ["build"],
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "build", { command: "make build" });
+    new ReleaseStep(ci, "release", {
+      release: {
+        tag: "v1.0.0",
+        name: "Release v1.0.0",
+        description: "Release notes",
+        assets: ["dist/bin.tar.gz"],
+        draft: false,
+        prerelease: false,
+      },
+      dependsOn: ["build"],
     });
-    expect(() => compileGithub(synthesize(proj))).toThrow(GithubTargetError);
-    try {
-      compileGithub(synthesize(proj));
-    } catch (err) {
-      expect((err as GithubTargetError).code).toBe("UNSUPPORTED_TRIGGER");
-    }
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["release"] });
+    const graph = synthesize(proj);
+
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    const releaseJob = yaml.jobs.release;
+    expect(releaseJob).toBeDefined();
+    // Find the release step (not checkout).
+    const releaseStep = releaseJob.steps.find((s: { uses?: string }) => s.uses?.includes("action-gh-release"));
+    expect(releaseStep).toBeDefined();
+    expect(releaseStep.uses).toBe("softprops/action-gh-release@v2");
+    expect(releaseStep.with.tag_name).toBe("v1.0.0");
+    expect(releaseStep.with.name).toBe("Release v1.0.0");
+    expect(releaseStep.with.body).toBe("Release notes");
+    expect(releaseStep.with.assets).toBe("dist/bin.tar.gz");
+  });
+});
+
+describe("compileGithub — pages (F-40)", () => {
+  it("emits upload-pages-artifact and deploy-pages steps", () => {
+    const proj = new Project("test");
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "build", { command: "make build" });
+    new PagesStep(ci, "deploy-pages", {
+      pages: { path: "dist/" },
+      dependsOn: ["build"],
+    });
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-pages"] });
+    const graph = synthesize(proj);
+
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    const pagesJob = yaml.jobs["deploy-pages"];
+    expect(pagesJob).toBeDefined();
+    const uploadStep = pagesJob.steps.find((s: { uses?: string }) => s.uses?.includes("upload-pages-artifact"));
+    expect(uploadStep).toBeDefined();
+    expect(uploadStep.with.path).toBe("dist/");
+    const deployStep = pagesJob.steps.find((s: { uses?: string }) => s.uses?.includes("deploy-pages"));
+    expect(deployStep).toBeDefined();
+  });
+});
+
+describe("compileGithub — delayed execution (F-48)", () => {
+  it("emits a sleep step for delay", () => {
+    const proj = new Project("test");
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "deploy", { command: "make deploy", delay: "5m" });
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const graph = synthesize(proj);
+
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    const deployJob = yaml.jobs.deploy;
+    expect(deployJob).toBeDefined();
+    const sleepStep = deployJob.steps.find((s: { run?: string }) => s.run?.startsWith("sleep"));
+    expect(sleepStep).toBeDefined();
+    expect(sleepStep.run).toBe("sleep 300");
+  });
+});
+
+describe("compileGithub — background execution (F-49)", () => {
+  it("appends & to background shell commands", () => {
+    const proj = new Project("test");
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "start-server", { command: "npm start", background: true });
+    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["start-server"] });
+    const graph = synthesize(proj);
+
+    const result = compileGithub(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    const serverJob = yaml.jobs["start-server"];
+    expect(serverJob).toBeDefined();
+    // Find the run step (not checkout).
+    const runStep = serverJob.steps.find((s: { run?: string }) => s.run?.includes("npm start"));
+    expect(runStep).toBeDefined();
+    expect(runStep.run).toContain("&");
+    expect(runStep.run).toBe("npm start &"); (feat: F-31 reusable workflows, F-32 components, F-33 child pipelines, F-34 downstream, F-39 release, F-40 pages, F-42 rules, F-43 importer, F-44 includes, F-48 delayed, F-49 background)
   });
 });

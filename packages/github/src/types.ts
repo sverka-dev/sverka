@@ -25,6 +25,9 @@ export interface GithubTriggers {
     readonly cron: string;
     readonly timezone?: string;
   }[];
+  readonly workflow_call?: {
+    readonly inputs?: Record<string, unknown>;
+  } | null;
 }
 
 export interface GithubStep {
@@ -74,6 +77,10 @@ export interface GithubJob {
   readonly environment?: { readonly name: string; readonly url?: string };
   readonly cache?: GithubCache;
   readonly concurrency?: { readonly group: string; readonly cancelInProgress?: boolean };
+  /** For reusable workflow call jobs: "uses" + "with" + "secrets". */
+  readonly uses?: string;
+  readonly with?: Record<string, unknown>;
+  readonly secrets?: "inherit" | Record<string, string>;
 }
 
 export interface GithubCache {

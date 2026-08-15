@@ -123,6 +123,89 @@ export interface Input {
   readonly pattern?: string;
 }
 
+/** Literal value bindable to a callee pipeline input. */
+export type InputLiteral = string | number | boolean;
+
+// ---------------------------------------------------------------------------
+// Components (F-32 — §25)
+// ---------------------------------------------------------------------------
+
+/** Reference to a versioned, distributable component with bound inputs. */
+export interface ComponentRef {
+  readonly name: string;
+  readonly version: string;
+  readonly inputs: Readonly<Record<string, Reference | InputLiteral>>;
+}
+
+// ---------------------------------------------------------------------------
+// Child pipelines (F-33 — §25)
+// ---------------------------------------------------------------------------
+
+/** Dynamic child pipeline trigger: a generator step produces a YAML artifact
+ * that becomes a new pipeline at runtime. */
+export interface ChildPipelineTrigger {
+  readonly generator: string;
+  readonly artifact: string;
+}
+
+// ---------------------------------------------------------------------------
+// Downstream projects (F-34 — §25)
+// ---------------------------------------------------------------------------
+
+/** Downstream project trigger: triggers a pipeline in another project/repo. */
+export interface DownstreamTrigger {
+  readonly project: string;
+  readonly branch?: string;
+  readonly inputs?: Readonly<Record<string, Reference | InputLiteral>>;
+}
+
+// ---------------------------------------------------------------------------
+// Release (F-39 — §25)
+// ---------------------------------------------------------------------------
+
+/** Release specification for creating versioned releases. */
+export interface ReleaseSpec {
+  readonly tag: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly assets?: readonly string[];
+  readonly draft?: boolean;
+  readonly prerelease?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Pages (F-40 — §25)
+// ---------------------------------------------------------------------------
+
+/** Pages deployment specification. */
+export interface PagesSpec {
+  readonly path: string;
+  readonly prefix?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Workflow rules (F-42 — §25)
+// ---------------------------------------------------------------------------
+
+/** Pipeline-level rule controlling whether the pipeline runs. */
+export interface PipelineRule {
+  readonly if?: string;
+  readonly changes?: readonly string[];
+  readonly exists?: readonly string[];
+  readonly variables?: Readonly<Record<string, string>>;
+  readonly when?: "always" | "never";
+}
+
+// ---------------------------------------------------------------------------
+// Includes (F-44 — §25)
+// ---------------------------------------------------------------------------
+
+/** Include reference: merges another config fragment into the pipeline. */
+export interface IncludeRef {
+  readonly path: string;
+  readonly inputs?: Readonly<Record<string, unknown>>;
+}
+
 // ---------------------------------------------------------------------------
 // Runtime (§14.1)
 // ---------------------------------------------------------------------------

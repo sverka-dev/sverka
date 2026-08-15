@@ -268,3 +268,67 @@ describe("PlannerError", () => {
     expect(err.cause).toBe(cause);
   });
 });
+
+describe("bindRunPlan — pipeline call expansion", () => {
+  it("expands call steps into inline callee steps in the RunPlan", () => {
+    const graph: DefinitionGraph = {
+      project: {
+        id: "test",
+        pipelines: [
+          {
+            id: "deploy",
+            inputs: { env: { type: "string", required: true } },
+            entries: [],
+            steps: [
+              {
+                id: "deploy/deploy",
+                runtime: {},
+                operations: [{ kind: "shell", command: "deploy" }],
+                inputs: [],
+                outputs: [{ name: "url", type: "string" }],
+                dependencies: [],
+              },
+            ],
+            outputs: [{ name: "url", type: "string", stepId: "deploy/deploy" }],
+          },
+          {
+            id: "ci",
+            inputs: {},
+            entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/deploy-staging"] }],
+            steps: [
+              {
+                id: "ci/build",
+                runtime: {},
+                operations: [{ kind: "shell", command: "make build" }],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+              {
+                id: "ci/deploy-staging",
+                runtime: {},
+                operations: [],
+                inputs: [],
+                outputs: [{ name: "url", type: "string" }],
+                dependencies: [{ kind: "control", producer: "ci/build" }],
+                call: { callee: "deploy", inputs: { env: "staging" } },
+              },
+            ],
+            outputs: [],
+          },
+        ],
+      },
+    };
+
+    const plan = bindRunPlan({ graph, entryId: "ci/on-push" });
+    const ids = plan.steps.map((s) => s.id);
+    // Call step should be expanded — no "ci/deploy-staging" in steps.
+    expect(ids).not.toContain("ci/deploy-staging");
+    // Should contain the namespaced callee step.
+    expect(ids).toContain("ci/deploy-staging/deploy");
+    // Should still contain the caller's build step.
+    expect(ids).toContain("ci/build");
+    // No step should have a `call` field.
+    expect(plan.steps.every((s) => s.call === undefined)).toBe(true);
+  });
+});
