@@ -31,6 +31,226 @@ describe("synthesize — basic", () => {
     expect(step?.operations[0]).toEqual({ kind: "shell", command: "npm run build" });
   });
 
+  it("interruptible flag threads through to StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", { command: "npm run build", interruptible: true });
+    new ShellStep(pipeline, "deploy", { command: "npm run deploy", interruptible: false });
+    const graph = synthesize(proj);
+    const steps = graph.project.pipelines[0]?.steps ?? [];
+    expect(steps[0]?.interruptible).toBe(true);
+    expect(steps[1]?.interruptible).toBe(false);
+  });
+
+  it("omitted interruptible leaves StepDefinition.interruptible undefined", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.interruptible).toBeUndefined();
+  });
+
+  it("permissions threads through to PipelineDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      permissions: { contents: "read", "id-token": "write" },
+    });
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const graph = synthesize(proj);
+    expect(graph.project.pipelines[0]?.permissions).toEqual({
+      contents: "read",
+      "id-token": "write",
+    });
+  });
+
+  it("omitted permissions leaves PipelineDefinition.permissions undefined", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const graph = synthesize(proj);
+    expect(graph.project.pipelines[0]?.permissions).toBeUndefined();
+  });
+
+  it("defaults threads through to PipelineDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      defaults: { shell: "bash", workdir: "./src" },
+    });
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const graph = synthesize(proj);
+    expect(graph.project.pipelines[0]?.defaults).toEqual({
+      shell: "bash",
+      workdir: "./src",
+    });
+  });
+
+  it("typed inputs thread through to PipelineDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      inputs: {
+        environment: { type: "choice", options: ["staging", "production"] },
+        version: { type: "string", pattern: "^v\\d+$" },
+      },
+    });
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const graph = synthesize(proj);
+    const inputs = graph.project.pipelines[0]?.inputs;
+    expect(inputs?.environment).toEqual({ type: "choice", options: ["staging", "production"] });
+    expect(inputs?.version).toEqual({ type: "string", pattern: "^v\\d+$" });
+  });
+
+  it("runner threads through to StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      runner: { labels: ["linux", "x64"], group: "my-group" },
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.runner).toEqual({ labels: ["linux", "x64"], group: "my-group" });
+  });
+
+  it("omitted runner leaves StepDefinition.runner undefined", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.runner).toBeUndefined();
+  });
+
+  it("identity threads through to StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      identity: { tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } } },
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.identity).toEqual({
+      tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } },
+    });
+  });
+
+  it("rules threads through to StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      rules: [{ if: "$BRANCH == main", changes: ["src/**"] }],
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.rules).toEqual([{ if: "$BRANCH == main", changes: ["src/**"] }]);
+  });
+
+  it("reports produce report operations in StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "test", {
+      command: "make test",
+      reports: [{ type: "junit", path: "test-results.xml" }],
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.reports).toEqual([{ type: "junit", path: "test-results.xml" }]);
+    expect(step?.operations).toContainEqual({
+      kind: "report",
+      spec: { type: "junit", path: "test-results.xml" },
+    });
+  });
+
+  it("services thread through to StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "test", {
+      command: "make test",
+      services: [{ name: "postgres", image: "postgres:16", ports: [5432] }],
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.services).toEqual([
+      { name: "postgres", image: "postgres:16", ports: [5432] },
+    ]);
+  });
+
+  it("environment threads through to StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      environment: { name: "production", url: "https://app.example.com" },
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.environment).toEqual({
+      name: "production",
+      url: "https://app.example.com",
+    });
+  });
+
+  it("artifact retention and access thread to exportArtifact operation", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "make build",
+      outputs: { dist: { type: "artifact", path: "dist/", retention: "7d", access: "developer" } },
+    });
+    const graph = synthesize(proj);
+    const op = graph.project.pipelines[0]?.steps[0]?.operations.find(
+      (o) => o.kind === "exportArtifact",
+    );
+    expect(op).toBeDefined();
+    expect(op).toEqual({
+      kind: "exportArtifact",
+      name: "dist",
+      path: "dist/",
+      retention: "7d",
+      access: "developer",
+    });
+  });
+
+  it("cache threads through to StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "make build",
+      cache: { paths: ["node_modules"], key: "node-1", policy: "pull-push" },
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.cache).toEqual({
+      paths: ["node_modules"],
+      key: "node-1",
+      policy: "pull-push",
+    });
+  });
+
+  it("step-level concurrency threads through to StepDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      concurrency: { group: "production", cancelInProgress: true },
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.concurrency).toEqual({ group: "production", cancelInProgress: true });
+  });
+
+  it("pipeline-level concurrency threads through to PipelineDefinition", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      concurrency: { group: "deploy-group" },
+    });
+    new ShellStep(pipeline, "build", { command: "echo" });
+    const graph = synthesize(proj);
+    expect(graph.project.pipelines[0]?.concurrency).toEqual({ group: "deploy-group" });
+  });
+
   it("scalar output → exportOutput operation", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci");

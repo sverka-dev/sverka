@@ -3,7 +3,7 @@
 **ID:** F-27
 **Category:** cache
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -113,11 +113,21 @@ GitHub uses an action; GitLab uses a keyword. GitLab has native policy control; 
 - **Depends on:** F-35 (expressions) for cache key expressions.
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should `hashFiles()` be a portable expression function or provider-specific?
-- Should the native engine implement its own cache store?
-- Should `cache:key:files` (GitLab file-based key) be in the portable model?
+- **`hashFiles()` is a portable expression function.** Sverka's expression
+  model includes `hashFiles()` as a portable function. GitHub lowering
+  passes it through natively. GitLab lowering translates it to
+  `cache:key:files` when the key is a single `hashFiles()` call, or
+  emits a diagnostic if the expression is too complex for GitLab's
+  file-based key model.
+- **Native engine cache is deferred.** The native engine cache store is
+  a runtime concern (F-18 / native engine). This feature only adds the
+  portable cache model and target lowering.
+- **`cache:key:files` is not in the portable model.** GitLab's
+  file-based key is a lowering concern. The portable model uses string
+  keys with `hashFiles()` expressions. GitLab lowering translates
+  `hashFiles("file")` to `cache:key:files` when possible.
 
 ## References
 

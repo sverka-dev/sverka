@@ -3,16 +3,34 @@
 import type { CapabilitySupport } from "@sverka/plugin";
 
 export interface GitlabRule {
-  readonly if: string;
+  readonly if?: string;
   readonly when?: string;
   readonly changes?: readonly string[];
+  readonly exists?: readonly string[];
+  readonly variables?: Readonly<Record<string, string>>;
 }
 
 export interface GitlabArtifactSpec {
   readonly paths?: readonly string[];
-  readonly reports?: {
-    readonly dotenv?: string;
-  };
+  readonly reports?: Readonly<Record<string, unknown>>;
+  readonly expireIn?: string;
+  readonly access?: string;
+}
+
+export interface GitlabService {
+  readonly name: string;
+  readonly alias?: string;
+  readonly entrypoint?: readonly string[];
+  readonly command?: readonly string[];
+  readonly variables?: Record<string, string>;
+}
+
+export interface GitlabEnvironment {
+  readonly name: string;
+  readonly url?: string;
+  readonly action?: string;
+  readonly deploymentTier?: string;
+  readonly onStop?: string;
 }
 
 export interface GitlabJob {
@@ -36,6 +54,38 @@ export interface GitlabJob {
   readonly parallel?: {
     readonly matrix: readonly Record<string, unknown>[];
   };
+  readonly interruptible?: boolean;
+  readonly tags?: readonly string[];
+  readonly idTokens?: Readonly<Record<string, { aud: string }>>;
+  readonly services?: readonly GitlabService[];
+  readonly environment?: GitlabEnvironment;
+  readonly cache?: GitlabCache;
+  readonly resourceGroup?: string;
+}
+
+export interface GitlabCache {
+  readonly paths: readonly string[];
+  readonly key: string;
+  readonly policy?: string;
+  readonly fallbackKeys?: readonly string[];
+}
+
+export interface GitlabDefault {
+  readonly image?: string;
+  readonly beforeScript?: readonly string[];
+  readonly afterScript?: readonly string[];
+  readonly timeout?: string;
+  readonly retry?: { max: number; exitCodes?: readonly number[] };
+  readonly interruptible?: boolean;
+}
+
+export interface GitlabSpecInput {
+  readonly type: string;
+  readonly description?: string;
+  readonly required?: boolean;
+  readonly default?: string | number | boolean | readonly string[];
+  readonly options?: readonly string[];
+  readonly pattern?: string;
 }
 
 export interface GitlabTargetGraph {
@@ -43,6 +93,9 @@ export interface GitlabTargetGraph {
   readonly stages: readonly string[];
   readonly jobs: readonly GitlabJob[];
   readonly variables: Record<string, string>;
+  readonly autoCancel?: boolean;
+  readonly default?: GitlabDefault;
+  readonly specInputs?: Readonly<Record<string, GitlabSpecInput>>;
 }
 
 export interface GeneratedArtifact {

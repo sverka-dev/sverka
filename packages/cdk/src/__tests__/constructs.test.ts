@@ -53,6 +53,333 @@ describe("ShellStep", () => {
     expect(step.dependsOn).toEqual([]);
     expect(step.timeout).toBe(60000);
   });
+
+  it("stores interruptible flag when set true", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      interruptible: true,
+    });
+    expect(step.interruptible).toBe(true);
+  });
+
+  it("stores interruptible flag when set false", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "deploy", {
+      command: "npm run deploy",
+      interruptible: false,
+    });
+    expect(step.interruptible).toBe(false);
+  });
+
+  it("leaves interruptible undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.interruptible).toBeUndefined();
+  });
+});
+
+describe("Pipeline — permissions", () => {
+  it("stores permissions when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      permissions: { contents: "read", "id-token": "write" },
+    });
+    expect(pipeline.permissions).toEqual({ contents: "read", "id-token": "write" });
+  });
+
+  it("leaves permissions undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    expect(pipeline.permissions).toBeUndefined();
+  });
+});
+
+describe("Pipeline — defaults", () => {
+  it("stores defaults when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      defaults: { shell: "bash", workdir: "./src", beforeScript: ["install-deps"] },
+    });
+    expect(pipeline.defaults).toEqual({
+      shell: "bash",
+      workdir: "./src",
+      beforeScript: ["install-deps"],
+    });
+  });
+
+  it("leaves defaults undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    expect(pipeline.defaults).toBeUndefined();
+  });
+});
+
+describe("Pipeline — typed inputs", () => {
+  it("stores choice input with options", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      inputs: {
+        environment: {
+          type: "choice",
+          options: ["staging", "production"],
+          required: true,
+        },
+      },
+    });
+    expect(pipeline.inputs.get("environment")).toEqual({
+      type: "choice",
+      options: ["staging", "production"],
+      required: true,
+    });
+  });
+
+  it("stores string input with pattern", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      inputs: {
+        version: {
+          type: "string",
+          pattern: "^v\\d+\\.\\d+\\.\\d+$",
+        },
+      },
+    });
+    expect(pipeline.inputs.get("version")).toEqual({
+      type: "string",
+      pattern: "^v\\d+\\.\\d+\\.\\d+$",
+    });
+  });
+
+  it("stores array input with default", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      inputs: {
+        targets: {
+          type: "array",
+          default: ["build", "test"],
+        },
+      },
+    });
+    expect(pipeline.inputs.get("targets")).toEqual({
+      type: "array",
+      default: ["build", "test"],
+    });
+  });
+});
+
+describe("ShellStep — runner", () => {
+  it("stores runner spec when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      runner: { labels: ["linux", "x64"] },
+    });
+    expect(step.runner).toEqual({ labels: ["linux", "x64"] });
+  });
+
+  it("stores runner with group", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      runner: { labels: ["self-hosted", "linux"], group: "my-group" },
+    });
+    expect(step.runner?.group).toBe("my-group");
+  });
+
+  it("leaves runner undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.runner).toBeUndefined();
+  });
+});
+
+describe("ShellStep — identity", () => {
+  it("stores identity spec when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      identity: { tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } } },
+    });
+    expect(step.identity).toEqual({
+      tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } },
+    });
+  });
+
+  it("leaves identity undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.identity).toBeUndefined();
+  });
+});
+
+describe("ShellStep — rules", () => {
+  it("stores rules when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      rules: [
+        { if: "$BRANCH == main", changes: ["src/**"] },
+        { when: "never" },
+      ],
+    });
+    expect(step.rules).toEqual([
+      { if: "$BRANCH == main", changes: ["src/**"] },
+      { when: "never" },
+    ]);
+  });
+
+  it("leaves rules undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.rules).toBeUndefined();
+  });
+});
+
+describe("ShellStep — reports", () => {
+  it("stores reports when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "test", {
+      command: "make test",
+      reports: [
+        { type: "junit", path: "test-results.xml" },
+        { type: "coverage", path: "coverage.xml", format: "cobertura" },
+      ],
+    });
+    expect(step.reports).toEqual([
+      { type: "junit", path: "test-results.xml" },
+      { type: "coverage", path: "coverage.xml", format: "cobertura" },
+    ]);
+  });
+
+  it("leaves reports undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.reports).toBeUndefined();
+  });
+});
+
+describe("ShellStep — services", () => {
+  it("stores services when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "test", {
+      command: "make test",
+      services: [
+        { name: "postgres", image: "postgres:16", env: { POSTGRES_PASSWORD: "secret" }, ports: [5432] },
+        { name: "redis", image: "redis:7", ports: [6379] },
+      ],
+    });
+    expect(step.services).toEqual([
+      { name: "postgres", image: "postgres:16", env: { POSTGRES_PASSWORD: "secret" }, ports: [5432] },
+      { name: "redis", image: "redis:7", ports: [6379] },
+    ]);
+  });
+
+  it("leaves services undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.services).toBeUndefined();
+  });
+});
+
+describe("ShellStep — environment", () => {
+  it("stores environment spec when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      environment: { name: "production", url: "https://app.example.com", tier: "production" },
+    });
+    expect(step.environment).toEqual({
+      name: "production",
+      url: "https://app.example.com",
+      tier: "production",
+    });
+  });
+
+  it("leaves environment undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.environment).toBeUndefined();
+  });
+});
+
+describe("ShellStep — cache", () => {
+  it("stores cache spec when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      cache: {
+        paths: ["node_modules", ".cache"],
+        key: "node-${hashFiles('bun.lock')}",
+        restoreKeys: ["node-"],
+        policy: "pull-push",
+      },
+    });
+    expect(step.cache).toEqual({
+      paths: ["node_modules", ".cache"],
+      key: "node-${hashFiles('bun.lock')}",
+      restoreKeys: ["node-"],
+      policy: "pull-push",
+    });
+  });
+
+  it("leaves cache undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.cache).toBeUndefined();
+  });
+});
+
+describe("ShellStep — concurrency", () => {
+  it("stores concurrency spec when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      concurrency: { group: "production", cancelInProgress: true },
+    });
+    expect(step.concurrency).toEqual({ group: "production", cancelInProgress: true });
+  });
+
+  it("leaves concurrency undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", { command: "npm run build" });
+    expect(step.concurrency).toBeUndefined();
+  });
+});
+
+describe("Pipeline — concurrency", () => {
+  it("stores pipeline-level concurrency when set", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci", {
+      concurrency: { group: "deploy-${{ git.branch }}", cancelInProgress: true },
+    });
+    expect(pipeline.concurrency).toEqual({ group: "deploy-${{ git.branch }}", cancelInProgress: true });
+  });
+
+  it("leaves pipeline concurrency undefined when omitted", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    expect(pipeline.concurrency).toBeUndefined();
+  });
 });
 
 describe("Entry", () => {
@@ -136,5 +463,16 @@ describe("Error handling", () => {
     } catch (err) {
       expect((err as ConstructError).code).toBe("INVALID_OUTPUT");
     }
+  });
+
+  it("artifact output stores retention and access", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      outputs: { dist: { type: "artifact", path: "dist/", retention: "7d", access: "developer" } },
+    });
+    expect(step.outputs.get("dist")?.retention).toBe("7d");
+    expect(step.outputs.get("dist")?.access).toBe("developer");
   });
 });

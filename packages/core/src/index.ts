@@ -23,6 +23,20 @@ export type {
   Condition,
   ContinueOnError,
   RetryPolicy,
+  PermissionLevel,
+  RunnerSpec,
+  IdentitySpec,
+  Rule,
+  PipelineDefaults,
+  ReportSpec,
+  ServiceContainer,
+  EnvironmentSpec,
+  EnvironmentAction,
+  EnvironmentTier,
+  ArtifactAccess,
+  CacheSpec,
+  CachePolicy,
+  ConcurrencySpec,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";

@@ -3,7 +3,7 @@
 **ID:** F-38
 **Category:** secrets
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -112,11 +112,19 @@ Both providers support OIDC but with different APIs. GitHub provides request URL
 - **Depends on:** F-21 (secrets), F-30 (permissions — GitHub needs `id-token: write`).
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should the native engine generate real JWTs or mock tokens?
-- Should `identity` (GitLab provider identifier) be in the portable model?
-- How to handle GitHub's single-audience limitation?
+- **Native engine: mock tokens.** Generating real JWTs requires signing keys
+  and is out of scope for M1. The native engine can provide a placeholder
+  token for local testing. This is a future enhancement.
+- **No `identity` provider identifier in the portable model.** GitLab's
+  `identity` is a provider-specific concept. It can be added as a provider
+  extension later.
+- **GitHub single-audience: emit warning.** When multiple tokens with
+  different audiences are specified, GitHub can only request one audience
+  per job. Emit a warning diagnostic via capability manifest
+  (`secrets.oidc.multiAudience: "unsupported"` on GitHub). The first
+  token's audience is used; others are dropped with the warning.
 
 ## References
 

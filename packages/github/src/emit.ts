@@ -29,12 +29,27 @@ export function emitGithub(targetGraph: GithubTargetGraph): readonly GeneratedAr
 function stringifyTargetGraph(graph: GithubTargetGraph): string {
   const doc: Record<string, unknown> = {
     name: graph.name,
-    ...(graph.runName !== undefined ? { "run-name": graph.runName } : {}),
     on: graph.on,
   };
 
   if (Object.keys(graph.env).length > 0) {
     doc.env = graph.env;
+  }
+
+  if (graph.permissions) {
+    doc.permissions = graph.permissions;
+  }
+
+  if (graph.defaults) {
+    doc.defaults = graph.defaults;
+  }
+
+  if (graph.concurrency) {
+    const conc: Record<string, unknown> = { group: graph.concurrency.group };
+    if (graph.concurrency.cancelInProgress !== undefined) {
+      conc["cancel-in-progress"] = graph.concurrency.cancelInProgress;
+    }
+    doc.concurrency = conc;
   }
 
   const jobs: Record<string, unknown> = {};
@@ -82,12 +97,28 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
     result.strategy = strat;
   }
 
-  if (job.outputs && Object.keys(job.outputs).length > 0) {
-    result.outputs = job.outputs;
+  if (job.permissions) {
+    result.permissions = job.permissions;
   }
 
   if (job.if) {
     result.if = job.if;
+  }
+
+  if (job.services) {
+    result.services = job.services;
+  }
+
+  if (job.environment) {
+    result.environment = job.environment;
+  }
+
+  if (job.concurrency) {
+    const conc: Record<string, unknown> = { group: job.concurrency.group };
+    if (job.concurrency.cancelInProgress !== undefined) {
+      conc["cancel-in-progress"] = job.concurrency.cancelInProgress;
+    }
+    result.concurrency = conc;
   }
 
   result.steps = job.steps.map((step, i) => stepToYaml(step, i));
