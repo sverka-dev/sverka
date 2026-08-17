@@ -18,6 +18,9 @@ export type {
   Reference,
   Runtime,
   Trigger,
+  MatrixSpec,
+  MatrixValue,
+  Condition,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";

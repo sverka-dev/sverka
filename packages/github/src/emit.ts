@@ -70,6 +70,17 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
     result.env = job.env;
   }
 
+  if (job.strategy) {
+    const strat: Record<string, unknown> = { matrix: job.strategy.matrix };
+    if (job.strategy.failFast !== undefined) {
+      strat["fail-fast"] = job.strategy.failFast;
+    }
+    if (job.strategy.maxParallel !== undefined) {
+      strat["max-parallel"] = job.strategy.maxParallel;
+    }
+    result.strategy = strat;
+  }
+
   result.steps = job.steps.map((step, i) => stepToYaml(step, i));
 
   return result;

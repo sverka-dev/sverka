@@ -4,11 +4,14 @@
 import { Construct } from "constructs";
 import { ConstructError } from "./errors.js";
 import type {
+  Expression,
   Input,
   OutputDeclaration,
   Reference,
   Runtime,
   Trigger,
+  Condition,
+  MatrixSpec,
 } from "./model.js";
 
 function isDuplicateConstructError(err: unknown): boolean {
@@ -47,10 +50,14 @@ export class Project extends Construct {
 
 export interface PipelineProps {
   readonly inputs?: Readonly<Record<string, Input>>;
+  readonly name?: string;
+  readonly runName?: Expression;
 }
 
 export class Pipeline extends Construct {
   readonly inputs: ReadonlyMap<string, Input>;
+  readonly name?: string;
+  readonly runName?: Expression;
 
   constructor(scope: Project, id: string, props?: PipelineProps) {
     if (!(scope instanceof Project)) {
@@ -70,6 +77,12 @@ export class Pipeline extends Construct {
     this.inputs = props?.inputs
       ? new Map(Object.entries(props.inputs))
       : new Map();
+    if (props?.name !== undefined) {
+      this.name = props.name;
+    }
+    if (props?.runName !== undefined) {
+      this.runName = props.runName;
+    }
   }
 }
 
@@ -83,7 +96,8 @@ export interface StepProps {
   readonly inputs?: readonly Reference[];
   readonly dependsOn?: readonly string[];
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Condition;
+  readonly matrix?: MatrixSpec;
 }
 
 export abstract class Step extends Construct {
@@ -92,7 +106,8 @@ export abstract class Step extends Construct {
   readonly inputs: ReadonlyArray<Reference>;
   readonly dependsOn: ReadonlyArray<string>;
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Condition;
+  readonly matrix?: MatrixSpec;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
     if (!(scope instanceof Pipeline)) {
@@ -121,6 +136,9 @@ export abstract class Step extends Construct {
     }
     if (props.condition !== undefined) {
       this.condition = props.condition;
+    }
+    if (props.matrix !== undefined) {
+      this.matrix = props.matrix;
     }
   }
 }

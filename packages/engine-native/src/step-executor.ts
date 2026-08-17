@@ -3,6 +3,7 @@
 
 import { mkdir, readFile } from "node:fs/promises";
 import { isAbsolute, join, normalize, relative } from "node:path";
+import { execSync } from "node:child_process";
 import type { StepDefinition, OperationDefinition } from "@sverka/core";
 import type { InputValue } from "@sverka/ir";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore, RunEvent } from "./types.js";
@@ -103,7 +104,7 @@ async function executeShellOperation(
 ): Promise<void> {
   const { step, driver, secrets, valueStore, inputs, signal } = opts;
   const env = buildShellEnv(step, outputDir, secrets);
-  const command = interpolateCommand(op.command, step, valueStore, inputs);
+  const command = interpolateCommand(op.command, step, valueStore, inputs, secrets);
   const cwd = step.runtime.workingDir
     ? resolveUnder(stepWorkspace, step.runtime.workingDir)
     : stepWorkspace;
@@ -280,6 +281,7 @@ function interpolateCommand(
   step: StepDefinition,
   valueStore: ValueStore,
   inputs: Readonly<Record<string, InputValue>> | undefined,
+  secrets: Readonly<Record<string, string>>,
 ): string {
   const prefix = stepPrefix(step.id);
   return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
@@ -292,6 +294,14 @@ function interpolateCommand(
     }
     const ns = key.slice(0, dot);
     const field = key.slice(dot + 1);
+
+    // Context ref resolution (F-35, F-15)
+    const ctxValue = resolveContextRef(ns, field, inputs, secrets, step.matrixValues);
+    if (ctxValue !== undefined) {
+      return shellQuote(ctxValue as InputValue);
+    }
+
+    // Step output resolution
     const stepId = resolveProducerId(prefix, ns);
     const value = valueStore.get(stepId, field);
     if (value !== undefined) {
@@ -303,4 +313,53 @@ function interpolateCommand(
     }
     throw new StepExecError(`unresolved step reference '\${${key}}'`, "STEP_EXEC_ERROR");
   });
+}
+
+/**
+ * Resolve a context ref (namespace.field) against runtime state.
+ * Returns undefined if the namespace is not a context namespace or the value is not found.
+ */
+function resolveContextRef(
+  namespace: string,
+  field: string,
+  inputs: Readonly<Record<string, InputValue>> | undefined,
+  secrets: Readonly<Record<string, string>>,
+  matrixValues?: Readonly<Record<string, string | number>>,
+): string | undefined {
+  switch (namespace) {
+    case "env":
+      return process.env[field];
+    case "secrets":
+      return secrets[field];
+    case "inputs":
+      return inputs?.[field] !== undefined ? String(inputs[field]) : undefined;
+    case "git":
+      return resolveGitContext(field);
+    case "matrix":
+      if (matrixValues === undefined) return undefined;
+      const mv = matrixValues[field];
+      return mv !== undefined ? String(mv) : undefined;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Resolve git.* context refs using git CLI.
+ */
+function resolveGitContext(field: string): string | undefined {
+  try {
+    switch (field) {
+      case "sha":
+        return execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
+      case "branch":
+        return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+      case "tag":
+        return execSync("git describe --tags --exact-match 2>/dev/null", { encoding: "utf-8" }).trim();
+      default:
+        return undefined;
+    }
+  } catch {
+    return undefined;
+  }
 }

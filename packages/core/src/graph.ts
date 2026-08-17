@@ -8,11 +8,13 @@ import type {
   Input,
   OutputDeclaration,
   OutputType,
+  MatrixSpec,
+  Condition,
 } from "@sverka/cdk";
 
 // Re-export types used in the graph schema so consumers can access them
 // from @sverka/core without depending on @sverka/cdk directly.
-export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger } from "@sverka/cdk";
+export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger, MatrixSpec, MatrixValue, Condition } from "@sverka/cdk";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;
@@ -57,7 +59,11 @@ export interface StepDefinition {
   readonly outputs: readonly OutputDefinition[];
   readonly dependencies: readonly Dependency[];
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Condition;
+  readonly matrix?: MatrixSpec;
+  readonly matrixValues?: Readonly<Record<string, string | number>>;
+  readonly matrixFailFast?: boolean;
+  readonly matrixMaxParallel?: number;
 }
 
 export type OperationDefinition =

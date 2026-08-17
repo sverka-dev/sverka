@@ -121,6 +121,7 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
     dependencies,
     ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
     ...(step.condition !== undefined ? { condition: step.condition } : {}),
+    ...(step.matrix !== undefined ? { matrix: step.matrix } : {}),
   };
 }
 
