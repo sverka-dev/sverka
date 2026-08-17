@@ -16,7 +16,7 @@ export type {
   OutputDeclaration,
   OutputType,
   Reference,
-  Runtime,
+  Expression,
   Trigger,
   MatrixSpec,
   MatrixValue,

@@ -9,8 +9,9 @@ import type {
   OperationDefinition,
   Dependency,
   Reference,
+  Expression,
 } from "@sverka/core";
-import type { Trigger, MatrixSpec } from "@sverka/cdk";
+import type { Trigger, MatrixSpec, StepRef } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
@@ -159,12 +160,15 @@ function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
 
 /**
  * Map Sverka triggers to GitHub triggers.
- * Multiple entries of the same kind have their branch filters merged.
+ * Multiple entries of the same kind have their filters merged.
  */
 function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
   const pushBranches = new Set<string>();
+  const pushTags = new Set<string>();
+  const pushPaths = new Set<string>();
   let pushAll = false;
   const prBranches = new Set<string>();
+  const prPaths = new Set<string>();
   let prAll = false;
   let hasManual = false;
   const scheduleEntries: { cron: string; timezone?: string }[] = [];
@@ -173,10 +177,10 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
     const t = entry.trigger;
     switch (t.kind) {
       case "push":
-        collectBranches(t, pushBranches, () => (pushAll = true));
+        collectFilters(t, pushBranches, pushTags, pushPaths, () => (pushAll = true));
         break;
       case "changeRequest":
-        collectBranches(t, prBranches, () => (prAll = true));
+        collectFilters(t, prBranches, undefined, prPaths, () => (prAll = true));
         break;
       case "manual":
         hasManual = true;
@@ -198,23 +202,49 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
   return assembleTriggers(
     pushAll,
     pushBranches,
+    pushTags,
+    pushPaths,
     prAll,
     prBranches,
+    prPaths,
     hasManual,
     scheduleEntries,
   );
 }
 
-function collectBranches(
+function collectFilters(
   t: Trigger,
   branches: Set<string>,
+  tags: Set<string> | undefined,
+  paths: Set<string>,
   markAll: () => void,
 ): void {
-  if (t.filter?.branches && t.filter.branches.length > 0) {
-    for (const branch of t.filter.branches) {
+  if (t.kind === "schedule") {
+    markAll();
+    return;
+  }
+  const hasBranches = t.filter?.branches && t.filter.branches.length > 0;
+  const hasTags = t.filter?.tags && t.filter.tags.length > 0;
+  const hasPaths = t.filter?.paths && t.filter.paths.length > 0;
+
+  if (hasBranches) {
+    for (const branch of t.filter!.branches!) {
       branches.add(branch);
     }
-  } else {
+  }
+  if (hasTags && tags) {
+    for (const tag of t.filter!.tags!) {
+      tags.add(tag);
+    }
+  }
+  if (hasPaths) {
+    for (const path of t.filter!.paths!) {
+      paths.add(path);
+    }
+  }
+
+  // If no filter at all, mark as "fire on all"
+  if (!hasBranches && !hasTags && !hasPaths) {
     markAll();
   }
 }
@@ -222,22 +252,33 @@ function collectBranches(
 function assembleTriggers(
   pushAll: boolean,
   pushBranches: Set<string>,
+  pushTags: Set<string>,
+  pushPaths: Set<string>,
   prAll: boolean,
   prBranches: Set<string>,
+  prPaths: Set<string>,
   hasManual: boolean,
   scheduleEntries: readonly { cron: string; timezone?: string }[],
 ): GithubTriggers {
   const triggers: Record<string, unknown> = {};
+
   if (pushAll) {
     triggers.push = {};
-  } else if (pushBranches.size > 0) {
-    triggers.push = { branches: [...pushBranches] };
+  } else if (pushBranches.size > 0 || pushTags.size > 0 || pushPaths.size > 0) {
+    const push: Record<string, string[]> = {};
+    if (pushBranches.size > 0) push.branches = [...pushBranches];
+    if (pushTags.size > 0) push.tags = [...pushTags];
+    if (pushPaths.size > 0) push.paths = [...pushPaths];
+    triggers.push = push;
   }
 
   if (prAll) {
     triggers.pull_request = {};
-  } else if (prBranches.size > 0) {
-    triggers.pull_request = { branches: [...prBranches] };
+  } else if (prBranches.size > 0 || prPaths.size > 0) {
+    const pr: Record<string, string[]> = {};
+    if (prBranches.size > 0) pr.branches = [...prBranches];
+    if (prPaths.size > 0) pr.paths = [...prPaths];
+    triggers.pull_request = pr;
   }
 
   if (hasManual) {
@@ -309,6 +350,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
     ...(container ? { container } : {}),
     ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
     ...(Object.keys(outputs).length > 0 ? { outputs } : {}),
+    ...(step.condition !== undefined ? { if: lowerCondition(step.condition, jobIdMap) } : {}),
   };
 
   return job;
@@ -400,6 +442,8 @@ function lowerOperations(
       // If this run block contains exportOutput lines, give it an id so
       // job outputs can reference ${{ steps.<id>.outputs.* }}.
       ...(hasExportInRun ? { id: `${shortStepId}-outputs` } : {}),
+      ...(step.runtime.workingDir ? { workingDirectory: step.runtime.workingDir } : {}),
+      ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
     });
     runLines = [];
     hasExportInRun = false;
@@ -580,7 +624,16 @@ function translateContextRef(namespace: string, field: string): string {
   if (namespace === "matrix") {
     return `\${{ matrix.${field} }}`;
   }
+  // Unknown — leave as-is (literal shell variable)
   return `\${${namespace}.${field}}`;
+}
+
+/**
+ * Translate a step ref to GitHub steps.<jobId>.outputs.<output> syntax.
+ */
+function translateStepRef(ref: StepRef, jobIdMap: Map<string, string>): string {
+  const jobId = jobIdMap.get(ref.step) ?? ref.step;
+  return `\${{ steps.${jobId}.outputs.${ref.output} }}`;
 }
 
 /**
@@ -612,12 +665,44 @@ function translateCommand(
   return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
     const ref = lookup.get(key);
     if (ref === undefined) {
+      // Not a known ref — leave as literal shell variable
       return `\${${key}}`;
     }
     if (ref.kind === "context") {
       return translateContextRef(ref.namespace, ref.field);
     }
-    const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
-    return `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
+    return translateStepRef(ref, jobIdMap);
   });
+}
+
+/**
+ * Lower a step condition to a GitHub if: expression.
+ */
+function lowerCondition(
+  condition: Reference | Expression,
+  jobIdMap: Map<string, string>,
+): string {
+  if (condition.kind === "context") {
+    return `\${{ ${stripBraces(translateContextRef(condition.namespace, condition.field))} }}`;
+  }
+  if (condition.kind === "step") {
+    return translateStepRef(condition, jobIdMap);
+  }
+  // Expression — translate each ${...} placeholder
+  const lookup = buildInputLookup(condition.refs);
+  const translated = condition.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+    const ref = lookup.get(key);
+    if (ref === undefined) return `\${${key}}`;
+    if (ref.kind === "context") {
+      return stripBraces(translateContextRef(ref.namespace, ref.field));
+    }
+    return stripBraces(translateStepRef(ref, jobIdMap));
+  });
+  return `\${{ ${translated} }}`;
+}
+
+/** Strip the `${{ ... }}` wrapper, returning the inner expression. */
+function stripBraces(s: string): string {
+  const m = s.match(/^\$\{\{\s*(.+?)\s*\}\}$/);
+  return m ? m[1]! : s;
 }

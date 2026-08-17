@@ -84,7 +84,7 @@ function validateManifestDetail(key: string, detail: Record<string, unknown>): v
  * Detect capabilities used by a single step.
  */
 function detectStepCapabilities(step: {
-  runtime?: { mode?: string };
+  runtime?: { mode?: string; workingDir?: string; shell?: string; env?: Readonly<Record<string, string>>; secrets?: readonly string[] };
   operations: readonly { kind: string }[];
   outputs: readonly { type: string }[];
   dependencies: readonly unknown[];
@@ -96,6 +96,10 @@ function detectStepCapabilities(step: {
 }, caps: Set<string>): void {
   const mode = step.runtime?.mode ?? "host";
   caps.add(`runtime.${mode}`);
+  if (step.runtime?.workingDir) caps.add("execution.workdir");
+  if (step.runtime?.shell) caps.add("execution.shell");
+  if (step.runtime?.env && Object.keys(step.runtime.env).length > 0) caps.add("environment.variables");
+  if (step.runtime?.secrets && step.runtime.secrets.length > 0) caps.add("secrets.runtime");
 
   const outputFlags = { scalar: false, artifact: false };
   detectOperationCapabilities(step.operations, caps, outputFlags);
@@ -164,8 +168,9 @@ function detectOutputTypeCapabilities(
  */
 function detectPipelineCapabilities(pipeline: {
   entries: readonly { trigger: { kind: string } }[];
+  inputs?: Readonly<Record<string, { secret?: boolean }>>;
   steps: readonly {
-    runtime?: { mode?: string };
+    runtime?: { mode?: string; workingDir?: string; shell?: string; env?: Readonly<Record<string, string>>; secrets?: readonly string[] };
     operations: readonly { kind: string }[];
     outputs: readonly { type: string }[];
     dependencies: readonly unknown[];
@@ -174,6 +179,11 @@ function detectPipelineCapabilities(pipeline: {
 }, caps: Set<string>): void {
   for (const entry of pipeline.entries) {
     caps.add(`trigger.${entry.trigger.kind}`);
+  }
+  if (pipeline.inputs) {
+    for (const input of Object.values(pipeline.inputs)) {
+      if (input.secret) caps.add("secrets.pipeline-input");
+    }
   }
   for (const step of pipeline.steps) {
     detectStepCapabilities(step, caps);

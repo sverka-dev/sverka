@@ -17,6 +17,9 @@ function makeGraph(opts: {
   hasShell?: boolean;
   hasScalarOutput?: boolean;
   hasArtifactOutput?: boolean;
+  hasEnv?: boolean;
+  hasSecrets?: boolean;
+  hasPipelineSecretInput?: boolean;
 } = {}): DefinitionGraph {
   const triggerKind = opts.triggerKind ?? "push";
   const runtimeMode = opts.runtimeMode ?? "host";
@@ -24,12 +27,19 @@ function makeGraph(opts: {
   if (opts.hasScalarOutput) outputs.push({ name: "result", type: "string" });
   if (opts.hasArtifactOutput) outputs.push({ name: "dist", type: "artifact", path: "./dist" });
 
+  const runtime: { mode: "host" | "container"; env?: Record<string, string>; secrets?: string[] } = { mode: runtimeMode };
+  if (opts.hasEnv) runtime.env = { NODE_ENV: "production" };
+  if (opts.hasSecrets) runtime.secrets = ["NPM_TOKEN"];
+
+  const inputs: Record<string, { type: "string"; secret?: boolean; required?: boolean }> = {};
+  if (opts.hasPipelineSecretInput) inputs.npmToken = { type: "string", secret: true, required: true };
+
   return {
     project: {
       id: "test",
       pipelines: [{
         id: "ci",
-        inputs: {},
+        inputs,
         entries: [{
           id: "on-push",
           trigger: { kind: triggerKind },
@@ -37,7 +47,7 @@ function makeGraph(opts: {
         }],
         steps: [{
           id: "build",
-          runtime: { mode: runtimeMode },
+          runtime,
           operations: opts.hasShell === false ? [] : [{ kind: "shell", command: "echo hi" }],
           inputs: [],
           outputs,
@@ -157,6 +167,36 @@ describe("detectCapabilities", () => {
   it("detects output.artifact", () => {
     const caps = detectCapabilities(makeGraph({ hasArtifactOutput: true }));
     expect(caps.has("output.artifact")).toBe(true);
+  });
+
+  it("detects environment.variables from runtime.env (F-20)", () => {
+    const caps = detectCapabilities(makeGraph({ hasEnv: true }));
+    expect(caps.has("environment.variables")).toBe(true);
+  });
+
+  it("does not detect environment.variables when no env", () => {
+    const caps = detectCapabilities(makeGraph({ hasEnv: false }));
+    expect(caps.has("environment.variables")).toBe(false);
+  });
+
+  it("detects secrets.runtime from runtime.secrets (F-21)", () => {
+    const caps = detectCapabilities(makeGraph({ hasSecrets: true }));
+    expect(caps.has("secrets.runtime")).toBe(true);
+  });
+
+  it("does not detect secrets.runtime when no secrets", () => {
+    const caps = detectCapabilities(makeGraph({ hasSecrets: false }));
+    expect(caps.has("secrets.runtime")).toBe(false);
+  });
+
+  it("detects secrets.pipeline-input from pipeline secret inputs (F-21)", () => {
+    const caps = detectCapabilities(makeGraph({ hasPipelineSecretInput: true }));
+    expect(caps.has("secrets.pipeline-input")).toBe(true);
+  });
+
+  it("does not detect secrets.pipeline-input when no secret inputs", () => {
+    const caps = detectCapabilities(makeGraph({ hasPipelineSecretInput: false }));
+    expect(caps.has("secrets.pipeline-input")).toBe(false);
   });
 });
 
