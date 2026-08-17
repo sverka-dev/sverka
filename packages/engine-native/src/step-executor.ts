@@ -3,7 +3,7 @@
 
 import { mkdir, readFile } from "node:fs/promises";
 import { isAbsolute, join, normalize, relative } from "node:path";
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import type { StepDefinition, OperationDefinition } from "@sverka/core";
 import type { InputValue } from "@sverka/ir";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore, RunEvent } from "./types.js";
@@ -353,20 +353,25 @@ function resolveMatrixField(
 
 /**
  * Resolve git.* context refs using git CLI.
+ * Uses spawnSync with shell:false to avoid PATH-based shell execution.
  */
 function resolveGitContext(field: string): string | undefined {
-  try {
-    switch (field) {
-      case "sha":
-        return execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
-      case "branch":
-        return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
-      case "tag":
-        return execSync("git describe --tags --exact-match 2>/dev/null", { encoding: "utf-8" }).trim();
-      default:
-        return undefined;
-    }
-  } catch {
-    return undefined;
+  const args: string[] | undefined = gitArgsForField(field);
+  if (!args) return undefined;
+  const result = spawnSync("git", args, { encoding: "utf-8", shell: false });
+  if (result.status !== 0 || result.error) return undefined;
+  return result.stdout.trim() || undefined;
+}
+
+function gitArgsForField(field: string): string[] | undefined {
+  switch (field) {
+    case "sha":
+      return ["rev-parse", "HEAD"];
+    case "branch":
+      return ["rev-parse", "--abbrev-ref", "HEAD"];
+    case "tag":
+      return ["describe", "--tags", "--exact-match"];
+    default:
+      return undefined;
   }
 }
