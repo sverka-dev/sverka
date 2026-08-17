@@ -353,12 +353,12 @@ function resolveMatrixField(
 
 /**
  * Resolve git.* context refs using git CLI.
- * Uses spawnSync with shell:false to avoid PATH-based shell execution.
+ * Uses an absolute path to git to avoid PATH-based lookup.
  */
 function resolveGitContext(field: string): string | undefined {
   const args: string[] | undefined = gitArgsForField(field);
   if (!args) return undefined;
-  const result = spawnSync("git", args, { encoding: "utf-8", shell: false }); // NOSONAR
+  const result = spawnSync("/usr/bin/git", args, { encoding: "utf-8" });
   if (result.status !== 0 || result.error) return undefined;
   return result.stdout.trim() || undefined;
 }
