@@ -22,15 +22,17 @@ export function expandMatrixSteps(
   steps: readonly StepDefinition[],
 ): readonly StepDefinition[] {
   const expansionMap = new Map<string, StepDefinition[]>();
+  let hasMatrix = false;
   for (const step of steps) {
     if (step.matrix) {
+      hasMatrix = true;
       expansionMap.set(step.id, expandStep(step));
     } else {
       expansionMap.set(step.id, [step]);
     }
   }
 
-  if (expansionMap.size === steps.length && ![...expansionMap.values()].some((v) => v.length > 1)) {
+  if (!hasMatrix) {
     return steps;
   }
 
@@ -113,7 +115,7 @@ function matchesAnyRule(
 
 function formatExpandedId(id: string, combo: MatrixCombination): string {
   const parts = Object.keys(combo)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map((k) => `${k}=${combo[k]}`);
   return `${id}[${parts.join(",")}]`;
 }

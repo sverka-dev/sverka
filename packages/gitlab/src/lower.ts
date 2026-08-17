@@ -695,10 +695,10 @@ function translateGitlabContextRef(namespace: string, field: string): string {
   const mapped = GITLAB_CONTEXT_MAP[key];
   if (mapped) return mapped;
   if (namespace === "env" || namespace === "secrets" || namespace === "inputs") {
-    return `\$${field}`;
+    return `$${field}`;
   }
   if (namespace === "matrix") {
-    return `\$${field.toUpperCase()}`;
+    return `$${field.toUpperCase()}`;
   }
   return `\${${namespace}.${field}}`;
 }
@@ -724,6 +724,6 @@ function translateGitlabCommand(
     if (ref.kind === "context") {
       return translateGitlabContextRef(ref.namespace, ref.field);
     }
-    return `\$${ref.output}`;
+    return `$${ref.output}`;
   });
 }

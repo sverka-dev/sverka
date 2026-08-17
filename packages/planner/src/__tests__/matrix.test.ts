@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { expandMatrixSteps } from "../matrix.js";
 import { PlannerError } from "../errors.js";
-import type { StepDefinition } from "@sverka/core";
+import type { StepDefinition, MatrixSpec } from "@sverka/core";
 
-function makeStep(id: string, matrix?: unknown, deps: string[] = []): StepDefinition {
+function makeStep(id: string, matrix?: MatrixSpec, deps: string[] = []): StepDefinition {
   return {
     id,
     runtime: { mode: "host" },
@@ -11,7 +11,7 @@ function makeStep(id: string, matrix?: unknown, deps: string[] = []): StepDefini
     inputs: [],
     outputs: [],
     dependencies: deps.map((p) => ({ kind: "control" as const, producer: p })),
-    ...(matrix ? { matrix: matrix as any } : {}),
+    ...(matrix ? { matrix } : {}),
   };
 }
 

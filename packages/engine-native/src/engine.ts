@@ -456,7 +456,7 @@ class NativeEngine implements Engine {
       return depStates.every((s) => s === "succeeded");
     }
     if (status === "failure") {
-      return depStates.some((s) => s === "failed");
+      return depStates.includes("failed");
     }
     return false;
   }
@@ -470,32 +470,44 @@ class NativeEngine implements Engine {
 
     for (const ref of condition.refs) {
       const placeholder = ref.kind === "step" ? `\${${ref.step}.${ref.output}}` : `\${${ref.namespace}.${ref.field}}`;
-      let value: unknown;
-
-      if (ref.kind === "context") {
-        const key = `${ref.namespace}.${ref.field}`;
-        value = ctx.plan.inputs?.[key] ?? ctx.plan.inputs?.[ref.field];
-        if (value === undefined && ref.namespace === "env") {
-          value = process.env[ref.field];
-        }
-        if (value === undefined && ref.namespace === "secrets") {
-          value = ctx.secrets[ref.field];
-        }
-      } else if (ref.kind === "step") {
-        const prefix = stepPrefix(stepId);
-        const resolvedId = ref.step.includes("/")
-          ? ref.step
-          : prefix
-            ? `${prefix}/${ref.step}`
-            : ref.step;
-        value = ctx.valueStore.get(resolvedId, ref.output);
-      }
-
-      const replacement = value === undefined ? "" : String(value);
+      const value = this.resolveConditionRef(ref, ctx, stepId);
+      const replacement = formatRefValue(value);
       resolved = resolved.replaceAll(placeholder, replacement);
     }
 
     return evalSimpleBoolean(resolved);
+  }
+
+  private resolveConditionRef(
+    ref: import("@sverka/core").Reference,
+    ctx: RunContext,
+    stepId: string,
+  ): unknown {
+    if (ref.kind === "context") {
+      return this.resolveContextRef(ref, ctx);
+    }
+    if (ref.kind === "step") {
+      const prefix = stepPrefix(stepId);
+      const resolvedId = resolveStepId(ref.step, prefix);
+      return ctx.valueStore.get(resolvedId, ref.output);
+    }
+    return undefined;
+  }
+
+  private resolveContextRef(
+    ref: import("@sverka/core").Reference,
+    ctx: RunContext,
+  ): unknown {
+    if (ref.kind !== "context") return undefined;
+    const key = `${ref.namespace}.${ref.field}`;
+    let value: unknown = ctx.plan.inputs?.[key] ?? ctx.plan.inputs?.[ref.field];
+    if (value === undefined && ref.namespace === "env") {
+      value = process.env[ref.field];
+    }
+    if (value === undefined && ref.namespace === "secrets") {
+      value = ctx.secrets[ref.field];
+    }
+    return value;
   }
 }
 
@@ -509,6 +521,27 @@ function defaultCondition(step: StepDefinition): Condition {
     return { kind: "status", status: "success" };
   }
   return { kind: "status", status: "always" };
+}
+
+/**
+ * Resolve a step reference to its full ID, prepending the pipeline prefix
+ * when the reference is relative and a prefix is available.
+ */
+function resolveStepId(refStep: string, prefix: string | undefined): string {
+  if (refStep.includes("/")) return refStep;
+  if (prefix) return `${prefix}/${refStep}`;
+  return refStep;
+}
+
+/**
+ * Format a resolved reference value for substitution into an expression.
+ * Returns empty string for undefined; safely stringifies objects via JSON.
+ */
+function formatRefValue(value: unknown): string {
+  if (value === undefined) return "";
+  if (value === null) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
 }
 
 /**
