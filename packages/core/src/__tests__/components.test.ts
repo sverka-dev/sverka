@@ -10,7 +10,7 @@ import {
   PagesStep,
   Entry,
   push,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 import { synthesize, type StepDefinition } from "../index.js";
 
 describe("component synthesis", () => {

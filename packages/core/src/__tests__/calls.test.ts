@@ -7,7 +7,7 @@ import {
   Entry,
   push,
   type Reference,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 import { synthesize, SynthesisError } from "../index.js";
 
 function makeTwoPipelineProject(calleeFirst = true): Project {

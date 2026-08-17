@@ -201,7 +201,9 @@ export abstract class Step extends Construct {
       : new Map();
     this.inputs = props.inputs ? [...props.inputs] : [];
     this.dependsOn = props.dependsOn ? [...props.dependsOn] : [];
-    this.delay = props.delay;
+    if (props.delay !== undefined) {
+      this.delay = props.delay;
+    }
     if (props.timeout !== undefined) {
       this.timeout = props.timeout;
     }

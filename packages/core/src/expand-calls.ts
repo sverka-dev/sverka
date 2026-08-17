@@ -16,7 +16,7 @@ import type {
   Dependency,
   PipelineCall,
 } from "./graph.js";
-import type { Reference, StepRef, InputLiteral } from "@sverka/constructs";
+import type { Reference, StepRef, InputLiteral } from "@sverka/cdk";
 import { resolveStepId } from "./validate.js";
 
 /**

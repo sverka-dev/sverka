@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Entry, push, PipelineCallStep } from "@sverka/constructs";
+import { Project, Entry, push, PipelineCallStep } from "@sverka/cdk";
 import { pipelineV0 as pipeline, sh, callPipeline, inputs } from "../index.js";
 
 describe("callPipeline builder", () => {

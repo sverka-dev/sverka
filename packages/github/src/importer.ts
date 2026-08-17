@@ -3,7 +3,7 @@
 
 import { parse as parseYaml } from "yaml";
 import type { DefinitionGraph, ProjectDefinition, PipelineDefinition, StepDefinition, OperationDefinition, Dependency, EntryDefinition } from "@sverka/core";
-import type { Trigger, Runtime } from "@sverka/constructs";
+import type { Trigger, Runtime } from "@sverka/cdk";
 import { GithubTargetError } from "./errors.js";
 
 /**

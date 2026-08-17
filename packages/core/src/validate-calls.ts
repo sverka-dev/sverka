@@ -3,7 +3,7 @@
 // no unknown inputs), call-graph acyclicity, nesting depth <= 4.
 
 import type { PipelineDefinition, StepDefinition } from "./graph.js";
-import type { Input, Reference, InputLiteral } from "@sverka/constructs";
+import type { Input, Reference, InputLiteral } from "@sverka/cdk";
 import { SynthesisError } from "./errors.js";
 
 export const MAX_PIPELINE_CALL_DEPTH = 4;

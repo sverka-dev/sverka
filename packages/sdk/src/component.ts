@@ -9,7 +9,7 @@ import {
   type ComponentRef,
   type Runtime,
   type OutputDeclaration,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 
 export interface ComponentBuilder {
   outputs(outputs: Readonly<Record<string, OutputDeclaration>>): ComponentBuilder;
