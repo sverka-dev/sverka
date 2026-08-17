@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
 import { synthesize, type DefinitionGraph } from "@sverka/core";
-import { sh, artifact, pipelineV0 as pipeline } from "../index.js";
+import { $, artifact, pipelineV0 as pipeline } from "../index.js";
 
 /** Build the conformance seed using the Construct API (same as Wave A test). */
 function buildViaConstructAPI(): DefinitionGraph {
@@ -50,19 +50,19 @@ function buildViaSdkAPI(): DefinitionGraph {
   pipeline(proj, "ci", {
     steps: [
       (pip) =>
-        sh`npm run build`
+        $`npm run build`
           .outputs({
             dist: artifact("./dist"),
             version: { type: "string" },
           })
           .build(pip, "build"),
       (pip) =>
-        sh`npm test`
+        $`npm test`
           .inputs([buildDistRef])
           .dependsOn(["build"])
           .build(pip, "test"),
       (pip) =>
-        sh`deploy`
+        $`deploy`
           .inputs([buildVersionRef])
           .build(pip, "deploy"),
     ],

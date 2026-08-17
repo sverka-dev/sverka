@@ -217,7 +217,7 @@ function evaluateMethodStep(
   const collectedInputs: Reference[] = [];
 
   const planningContext = {
-    sh(strings: TemplateStringsArray, ...values: readonly unknown[]): void {
+    $(strings: TemplateStringsArray, ...values: readonly unknown[]): void {
       let command = "";
       for (let i = 0; i < strings.length; i++) {
         command += strings[i];
