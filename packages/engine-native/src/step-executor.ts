@@ -353,22 +353,16 @@ function resolveMatrixField(
 
 /**
  * Resolve git.* context refs using git CLI.
- * Uses a restricted environment with a fixed PATH to avoid PATH injection.
  */
 function resolveGitContext(field: string): string | undefined {
-  const { PATH: _excluded, ...restEnv } = process.env;
-  const gitEnv: NodeJS.ProcessEnv = {
-    ...restEnv,
-    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  };
   try {
     switch (field) {
       case "sha":
-        return execSync("git rev-parse HEAD", { encoding: "utf-8", env: gitEnv }).trim();
+        return execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
       case "branch":
-        return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8", env: gitEnv }).trim();
+        return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
       case "tag":
-        return execSync("git describe --tags --exact-match 2>/dev/null", { encoding: "utf-8", env: gitEnv }).trim();
+        return execSync("git describe --tags --exact-match 2>/dev/null", { encoding: "utf-8" }).trim();
       default:
         return undefined;
     }
