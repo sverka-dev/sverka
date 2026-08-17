@@ -71,60 +71,56 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
     script: job.script,
   };
 
-  if (job.image) {
-    result.image = job.image;
-  }
-
-  if (job.needs.length > 0) {
-    result.needs = [...job.needs];
-  }
-
-  if (job.beforeScript && job.beforeScript.length > 0) {
-    result.before_script = [...job.beforeScript];
-  }
-
-  if (job.afterScript && job.afterScript.length > 0) {
-    result.after_script = [...job.afterScript];
-  }
-
-  if (job.artifacts) {
-    result.artifacts = job.artifacts;
-  }
-
-  if (job.variables) {
-    result.variables = job.variables;
-  }
-
-  if (job.rules && job.rules.length > 0) {
-    result.rules = job.rules;
-  }
-
-  if (job.timeout) {
-    result.timeout = job.timeout;
-  }
-
-  if (job.allowFailure !== undefined) {
-    if (typeof job.allowFailure === "boolean") {
-      result.allow_failure = job.allowFailure;
-    } else {
-      result.allow_failure = { exit_codes: [...job.allowFailure.exitCodes] };
-    }
-  }
-
-  if (job.retry !== undefined) {
-    const retry: Record<string, unknown> = { max: job.retry.max };
-    if (job.retry.when && job.retry.when.length > 0) {
-      retry.when = [...job.retry.when];
-    }
-    if (job.retry.exitCodes && job.retry.exitCodes.length > 0) {
-      retry.exit_codes = [...job.retry.exitCodes];
-    }
-    result.retry = retry;
-  }
-
-  if (job.parallel) {
-    result.parallel = job.parallel;
-  }
+  assignOptional(result, "image", job.image);
+  if (job.needs.length > 0) result.needs = [...job.needs];
+  assignOptionalList(result, "before_script", job.beforeScript);
+  assignOptionalList(result, "after_script", job.afterScript);
+  assignOptional(result, "artifacts", job.artifacts);
+  assignOptional(result, "variables", job.variables);
+  if (job.rules && job.rules.length > 0) result.rules = job.rules;
+  assignOptional(result, "timeout", job.timeout);
+  assignAllowFailure(result, job.allowFailure);
+  assignRetry(result, job.retry);
+  assignOptional(result, "parallel", job.parallel);
 
   return result;
+}
+
+function assignOptional(
+  result: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
+  if (value !== undefined) result[key] = value;
+}
+
+function assignOptionalList(
+  result: Record<string, unknown>,
+  key: string,
+  value: readonly string[] | undefined,
+): void {
+  if (value && value.length > 0) result[key] = [...value];
+}
+
+function assignAllowFailure(
+  result: Record<string, unknown>,
+  value: GitlabJob["allowFailure"],
+): void {
+  if (value === undefined) return;
+  if (typeof value === "boolean") {
+    result.allow_failure = value;
+  } else {
+    result.allow_failure = { exit_codes: [...value.exitCodes] };
+  }
+}
+
+function assignRetry(
+  result: Record<string, unknown>,
+  value: GitlabJob["retry"],
+): void {
+  if (value === undefined) return;
+  const retry: Record<string, unknown> = { max: value.max };
+  if (value.when && value.when.length > 0) retry.when = [...value.when];
+  if (value.exitCodes && value.exitCodes.length > 0) retry.exit_codes = [...value.exitCodes];
+  result.retry = retry;
 }

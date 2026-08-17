@@ -356,8 +356,9 @@ function resolveMatrixField(
  * Uses a restricted environment with a fixed PATH to avoid PATH injection.
  */
 function resolveGitContext(field: string): string | undefined {
+  const { PATH: _excluded, ...restEnv } = process.env;
   const gitEnv: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...restEnv,
     PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
   };
   try {
