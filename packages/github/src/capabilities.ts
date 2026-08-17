@@ -22,4 +22,9 @@ export const githubCapabilities: CapabilityManifest = {
   "step.afterScript": "native",
   "step.continueOnError": "native",
   "policy.retry": "unsupported",
+  "execution.workdir": "native",
+  "execution.shell": "native",
+  "environment.variables": "native",
+  "secrets.runtime": "native",
+  "secrets.pipeline-input": "native",
 };

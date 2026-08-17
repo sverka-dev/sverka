@@ -22,4 +22,9 @@ export const gitlabCapabilities: CapabilityManifest = {
   "step.afterScript": "native",
   "step.continueOnError": "native",
   "policy.retry": "native",
+  "execution.workdir": "emulated",
+  "execution.shell": "unsupported",
+  "environment.variables": "native",
+  "secrets.runtime": "native",
+  "secrets.pipeline-input": "native",
 };

@@ -10,8 +10,9 @@ import type {
   Dependency,
   Trigger,
   Reference,
+  Expression,
 } from "@sverka/core";
-import type { MatrixSpec, MatrixValue } from "@sverka/cdk";
+import type { MatrixSpec, MatrixValue, StepRef } from "@sverka/cdk";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
 
@@ -306,17 +307,10 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
     const t = entry.trigger;
     switch (t.kind) {
       case "push":
-        rules.push({
-          if: buildSourceRule('$CI_PIPELINE_SOURCE == "push"', t.filter?.branches),
-        });
+        rules.push(buildFilterRule('$CI_PIPELINE_SOURCE == "push"', t.filter));
         break;
       case "changeRequest":
-        rules.push({
-          if: buildSourceRule(
-            '$CI_PIPELINE_SOURCE == "merge_request_event"',
-            t.filter?.branches,
-          ),
-        });
+        rules.push(buildFilterRule('$CI_PIPELINE_SOURCE == "merge_request_event"', t.filter));
         break;
       case "manual":
         rules.push({ if: '$CI_PIPELINE_SOURCE == "web"' });
@@ -335,20 +329,36 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
   return rules;
 }
 
-function buildSourceRule(
+/**
+ * Build a GitLab rule from a source condition and a trigger filter.
+ * Branches → $CI_COMMIT_BRANCH == "..." (exact match, GitLab limitation)
+ * Tags → $CI_COMMIT_TAG == "..."
+ * Paths → changes: [paths] on the rule
+ */
+function buildFilterRule(
   sourceCondition: string,
-  branches: readonly string[] | undefined,
-): string {
-  if (!branches || branches.length === 0) {
-    return sourceCondition;
+  filter: { readonly branches?: readonly string[]; readonly tags?: readonly string[]; readonly paths?: readonly string[] } | undefined,
+): GitlabRule {
+  const conditions: string[] = [sourceCondition];
+
+  if (filter?.branches && filter.branches.length > 0) {
+    conditions.push(buildRefCondition("$CI_COMMIT_BRANCH", filter.branches));
+  }
+  if (filter?.tags && filter.tags.length > 0) {
+    conditions.push(buildRefCondition("$CI_COMMIT_TAG", filter.tags));
   }
 
-  const branchCondition =
-    branches.length === 1
-      ? `$CI_COMMIT_BRANCH == ${quoteJsonString(branches[0]!)}`
-      : `(${branches.map((b) => `$CI_COMMIT_BRANCH == ${quoteJsonString(b)}`).join(" || ")})`;
+  const rule: GitlabRule = { if: conditions.join(" && ") };
+  if (filter?.paths && filter.paths.length > 0) {
+    return { ...rule, changes: [...filter.paths] };
+  }
+  return rule;
+}
 
-  return `${sourceCondition} && ${branchCondition}`;
+function buildRefCondition(ref: string, values: readonly string[]): string {
+  return values.length === 1
+    ? `${ref} == ${quoteJsonString(values[0]!)}`
+    : `(${values.map((v) => `${ref} == ${quoteJsonString(v)}`).join(" || ")})`;
 }
 
 /**
@@ -374,7 +384,7 @@ function lowerStep(
 ): GitlabJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const stage = stageMap.get(jobId) ?? "build";
-  const rules = rulesMap.get(jobId) ?? [];
+  const triggerRules = rulesMap.get(jobId) ?? [];
   const { script, artifacts, needs: importNeeds, variables } = lowerOperations(
     step,
     jobIdMap,
@@ -388,6 +398,12 @@ function lowerStep(
   }
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
+
+  // Merge trigger rules with condition-derived rules.
+  const conditionRules = step.condition !== undefined
+    ? [lowerGitlabCondition(step.condition, jobIdMap)]
+    : [];
+  const rules = [...triggerRules, ...conditionRules];
 
   return {
     id: jobId,
@@ -554,6 +570,10 @@ function lowerOperations(
   }
   if (hasDotenv) {
     artifacts.reports = { dotenv: DOTENV_REPORT_FILE };
+  }
+
+  if (step.runtime.workingDir && script.length > 0) {
+    script.unshift(`cd ${step.runtime.workingDir}`);
   }
 
   return {
@@ -749,32 +769,55 @@ const GITLAB_CONTEXT_MAP: Readonly<Record<string, string>> = {
   // run.attempt has no GitLab equivalent; left unmapped.
 };
 
+/**
+ * Translate a context ref (namespace.field) to GitLab variable syntax.
+ */
 function translateGitlabContextRef(namespace: string, field: string): string {
   const key = `${namespace}.${field}`;
   const mapped = GITLAB_CONTEXT_MAP[key];
   if (mapped) return mapped;
+  // Dynamic namespaces: env.X, secrets.X, inputs.X → just $X
   if (namespace === "env" || namespace === "secrets" || namespace === "inputs") {
     return `$${field}`;
   }
   if (namespace === "matrix") {
     return `$${field.toUpperCase()}`;
   }
+  // Unknown — leave as-is (literal shell variable)
   return `\${${namespace}.${field}}`;
 }
 
+/**
+ * Translate a step ref to GitLab variable syntax: $<output> (from dotenv artifact).
+ */
+function translateGitlabStepRef(ref: StepRef): string {
+  return `$${ref.output}`;
+}
+
+/**
+ * Build a lookup map from placeholder key to Reference from the step's inputs.
+ */
+function buildGitlabInputLookup(inputs: readonly Reference[]): Map<string, Reference> {
+  const map = new Map<string, Reference>();
+  for (const ref of inputs) {
+    if (ref.kind === "context") {
+      map.set(`${ref.namespace}.${ref.field}`, ref);
+    } else if (ref.kind === "step") {
+      map.set(`${ref.step}.${ref.output}`, ref);
+    }
+  }
+  return map;
+}
+
+/**
+ * Translate ${...} placeholders in a command string to GitLab variable syntax.
+ */
 function translateGitlabCommand(
   command: string,
   inputs: readonly Reference[],
   jobIdMap: Map<string, string>,
 ): string {
-  const lookup = new Map<string, Reference>();
-  for (const ref of inputs) {
-    if (ref.kind === "context") {
-      lookup.set(`${ref.namespace}.${ref.field}`, ref);
-    } else if (ref.kind === "step") {
-      lookup.set(`${ref.step}.${ref.output}`, ref);
-    }
-  }
+  const lookup = buildGitlabInputLookup(inputs);
   return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
     const ref = lookup.get(key);
     if (ref === undefined) {
@@ -789,4 +832,32 @@ function translateGitlabCommand(
     const producerJob = jobIdMap.get(ref.step) ?? ref.step;
     return `$${dotenvVarName(producerJob, ref.output)}`;
   });
+}
+
+/**
+ * Lower a step condition to a GitLab rule with an if: expression.
+ */
+function lowerGitlabCondition(
+  condition: Reference | Expression,
+  _jobIdMap: Map<string, string>,
+): GitlabRule {
+  if (condition.kind === "context") {
+    return { if: translateGitlabContextRef(condition.namespace, condition.field) };
+  }
+  if (condition.kind === "step") {
+    // Step ref condition — truthiness check on the output variable
+    return { if: translateGitlabStepRef(condition) };
+  }
+  // Expression — translate each ${...} placeholder
+  const lookup = buildGitlabInputLookup(condition.refs);
+  const translated = condition.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+    const ref = lookup.get(key);
+    if (ref === undefined) return `\${${key}}`;
+    if (ref.kind === "context") {
+      return translateGitlabContextRef(ref.namespace, ref.field);
+    }
+    return translateGitlabStepRef(ref);
+  });
+  // Wrap in single quotes for GitLab rules syntax
+  return { if: `'${translated}'` };
 }

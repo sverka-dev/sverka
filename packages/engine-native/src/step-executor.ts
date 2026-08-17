@@ -354,6 +354,7 @@ function resolveContextRef(
       return resolveGitContext(field);
     case "matrix":
       return resolveMatrixField(matrixValues, field);
+    // change, event, run — not available in native engine without a CI context
     default:
       return undefined;
   }
