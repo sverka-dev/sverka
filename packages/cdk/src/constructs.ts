@@ -7,6 +7,7 @@ import type {
   Input,
   OutputDeclaration,
   Reference,
+  Expression,
   Runtime,
   Trigger,
 } from "./model.js";
@@ -83,7 +84,7 @@ export interface StepProps {
   readonly inputs?: readonly Reference[];
   readonly dependsOn?: readonly string[];
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Reference | Expression;
 }
 
 export abstract class Step extends Construct {
@@ -92,7 +93,7 @@ export abstract class Step extends Construct {
   readonly inputs: ReadonlyArray<Reference>;
   readonly dependsOn: ReadonlyArray<string>;
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Reference | Expression;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
     if (!(scope instanceof Pipeline)) {

@@ -193,6 +193,17 @@ function collectControlDeps(
       producer: producerId,
       output: ref.output,
     });
+  } else if (step.condition?.kind === "expression") {
+    for (const ref of step.condition.refs) {
+      if (ref.kind === "step") {
+        const producerId = resolveStepId(pipelineId, ref.step);
+        addDependency(dependencies, seenDeps, {
+          kind: "value",
+          producer: producerId,
+          output: ref.output,
+        });
+      }
+    }
   }
 
   // Control dependencies from dependsOn.

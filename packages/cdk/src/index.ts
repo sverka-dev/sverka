@@ -11,7 +11,7 @@ export type {
   TriggerFilter,
 } from "./model.js";
 export { push, changeRequest, manual } from "./model.js";
-export type { Reference, StepRef, ContextRef, ContextNamespace } from "./model.js";
+export type { Reference, StepRef, ContextRef, ContextNamespace, Expression } from "./model.js";
 export type { OutputType, OutputDeclaration, InputType, Input } from "./model.js";
 export type { Runtime } from "./model.js";
 

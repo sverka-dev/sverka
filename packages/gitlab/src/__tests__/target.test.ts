@@ -320,3 +320,117 @@ describe("compileGitlab — emission validation", () => {
     }
   });
 });
+
+// F-20: Environment variables — runtime.env → job variables block
+describe("compileGitlab — environment variables (F-20)", () => {
+  it("lowers runtime.env to job variables block", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo $NODE_ENV",
+      runtime: { env: { NODE_ENV: "production", CI: "true" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.variables).toEqual({ NODE_ENV: "production", CI: "true" });
+  });
+
+  it("lowers pipeline input defaults to global variables", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: { nodeVersion: { type: "string", default: "22" } },
+    });
+    new ShellStep(p, "build", { command: "echo build" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.variables).toEqual({ nodeVersion: "22" });
+  });
+});
+
+// F-21: Secrets — runtime.secrets → $X in job variables; pipeline secret inputs omitted
+describe("compileGitlab — secrets (F-21)", () => {
+  it("lowers runtime.secrets to $X in job variables", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "npm publish",
+      runtime: { secrets: ["NPM_TOKEN", "GH_TOKEN"] },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.deploy.variables.NPM_TOKEN).toBe("$NPM_TOKEN");
+    expect(yaml.deploy.variables.GH_TOKEN).toBe("$GH_TOKEN");
+  });
+
+  it("omits pipeline secret inputs from global variables", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: {
+        npmToken: { type: "string", secret: true, required: true },
+        nodeVersion: { type: "string", default: "22" },
+      },
+    });
+    new ShellStep(p, "deploy", { command: "npm publish" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.variables).toEqual({ nodeVersion: "22" });
+    expect(yaml.variables.npmToken).toBeUndefined();
+  });
+});
+
+// F-23: Scalar outputs — exportOutput → dotenv report
+describe("compileGitlab — scalar outputs (F-23)", () => {
+  it("lowers exportOutput to echo >> sverka.env + dotenv report", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: 'echo "version=1.2.3" > $SVERKA_OUTPUT_DIR/version',
+      outputs: { version: { type: "string" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.script).toContainEqual('echo "version=${version}" >> sverka.env');
+    expect(yaml.build.artifacts.reports.dotenv).toBe("sverka.env");
+  });
+});
+
+// F-24: Artifact outputs — exportArtifact → artifacts:paths
+describe("compileGitlab — artifact outputs (F-24)", () => {
+  it("lowers exportArtifact to artifacts:paths", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "mkdir dist && echo built > dist/output.txt",
+      outputs: { dist: { type: "artifact", path: "dist/" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.artifacts.paths).toContain("dist/");
+  });
+});
+
+// F-25: Artifact import — importArtifact → needs (implicit artifact passing)
+describe("compileGitlab — artifact import (F-25)", () => {
+  it("lowers importArtifact to needs on producer job", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "mkdir dist && echo built > dist/output.txt",
+      outputs: { dist: { type: "artifact", path: "dist/" } },
+    });
+    new ShellStep(p, "deploy", {
+      command: "ls dist/",
+      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.deploy.needs).toContain("build");
+  });
+});

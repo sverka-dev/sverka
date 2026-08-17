@@ -3,6 +3,7 @@
 
 import type {
   Reference,
+  Expression,
   Trigger,
   Runtime,
   Input,
@@ -12,7 +13,7 @@ import type {
 
 // Re-export types used in the graph schema so consumers can access them
 // from @sverka/core without depending on @sverka/cdk directly.
-export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger } from "@sverka/cdk";
+export type { Input, OutputDeclaration, OutputType, Reference, Expression, Runtime, Trigger } from "@sverka/cdk";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;
@@ -57,7 +58,7 @@ export interface StepDefinition {
   readonly outputs: readonly OutputDefinition[];
   readonly dependencies: readonly Dependency[];
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Reference | Expression;
 }
 
 export type OperationDefinition =

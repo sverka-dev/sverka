@@ -78,3 +78,5 @@ export { when as whenV0 } from "./when.js";
 export { image, images } from "./images.js";
 export type { ImageRef } from "./images.js";
 export { env, secrets, git, change, event, run as runContext, inputs } from "./context.js";
+export { expr } from "./expr.js";
+export type { Expression } from "@sverka/cdk";

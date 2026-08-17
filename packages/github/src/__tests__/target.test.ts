@@ -325,3 +325,125 @@ describe("compileGithub — diagnostic operation", () => {
     expect(runStep.run).toContain("::warning::");
   });
 });
+
+// F-20: Environment variables — runtime.env → job env block
+describe("compileGithub — environment variables (F-20)", () => {
+  it("lowers runtime.env to job env block", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo $NODE_ENV",
+      runtime: { env: { NODE_ENV: "production", CI: "true" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build.env).toEqual({ NODE_ENV: "production", CI: "true" });
+  });
+
+  it("lowers pipeline input defaults to workflow env", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: { nodeVersion: { type: "string", default: "22" } },
+    });
+    new ShellStep(p, "build", { command: "echo build" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.env).toEqual({ nodeVersion: "22" });
+  });
+});
+
+// F-21: Secrets — runtime.secrets → ${{ secrets.X }} in job env
+describe("compileGithub — secrets (F-21)", () => {
+  it("lowers runtime.secrets to ${{ secrets.X }} in job env", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "npm publish",
+      runtime: { secrets: ["NPM_TOKEN", "GH_TOKEN"] },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.deploy.env.NPM_TOKEN).toBe("${{ secrets.NPM_TOKEN }}");
+    expect(yaml.jobs.deploy.env.GH_TOKEN).toBe("${{ secrets.GH_TOKEN }}");
+  });
+
+  it("lowers pipeline secret inputs to ${{ secrets.X }} in workflow env", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: { npmToken: { type: "string", secret: true, required: true } },
+    });
+    new ShellStep(p, "deploy", { command: "npm publish" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.env.npmToken).toBe("${{ secrets.npmToken }}");
+  });
+});
+
+// F-23: Scalar outputs — exportOutput → $GITHUB_OUTPUT
+describe("compileGithub — scalar outputs (F-23)", () => {
+  it("lowers exportOutput to echo >> $GITHUB_OUTPUT", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: 'echo "version=1.2.3" > $SVERKA_OUTPUT_DIR/version',
+      outputs: { version: { type: "string" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const runStep = yaml.jobs.build.steps.find((s: { run?: string }) => s.run);
+    expect(runStep.run).toContain('echo "version=${version}" >> "$GITHUB_OUTPUT"');
+  });
+});
+
+// F-24: Artifact outputs — exportArtifact → upload-artifact action
+describe("compileGithub — artifact outputs (F-24)", () => {
+  it("lowers exportArtifact to actions/upload-artifact@v4", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "mkdir dist && echo built > dist/output.txt",
+      outputs: { dist: { type: "artifact", path: "dist/" } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const uploadStep = yaml.jobs.build.steps.find(
+      (s: { uses?: string }) => s.uses?.startsWith("actions/upload-artifact"),
+    );
+    expect(uploadStep).toBeDefined();
+    expect(uploadStep.uses).toBe("actions/upload-artifact@v4");
+    expect(uploadStep.with.name).toBe("build-dist");
+    expect(uploadStep.with.path).toBe("dist/");
+  });
+});
+
+// F-25: Artifact import — importArtifact → download-artifact action
+describe("compileGithub — artifact import (F-25)", () => {
+  it("lowers importArtifact to actions/download-artifact@v4", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "mkdir dist && echo built > dist/output.txt",
+      outputs: { dist: { type: "artifact", path: "dist/" } },
+    });
+    new ShellStep(p, "deploy", {
+      command: "ls dist/",
+      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const downloadStep = yaml.jobs.deploy.steps.find(
+      (s: { uses?: string }) => s.uses?.startsWith("actions/download-artifact"),
+    );
+    expect(downloadStep).toBeDefined();
+    expect(downloadStep.uses).toBe("actions/download-artifact@v4");
+    expect(downloadStep.with.name).toBe("build-dist");
+    expect(downloadStep.with.path).toBe("dist");
+  });
+});

@@ -5,6 +5,7 @@ import {
   ShellStep,
   type Pipeline,
   type Reference,
+  type Expression,
   type Runtime,
   type OutputDeclaration,
   type StepRef,
@@ -18,7 +19,7 @@ export interface StepBuilder {
   dependsOn(steps: readonly string[]): StepBuilder;
   runtime(runtime: Runtime): StepBuilder;
   timeout(ms: number): StepBuilder;
-  condition(ref: Reference): StepBuilder;
+  condition(ref: Reference | Expression): StepBuilder;
   build(pipeline: Pipeline, id: string): ShellStep;
 }
 
@@ -30,7 +31,7 @@ interface StepBuilderState {
   dependsOn?: readonly string[];
   runtime?: Runtime;
   timeout?: number;
-  condition?: Reference;
+  condition?: Reference | Expression;
 }
 
 function createBuilder(state: StepBuilderState): StepBuilder {
@@ -55,7 +56,7 @@ function createBuilder(state: StepBuilderState): StepBuilder {
       state.timeout = ms;
       return builder;
     },
-    condition(ref: Reference): StepBuilder {
+    condition(ref: Reference | Expression): StepBuilder {
       state.condition = ref;
       return builder;
     },

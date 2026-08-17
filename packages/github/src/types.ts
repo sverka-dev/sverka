@@ -3,8 +3,15 @@
 import type { CapabilitySupport } from "@sverka/plugin";
 
 export interface GithubTriggers {
-  readonly push?: { readonly branches?: readonly string[] };
-  readonly pull_request?: { readonly branches?: readonly string[] };
+  readonly push?: {
+    readonly branches?: readonly string[];
+    readonly tags?: readonly string[];
+    readonly paths?: readonly string[];
+  };
+  readonly pull_request?: {
+    readonly branches?: readonly string[];
+    readonly paths?: readonly string[];
+  };
   readonly workflow_dispatch?: null;
 }
 
@@ -15,6 +22,8 @@ export interface GithubStep {
   readonly uses?: string;
   readonly with?: Record<string, unknown>;
   readonly env?: Record<string, string>;
+  readonly workingDirectory?: string;
+  readonly shell?: string;
 }
 
 export interface GithubJob {
@@ -26,6 +35,7 @@ export interface GithubJob {
   readonly timeoutMinutes?: number;
   readonly env?: Record<string, string>;
   readonly container?: string;
+  readonly if?: string;
 }
 
 export interface GithubTargetGraph {

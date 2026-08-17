@@ -12,4 +12,9 @@ export const gitlabCapabilities: CapabilityManifest = {
   "output.scalar": "lowered",
   "output.artifact": "native",
   "graph.dependencies": "native",
+  "execution.workdir": "emulated",
+  "execution.shell": "unsupported",
+  "environment.variables": "native",
+  "secrets.runtime": "native",
+  "secrets.pipeline-input": "native",
 };

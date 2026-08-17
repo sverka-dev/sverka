@@ -71,6 +71,16 @@ export interface ContextRef {
 export type Reference = StepRef | ContextRef;
 
 // ---------------------------------------------------------------------------
+// Expressions (§11.1, §12.3) — symbolic expressions with context references
+// ---------------------------------------------------------------------------
+
+export interface Expression {
+  readonly kind: "expression";
+  readonly template: string;
+  readonly refs: readonly Reference[];
+}
+
+// ---------------------------------------------------------------------------
 // Outputs (§12.2)
 // ---------------------------------------------------------------------------
 
@@ -104,4 +114,5 @@ export interface Runtime {
   readonly env?: Readonly<Record<string, string>>;
   readonly secrets?: readonly string[];
   readonly workingDir?: string;
+  readonly shell?: string;
 }
