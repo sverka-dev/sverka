@@ -1,155 +1,177 @@
 ---
 name: sverka
-description: Use when the user wants to run sverka CLI commands — scan a project for checks, plan a verification workflow, execute checks locally, validate a config, manage baselines, or diagnose the environment. Trigger on "sverka", "scan project", "plan checks", "run verification", "sverka doctor", "sverka plan", "sverka execute", "sverka inspect", "sverka validate", "sverka baseline", "sverka init".
+description: Use when the user wants to run sverka CLI commands or author Sverka workflows. Trigger on "sverka", "sverka plan", "sverka run", "sverka validate", "sverka graph", "sverka discover", "sverka check", "sverka policy", "sverka synth", "sverka doctor", "sverka config", "define workflow", "pipeline", "shell proxy", "fromClass", "compile to GitHub Actions", "compile to GitLab CI", "build lint test", "run checks", "verify project".
 ---
 
-# Sverka CLI
+# Sverka
 
-Sverka is a composable workflow SDK, local CI runtime, and multi-target compiler for software verification. Define checks once. Plan locally. Run anywhere.
+Define checks once. Plan locally. Run anywhere.
 
-## Prerequisites
+## Pipeline Recipe
 
-Sverka requires Node.js 24+ and Bun. Install sverka globally or use `npx`:
+The fastest path: detect all available checks → write one config → run once.
+Don't read source files. Don't run checks individually. Everything goes
+through one `sverka run`.
 
-```bash
-# Install globally
-npm install -g @sverka/cli
+### Step 1: Detect available checks
 
-# Or use npx (no install)
-npx @sverka/cli <command>
-```
+Read `package.json` scripts and check for config files. Build a list of
+available checks:
 
-Verify installation:
+| Check | How to detect | Command |
+|-------|--------------|---------|
+| build | `scripts.build` in package.json | `npm run build` |
+| lint | `scripts.lint` in package.json | `npm run lint` |
+| typecheck | `scripts.typecheck` in package.json | `npm run typecheck` |
+| test | `scripts.test` in package.json | `npm run test` |
+| biome | `biome.json` or `biome.jsonc` exists | `npx @biomejs/biome check .` |
+| oxlint | `.oxlintrc.json` or `oxlint` in deps | `npx oxlint .` |
+| opengrep | `opengrep.yml` exists | `opengrep --config opengrep.yml` |
+| prettier | `.prettierrc` or `prettier` in deps | `npx prettier --check .` |
 
-```bash
-sverka --version
-sverka doctor
-```
+Only include checks where the detection condition is met. Don't guess.
 
-## Commands
+### Step 2: Write config
 
-### `sverka init`
-
-Create a `sverka.config.ts` in the current project:
-
-```bash
-sverka init
-```
-
-This generates a minimal config with a default workflow. Edit it to define your checks.
-
-### `sverka inspect`
-
-Discover and display the project context — what languages, package managers, and frameworks sverka detected:
-
-```bash
-sverka inspect
-sverka inspect --format json    # machine-readable output
-```
-
-### `sverka plan`
-
-Synthesize a verification plan from the config without executing. Shows what checks would run, in what order:
-
-```bash
-sverka plan
-sverka plan --format json
-sverka plan --config path/to/sverka.config.ts
-```
-
-### `sverka execute` (alias: `sverka run`)
-
-Execute the workflow locally — runs all checks, collects findings, evaluates policy:
-
-```bash
-sverka execute
-sverka execute --executor docker     # run in Docker
-sverka execute --executor host       # run on host (default)
-sverka execute --format json
-sverka execute --verbose
-```
-
-Exit codes:
-- `0` — success, all checks passed
-- `1` — policy failure (findings exceeded thresholds)
-- `2` — usage error
-- `3` — runtime error (e.g., Docker not available)
-
-### `sverka validate`
-
-Validate a `sverka.config.ts` without executing — checks schema, references, and dependencies:
-
-```bash
-sverka validate
-sverka validate --config path/to/sverka.config.ts
-```
-
-### `sverka baseline`
-
-Manage the findings baseline — suppress known findings, track new ones:
-
-```bash
-sverka baseline create    # create a new baseline from current findings
-sverka baseline update    # update the baseline with current findings
-sverka baseline save      # save baseline to file
-sverka baseline load      # load baseline from file
-```
-
-### `sverka doctor`
-
-Diagnose the environment — checks for Node.js, Bun, Docker, and other dependencies:
-
-```bash
-sverka doctor
-```
-
-## Global Flags
-
-All commands accept:
-
-| Flag | Short | Default | Description |
-| --- | --- | --- | --- |
-| `--format` | `-f` | `human` | Output format: `human` or `json` |
-| `--config` | `-c` | — | Path to config file |
-| `--root` | `-r` | `cwd` | Project root directory |
-| `--quiet` | `-q` | `false` | Suppress non-essential output |
-| `--verbose` | `-v` | `false` | Show debug output |
-
-## Typical Workflow
-
-1. **Initialize:** `sverka init` — creates config
-2. **Inspect:** `sverka inspect` — see what sverka detected
-3. **Plan:** `sverka plan` — see the verification plan
-4. **Execute:** `sverka execute` — run checks locally
-5. **Baseline:** `sverka baseline create` — suppress known findings
-6. **Re-run:** `sverka execute` — only new findings shown
-
-## Config File
-
-The config file (`sverka.config.ts`) defines workflows using the SDK:
+Write `sverka.config.ts` with all detected checks as steps. Chain
+dependencies: lint/typecheck/biome/oxlint run first (parallel), then test,
+then build. One entry, roots at the final step:
 
 ```typescript
-import { defineWorkflow, pipeline, task } from "@sverka/sdk";
+import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
 
-export default defineWorkflow({
-  name: "my-project",
-  workflow: pipeline(
-    task("typecheck", { run: { command: "tsc", args: ["--noEmit"] } }),
-    task("lint", { run: { command: "eslint", args: ["src"] } }),
-    task("test", { run: { command: "vitest", args: ["run"] } }),
-  ),
-});
+const proj = new Project("verify");
+const ci = new Pipeline(proj, "ci");
+
+// Fast checks first (parallel, no deps)
+new ShellStep(ci, "lint", { command: "npm run lint" });
+new ShellStep(ci, "typecheck", { command: "npm run typecheck" });
+
+// Test depends on fast checks
+new ShellStep(ci, "test", { command: "npm run test", dependsOn: ["lint", "typecheck"] });
+
+// Build depends on test
+new ShellStep(ci, "build", { command: "npm run build", dependsOn: ["test"] });
+
+new Entry(ci, "on-push", { trigger: push(), roots: ["build"] });
+
+export default proj;
 ```
 
-## JSON Output
+Key rules:
+- `dependsOn` is string array: `["lint"]`, NOT objects
+- `roots` is the entry point — planner pulls transitive deps automatically
+- Only include steps for checks that actually exist
+- Use `npm run <script>` for package.json scripts, `npx <tool>` for standalone tools
 
-All commands support `--format json` for programmatic use:
+### Step 3: Install dependency
 
 ```bash
-sverka plan --format json | jq '.data.operations[].name'
-sverka execute --format json | jq '.data.findings | length'
+npm install --save-dev @sverka/cdk
 ```
+
+If `@sverka/cdk` is not resolvable (monorepo worktree, non-hoisted
+node_modules), symlink it: `ln -sfn ../path/to/constructs node_modules/@sverka/cdk`
+
+### Step 4: Run everything
+
+```bash
+npx @sverka/cli run
+```
+
+One command. Sverka loads the config, creates the plan, runs all steps in
+topological order with parallelism. One entry → used automatically.
+
+That's it. Don't run `validate` or `plan` separately — `run` does it all.
+
+## Config Reference
+
+### Construct API
+
+```typescript
+import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
+
+const proj = new Project("verify");
+const ci = new Pipeline(proj, "ci");
+new ShellStep(ci, "build", { command: "npm run build" });
+new ShellStep(ci, "test", { command: "npm run test", dependsOn: ["build"] });
+new Entry(ci, "on-push", { trigger: push(), roots: ["test"] });
+
+export default proj;
+```
+
+### SDK API
+
+```typescript
+import { $, shell, pipeline, artifact, push } from "@sverka/sdk";
+import { Project, Entry } from "@sverka/cdk";
+
+const proj = new Project("verify");
+
+pipeline(proj, "ci", {
+  steps: [
+    (p) => $`npm run build`.outputs({ dist: artifact("./dist") }).build(p, "build"),
+    (p) => shell.npm`run test`.dependsOn(["build"]).build(p, "test"),
+  ],
+  entries: [
+    (p) => new Entry(p, "on-push", { trigger: push(), roots: ["test"] }),
+  ],
+});
+
+export default proj;
+```
+
+### Decorator API
+
+```typescript
+import { pipeline, step, entry, input, fromClass } from "@sverka/decorators";
+import { push } from "@sverka/cdk";
+
+@pipeline
+class CiPipeline {
+  @input buildDir = { type: "string", required: true }
+
+  @step
+  build = "npm run build"
+
+  @step({ dependsOn: ["build"] })
+  test = "npm run test"
+
+  @entry(push())
+  onPush = ["test"]
+}
+
+export default fromClass(CiPipeline, "ci");
+```
+
+## Shell Proxy
+
+```typescript
+import { $, shell } from "@sverka/sdk";
+
+$`make build`                        // bare command
+shell.git`push origin main`          // → "git push origin main"
+shell.npm`run test`                  // → "npm run test"
+shell("bash").git`push origin main`  // forces bash interpreter
+```
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `sverka init` | Create `sverka.config.ts` from template |
+| `sverka validate` | Check config without executing |
+| `sverka plan` | Show the run plan |
+| `sverka graph` | Print the definition graph |
+| `sverka run` | Execute the workflow (plan + run) |
+| `sverka discover` | Detect project context |
+| `sverka check` | Resolve checks to commands |
+| `sverka policy --findings <file>` | Evaluate policy against findings |
+| `sverka synth --target github\|gitlab` | Compile to CI YAML |
+| `sverka doctor` | Diagnose environment |
+
+Global flags: `--config/-c`, `--root/-r`, `--format/-f` (human\|json), `--quiet/-q`, `--verbose/-v`
 
 ## Troubleshooting
 
-See [references/troubleshooting.md](references/troubleshooting.md) for common issues.
+See [references/troubleshooting.md](references/troubleshooting.md).
