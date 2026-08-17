@@ -20,10 +20,18 @@ export interface GitlabJob {
   readonly image?: string;
   readonly needs: readonly string[];
   readonly script: readonly string[];
+  readonly beforeScript?: readonly string[];
+  readonly afterScript?: readonly string[];
   readonly artifacts?: GitlabArtifactSpec;
   readonly variables?: Record<string, string>;
   readonly rules?: readonly GitlabRule[];
   readonly timeout?: string;
+  readonly allowFailure?: boolean | { readonly exitCodes: readonly number[] };
+  readonly retry?: {
+    readonly max: number;
+    readonly when?: readonly string[];
+    readonly exitCodes?: readonly number[];
+  };
   readonly parallel?: {
     readonly matrix: readonly Record<string, unknown>[];
   };

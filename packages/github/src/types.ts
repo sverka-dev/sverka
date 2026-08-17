@@ -6,6 +6,10 @@ export interface GithubTriggers {
   readonly push?: { readonly branches?: readonly string[] };
   readonly pull_request?: { readonly branches?: readonly string[] };
   readonly workflow_dispatch?: null;
+  readonly schedule?: readonly {
+    readonly cron: string;
+    readonly timezone?: string;
+  }[];
 }
 
 export interface GithubStep {
@@ -15,6 +19,8 @@ export interface GithubStep {
   readonly uses?: string;
   readonly with?: Record<string, unknown>;
   readonly env?: Record<string, string>;
+  readonly if?: string;
+  readonly continueOnError?: boolean;
 }
 
 export interface GithubJob {

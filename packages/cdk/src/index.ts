@@ -23,5 +23,6 @@ export type { OutputType, OutputDeclaration, InputType, Input } from "./model.js
 export type { Runtime } from "./model.js";
 export type { MatrixValue, MatrixSpec } from "./model.js";
 export type { StepStatus, StatusCondition, Condition } from "./model.js";
+export type { ContinueOnError, RetryWhen, RetryPolicy } from "./model.js";
 
 export { ConstructError, type ConstructErrorCode } from "./errors.js";

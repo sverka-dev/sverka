@@ -115,5 +115,13 @@ function stepToYaml(step: GithubStep, index: number): Record<string, unknown> {
     result.env = step.env;
   }
 
+  if (step.if) {
+    result.if = step.if;
+  }
+
+  if (step.continueOnError !== undefined) {
+    result["continue-on-error"] = step.continueOnError;
+  }
+
   return result;
 }

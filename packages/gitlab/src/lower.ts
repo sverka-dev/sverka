@@ -321,6 +321,9 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
       case "manual":
         rules.push({ if: '$CI_PIPELINE_SOURCE == "web"' });
         break;
+      case "schedule":
+        rules.push({ if: '$CI_PIPELINE_SOURCE == "schedule"' });
+        break;
       default:
         throw new GitlabTargetError(
           `unsupported trigger kind: ${JSON.stringify((t as Trigger).kind)}`,
@@ -393,6 +396,25 @@ function lowerStep(
     ...buildJobFields(image, artifacts, jobVariables, rules, step.timeout),
     ...(step.matrix !== undefined
       ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
+      : {}),
+    ...(step.beforeScript ? { beforeScript: step.beforeScript } : {}),
+    ...(step.afterScript ? { afterScript: step.afterScript } : {}),
+    ...(step.continueOnError !== undefined
+      ? {
+          allowFailure:
+            typeof step.continueOnError === "boolean"
+              ? step.continueOnError
+              : { exitCodes: step.continueOnError.exitCodes },
+        }
+      : {}),
+    ...(step.retry !== undefined
+      ? {
+          retry: {
+            max: step.retry.max,
+            ...(step.retry.when ? { when: step.retry.when } : {}),
+            ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
+          },
+        }
       : {}),
   };
 }

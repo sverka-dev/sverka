@@ -166,6 +166,7 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
   const prBranches = new Set<string>();
   let prAll = false;
   let hasManual = false;
+  const scheduleEntries: { cron: string; timezone?: string }[] = [];
 
   for (const entry of entries) {
     const t = entry.trigger;
@@ -178,6 +179,12 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
         break;
       case "manual":
         hasManual = true;
+        break;
+      case "schedule":
+        scheduleEntries.push({
+          cron: t.cron,
+          ...(t.timezone ? { timezone: t.timezone } : {}),
+        });
         break;
       default:
         throw new GithubTargetError(
@@ -193,6 +200,7 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
     prAll,
     prBranches,
     hasManual,
+    scheduleEntries,
   );
 }
 
@@ -220,6 +228,7 @@ function assembleTriggers(
   prAll: boolean,
   prBranches: Set<string>,
   hasManual: boolean,
+  scheduleEntries: readonly { cron: string; timezone?: string }[],
 ): GithubTriggers {
   const triggers: Record<string, unknown> = {};
   if (pushAll) {
@@ -236,6 +245,10 @@ function assembleTriggers(
 
   if (hasManual) {
     triggers.workflow_dispatch = null;
+  }
+
+  if (scheduleEntries.length > 0) {
+    triggers.schedule = scheduleEntries;
   }
 
   return triggers as GithubTriggers;
@@ -256,7 +269,24 @@ function lowerSteps(
  */
 function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJob {
   const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const steps = lowerOperations(step, jobIdMap);
+  const rawSteps = lowerOperations(step, jobIdMap);
+
+  // Apply continueOnError to all run steps (not Checkout/uses steps).
+  const steps =
+    step.continueOnError !== undefined
+      ? rawSteps.map((s) =>
+          s.run !== undefined
+            ? {
+                ...s,
+                continueOnError:
+                  typeof step.continueOnError === "boolean"
+                    ? step.continueOnError
+                    : true,
+              }
+            : s,
+        )
+      : rawSteps;
+
   const jobId = jobIdMap.get(step.id) ?? step.id;
 
   const runtime = step.runtime;
@@ -348,6 +378,13 @@ function lowerOperations(
     uses: "actions/checkout@v4",
   });
 
+  // beforeScript → run steps before main operations.
+  if (step.beforeScript) {
+    for (const cmd of step.beforeScript) {
+      steps.push({ run: cmd });
+    }
+  }
+
   let runLines: string[] = [];
 
   function flushRun(): void {
@@ -365,6 +402,14 @@ function lowerOperations(
   }
 
   flushRun();
+
+  // afterScript → run steps after main operations with if: always().
+  if (step.afterScript) {
+    for (const cmd of step.afterScript) {
+      steps.push({ run: cmd, if: "always()" });
+    }
+  }
+
   return steps;
 }
 
