@@ -122,6 +122,10 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
     ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
     ...(step.condition !== undefined ? { condition: step.condition } : {}),
     ...(step.matrix !== undefined ? { matrix: step.matrix } : {}),
+    ...(step.beforeScript !== undefined ? { beforeScript: [...step.beforeScript] } : {}),
+    ...(step.afterScript !== undefined ? { afterScript: [...step.afterScript] } : {}),
+    ...(step.continueOnError !== undefined ? { continueOnError: step.continueOnError } : {}),
+    ...(step.retry !== undefined ? { retry: step.retry } : {}),
   };
 }
 

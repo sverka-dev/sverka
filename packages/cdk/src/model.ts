@@ -156,3 +156,30 @@ export interface StatusCondition {
 }
 
 export type Condition = Reference | Expression | StatusCondition;
+
+// ---------------------------------------------------------------------------
+// Before/after scripts (F-10)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Continue-on-error (F-12)
+// ---------------------------------------------------------------------------
+
+export type ContinueOnError = boolean | { readonly exitCodes: readonly number[] };
+
+// ---------------------------------------------------------------------------
+// Retry policy (F-14)
+// ---------------------------------------------------------------------------
+
+export type RetryWhen =
+  | "always"
+  | "script_failure"
+  | "runner_system_failure"
+  | "timeout"
+  | "unknown_failure";
+
+export interface RetryPolicy {
+  readonly max: number;
+  readonly when?: readonly RetryWhen[];
+  readonly exitCodes?: readonly number[];
+}

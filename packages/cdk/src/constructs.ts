@@ -12,6 +12,8 @@ import type {
   Trigger,
   Condition,
   MatrixSpec,
+  ContinueOnError,
+  RetryPolicy,
 } from "./model.js";
 
 function isDuplicateConstructError(err: unknown): boolean {
@@ -98,6 +100,10 @@ export interface StepProps {
   readonly timeout?: number;
   readonly condition?: Condition;
   readonly matrix?: MatrixSpec;
+  readonly beforeScript?: readonly string[];
+  readonly afterScript?: readonly string[];
+  readonly continueOnError?: ContinueOnError;
+  readonly retry?: RetryPolicy;
 }
 
 export abstract class Step extends Construct {
@@ -108,6 +114,10 @@ export abstract class Step extends Construct {
   readonly timeout?: number;
   readonly condition?: Condition;
   readonly matrix?: MatrixSpec;
+  readonly beforeScript?: readonly string[];
+  readonly afterScript?: readonly string[];
+  readonly continueOnError?: ContinueOnError;
+  readonly retry?: RetryPolicy;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
     if (!(scope instanceof Pipeline)) {
@@ -139,6 +149,18 @@ export abstract class Step extends Construct {
     }
     if (props.matrix !== undefined) {
       this.matrix = props.matrix;
+    }
+    if (props.beforeScript !== undefined) {
+      this.beforeScript = [...props.beforeScript];
+    }
+    if (props.afterScript !== undefined) {
+      this.afterScript = [...props.afterScript];
+    }
+    if (props.continueOnError !== undefined) {
+      this.continueOnError = props.continueOnError;
+    }
+    if (props.retry !== undefined) {
+      this.retry = props.retry;
     }
   }
 }

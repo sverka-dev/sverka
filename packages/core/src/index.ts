@@ -21,6 +21,8 @@ export type {
   MatrixSpec,
   MatrixValue,
   Condition,
+  ContinueOnError,
+  RetryPolicy,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";

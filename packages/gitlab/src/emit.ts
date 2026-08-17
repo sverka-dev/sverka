@@ -79,6 +79,14 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
     result.needs = [...job.needs];
   }
 
+  if (job.beforeScript && job.beforeScript.length > 0) {
+    result.before_script = [...job.beforeScript];
+  }
+
+  if (job.afterScript && job.afterScript.length > 0) {
+    result.after_script = [...job.afterScript];
+  }
+
   if (job.artifacts) {
     result.artifacts = job.artifacts;
   }
@@ -93,6 +101,25 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
 
   if (job.timeout) {
     result.timeout = job.timeout;
+  }
+
+  if (job.allowFailure !== undefined) {
+    if (typeof job.allowFailure === "boolean") {
+      result.allow_failure = job.allowFailure;
+    } else {
+      result.allow_failure = { exit_codes: [...job.allowFailure.exitCodes] };
+    }
+  }
+
+  if (job.retry !== undefined) {
+    const retry: Record<string, unknown> = { max: job.retry.max };
+    if (job.retry.when && job.retry.when.length > 0) {
+      retry.when = [...job.retry.when];
+    }
+    if (job.retry.exitCodes && job.retry.exitCodes.length > 0) {
+      retry.exit_codes = [...job.retry.exitCodes];
+    }
+    result.retry = retry;
   }
 
   if (job.parallel) {

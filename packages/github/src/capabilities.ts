@@ -17,4 +17,9 @@ export const githubCapabilities: CapabilityManifest = {
   "matrix.exclude": "native",
   "matrix.failFast": "native",
   "matrix.maxParallel": "native",
+  "trigger.schedule": "native",
+  "step.beforeScript": "native",
+  "step.afterScript": "native",
+  "step.continueOnError": "native",
+  "policy.retry": "unsupported",
 };

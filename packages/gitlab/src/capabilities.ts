@@ -17,4 +17,9 @@ export const gitlabCapabilities: CapabilityManifest = {
   "matrix.exclude": "emulated",
   "matrix.failFast": "unsupported",
   "matrix.maxParallel": "unsupported",
+  "trigger.schedule": "native",
+  "step.beforeScript": "native",
+  "step.afterScript": "native",
+  "step.continueOnError": "native",
+  "policy.retry": "native",
 };

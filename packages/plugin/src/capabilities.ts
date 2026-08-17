@@ -89,6 +89,10 @@ function detectStepCapabilities(step: {
   outputs: readonly { type: string }[];
   dependencies: readonly unknown[];
   matrix?: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number };
+  beforeScript?: readonly unknown[];
+  afterScript?: readonly unknown[];
+  continueOnError?: unknown;
+  retry?: { max?: number };
 }, caps: Set<string>): void {
   const mode = step.runtime?.mode ?? "host";
   caps.add(`runtime.${mode}`);
@@ -117,6 +121,19 @@ function detectStepCapabilities(step: {
     if (step.matrix.maxParallel !== undefined) {
       caps.add("matrix.maxParallel");
     }
+  }
+
+  if (step.beforeScript && step.beforeScript.length > 0) {
+    caps.add("step.beforeScript");
+  }
+  if (step.afterScript && step.afterScript.length > 0) {
+    caps.add("step.afterScript");
+  }
+  if (step.continueOnError !== undefined) {
+    caps.add("step.continueOnError");
+  }
+  if (step.retry !== undefined) {
+    caps.add("policy.retry");
   }
 }
 
