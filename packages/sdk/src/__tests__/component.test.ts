@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Entry, push, ComponentStep } from "@sverka/constructs";
+import { Project, Entry, push, ComponentStep } from "@sverka/cdk";
 import { pipelineV0 as pipeline, sh, component, inputs } from "../index.js";
 
 describe("component builder", () => {

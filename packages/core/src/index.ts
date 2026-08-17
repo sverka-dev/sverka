@@ -66,7 +66,6 @@ export type {
   CredentialDeclaration,
 } from "./operation.js";
 export type {
-  Runtime,
   RuntimeMode,
   RuntimeResult,
   RuntimeFinalization,

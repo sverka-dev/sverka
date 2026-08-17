@@ -7,7 +7,7 @@ import {
   Entry,
   push,
   type Reference,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 import { synthesize, expandPipelineCalls, type StepDefinition } from "../index.js";
 
 describe("expandPipelineCalls", () => {

@@ -8,7 +8,7 @@ import {
   type InputLiteral,
   type Runtime,
   type OutputDeclaration,
-} from "@sverka/constructs";
+} from "@sverka/cdk";
 
 export interface CallPipelineBuilder {
   outputs(outputs: Readonly<Record<string, OutputDeclaration>>): CallPipelineBuilder;
