@@ -358,7 +358,7 @@ function resolveMatrixField(
 function resolveGitContext(field: string): string | undefined {
   const args: string[] | undefined = gitArgsForField(field);
   if (!args) return undefined;
-  const result = spawnSync("git", args, { encoding: "utf-8", shell: false }); // NOSONAR - git is a trusted system binary
+  const result = spawnSync("git", args, { encoding: "utf-8", shell: false }); // NOSONAR
   if (result.status !== 0 || result.error) return undefined;
   return result.stdout.trim() || undefined;
 }
