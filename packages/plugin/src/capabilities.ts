@@ -88,6 +88,7 @@ function detectStepCapabilities(step: {
   operations: readonly { kind: string }[];
   outputs: readonly { type: string }[];
   dependencies: readonly unknown[];
+  matrix?: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number };
 }, caps: Set<string>): void {
   const mode = step.runtime?.mode ?? "host";
   caps.add(`runtime.${mode}`);
@@ -101,6 +102,22 @@ function detectStepCapabilities(step: {
   }
   if (outputFlags.scalar) caps.add("output.scalar");
   if (outputFlags.artifact) caps.add("output.artifact");
+
+  if (step.matrix) {
+    caps.add("graph.matrix");
+    if (step.matrix.include && step.matrix.include.length > 0) {
+      caps.add("matrix.include");
+    }
+    if (step.matrix.exclude && step.matrix.exclude.length > 0) {
+      caps.add("matrix.exclude");
+    }
+    if (step.matrix.failFast !== undefined) {
+      caps.add("matrix.failFast");
+    }
+    if (step.matrix.maxParallel !== undefined) {
+      caps.add("matrix.maxParallel");
+    }
+  }
 }
 
 function detectOperationCapabilities(
@@ -136,6 +153,7 @@ function detectPipelineCapabilities(pipeline: {
     operations: readonly { kind: string }[];
     outputs: readonly { type: string }[];
     dependencies: readonly unknown[];
+    matrix?: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number };
   }[];
 }, caps: Set<string>): void {
   for (const entry of pipeline.entries) {

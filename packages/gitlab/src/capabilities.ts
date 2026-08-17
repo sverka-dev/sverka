@@ -12,4 +12,9 @@ export const gitlabCapabilities: CapabilityManifest = {
   "output.scalar": "lowered",
   "output.artifact": "native",
   "graph.dependencies": "native",
+  "graph.matrix": "native",
+  "matrix.include": "lowered",
+  "matrix.exclude": "emulated",
+  "matrix.failFast": "unsupported",
+  "matrix.maxParallel": "unsupported",
 };

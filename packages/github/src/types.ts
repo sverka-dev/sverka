@@ -26,6 +26,11 @@ export interface GithubJob {
   readonly timeoutMinutes?: number;
   readonly env?: Record<string, string>;
   readonly container?: string;
+  readonly strategy?: {
+    readonly matrix: Record<string, unknown>;
+    readonly failFast?: boolean;
+    readonly maxParallel?: number;
+  };
 }
 
 export interface GithubTargetGraph {

@@ -8,8 +8,9 @@ import type {
   EntryDefinition,
   OperationDefinition,
   Dependency,
+  Reference,
 } from "@sverka/core";
-import type { Trigger } from "@sverka/cdk";
+import type { Trigger, MatrixSpec } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
@@ -200,6 +201,10 @@ function collectBranches(
   branches: Set<string>,
   markAll: () => void,
 ): void {
+  if (t.kind === "schedule") {
+    markAll();
+    return;
+  }
   if (t.filter?.branches && t.filter.branches.length > 0) {
     for (const branch of t.filter.branches) {
       branches.add(branch);
@@ -251,7 +256,7 @@ function lowerSteps(
  */
 function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJob {
   const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const steps = lowerOperations(step);
+  const steps = lowerOperations(step, jobIdMap);
   const jobId = jobIdMap.get(step.id) ?? step.id;
 
   const runtime = step.runtime;
@@ -271,6 +276,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
       : {}),
     ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
     ...(container ? { container } : {}),
+    ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
   };
 
   return job;
@@ -329,7 +335,10 @@ function lowerDependencies(
  * Map operations to GitHub steps in original order.
  * Consecutive shell/exportOutput operations are combined into one run step.
  */
-function lowerOperations(step: StepDefinition): readonly GithubStep[] {
+function lowerOperations(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+): readonly GithubStep[] {
   const steps: GithubStep[] = [];
   const shortStepId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
 
@@ -343,8 +352,10 @@ function lowerOperations(step: StepDefinition): readonly GithubStep[] {
 
   function flushRun(): void {
     if (runLines.length === 0) return;
+    const combined = runLines.join("\n");
+    const translated = translateCommand(combined, step.inputs, jobIdMap);
     steps.push({
-      run: runLines.join("\n"),
+      run: translated,
     });
     runLines = [];
   }
@@ -445,4 +456,107 @@ function severityFlagFor(severity: string): string {
   if (severity === "error") return "error";
   if (severity === "warn") return "warning";
   return "notice";
+}
+
+// ---------------------------------------------------------------------------
+// Matrix lowering (F-15, F-16)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lower a MatrixSpec to a GitHub strategy object.
+ * dimensions → matrix variables, include → include:, exclude → exclude:.
+ * failFast → fail-fast, maxParallel → max-parallel.
+ */
+function lowerStrategy(spec: MatrixSpec): {
+  readonly matrix: Record<string, unknown>;
+  readonly failFast?: boolean;
+  readonly maxParallel?: number;
+} {
+  const matrix: Record<string, unknown> = {};
+  for (const [key, values] of Object.entries(spec.dimensions)) {
+    matrix[key] = [...values];
+  }
+  if (spec.include && spec.include.length > 0) {
+    matrix.include = spec.include.map((entry) => ({ ...entry }));
+  }
+  if (spec.exclude && spec.exclude.length > 0) {
+    matrix.exclude = spec.exclude.map((entry) => ({ ...entry }));
+  }
+  return {
+    matrix,
+    ...(spec.failFast !== undefined ? { failFast: spec.failFast } : {}),
+    ...(spec.maxParallel !== undefined ? { maxParallel: spec.maxParallel } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Context ref translation (F-35)
+// ---------------------------------------------------------------------------
+
+const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
+  "git.sha": "github.sha",
+  "git.branch": "github.ref_name",
+  "git.tag": "github.ref_name",
+  "change.id": "github.event.pull_request.number",
+  "change.source": "github.event_name",
+  "change.target": "github.base_ref",
+  "change.draft": "github.event.pull_request.draft",
+  "event.type": "github.event_name",
+  "run.id": "github.run_id",
+  "run.attempt": "github.run_attempt",
+};
+
+/**
+ * Translate a context ref (namespace.field) to GitHub expression syntax.
+ */
+function translateContextRef(namespace: string, field: string): string {
+  const key = `${namespace}.${field}`;
+  const mapped = GITHUB_CONTEXT_MAP[key];
+  if (mapped) return `\${{ ${mapped} }}`;
+  if (namespace === "env" || namespace === "secrets" || namespace === "inputs") {
+    return `\${{ ${namespace}.${field} }}`;
+  }
+  if (namespace === "matrix") {
+    return `\${{ matrix.${field} }}`;
+  }
+  return `\${${namespace}.${field}}`;
+}
+
+/**
+ * Build a lookup map from placeholder key ("namespace.field" or "step.output")
+ * to the Reference from the step's inputs array.
+ */
+function buildInputLookup(inputs: readonly Reference[]): Map<string, Reference> {
+  const map = new Map<string, Reference>();
+  for (const ref of inputs) {
+    if (ref.kind === "context") {
+      map.set(`${ref.namespace}.${ref.field}`, ref);
+    } else if (ref.kind === "step") {
+      map.set(`${ref.step}.${ref.output}`, ref);
+    }
+  }
+  return map;
+}
+
+/**
+ * Translate ${...} placeholders in a command string to GitHub expression syntax.
+ * Placeholders matching a known input ref are translated; others are left as-is.
+ */
+function translateCommand(
+  command: string,
+  inputs: readonly Reference[],
+  jobIdMap: Map<string, string>,
+): string {
+  const lookup = buildInputLookup(inputs);
+  return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+    const ref = lookup.get(key);
+    if (ref === undefined) {
+      return `\${${key}}`;
+    }
+    if (ref.kind === "context") {
+      return translateContextRef(ref.namespace, ref.field);
+    }
+    const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
+    return `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
+  });
 }

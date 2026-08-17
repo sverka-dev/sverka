@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEngine } from "../engine.js";
 import { createMockDriver, createOutputWritingMockDriver, createCancellableMockDriver } from "./helpers/mock-driver.js";
-import { makeSingleStepPlan, makeDependencyPlan, makeFailingPlan } from "./helpers/fixtures.js";
+import { makeSingleStepPlan, makeDependencyPlan, makeFailingPlan, makeFailureConditionPlan, makeAlwaysConditionPlan, makeNeverConditionPlan } from "./helpers/fixtures.js";
 
 describe("createEngine", () => {
   it("returns an Engine with run() and cancel()", () => {
@@ -72,11 +72,12 @@ describe("Engine.run", () => {
     })) {
       events.push(event as { type: string; stepId?: string });
     }
-    // build should fail, test should be cancelled.
+    // build should fail, test should be skipped (F-11: default condition is
+    // status:success, so dependents of failed steps are skipped, not cancelled).
     const failed = events.filter((e) => e.type === "step-failed").map((e) => e.stepId);
-    const cancelled = events.filter((e) => e.type === "step-cancelled").map((e) => e.stepId);
+    const skipped = events.filter((e) => e.type === "step-skipped").map((e) => e.stepId);
     expect(failed).toContain("ci/build");
-    expect(cancelled).toContain("ci/test");
+    expect(skipped).toContain("ci/test");
     const completed = events.find((e) => e.type === "run-completed") as unknown as { status: string };
     expect(completed.status).toBe("failure");
   });
@@ -135,5 +136,53 @@ describe("Engine.run", () => {
     const failed = events.find((e) => e.type === "step-failed");
     expect(failed).toBeDefined();
     expect(failed!.error).toContain("no runtime driver");
+  });
+  // F-11 status condition tests
+  it("runs failure-condition dependent when a dep fails", async () => {
+    const engine = createEngine({ drivers: [createMockDriver()] });
+    const events: { type: string; stepId?: string }[] = [];
+    for await (const event of engine.run({
+      plan: makeFailureConditionPlan(),
+      workspace: join(testDir, "ws-fail"),
+      artifactDir: join(testDir, "art-fail"),
+    })) {
+      events.push(event as { type: string; stepId?: string });
+    }
+    const failed = events.filter((e) => e.type === "step-failed").map((e) => e.stepId);
+    const succeeded = events.filter((e) => e.type === "step-succeeded").map((e) => e.stepId);
+    expect(failed).toContain("ci/build");
+    expect(succeeded).toContain("ci/notify");
+  });
+
+  it("runs always-condition dependent even when a dep fails", async () => {
+    const engine = createEngine({ drivers: [createMockDriver()] });
+    const events: { type: string; stepId?: string }[] = [];
+    for await (const event of engine.run({
+      plan: makeAlwaysConditionPlan(),
+      workspace: join(testDir, "ws-always"),
+      artifactDir: join(testDir, "art-always"),
+    })) {
+      events.push(event as { type: string; stepId?: string });
+    }
+    const failed = events.filter((e) => e.type === "step-failed").map((e) => e.stepId);
+    const succeeded = events.filter((e) => e.type === "step-succeeded").map((e) => e.stepId);
+    expect(failed).toContain("ci/build");
+    expect(succeeded).toContain("ci/cleanup");
+  });
+
+  it("skips never-condition step", async () => {
+    const engine = createEngine({ drivers: [createMockDriver()] });
+    const events: { type: string; stepId?: string }[] = [];
+    for await (const event of engine.run({
+      plan: makeNeverConditionPlan(),
+      workspace: join(testDir, "ws-never"),
+      artifactDir: join(testDir, "art-never"),
+    })) {
+      events.push(event as { type: string; stepId?: string });
+    }
+    const skipped = events.filter((e) => e.type === "step-skipped").map((e) => e.stepId);
+    const succeeded = events.filter((e) => e.type === "step-succeeded").map((e) => e.stepId);
+    expect(skipped).toContain("ci/skip");
+    expect(succeeded).not.toContain("ci/skip");
   });
 });

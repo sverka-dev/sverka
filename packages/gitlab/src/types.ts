@@ -24,6 +24,9 @@ export interface GitlabJob {
   readonly variables?: Record<string, string>;
   readonly rules?: readonly GitlabRule[];
   readonly timeout?: string;
+  readonly parallel?: {
+    readonly matrix: readonly Record<string, unknown>[];
+  };
 }
 
 export interface GitlabTargetGraph {

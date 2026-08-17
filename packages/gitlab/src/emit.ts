@@ -95,5 +95,9 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
     result.timeout = job.timeout;
   }
 
+  if (job.parallel) {
+    result.parallel = job.parallel;
+  }
+
   return result;
 }

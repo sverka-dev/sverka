@@ -9,6 +9,7 @@ import {
   type OutputDeclaration,
   type StepRef,
   type ContextRef,
+  type MatrixSpec,
 } from "@sverka/cdk";
 import { SdkError } from "./errors.js";
 
@@ -19,6 +20,7 @@ export interface StepBuilder {
   runtime(runtime: Runtime): StepBuilder;
   timeout(ms: number): StepBuilder;
   condition(ref: Reference): StepBuilder;
+  matrix(spec: MatrixSpec): StepBuilder;
   build(pipeline: Pipeline, id: string): ShellStep;
 }
 
@@ -31,6 +33,7 @@ interface StepBuilderState {
   runtime?: Runtime;
   timeout?: number;
   condition?: Reference;
+  matrix?: MatrixSpec;
 }
 
 function createBuilder(state: StepBuilderState): StepBuilder {
@@ -59,6 +62,10 @@ function createBuilder(state: StepBuilderState): StepBuilder {
       state.condition = ref;
       return builder;
     },
+    matrix(spec: MatrixSpec): StepBuilder {
+      state.matrix = spec;
+      return builder;
+    },
     build(pipeline: Pipeline, id: string): ShellStep {
       // Merge collected inputs (from interpolation) with explicit inputs.
       const explicitInputs = state.inputs ? [...state.inputs] : [];
@@ -71,6 +78,7 @@ function createBuilder(state: StepBuilderState): StepBuilder {
         ...(state.runtime ? { runtime: state.runtime } : {}),
         ...(state.timeout !== undefined ? { timeout: state.timeout } : {}),
         ...(state.condition !== undefined ? { condition: state.condition } : {}),
+        ...(state.matrix !== undefined ? { matrix: state.matrix } : {}),
       });
     },
   };

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { executeStep } from "../step-executor.js";
 import { createValueStore } from "../value-store.js";
 import { createArtifactStore } from "../artifact-store.js";
-import { createOutputWritingMockDriver } from "./helpers/mock-driver.js";
+import { createOutputWritingMockDriver, createMockDriver } from "./helpers/mock-driver.js";
 import type { StepDefinition } from "@sverka/core";
 import type { RunEvent } from "../types.js";
 
@@ -129,5 +129,146 @@ describe("StepExecutor", () => {
     expect(result.status).toBe("succeeded");
     const diag = events.find((e) => e.type === "diagnostic");
     expect(diag).toBeDefined();
+  });
+});
+
+describe("StepExecutor — context ref resolution", () => {
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = await mkdtemp(join(tmpdir(), "sverka-ctx-"));
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  it("resolves env.X from process.env", async () => {
+    process.env.SVERKA_TEST_VAR = "test-value";
+    let capturedCommand = "";
+    const driver = createMockDriver({
+      executeFn: async (req) => {
+        capturedCommand = req.command;
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    });
+    const step: StepDefinition = {
+      id: "ci/build",
+      runtime: {},
+      operations: [{ kind: "shell", command: "echo ${env.SVERKA_TEST_VAR}" }],
+      inputs: [{ kind: "context", namespace: "env", field: "SVERKA_TEST_VAR" }],
+      outputs: [],
+      dependencies: [],
+    };
+    await executeStep({
+      step, driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(capturedCommand).toBe("echo test-value");
+    delete process.env.SVERKA_TEST_VAR;
+  });
+
+  it("resolves secrets.X from secrets record", async () => {
+    let capturedCommand = "";
+    const driver = createMockDriver({
+      executeFn: async (req) => {
+        capturedCommand = req.command;
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    });
+    const step: StepDefinition = {
+      id: "ci/build",
+      runtime: {},
+      operations: [{ kind: "shell", command: "echo ${secrets.TOKEN}" }],
+      inputs: [{ kind: "context", namespace: "secrets", field: "TOKEN" }],
+      outputs: [],
+      dependencies: [],
+    };
+    await executeStep({
+      step, driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: { TOKEN: "secret123" },
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(capturedCommand).toBe("echo secret123");
+  });
+
+  it("resolves git.sha from git rev-parse HEAD", async () => {
+    let capturedCommand = "";
+    const driver = createMockDriver({
+      executeFn: async (req) => {
+        capturedCommand = req.command;
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    });
+    const step: StepDefinition = {
+      id: "ci/build",
+      runtime: {},
+      operations: [{ kind: "shell", command: "echo ${git.sha}" }],
+      inputs: [{ kind: "context", namespace: "git", field: "sha" }],
+      outputs: [],
+      dependencies: [],
+    };
+    await executeStep({
+      step, driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(capturedCommand).toMatch(/^echo [0-9a-f]{7,40}$/);
+  });
+
+  it("resolves git.branch from git rev-parse --abbrev-ref HEAD", async () => {
+    let capturedCommand = "";
+    const driver = createMockDriver({
+      executeFn: async (req) => {
+        capturedCommand = req.command;
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    });
+    const step: StepDefinition = {
+      id: "ci/build",
+      runtime: {},
+      operations: [{ kind: "shell", command: "echo ${git.branch}" }],
+      inputs: [{ kind: "context", namespace: "git", field: "branch" }],
+      outputs: [],
+      dependencies: [],
+    };
+    await executeStep({
+      step, driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(capturedCommand).not.toBe("echo ${git.branch}");
+    expect(capturedCommand.length).toBeGreaterThan("echo ".length);
+  });
+
+  it("resolves inputs.X from pipeline inputs", async () => {
+    let capturedCommand = "";
+    const driver = createMockDriver({
+      executeFn: async (req) => {
+        capturedCommand = req.command;
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    });
+    const step: StepDefinition = {
+      id: "ci/build",
+      runtime: {},
+      operations: [{ kind: "shell", command: "echo ${inputs.env}" }],
+      inputs: [{ kind: "context", namespace: "inputs", field: "env" }],
+      outputs: [],
+      dependencies: [],
+    };
+    await executeStep({
+      step, driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      inputs: { env: "staging" },
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(capturedCommand).toBe("echo staging");
   });
 });

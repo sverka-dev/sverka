@@ -48,3 +48,6 @@ export const run = {
 
 /** Pipeline input references: inputs.environment. */
 export const inputs: Record<string, ContextRef> = dynamicNamespace("inputs");
+
+/** Matrix variable references: matrix.node, matrix.os. */
+export const matrix: Record<string, ContextRef> = dynamicNamespace("matrix");

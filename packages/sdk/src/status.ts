@@ -1,0 +1,13 @@
+// status() factory — creates a StatusCondition for step conditions.
+// F-11 — §conditions.
+
+import type { StepStatus, StatusCondition } from "@sverka/cdk";
+
+/**
+ * Create a status-based condition.
+ * @example
+ * $`notify-slack`.condition(status("failure"))
+ */
+export function status(s: StepStatus): StatusCondition {
+  return { kind: "status", status: s };
+}

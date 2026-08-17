@@ -12,3 +12,4 @@ export { DiscoveryError, type DiscoveryErrorCode } from "./errors.js";
 export { bindRunPlan, computeReachableSteps } from "./bind.js";
 export type { BindRunPlanOptions } from "./bind.js";
 export { PlannerError, type PlannerErrorCode } from "./errors.js";
+export { expandMatrixSteps } from "./matrix.js";

@@ -185,6 +185,7 @@ function stepProps(command: string, options?: StepOptions): ShellStepProps {
     ...(options?.outputs ? { outputs: options.outputs } : {}),
     ...(options?.dependsOn ? { dependsOn: options.dependsOn } : {}),
     ...(options?.timeout !== undefined ? { timeout: options.timeout } : {}),
+    ...(options?.matrix !== undefined ? { matrix: options.matrix } : {}),
   };
 }
 
@@ -194,6 +195,7 @@ function applyOptionsToBuilder(builder: StepBuilder, options?: StepOptions): Ste
   if (options?.timeout !== undefined) b = b.timeout(options.timeout);
   if (options?.outputs) b = b.outputs(options.outputs);
   if (options?.dependsOn) b = b.dependsOn(options.dependsOn);
+  if (options?.matrix !== undefined) b = b.matrix(options.matrix);
   return b;
 }
 

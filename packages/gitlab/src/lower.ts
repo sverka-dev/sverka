@@ -9,7 +9,9 @@ import type {
   OperationDefinition,
   Dependency,
   Trigger,
+  Reference,
 } from "@sverka/core";
+import type { MatrixSpec, MatrixValue } from "@sverka/cdk";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
 
@@ -389,6 +391,9 @@ function lowerStep(
     needs,
     script,
     ...buildJobFields(image, artifacts, jobVariables, rules, step.timeout),
+    ...(step.matrix !== undefined
+      ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
+      : {}),
   };
 }
 
@@ -489,7 +494,7 @@ function lowerOperations(
   for (const op of step.operations) {
     switch (op.kind) {
       case "shell":
-        script.push(op.command);
+        script.push(translateGitlabCommand(op.command, step.inputs, jobIdMap));
         break;
       case "exportOutput": {
         const name = shellEscapeDoubleQuoted(op.name);
@@ -584,4 +589,119 @@ function collectVariables(pipeline: PipelineDefinition): Record<string, string> 
     }
   }
   return vars;
+}
+
+// ---------------------------------------------------------------------------
+// Matrix lowering (F-15)
+// ---------------------------------------------------------------------------
+
+type MatrixCombination = Record<string, MatrixValue>;
+
+/**
+ * Lower a MatrixSpec to a GitLab parallel:matrix array.
+ * GitLab has no native include/exclude — exclude is emulated by filtering
+ * combinations at synthesis time, include is appended to the array.
+ */
+function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[] {
+  const combinations = computeMatrixCombinations(spec.dimensions, spec.exclude ?? []);
+  const includeEntries = (spec.include ?? []).map((entry) => ({ ...entry }));
+  return [...combinations.map((c) => ({ ...c })), ...includeEntries];
+}
+
+/**
+ * Compute the cross-product of matrix dimensions, then filter out
+ * combinations matching any exclude rule (partial match).
+ */
+function computeMatrixCombinations(
+  dimensions: Readonly<Record<string, readonly MatrixValue[]>>,
+  exclude: readonly Readonly<Record<string, MatrixValue>>[],
+): readonly MatrixCombination[] {
+  const keys = Object.keys(dimensions);
+  if (keys.length === 0) return [];
+
+  let combinations: MatrixCombination[] = [{}];
+  for (const key of keys) {
+    const values = dimensions[key];
+    if (!values || values.length === 0) continue;
+    const next: MatrixCombination[] = [];
+    for (const combo of combinations) {
+      for (const v of values) {
+        next.push({ ...combo, [key]: v });
+      }
+    }
+    combinations = next;
+  }
+
+  if (exclude.length === 0) return combinations;
+  return combinations.filter((combo) => !matchesAny(combo, exclude));
+}
+
+/**
+ * Check if a combination matches any exclude rule (partial match).
+ */
+function matchesAny(
+  combo: MatrixCombination,
+  rules: readonly Readonly<Record<string, MatrixValue>>[],
+): boolean {
+  for (const rule of rules) {
+    const ruleEntries = Object.entries(rule);
+    if (ruleEntries.length === 0) continue;
+    if (ruleEntries.every(([k, v]) => combo[k] === v)) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Context ref translation (F-35)
+// ---------------------------------------------------------------------------
+
+const GITLAB_CONTEXT_MAP: Readonly<Record<string, string>> = {
+  "git.sha": "$CI_COMMIT_SHA",
+  "git.branch": "$CI_COMMIT_BRANCH",
+  "git.tag": "$CI_COMMIT_TAG",
+  "change.id": "$CI_MERGE_REQUEST_IID",
+  "change.source": "$CI_PIPELINE_SOURCE",
+  "change.target": "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME",
+  "change.draft": "$CI_MERGE_REQUEST_DRAFT",
+  "event.type": "$CI_PIPELINE_SOURCE",
+  "run.id": "$CI_PIPELINE_ID",
+  "run.attempt": "$run_attempt",
+};
+
+function translateGitlabContextRef(namespace: string, field: string): string {
+  const key = `${namespace}.${field}`;
+  const mapped = GITLAB_CONTEXT_MAP[key];
+  if (mapped) return mapped;
+  if (namespace === "env" || namespace === "secrets" || namespace === "inputs") {
+    return `\$${field}`;
+  }
+  if (namespace === "matrix") {
+    return `\$${field.toUpperCase()}`;
+  }
+  return `\${${namespace}.${field}}`;
+}
+
+function translateGitlabCommand(
+  command: string,
+  inputs: readonly Reference[],
+  _jobIdMap: Map<string, string>,
+): string {
+  const lookup = new Map<string, Reference>();
+  for (const ref of inputs) {
+    if (ref.kind === "context") {
+      lookup.set(`${ref.namespace}.${ref.field}`, ref);
+    } else if (ref.kind === "step") {
+      lookup.set(`${ref.step}.${ref.output}`, ref);
+    }
+  }
+  return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+    const ref = lookup.get(key);
+    if (ref === undefined) {
+      return `\${${key}}`;
+    }
+    if (ref.kind === "context") {
+      return translateGitlabContextRef(ref.namespace, ref.field);
+    }
+    return `\$${ref.output}`;
+  });
 }
