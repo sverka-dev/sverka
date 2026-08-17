@@ -7,11 +7,10 @@ import {
   type Reference,
   type Runtime,
   type OutputDeclaration,
-  type StepRef,
-  type ContextRef,
   type MatrixSpec,
 } from "@sverka/cdk";
 import { SdkError } from "./errors.js";
+import { isReference } from "./internal/is-reference.js";
 
 export interface StepBuilder {
   outputs(outputs: Readonly<Record<string, OutputDeclaration>>): StepBuilder;
@@ -122,20 +121,4 @@ export function sh(
   }
 
   return createBuilder({ command, collectedInputs });
-}
-
-function isReference(value: unknown): value is Reference {
-  if (typeof value !== "object" || value === null || !("kind" in value)) {
-    return false;
-  }
-  const ref = value as { kind: string };
-  if (ref.kind === "step") {
-    const s = value as Partial<StepRef>;
-    return typeof s.step === "string" && typeof s.output === "string" && typeof s.type === "string";
-  }
-  if (ref.kind === "context") {
-    const c = value as Partial<ContextRef>;
-    return typeof c.namespace === "string" && typeof c.field === "string";
-  }
-  return false;
 }

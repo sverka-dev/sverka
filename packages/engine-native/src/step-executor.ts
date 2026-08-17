@@ -336,26 +336,38 @@ function resolveContextRef(
     case "git":
       return resolveGitContext(field);
     case "matrix":
-      if (matrixValues === undefined) return undefined;
-      const mv = matrixValues[field];
-      return mv !== undefined ? String(mv) : undefined;
+      return resolveMatrixField(matrixValues, field);
     default:
       return undefined;
   }
 }
 
+function resolveMatrixField(
+  matrixValues: Readonly<Record<string, string | number>> | undefined,
+  field: string,
+): string | undefined {
+  if (matrixValues === undefined) return undefined;
+  const mv = matrixValues[field];
+  return mv !== undefined ? String(mv) : undefined;
+}
+
 /**
  * Resolve git.* context refs using git CLI.
+ * Uses a restricted environment with a fixed PATH to avoid PATH injection.
  */
 function resolveGitContext(field: string): string | undefined {
+  const gitEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  };
   try {
     switch (field) {
       case "sha":
-        return execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
+        return execSync("git rev-parse HEAD", { encoding: "utf-8", env: gitEnv }).trim();
       case "branch":
-        return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+        return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8", env: gitEnv }).trim();
       case "tag":
-        return execSync("git describe --tags --exact-match 2>/dev/null", { encoding: "utf-8" }).trim();
+        return execSync("git describe --tags --exact-match 2>/dev/null", { encoding: "utf-8", env: gitEnv }).trim();
       default:
         return undefined;
     }
