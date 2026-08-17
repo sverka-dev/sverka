@@ -1,25 +1,26 @@
 {
-  "name": "sverka-dev",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "sync-docs": "bun scripts/sync-docs.ts",
-    "dev": "bun run sync-docs && astro dev",
-    "build": "bun run sync-docs && astro build",
-    "preview": "astro preview",
-    "check": "bun run sync-docs && astro check",
-    "test": "bun test"
-  },
-  "dependencies": {
-    "@astrojs/sitemap": "^3.7.3",
-    "@astrojs/starlight": "0.37.7",
-    "astro": "^7.2.2",
-    "mermaid": "^11.16.1",
-    "yaml": "^2.5.0"
-  },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "typescript": "6"
+  },
+  "version": "0.0.0",
+  "name": "sverka-dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run sync-docs && astro build",
+    "test": "bun test",
+    "preview": "astro preview",
+    "dev": "bun run sync-docs && astro dev",
+    "check": "bun run sync-docs && astro check",
+    "sync-docs": "bun scripts/sync-docs.ts"
+  },
+  "dependencies": {
+    "mermaid": "^11.16.1",
+    "astro": "^7.2.2",
+    "@astrojs/starlight": "0.41.7",
+    "yaml": "^2.5.0",
+    "@astrojs/sitemap": "^3.7.3"
   }
 }
+
