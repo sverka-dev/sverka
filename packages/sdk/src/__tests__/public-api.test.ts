@@ -7,7 +7,8 @@ type _TypeSurface = [StepBuilder, PipelineConfig, ImageRef, SdkErrorCode];
 
 describe("public API", () => {
   it("exports all expected functions", () => {
-    expect(typeof sdk.sh).toBe("function");
+    expect(typeof sdk.$).toBe("function");
+    expect(typeof sdk.shell).toBe("function");
     expect(typeof sdk.artifact).toBe("function");
     expect(typeof sdk.pipeline).toBe("function");
     expect(typeof sdk.when).toBe("function");

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
-import { sh } from "@sverka/sdk";
+import { $ } from "@sverka/sdk";
 import { synthesize } from "@sverka/core";
 import {
   pipeline,
@@ -128,12 +128,12 @@ describe("decorator API — @step(options) overloaded form", () => {
   });
 });
 
-describe("decorator API — @step with sh builder", () => {
+describe("decorator API — @step with $ builder", () => {
   it("creates a ShellStep with outputs", () => {
     @pipeline
     class TestPipeline {
       @step
-      build = sh`npm run build`.outputs({ dist: { type: "artifact", path: "./dist" } });
+      build = $`npm run build`.outputs({ dist: { type: "artifact", path: "./dist" } });
     }
 
     const proj = new Project("step-builder");
@@ -154,7 +154,7 @@ describe("decorator API — @step builder with options", () => {
       lint = "npm run lint";
 
       @stepWithOptions({ timeout: 60000, dependsOn: ["lint"] })
-      build = sh`npm run build`.outputs({ dist: { type: "artifact", path: "./dist" } });
+      build = $`npm run build`.outputs({ dist: { type: "artifact", path: "./dist" } });
     }
 
     const proj = new Project("step-builder-options");
@@ -174,7 +174,7 @@ describe("decorator API — @step method", () => {
     class TestPipeline {
       @step
       build() {
-        return sh`npm run build`.outputs({ dist: { type: "artifact", path: "./dist" } });
+        return $`npm run build`.outputs({ dist: { type: "artifact", path: "./dist" } });
       }
     }
 
@@ -186,19 +186,19 @@ describe("decorator API — @step method", () => {
     expect(stepInstance.outputs.get("dist")?.type).toBe("artifact");
   });
 
-  it("creates a ShellStep from a method using this.sh multiple times", () => {
+  it("creates a ShellStep from a method using this.$ multiple times", () => {
     @pipeline
     class TestPipeline implements PlanningContext {
-      sh!: (strings: TemplateStringsArray, ...values: readonly unknown[]) => void;
+      $!: (strings: TemplateStringsArray, ...values: readonly unknown[]) => void;
 
       @step
       deploy(this: PlanningContext) {
-        this.sh`echo prepare`;
-        this.sh`echo deploy`;
+        this.$`echo prepare`;
+        this.$`echo deploy`;
       }
     }
 
-    const proj = new Project("step-method-sh");
+    const proj = new Project("step-method-dollar");
     const p = decoratePipeline(TestPipeline, proj, "pipeline");
     const stepInstance = p.node.children.find((c) => c.node.id === "deploy") as ShellStep;
     expect(stepInstance).toBeInstanceOf(ShellStep);
@@ -210,7 +210,7 @@ describe("decorator API — @step method", () => {
     class TestPipeline {
       @step({ timeout: 120000 })
       build() {
-        return sh`npm run build`;
+        return $`npm run build`;
       }
     }
 

@@ -39,12 +39,12 @@ describe("public API — exports", () => {
     const meta: FieldMetadata = { kind: "step" };
     const kind: FieldKind = "step";
     const code: DecoratorErrorCode = "INVALID_FIELD";
-    const ctx: PlanningContext = { sh() {} };
+    const ctx: PlanningContext = { $() {} };
     expect(opts.timeout).toBe(1000);
     expect(target).toEqual(["lint"]);
     expect(meta.kind).toBe("step");
     expect(kind).toBe("step");
     expect(code).toBe("INVALID_FIELD");
-    expect(typeof ctx.sh).toBe("function");
+    expect(typeof ctx.$).toBe("function");
   });
 });

@@ -10,7 +10,7 @@ import {
   type Reference,
   type Construct,
 } from "@sverka/cdk";
-import { sh, callPipeline, pipelineV0 as sdkPipeline } from "@sverka/sdk";
+import { sh, callPipeline, $, pipelineV0 as sdkPipeline } from "@sverka/sdk";
 import {
   pipeline as pipelineDecorator,
   step,
@@ -99,15 +99,15 @@ export function createSeedWithSDK(): Project {
   sdkPipeline(proj, "ci", {
     inputs: SEED_INPUTS,
     steps: [
-      (p) => sh`${lintCommand}`.outputs(lintOutputs).build(p, "lint"),
+      (p) => $`${lintCommand}`.outputs(lintOutputs).build(p, "lint"),
       (p) =>
-        sh`${buildCommand}`
+        $`${buildCommand}`
           .inputs([statusRef])
           .dependsOn(["lint"])
           .outputs(buildOutputs)
           .build(p, "build"),
       (p) =>
-        sh`${testCommand}`
+        $`${testCommand}`
           .inputs([distRef])
           .dependsOn(["build"])
           .condition(nodeVersionContext)
@@ -129,13 +129,13 @@ class SeedPipeline {
   nodeVersion = { type: "string" as const, default: "22" };
 
   @step
-  lint = sh`${lintCommand}`.outputs(lintOutputs);
+  lint = $`${lintCommand}`.outputs(lintOutputs);
 
   @stepWithOptions({ dependsOn: ["lint"] })
-  build = sh`${buildCommand}`.inputs([statusRef]).outputs(buildOutputs);
+  build = $`${buildCommand}`.inputs([statusRef]).outputs(buildOutputs);
 
   @stepWithOptions({ dependsOn: ["build"] })
-  test = sh`${testCommand}`.inputs([distRef]).condition(nodeVersionContext);
+  test = $`${testCommand}`.inputs([distRef]).condition(nodeVersionContext);
 
   @entry({ kind: "push" })
   ["on-push"] = ["test"];
