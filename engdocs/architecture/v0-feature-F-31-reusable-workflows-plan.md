@@ -330,7 +330,7 @@ where the call step's outputs are materialized as explicit
   - 3 surfaces produce equal graphs (JSON equality of normalized graph)
   - `expandPipelineCalls` flattens to the same step list as a hand-written
     inline equivalent
-  - GitHub lowering emits 2 artifacts; GitLab emits 2 artifacts
+  - GitHub lowering emits 1 artifact; GitLab emits 1 artifact
   - Native engine runs the expanded plan end-to-end (build → deploy)
 
 **Test first:**
