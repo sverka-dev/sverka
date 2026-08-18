@@ -244,19 +244,27 @@ describe("detectCapabilities", () => {
     expect(caps.has("concurrency.interruptible")).toBe(false);
   });
 
-  it("does not detect concurrency.interruptible when omitted", () => {
+  it.each([
+    ["concurrency.interruptible"],
+    ["environment.permissions"],
+    ["runner.selection"],
+    ["secrets.oidc"],
+    ["workflow.rules"],
+    ["workflow.defaults"],
+    ["artifact.report"],
+    ["workflow.inputs"],
+    ["environment.services"],
+    ["deployment.environment"],
+    ["cache"],
+    ["concurrency.group"],
+  ])("does not detect %s when omitted", (capability) => {
     const caps = detectCapabilities(makeGraph());
-    expect(caps.has("concurrency.interruptible")).toBe(false);
+    expect(caps.has(capability)).toBe(false);
   });
 
   it("detects environment.permissions when pipeline has permissions", () => {
     const caps = detectCapabilities(makeGraph({ permissions: { contents: "read" } }));
     expect(caps.has("environment.permissions")).toBe(true);
-  });
-
-  it("does not detect environment.permissions when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("environment.permissions")).toBe(false);
   });
 
   it("detects runner.selection when step has runner", () => {
@@ -272,11 +280,6 @@ describe("detectCapabilities", () => {
   it("does not detect runner.group when runner has no group", () => {
     const caps = detectCapabilities(makeGraph({ runner: { labels: ["linux"] } }));
     expect(caps.has("runner.group")).toBe(false);
-  });
-
-  it("does not detect runner.selection when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("runner.selection")).toBe(false);
   });
 
   it("detects secrets.oidc when step has identity", () => {
@@ -305,11 +308,6 @@ describe("detectCapabilities", () => {
     expect(caps.has("secrets.oidc.multiAudience")).toBe(false);
   });
 
-  it("does not detect secrets.oidc when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("secrets.oidc")).toBe(false);
-  });
-
   it("detects workflow.rules when step has rules", () => {
     const caps = detectCapabilities(makeGraph({ rules: [{ if: "$X" }] }));
     expect(caps.has("workflow.rules")).toBe(true);
@@ -323,11 +321,6 @@ describe("detectCapabilities", () => {
   it("detects workflow.rules.exists when a rule has exists", () => {
     const caps = detectCapabilities(makeGraph({ rules: [{ exists: ["Makefile"] }] }));
     expect(caps.has("workflow.rules.exists")).toBe(true);
-  });
-
-  it("does not detect workflow.rules when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("workflow.rules")).toBe(false);
   });
 
   it("detects workflow.defaults when pipeline has defaults", () => {
@@ -345,11 +338,6 @@ describe("detectCapabilities", () => {
     expect(caps.has("workflow.defaults.beforeScript")).toBe(true);
   });
 
-  it("does not detect workflow.defaults when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("workflow.defaults")).toBe(false);
-  });
-
   it("detects artifact.report when step has reports", () => {
     const caps = detectCapabilities(makeGraph({ reports: [{ type: "junit", path: "test.xml" }] }));
     expect(caps.has("artifact.report")).toBe(true);
@@ -363,11 +351,6 @@ describe("detectCapabilities", () => {
   it("detects artifact.report.sarif for sarif report", () => {
     const caps = detectCapabilities(makeGraph({ reports: [{ type: "sarif", path: "results.sarif" }] }));
     expect(caps.has("artifact.report.sarif")).toBe(true);
-  });
-
-  it("does not detect artifact.report when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("artifact.report")).toBe(false);
   });
 
   it("detects workflow.inputs when pipeline has inputs", () => {
@@ -390,11 +373,6 @@ describe("detectCapabilities", () => {
     expect(caps.has("workflow.inputs.pattern")).toBe(true);
   });
 
-  it("does not detect workflow.inputs when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("workflow.inputs")).toBe(false);
-  });
-
   it("detects environment.services when step has services", () => {
     const caps = detectCapabilities(makeGraph({ services: [{ name: "pg", image: "postgres:16" }] }));
     expect(caps.has("environment.services")).toBe(true);
@@ -410,11 +388,6 @@ describe("detectCapabilities", () => {
     expect(caps.has("environment.services.ports")).toBe(false);
   });
 
-  it("does not detect environment.services when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("environment.services")).toBe(false);
-  });
-
   it("detects deployment.environment when step has environment", () => {
     const caps = detectCapabilities(makeGraph({ environment: { name: "prod" } }));
     expect(caps.has("deployment.environment")).toBe(true);
@@ -428,11 +401,6 @@ describe("detectCapabilities", () => {
   it("detects deployment.environment.tier when environment has tier", () => {
     const caps = detectCapabilities(makeGraph({ environment: { name: "prod", tier: "production" } }));
     expect(caps.has("deployment.environment.tier")).toBe(true);
-  });
-
-  it("does not detect deployment.environment when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("deployment.environment")).toBe(false);
   });
 
   it("detects artifact.retention when artifact output has retention", () => {
@@ -465,11 +433,6 @@ describe("detectCapabilities", () => {
     expect(caps.has("cache.fallbackKeys")).toBe(true);
   });
 
-  it("does not detect cache when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("cache")).toBe(false);
-  });
-
   it("detects concurrency.group when step has concurrency", () => {
     const caps = detectCapabilities(makeGraph({ concurrency: { group: "prod" } }));
     expect(caps.has("concurrency.group")).toBe(true);
@@ -478,11 +441,6 @@ describe("detectCapabilities", () => {
   it("detects concurrency.cancelInProgress when set", () => {
     const caps = detectCapabilities(makeGraph({ concurrency: { group: "prod", cancelInProgress: true } }));
     expect(caps.has("concurrency.cancelInProgress")).toBe(true);
-  });
-
-  it("does not detect concurrency when omitted", () => {
-    const caps = detectCapabilities(makeGraph());
-    expect(caps.has("concurrency.group")).toBe(false);
   });
 });
 

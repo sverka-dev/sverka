@@ -134,7 +134,7 @@ function createStepFromField(
   const stepId = options?.id ?? name;
 
   if (typeof value === "string") {
-    void new ShellStep(pipeline, stepId, stepProps(value, options));
+    new ShellStep(pipeline, stepId, stepProps(value, options));
     return;
   }
 
@@ -176,7 +176,7 @@ function createStepFromMethod(
     ...stepProps(spec.command, options),
     ...(spec.inputs.length > 0 ? { inputs: spec.inputs } : {}),
   };
-  void new ShellStep(pipeline, stepId, props);
+  new ShellStep(pipeline, stepId, props);
 }
 
 function stepProps(command: string, options?: StepOptions): ShellStepProps {

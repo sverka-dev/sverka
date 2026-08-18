@@ -45,11 +45,7 @@ function stringifyTargetGraph(graph: GithubTargetGraph): string {
   }
 
   if (graph.concurrency) {
-    const conc: Record<string, unknown> = { group: graph.concurrency.group };
-    if (graph.concurrency.cancelInProgress !== undefined) {
-      conc["cancel-in-progress"] = graph.concurrency.cancelInProgress;
-    }
-    doc.concurrency = conc;
+    doc.concurrency = concurrencyToYaml(graph.concurrency);
   }
 
   const jobs: Record<string, unknown> = {};
@@ -71,17 +67,7 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
 
   // Reusable workflow call job: uses/with/secrets (no runs-on/steps).
   if (job.uses) {
-    result.uses = job.uses;
-    if (job.needs.length > 0) {
-      result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
-    }
-    if (job.with && Object.keys(job.with).length > 0) {
-      result.with = job.with;
-    }
-    if (job.secrets) {
-      result.secrets = job.secrets;
-    }
-    return result;
+    return reusableJobToYaml(job, result);
   }
 
   // Normal job.
@@ -131,15 +117,39 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
   }
 
   if (job.concurrency) {
-    const conc: Record<string, unknown> = { group: job.concurrency.group };
-    if (job.concurrency.cancelInProgress !== undefined) {
-      conc["cancel-in-progress"] = job.concurrency.cancelInProgress;
-    }
-    result.concurrency = conc;
+    result.concurrency = concurrencyToYaml(job.concurrency);
   }
 
   result.steps = job.steps.map((step, i) => stepToYaml(step, i));
 
+  return result;
+}
+
+/**
+ * Convert a reusable workflow call job (uses) to a YAML-compatible object.
+ */
+function reusableJobToYaml(job: GithubJob, result: Record<string, unknown>): Record<string, unknown> {
+  result.uses = job.uses;
+  if (job.needs.length > 0) {
+    result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
+  }
+  if (job.with && Object.keys(job.with).length > 0) {
+    result.with = job.with;
+  }
+  if (job.secrets) {
+    result.secrets = job.secrets;
+  }
+  return result;
+}
+
+/**
+ * Convert a concurrency spec to a YAML-compatible object.
+ */
+function concurrencyToYaml(conc: { readonly group: string; readonly cancelInProgress?: boolean }): Record<string, unknown> {
+  const result: Record<string, unknown> = { group: conc.group };
+  if (conc.cancelInProgress !== undefined) {
+    result["cancel-in-progress"] = conc.cancelInProgress;
+  }
   return result;
 }
 

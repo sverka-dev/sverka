@@ -14,9 +14,8 @@ import type {
   StepDefinition,
   OperationDefinition,
   Dependency,
-  PipelineCall,
 } from "./graph.js";
-import type { Reference, StepRef, InputLiteral } from "@sverka/cdk";
+import type { Reference, InputLiteral } from "@sverka/cdk";
 import { resolveStepId } from "./validate.js";
 
 /**
@@ -201,43 +200,88 @@ function substituteInputBindings(
   idMap: Map<string, string>,
   callerPipelineId: string,
 ): StepDefinition {
-  const resolveBinding = (binding: Reference): Reference => {
-    if (binding.kind === "step") {
-      // Resolve caller StepRef to pipeline-prefixed id, then apply idMap
-      // (for nested calls where the caller ref may have been namespaced).
-      const resolved = resolveStepId(callerPipelineId, binding.step);
-      return { ...binding, step: idMap.get(resolved) ?? resolved };
-    }
-    return binding;
-  };
+  const inputs = substituteStepInputs(step, bindings, idMap, callerPipelineId);
+  const condition = substituteStepCondition(
+    step,
+    bindings,
+    idMap,
+    callerPipelineId,
+  );
+  return { ...step, inputs, ...(condition !== step.condition ? { condition } : {}) };
+}
 
+/**
+ * Resolve a caller binding Reference to a pipeline-prefixed, idMap-rewritten
+ * Reference. Caller StepRefs are resolved to pipeline-prefixed ids and then
+ * rewritten via idMap (for nested calls where the ref may have been namespaced).
+ */
+function resolveBinding(
+  binding: Reference,
+  idMap: Map<string, string>,
+  callerPipelineId: string,
+): Reference {
+  if (binding.kind === "step") {
+    const resolved = resolveStepId(callerPipelineId, binding.step);
+    return { ...binding, step: idMap.get(resolved) ?? resolved };
+  }
+  return binding;
+}
+
+/**
+ * Convert a binding value into a resolved Reference, or `undefined` when the
+ * binding is a literal (literals are baked in at the operation level, so the
+ * ref is dropped).
+ */
+function bindingToReference(
+  binding: Reference | InputLiteral,
+  idMap: Map<string, string>,
+  callerPipelineId: string,
+): Reference | undefined {
+  if (typeof binding === "object" && binding !== null) {
+    return resolveBinding(binding as Reference, idMap, callerPipelineId);
+  }
+  return undefined;
+}
+
+/** Substitute callee `inputs.X` context refs in `step.inputs`. */
+function substituteStepInputs(
+  step: StepDefinition,
+  bindings: Readonly<Record<string, Reference | InputLiteral>>,
+  idMap: Map<string, string>,
+  callerPipelineId: string,
+): Reference[] {
   const inputs: Reference[] = [];
   for (const ref of step.inputs) {
     if (ref.kind === "context" && ref.namespace === "inputs") {
       const binding = bindings[ref.field];
       if (binding !== undefined) {
-        if (typeof binding === "object" && binding !== null) {
-          inputs.push(resolveBinding(binding as Reference));
+        const resolved = bindingToReference(binding, idMap, callerPipelineId);
+        if (resolved !== undefined) {
+          inputs.push(resolved);
         }
         continue; // literal → drop ref
       }
     }
     inputs.push(ref);
   }
+  return inputs;
+}
 
-  let condition = step.condition;
+/** Substitute a callee `inputs.X` context ref in `step.condition`. */
+function substituteStepCondition(
+  step: StepDefinition,
+  bindings: Readonly<Record<string, Reference | InputLiteral>>,
+  idMap: Map<string, string>,
+  callerPipelineId: string,
+): Reference | undefined {
+  const condition = step.condition;
   if (condition?.kind === "context" && condition.namespace === "inputs") {
     const binding = bindings[condition.field];
     if (binding !== undefined) {
-      if (typeof binding === "object" && binding !== null) {
-        condition = resolveBinding(binding as Reference);
-      } else {
-        condition = undefined;
-      }
+      return bindingToReference(binding, idMap, callerPipelineId);
     }
   }
-
-  return { ...step, inputs, ...(condition !== step.condition ? { condition } : {}) };
+  return condition;
 }
 
 /**

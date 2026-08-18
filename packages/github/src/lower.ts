@@ -23,7 +23,6 @@ import type {
   GithubDefaultsRun,
   GithubInput,
   GithubService,
-  GithubCache,
 } from "./types.js";
 import { GithubTargetError } from "./errors.js";
 
@@ -94,7 +93,6 @@ function lowerDefaults(defaults: PipelineDefaults): GithubDefaults {
  */
 function lowerMultiPipeline(graph: DefinitionGraph): readonly GithubTargetGraph[] {
   const pipelines = graph.project.pipelines;
-  const byId = new Map(pipelines.map((p) => [p.id, p]));
 
   // Find which pipelines are called by some call step.
   const calledPipelineIds = new Set<string>();
@@ -156,8 +154,14 @@ function addWorkflowCall(
 
   const workflowInputs: Record<string, unknown> = {};
   for (const [name, input] of inputEntries) {
+    let type = "string";
+    if (input.type === "number") {
+      type = "number";
+    } else if (input.type === "boolean") {
+      type = "boolean";
+    }
     const ghInput: Record<string, unknown> = {
-      type: input.type === "number" ? "number" : input.type === "boolean" ? "boolean" : "string",
+      type,
       required: input.required ?? false,
     };
     if (input.default !== undefined) {
@@ -658,16 +662,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const jobId = jobIdMap.get(step.id) ?? step.id;
 
   // F-48: delay → emulated via sleep step (GitHub has no native delayed execution).
-  if (step.delay) {
-    const sleepSeconds = parseDurationToSeconds(step.delay);
-    // Insert sleep step after checkout (which is always first).
-    if (steps.length > 0) {
-      steps.splice(1, 0, {
-        name: `Delay (${step.delay})`,
-        run: `sleep ${sleepSeconds}`,
-      });
-    }
-  }
+  applyDelay(steps, step);
 
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
@@ -675,7 +670,37 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const container = resolveContainer(step, mode);
   const jobEnv = collectJobEnv(runtime);
 
-  const job: GithubJob = {
+  return assembleGithubJob(jobId, steps, needs, step, runsOn, container, jobEnv);
+}
+
+/**
+ * Insert a sleep step to emulate delay (GitHub has no native delayed execution).
+ */
+function applyDelay(steps: GithubStep[], step: StepDefinition): void {
+  if (!step.delay) return;
+  const sleepSeconds = parseDurationToSeconds(step.delay);
+  // Insert sleep step after checkout (which is always first).
+  if (steps.length > 0) {
+    steps.splice(1, 0, {
+      name: `Delay (${step.delay})`,
+      run: `sleep ${sleepSeconds}`,
+    });
+  }
+}
+
+/**
+ * Assemble the final GithubJob object from its constituent parts.
+ */
+function assembleGithubJob(
+  jobId: string,
+  steps: GithubStep[],
+  needs: readonly string[],
+  step: StepDefinition,
+  runsOn: GithubRunsOn,
+  container: string | undefined,
+  jobEnv: Record<string, string>,
+): GithubJob {
+  return {
     id: jobId,
     name: jobId,
     runsOn,
@@ -701,8 +726,6 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
       : {}),
     ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
   };
-
-  return job;
 }
 
 /**
@@ -713,10 +736,12 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
  */
 function lowerCacheStep(cache: CacheSpec): GithubStep {
   const policy = cache.policy ?? "pull-push";
-  const action =
-    policy === "pull" ? "actions/cache/restore@v4" :
-    policy === "push" ? "actions/cache/save@v4" :
-    "actions/cache@v4";
+  let action = "actions/cache@v4";
+  if (policy === "pull") {
+    action = "actions/cache/restore@v4";
+  } else if (policy === "push") {
+    action = "actions/cache/save@v4";
+  }
   const withMap: Record<string, unknown> = {
     path: cache.paths.length === 1 ? cache.paths[0] : cache.paths.join("\n"),
     key: cache.key,
