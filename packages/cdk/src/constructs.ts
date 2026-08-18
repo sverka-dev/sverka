@@ -4,11 +4,16 @@
 import { Construct } from "constructs";
 import { ConstructError } from "./errors.js";
 import type {
+  Expression,
   Input,
   OutputDeclaration,
   Reference,
   Runtime,
   Trigger,
+  Condition,
+  MatrixSpec,
+  ContinueOnError,
+  RetryPolicy,
 } from "./model.js";
 
 function isDuplicateConstructError(err: unknown): boolean {
@@ -47,10 +52,14 @@ export class Project extends Construct {
 
 export interface PipelineProps {
   readonly inputs?: Readonly<Record<string, Input>>;
+  readonly name?: string;
+  readonly runName?: Expression;
 }
 
 export class Pipeline extends Construct {
   readonly inputs: ReadonlyMap<string, Input>;
+  readonly name?: string;
+  readonly runName?: Expression;
 
   constructor(scope: Project, id: string, props?: PipelineProps) {
     if (!(scope instanceof Project)) {
@@ -70,6 +79,12 @@ export class Pipeline extends Construct {
     this.inputs = props?.inputs
       ? new Map(Object.entries(props.inputs))
       : new Map();
+    if (props?.name !== undefined) {
+      this.name = props.name;
+    }
+    if (props?.runName !== undefined) {
+      this.runName = props.runName;
+    }
   }
 }
 
@@ -83,7 +98,12 @@ export interface StepProps {
   readonly inputs?: readonly Reference[];
   readonly dependsOn?: readonly string[];
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Condition;
+  readonly matrix?: MatrixSpec;
+  readonly beforeScript?: readonly string[];
+  readonly afterScript?: readonly string[];
+  readonly continueOnError?: ContinueOnError;
+  readonly retry?: RetryPolicy;
 }
 
 export abstract class Step extends Construct {
@@ -92,7 +112,12 @@ export abstract class Step extends Construct {
   readonly inputs: ReadonlyArray<Reference>;
   readonly dependsOn: ReadonlyArray<string>;
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Condition;
+  readonly matrix?: MatrixSpec;
+  readonly beforeScript?: readonly string[];
+  readonly afterScript?: readonly string[];
+  readonly continueOnError?: ContinueOnError;
+  readonly retry?: RetryPolicy;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
     if (!(scope instanceof Pipeline)) {
@@ -121,6 +146,21 @@ export abstract class Step extends Construct {
     }
     if (props.condition !== undefined) {
       this.condition = props.condition;
+    }
+    if (props.matrix !== undefined) {
+      this.matrix = props.matrix;
+    }
+    if (props.beforeScript !== undefined) {
+      this.beforeScript = [...props.beforeScript];
+    }
+    if (props.afterScript !== undefined) {
+      this.afterScript = [...props.afterScript];
+    }
+    if (props.continueOnError !== undefined) {
+      this.continueOnError = props.continueOnError;
+    }
+    if (props.retry !== undefined) {
+      this.retry = props.retry;
     }
   }
 }

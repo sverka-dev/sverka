@@ -8,11 +8,15 @@ import type {
   Input,
   OutputDeclaration,
   OutputType,
+  MatrixSpec,
+  Condition,
+  ContinueOnError,
+  RetryPolicy,
 } from "@sverka/cdk";
 
 // Re-export types used in the graph schema so consumers can access them
 // from @sverka/core without depending on @sverka/cdk directly.
-export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger } from "@sverka/cdk";
+export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, Expression } from "@sverka/cdk";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;
@@ -37,6 +41,8 @@ export interface PipelineInputDefinition extends Input {
 
 export interface PipelineDefinition {
   readonly id: string;
+  readonly name?: string;
+  readonly runName?: string;
   readonly inputs: Readonly<Record<string, Input>>;
   readonly entries: readonly EntryDefinition[];
   readonly steps: readonly StepDefinition[];
@@ -57,7 +63,15 @@ export interface StepDefinition {
   readonly outputs: readonly OutputDefinition[];
   readonly dependencies: readonly Dependency[];
   readonly timeout?: number;
-  readonly condition?: Reference;
+  readonly condition?: Condition;
+  readonly matrix?: MatrixSpec;
+  readonly matrixValues?: Readonly<Record<string, string | number>>;
+  readonly matrixFailFast?: boolean;
+  readonly matrixMaxParallel?: number;
+  readonly beforeScript?: readonly string[];
+  readonly afterScript?: readonly string[];
+  readonly continueOnError?: ContinueOnError;
+  readonly retry?: RetryPolicy;
 }
 
 export type OperationDefinition =

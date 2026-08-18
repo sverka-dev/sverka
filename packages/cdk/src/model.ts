@@ -26,7 +26,14 @@ export interface Manual {
   readonly filter?: TriggerFilter;
 }
 
-export type Trigger = Push | ChangeRequest | Manual;
+// F-05: Schedule trigger
+export interface Schedule {
+  readonly kind: "schedule";
+  readonly cron: string;
+  readonly timezone?: string;
+}
+
+export type Trigger = Push | ChangeRequest | Manual | Schedule;
 
 export function push(filter?: TriggerFilter): Push {
   return { kind: "push", ...(filter ? { filter } : {}) };
@@ -38,6 +45,11 @@ export function changeRequest(filter?: TriggerFilter): ChangeRequest {
 
 export function manual(filter?: TriggerFilter): Manual {
   return { kind: "manual", ...(filter ? { filter } : {}) };
+}
+
+// F-05: Schedule trigger helper
+export function schedule(cron: string, timezone?: string): Schedule {
+  return { kind: "schedule", cron, ...(timezone ? { timezone } : {}) };
 }
 
 // ---------------------------------------------------------------------------
@@ -60,7 +72,8 @@ export type ContextNamespace =
   | "change"
   | "event"
   | "run"
-  | "inputs";
+  | "inputs"
+  | "matrix";
 
 export interface ContextRef {
   readonly kind: "context";
@@ -69,6 +82,16 @@ export interface ContextRef {
 }
 
 export type Reference = StepRef | ContextRef;
+
+// ---------------------------------------------------------------------------
+// Expressions (F-35) — symbolic expressions with context references
+// ---------------------------------------------------------------------------
+
+export interface Expression {
+  readonly kind: "expression";
+  readonly template: string;
+  readonly refs: readonly Reference[];
+}
 
 // ---------------------------------------------------------------------------
 // Outputs (§12.2)
@@ -104,4 +127,59 @@ export interface Runtime {
   readonly env?: Readonly<Record<string, string>>;
   readonly secrets?: readonly string[];
   readonly workingDir?: string;
+  readonly shell?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Matrix expansion (F-15, F-16)
+// ---------------------------------------------------------------------------
+
+export type MatrixValue = string | number;
+
+export interface MatrixSpec {
+  readonly dimensions: Readonly<Record<string, readonly MatrixValue[]>>;
+  readonly include?: readonly Readonly<Record<string, MatrixValue>>[];
+  readonly exclude?: readonly Readonly<Record<string, MatrixValue>>[];
+  readonly failFast?: boolean;
+  readonly maxParallel?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Step conditions (F-11)
+// ---------------------------------------------------------------------------
+
+export type StepStatus = "success" | "failure" | "always" | "never";
+
+export interface StatusCondition {
+  readonly kind: "status";
+  readonly status: StepStatus;
+}
+
+export type Condition = Reference | Expression | StatusCondition;
+
+// ---------------------------------------------------------------------------
+// Before/after scripts (F-10)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Continue-on-error (F-12)
+// ---------------------------------------------------------------------------
+
+export type ContinueOnError = boolean | { readonly exitCodes: readonly number[] };
+
+// ---------------------------------------------------------------------------
+// Retry policy (F-14)
+// ---------------------------------------------------------------------------
+
+export type RetryWhen =
+  | "always"
+  | "script_failure"
+  | "runner_system_failure"
+  | "timeout"
+  | "unknown_failure";
+
+export interface RetryPolicy {
+  readonly max: number;
+  readonly when?: readonly RetryWhen[];
+  readonly exitCodes?: readonly number[];
 }

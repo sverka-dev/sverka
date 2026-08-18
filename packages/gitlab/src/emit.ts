@@ -71,29 +71,70 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
     script: job.script,
   };
 
-  if (job.image) {
-    result.image = job.image;
-  }
-
-  if (job.needs.length > 0) {
-    result.needs = [...job.needs];
-  }
-
-  if (job.artifacts) {
-    result.artifacts = job.artifacts;
-  }
-
-  if (job.variables) {
-    result.variables = job.variables;
-  }
-
-  if (job.rules && job.rules.length > 0) {
-    result.rules = job.rules;
-  }
-
-  if (job.timeout) {
-    result.timeout = job.timeout;
+  assignOptional(result, "image", job.image);
+  if (job.needs.length > 0) result.needs = [...job.needs];
+  assignOptionalList(result, "before_script", job.beforeScript);
+  assignOptionalList(result, "after_script", job.afterScript);
+  assignOptional(result, "artifacts", job.artifacts);
+  assignOptional(result, "variables", job.variables);
+  if (job.rules && job.rules.length > 0) result.rules = job.rules;
+  assignOptional(result, "timeout", job.timeout);
+  assignAllowFailure(result, job.allowFailure);
+  assignRetry(result, job.retry);
+  if (job.parallel && job.parallel.matrix) {
+    // GitLab parallel:matrix requires each variable value to be an array.
+    result.parallel = {
+      matrix: job.parallel.matrix.map((row: Record<string, unknown>) => {
+        const wrapped: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(row)) {
+          wrapped[k] = Array.isArray(v) ? v : [v];
+        }
+        return wrapped;
+      }),
+    };
+  } else {
+    assignOptional(result, "parallel", job.parallel);
   }
 
   return result;
+}
+
+function assignOptional(
+  result: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
+  if (value !== undefined) result[key] = value;
+}
+
+function assignOptionalList(
+  result: Record<string, unknown>,
+  key: string,
+  value: readonly string[] | undefined,
+): void {
+  if (value && value.length > 0) result[key] = [...value];
+}
+
+function assignAllowFailure(
+  result: Record<string, unknown>,
+  value: GitlabJob["allowFailure"],
+): void {
+  if (value === undefined) return;
+  if (typeof value === "boolean") {
+    result.allow_failure = value;
+  } else {
+    result.allow_failure = { exit_codes: [...value.exitCodes] };
+  }
+}
+
+function assignRetry(
+  result: Record<string, unknown>,
+  value: GitlabJob["retry"],
+): void {
+  if (value === undefined) return;
+  // GitLab enforces a maximum of 2 retries.
+  const retry: Record<string, unknown> = { max: Math.min(value.max, 2) };
+  if (value.when && value.when.length > 0) retry.when = [...value.when];
+  if (value.exitCodes && value.exitCodes.length > 0) retry.exit_codes = [...value.exitCodes];
+  result.retry = retry;
 }
