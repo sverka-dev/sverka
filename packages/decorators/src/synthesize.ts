@@ -9,7 +9,10 @@ import { DecoratorError } from "./errors.js";
 import type { FieldMetadata, StepOptions } from "./types.js";
 
 /** Register a construct as a child of its parent (side-effect constructor). */
-function register<T extends Construct>(_construct: T): void {}
+function register<T extends Construct>(_construct: T): void {
+  // Constructs add themselves to their parent in the constructor.
+  // The return value is intentionally unused.
+}
 
 const FIELDS_KEY = Symbol.for("sverka:fields");
 
