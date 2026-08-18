@@ -53,6 +53,7 @@ export interface ShellExecuteRequest {
   readonly image?: string;
   readonly imageDigest?: string;
   readonly mode?: "host" | "container";
+  readonly shell?: string;
   readonly signal?: AbortSignal;
 }
 

@@ -5,7 +5,7 @@
 import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { RunPlan } from "@sverka/ir";
-import type { StepDefinition, Condition } from "@sverka/core";
+import type { StepDefinition, Condition, Expression } from "@sverka/core";
 import type {
   Engine,
   RunRequest,
@@ -18,7 +18,7 @@ import type {
 } from "./types.js";
 import { createValueStore } from "./value-store.js";
 import { createArtifactStore } from "./artifact-store.js";
-import { executeStep, type StepExecOptions } from "./step-executor.js";
+import { executeStep, type StepExecOptions, resolveGitContext } from "./step-executor.js";
 import { buildStepExecutionGraph, transitiveDependents, type StepState, type StepGraph } from "./scheduler.js";
 import { stepPrefix } from "./refs.js";
 
@@ -271,7 +271,8 @@ class NativeEngine implements Engine {
             durationMs: 0,
           });
           ctx.hasFailure = true;
-          this.cancelDependents(ctx, id);
+          // Enqueue dependents so they can evaluate their conditions (e.g. failure/always).
+          this.onStepComplete(ctx, id);
           continue;
         }
 
@@ -456,13 +457,15 @@ class NativeEngine implements Engine {
       return depStates.every((s) => s === "succeeded");
     }
     if (status === "failure") {
-      return depStates.includes("failed");
+      // Check both direct failures and failures that propagated through
+      // skipped intermediate dependencies.
+      return depStates.some((s) => s === "failed" || s === "skipped");
     }
     return false;
   }
 
   private evaluateExpressionCondition(
-    condition: { readonly template: string; readonly refs: readonly import("@sverka/core").Reference[] },
+    condition: Expression,
     ctx: RunContext,
     stepId: string,
   ): boolean {
@@ -484,7 +487,7 @@ class NativeEngine implements Engine {
     stepId: string,
   ): unknown {
     if (ref.kind === "context") {
-      return this.resolveContextRef(ref, ctx);
+      return this.resolveContextRef(ref, ctx, stepId);
     }
     if (ref.kind === "step") {
       const prefix = stepPrefix(stepId);
@@ -497,6 +500,7 @@ class NativeEngine implements Engine {
   private resolveContextRef(
     ref: import("@sverka/core").Reference,
     ctx: RunContext,
+    stepId: string,
   ): unknown {
     if (ref.kind !== "context") return undefined;
     const key = `${ref.namespace}.${ref.field}`;
@@ -506,6 +510,16 @@ class NativeEngine implements Engine {
     }
     if (value === undefined && ref.namespace === "secrets") {
       value = ctx.secrets[ref.field];
+    }
+    if (value === undefined && ref.namespace === "git") {
+      value = resolveGitContext(ref.field);
+    }
+    if (value === undefined && ref.namespace === "matrix") {
+      const step = ctx.stepMap.get(stepId);
+      if (step?.matrixValues) {
+        const mv = step.matrixValues[ref.field];
+        value = mv !== undefined ? String(mv) : undefined;
+      }
     }
     return value;
   }
@@ -536,14 +550,23 @@ function resolveStepId(refStep: string, prefix: string | undefined): string {
 /**
  * Format a resolved reference value for substitution into an expression.
  * Returns empty string for undefined; safely stringifies objects via JSON.
+ * String values are double-quoted so they are parsed as string literals
+ * by the boolean evaluator, preventing injection of operators or syntax.
  */
 function formatRefValue(value: unknown): string {
   if (value === undefined || value === null) return "";
-  if (typeof value === "object") return JSON.stringify(value);
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return `"${value.replace(/[\\"\n\r\t]/g, (ch) => ESCAPES[ch] ?? ch)}"`;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);
 }
+
+const ESCAPES: Readonly<Record<string, string>> = {
+  '"': '\\"',
+  "\\": "\\\\",
+  "\n": "\\n",
+  "\r": "\\r",
+  "\t": "\\t",
+};
 
 /**
  * Minimal boolean expression evaluator.
@@ -552,7 +575,10 @@ function formatRefValue(value: unknown): string {
  */
 function evalSimpleBoolean(expr: string): boolean {
   try {
-    return Boolean(parseOr(expr.trim()));
+    const result = parseOr(expr.trim());
+    // Only accept actual boolean true; strings, numbers, and other types
+    // (e.g. from unparseable operators like >, <) must not be truthy.
+    return result === true;
   } catch {
     return false;
   }
