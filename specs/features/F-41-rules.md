@@ -3,7 +3,7 @@
 **ID:** F-41
 **Category:** workflow-control
 **Milestone:** M0 (already in v0, partial)
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -118,11 +118,17 @@ GitLab's `rules` is much richer than GitHub's `if:`. Sverka supports the full ru
 - **Depends on:** F-11 (conditions — `when` maps to condition status), F-35 (expressions).
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should Sverka's `condition` (F-11) be replaced by `rules`, or should both coexist?
-- Should GitHub lowering try to emulate `changes` via path filters on triggers?
-- Should per-rule `variables` be a provider extension?
+- **`condition` and `rules` coexist.** `condition` is a single expression
+  (F-11); `rules` is an ordered array with richer semantics. If both are
+  set, `rules` takes precedence (the condition is ignored). This avoids
+  breaking existing `condition` users while enabling the richer `rules` model.
+- **No GitHub `changes` emulation via path filters.** Path filters are on
+  triggers, not conditions. Emulating would conflate trigger semantics with
+  condition semantics. Emit a warning instead.
+- **Per-rule `variables` stays in the portable model.** GitLab supports it
+  natively. GitHub doesn't — emit a warning. No provider extension needed.
 
 ## References
 

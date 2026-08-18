@@ -12,7 +12,14 @@ export type {
   Dependency,
   OutputDefinition,
   PipelineOutputDefinition,
+  PipelineCall,
+  ComponentRef,
+  ChildPipelineTrigger,
+  DownstreamTrigger,
+  PipelineRule,
+  IncludeRef,
   Input,
+  InputLiteral,
   OutputDeclaration,
   OutputType,
   Reference,
@@ -23,10 +30,25 @@ export type {
   Condition,
   ContinueOnError,
   RetryPolicy,
+  PermissionLevel,
+  RunnerSpec,
+  IdentitySpec,
+  Rule,
+  PipelineDefaults,
+  ReportSpec,
+  ServiceContainer,
+  EnvironmentSpec,
+  EnvironmentAction,
+  EnvironmentTier,
+  ArtifactAccess,
+  CacheSpec,
+  CachePolicy,
+  ConcurrencySpec,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";
 export { validateGraph } from "./validate.js";
+export { expandPipelineCalls } from "./expand-calls.js";
 export { SynthesisError, type SynthesisErrorCode } from "./errors.js";
 
 // ── Compat: old core API (used by sdk, ir, checks until rebuilt) ───

@@ -3,7 +3,7 @@
 **ID:** F-19
 **Category:** environment
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -120,10 +120,15 @@ GitHub uses a map (keyed by name); GitLab uses an array (with `alias` for hostna
 - **Depends on:** F-18 (container runtime — services are containers).
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should Sverka support service health checks (wait for postgres to be ready)?
-- Should `ports` use `host:container` mapping or just container port?
+- **No service health checks in this feature.** Health checks and wait
+  conditions are a runtime concern (F-18 / native engine). This feature
+  only adds the portable service model and target lowering.
+- **`ports` uses container port only (number).** GitHub's `host:container`
+  mapping is provider-specific. The portable model uses container ports.
+  GitHub lowering emits `port:port` (same on both sides). GitLab does not
+  support ports and emits a diagnostic.
 
 ## References
 

@@ -8,7 +8,13 @@ export type SynthesisErrorCode =
   | "INCOMPATIBLE_REFERENCE"
   | "INVALID_OUTPUT"
   | "INVALID_SCOPE"
-  | "INVALID_ENTRY";
+  | "INVALID_ENTRY"
+  | "UNKNOWN_CALLEE"
+  | "MISSING_INPUT_BINDING"
+  | "INPUT_TYPE_MISMATCH"
+  | "UNKNOWN_INPUT"
+  | "CALL_CYCLE"
+  | "NESTING_TOO_DEEP";
 
 export class SynthesisError extends Error {
   override readonly cause: unknown;

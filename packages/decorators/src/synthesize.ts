@@ -2,11 +2,17 @@
 // Spec 04 — §9.3–9.8.
 
 import { Pipeline, ShellStep, Entry } from "@sverka/cdk";
-import type { Project, Input, Trigger, Reference, ShellStepProps } from "@sverka/cdk";
+import type { Project, Input, Trigger, Reference, ShellStepProps, Construct } from "@sverka/cdk";
 import type { StepBuilder } from "@sverka/sdk";
 import { getPipelineMetadata } from "./decorators.js";
 import { DecoratorError } from "./errors.js";
 import type { FieldMetadata, StepOptions } from "./types.js";
+
+/** Register a construct as a child of its parent (side-effect constructor). */
+function register<T extends Construct>(_construct: T): void {
+  // Constructs add themselves to their parent in the constructor.
+  // The return value is intentionally unused.
+}
 
 const FIELDS_KEY = Symbol.for("sverka:fields");
 
@@ -131,19 +137,20 @@ function createStepFromField(
   options?: StepOptions,
 ): void {
   const value = (instance as Record<string, unknown>)[name];
+  const stepId = options?.id ?? name;
 
   if (typeof value === "string") {
-    void new ShellStep(pipeline, name, stepProps(value, options));
+    register(new ShellStep(pipeline, stepId, stepProps(value, options)));
     return;
   }
 
   if (isStepBuilder(value)) {
-    applyOptionsToBuilder(value as StepBuilder, options).build(pipeline, name);
+    applyOptionsToBuilder(value as StepBuilder, options).build(pipeline, stepId);
     return;
   }
 
   if (typeof value === "function") {
-    createStepFromMethod(pipeline, name, value as (this: unknown, ...args: unknown[]) => unknown, options);
+    createStepFromMethod(pipeline, stepId, value as (this: unknown, ...args: unknown[]) => unknown, options);
     return;
   }
 
@@ -162,20 +169,20 @@ function createStepFromField(
 
 function createStepFromMethod(
   pipeline: Pipeline,
-  name: string,
+  stepId: string,
   method: (this: unknown, ...args: unknown[]) => unknown,
   options?: StepOptions,
 ): void {
-  const spec = evaluateMethodStep(method, name, options);
+  const spec = evaluateMethodStep(method, stepId, options);
   if (spec.kind === "builder") {
-    applyOptionsToBuilder(spec.builder, options).build(pipeline, name);
+    applyOptionsToBuilder(spec.builder, options).build(pipeline, stepId);
     return;
   }
   const props: ShellStepProps = {
     ...stepProps(spec.command, options),
     ...(spec.inputs.length > 0 ? { inputs: spec.inputs } : {}),
   };
-  void new ShellStep(pipeline, name, props);
+  register(new ShellStep(pipeline, stepId, props));
 }
 
 function stepProps(command: string, options?: StepOptions): ShellStepProps {
@@ -186,11 +193,7 @@ function stepProps(command: string, options?: StepOptions): ShellStepProps {
     ...(options?.dependsOn ? { dependsOn: options.dependsOn } : {}),
     ...(options?.timeout !== undefined ? { timeout: options.timeout } : {}),
     ...(options?.matrix !== undefined ? { matrix: options.matrix } : {}),
-    ...(options?.condition !== undefined ? { condition: options.condition } : {}),
-    ...(options?.beforeScript ? { beforeScript: options.beforeScript } : {}),
-    ...(options?.afterScript ? { afterScript: options.afterScript } : {}),
-    ...(options?.continueOnError !== undefined ? { continueOnError: options.continueOnError } : {}),
-    ...(options?.retry !== undefined ? { retry: options.retry } : {}),
+    ...(options?.interruptible !== undefined ? { interruptible: options.interruptible } : {}),
   };
 }
 
@@ -201,11 +204,7 @@ function applyOptionsToBuilder(builder: StepBuilder, options?: StepOptions): Ste
   if (options?.outputs) b = b.outputs(options.outputs);
   if (options?.dependsOn) b = b.dependsOn(options.dependsOn);
   if (options?.matrix !== undefined) b = b.matrix(options.matrix);
-  if (options?.condition !== undefined) b = b.condition(options.condition);
-  if (options?.beforeScript) b = b.beforeScript(options.beforeScript);
-  if (options?.afterScript) b = b.afterScript(options.afterScript);
-  if (options?.continueOnError !== undefined) b = b.continueOnError(options.continueOnError);
-  if (options?.retry !== undefined) b = b.retry(options.retry);
+  if (options?.interruptible !== undefined) b = b.interruptible(options.interruptible);
   return b;
 }
 
@@ -287,11 +286,6 @@ function isStepBuilder(value: unknown): boolean {
   );
 }
 
-const OUTPUT_TYPES = new Set<string>(["string", "number", "boolean", "artifact"]);
-const CONTEXT_NAMESPACES = new Set<string>([
-  "env", "secrets", "git", "change", "event", "run", "inputs", "matrix",
-]);
-
 function isReference(value: unknown): value is Reference {
   if (typeof value !== "object" || value === null || !("kind" in value)) {
     return false;
@@ -302,17 +296,12 @@ function isReference(value: unknown): value is Reference {
     return (
       typeof ref.step === "string" &&
       typeof ref.output === "string" &&
-      typeof ref.type === "string" &&
-      OUTPUT_TYPES.has(ref.type as string)
+      typeof ref.type === "string"
     );
   }
   if (kind === "context") {
     const ref = value as Record<string, unknown>;
-    return (
-      typeof ref.namespace === "string" &&
-      typeof ref.field === "string" &&
-      CONTEXT_NAMESPACES.has(ref.namespace as string)
-    );
+    return typeof ref.namespace === "string" && typeof ref.field === "string";
   }
   return false;
 }

@@ -3,7 +3,7 @@
 **ID:** F-28
 **Category:** concurrency
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -99,11 +99,18 @@ GitHub has richer concurrency control (cancel, queue). GitLab only has mutual ex
 - **Depends on:** F-35 (expressions) for dynamic group names.
 - **Blocks:** F-29 (interruptible uses concurrency concepts).
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should `concurrency` be Pipeline-level, Step-level, or both?
-- Should the native engine implement concurrency control for local runs?
-- Should `queue` mode be a GitHub provider extension?
+- **`concurrency` is both Pipeline-level and Step-level.** Pipeline-level
+  applies to the entire workflow (GitHub `concurrency` at workflow level,
+  GitLab `resource_group` on all jobs). Step-level applies to individual
+  jobs (GitHub `concurrency` at job level, GitLab `resource_group` on
+  that job).
+- **Native engine concurrency is deferred.** The native engine mutex/lock
+  is a runtime concern (F-18 / native engine). This feature only adds the
+  portable concurrency model and target lowering.
+- **`queue` mode is not in the portable model.** It is GitHub-only and
+  excluded. If needed, it can be a GitHub provider extension in the future.
 
 ## References
 

@@ -114,7 +114,7 @@ describe("§33.2 Target conformance", () => {
     const yaml = parse(artifacts[0]!.content) as Record<string, { script?: unknown; stages?: unknown }>;
     expect(yaml.stages).toBeDefined();
     for (const jobId of Object.keys(yaml)) {
-      if (jobId === "stages" || jobId === "variables") continue;
+      if (jobId === "stages" || jobId === "variables" || jobId === "default" || jobId === "spec" || jobId === "workflow") continue;
       expect(yaml[jobId]?.script).toBeDefined();
     }
   });
@@ -122,8 +122,9 @@ describe("§33.2 Target conformance", () => {
   it("GitHub lowering maps dependencies to needs", () => {
     const graph = synthesize(createSeedWithConstructs());
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
-    const buildJob = targetGraph.jobs.find((j) => j.id === "build");
+    const result = target.lower(graph);
+    const tg = Array.isArray(result) ? result[0]! : result;
+    const buildJob = tg.jobs.find((j: { id: string }) => j.id === "build");
     expect(buildJob?.needs).toContain("lint");
   });
 

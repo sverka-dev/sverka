@@ -3,7 +3,7 @@
 **ID:** F-26
 **Category:** artifacts
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -97,10 +97,16 @@ GitHub has retention but no YAML-level access control. GitLab has both. Sverka l
 - **Depends on:** F-24 (artifact outputs).
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should `retention` use duration strings or days (number)?
-- Should `access: "none"` be valid (why export an artifact no one can access)?
+- **`retention` uses duration strings.** Format: `"7d"`, `"1h"`, `"30m"`,
+  `"never"`. This is provider-neutral. GitHub lowering parses the duration
+  and converts to days. GitLab lowering converts to GitLab's duration
+  format (e.g., `"7 days"`).
+- **`access: "none"` is valid.** It can be used to export an artifact
+  that is only accessible by the pipeline system itself (e.g., for
+  internal tracking or baseline comparison). The provider may restrict
+  further, but the model allows it.
 
 ## References
 

@@ -3,7 +3,7 @@
 **ID:** F-46
 **Category:** artifacts
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -132,11 +132,15 @@ GitLab has native typed reports. GitHub uses actions. Sverka maps each report ty
 - **Depends on:** F-24 (artifact outputs).
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should Sverka define its own report types or mirror GitLab's set?
-- Should the native engine parse and display report contents?
-- Should `sarif` be a separate type or mapped to `sast`?
+- **Mirror GitLab's report types plus `sarif`.** The `ReportType` enum
+  covers GitLab's native set plus `sarif` for GitHub code scanning. This
+  gives users a portable vocabulary without inventing new types.
+- **Native engine: store report file only.** Parsing and display is the
+  findings package's job. The engine just ensures the file exists.
+- **`sarif` is a separate type.** It maps to `sast` on GitLab (via API)
+  and `upload-sarif` on GitHub. Keeping it separate avoids ambiguity.
 
 ## References
 

@@ -32,18 +32,21 @@ export class GithubTarget implements Target {
   }
 
   /**
-   * Lower a Definition Graph to a GithubTargetGraph.
-   * One GitHub job per reachable Step with needs, runs-on, and operation mapping.
+   * Lower a Definition Graph to one or more GithubTargetGraphs.
+   * Single-pipeline graphs return one target graph; multi-pipeline graphs
+   * with reusable workflow calls return one per pipeline.
    */
-  lower(graph: DefinitionGraph): GithubTargetGraph {
+  lower(graph: DefinitionGraph): GithubTargetGraph | readonly GithubTargetGraph[] {
     return lowerGithub(graph);
   }
 
   /**
-   * Emit a GithubTargetGraph as YAML artifacts.
+   * Emit one or more GithubTargetGraphs as YAML artifacts.
    * Produces .github/workflows/<name>.yml files.
    */
-  emit(targetGraph: GithubTargetGraph): readonly GeneratedArtifact[] {
+  emit(
+    targetGraph: GithubTargetGraph | readonly GithubTargetGraph[],
+  ): readonly GeneratedArtifact[] {
     return emitGithub(targetGraph);
   }
 

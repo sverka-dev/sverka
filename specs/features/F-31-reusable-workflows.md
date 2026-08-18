@@ -133,11 +133,24 @@ GitHub calls reusable workflows as jobs (separate execution context). GitLab mer
 - **Depends on:** F-47 (typed inputs).
 - **Blocks:** F-32 (components), F-33 (child pipelines), F-34 (downstream projects).
 
-## Open questions
+## Open questions (resolved — see plan `engdocs/architecture/v0-feature-F-31-reusable-workflows-plan.md`)
 
-- Should reusable pipelines be inlined at synthesis time or kept as references in the IR?
-- How are outputs from reusable pipelines propagated to the caller?
-- Should there be a limit on nesting depth?
+- **Inline vs. reference in IR:** Reference in the Definition Graph
+  (`StepDefinition.call: PipelineCall`); the planner expands call steps into a
+  flat `StepDefinition[]` for the native engine. The engine is unchanged.
+- **Outputs propagation:** the callee pipeline's outputs are copied onto the
+  call step's `outputs` at synthesis (producer = call step id); downstream
+  caller steps reference them via the existing `StepRef`.
+- **Nesting depth:** `MAX_PIPELINE_CALL_DEPTH = 4` (matches GitHub's hard
+  limit); synthesis rejects deeper chains.
+- **GitLab lowering:** v1 inlines callee steps as namespaced jobs in
+  `.gitlab-ci.yml` (same-context semantics, equivalent to `include:` merge).
+  `include:` + `spec:inputs` true file reuse is a follow-up (job-name
+  collision across multiple call sites has no clean GitLab-native fix).
+  `trigger:include` (separate-context child pipelines) is F-33.
+- **F-47 dependency is weak:** F-31 uses the existing `Input` model
+  (string/number/boolean); F-47's extended type validators are not required
+  for the call/bind plumbing and land separately.
 
 ## References
 

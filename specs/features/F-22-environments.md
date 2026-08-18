@@ -3,7 +3,7 @@
 **ID:** F-22
 **Category:** deployment
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -116,11 +116,17 @@ GitLab has richer environment lifecycle (actions, on_stop, auto_stop, tiers). Gi
 - **Depends on:** none.
 - **Blocks:** F-39 (release), F-40 (pages) — both are deployment types.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should `on_stop` be explicit in Sverka or auto-derived from `action: "stop"` steps?
-- Should `prepare` and `access` actions be in the portable model?
-- Should protection rules be declarable in Sverka (even if lowered to provider settings)?
+- **`on_stop` is auto-derived.** When a step has `environment.action: "stop"`,
+  the GitLab lowering automatically sets `on_stop` on the corresponding
+  `action: "start"` step for the same environment name. Users do not declare
+  `on_stop` explicitly.
+- **Only `start`, `stop`, `verify` in the portable model.** `prepare` and
+  `access` are GitLab-specific and excluded from the portable subset.
+- **No protection rules in Sverka.** Protection rules are GitHub
+  infrastructure configured outside YAML. Declaring them in Sverka would
+  require infrastructure management, which is out of scope.
 
 ## References
 

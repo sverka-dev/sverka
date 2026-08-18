@@ -8,7 +8,7 @@ import {
   type SverkaPlugin,
   type CapabilityManifest,
 } from "../index.js";
-import type { DefinitionGraph } from "@sverka/core";
+import type { DefinitionGraph, OperationDefinition, Input, OutputDefinition, ArtifactAccess, EnvironmentAction, EnvironmentTier, CachePolicy } from "@sverka/core";
 
 function makeGraph(opts: {
   triggerKind?: "push" | "changeRequest" | "manual";
@@ -20,12 +20,26 @@ function makeGraph(opts: {
   hasEnv?: boolean;
   hasSecrets?: boolean;
   hasPipelineSecretInput?: boolean;
+  artifactRetention?: string;
+  artifactAccess?: ArtifactAccess;
+  interruptible?: boolean;
+  permissions?: Record<string, "read" | "write" | "none">;
+  defaults?: { shell?: string; workdir?: string; beforeScript?: readonly string[]; interruptible?: boolean };
+  runner?: { labels: readonly string[]; group?: string };
+  identity?: { tokens: Readonly<Record<string, { audience: string }>> };
+  rules?: readonly { if?: string; changes?: readonly string[]; exists?: readonly string[]; when?: "on_success" | "on_failure" | "always" | "never" | "manual" }[];
+  reports?: readonly { type: string; path: string; format?: string }[];
+  inputs?: Record<string, Input>;
+  services?: readonly { name: string; image: string; ports?: readonly number[] }[];
+  environment?: { name: string; action?: EnvironmentAction; tier?: EnvironmentTier };
+  cache?: { paths: readonly string[]; key: string; restoreKeys?: readonly string[]; policy?: CachePolicy };
+  concurrency?: { group: string; cancelInProgress?: boolean };
 } = {}): DefinitionGraph {
   const triggerKind = opts.triggerKind ?? "push";
   const runtimeMode = opts.runtimeMode ?? "host";
-  const outputs: { name: string; type: "string" | "artifact"; path?: string }[] = [];
+  const outputs: OutputDefinition[] = [];
   if (opts.hasScalarOutput) outputs.push({ name: "result", type: "string" });
-  if (opts.hasArtifactOutput) outputs.push({ name: "dist", type: "artifact", path: "./dist" });
+  if (opts.hasArtifactOutput) outputs.push({ name: "dist", type: "artifact", path: "./dist", ...(opts.artifactRetention !== undefined ? { retention: opts.artifactRetention } : {}), ...(opts.artifactAccess !== undefined ? { access: opts.artifactAccess } : {}) });
 
   const runtime: { mode: "host" | "container"; env?: Record<string, string>; secrets?: string[] } = { mode: runtimeMode };
   if (opts.hasEnv) runtime.env = { NODE_ENV: "production" };
@@ -48,12 +62,33 @@ function makeGraph(opts: {
         steps: [{
           id: "build",
           runtime,
-          operations: opts.hasShell === false ? [] : [{ kind: "shell", command: "echo hi" }],
+          operations: [
+            ...(opts.hasShell === false ? [] : [{ kind: "shell", command: "echo hi" }]),
+            ...(opts.hasArtifactOutput ? [{
+              kind: "exportArtifact",
+              name: "dist",
+              path: "./dist",
+              ...(opts.artifactRetention !== undefined ? { retention: opts.artifactRetention } : {}),
+              ...(opts.artifactAccess !== undefined ? { access: opts.artifactAccess } : {}),
+            }] : []),
+            ...(opts.reports ?? []).map((r) => ({ kind: "report", spec: r }) as OperationDefinition),
+          ] as readonly OperationDefinition[],
           inputs: [],
           outputs,
           dependencies: opts.hasDeps ? [{ kind: "control", producer: "lint" }] : [],
+          ...(opts.interruptible !== undefined ? { interruptible: opts.interruptible } : {}),
+          ...(opts.runner !== undefined ? { runner: opts.runner } : {}),
+          ...(opts.identity !== undefined ? { identity: opts.identity } : {}),
+          ...(opts.rules !== undefined ? { rules: opts.rules } : {}),
+          ...(opts.services !== undefined ? { services: opts.services } : {}),
+          ...(opts.environment !== undefined ? { environment: opts.environment } : {}),
+          ...(opts.cache !== undefined ? { cache: opts.cache } : {}),
+          ...(opts.concurrency !== undefined ? { concurrency: opts.concurrency } : {}),
         }],
         outputs: [],
+        ...(opts.permissions !== undefined ? { permissions: opts.permissions } : {}),
+        ...(opts.defaults !== undefined ? { defaults: opts.defaults } : {}),
+        ...(opts.inputs !== undefined ? { inputs: opts.inputs } : {}),
       }],
     },
   };
@@ -197,6 +232,215 @@ describe("detectCapabilities", () => {
   it("does not detect secrets.pipeline-input when no secret inputs", () => {
     const caps = detectCapabilities(makeGraph({ hasPipelineSecretInput: false }));
     expect(caps.has("secrets.pipeline-input")).toBe(false);
+  });
+
+  it("detects concurrency.interruptible when step.interruptible === true", () => {
+    const caps = detectCapabilities(makeGraph({ interruptible: true }));
+    expect(caps.has("concurrency.interruptible")).toBe(true);
+  });
+
+  it("does not detect concurrency.interruptible when step.interruptible === false", () => {
+    const caps = detectCapabilities(makeGraph({ interruptible: false }));
+    expect(caps.has("concurrency.interruptible")).toBe(false);
+  });
+
+  it.each([
+    ["concurrency.interruptible"],
+    ["environment.permissions"],
+    ["runner.selection"],
+    ["secrets.oidc"],
+    ["workflow.rules"],
+    ["workflow.defaults"],
+    ["artifact.report"],
+    ["workflow.inputs"],
+    ["environment.services"],
+    ["deployment.environment"],
+    ["cache"],
+    ["concurrency.group"],
+  ])("does not detect %s when omitted", (capability) => {
+    const caps = detectCapabilities(makeGraph());
+    expect(caps.has(capability)).toBe(false);
+  });
+
+  it("detects environment.permissions when pipeline has permissions", () => {
+    const caps = detectCapabilities(makeGraph({ permissions: { contents: "read" } }));
+    expect(caps.has("environment.permissions")).toBe(true);
+  });
+
+  it("detects runner.selection when step has runner", () => {
+    const caps = detectCapabilities(makeGraph({ runner: { labels: ["linux"] } }));
+    expect(caps.has("runner.selection")).toBe(true);
+  });
+
+  it("detects runner.group when step has runner with group", () => {
+    const caps = detectCapabilities(makeGraph({ runner: { labels: ["linux"], group: "g1" } }));
+    expect(caps.has("runner.group")).toBe(true);
+  });
+
+  it("does not detect runner.group when runner has no group", () => {
+    const caps = detectCapabilities(makeGraph({ runner: { labels: ["linux"] } }));
+    expect(caps.has("runner.group")).toBe(false);
+  });
+
+  it("detects secrets.oidc when step has identity", () => {
+    const caps = detectCapabilities(makeGraph({
+      identity: { tokens: { AWS: { audience: "https://sts.amazonaws.com" } } },
+    }));
+    expect(caps.has("secrets.oidc")).toBe(true);
+  });
+
+  it("detects secrets.oidc.multiAudience when multiple audiences", () => {
+    const caps = detectCapabilities(makeGraph({
+      identity: {
+        tokens: {
+          AWS: { audience: "https://sts.amazonaws.com" },
+          VAULT: { audience: "https://vault.example.com" },
+        },
+      },
+    }));
+    expect(caps.has("secrets.oidc.multiAudience")).toBe(true);
+  });
+
+  it("does not detect secrets.oidc.multiAudience when single audience", () => {
+    const caps = detectCapabilities(makeGraph({
+      identity: { tokens: { AWS: { audience: "https://sts.amazonaws.com" } } },
+    }));
+    expect(caps.has("secrets.oidc.multiAudience")).toBe(false);
+  });
+
+  it("detects workflow.rules when step has rules", () => {
+    const caps = detectCapabilities(makeGraph({ rules: [{ if: "$X" }] }));
+    expect(caps.has("workflow.rules")).toBe(true);
+  });
+
+  it("detects workflow.rules.changes when a rule has changes", () => {
+    const caps = detectCapabilities(makeGraph({ rules: [{ changes: ["src/**"] }] }));
+    expect(caps.has("workflow.rules.changes")).toBe(true);
+  });
+
+  it("detects workflow.rules.exists when a rule has exists", () => {
+    const caps = detectCapabilities(makeGraph({ rules: [{ exists: ["Makefile"] }] }));
+    expect(caps.has("workflow.rules.exists")).toBe(true);
+  });
+
+  it("detects workflow.defaults when pipeline has defaults", () => {
+    const caps = detectCapabilities(makeGraph({ defaults: { shell: "bash" } }));
+    expect(caps.has("workflow.defaults")).toBe(true);
+  });
+
+  it("detects workflow.defaults.shell when defaults has shell", () => {
+    const caps = detectCapabilities(makeGraph({ defaults: { shell: "bash" } }));
+    expect(caps.has("workflow.defaults.shell")).toBe(true);
+  });
+
+  it("detects workflow.defaults.beforeScript when defaults has beforeScript", () => {
+    const caps = detectCapabilities(makeGraph({ defaults: { beforeScript: ["install"] } }));
+    expect(caps.has("workflow.defaults.beforeScript")).toBe(true);
+  });
+
+  it("detects artifact.report when step has reports", () => {
+    const caps = detectCapabilities(makeGraph({ reports: [{ type: "junit", path: "test.xml" }] }));
+    expect(caps.has("artifact.report")).toBe(true);
+  });
+
+  it("detects artifact.report.junit for junit report", () => {
+    const caps = detectCapabilities(makeGraph({ reports: [{ type: "junit", path: "test.xml" }] }));
+    expect(caps.has("artifact.report.junit")).toBe(true);
+  });
+
+  it("detects artifact.report.sarif for sarif report", () => {
+    const caps = detectCapabilities(makeGraph({ reports: [{ type: "sarif", path: "results.sarif" }] }));
+    expect(caps.has("artifact.report.sarif")).toBe(true);
+  });
+
+  it("detects workflow.inputs when pipeline has inputs", () => {
+    const caps = detectCapabilities(makeGraph({ inputs: { env: { type: "string" } } }));
+    expect(caps.has("workflow.inputs")).toBe(true);
+  });
+
+  it("detects workflow.inputs.choice for choice type", () => {
+    const caps = detectCapabilities(makeGraph({ inputs: { env: { type: "choice", options: ["a"] } } }));
+    expect(caps.has("workflow.inputs.choice")).toBe(true);
+  });
+
+  it("detects workflow.inputs.array for array type", () => {
+    const caps = detectCapabilities(makeGraph({ inputs: { targets: { type: "array" } } }));
+    expect(caps.has("workflow.inputs.array")).toBe(true);
+  });
+
+  it("detects workflow.inputs.pattern when input has pattern", () => {
+    const caps = detectCapabilities(makeGraph({ inputs: { ver: { type: "string", pattern: "^v" } } }));
+    expect(caps.has("workflow.inputs.pattern")).toBe(true);
+  });
+
+  it("detects environment.services when step has services", () => {
+    const caps = detectCapabilities(makeGraph({ services: [{ name: "pg", image: "postgres:16" }] }));
+    expect(caps.has("environment.services")).toBe(true);
+  });
+
+  it("detects environment.services.ports when service has ports", () => {
+    const caps = detectCapabilities(makeGraph({ services: [{ name: "pg", image: "postgres:16", ports: [5432] }] }));
+    expect(caps.has("environment.services.ports")).toBe(true);
+  });
+
+  it("does not detect environment.services.ports when no ports", () => {
+    const caps = detectCapabilities(makeGraph({ services: [{ name: "pg", image: "postgres:16" }] }));
+    expect(caps.has("environment.services.ports")).toBe(false);
+  });
+
+  it("detects deployment.environment when step has environment", () => {
+    const caps = detectCapabilities(makeGraph({ environment: { name: "prod" } }));
+    expect(caps.has("deployment.environment")).toBe(true);
+  });
+
+  it("detects deployment.environment.action when environment has action", () => {
+    const caps = detectCapabilities(makeGraph({ environment: { name: "prod", action: "stop" } }));
+    expect(caps.has("deployment.environment.action")).toBe(true);
+  });
+
+  it("detects deployment.environment.tier when environment has tier", () => {
+    const caps = detectCapabilities(makeGraph({ environment: { name: "prod", tier: "production" } }));
+    expect(caps.has("deployment.environment.tier")).toBe(true);
+  });
+
+  it("detects artifact.retention when artifact output has retention", () => {
+    const caps = detectCapabilities(makeGraph({ hasArtifactOutput: true, artifactRetention: "7d" }));
+    expect(caps.has("artifact.retention")).toBe(true);
+  });
+
+  it("detects artifact.access when artifact output has access", () => {
+    const caps = detectCapabilities(makeGraph({ hasArtifactOutput: true, artifactAccess: "developer" }));
+    expect(caps.has("artifact.access")).toBe(true);
+  });
+
+  it("does not detect artifact.retention when omitted", () => {
+    const caps = detectCapabilities(makeGraph({ hasArtifactOutput: true }));
+    expect(caps.has("artifact.retention")).toBe(false);
+  });
+
+  it("detects cache when step has cache", () => {
+    const caps = detectCapabilities(makeGraph({ cache: { paths: ["node_modules"], key: "k" } }));
+    expect(caps.has("cache")).toBe(true);
+  });
+
+  it("detects cache.policy when cache has policy", () => {
+    const caps = detectCapabilities(makeGraph({ cache: { paths: ["node_modules"], key: "k", policy: "pull" } }));
+    expect(caps.has("cache.policy")).toBe(true);
+  });
+
+  it("detects cache.fallbackKeys when cache has restoreKeys", () => {
+    const caps = detectCapabilities(makeGraph({ cache: { paths: ["node_modules"], key: "k", restoreKeys: ["fallback"] } }));
+    expect(caps.has("cache.fallbackKeys")).toBe(true);
+  });
+
+  it("detects concurrency.group when step has concurrency", () => {
+    const caps = detectCapabilities(makeGraph({ concurrency: { group: "prod" } }));
+    expect(caps.has("concurrency.group")).toBe(true);
+  });
+
+  it("detects concurrency.cancelInProgress when set", () => {
+    const caps = detectCapabilities(makeGraph({ concurrency: { group: "prod", cancelInProgress: true } }));
+    expect(caps.has("concurrency.cancelInProgress")).toBe(true);
   });
 });
 

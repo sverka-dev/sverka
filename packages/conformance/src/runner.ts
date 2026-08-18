@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { Project, Pipeline, ShellStep } from "@sverka/cdk";
 import {
   synthesize,
+  expandPipelineCalls,
   SynthesisError,
   type DefinitionGraph,
   type StepDefinition,
@@ -23,6 +24,9 @@ import {
   createSeedWithConstructs,
   createSeedWithSDK,
   createSeedWithDecorators,
+  createReusableSeedWithConstructs,
+  createReusableSeedWithSDK,
+  createReusableSeedWithDecorators,
 } from "./seed.js";
 
 export interface ConformanceResult {
@@ -404,6 +408,100 @@ function checkSerialization(graph: DefinitionGraph): ConformanceResult {
 }
 
 /**
+ * F-31 conformance: reusable pipelines authored through all 3 surfaces
+ * produce equivalent graphs, compile to both targets, and expand correctly.
+ */
+function checkReusablePipelineConformance(): readonly ConformanceResult[] {
+  const results: ConformanceResult[] = [];
+
+  // Authoring.
+  const projConstruct = createReusableSeedWithConstructs();
+  const projSDK = createReusableSeedWithSDK();
+  const projDecorator = createReusableSeedWithDecorators();
+
+  results.push(
+    {
+      name: "F-31: Reusable pipeline authored through Construct API",
+      passed: projConstruct !== undefined,
+      message: "Construct API produced a Project with 2 pipelines",
+    },
+    {
+      name: "F-31: Reusable pipeline authored through SDK API",
+      passed: projSDK !== undefined,
+      message: "SDK API produced a Project with 2 pipelines",
+    },
+    {
+      name: "F-31: Reusable pipeline authored through Decorator API",
+      passed: projDecorator !== undefined,
+      message: "Decorator API produced a Project with 2 pipelines",
+    },
+  );
+
+  // Synthesis.
+  let graphConstruct: DefinitionGraph;
+  let graphSDK: DefinitionGraph;
+  let graphDecorator: DefinitionGraph;
+  try {
+    graphConstruct = synthesize(projConstruct);
+    graphSDK = synthesize(projSDK);
+    graphDecorator = synthesize(projDecorator);
+  } catch (err) {
+    results.push({
+      name: "F-31: All 3 APIs synthesize reusable pipeline graph",
+      passed: false,
+      message: `Synthesis error: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    return results;
+  }
+
+  // Graph equivalence.
+  const constructJson = normalizeGraph(graphConstruct);
+  const sdkJson = normalizeGraph(graphSDK);
+  const decoratorJson = normalizeGraph(graphDecorator);
+  const graphsMatch = constructJson === sdkJson && sdkJson === decoratorJson;
+  results.push({
+    name: "F-31: All 3 APIs synthesize equivalent reusable pipeline graph",
+    passed: graphsMatch,
+    message: graphsMatch
+      ? "All 3 reusable pipeline graphs are equivalent"
+      : `Graphs differ: construct===sdk: ${constructJson === sdkJson}, sdk===decorator: ${sdkJson === decoratorJson}`,
+  });
+
+  // Call step presence.
+  const hasCallStep = graphConstruct.project.pipelines.some((p) =>
+    p.steps.some((s) => s.call !== undefined),
+  );
+  results.push({
+    name: "F-31: Graph contains a pipeline-call step",
+    passed: hasCallStep,
+    message: hasCallStep ? "Call step found in graph" : "No call step in graph",
+  });
+
+  // Expansion: call steps expand to namespaced inline steps.
+  const ciPipeline = graphConstruct.project.pipelines.find((p) => p.id === "ci");
+  if (ciPipeline) {
+    const expanded = expandPipelineCalls(graphConstruct, ciPipeline.steps);
+    const hasNoCallSteps = expanded.every((s) => s.call === undefined);
+    const hasNamespacedStep = expanded.some((s) =>
+      s.id.includes("deploy-staging"),
+    );
+    results.push({
+      name: "F-31: Expansion flattens call steps into inline namespaced steps",
+      passed: hasNoCallSteps && hasNamespacedStep,
+      message: `Expanded ${expanded.length} steps; no call steps: ${hasNoCallSteps}; namespaced step present: ${hasNamespacedStep}`,
+    });
+  }
+
+  // Target compilation.
+  results.push(
+    checkTargetCompile(graphConstruct, "github", "workflow_call"),
+    checkTargetCompile(graphConstruct, "gitlab", "script:"),
+  );
+
+  return results;
+}
+
+/**
  * Run all conformance checks and return results.
  * This is the §34 acceptance gate.
  */
@@ -434,15 +532,14 @@ export async function runConformance(): Promise<readonly ConformanceResult[]> {
     checkScalarFlow(graphConstruct),
     checkArtifactFlow(graphConstruct),
     checkContainerImage(graphConstruct),
-  );
-
-  // Reuse events from checkEngineExecution for the context-namespace check.
-  results.push(
+    // Reuse events from checkEngineExecution for the context-namespace check.
     checkContextNamespaces(graphConstruct, events),
     checkCycleDiagnostics(),
     await checkNoNetwork(graphConstruct),
     checkProviderNeutral(graphConstruct),
     checkSerialization(graphConstruct),
+    // F-31: Reusable pipeline conformance.
+    ...checkReusablePipelineConformance(),
   );
 
   return results;

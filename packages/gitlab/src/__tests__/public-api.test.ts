@@ -36,6 +36,7 @@ describe("public API — exports", () => {
       stages: [],
       jobs: [],
       variables: {},
+      includes: [],
     };
     const _job: GitlabJob = {
       id: "build",
