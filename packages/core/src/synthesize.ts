@@ -8,6 +8,7 @@ import {
   type Project,
   Step,
   type StepRef,
+  type Expression,
 } from "@sverka/cdk";
 import type {
   DefinitionGraph,
@@ -91,7 +92,15 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
   validateDependencies(steps);
   detectCycles(steps);
 
-  return { id: pipelineId, inputs, entries, steps, outputs };
+  return {
+    id: pipelineId,
+    ...(pipeline.name !== undefined ? { name: pipeline.name } : {}),
+    ...(pipeline.runName !== undefined ? { runName: String(pipeline.runName) } : {}),
+    inputs,
+    entries,
+    steps,
+    outputs,
+  };
 }
 
 function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
@@ -198,6 +207,19 @@ function collectControlDeps(
       producer: producerId,
       output: ref.output,
     });
+  } else if (step.condition?.kind === "expression") {
+    // Expression conditions may reference step outputs — infer value deps.
+    const expr = step.condition as Expression;
+    for (const ref of expr.refs) {
+      if (ref.kind === "step") {
+        const producerId = resolveStepId(pipelineId, ref.step);
+        addDependency(dependencies, seenDeps, {
+          kind: ref.type === "artifact" ? "artifact" : "value",
+          producer: producerId,
+          output: ref.output,
+        });
+      }
+    }
   }
 
   // Control dependencies from dependsOn.
