@@ -1,5 +1,5 @@
-// Native lowering: Definition Graph → GithubTargetGraph.
-// Spec 08 — §18.1, §19.
+// Native lowering: Definition Graph → GithubTargetGraph[].
+// Spec 08 — §18.1, §19. F-31: multi-pipeline reusable workflows.
 
 import type {
   DefinitionGraph,
@@ -10,37 +10,59 @@ import type {
   Dependency,
   Reference,
   Expression,
+  Input,
 } from "@sverka/core";
-import type { Trigger, MatrixSpec, StepRef, StatusCondition } from "@sverka/cdk";
+import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, Input, ServiceContainer, CacheSpec, InputLiteral } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
   GithubJob,
   GithubStep,
+  GithubRunsOn,
+  GithubDefaults,
+  GithubDefaultsRun,
+  GithubInput,
+  GithubService,
 } from "./types.js";
 import { GithubTargetError } from "./errors.js";
 
 /**
- * Lower a Definition Graph to a GithubTargetGraph.
- * One GitHub job per reachable Step. Triggers collected from all entries.
+ * Lower a Definition Graph to one or more GithubTargetGraphs.
+ * - Each pipeline with entries → a root workflow with its triggers.
+ * - Each pipeline referenced by a call step → a reusable workflow with
+ *   `on: workflow_call` (+ its own triggers if it also has entries).
+ * - Call steps become `uses:` jobs.
+ * Single-pipeline graphs (no calls) are unchanged (backward compat).
  */
-export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph {
+export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph | readonly GithubTargetGraph[] {
   if (graph.project.pipelines.length === 0) {
     throw new GithubTargetError("graph has no pipelines", "INVALID_GRAPH");
   }
-  if (graph.project.pipelines.length > 1) {
-    throw new GithubTargetError(
-      "multi-pipeline graphs are not supported in v0",
-      "INVALID_GRAPH",
+
+  // Single-pipeline, no special steps → backward compat.
+  if (graph.project.pipelines.length === 1) {
+    const pipeline = graph.project.pipelines[0]!;
+    const hasSpecial = pipeline.steps.some(
+      (s) => s.call || s.component || s.childPipeline || s.downstream,
     );
+    if (!hasSpecial) {
+      return lowerSinglePipeline(pipeline);
+    }
   }
 
-  const pipeline = graph.project.pipelines[0]!;
+  // Multi-pipeline or has special steps → lower all pipelines.
+  return lowerMultiPipeline(graph);
+}
+
+/**
+ * Lower a single pipeline (no calls) — original v0 behavior.
+ */
+function lowerSinglePipeline(pipeline: PipelineDefinition): GithubTargetGraph {
   const reachableSteps = filterReachableSteps(pipeline);
   const jobIdMap = buildJobIdMap(reachableSteps);
 
-  const triggers = lowerTriggers(pipeline.entries);
-  const jobs = lowerSteps(reachableSteps, jobIdMap);
+  const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
+  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
 
   return {
     name: pipeline.name ?? pipeline.id,
@@ -48,7 +70,110 @@ export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph {
     on: triggers,
     jobs,
     env: collectEnv(pipeline),
+    ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
+    ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
+    ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
   };
+}
+
+/**
+ * Lower pipeline defaults to GitHub defaults.run (shell + working-directory only).
+ */
+function lowerDefaults(defaults: PipelineDefaults): GithubDefaults {
+  const run: GithubDefaultsRun = {
+    ...(defaults.shell !== undefined ? { shell: defaults.shell } : {}),
+    ...(defaults.workdir !== undefined ? { "working-directory": defaults.workdir } : {}),
+  };
+  return { run };
+}
+
+/**
+ * Lower a multi-pipeline graph. Each pipeline that has entries OR is referenced
+ * by a call step gets its own workflow file.
+ */
+function lowerMultiPipeline(graph: DefinitionGraph): readonly GithubTargetGraph[] {
+  const pipelines = graph.project.pipelines;
+
+  // Find which pipelines are called by some call step.
+  const calledPipelineIds = new Set<string>();
+  for (const p of pipelines) {
+    for (const step of p.steps) {
+      if (step.call) {
+        calledPipelineIds.add(step.call.callee);
+      }
+    }
+  }
+
+  const result: GithubTargetGraph[] = [];
+
+  for (const pipeline of pipelines) {
+    const hasEntries = pipeline.entries.length > 0;
+    const isCalled = calledPipelineIds.has(pipeline.id);
+
+    // Skip pipelines that are neither roots nor callees.
+    if (!hasEntries && !isCalled) continue;
+
+    // For callees, all steps are reachable (no entries needed).
+    // For roots, filter by entry reachability.
+    const reachableSteps = hasEntries
+      ? filterReachableSteps(pipeline)
+      : pipeline.steps;
+
+    const jobIdMap = buildJobIdMap(reachableSteps);
+
+    // Triggers: root triggers + workflow_call if called.
+    let triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
+    if (isCalled) {
+      triggers = addWorkflowCall(triggers, pipeline.inputs);
+    }
+
+    const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
+
+    result.push({
+      name: pipeline.id,
+      on: triggers,
+      jobs,
+      env: collectEnv(pipeline),
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Add workflow_call trigger with inputs to a GithubTriggers object.
+ */
+function addWorkflowCall(
+  triggers: GithubTriggers,
+  inputs: Readonly<Record<string, Input>>,
+): GithubTriggers {
+  const inputEntries = Object.entries(inputs);
+  if (inputEntries.length === 0) {
+    return { ...triggers, workflow_call: null };
+  }
+
+  const workflowInputs: Record<string, unknown> = {};
+  for (const [name, input] of inputEntries) {
+    let type = "string";
+    if (input.type === "number") {
+      type = "number";
+    } else if (input.type === "boolean") {
+      type = "boolean";
+    }
+    const ghInput: Record<string, unknown> = {
+      type,
+      required: input.required ?? false,
+    };
+    if (input.default !== undefined) {
+      ghInput.default = input.default;
+    }
+    if (input.description !== undefined) {
+      ghInput.description = input.description;
+    }
+    workflowInputs[name] = ghInput;
+  }
+
+  return { ...triggers, workflow_call: { inputs: workflowInputs } };
 }
 
 /**
@@ -162,7 +287,10 @@ function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
  * Map Sverka triggers to GitHub triggers.
  * Multiple entries of the same kind have their filters merged.
  */
-function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
+function lowerTriggers(
+  entries: readonly EntryDefinition[],
+  inputs: Readonly<Record<string, Input>>,
+): GithubTriggers {
   const pushBranches = new Set<string>();
   const pushTags = new Set<string>();
   const pushPaths = new Set<string>();
@@ -209,7 +337,8 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
     prPaths,
     hasManual,
     scheduleEntries,
-  });
+    inputs,
+  );
 }
 
 function collectFilters(
@@ -261,6 +390,7 @@ interface TriggerFilters {
   readonly prPaths: Set<string>;
   readonly hasManual: boolean;
   readonly scheduleEntries: readonly { cron: string; timezone?: string }[];
+  readonly inputs: Readonly<Record<string, Input>>;
 }
 
 function assembleTriggers(f: TriggerFilters): GithubTriggers {
@@ -269,7 +399,10 @@ function assembleTriggers(f: TriggerFilters): GithubTriggers {
   if (push) triggers.push = push;
   const pr = assemblePullRequestTrigger(f);
   if (pr) triggers.pull_request = pr;
-  if (f.hasManual) triggers.workflow_dispatch = null;
+  if (f.hasManual) {
+    const loweredInputs = lowerInputs(f.inputs);
+    triggers.workflow_dispatch = loweredInputs !== undefined ? { inputs: loweredInputs } : null;
+  }
   if (f.scheduleEntries.length > 0) triggers.schedule = f.scheduleEntries;
   return triggers as GithubTriggers;
 }
@@ -294,13 +427,209 @@ function assemblePullRequestTrigger(f: TriggerFilters): Record<string, string[]>
 }
 
 /**
- * Lower reachable steps to GitHub jobs. One job per step.
+ * Lower pipeline inputs to GitHub workflow_dispatch inputs.
+ * Returns undefined if no inputs are present.
+ * Maps Sverka types to GitHub types: choice→choice, array→unsupported (dropped),
+ * others map directly. pattern is dropped (unsupported on GitHub).
  */
-function lowerSteps(
+function lowerInputs(
+  inputs: Readonly<Record<string, Input>>,
+): Readonly<Record<string, GithubInput>> | undefined {
+  if (Object.keys(inputs).length === 0) return undefined;
+  const result: Record<string, GithubInput> = {};
+  for (const [name, input] of Object.entries(inputs)) {
+    const ghInput: GithubInput = {
+      type: input.type === "array" ? "string" : input.type,
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.required !== undefined ? { required: input.required } : {}),
+      ...(input.default !== undefined && typeof input.default !== "object"
+        ? { default: input.default as string | number | boolean }
+        : {}),
+      ...(input.options !== undefined ? { options: input.options } : {}),
+    };
+    result[name] = ghInput;
+  }
+  return result;
+}
+
+/**
+ * Lower reachable steps to GitHub jobs. One job per step.
+ * Call steps become `uses:` jobs (reusable workflow calls).
+ * Component steps become `uses:` jobs (composite action calls).
+ */
+function lowerStepsWithCalls(
   steps: readonly StepDefinition[],
   jobIdMap: Map<string, string>,
+  pipelineId: string,
 ): readonly GithubJob[] {
-  return steps.map((step) => lowerStep(step, jobIdMap));
+  return steps.map((step) => {
+    if (step.call) {
+      return lowerCallStep(step, jobIdMap, pipelineId);
+    }
+    if (step.component) {
+      return lowerComponentStep(step, jobIdMap);
+    }
+    if (step.childPipeline) {
+      return lowerChildPipelineStep(step, jobIdMap);
+    }
+    if (step.downstream) {
+      return lowerDownstreamStep(step, jobIdMap);
+    }
+    return lowerStep(step, jobIdMap);
+  });
+}
+
+/**
+ * Lower a call step to a GitHub reusable workflow call job.
+ */
+function lowerCallStep(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+  pipelineId: string,
+): GithubJob {
+  const jobId = jobIdMap.get(step.id) ?? step.id;
+  const needs = lowerDependencies(step.dependencies, jobIdMap);
+  const call = step.call!;
+  const callee = call.callee;
+
+  // Build `with:` from bound inputs.
+  const withMap: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(call.inputs)) {
+    if (typeof value === "object" && value !== null && "kind" in value) {
+      // Reference binding — lower to GitHub expression.
+      const ref = value as Reference;
+      if (ref.kind === "step") {
+        const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
+        withMap[name] = `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
+      } else if (ref.kind === "context") {
+        // Context ref — map to GitHub expression.
+        withMap[name] = `\${{ ${ref.namespace}.${ref.field} }}`;
+      }
+    } else {
+      // Literal binding.
+      withMap[name] = value;
+    }
+  }
+
+  return {
+    id: jobId,
+    name: jobId,
+    runsOn: "ubuntu-latest",
+    needs,
+    steps: [],
+    uses: `./.github/workflows/${callee}.yml`,
+    ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
+    secrets: "inherit",
+  };
+}
+
+/**
+ * Lower a component step to a GitHub composite action call job.
+ * F-32: component → uses: org/component@version with `with:` inputs.
+ */
+function lowerComponentStep(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+): GithubJob {
+  const jobId = jobIdMap.get(step.id) ?? step.id;
+  const needs = lowerDependencies(step.dependencies, jobIdMap);
+  const comp = step.component!;
+
+  // Build `with:` from bound inputs.
+  const withMap: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(comp.inputs)) {
+    if (typeof value === "object" && value !== null && "kind" in value) {
+      const ref = value as Reference;
+      if (ref.kind === "step") {
+        const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
+        withMap[name] = `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
+      } else if (ref.kind === "context") {
+        withMap[name] = `\${{ ${ref.namespace}.${ref.field} }}`;
+      }
+    } else {
+      withMap[name] = value;
+    }
+  }
+
+  return {
+    id: jobId,
+    name: jobId,
+    runsOn: "ubuntu-latest",
+    needs,
+    steps: [],
+    uses: `${comp.name}@${comp.version}`,
+    ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
+  };
+}
+
+/**
+ * Lower a child pipeline step to a GitHub job.
+ * F-33: GitHub does not natively support dynamic child pipelines.
+ * We emit a no-op job with a warning comment. The native engine handles
+ * the actual dynamic generation.
+ */
+function lowerChildPipelineStep(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+): GithubJob {
+  const jobId = jobIdMap.get(step.id) ?? step.id;
+  const needs = lowerDependencies(step.dependencies, jobIdMap);
+  return {
+    id: jobId,
+    name: jobId,
+    runsOn: "ubuntu-latest",
+    needs,
+    steps: [
+      {
+        name: "Dynamic child pipeline (not natively supported on GitHub)",
+        run: `echo "WARNING: Dynamic child pipelines are not supported by GitHub Actions. Generator: ${step.childPipeline!.generator}, artifact: ${step.childPipeline!.artifact}"`,
+      },
+    ],
+  };
+}
+
+/**
+ * Lower a downstream step to a GitHub job.
+ * F-34: GitHub emulates downstream project triggers via repository_dispatch API.
+ */
+function lowerDownstreamStep(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+): GithubJob {
+  const jobId = jobIdMap.get(step.id) ?? step.id;
+  const needs = lowerDependencies(step.dependencies, jobIdMap);
+  const ds = step.downstream!;
+  // Build client_payload from inputs.
+  const payloadParts: string[] = [];
+  if (ds.inputs) {
+    for (const [name, value] of Object.entries(ds.inputs)) {
+      if (typeof value === "object" && value !== null && "kind" in value) {
+        const ref = value as Reference;
+        if (ref.kind === "step") {
+          const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
+          payloadParts.push(`\\"${name}\\": \\"\${{ needs.${producerJobId}.outputs.${ref.output} }}\\"`);
+        } else if (ref.kind === "context") {
+          payloadParts.push(`\\"${name}\\": \\"\${{ ${ref.namespace}.${ref.field} }}\\"`);
+        }
+      } else {
+        payloadParts.push(`\\"${name}\\": \\"${String(value)}\\"`);
+      }
+    }
+  }
+  const payload = `{${payloadParts.join(", ")}}`;
+  const branchPart = ds.branch ? ` -f "ref=${ds.branch}"` : "";
+  return {
+    id: jobId,
+    name: jobId,
+    runsOn: "ubuntu-latest",
+    needs,
+    steps: [
+      {
+        name: `Trigger downstream: ${ds.project}`,
+        run: `gh api repos/${ds.project}/dispatches -f event_type=sverka-trigger -f client_payload='${payload}'${branchPart}`,
+      },
+    ],
+  };
 }
 
 /**
@@ -337,18 +666,51 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
 
   const jobId = jobIdMap.get(step.id) ?? step.id;
 
+  // F-48: delay → emulated via sleep step (GitHub has no native delayed execution).
+  applyDelay(steps, step);
+
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
-  const runsOn = "ubuntu-latest";
+  const runsOn = resolveRunsOn(step);
   const container = resolveContainer(step, mode);
   const jobEnv = collectJobEnv(runtime);
 
-  const job: GithubJob = {
+  return assembleGithubJob(jobId, steps, needs, step, runsOn, container, jobEnv);
+}
+
+/**
+ * Insert a sleep step to emulate delay (GitHub has no native delayed execution).
+ */
+function applyDelay(steps: GithubStep[], step: StepDefinition): void {
+  if (!step.delay) return;
+  const sleepSeconds = parseDurationToSeconds(step.delay);
+  // Insert sleep step after checkout (which is always first).
+  if (steps.length > 0) {
+    steps.splice(1, 0, {
+      name: `Delay (${step.delay})`,
+      run: `sleep ${sleepSeconds}`,
+    });
+  }
+}
+
+/**
+ * Assemble the final GithubJob object from its constituent parts.
+ */
+function assembleGithubJob(
+  jobId: string,
+  steps: GithubStep[],
+  needs: readonly string[],
+  step: StepDefinition,
+  runsOn: GithubRunsOn,
+  container: string | undefined,
+  jobEnv: Record<string, string>,
+): GithubJob {
+  return {
     id: jobId,
     name: jobId,
     runsOn,
     needs,
-    steps,
+    steps: step.cache !== undefined ? [lowerCacheStep(step.cache), ...steps] : steps,
     ...(step.timeout !== undefined
       ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
       : {}),
@@ -357,9 +719,91 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
     ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
     ...(Object.keys(outputs).length > 0 ? { outputs } : {}),
     ...(step.condition !== undefined ? { if: lowerCondition(step.condition, jobIdMap) } : {}),
+    ...(step.identity !== undefined ? { permissions: { "id-token": "write" } } : {}),
+    ...(step.rules !== undefined && step.rules.length > 0 && step.rules[0]?.if !== undefined
+      ? { if: step.rules[0].if }
+      : {}),
+    ...(step.services !== undefined && step.services.length > 0
+      ? { services: lowerServices(step.services) }
+      : {}),
+    ...(step.environment !== undefined
+      ? { environment: { name: step.environment.name, ...(step.environment.url !== undefined ? { url: step.environment.url } : {}) } }
+      : {}),
+    ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
   };
+}
 
-  return job;
+/**
+ * Lower a cache spec to a GitHub cache step.
+ * pull-push → actions/cache@v4
+ * pull → actions/cache/restore@v4
+ * push → actions/cache/save@v4
+ */
+function lowerCacheStep(cache: CacheSpec): GithubStep {
+  const policy = cache.policy ?? "pull-push";
+  let action = "actions/cache@v4";
+  if (policy === "pull") {
+    action = "actions/cache/restore@v4";
+  } else if (policy === "push") {
+    action = "actions/cache/save@v4";
+  }
+  const withMap: Record<string, unknown> = {
+    path: cache.paths.length === 1 ? cache.paths[0] : cache.paths.join("\n"),
+    key: cache.key,
+  };
+  if (cache.restoreKeys !== undefined && cache.restoreKeys.length > 0) {
+    withMap["restore-keys"] = cache.restoreKeys.length === 1 ? cache.restoreKeys[0] : cache.restoreKeys.join("\n");
+  }
+  return {
+    name: "Restore cache",
+    uses: action,
+    with: withMap,
+  };
+}
+
+/**
+ * Lower service containers to GitHub services map (keyed by name).
+ */
+function lowerServices(services: readonly ServiceContainer[]): Readonly<Record<string, GithubService>> {
+  const result: Record<string, GithubService> = {};
+  for (const svc of services) {
+    result[svc.name] = {
+      image: svc.image,
+      ...(svc.env !== undefined ? { env: { ...svc.env } } : {}),
+      ...(svc.ports !== undefined ? { ports: svc.ports.map((p) => `${p}:${p}`) } : {}),
+      ...(svc.entrypoint !== undefined ? { entrypoint: [...svc.entrypoint] } : {}),
+      ...(svc.command !== undefined ? { command: [...svc.command] } : {}),
+    };
+  }
+  return result;
+}
+
+function resolveRunsOn(step: StepDefinition): GithubRunsOn {
+  if (step.runner === undefined) {
+    return "ubuntu-latest";
+  }
+  const { labels, group } = step.runner;
+  if (group !== undefined) {
+    return { group, labels };
+  }
+  if (labels.length === 1) {
+    return labels[0]!;
+  }
+  return labels;
+}
+
+/**
+ * Parse a duration string (e.g. "5m", "30s", "1h") to seconds.
+ * F-48: used for GitHub sleep emulation.
+ */
+function parseDurationToSeconds(duration: string): number {
+  const match = duration.match(/^(\d+)\s*(s|m|h|seconds?|minutes?|hours?)?$/i);
+  if (!match) return 0;
+  const value = parseInt(match[1]!, 10);
+  const unit = (match[2] ?? "s").toLowerCase();
+  if (unit.startsWith("h")) return value * 3600;
+  if (unit.startsWith("m")) return value * 60;
+  return value;
 }
 
 function resolveContainer(
@@ -500,14 +944,19 @@ function lowerOperation(
 ): void {
   switch (op.kind) {
     case "shell":
-      runLines.push(op.command);
+      // F-49: background shell → append & for async execution.
+      runLines.push(op.background ? `${op.command} &` : op.command);
       break;
     case "exportArtifact":
       flushRun();
       steps.push({
         name: `Upload ${op.name}`,
         uses: "actions/upload-artifact@v4",
-        with: { name: artifactName(shortStepId, op.name), path: op.path },
+        with: {
+          name: artifactName(shortStepId, op.name),
+          path: op.path,
+          ...(op.retention !== undefined ? { "retention-days": parseRetentionDays(op.retention) } : {}),
+        },
       });
       break;
     case "importArtifact":
@@ -516,12 +965,71 @@ function lowerOperation(
     case "diagnostic":
       lowerDiagnostic(op, steps, flushRun);
       break;
+    case "report":
+      flushRun();
+      steps.push(lowerReport(op.spec));
+      break;
+    case "release":
+      lowerRelease(op, steps, flushRun);
+      break;
+    case "deployPages":
+      lowerDeployPages(op, steps, flushRun);
+      break;
     default:
       throw new GithubTargetError(
         `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
         "LOWER_FAILED",
       );
   }
+}
+
+/**
+ * Lower a release operation to a GitHub release step.
+ * F-39: uses softprops/action-gh-release@v2.
+ */
+function lowerRelease(
+  op: Extract<OperationDefinition, { kind: "release" }>,
+  steps: GithubStep[],
+  flushRun: () => void,
+): void {
+  flushRun();
+  const withMap: Record<string, unknown> = {
+    tag_name: op.tag,
+  };
+  if (op.name) withMap.name = op.name;
+  if (op.description) withMap.body = op.description;
+  if (op.assets && op.assets.length > 0) withMap.assets = op.assets.join("\n");
+  if (op.draft !== undefined) withMap.draft = op.draft;
+  if (op.prerelease !== undefined) withMap.prerelease = op.prerelease;
+  steps.push({
+    name: `Release ${op.tag}`,
+    uses: "softprops/action-gh-release@v2",
+    with: withMap,
+  });
+}
+
+/**
+ * Lower a deployPages operation to GitHub Pages deployment steps.
+ * F-40: uses actions/upload-pages-artifact + actions/deploy-pages.
+ */
+function lowerDeployPages(
+  op: Extract<OperationDefinition, { kind: "deployPages" }>,
+  steps: GithubStep[],
+  flushRun: () => void,
+): void {
+  flushRun();
+  // Upload the pages artifact.
+  steps.push({
+    name: "Upload Pages artifact",
+    uses: "actions/upload-pages-artifact@v3",
+    with: { path: op.path },
+  });
+  // Deploy the pages.
+  steps.push({
+    name: "Deploy to GitHub Pages",
+    uses: "actions/deploy-pages@v4",
+    id: "deployment",
+  });
 }
 
 function lowerImportArtifact(op: Extract<OperationDefinition, { kind: "importArtifact" }>, steps: GithubStep[], flushRun: () => void): void {
@@ -553,6 +1061,55 @@ function lowerDiagnostic(op: Extract<OperationDefinition, { kind: "diagnostic" }
  */
 function artifactName(stepId: string, outputName: string): string {
   return `${stepId}-${outputName}`;
+}
+
+/**
+ * Parse a duration string (e.g., "7d", "1h", "30m", "never") into days.
+ * Returns undefined for "never" (no retention limit).
+ */
+function parseRetentionDays(retention: string): number | undefined {
+  if (retention === "never") return undefined;
+  const match = /^(\d+)([dhm])$/.exec(retention);
+  if (match === null) return undefined;
+  const value = parseInt(match[1]!, 10);
+  const unit = match[2];
+  if (unit === "d") return value;
+  if (unit === "h") return Math.ceil(value / 24);
+  if (unit === "m") return Math.ceil(value / (60 * 24));
+  return undefined;
+}
+
+/**
+ * Lower a report spec to a GitHub action step.
+ * Maps report types to known GitHub actions.
+ */
+function lowerReport(spec: ReportSpec): GithubStep {
+  switch (spec.type) {
+    case "junit":
+      return {
+        name: `Report ${spec.type}`,
+        uses: "dorny/test-reporter@v1",
+        with: {
+          name: "Tests",
+          path: spec.path,
+          reporter: "java-junit",
+        },
+      };
+    case "sarif":
+    case "sast":
+      return {
+        name: `Upload ${spec.type}`,
+        uses: "github/codeql-action/upload-sarif@v3",
+        with: { sarif_file: spec.path },
+      };
+    default:
+      // No standard action — upload as generic artifact
+      return {
+        name: `Upload ${spec.type} report`,
+        uses: "actions/upload-artifact@v4",
+        with: { name: `${spec.type}-report`, path: spec.path },
+      };
+  }
 }
 
 /**
