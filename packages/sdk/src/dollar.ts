@@ -1,4 +1,4 @@
-// sh tagged template — shell command step builder.
+// $ tagged template — shell command step builder.
 // Spec 03 — §9.2, §15. Architecture spec §9.2.
 
 import {
@@ -97,7 +97,7 @@ function createBuilder(state: StepBuilderState): StepBuilder {
  * References interpolated in the template are collected and added to the
  * step's inputs automatically.
  */
-export function sh(
+export function $(
   strings: TemplateStringsArray,
   ...values: readonly (string | Reference)[]
 ): StepBuilder {

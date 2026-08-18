@@ -1,19 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline } from "@sverka/cdk";
-import { sh, matrixContext } from "../index.js";
+import { $, matrixContext } from "../index.js";
 
 describe("StepBuilder.matrix()", () => {
   it("sets matrix spec on the built ShellStep", () => {
     const project = new Project("sdk-matrix");
     const pipeline = new Pipeline(project, "ci");
-    const step = sh`make test`.matrix({ dimensions: { node: [18, 20] } }).build(pipeline, "test");
+    const step = $`make test`.matrix({ dimensions: { node: [18, 20] } }).build(pipeline, "test");
     expect(step.matrix).toEqual({ dimensions: { node: [18, 20] } });
   });
 
   it("is chainable with other builders", () => {
     const project = new Project("sdk-chain");
     const pipeline = new Pipeline(project, "ci");
-    const step = sh`make test`
+    const step = $`make test`
       .matrix({ dimensions: { node: [18, 20], os: ["ubuntu"] } })
       .timeout(60000)
       .build(pipeline, "test");
@@ -25,7 +25,7 @@ describe("StepBuilder.matrix()", () => {
   it("matrix is undefined when .matrix() not called", () => {
     const project = new Project("sdk-no-matrix");
     const pipeline = new Pipeline(project, "ci");
-    const step = sh`make test`.build(pipeline, "test");
+    const step = $`make test`.build(pipeline, "test");
     expect(step.matrix).toBeUndefined();
   });
 });
@@ -45,7 +45,7 @@ describe("matrix context namespace", () => {
     const project = new Project("sdk-ctx");
     const pipeline = new Pipeline(project, "ci");
     const nodeMatrix = matrixContext.node!;
-    const step = sh`make test NODE=${nodeMatrix}`.build(pipeline, "test");
+    const step = $`make test NODE=${nodeMatrix}`.build(pipeline, "test");
     expect(step.inputs).toContainEqual({ kind: "context", namespace: "matrix", field: "node" });
   });
 });

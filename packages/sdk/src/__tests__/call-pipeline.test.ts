@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { Project, Entry, push, PipelineCallStep } from "@sverka/cdk";
-import { pipelineV0 as pipeline, sh, callPipeline, inputs } from "../index.js";
+import { pipelineV0 as pipeline, $, callPipeline, inputs } from "../index.js";
 
 describe("callPipeline builder", () => {
   it("creates a PipelineCallStep with callee and callInputs", () => {
     const proj = new Project("test");
     const ci = pipeline(proj, "ci", {
       steps: [
-        (pip) => sh`make build`.build(pip, "build"),
+        (pip) => $`make build`.build(pip, "build"),
         (pip) =>
           callPipeline("deploy", { env: "staging" })
             .dependsOn(["build"])
@@ -57,13 +57,13 @@ describe("callPipeline builder", () => {
     pipeline(proj, "deploy", {
       inputs: { env: { type: "string", required: true } },
       steps: [
-        (pip) => sh`deploy ${inputs.env!}`.outputs({ url: { type: "string" } }).build(pip, "deploy"),
+        (pip) => $`deploy ${inputs.env!}`.outputs({ url: { type: "string" } }).build(pip, "deploy"),
       ],
     });
     // Caller pipeline.
     pipeline(proj, "ci", {
       steps: [
-        (pip) => sh`make build`.build(pip, "build"),
+        (pip) => $`make build`.build(pip, "build"),
         (pip) =>
           callPipeline("deploy", { env: "staging" })
             .dependsOn(["build"])

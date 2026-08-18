@@ -1,13 +1,14 @@
 import { describe, it, expect } from "vitest";
 import * as sdk from "../index.js";
-import type { StepBuilder, PipelineConfig, ImageRef, SdkErrorCode } from "../index.js";
+import type { StepBuilder, PipelineConfig, ImageRef, SdkErrorCode, ShellProxy } from "../index.js";
 
 // Compile-time guard: the public type surface must stay exported.
-type _TypeSurface = [StepBuilder, PipelineConfig, ImageRef, SdkErrorCode];
+type _TypeSurface = [StepBuilder, PipelineConfig, ImageRef, SdkErrorCode, ShellProxy];
 
 describe("public API", () => {
   it("exports all expected functions", () => {
-    expect(typeof sdk.sh).toBe("function");
+    expect(typeof sdk.$).toBe("function");
+    expect(typeof sdk.shell).toBe("function");
     expect(typeof sdk.artifact).toBe("function");
     expect(typeof sdk.pipeline).toBe("function");
     expect(typeof sdk.when).toBe("function");
