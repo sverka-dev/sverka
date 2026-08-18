@@ -8,6 +8,7 @@ import {
   PipelineCallStep,
   Entry,
   type Reference,
+  type Construct,
 } from "@sverka/cdk";
 import { sh, callPipeline, pipelineV0 as sdkPipeline } from "@sverka/sdk";
 import {
@@ -18,6 +19,12 @@ import {
   input,
   decoratePipeline,
 } from "@sverka/decorators";
+
+/** Register a construct as a child of its parent (side-effect constructor). */
+function register<T extends Construct>(_construct: T): void {
+  // Constructs add themselves to their parent in the constructor.
+  // The return value is intentionally unused.
+}
 
 const SEED_INPUTS = {
   nodeVersion: { type: "string" as const, default: "22" },
@@ -63,23 +70,23 @@ export function createSeedWithConstructs(): Project {
   const proj = new Project("conf");
   const p = new Pipeline(proj, "ci", { inputs: SEED_INPUTS });
 
-  new ShellStep(p, "lint", {
+  register(new ShellStep(p, "lint", {
     command: lintCommand,
     outputs: lintOutputs,
-  });
-  new ShellStep(p, "build", {
+  }));
+  register(new ShellStep(p, "build", {
     command: buildCommand,
     dependsOn: ["lint"],
     inputs: [statusRef],
     outputs: buildOutputs,
-  });
-  new ShellStep(p, "test", {
+  }));
+  register(new ShellStep(p, "test", {
     command: testCommand,
     dependsOn: ["build"],
     inputs: [distRef],
     condition: nodeVersionContext,
-  });
-  new Entry(p, "on-push", onPushEntry);
+  }));
+  register(new Entry(p, "on-push", onPushEntry));
 
   return proj;
 }
@@ -153,15 +160,15 @@ const REUSABLE_CALLEE_COMMAND = `echo "deploying to $\{env}"`;
 export function createReusableSeedWithConstructs(): Project {
   const proj = new Project("conf-rw");
   const deploy = new Pipeline(proj, "deploy", { inputs: REUSABLE_CALLEE_INPUTS });
-  new ShellStep(deploy, "deploy", { command: REUSABLE_CALLEE_COMMAND });
+  register(new ShellStep(deploy, "deploy", { command: REUSABLE_CALLEE_COMMAND }));
   const ci = new Pipeline(proj, "ci");
-  new ShellStep(ci, "build", { command: "make build" });
-  new PipelineCallStep(ci, "deploy-staging", {
+  register(new ShellStep(ci, "build", { command: "make build" }));
+  register(new PipelineCallStep(ci, "deploy-staging", {
     callee: "deploy",
     callInputs: { env: "staging" },
     dependsOn: ["build"],
-  });
-  new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+  }));
+  register(new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] }));
   return proj;
 }
 
