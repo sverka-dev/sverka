@@ -21,6 +21,7 @@ export interface GithubStep {
   readonly env?: Record<string, string>;
   readonly if?: string;
   readonly continueOnError?: boolean;
+  readonly shell?: string;
 }
 
 export interface GithubJob {
@@ -37,10 +38,12 @@ export interface GithubJob {
     readonly failFast?: boolean;
     readonly maxParallel?: number;
   };
+  readonly outputs?: Record<string, string>;
 }
 
 export interface GithubTargetGraph {
   readonly name: string;
+  readonly runName?: string;
   readonly on: GithubTriggers;
   readonly jobs: readonly GithubJob[];
   readonly env: Record<string, string>;

@@ -42,7 +42,8 @@ export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph {
   const jobs = lowerSteps(reachableSteps, jobIdMap);
 
   return {
-    name: pipeline.id,
+    name: pipeline.name ?? pipeline.id,
+    ...(pipeline.runName !== undefined ? { runName: pipeline.runName } : {}),
     on: triggers,
     jobs,
     env: collectEnv(pipeline),
@@ -209,10 +210,6 @@ function collectBranches(
   branches: Set<string>,
   markAll: () => void,
 ): void {
-  if (t.kind === "schedule") {
-    markAll();
-    return;
-  }
   if (t.filter?.branches && t.filter.branches.length > 0) {
     for (const branch of t.filter.branches) {
       branches.add(branch);
@@ -269,22 +266,26 @@ function lowerSteps(
  */
 function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJob {
   const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const rawSteps = lowerOperations(step, jobIdMap);
+  const { steps: rawSteps, outputs } = lowerOperations(step, jobIdMap);
 
-  // Apply continueOnError to all run steps (not Checkout/uses steps).
+  // Apply continueOnError and shell to all run steps (not Checkout/uses steps).
   const steps =
-    step.continueOnError !== undefined
-      ? rawSteps.map((s) =>
-          s.run !== undefined
-            ? {
-                ...s,
-                continueOnError:
-                  typeof step.continueOnError === "boolean"
-                    ? step.continueOnError
-                    : true,
-              }
-            : s,
-        )
+    step.continueOnError !== undefined || step.runtime.shell !== undefined
+      ? rawSteps.map((s) => {
+          if (s.run === undefined) return s;
+          return {
+            ...s,
+            ...(step.continueOnError !== undefined
+              ? {
+                  continueOnError:
+                    typeof step.continueOnError === "boolean"
+                      ? step.continueOnError
+                      : true,
+                }
+              : {}),
+            ...(step.runtime.shell !== undefined ? { shell: step.runtime.shell } : {}),
+          };
+        })
       : rawSteps;
 
   const jobId = jobIdMap.get(step.id) ?? step.id;
@@ -307,6 +308,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
     ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
     ...(container ? { container } : {}),
     ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
+    ...(Object.keys(outputs).length > 0 ? { outputs } : {}),
   };
 
   return job;
@@ -368,8 +370,9 @@ function lowerDependencies(
 function lowerOperations(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
-): readonly GithubStep[] {
+): { steps: readonly GithubStep[]; outputs: Record<string, string> } {
   const steps: GithubStep[] = [];
+  const outputs: Record<string, string> = {};
   const shortStepId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
 
   // Every job needs the repository checked out.
@@ -378,14 +381,15 @@ function lowerOperations(
     uses: "actions/checkout@v4",
   });
 
-  // beforeScript → run steps before main operations.
+  // beforeScript → run steps before main operations (translated for context refs).
   if (step.beforeScript) {
     for (const cmd of step.beforeScript) {
-      steps.push({ run: cmd });
+      steps.push({ run: translateCommand(cmd, step.inputs, jobIdMap) });
     }
   }
 
   let runLines: string[] = [];
+  let hasExportInRun = false;
 
   function flushRun(): void {
     if (runLines.length === 0) return;
@@ -393,24 +397,34 @@ function lowerOperations(
     const translated = translateCommand(combined, step.inputs, jobIdMap);
     steps.push({
       run: translated,
+      // If this run block contains exportOutput lines, give it an id so
+      // job outputs can reference ${{ steps.<id>.outputs.* }}.
+      ...(hasExportInRun ? { id: `${shortStepId}-outputs` } : {}),
     });
     runLines = [];
+    hasExportInRun = false;
   }
 
   for (const op of step.operations) {
-    lowerOperation(op, shortStepId, steps, runLines, flushRun);
+    if (op.kind === "exportOutput") {
+      runLines.push(`echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`);
+      outputs[op.name] = `\${{ steps.${shortStepId}-outputs.outputs.${op.name} }}`;
+      hasExportInRun = true;
+    } else {
+      lowerOperation(op, shortStepId, steps, runLines, flushRun);
+    }
   }
 
   flushRun();
 
-  // afterScript → run steps after main operations with if: always().
+  // afterScript → run steps after main operations with if: always() (translated).
   if (step.afterScript) {
     for (const cmd of step.afterScript) {
-      steps.push({ run: cmd, if: "always()" });
+      steps.push({ run: translateCommand(cmd, step.inputs, jobIdMap), if: "always()" });
     }
   }
 
-  return steps;
+  return { steps, outputs };
 }
 
 function lowerOperation(
@@ -423,9 +437,6 @@ function lowerOperation(
   switch (op.kind) {
     case "shell":
       runLines.push(op.command);
-      break;
-    case "exportOutput":
-      runLines.push(`echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`);
       break;
     case "exportArtifact":
       flushRun();
@@ -541,7 +552,7 @@ function lowerStrategy(spec: MatrixSpec): {
 const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
   "git.sha": "github.sha",
   "git.branch": "github.ref_name",
-  "git.tag": "github.ref_name",
+  "git.tag": "(github.ref_type == 'tag' && github.ref_name || '')",
   "change.id": "github.event.pull_request.number",
   "change.source": "github.event_name",
   "change.target": "github.base_ref",
@@ -558,8 +569,13 @@ function translateContextRef(namespace: string, field: string): string {
   const key = `${namespace}.${field}`;
   const mapped = GITHUB_CONTEXT_MAP[key];
   if (mapped) return `\${{ ${mapped} }}`;
-  if (namespace === "env" || namespace === "secrets" || namespace === "inputs") {
+  if (namespace === "env" || namespace === "secrets") {
     return `\${{ ${namespace}.${field} }}`;
+  }
+  // Pipeline inputs are emitted as env vars by collectEnv, so inputs.X
+  // maps to env.X in the generated workflow.
+  if (namespace === "inputs") {
+    return `\${{ env.${field} }}`;
   }
   if (namespace === "matrix") {
     return `\${{ matrix.${field} }}`;
