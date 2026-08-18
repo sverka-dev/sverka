@@ -11,7 +11,7 @@ import { GRAPH_SCHEMA_VERSION, RUN_PLAN_SCHEMA_VERSION } from "./version.js";
 
 const INPUT_TYPES = new Set(["string", "number", "boolean"]);
 const OUTPUT_TYPES = new Set(["string", "number", "boolean", "artifact"]);
-const TRIGGER_KINDS = new Set(["push", "changeRequest", "manual"]);
+const TRIGGER_KINDS = new Set(["push", "changeRequest", "manual", "schedule"]);
 const SEVERITIES = new Set(["info", "warn", "error"]);
 const CONTEXT_NAMESPACES = new Set([
   "env",
@@ -21,6 +21,7 @@ const CONTEXT_NAMESPACES = new Set([
   "event",
   "run",
   "inputs",
+  "matrix",
 ]);
 const REFERENCE_KINDS = new Set(["step", "context"]);
 const OPERATION_KINDS = new Set([
@@ -200,6 +201,14 @@ function validateTrigger(value: unknown): void {
   }
   if (t.filter !== undefined) {
     validateTriggerFilter(t.filter);
+  }
+  if (t.kind === "schedule") {
+    if (typeof t.cron !== "string" || t.cron.length === 0) {
+      throw new ValidationError("invalid trigger: schedule trigger requires a non-empty 'cron' field");
+    }
+    if (t.timezone !== undefined && typeof t.timezone !== "string") {
+      throw new ValidationError("invalid trigger: schedule trigger 'timezone' must be a string");
+    }
   }
 }
 
