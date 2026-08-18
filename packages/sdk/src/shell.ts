@@ -59,6 +59,7 @@ function createShellProxy(prefix: string, shellOpt?: string): ShellProxy {
     get(_target, prop: string | symbol): ShellProxy | undefined {
       // Guard against thenable/introspection props (then, toJSON, etc.)
       if (typeof prop !== "string") return undefined;
+      if (prop === "then" || prop === "toJSON" || prop === "toString") return undefined;
       const newPrefix = prefix ? `${prefix} ${prop}` : prop;
       return createShellProxy(newPrefix, shellOpt);
     },
@@ -110,6 +111,8 @@ function wrapBuilder(
     runtime(r) { builder.runtime(r); return wrapped; },
     timeout(ms) { builder.timeout(ms); return wrapped; },
     condition(ref) { builder.condition(ref); return wrapped; },
+    matrix(spec) { builder.matrix(spec); return wrapped; },
+    interruptible(value) { builder.interruptible(value); return wrapped; },
     build(pipeline, id) {
       return transform(origBuild(pipeline, id));
     },
