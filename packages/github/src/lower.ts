@@ -612,7 +612,7 @@ function lowerDownstreamStep(
           payloadParts.push(`\\"${name}\\": \\"\${{ ${ref.namespace}.${ref.field} }}\\"`);
         }
       } else {
-        payloadParts.push(`\\"${name}\\": \\"${String(value)}\\"`);
+        payloadParts.push(String.raw`\"${name}\": \"${String(value)}\"`);
       }
     }
   }
@@ -797,9 +797,9 @@ function resolveRunsOn(step: StepDefinition): GithubRunsOn {
  * F-48: used for GitHub sleep emulation.
  */
 function parseDurationToSeconds(duration: string): number {
-  const match = duration.match(/^(\d+)\s*(s|m|h|seconds?|minutes?|hours?)?$/i);
+  const match = /^(\d+)\s*(s|m|h|seconds?|minutes?|hours?)?$/i.exec(duration);
   if (!match) return 0;
-  const value = parseInt(match[1]!, 10);
+  const value = Number.parseInt(match[1]!, 10);
   const unit = (match[2] ?? "s").toLowerCase();
   if (unit.startsWith("h")) return value * 3600;
   if (unit.startsWith("m")) return value * 60;
@@ -1018,18 +1018,19 @@ function lowerDeployPages(
   flushRun: () => void,
 ): void {
   flushRun();
-  // Upload the pages artifact.
-  steps.push({
-    name: "Upload Pages artifact",
-    uses: "actions/upload-pages-artifact@v3",
-    with: { path: op.path },
-  });
-  // Deploy the pages.
-  steps.push({
-    name: "Deploy to GitHub Pages",
-    uses: "actions/deploy-pages@v4",
-    id: "deployment",
-  });
+  // Upload the pages artifact, then deploy.
+  steps.push(
+    {
+      name: "Upload Pages artifact",
+      uses: "actions/upload-pages-artifact@v3",
+      with: { path: op.path },
+    },
+    {
+      name: "Deploy to GitHub Pages",
+      uses: "actions/deploy-pages@v4",
+      id: "deployment",
+    },
+  );
 }
 
 function lowerImportArtifact(op: Extract<OperationDefinition, { kind: "importArtifact" }>, steps: GithubStep[], flushRun: () => void): void {
@@ -1071,7 +1072,7 @@ function parseRetentionDays(retention: string): number | undefined {
   if (retention === "never") return undefined;
   const match = /^(\d+)([dhm])$/.exec(retention);
   if (match === null) return undefined;
-  const value = parseInt(match[1]!, 10);
+  const value = Number.parseInt(match[1]!, 10);
   const unit = match[2];
   if (unit === "d") return value;
   if (unit === "h") return Math.ceil(value / 24);

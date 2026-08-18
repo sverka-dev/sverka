@@ -156,8 +156,22 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
     script: job.script,
   };
 
-  if (job.image) {
-    result.image = job.image;
+  // Simple field copies: [yamlKey, jobKey, condition]
+  const simpleFields: Array<[string, keyof GitlabJob, unknown]> = [
+    ["image", "image", job.image],
+    ["timeout", "timeout", job.timeout],
+    ["interruptible", "interruptible", job.interruptible],
+    ["resource_group", "resourceGroup", job.resourceGroup],
+    ["trigger", "trigger", job.trigger],
+    ["release", "release", job.release],
+    ["pages", "pages", job.pages],
+    ["when", "when", job.when],
+    ["start_in", "start_in", job.start_in],
+  ];
+  for (const [yamlKey, _jobKey, value] of simpleFields) {
+    if (value !== undefined && value !== null) {
+      result[yamlKey] = value;
+    }
   }
 
   if (job.needs.length > 0) {
@@ -222,30 +236,6 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
 
   if (job.cache) {
     result.cache = cacheToYaml(job.cache);
-  }
-
-  if (job.resourceGroup !== undefined) {
-    result.resource_group = job.resourceGroup;
-  }
-
-  if (job.trigger) {
-    result.trigger = job.trigger;
-  }
-
-  if (job.release) {
-    result.release = job.release;
-  }
-
-  if (job.pages) {
-    result.pages = job.pages;
-  }
-
-  if (job.when) {
-    result.when = job.when;
-  }
-
-  if (job.start_in) {
-    result.start_in = job.start_in;
   }
 
   return result;

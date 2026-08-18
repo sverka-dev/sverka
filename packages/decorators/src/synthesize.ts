@@ -2,11 +2,14 @@
 // Spec 04 — §9.3–9.8.
 
 import { Pipeline, ShellStep, Entry } from "@sverka/cdk";
-import type { Project, Input, Trigger, Reference, ShellStepProps } from "@sverka/cdk";
+import type { Project, Input, Trigger, Reference, ShellStepProps, Construct } from "@sverka/cdk";
 import type { StepBuilder } from "@sverka/sdk";
 import { getPipelineMetadata } from "./decorators.js";
 import { DecoratorError } from "./errors.js";
 import type { FieldMetadata, StepOptions } from "./types.js";
+
+/** Register a construct as a child of its parent (side-effect constructor). */
+function register<T extends Construct>(_construct: T): void {}
 
 const FIELDS_KEY = Symbol.for("sverka:fields");
 
@@ -134,7 +137,7 @@ function createStepFromField(
   const stepId = options?.id ?? name;
 
   if (typeof value === "string") {
-    new ShellStep(pipeline, stepId, stepProps(value, options));
+    register(new ShellStep(pipeline, stepId, stepProps(value, options)));
     return;
   }
 
@@ -176,7 +179,7 @@ function createStepFromMethod(
     ...stepProps(spec.command, options),
     ...(spec.inputs.length > 0 ? { inputs: spec.inputs } : {}),
   };
-  new ShellStep(pipeline, stepId, props);
+  register(new ShellStep(pipeline, stepId, props));
 }
 
 function stepProps(command: string, options?: StepOptions): ShellStepProps {

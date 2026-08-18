@@ -123,7 +123,7 @@ function validateCallGraph(
       throw new SynthesisError(
         "NESTING_TOO_DEEP",
         `Pipeline call nesting exceeds max depth ${MAX_PIPELINE_CALL_DEPTH} at '${path.join(" -> ")}'`,
-        path[path.length - 1],
+        path.at(-1),
       );
     }
     const c = color.get(id);

@@ -63,24 +63,23 @@ export function createSeedWithConstructs(): Project {
   const proj = new Project("conf");
   const p = new Pipeline(proj, "ci", { inputs: SEED_INPUTS });
 
-  const lint = new ShellStep(p, "lint", {
+  new ShellStep(p, "lint", {
     command: lintCommand,
     outputs: lintOutputs,
   });
-  const build = new ShellStep(p, "build", {
+  new ShellStep(p, "build", {
     command: buildCommand,
     dependsOn: ["lint"],
     inputs: [statusRef],
     outputs: buildOutputs,
   });
-  const test = new ShellStep(p, "test", {
+  new ShellStep(p, "test", {
     command: testCommand,
     dependsOn: ["build"],
     inputs: [distRef],
     condition: nodeVersionContext,
   });
-  const entry = new Entry(p, "on-push", onPushEntry);
-  void lint; void build; void test; void entry;
+  new Entry(p, "on-push", onPushEntry);
 
   return proj;
 }
@@ -154,16 +153,15 @@ const REUSABLE_CALLEE_COMMAND = `echo "deploying to $\{env}"`;
 export function createReusableSeedWithConstructs(): Project {
   const proj = new Project("conf-rw");
   const deploy = new Pipeline(proj, "deploy", { inputs: REUSABLE_CALLEE_INPUTS });
-  const deployStep = new ShellStep(deploy, "deploy", { command: REUSABLE_CALLEE_COMMAND });
+  new ShellStep(deploy, "deploy", { command: REUSABLE_CALLEE_COMMAND });
   const ci = new Pipeline(proj, "ci");
-  const buildStep = new ShellStep(ci, "build", { command: "make build" });
-  const deployStaging = new PipelineCallStep(ci, "deploy-staging", {
+  new ShellStep(ci, "build", { command: "make build" });
+  new PipelineCallStep(ci, "deploy-staging", {
     callee: "deploy",
     callInputs: { env: "staging" },
     dependsOn: ["build"],
   });
-  const entry = new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
-  void deployStep; void buildStep; void deployStaging; void entry;
+  new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
   return proj;
 }
 
