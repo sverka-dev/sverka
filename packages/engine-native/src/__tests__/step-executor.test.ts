@@ -145,29 +145,32 @@ describe("StepExecutor — context ref resolution", () => {
 
   it("resolves env.X from process.env", async () => {
     process.env.SVERKA_TEST_VAR = "test-value";
-    let capturedCommand = "";
-    const driver = createMockDriver({
-      executeFn: async (req) => {
-        capturedCommand = req.command;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
-      },
-    });
-    const step: StepDefinition = {
-      id: "ci/build",
-      runtime: {},
-      operations: [{ kind: "shell", command: "echo ${env.SVERKA_TEST_VAR}" }],
-      inputs: [{ kind: "context", namespace: "env", field: "SVERKA_TEST_VAR" }],
-      outputs: [],
-      dependencies: [],
-    };
-    await executeStep({
-      step, driver, workspace: testDir,
-      artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
-    });
-    expect(capturedCommand).toBe("echo test-value");
-    delete process.env.SVERKA_TEST_VAR;
+    try {
+      let capturedCommand = "";
+      const driver = createMockDriver({
+        executeFn: async (req) => {
+          capturedCommand = req.command;
+          return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        },
+      });
+      const step: StepDefinition = {
+        id: "ci/build",
+        runtime: {},
+        operations: [{ kind: "shell", command: "echo ${env.SVERKA_TEST_VAR}" }],
+        inputs: [{ kind: "context", namespace: "env", field: "SVERKA_TEST_VAR" }],
+        outputs: [],
+        dependencies: [],
+      };
+      await executeStep({
+        step, driver, workspace: testDir,
+        artifactStore: createArtifactStore(join(testDir, "art")),
+        valueStore: createValueStore(), secrets: {},
+        emit: () => {}, isCancelled: () => false,
+      });
+      expect(capturedCommand).toBe("echo test-value");
+    } finally {
+      delete process.env.SVERKA_TEST_VAR;
+    }
   });
 
   it("resolves secrets.X from secrets record", async () => {

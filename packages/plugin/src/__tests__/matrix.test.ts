@@ -3,7 +3,7 @@ import { detectCapabilities } from "../capabilities.js";
 import type { DefinitionGraph } from "@sverka/core";
 
 function makeGraph(steps: Array<{ matrix?: unknown; dependencies?: unknown[] }>): DefinitionGraph {
-  return {
+  const graph = {
     project: {
       id: "test",
       pipelines: [
@@ -19,10 +19,12 @@ function makeGraph(steps: Array<{ matrix?: unknown; dependencies?: unknown[] }>)
             dependencies: s.dependencies ?? [],
             ...(s.matrix ? { matrix: s.matrix } : {}),
           })),
+          outputs: [],
         },
       ],
     },
-  } as unknown as DefinitionGraph;
+  } satisfies DefinitionGraph;
+  return graph;
 }
 
 describe("Matrix capability detection", () => {
