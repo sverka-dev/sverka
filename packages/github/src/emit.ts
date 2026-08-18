@@ -86,6 +86,10 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
     result.outputs = job.outputs;
   }
 
+  if (job.if) {
+    result.if = job.if;
+  }
+
   result.steps = job.steps.map((step, i) => stepToYaml(step, i));
 
   return result;
@@ -119,6 +123,12 @@ function stepToYaml(step: GithubStep, index: number): Record<string, unknown> {
   if (step.env) {
     result.env = step.env;
   }
+  if (step.workingDirectory) {
+    result["working-directory"] = step.workingDirectory;
+  }
+  if (step.shell) {
+    result.shell = step.shell;
+  }
 
   if (step.if) {
     result.if = step.if;
@@ -126,10 +136,6 @@ function stepToYaml(step: GithubStep, index: number): Record<string, unknown> {
 
   if (step.continueOnError !== undefined) {
     result["continue-on-error"] = step.continueOnError;
-  }
-
-  if (step.shell) {
-    result.shell = step.shell;
   }
 
   return result;

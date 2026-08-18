@@ -10,8 +10,9 @@ import type {
   Dependency,
   Trigger,
   Reference,
+  Expression,
 } from "@sverka/core";
-import type { MatrixSpec, MatrixValue } from "@sverka/cdk";
+import type { MatrixSpec, MatrixValue, StepRef, StatusCondition } from "@sverka/cdk";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
 
@@ -306,17 +307,12 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
     const t = entry.trigger;
     switch (t.kind) {
       case "push":
-        rules.push({
-          if: buildSourceRule('$CI_PIPELINE_SOURCE == "push"', t.filter?.branches),
-        });
+        rules.push(buildFilterRule('$CI_PIPELINE_SOURCE == "push"', t.filter, false));
         break;
       case "changeRequest":
-        rules.push({
-          if: buildSourceRule(
-            '$CI_PIPELINE_SOURCE == "merge_request_event"',
-            t.filter?.branches,
-          ),
-        });
+        // For MR triggers, $CI_COMMIT_BRANCH is not populated.
+        // Use $CI_MERGE_REQUEST_TARGET_BRANCH_NAME for branch filters.
+        rules.push(buildFilterRule('$CI_PIPELINE_SOURCE == "merge_request_event"', t.filter, true));
         break;
       case "manual":
         rules.push({ if: '$CI_PIPELINE_SOURCE == "web"' });
@@ -335,20 +331,57 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
   return rules;
 }
 
-function buildSourceRule(
+/**
+ * Build a GitLab rule from a source condition and a trigger filter.
+ * For push triggers: branches → $CI_COMMIT_BRANCH, tags → $CI_COMMIT_TAG
+ * For MR triggers: branches → $CI_MERGE_REQUEST_TARGET_BRANCH_NAME (target branch)
+ * Paths → changes: [paths] on the rule
+ */
+function buildFilterRule(
   sourceCondition: string,
-  branches: readonly string[] | undefined,
-): string {
-  if (!branches || branches.length === 0) {
-    return sourceCondition;
+  filter: { readonly branches?: readonly string[]; readonly tags?: readonly string[]; readonly paths?: readonly string[] } | undefined,
+  isMergeRequest: boolean,
+): GitlabRule {
+  // Tag filters are not meaningful on change-request (merge request) triggers.
+  if (isMergeRequest && filter?.tags && filter.tags.length > 0) {
+    throw new GitlabTargetError(
+      "tag filters are not supported on change-request triggers",
+      "UNSUPPORTED_TRIGGER",
+    );
   }
 
-  const branchCondition =
-    branches.length === 1
-      ? `$CI_COMMIT_BRANCH == ${quoteJsonString(branches[0]!)}`
-      : `(${branches.map((b) => `$CI_COMMIT_BRANCH == ${quoteJsonString(b)}`).join(" || ")})`;
+  // Source condition (push/MR/web) is always required.
+  const conditions: string[] = [sourceCondition];
 
-  return `${sourceCondition} && ${branchCondition}`;
+  // Branch and tag filters are OR'd: a push to a matching branch OR a matching tag.
+  // For MR triggers, tag filters are rejected above; only branch (target) filters apply.
+  const refConditions: string[] = [];
+  if (filter?.branches && filter.branches.length > 0) {
+    const branchRef = isMergeRequest ? "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" : "$CI_COMMIT_BRANCH";
+    refConditions.push(buildRefCondition(branchRef, filter.branches));
+  }
+  if (filter?.tags && filter.tags.length > 0) {
+    refConditions.push(buildRefCondition("$CI_COMMIT_TAG", filter.tags));
+  }
+  if (refConditions.length === 1) {
+    conditions.push(refConditions[0]!);
+  } else if (refConditions.length > 1) {
+    conditions.push(`(${refConditions.join(" || ")})`);
+  }
+
+  const rule: GitlabRule = { if: conditions.join(" && ") };
+  if (filter?.paths && filter.paths.length > 0) {
+    return { ...rule, changes: [...filter.paths] };
+  }
+  return rule;
+}
+
+function buildRefCondition(ref: string, values: readonly string[]): string {
+  if (values.length === 1) {
+    return `${ref} == ${quoteJsonString(values[0]!)}`;
+  }
+  const parts = values.map((v) => `${ref} == ${quoteJsonString(v)}`);
+  return `(${parts.join(" || ")})`;
 }
 
 /**
@@ -374,7 +407,7 @@ function lowerStep(
 ): GitlabJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const stage = stageMap.get(jobId) ?? "build";
-  const rules = rulesMap.get(jobId) ?? [];
+  const triggerRules = rulesMap.get(jobId) ?? [];
   const { script, artifacts, needs: importNeeds, variables } = lowerOperations(
     step,
     jobIdMap,
@@ -388,6 +421,32 @@ function lowerStep(
   }
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
+
+  // If the step has a condition, apply it to each trigger rule.
+  // - Status conditions (success/failure/always/never) set `when:` on each rule.
+  // - Other conditions (context/step/expression) AND an `if:` expression with each rule.
+  // GitLab evaluates rules in order and stops at the first match, so appending
+  // the condition as a separate rule would bypass it when a trigger rule matches.
+  let rules = triggerRules;
+  if (step.condition !== undefined) {
+    const cond = lowerGitlabCondition(step.condition, jobIdMap);
+    if (cond.ifExpr !== undefined) {
+      rules = triggerRules.map((rule) => ({
+        ...rule,
+        if: `(${rule.if}) && (${cond.ifExpr})`,
+      }));
+      if (rules.length === 0) {
+        rules = [{ if: cond.ifExpr }];
+      }
+    } else if (cond.when !== undefined) {
+      // Status condition — set when: on all trigger rules.
+      rules = triggerRules.map((rule) => ({ ...rule, when: cond.when }));
+      if (rules.length === 0) {
+        // No trigger rules — emit a single rule with the when: value.
+        rules = [{ if: "true", when: cond.when }];
+      }
+    }
+  }
 
   return {
     id: jobId,
@@ -556,6 +615,12 @@ function lowerOperations(
     artifacts.reports = { dotenv: DOTENV_REPORT_FILE };
   }
 
+  if (step.runtime.workingDir && script.length > 0) {
+    // Shell-quote the directory to prevent injection and handle spaces
+    const escapedDir = shellQuoteSingle(step.runtime.workingDir);
+    script.unshift(`cd ${escapedDir}`);
+  }
+
   return {
     script,
     ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
@@ -700,32 +765,64 @@ const GITLAB_CONTEXT_MAP: Readonly<Record<string, string>> = {
   // run.attempt has no GitLab equivalent; left unmapped.
 };
 
+/**
+ * Translate a context ref (namespace.field) to GitLab variable syntax.
+ */
 function translateGitlabContextRef(namespace: string, field: string): string {
   const key = `${namespace}.${field}`;
   const mapped = GITLAB_CONTEXT_MAP[key];
   if (mapped) return mapped;
-  if (namespace === "env" || namespace === "secrets" || namespace === "inputs") {
-    return `$${field}`;
+  // Dynamic namespaces: env.X, secrets.X → $FIELD (uppercase, GitLab convention)
+  if (namespace === "env" || namespace === "secrets") {
+    return `$${field.toUpperCase()}`;
   }
   if (namespace === "matrix") {
     return `$${field.toUpperCase()}`;
   }
-  return `\${${namespace}.${field}}`;
+  // inputs.X → $[[ inputs.FIELD ]] (GitLab pipeline input syntax)
+  if (namespace === "inputs") {
+    return `$[[ inputs.${field} ]]`;
+  }
+  // Unknown — fail lowering rather than emit invalid expression
+  throw new GitlabTargetError(
+    `unsupported context namespace '${namespace}' in GitLab lowering`,
+    "LOWER_FAILED",
+  );
 }
 
+/**
+ * Translate a step ref to GitLab variable syntax: $<producerJob>_<output> (from dotenv artifact).
+ * The producer job ID prefix matches the dotenv key format written by lowerOperations.
+ */
+function translateGitlabStepRef(ref: StepRef, jobIdMap: Map<string, string>): string {
+  const producerJob = jobIdMap.get(ref.step) ?? ref.step;
+  return `$${producerJob}_${ref.output}`;
+}
+
+/**
+ * Build a lookup map from placeholder key to Reference from the step's inputs.
+ */
+function buildGitlabInputLookup(inputs: readonly Reference[]): Map<string, Reference> {
+  const map = new Map<string, Reference>();
+  for (const ref of inputs) {
+    if (ref.kind === "context") {
+      map.set(`${ref.namespace}.${ref.field}`, ref);
+    } else if (ref.kind === "step") {
+      map.set(`${ref.step}.${ref.output}`, ref);
+    }
+  }
+  return map;
+}
+
+/**
+ * Translate ${...} placeholders in a command string to GitLab variable syntax.
+ */
 function translateGitlabCommand(
   command: string,
   inputs: readonly Reference[],
   jobIdMap: Map<string, string>,
 ): string {
-  const lookup = new Map<string, Reference>();
-  for (const ref of inputs) {
-    if (ref.kind === "context") {
-      lookup.set(`${ref.namespace}.${ref.field}`, ref);
-    } else if (ref.kind === "step") {
-      lookup.set(`${ref.step}.${ref.output}`, ref);
-    }
-  }
+  const lookup = buildGitlabInputLookup(inputs);
   return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
     const ref = lookup.get(key);
     if (ref === undefined) {
@@ -739,4 +836,53 @@ function translateGitlabCommand(
     const producerJob = jobIdMap.get(ref.step) ?? ref.step;
     return `$${producerJob}_${ref.output}`;
   });
+}
+
+/**
+ * Structured result of lowering a step condition.
+ * - `ifExpr`: a GitLab `if:` expression (for context/step/expression conditions)
+ * - `when`: a GitLab `when:` value (for status conditions like success/failure/always/never)
+ */
+interface ConditionLowering {
+  readonly ifExpr?: string;
+  readonly when?: string;
+}
+
+/**
+ * Lower a step condition to a structured GitLab rule fragment.
+ * Status conditions map to `when:` on the rule; other conditions produce an `if:` expression.
+ */
+function lowerGitlabCondition(
+  condition: Reference | Expression | StatusCondition,
+  jobIdMap: Map<string, string>,
+): ConditionLowering {
+  if (condition.kind === "status") {
+    switch (condition.status) {
+      case "always":
+        return { when: "always" };
+      case "never":
+        return { when: "never" };
+      case "failure":
+        return { when: "on_failure" };
+      case "success":
+        return { when: "on_success" };
+    }
+  }
+  if (condition.kind === "context") {
+    return { ifExpr: translateGitlabContextRef(condition.namespace, condition.field) };
+  }
+  if (condition.kind === "step") {
+    return { ifExpr: translateGitlabStepRef(condition, jobIdMap) };
+  }
+  // Expression — translate each ${...} placeholder, no single-quote wrapping
+  const lookup = buildGitlabInputLookup(condition.refs);
+  const ifExpr = condition.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+    const ref = lookup.get(key);
+    if (ref === undefined) return `\${${key}}`;
+    if (ref.kind === "context") {
+      return translateGitlabContextRef(ref.namespace, ref.field);
+    }
+    return translateGitlabStepRef(ref, jobIdMap);
+  });
+  return { ifExpr };
 }

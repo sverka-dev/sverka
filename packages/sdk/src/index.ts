@@ -80,3 +80,4 @@ export { status } from "./status.js";
 export { image, images } from "./images.js";
 export type { ImageRef } from "./images.js";
 export { env, secrets, git, change, event, run as runContext, inputs, matrix as matrixContext } from "./context.js";
+export type { Expression } from "@sverka/cdk";

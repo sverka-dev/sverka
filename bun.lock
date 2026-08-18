@@ -326,6 +326,8 @@
         "@sverka/planner": "workspace:*",
         "@sverka/policy": "workspace:*",
         "@sverka/runtime": "workspace:*",
+        "@sverka/runtime-docker": "workspace:*",
+        "@sverka/runtime-host": "workspace:*",
       },
       "devDependencies": {
         "tsdown": "^0.22.0",
