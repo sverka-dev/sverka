@@ -41,7 +41,11 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
   }
 
   // For v1, lower the first root pipeline (single .gitlab-ci.yml).
-  // Multi-root GitLab is a follow-up.
+  // Multi-root GitLab is a follow-up. Report dropped roots via console warning.
+  if (rootPipelines.length > 1) {
+    const dropped = rootPipelines.slice(1).map((p) => p.id);
+    console.warn(`GitLab lowering: dropping ${dropped.length} additional root pipeline(s): ${dropped.join(", ")}. Multi-root GitLab support is not yet implemented.`);
+  }
   const pipeline = rootPipelines[0]!;
   const reachableSteps = filterReachableSteps(pipeline);
   // Expand pipeline-call steps into inline namespaced jobs.
@@ -88,7 +92,7 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
   const autoCancel = jobs.some((job) => job.interruptible === true);
 
   return {
-    name: pipeline.name ?? pipeline.id,
+    name: pipeline.id,
     stages,
     jobs,
     variables: collectVariables(pipeline),
@@ -175,11 +179,11 @@ function lowerWorkflowRules(pipeline: PipelineDefinition): readonly GitlabWorkfl
 function lowerComponentInclude(ref: ComponentRef): GitlabComponentInclude {
   const inputs: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(ref.inputs)) {
-    if (typeof value === "object" && value !== null && "kind" in value) {
+    if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
       // Reference bindings — GitLab uses variable interpolation.
       const r = value as Reference;
       if (r.kind === "step") {
-        inputs[name] = `$CI_JOB_${r.step.replace(/-/g, "_").toUpperCase()}_OUTPUT_${r.output}`;
+        inputs[name] = `$CI_JOB_${r.step.replaceAll("-", "_").toUpperCase()}_OUTPUT_${r.output}`;
       } else if (r.kind === "context") {
         inputs[name] = `$${r.field.toUpperCase()}`;
       }
@@ -590,21 +594,7 @@ function lowerDownstreamStep(
     strategy: "depend",
   };
   // Inputs become variables on the trigger job.
-  const variables: Record<string, string> = {};
-  if (ds.inputs) {
-    for (const [name, value] of Object.entries(ds.inputs)) {
-      if (typeof value === "object" && value !== null && "kind" in value) {
-        const r = value as Reference;
-        if (r.kind === "step") {
-          variables[name] = `$CI_JOB_${r.step.replace(/-/g, "_").toUpperCase()}_OUTPUT_${r.output}`;
-        } else if (r.kind === "context") {
-          variables[name] = `$${r.field.toUpperCase()}`;
-        }
-      } else {
-        variables[name] = String(value);
-      }
-    }
-  }
+  const variables = lowerDownstreamVariables(ds.inputs);
   return {
     id: jobId,
     stage,
@@ -614,6 +604,35 @@ function lowerDownstreamStep(
     trigger,
     ...(Object.keys(variables).length > 0 ? { variables } : {}),
   };
+}
+
+/**
+ * Lower downstream step inputs to GitLab trigger variables.
+ */
+function lowerDownstreamVariables(inputs: Readonly<Record<string, Reference | InputLiteral>> | undefined): Record<string, string> {
+  const variables: Record<string, string> = {};
+  if (!inputs) return variables;
+  for (const [name, value] of Object.entries(inputs)) {
+    variables[name] = lowerReferenceOrLiteral(value);
+  }
+  return variables;
+}
+
+/**
+ * Lower a reference binding or literal value to a GitLab variable string.
+ * Reference bindings use GitLab variable interpolation; literals are stringified.
+ */
+function lowerReferenceOrLiteral(value: Reference | InputLiteral): string {
+  if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
+    const r = value as Reference;
+    if (r.kind === "step") {
+      return `$CI_JOB_${r.step.replaceAll("-", "_").toUpperCase()}_OUTPUT_${r.output}`;
+    }
+    if (r.kind === "context") {
+      return `$${r.field.toUpperCase()}`;
+    }
+  }
+  return String(value);
 }
 
 /**
@@ -632,7 +651,6 @@ function lowerStep(
   const { script, artifacts, needs: importNeeds, variables, release, pages } = lowerOperations(
     step,
     jobIdMap,
-    jobId,
   );
 
   const needs = mergeNeeds(step, jobIdMap, importNeeds);
@@ -649,11 +667,12 @@ function lowerStep(
   let rules = mergedRules;
   if (step.condition !== undefined) {
     const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
-    rules = mergedRules.map((rule) => ({
-      ...rule,
-      if: condExpr ? `(${rule.if}) && (${condExpr})` : rule.if,
-    }));
-    if (rules.length === 0) {
+    rules = mergedRules.map((rule) => {
+      if (condExpr === undefined) return rule;
+      const ifExpr = rule.if !== undefined ? `(${rule.if}) && (${condExpr})` : condExpr;
+      return { ...rule, if: ifExpr };
+    });
+    if (rules.length === 0 && condExpr !== undefined) {
       rules = [{ if: condExpr }];
     }
   }
@@ -663,7 +682,7 @@ function lowerStep(
     stage,
     needs,
     script,
-    ...buildJobFields(image, artifacts, jobVariables, rules, step.timeout, step.interruptible, step.runner, step.identity, step.services, step.environment, step.cache, step.concurrency),
+    ...buildJobFields({ image, artifacts, variables: jobVariables, rules, timeout: step.timeout, interruptible: step.interruptible, runner: step.runner, identity: step.identity, services: step.services, environment: step.environment, cache: step.cache, concurrency: step.concurrency }),
     ...(step.matrix !== undefined
       ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
       : {}),
@@ -734,26 +753,23 @@ function lowerRuntime(
   return { ...(image ? { image } : {}), variables };
 }
 
-function buildJobFields(
-  image: string | undefined,
-  artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } | undefined,
-  variables: Record<string, string>,
-  rules: readonly GitlabRule[],
-  timeout: number | undefined,
-  interruptible: boolean | undefined,
-  runner: { labels: readonly string[]; group?: string } | undefined,
-  identity: { tokens: Readonly<Record<string, { audience: string }>> } | undefined,
-  services: readonly ServiceContainer[] | undefined,
-  environment: EnvironmentSpec | undefined,
-  cache: CacheSpec | undefined,
-  concurrency: ConcurrencySpec | undefined,
-): Partial<GitlabJob> {
-  const idTokens: Record<string, { aud: string }> = {};
-  if (identity !== undefined) {
-    for (const [name, spec] of Object.entries(identity.tokens)) {
-      idTokens[name] = { aud: spec.audience };
-    }
-  }
+interface JobFieldContext {
+  image: string | undefined;
+  artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } | undefined;
+  variables: Record<string, string>;
+  rules: readonly GitlabRule[];
+  timeout: number | undefined;
+  interruptible: boolean | undefined;
+  runner: { labels: readonly string[]; group?: string } | undefined;
+  identity: { tokens: Readonly<Record<string, { audience: string }>> } | undefined;
+  services: readonly ServiceContainer[] | undefined;
+  environment: EnvironmentSpec | undefined;
+  cache: CacheSpec | undefined;
+  concurrency: ConcurrencySpec | undefined;
+}
+
+function buildJobFields(ctx: JobFieldContext): Partial<GitlabJob> {
+  const { image, artifacts, variables, rules, timeout, interruptible, runner, identity, services, environment, cache, concurrency } = ctx;
   return {
     ...(image ? { image } : {}),
     ...(artifacts ? { artifacts } : {}),
@@ -764,12 +780,22 @@ function buildJobFields(
       : {}),
     ...(interruptible !== undefined ? { interruptible } : {}),
     ...(runner !== undefined ? { tags: runner.labels } : {}),
-    ...(Object.keys(idTokens).length > 0 ? { idTokens } : {}),
+    ...lowerIdTokens(identity),
     ...(services !== undefined && services.length > 0 ? { services: lowerGitlabServices(services) } : {}),
     ...(environment !== undefined ? { environment: lowerGitlabEnvironment(environment) } : {}),
     ...(cache !== undefined ? { cache: lowerGitlabCache(cache) } : {}),
     ...(concurrency !== undefined ? { resourceGroup: concurrency.group } : {}),
   };
+}
+
+/** Lower identity tokens to GitLab id_tokens field. */
+function lowerIdTokens(identity: JobFieldContext["identity"]): Partial<Pick<GitlabJob, "idTokens">> {
+  if (identity === undefined) return {};
+  const idTokens: Record<string, { aud: string }> = {};
+  for (const [name, spec] of Object.entries(identity.tokens)) {
+    idTokens[name] = { aud: spec.audience };
+  }
+  return Object.keys(idTokens).length > 0 ? { idTokens } : {};
 }
 
 /**
@@ -851,13 +877,28 @@ function lowerDependencies(
 }
 
 /**
+ * Mutable accumulator for lowering operations.
+ */
+interface OperationAccumulator {
+  readonly script: string[];
+  readonly artifactPaths: string[];
+  readonly importNeeds: string[];
+  readonly reportEntries: Record<string, unknown>;
+  readonly inputs: readonly Reference[];
+  hasDotenv: boolean;
+  artifactRetention: string | undefined;
+  artifactAccess: string | undefined;
+  release: GitlabRelease | undefined;
+  pages: GitlabPages | undefined;
+}
+
+/**
  * Map operations to script entries, artifacts, and dependencies.
  * Scalar outputs are written to a dotenv report file.
  */
 function lowerOperations(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
-  jobId: string,
 ): {
   script: string[];
   artifacts?: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string };
@@ -866,125 +907,188 @@ function lowerOperations(
   release?: GitlabRelease;
   pages?: GitlabPages;
 } {
-  const script: string[] = [];
-  const artifactPaths: string[] = [];
-  const importNeeds: string[] = [];
-  const jobVariables: Record<string, string> = {};
-  let hasDotenv = false;
-  const reportEntries: Record<string, unknown> = {};
-  let artifactRetention: string | undefined;
-  let artifactAccess: string | undefined;
-  let release: GitlabRelease | undefined;
-  let pages: GitlabPages | undefined;
+  const acc: OperationAccumulator = {
+    script: [],
+    artifactPaths: [],
+    importNeeds: [],
+    reportEntries: {},
+    inputs: step.inputs,
+    hasDotenv: false,
+    artifactRetention: undefined,
+    artifactAccess: undefined,
+    release: undefined,
+    pages: undefined,
+  };
 
   for (const op of step.operations) {
-    switch (op.kind) {
-      case "shell": {
-        const translated = translateGitlabCommand(op.command, step.inputs, jobIdMap);
-        // F-49: background shell → append & for async execution.
-        script.push(op.background ? `${translated} &` : translated);
-        break;
-      }
-      case "exportOutput": {
-        const dotenvName = shellEscapeDoubleQuoted(`${jobId}_${op.name}`);
-        script.push(
-          `echo "${dotenvName}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`,
-        );
-        hasDotenv = true;
-        break;
-      }
-      case "exportArtifact":
-        artifactPaths.push(op.path);
-        if (op.retention !== undefined) artifactRetention = op.retention;
-        if (op.access !== undefined) artifactAccess = op.access;
-        break;
-      case "importArtifact": {
-        const producerJob = jobIdMap.get(op.from) ?? op.from;
-        importNeeds.push(producerJob);
-        break;
-      }
-      case "diagnostic": {
-        script.push(`echo ${shellQuoteSingle(op.message)}`);
-        break;
-      }
-      case "report": {
-        const key = gitlabReportKey(op.spec.type);
-        if (op.spec.type === "coverage") {
-          reportEntries[key] = {
-            coverage_format: op.spec.format ?? "cobertura",
-            path: op.spec.path,
-          };
-        } else {
-          reportEntries[key] = op.spec.path;
-        }
-        break;
-      }
-      case "release": {
-        // GitLab release keyword. Assets are file paths → emit as links with
-        // placeholder URLs (GitLab requires URLs, not file paths).
-        const links = (op.assets ?? []).map((path) => ({
-          name: path.split("/").pop() ?? path,
-          url: `https://example.com/${path}`,
-        }));
-        release = {
-          tag_name: op.tag,
-          ...(op.name ? { name: op.name } : {}),
-          ...(op.description ? { description: op.description } : {}),
-          ...(links.length > 0 ? { assets: { links } } : {}),
-          ...(op.draft !== undefined ? { draft: op.draft } : {}),
-        };
-        break;
-      }
-      case "deployPages": {
-        // GitLab pages keyword. The job must be named "pages" in GitLab.
-        // We emit the pages config here; the job ID will be "pages" via
-        // the jobIdMap (set during lowering).
-        pages = {
-          publish: op.path,
-          ...(op.prefix ? { path_prefix: op.prefix } : {}),
-        };
-        // GitLab pages requires the path as an artifact.
-        artifactPaths.push(op.path);
-        break;
-      }
-      default:
-        throw new GitlabTargetError(
-          `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
-          "LOWER_FAILED",
-        );
+    lowerOperation(op, acc, jobIdMap);
+  }
+
+  return assembleOperationResult(acc, step);
+}
+
+/**
+ * Lower a single operation, mutating the accumulator.
+ */
+function lowerOperation(
+  op: OperationDefinition,
+  acc: OperationAccumulator,
+  jobIdMap: Map<string, string>,
+): void {
+  switch (op.kind) {
+    case "shell": {
+      const translated = translateGitlabCommand(op.command, acc.inputs, jobIdMap);
+      // F-49: background shell → append & for async execution.
+      acc.script.push(op.background ? `${translated} &` : translated);
+      break;
     }
+    case "exportOutput":
+      lowerExportOutput(op, acc);
+      break;
+    case "exportArtifact":
+      lowerExportArtifact(op, acc);
+      break;
+    case "importArtifact":
+      acc.importNeeds.push(jobIdMap.get(op.from) ?? op.from);
+      break;
+    case "diagnostic":
+      acc.script.push(`echo ${shellQuoteSingle(op.message)}`);
+      break;
+    case "report":
+      lowerReport(op, acc);
+      break;
+    case "release":
+      acc.release = lowerReleaseOp(op);
+      break;
+    case "deployPages":
+      lowerDeployPages(op, acc);
+      break;
+    default:
+      throw new GitlabTargetError(
+        `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
+        "LOWER_FAILED",
+      );
   }
+}
 
+/**
+ * Lower an exportOutput operation into a dotenv echo line.
+ */
+function lowerExportOutput(
+  op: Extract<OperationDefinition, { kind: "exportOutput" }>,
+  acc: OperationAccumulator,
+): void {
+  const name = shellEscapeDoubleQuoted(op.name);
+  acc.script.push(`echo "${name}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`);
+  acc.hasDotenv = true;
+}
+
+/**
+ * Lower an exportArtifact operation, recording paths and retention metadata.
+ */
+function lowerExportArtifact(
+  op: Extract<OperationDefinition, { kind: "exportArtifact" }>,
+  acc: OperationAccumulator,
+): void {
+  acc.artifactPaths.push(op.path);
+  if (op.retention !== undefined) acc.artifactRetention = op.retention;
+  if (op.access !== undefined) acc.artifactAccess = op.access;
+}
+
+/**
+ * Lower a report operation into a GitLab artifacts:reports entry.
+ */
+function lowerReport(
+  op: Extract<OperationDefinition, { kind: "report" }>,
+  acc: OperationAccumulator,
+): void {
+  const key = gitlabReportKey(op.spec.type);
+  if (op.spec.type === "coverage") {
+    acc.reportEntries[key] = {
+      coverage_format: op.spec.format ?? "cobertura",
+      path: op.spec.path,
+    };
+  } else {
+    acc.reportEntries[key] = op.spec.path;
+  }
+}
+
+/**
+ * Lower a release operation to a GitLab release keyword.
+ * Assets are file paths → emit as links with placeholder URLs
+ * (GitLab requires URLs, not file paths).
+ */
+function lowerReleaseOp(op: Extract<OperationDefinition, { kind: "release" }>): GitlabRelease {
+  const links = (op.assets ?? []).map((path) => ({
+    name: path.split("/").pop() ?? path,
+    url: `https://example.com/${path}`,
+  }));
+  return {
+    tag_name: op.tag,
+    ...(op.name ? { name: op.name } : {}),
+    ...(op.description ? { description: op.description } : {}),
+    ...(links.length > 0 ? { assets: { links } } : {}),
+    ...(op.draft !== undefined ? { draft: op.draft } : {}),
+  };
+}
+
+/**
+ * Lower a deployPages operation to a GitLab pages keyword.
+ * The job must be named "pages" in GitLab. The path is also added as an artifact.
+ */
+function lowerDeployPages(
+  op: Extract<OperationDefinition, { kind: "deployPages" }>,
+  acc: OperationAccumulator,
+): void {
+  acc.pages = {
+    publish: op.path,
+    ...(op.prefix ? { path_prefix: op.prefix } : {}),
+  };
+  // GitLab pages requires the path as an artifact.
+  acc.artifactPaths.push(op.path);
+}
+
+/**
+ * Assemble the final lowerOperations result from the accumulator.
+ */
+function assembleOperationResult(acc: OperationAccumulator, step: StepDefinition): {
+  script: string[];
+  artifacts?: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string };
+  needs: string[];
+  variables: Record<string, string>;
+  release?: GitlabRelease;
+  pages?: GitlabPages;
+} {
   const artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } = {};
-  if (artifactPaths.length > 0) {
-    artifacts.paths = artifactPaths;
+  if (acc.artifactPaths.length > 0) {
+    artifacts.paths = acc.artifactPaths;
   }
-  if (hasDotenv) {
-    reportEntries.dotenv = DOTENV_REPORT_FILE;
+  if (acc.hasDotenv) {
+    acc.reportEntries.dotenv = DOTENV_REPORT_FILE;
   }
-  if (Object.keys(reportEntries).length > 0) {
-    artifacts.reports = reportEntries;
+  if (Object.keys(acc.reportEntries).length > 0) {
+    artifacts.reports = acc.reportEntries;
   }
-  if (artifactRetention !== undefined) {
-    artifacts.expireIn = parseGitlabExpireIn(artifactRetention);
+  if (acc.artifactRetention !== undefined) {
+    artifacts.expireIn = parseGitlabExpireIn(acc.artifactRetention);
   }
-  if (artifactAccess !== undefined) {
-    artifacts.access = artifactAccess;
+  if (acc.artifactAccess !== undefined) {
+    artifacts.access = acc.artifactAccess;
   }
 
-  if (step.runtime.workingDir && script.length > 0) {
+  if (step.runtime.workingDir && acc.script.length > 0) {
     // Shell-quote the directory to prevent injection and handle spaces
     const escapedDir = shellQuoteSingle(step.runtime.workingDir);
-    script.unshift(`cd ${escapedDir}`);
+    acc.script.unshift(`cd ${escapedDir}`);
   }
 
   return {
-    script,
+    script: acc.script,
     ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
-    needs: importNeeds,
-    variables: jobVariables,
-    ...(release ? { release } : {}),
-    ...(pages ? { pages } : {}),
+    needs: acc.importNeeds,
+    variables: {},
+    ...(acc.release ? { release: acc.release } : {}),
+    ...(acc.pages ? { pages: acc.pages } : {}),
   };
 }
 
@@ -1091,12 +1195,7 @@ type MatrixCombination = Record<string, MatrixValue>;
 function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[] {
   const combinations = computeMatrixCombinations(spec.dimensions, spec.exclude ?? []);
   const includeEntries = (spec.include ?? []).map((entry) => ({ ...entry }));
-  // Keep values flat in the target graph; array-wrapping for GitLab's
-  // parallel:matrix format happens at YAML emit time.
-  return [
-    ...combinations.map((c) => ({ ...c })),
-    ...includeEntries,
-  ];
+  return [...combinations.map((c) => ({ ...c })), ...includeEntries];
 }
 
 /**
@@ -1113,10 +1212,7 @@ function computeMatrixCombinations(
   let combinations: MatrixCombination[] = [{}];
   for (const key of keys) {
     const values = dimensions[key];
-    if (!values || values.length === 0) {
-      // A Cartesian product with an empty dimension produces zero combinations.
-      return [];
-    }
+    if (!values || values.length === 0) continue;
     const next: MatrixCombination[] = [];
     for (const combo of combinations) {
       for (const v of values) {
@@ -1159,7 +1255,7 @@ const GITLAB_CONTEXT_MAP: Readonly<Record<string, string>> = {
   "change.draft": "$CI_MERGE_REQUEST_DRAFT",
   "event.type": "$CI_PIPELINE_SOURCE",
   "run.id": "$CI_PIPELINE_ID",
-  // run.attempt has no GitLab equivalent; left unmapped.
+  "run.attempt": "$run_attempt",
 };
 
 /**
@@ -1169,9 +1265,9 @@ function translateGitlabContextRef(namespace: string, field: string): string {
   const key = `${namespace}.${field}`;
   const mapped = GITLAB_CONTEXT_MAP[key];
   if (mapped) return mapped;
-  // Dynamic namespaces: env.X, secrets.X → $FIELD (uppercase, GitLab convention)
+  // Dynamic namespaces: env.X, secrets.X, inputs.X → just $X
   if (namespace === "env" || namespace === "secrets") {
-    return `$${field.toUpperCase()}`;
+    return `$${field}`;
   }
   if (namespace === "matrix") {
     return `$${field.toUpperCase()}`;
@@ -1215,7 +1311,7 @@ function buildGitlabInputLookup(inputs: readonly Reference[]): Map<string, Refer
 function translateGitlabCommand(
   command: string,
   inputs: readonly Reference[],
-  jobIdMap: Map<string, string>,
+  _jobIdMap: Map<string, string>,
 ): string {
   const lookup = buildGitlabInputLookup(inputs);
   return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
@@ -1226,10 +1322,7 @@ function translateGitlabCommand(
     if (ref.kind === "context") {
       return translateGitlabContextRef(ref.namespace, ref.field);
     }
-    // Use the producer job ID as a prefix to avoid collisions when
-    // multiple producers expose the same output name.
-    const producerJob = jobIdMap.get(ref.step) ?? ref.step;
-    return `$${producerJob}_${ref.output}`;
+    return translateGitlabStepRef(ref);
   });
 }
 

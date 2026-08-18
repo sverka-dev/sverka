@@ -176,12 +176,18 @@ const OPTIONAL_STEP_PROPS = [
   "concurrency",
 ] as const;
 
-/** Copy optional `StepProps` fields onto the `Step` instance. */
+/** Copy optional `StepProps` fields onto the `Step` instance.
+ * Array-valued properties are cloned to prevent caller mutation from
+ * affecting the synthesized graph after construction. */
 function applyOptionalStepProps(step: Step, props: StepProps): void {
   for (const key of OPTIONAL_STEP_PROPS) {
     const value = props[key];
     if (value !== undefined) {
-      (step as unknown as Record<string, unknown>)[key] = value;
+      if (Array.isArray(value)) {
+        (step as unknown as Record<string, unknown>)[key] = [...value];
+      } else {
+        (step as unknown as Record<string, unknown>)[key] = value;
+      }
     }
   }
 }

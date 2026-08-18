@@ -18,9 +18,18 @@ export function emitGithub(
 ): readonly GeneratedArtifact[] {
   const graphs = Array.isArray(targetGraph) ? targetGraph : [targetGraph];
   return graphs.map((g) => ({
-    path: `.github/workflows/${g.name}.yml`,
+    path: `.github/workflows/${sanitizeWorkflowName(g.name)}.yml`,
     content: stringifyTargetGraph(g),
   }));
+}
+
+/**
+ * Sanitize a graph name for use as a workflow filename.
+ * GitHub workflow filenames must be valid path segments; replace
+ * characters that could break path resolution.
+ */
+function sanitizeWorkflowName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
 /**

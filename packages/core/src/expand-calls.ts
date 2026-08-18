@@ -237,7 +237,7 @@ function bindingToReference(
   idMap: Map<string, string>,
   callerPipelineId: string,
 ): Reference | undefined {
-  if (typeof binding === "object" && binding !== null) {
+  if (typeof binding === "object" && binding !== null && !Array.isArray(binding)) {
     return resolveBinding(binding as Reference, idMap, callerPipelineId);
   }
   return undefined;

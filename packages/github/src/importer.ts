@@ -56,10 +56,14 @@ export function importGithubWithDiagnostics(source: string): ImportResult {
   const trigger = parseTrigger(doc.on, diagnostics);
 
   // Extract jobs → steps.
-  const jobs = doc.jobs as Record<string, Record<string, unknown>> | undefined;
+  const jobs = doc.jobs as Record<string, unknown> | undefined;
   if (jobs) {
     for (const [jobId, job] of Object.entries(jobs)) {
-      steps.push(parseJob(jobId, job, diagnostics));
+      if (job === null || typeof job !== "object") {
+        diagnostics.push({ severity: "warn", message: `job '${jobId}' is not a valid object, skipping` });
+        continue;
+      }
+      steps.push(parseJob(jobId, job as Record<string, unknown>, diagnostics));
     }
   }
 

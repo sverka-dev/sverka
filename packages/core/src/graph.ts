@@ -14,6 +14,7 @@ import type {
   IncludeRef,
   OutputDeclaration,
   OutputType,
+  ArtifactAccess,
   MatrixSpec,
   MatrixValue,
   Condition,
@@ -116,7 +117,7 @@ export interface StepDefinition {
 export type OperationDefinition =
   | { readonly kind: "shell"; readonly command: string; readonly background?: boolean }
   | { readonly kind: "exportOutput"; readonly name: string; readonly type: OutputType }
-  | { readonly kind: "exportArtifact"; readonly name: string; readonly path: string; readonly retention?: string; readonly access?: string }
+  | { readonly kind: "exportArtifact"; readonly name: string; readonly path: string; readonly retention?: string; readonly access?: ArtifactAccess }
   | {
       readonly kind: "importArtifact";
       readonly name: string;

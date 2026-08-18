@@ -202,12 +202,6 @@ function convertTrigger(
   if (!job.trigger || typeof job.trigger !== "object") return;
   const trigger = job.trigger as Record<string, unknown>;
   if (typeof trigger.project === "string") {
-    const dsInputs: Record<string, unknown> = {};
-    if (trigger.inputs && typeof trigger.inputs === "object") {
-      for (const [k, v] of Object.entries(trigger.inputs as Record<string, unknown>)) {
-        dsInputs[k] = typeof v === "string" ? v : String(v);
-      }
-    }
     operations.push({
       kind: "diagnostic",
       message: `imported downstream trigger to project: ${trigger.project}`,
