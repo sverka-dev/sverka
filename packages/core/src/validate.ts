@@ -209,20 +209,28 @@ export function validateReferenceTypes(
         validateInputReference(step, input as StepRef, outputTypes, pipelineId);
       }
     }
+    validateStepConditionRefs(step, outputTypes, pipelineId);
+  }
+}
 
-    if (step.condition?.kind === "step") {
-      validateConditionReference(
-        step,
-        step.condition as StepRef,
-        outputTypes,
-        pipelineId,
-      );
-    } else if (step.condition?.kind === "expression") {
-      // Validate each step ref inside the expression
-      for (const ref of step.condition.refs) {
-        if (ref.kind === "step") {
-          validateInputReference(step, ref as StepRef, outputTypes, pipelineId);
-        }
+/**
+ * Validate references inside a step's condition (step ref or expression refs).
+ */
+function validateStepConditionRefs(
+  step: StepDefinition,
+  outputTypes: Map<string, OutputType>,
+  pipelineId: string,
+): void {
+  const cond = step.condition;
+  if (!cond) return;
+  if (cond.kind === "step") {
+    validateConditionReference(step, cond as StepRef, outputTypes, pipelineId);
+    return;
+  }
+  if (cond.kind === "expression") {
+    for (const ref of cond.refs) {
+      if (ref.kind === "step") {
+        validateInputReference(step, ref as StepRef, outputTypes, pipelineId);
       }
     }
   }

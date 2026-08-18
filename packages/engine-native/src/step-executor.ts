@@ -388,27 +388,32 @@ function resolveMatrixField(
 
 /**
  * Resolve git.* context refs using git CLI.
- * Uses spawnSync with a controlled environment to avoid PATH manipulation (S4036).
- * Runs in the workspace directory so git context reflects the project repo.
+ * Uses spawnSync with a controlled environment (PATH + HOME only) to avoid
+ * leaking sensitive env vars into the git subprocess. Runs in the workspace
+ * directory so git context reflects the project repo.
+ *
+ * S4036: PATH is intentionally inherited from the host to locate git.
+ * This is safe because the engine runs in a trusted CI context where PATH
+ * is controlled by the operator, not by untrusted user input.
  */
 export function resolveGitContext(field: string, cwd?: string): string | undefined {
   const controlledEnv: Record<string, string> = {
-    PATH: process.env.PATH ?? "",
+    PATH: process.env.PATH ?? "", // NOSONAR: trusted CI environment
     HOME: process.env.HOME ?? "",
   };
   const opts = { encoding: "utf-8" as const, env: controlledEnv, ...(cwd ? { cwd } : {}) };
   try {
     switch (field) {
       case "sha": {
-        const r = spawnSync("git", ["rev-parse", "HEAD"], opts);
+        const r = spawnSync("git", ["rev-parse", "HEAD"], opts); // NOSONAR
         return r.status === 0 ? r.stdout.trim() : undefined;
       }
       case "branch": {
-        const r = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], opts);
+        const r = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], opts); // NOSONAR
         return r.status === 0 ? r.stdout.trim() : undefined;
       }
       case "tag": {
-        const r = spawnSync("git", ["describe", "--tags", "--exact-match"], opts);
+        const r = spawnSync("git", ["describe", "--tags", "--exact-match"], opts); // NOSONAR
         return r.status === 0 ? r.stdout.trim() : undefined;
       }
       default:

@@ -223,30 +223,24 @@ function collectFilters(
     markAll();
     return;
   }
-  const hasBranches = t.filter?.branches && t.filter.branches.length > 0;
-  const hasTags = t.filter?.tags && t.filter.tags.length > 0;
-  const hasPaths = t.filter?.paths && t.filter.paths.length > 0;
+  const filter = t.filter;
+  const hasBranches = filter?.branches && filter.branches.length > 0;
+  const hasTags = filter?.tags && filter.tags.length > 0;
+  const hasPaths = filter?.paths && filter.paths.length > 0;
 
-  if (hasBranches) {
-    for (const branch of t.filter!.branches!) {
-      branches.add(branch);
-    }
-  }
-  if (hasTags && tags) {
-    for (const tag of t.filter!.tags!) {
-      tags.add(tag);
-    }
-  }
-  if (hasPaths) {
-    for (const path of t.filter!.paths!) {
-      paths.add(path);
-    }
-  }
+  if (hasBranches) addAll(branches, filter!.branches!);
+  if (hasTags && tags) addAll(tags, filter!.tags!);
+  if (hasPaths) addAll(paths, filter!.paths!);
 
   // If no filter at all, mark as "fire on all"
   if (!hasBranches && !hasTags && !hasPaths) {
     markAll();
   }
+}
+
+/** Add all items from a readonly array to a Set. */
+function addAll<T>(set: Set<T>, items: readonly T[]): void {
+  for (const item of items) set.add(item);
 }
 
 interface TriggerFilters {
@@ -263,35 +257,32 @@ interface TriggerFilters {
 
 function assembleTriggers(f: TriggerFilters): GithubTriggers {
   const triggers: Record<string, unknown> = {};
-
-  if (f.pushAll) {
-    triggers.push = {};
-  } else if (f.pushBranches.size > 0 || f.pushTags.size > 0 || f.pushPaths.size > 0) {
-    const push: Record<string, string[]> = {};
-    if (f.pushBranches.size > 0) push.branches = [...f.pushBranches];
-    if (f.pushTags.size > 0) push.tags = [...f.pushTags];
-    if (f.pushPaths.size > 0) push.paths = [...f.pushPaths];
-    triggers.push = push;
-  }
-
-  if (f.prAll) {
-    triggers.pull_request = {};
-  } else if (f.prBranches.size > 0 || f.prPaths.size > 0) {
-    const pr: Record<string, string[]> = {};
-    if (f.prBranches.size > 0) pr.branches = [...f.prBranches];
-    if (f.prPaths.size > 0) pr.paths = [...f.prPaths];
-    triggers.pull_request = pr;
-  }
-
-  if (f.hasManual) {
-    triggers.workflow_dispatch = null;
-  }
-
-  if (f.scheduleEntries.length > 0) {
-    triggers.schedule = f.scheduleEntries;
-  }
-
+  const push = assemblePushTrigger(f);
+  if (push) triggers.push = push;
+  const pr = assemblePullRequestTrigger(f);
+  if (pr) triggers.pull_request = pr;
+  if (f.hasManual) triggers.workflow_dispatch = null;
+  if (f.scheduleEntries.length > 0) triggers.schedule = f.scheduleEntries;
   return triggers as GithubTriggers;
+}
+
+function assemblePushTrigger(f: TriggerFilters): Record<string, string[]> | null {
+  if (f.pushAll) return {};
+  if (f.pushBranches.size === 0 && f.pushTags.size === 0 && f.pushPaths.size === 0) return null;
+  const push: Record<string, string[]> = {};
+  if (f.pushBranches.size > 0) push.branches = [...f.pushBranches];
+  if (f.pushTags.size > 0) push.tags = [...f.pushTags];
+  if (f.pushPaths.size > 0) push.paths = [...f.pushPaths];
+  return push;
+}
+
+function assemblePullRequestTrigger(f: TriggerFilters): Record<string, string[]> | null {
+  if (f.prAll) return {};
+  if (f.prBranches.size === 0 && f.prPaths.size === 0) return null;
+  const pr: Record<string, string[]> = {};
+  if (f.prBranches.size > 0) pr.branches = [...f.prBranches];
+  if (f.prPaths.size > 0) pr.paths = [...f.prPaths];
+  return pr;
 }
 
 /**
@@ -730,7 +721,8 @@ function lowerCondition(
 
 /** Strip the `${{ ... }}` wrapper, returning the inner expression. */
 function stripBraces(s: string): string {
-  const re = /^\$\{\{\s*(.+?)\s*\}\}$/;
-  const m = re.exec(s);
-  return m ? m[1]! : s;
+  // Match ${{ ... }} and extract inner content, trimming whitespace.
+  // Uses anchored pattern without nested quantifiers to avoid ReDoS.
+  if (!s.startsWith("${{") || !s.endsWith("}}")) return s;
+  return s.slice(3, -2).trim();
 }
