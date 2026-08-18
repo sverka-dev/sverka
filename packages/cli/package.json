@@ -32,12 +32,15 @@
     "@sverka/checks": "workspace:*",
     "@sverka/findings": "workspace:*",
     "@sverka/policy": "workspace:*",
-    "yargs": "^18.1.0"
+    "@sverka/sdk": "workspace:*",
+    "@sverka/compiler-github": "workspace:*",
+    "@sverka/compiler-gitlab": "workspace:*",
+    "yargs": "^17.7.3"
   },
   "devDependencies": {
     "@types/yargs": "^17.0.33",
     "tsdown": "^0.22.0",
     "typescript": "^5.8.0",
-    "vitest": "^4.1.10"
+    "vitest": "^3.0.0"
   }
 }
