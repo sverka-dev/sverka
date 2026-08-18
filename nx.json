@@ -55,5 +55,7 @@
       "cache": true
     }
   },
-  "nxCloudId": "6a7de7d4632484e4686e5adc"
+  "ignore": [
+    ".worktrees/**"
+  ]
 }
