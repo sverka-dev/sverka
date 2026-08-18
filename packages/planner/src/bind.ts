@@ -12,6 +12,7 @@ import { validateGraph } from "@sverka/core";
 import type { RunPlan, InputValue, BoundEntry } from "@sverka/ir";
 import { computeGraphId, computeRunPlanId } from "@sverka/ir";
 import { PlannerError } from "./errors.js";
+import { expandMatrixSteps } from "./matrix.js";
 
 export interface BindRunPlanOptions {
   readonly graph: DefinitionGraph;
@@ -39,6 +40,7 @@ export function bindRunPlan(options: BindRunPlanOptions): RunPlan {
   validatePipeline(graph, pipeline);
 
   const reachableSteps = computeReachableSteps(pipeline.steps, entry.roots);
+  const expandedSteps = expandMatrixSteps(reachableSteps);
   const boundInputs = bindInputs(pipeline.inputs, inputs);
 
   const graphId = computeGraphId(graph);
@@ -53,7 +55,7 @@ export function bindRunPlan(options: BindRunPlanOptions): RunPlan {
     graphId,
     entry: boundEntry,
     inputs: boundInputs,
-    steps: reachableSteps,
+    steps: expandedSteps,
   };
 
   const id = computeRunPlanId(planBody as Omit<RunPlan, "id" | "createdAt">);
@@ -66,7 +68,7 @@ export function bindRunPlan(options: BindRunPlanOptions): RunPlan {
     graphId,
     entry: boundEntry,
     inputs: boundInputs,
-    steps: reachableSteps,
+    steps: expandedSteps,
     createdAt,
   };
 }

@@ -138,4 +138,21 @@ describe("expandMatrixSteps", () => {
     const result = expandMatrixSteps(steps);
     expect(result[0]!.matrix).toBeUndefined();
   });
+
+  it("rewires step inputs to expanded producer IDs", () => {
+    const producer = makeStep("build", { dimensions: { node: [18, 20] } });
+    const consumer = makeStep("test", undefined, ["build"]);
+    // Add a step-input reference to the producer
+    consumer.inputs = [
+      { kind: "step", step: "build", output: "artifact", type: "artifact" },
+    ];
+    const result = expandMatrixSteps([producer, consumer]);
+    expect(result).toHaveLength(3); // 2 build + 1 test
+    const testStep = result.find((s) => s.id === "test");
+    expect(testStep).toBeDefined();
+    expect(testStep!.inputs).toHaveLength(2);
+    expect(testStep!.inputs.map((i) => (i as { step: string }).step)).toEqual(
+      expect.arrayContaining(["build[node=18]", "build[node=20]"]),
+    );
+  });
 });
