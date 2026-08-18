@@ -4,7 +4,8 @@ export type GitlabTargetErrorCode =
   | "INVALID_GRAPH"
   | "UNSUPPORTED_TRIGGER"
   | "LOWER_FAILED"
-  | "EMIT_FAILED";
+  | "EMIT_FAILED"
+  | "IMPORT_FAILED";
 
 export class GitlabTargetError extends Error {
   readonly code: GitlabTargetErrorCode;

@@ -181,10 +181,10 @@ export function importGitlabWithDiagnostics(source: string): ImportResult {
       diagnostics.push({ severity: "warn", message: `job '${key}' has matrix — not imported`, path: key });
     }
 
-    const runtime: Runtime = {};
-    if (typeof job.image === "string") {
-      runtime.container = { image: job.image };
-    }
+    const runtime: Runtime =
+      typeof job.image === "string"
+        ? { mode: "container", image: job.image }
+        : {};
 
     const step: StepDefinition = {
       id: stepId,
