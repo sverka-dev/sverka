@@ -802,9 +802,9 @@ function translateGitlabContextRef(namespace: string, field: string): string {
   const key = `${namespace}.${field}`;
   const mapped = GITLAB_CONTEXT_MAP[key];
   if (mapped) return mapped;
-  // Dynamic namespaces: env.X, secrets.X, inputs.X → just $X
+  // Dynamic namespaces: env.X, secrets.X → $FIELD (uppercase, GitLab convention)
   if (namespace === "env" || namespace === "secrets") {
-    return `$${field}`;
+    return `$${field.toUpperCase()}`;
   }
   if (namespace === "matrix") {
     return `$${field.toUpperCase()}`;

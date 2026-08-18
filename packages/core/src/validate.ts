@@ -218,7 +218,7 @@ export function validateReferenceTypes(
  */
 function validateStepConditionRefs(
   step: StepDefinition,
-  outputTypes: Map<string, OutputType>,
+  outputTypes: Map<string, Map<string, OutputType>>,
   pipelineId: string,
 ): void {
   const cond = step.condition;

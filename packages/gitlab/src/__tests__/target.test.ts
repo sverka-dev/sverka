@@ -394,7 +394,7 @@ describe("compileGitlab — scalar outputs (F-23)", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.build.script).toContainEqual('echo "version=${version}" >> sverka.env');
+    expect(yaml.build.script).toContainEqual('echo "build_version=${version}" >> sverka.env');
     expect(yaml.build.artifacts.reports.dotenv).toBe("sverka.env");
   });
 });
