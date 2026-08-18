@@ -77,7 +77,7 @@ export function importGitlabWithDiagnostics(source: string): ImportResult {
   const reservedKeys = new Set([
     "stages", "variables", "workflow", "include", "image",
     "before_script", "after_script", "cache", "services",
-    "default", "stages", "include",
+    "default",
   ]);
 
   // Extract jobs → steps.
