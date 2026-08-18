@@ -217,6 +217,13 @@ export function validateReferenceTypes(
         outputTypes,
         pipelineId,
       );
+    } else if (step.condition?.kind === "expression") {
+      // Validate each step ref inside the expression
+      for (const ref of step.condition.refs) {
+        if (ref.kind === "step") {
+          validateInputReference(step, ref as StepRef, outputTypes, pipelineId);
+        }
+      }
     }
   }
 }

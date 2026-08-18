@@ -12,7 +12,7 @@ import type {
   Reference,
   Expression,
 } from "@sverka/core";
-import type { MatrixSpec, MatrixValue, StepRef } from "@sverka/cdk";
+import type { MatrixSpec, MatrixValue, StepRef, StatusCondition } from "@sverka/cdk";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
 
@@ -307,10 +307,12 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
     const t = entry.trigger;
     switch (t.kind) {
       case "push":
-        rules.push(buildFilterRule('$CI_PIPELINE_SOURCE == "push"', t.filter));
+        rules.push(buildFilterRule('$CI_PIPELINE_SOURCE == "push"', t.filter, false));
         break;
       case "changeRequest":
-        rules.push(buildFilterRule('$CI_PIPELINE_SOURCE == "merge_request_event"', t.filter));
+        // For MR triggers, $CI_COMMIT_BRANCH is not populated.
+        // Use $CI_MERGE_REQUEST_TARGET_BRANCH_NAME for branch filters.
+        rules.push(buildFilterRule('$CI_PIPELINE_SOURCE == "merge_request_event"', t.filter, true));
         break;
       case "manual":
         rules.push({ if: '$CI_PIPELINE_SOURCE == "web"' });
@@ -331,21 +333,32 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
 
 /**
  * Build a GitLab rule from a source condition and a trigger filter.
- * Branches → $CI_COMMIT_BRANCH == "..." (exact match, GitLab limitation)
- * Tags → $CI_COMMIT_TAG == "..."
+ * For push triggers: branches → $CI_COMMIT_BRANCH, tags → $CI_COMMIT_TAG
+ * For MR triggers: branches → $CI_MERGE_REQUEST_TARGET_BRANCH_NAME (target branch)
  * Paths → changes: [paths] on the rule
  */
 function buildFilterRule(
   sourceCondition: string,
   filter: { readonly branches?: readonly string[]; readonly tags?: readonly string[]; readonly paths?: readonly string[] } | undefined,
+  isMergeRequest: boolean,
 ): GitlabRule {
+  // Source condition (push/MR/web) is always required.
   const conditions: string[] = [sourceCondition];
 
+  // Branch and tag filters are OR'd: a push to a matching branch OR a matching tag.
+  // For MR triggers, only branch (target) filters apply; tags are not relevant.
+  const refConditions: string[] = [];
   if (filter?.branches && filter.branches.length > 0) {
-    conditions.push(buildRefCondition("$CI_COMMIT_BRANCH", filter.branches));
+    const branchRef = isMergeRequest ? "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" : "$CI_COMMIT_BRANCH";
+    refConditions.push(buildRefCondition(branchRef, filter.branches));
   }
-  if (filter?.tags && filter.tags.length > 0) {
-    conditions.push(buildRefCondition("$CI_COMMIT_TAG", filter.tags));
+  if (filter?.tags && filter.tags.length > 0 && !isMergeRequest) {
+    refConditions.push(buildRefCondition("$CI_COMMIT_TAG", filter.tags));
+  }
+  if (refConditions.length === 1) {
+    conditions.push(refConditions[0]!);
+  } else if (refConditions.length > 1) {
+    conditions.push(`(${refConditions.join(" || ")})`);
   }
 
   const rule: GitlabRule = { if: conditions.join(" && ") };
@@ -356,9 +369,11 @@ function buildFilterRule(
 }
 
 function buildRefCondition(ref: string, values: readonly string[]): string {
-  return values.length === 1
-    ? `${ref} == ${quoteJsonString(values[0]!)}`
-    : `(${values.map((v) => `${ref} == ${quoteJsonString(v)}`).join(" || ")})`;
+  if (values.length === 1) {
+    return `${ref} == ${quoteJsonString(values[0]!)}`;
+  }
+  const parts = values.map((v) => `${ref} == ${quoteJsonString(v)}`);
+  return `(${parts.join(" || ")})`;
 }
 
 /**
@@ -399,11 +414,20 @@ function lowerStep(
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
 
-  // Merge trigger rules with condition-derived rules.
-  const conditionRules = step.condition !== undefined
-    ? [lowerGitlabCondition(step.condition, jobIdMap)]
-    : [];
-  const rules = [...triggerRules, ...conditionRules];
+  // If the step has a condition, AND it with each trigger rule's if expression.
+  // GitLab evaluates rules in order and stops at the first match, so appending
+  // the condition as a separate rule would bypass it when a trigger rule matches.
+  let rules = triggerRules;
+  if (step.condition !== undefined) {
+    const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
+    rules = triggerRules.map((rule) => ({
+      ...rule,
+      if: condExpr ? `(${rule.if}) && (${condExpr})` : rule.if,
+    }));
+    if (rules.length === 0) {
+      rules = [{ if: condExpr }];
+    }
+  }
 
   return {
     id: jobId,
@@ -573,7 +597,9 @@ function lowerOperations(
   }
 
   if (step.runtime.workingDir && script.length > 0) {
-    script.unshift(`cd ${step.runtime.workingDir}`);
+    // Shell-quote the directory to prevent injection and handle spaces
+    const escapedDir = shellQuoteSingle(step.runtime.workingDir);
+    script.unshift(`cd ${escapedDir}`);
   }
 
   return {
@@ -777,14 +803,21 @@ function translateGitlabContextRef(namespace: string, field: string): string {
   const mapped = GITLAB_CONTEXT_MAP[key];
   if (mapped) return mapped;
   // Dynamic namespaces: env.X, secrets.X, inputs.X → just $X
-  if (namespace === "env" || namespace === "secrets" || namespace === "inputs") {
+  if (namespace === "env" || namespace === "secrets") {
     return `$${field}`;
   }
   if (namespace === "matrix") {
     return `$${field.toUpperCase()}`;
   }
-  // Unknown — leave as-is (literal shell variable)
-  return `\${${namespace}.${field}}`;
+  // inputs.X → $[[ inputs.FIELD ]] (GitLab pipeline input syntax)
+  if (namespace === "inputs") {
+    return `$[[ inputs.${field} ]]`;
+  }
+  // Unknown — fail lowering rather than emit invalid expression
+  throw new GitlabTargetError(
+    `unsupported context namespace '${namespace}' in GitLab lowering`,
+    "LOWER_FAILED",
+  );
 }
 
 /**
@@ -835,22 +868,31 @@ function translateGitlabCommand(
 }
 
 /**
- * Lower a step condition to a GitLab rule with an if: expression.
+ * Lower a step condition to a GitLab if: expression string (without wrapping in a rule).
+ * Returns the raw expression that can be combined with trigger rule conditions.
  */
-function lowerGitlabCondition(
-  condition: Reference | Expression,
+function lowerGitlabConditionExpr(
+  condition: Reference | Expression | StatusCondition,
   _jobIdMap: Map<string, string>,
-): GitlabRule {
+): string {
+  if (condition.kind === "status") {
+    // GitLab status conditions map to when: field, not if: expression.
+    // Return a sentinel that the caller can use to set when: instead.
+    // For if: expression purposes: success = no restriction, always = true, never = false.
+    if (condition.status === "always") return "true";
+    if (condition.status === "never") return "false";
+    return ""; // success/failure — no if: restriction (when: handles it)
+  }
   if (condition.kind === "context") {
-    return { if: translateGitlabContextRef(condition.namespace, condition.field) };
+    return translateGitlabContextRef(condition.namespace, condition.field);
   }
   if (condition.kind === "step") {
     // Step ref condition — truthiness check on the output variable
-    return { if: translateGitlabStepRef(condition) };
+    return translateGitlabStepRef(condition);
   }
-  // Expression — translate each ${...} placeholder
+  // Expression — translate each ${...} placeholder, no single-quote wrapping
   const lookup = buildGitlabInputLookup(condition.refs);
-  const translated = condition.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+  return condition.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
     const ref = lookup.get(key);
     if (ref === undefined) return `\${${key}}`;
     if (ref.kind === "context") {
@@ -858,6 +900,14 @@ function lowerGitlabCondition(
     }
     return translateGitlabStepRef(ref);
   });
-  // Wrap in single quotes for GitLab rules syntax
-  return { if: `'${translated}'` };
+}
+
+/**
+ * Lower a step condition to a GitLab rule with an if: expression.
+ */
+function lowerGitlabCondition(
+  condition: Reference | Expression | StatusCondition,
+  jobIdMap: Map<string, string>,
+): GitlabRule {
+  return { if: lowerGitlabConditionExpr(condition, jobIdMap) };
 }

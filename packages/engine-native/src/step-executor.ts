@@ -102,12 +102,12 @@ async function executeShellOperation(
   stepWorkspace: string,
   outputDir: string,
 ): Promise<void> {
-  const { step, driver, valueStore, inputs, signal } = opts;
+  const { step, driver, secrets, valueStore, inputs, signal, workspace } = opts;
   const env = buildShellEnv(step, outputDir, stepScopedSecrets(opts));
   const cwd = step.runtime.workingDir
     ? resolveUnder(stepWorkspace, step.runtime.workingDir)
     : stepWorkspace;
-  const command = interpolateCommand(op.command, step, valueStore, inputs, opts);
+  const command = interpolateCommand(op.command, step, valueStore, inputs, secrets, workspace);
   const request: ShellExecuteRequest = {
     command,
     workspace: stepWorkspace,
@@ -298,9 +298,12 @@ function interpolateCommand(
   step: StepDefinition,
   valueStore: ValueStore,
   inputs: Readonly<Record<string, InputValue>> | undefined,
-  opts: StepExecOptions,
+  secrets: Readonly<Record<string, string>>,
+  workspace: string,
 ): string {
   const prefix = stepPrefix(step.id);
+  const declaredSecrets = new Set(step.runtime.secrets ?? []);
+  const runtimeEnv = step.runtime.env ?? {};
   return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
     const dot = key.lastIndexOf(".");
     if (dot === -1) {
@@ -312,8 +315,20 @@ function interpolateCommand(
     const ns = key.slice(0, dot);
     const field = key.slice(dot + 1);
 
-    // Context ref resolution (F-35, F-15)
-    const ctxValue = resolveContextRef(ns, field, inputs, opts.secrets, step.matrixValues);
+    // Secrets: emit env var reference ($FIELD), never the raw value.
+    // Only secrets declared in step.runtime.secrets are accessible.
+    if (ns === "secrets") {
+      if (!declaredSecrets.has(field)) {
+        throw new StepExecError(
+          `step '${step.id}' references undeclared secret '${field}'`,
+          "STEP_EXEC_ERROR",
+        );
+      }
+      return `$${field}`;
+    }
+
+    // Context ref resolution (F-35, F-15) — env.X prioritizes runtime.env over process.env
+    const ctxValue = resolveContextRef(ns, field, inputs, runtimeEnv, workspace, step.matrixValues);
     if (ctxValue !== undefined) {
       return shellQuote(ctxValue as InputValue);
     }
@@ -328,33 +343,35 @@ function interpolateCommand(
     if (inputs && inputs[inputKey] !== undefined) {
       return shellQuote(inputs[inputKey] as InputValue);
     }
-    throw new StepExecError(`unresolved context or step reference '\${${key}}'`, "STEP_EXEC_ERROR");
+    throw new StepExecError(`unresolved step reference '\${${key}}'`, "STEP_EXEC_ERROR");
   });
 }
 
 /**
  * Resolve a context ref (namespace.field) against runtime state.
  * Returns undefined if the namespace is not a context namespace or the value is not found.
+ * Secrets are handled separately in interpolateCommand (emit env var ref, not raw value).
  */
 function resolveContextRef(
   namespace: string,
   field: string,
   inputs: Readonly<Record<string, InputValue>> | undefined,
-  secrets: Readonly<Record<string, string>>,
+  runtimeEnv: Readonly<Record<string, string>>,
+  workspace: string,
   matrixValues?: Readonly<Record<string, string | number>>,
 ): string | undefined {
   switch (namespace) {
     case "env":
+      // Prioritize step.runtime.env over process.env
+      if (runtimeEnv[field] !== undefined) return runtimeEnv[field];
       return process.env[field];
-    case "secrets":
-      return secrets[field];
     case "inputs":
       return inputs?.[field] !== undefined ? String(inputs[field]) : undefined;
     case "git":
-      return resolveGitContext(field);
+      return resolveGitContext(field, workspace);
     case "matrix":
       return resolveMatrixField(matrixValues, field);
-    // change, event, run — not available in native engine without a CI context
+    // change, event, run, secrets — not resolved here
     default:
       return undefined;
   }
@@ -371,25 +388,33 @@ function resolveMatrixField(
 
 /**
  * Resolve git.* context refs using git CLI.
- * Uses an absolute path to git to avoid PATH-based lookup.
+ * Uses spawnSync with a controlled environment to avoid PATH manipulation (S4036).
+ * Runs in the workspace directory so git context reflects the project repo.
  */
-export function resolveGitContext(field: string): string | undefined {
-  const args: string[] | undefined = gitArgsForField(field);
-  if (!args) return undefined;
-  const result = spawnSync("/usr/bin/git", args, { encoding: "utf-8" });
-  if (result.status !== 0 || result.error) return undefined;
-  return result.stdout.trim() || undefined;
-}
-
-function gitArgsForField(field: string): string[] | undefined {
-  switch (field) {
-    case "sha":
-      return ["rev-parse", "HEAD"];
-    case "branch":
-      return ["rev-parse", "--abbrev-ref", "HEAD"];
-    case "tag":
-      return ["describe", "--tags", "--exact-match"];
-    default:
-      return undefined;
+export function resolveGitContext(field: string, cwd?: string): string | undefined {
+  const controlledEnv: Record<string, string> = {
+    PATH: process.env.PATH ?? "",
+    HOME: process.env.HOME ?? "",
+  };
+  const opts = { encoding: "utf-8" as const, env: controlledEnv, ...(cwd ? { cwd } : {}) };
+  try {
+    switch (field) {
+      case "sha": {
+        const r = spawnSync("git", ["rev-parse", "HEAD"], opts);
+        return r.status === 0 ? r.stdout.trim() : undefined;
+      }
+      case "branch": {
+        const r = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], opts);
+        return r.status === 0 ? r.stdout.trim() : undefined;
+      }
+      case "tag": {
+        const r = spawnSync("git", ["describe", "--tags", "--exact-match"], opts);
+        return r.status === 0 ? r.stdout.trim() : undefined;
+      }
+      default:
+        return undefined;
+    }
+  } catch {
+    return undefined;
   }
 }

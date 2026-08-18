@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEngine } from "../engine.js";
 import { createMockDriver, createOutputWritingMockDriver, createCancellableMockDriver } from "./helpers/mock-driver.js";
-import { makeSingleStepPlan, makeDependencyPlan, makeFailingPlan, makeFailureConditionPlan, makeAlwaysConditionPlan, makeNeverConditionPlan } from "./helpers/fixtures.js";
+import { makeSingleStepPlan, makeDependencyPlan, makeFailingPlan, makeFailureConditionPlan, makeAlwaysConditionPlan, makeNeverConditionPlan, makeConditionalPlan } from "./helpers/fixtures.js";
 
 describe("createEngine", () => {
   it("returns an Engine with run() and cancel()", () => {
@@ -184,5 +184,51 @@ describe("Engine.run", () => {
     const succeeded = events.filter((e) => e.type === "step-succeeded").map((e) => e.stepId);
     expect(skipped).toContain("ci/skip");
     expect(succeeded).not.toContain("ci/skip");
+  });
+
+  it("skips step when Expression condition evaluates to false", async () => {
+    const driver = createMockDriver();
+    const engine = createEngine({ drivers: [driver] });
+    const plan = makeConditionalPlan(
+      {
+        kind: "expression",
+        template: "${inputs.env} == 'production'",
+        refs: [{ kind: "context", namespace: "inputs", field: "env" }],
+      },
+      { env: "staging" },
+    );
+    const events: { type: string; stepId?: string }[] = [];
+    for await (const event of engine.run({
+      plan,
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+    })) {
+      events.push(event as { type: string; stepId?: string });
+    }
+    const skipped = events.find((e) => e.type === "step-skipped");
+    expect(skipped).toBeDefined();
+  });
+
+  it("runs step when Expression condition evaluates to true", async () => {
+    const driver = createMockDriver();
+    const engine = createEngine({ drivers: [driver] });
+    const plan = makeConditionalPlan(
+      {
+        kind: "expression",
+        template: "${inputs.env} == 'production'",
+        refs: [{ kind: "context", namespace: "inputs", field: "env" }],
+      },
+      { env: "production" },
+    );
+    const events: { type: string; stepId?: string }[] = [];
+    for await (const event of engine.run({
+      plan,
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+    })) {
+      events.push(event as { type: string; stepId?: string });
+    }
+    const started = events.find((e) => e.type === "step-started");
+    expect(started).toBeDefined();
   });
 });

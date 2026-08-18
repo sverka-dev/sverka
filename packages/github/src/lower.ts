@@ -11,7 +11,7 @@ import type {
   Reference,
   Expression,
 } from "@sverka/core";
-import type { Trigger, MatrixSpec, StepRef } from "@sverka/cdk";
+import type { Trigger, MatrixSpec, StepRef, StatusCondition } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
@@ -199,7 +199,7 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
     }
   }
 
-  return assembleTriggers(
+  return assembleTriggers({
     pushAll,
     pushBranches,
     pushTags,
@@ -209,7 +209,7 @@ function lowerTriggers(entries: readonly EntryDefinition[]): GithubTriggers {
     prPaths,
     hasManual,
     scheduleEntries,
-  );
+  });
 }
 
 function collectFilters(
@@ -249,44 +249,46 @@ function collectFilters(
   }
 }
 
-function assembleTriggers(
-  pushAll: boolean,
-  pushBranches: Set<string>,
-  pushTags: Set<string>,
-  pushPaths: Set<string>,
-  prAll: boolean,
-  prBranches: Set<string>,
-  prPaths: Set<string>,
-  hasManual: boolean,
-  scheduleEntries: readonly { cron: string; timezone?: string }[],
-): GithubTriggers {
+interface TriggerFilters {
+  readonly pushAll: boolean;
+  readonly pushBranches: Set<string>;
+  readonly pushTags: Set<string>;
+  readonly pushPaths: Set<string>;
+  readonly prAll: boolean;
+  readonly prBranches: Set<string>;
+  readonly prPaths: Set<string>;
+  readonly hasManual: boolean;
+  readonly scheduleEntries: readonly { cron: string; timezone?: string }[];
+}
+
+function assembleTriggers(f: TriggerFilters): GithubTriggers {
   const triggers: Record<string, unknown> = {};
 
-  if (pushAll) {
+  if (f.pushAll) {
     triggers.push = {};
-  } else if (pushBranches.size > 0 || pushTags.size > 0 || pushPaths.size > 0) {
+  } else if (f.pushBranches.size > 0 || f.pushTags.size > 0 || f.pushPaths.size > 0) {
     const push: Record<string, string[]> = {};
-    if (pushBranches.size > 0) push.branches = [...pushBranches];
-    if (pushTags.size > 0) push.tags = [...pushTags];
-    if (pushPaths.size > 0) push.paths = [...pushPaths];
+    if (f.pushBranches.size > 0) push.branches = [...f.pushBranches];
+    if (f.pushTags.size > 0) push.tags = [...f.pushTags];
+    if (f.pushPaths.size > 0) push.paths = [...f.pushPaths];
     triggers.push = push;
   }
 
-  if (prAll) {
+  if (f.prAll) {
     triggers.pull_request = {};
-  } else if (prBranches.size > 0 || prPaths.size > 0) {
+  } else if (f.prBranches.size > 0 || f.prPaths.size > 0) {
     const pr: Record<string, string[]> = {};
-    if (prBranches.size > 0) pr.branches = [...prBranches];
-    if (prPaths.size > 0) pr.paths = [...prPaths];
+    if (f.prBranches.size > 0) pr.branches = [...f.prBranches];
+    if (f.prPaths.size > 0) pr.paths = [...f.prPaths];
     triggers.pull_request = pr;
   }
 
-  if (hasManual) {
+  if (f.hasManual) {
     triggers.workflow_dispatch = null;
   }
 
-  if (scheduleEntries.length > 0) {
-    triggers.schedule = scheduleEntries;
+  if (f.scheduleEntries.length > 0) {
+    triggers.schedule = f.scheduleEntries;
   }
 
   return triggers as GithubTriggers;
@@ -635,32 +637,50 @@ const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
 
 /**
  * Translate a context ref (namespace.field) to GitHub expression syntax.
+ * Secrets are emitted as env var references ($FIELD) in commands to avoid
+ * exposing secret values in logs. In conditions, secrets are not supported
+ * by GitHub's if: context and are emitted as env var references instead.
  */
-function translateContextRef(namespace: string, field: string): string {
+function translateContextRef(namespace: string, field: string, inCondition = false): string {
   const key = `${namespace}.${field}`;
   const mapped = GITHUB_CONTEXT_MAP[key];
   if (mapped) return `\${{ ${mapped} }}`;
-  if (namespace === "env" || namespace === "secrets") {
-    return `\${{ ${namespace}.${field} }}`;
+  // env.X → ${{ env.FIELD }} (GitHub env context)
+  if (namespace === "env") {
+    return `\${{ env.${field} }}`;
   }
-  // Pipeline inputs are emitted as env vars by collectEnv, so inputs.X
-  // maps to env.X in the generated workflow.
+  // inputs.X → ${{ env.FIELD }} (pipeline inputs are lowered to workflow env)
   if (namespace === "inputs") {
     return `\${{ env.${field} }}`;
   }
   if (namespace === "matrix") {
     return `\${{ matrix.${field} }}`;
   }
-  // Unknown — leave as-is (literal shell variable)
-  return `\${${namespace}.${field}}`;
+  // secrets.X in commands → $FIELD (env var, avoids exposing value in run logs)
+  // secrets.X in conditions → not supported by GitHub if: context
+  if (namespace === "secrets") {
+    if (inCondition) {
+      // GitHub does not support secrets context in if: expressions.
+      // Use env var reference instead (secret is injected as env var).
+      return `\${{ env.${field} }}`;
+    }
+    return `$${field}`;
+  }
+  // Unknown namespace — fail lowering rather than emit invalid expression
+  throw new GithubTargetError(
+    `unsupported context namespace '${namespace}' in GitHub lowering`,
+    "LOWER_FAILED",
+  );
 }
 
 /**
- * Translate a step ref to GitHub steps.<jobId>.outputs.<output> syntax.
+ * Translate a step ref to GitHub needs.<jobId>.outputs.<output> syntax.
+ * Each Sverka step is lowered to a separate GitHub job, so cross-step
+ * references must use the 'needs' context, not 'steps'.
  */
 function translateStepRef(ref: StepRef, jobIdMap: Map<string, string>): string {
   const jobId = jobIdMap.get(ref.step) ?? ref.step;
-  return `\${{ steps.${jobId}.outputs.${ref.output} }}`;
+  return `\${{ needs.${jobId}.outputs.${ref.output} }}`;
 }
 
 /**
@@ -696,7 +716,7 @@ function translateCommand(
       return `\${${key}}`;
     }
     if (ref.kind === "context") {
-      return translateContextRef(ref.namespace, ref.field);
+      return translateContextRef(ref.namespace, ref.field, false);
     }
     return translateStepRef(ref, jobIdMap);
   });
@@ -706,11 +726,18 @@ function translateCommand(
  * Lower a step condition to a GitHub if: expression.
  */
 function lowerCondition(
-  condition: Reference | Expression,
+  condition: Reference | Expression | StatusCondition,
   jobIdMap: Map<string, string>,
 ): string {
+  if (condition.kind === "status") {
+    // GitHub status conditions map to built-in condition functions
+    if (condition.status === "always") return "${{ always() }}";
+    if (condition.status === "never") return "${{ false }}";
+    if (condition.status === "failure") return "${{ failure() }}";
+    return "${{ success() }}";
+  }
   if (condition.kind === "context") {
-    return `\${{ ${stripBraces(translateContextRef(condition.namespace, condition.field))} }}`;
+    return `\${{ ${stripBraces(translateContextRef(condition.namespace, condition.field, true))} }}`;
   }
   if (condition.kind === "step") {
     return translateStepRef(condition, jobIdMap);
@@ -721,7 +748,7 @@ function lowerCondition(
     const ref = lookup.get(key);
     if (ref === undefined) return `\${${key}}`;
     if (ref.kind === "context") {
-      return stripBraces(translateContextRef(ref.namespace, ref.field));
+      return stripBraces(translateContextRef(ref.namespace, ref.field, true));
     }
     return stripBraces(translateStepRef(ref, jobIdMap));
   });
@@ -730,6 +757,7 @@ function lowerCondition(
 
 /** Strip the `${{ ... }}` wrapper, returning the inner expression. */
 function stripBraces(s: string): string {
-  const m = s.match(/^\$\{\{\s*(.+?)\s*\}\}$/);
+  const re = /^\$\{\{\s*(.+?)\s*\}\}$/;
+  const m = re.exec(s);
   return m ? m[1]! : s;
 }

@@ -173,17 +173,49 @@ describe("StepExecutor — context ref resolution", () => {
     }
   });
 
-  it("resolves secrets.X from secrets record", async () => {
+  it("prioritizes runtime.env over process.env for env.X", async () => {
+    process.env.SVERKA_TEST_VAR = "from-process";
+    try {
+      let capturedCommand = "";
+      const driver = createMockDriver({
+        executeFn: async (req) => {
+          capturedCommand = req.command;
+          return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        },
+      });
+      const step: StepDefinition = {
+        id: "ci/build",
+        runtime: { env: { SVERKA_TEST_VAR: "from-runtime" } },
+        operations: [{ kind: "shell", command: "echo ${env.SVERKA_TEST_VAR}" }],
+        inputs: [{ kind: "context", namespace: "env", field: "SVERKA_TEST_VAR" }],
+        outputs: [],
+        dependencies: [],
+      };
+      await executeStep({
+        step, driver, workspace: testDir,
+        artifactStore: createArtifactStore(join(testDir, "art")),
+        valueStore: createValueStore(), secrets: {},
+        emit: () => {}, isCancelled: () => false,
+      });
+      expect(capturedCommand).toBe("echo from-runtime");
+    } finally {
+      delete process.env.SVERKA_TEST_VAR;
+    }
+  });
+
+  it("resolves secrets.X as env var reference, not raw value", async () => {
     let capturedCommand = "";
+    let capturedEnv: Record<string, string> = {};
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedCommand = req.command;
+        capturedEnv = req.env;
         return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
       },
     });
     const step: StepDefinition = {
       id: "ci/build",
-      runtime: {},
+      runtime: { secrets: ["TOKEN"] },
       operations: [{ kind: "shell", command: "echo ${secrets.TOKEN}" }],
       inputs: [{ kind: "context", namespace: "secrets", field: "TOKEN" }],
       outputs: [],
@@ -195,7 +227,31 @@ describe("StepExecutor — context ref resolution", () => {
       valueStore: createValueStore(), secrets: { TOKEN: "secret123" },
       emit: () => {}, isCancelled: () => false,
     });
-    expect(capturedCommand).toBe("echo secret123");
+    // Secret value must NOT appear in the command — only the env var reference
+    expect(capturedCommand).toBe("echo $TOKEN");
+    expect(capturedEnv.TOKEN).toBe("secret123");
+  });
+
+  it("rejects undeclared secret references", async () => {
+    const driver = createMockDriver({
+      executeFn: async () => ({ exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false }),
+    });
+    const step: StepDefinition = {
+      id: "ci/build",
+      runtime: {},
+      operations: [{ kind: "shell", command: "echo ${secrets.TOKEN}" }],
+      inputs: [{ kind: "context", namespace: "secrets", field: "TOKEN" }],
+      outputs: [],
+      dependencies: [],
+    };
+    const result = await executeStep({
+      step, driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: { TOKEN: "secret123" },
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.error).toContain("undeclared secret");
   });
 
   it("resolves git.sha from git rev-parse HEAD", async () => {
@@ -214,8 +270,9 @@ describe("StepExecutor — context ref resolution", () => {
       outputs: [],
       dependencies: [],
     };
+    // Use the repo root as workspace so git context resolves
     await executeStep({
-      step, driver, workspace: testDir,
+      step, driver, workspace: process.cwd(),
       artifactStore: createArtifactStore(join(testDir, "art")),
       valueStore: createValueStore(), secrets: {},
       emit: () => {}, isCancelled: () => false,
@@ -240,8 +297,9 @@ describe("StepExecutor — context ref resolution", () => {
       outputs: [],
       dependencies: [],
     };
+    // Use the repo root as workspace so git context resolves
     await executeStep({
-      step, driver, workspace: testDir,
+      step, driver, workspace: process.cwd(),
       artifactStore: createArtifactStore(join(testDir, "art")),
       valueStore: createValueStore(), secrets: {},
       emit: () => {}, isCancelled: () => false,
