@@ -12,7 +12,7 @@ import type {
   Expression,
   Input,
 } from "@sverka/core";
-import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, Input, ServiceContainer, CacheSpec, InputLiteral } from "@sverka/cdk";
+import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, ServiceContainer, CacheSpec, InputLiteral } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
