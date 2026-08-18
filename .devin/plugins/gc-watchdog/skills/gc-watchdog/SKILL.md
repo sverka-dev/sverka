@@ -358,7 +358,7 @@ Each tick is one subagent invocation: wait 60s, check, self-heal, report.
 ### As a standalone script
 
 ```bash
-bash .agents/skills/gc-watchdog/watchdog.sh [interval_seconds]
+bash .devin/plugins/gc-watchdog/skills/gc-watchdog/watchdog.sh [interval_seconds]
 ```
 
 Default interval: 60 seconds. Runs until idle or interrupted.
