@@ -1,9 +1,9 @@
 #!/bin/bash
 # gc-watchdog — periodic Gas City health monitor with self-healing.
 #
-# Checks gc status, bd list, session health, Dolt health, and critical
-# infrastructure agents. Detects stuck/stale agents, Dolt issues, unclaimed
-# work, and mayor prompts. Attempts self-healing before reporting.
+# Checks gc status, bd list, session health, Dolt health, API health, and
+# critical infrastructure agents. Detects stuck/stale agents, Dolt issues,
+# unclaimed work, and mayor prompts. Attempts self-healing before reporting.
 # Exits when there is no more open real work and no health warnings.
 #
 # Usage: bash watchdog.sh [interval_seconds]
@@ -20,52 +20,93 @@ ITER=0
 
 # --- helpers ---
 
-# Filter out ephemeral wisp/nudge beads from bd output.
+# Count real issues by status using JSON output.
+# Returns -1 on failure (distinct from a legitimate 0 count) so the
+# caller can distinguish "no work" from "lookup failed".
 count_real_issues() {
   local status="$1"
   local raw
-  if ! raw=$(timeout 10 bd list --status="$status" 2>/dev/null); then
+  if ! raw=$(timeout 10 bd list --status="$status" --json 2>/dev/null); then
     printf -- '-1\n'
     return 1
   fi
-  printf '%s\n' "$raw" \
-    | { grep -E '^[[:space:]]*[○◐●] sv-[a-zA-Z0-9]{3,}(\.[0-9]+)?($|[[:space:]])' || true; } \
-    | { grep -vE '^[[:space:]]*[○◐●] sv-(wisp|nudge)(\.[0-9]+)?($|[[:space:]])' || true; } \
-    | wc -l
+  printf '%s\n' "$raw" | python3 -c "
+import json, sys
+try:
+  data = json.load(sys.stdin)
+  if not isinstance(data, list):
+    print(-1)
+    sys.exit(1)
+  count = sum(1 for b in data
+              if isinstance(b, dict)
+              and b.get('id','').startswith('sv-')
+              and 'wisp' not in b.get('id','')
+              and 'nudge' not in b.get('id',''))
+  print(count)
+except Exception:
+  print(-1)
+  sys.exit(1)
+" 2>/dev/null
 }
 
-# Get list of real open bead IDs (for unclaimed-work detection)
+# Get open bead IDs with age (for unclaimed-work detection).
+# Output lines: bid|assignee|priority|title|age_seconds
+# Returns nonzero on command or parse failure.
 get_open_bead_ids() {
-  timeout 10 bd list --status=open --json 2>/dev/null \
-    | python3 -c "
-import json, sys
+  local raw
+  if ! raw=$(timeout 10 bd list --status=open --json 2>/dev/null); then
+    return 1
+  fi
+  printf '%s\n' "$raw" | python3 -c "
+import json, sys, time
+from datetime import datetime
 try:
   data = json.load(sys.stdin)
+  if not isinstance(data, list):
+    sys.exit(1)
+  now = time.time()
   for b in data:
     bid = b.get('id','')
     if bid.startswith('sv-') and 'wisp' not in bid and 'nudge' not in bid:
-      assignee = b.get('assignee','')
-      priority = b.get('priority','')
-      title = b.get('title','')
-      print(f'{bid}|{assignee}|{priority}|{title}')
-except: pass
-" 2>/dev/null || true
+      assignee = b.get('assignee','') or ''
+      priority = str(b.get('priority','') or '')
+      title = b.get('title','') or ''
+      created = (b.get('created') or b.get('created_at')
+                 or b.get('createdAt') or b.get('ctime') or '')
+      age = -1
+      if created:
+        try:
+          dt = datetime.fromisoformat(str(created).replace('Z','+00:00'))
+          age = int(now - dt.timestamp())
+        except Exception:
+          age = -1
+      print(f'{bid}|{assignee}|{priority}|{title}|{age}')
+except Exception:
+  sys.exit(1)
+"
 }
 
-# Get in-progress bead IDs with assignees
+# Get in-progress bead IDs with assignees.
+# Returns nonzero on command or parse failure.
 get_inprogress_beads() {
-  timeout 10 bd list --status=in_progress --json 2>/dev/null \
-    | python3 -c "
+  local raw
+  if ! raw=$(timeout 10 bd list --status=in_progress --json 2>/dev/null); then
+    return 1
+  fi
+  printf '%s\n' "$raw" | python3 -c "
 import json, sys
 try:
   data = json.load(sys.stdin)
+  if not isinstance(data, list):
+    sys.exit(1)
   for b in data:
     bid = b.get('id','')
     if bid.startswith('sv-') and 'wisp' not in bid and 'nudge' not in bid:
-      assignee = b.get('assignee','')
+      assignee = b.get('assignee','') or ''
       print(f'{bid}|{assignee}')
-except: pass
-" 2>/dev/null || true
+except Exception:
+  sys.exit(1)
+"
 }
 
 # Get active session IDs
@@ -74,10 +115,17 @@ get_session_ids() {
     | awk '/^sv-wisp-/ {print $1}' || true
 }
 
-# Check if a session ID exists
+# Check if a session ID exists.
+# Returns: 0 = exists, 1 = confirmed absent, 2 = lookup timeout/error.
+# Returning 2 (instead of 1) on timeout prevents reopening legitimately
+# assigned work during a transient control-plane outage.
 session_exists() {
   local sid="$1"
-  timeout 10 gc session list 2>/dev/null | awk '{print $1}' | grep -qx "$sid"
+  local sess_list
+  if ! sess_list=$(timeout 10 gc session list 2>/dev/null); then
+    return 2
+  fi
+  printf '%s\n' "$sess_list" | awk '{print $1}' | grep -qx "$sid" && return 0 || return 1
 }
 
 # Find mayor session ID
@@ -86,52 +134,100 @@ get_mayor_session_id() {
     | awk '$2 == "mayor" && $3 == "active" {print $1; exit}' || true
 }
 
+# Convert a duration string like "2m", "1h", "30s", "2d" to minutes.
+_duration_to_minutes() {
+  local dur="$1"
+  local num unit
+  num="${dur//[!0-9]/}"
+  unit="${dur//[0-9]/}"
+  case "$unit" in
+    s) echo $(( num / 60 )) ;;
+    m) echo "$num" ;;
+    h) echo $(( num * 60 )) ;;
+    d) echo $(( num * 1440 )) ;;
+    *) echo 0 ;;
+  esac
+}
+
 # --- self-healing actions ---
 
+# Each fix_* function runs its repair command, re-checks the condition,
+# and emits a FIXED line only after recovery is confirmed. On failure it
+# emits an ESCALATE line instead. The caller captures stdout into the
+# FIXED_ACTIONS array.
+
 fix_dolt_port() {
-  local dolt_port
+  local dolt_port=""
   # Try config file first
-  if [ -f ".gc/runtime/packs/dolt/dolt-config.yaml" ]; then
+  if [[ -f ".gc/runtime/packs/dolt/dolt-config.yaml" ]]; then
     dolt_port=$(grep -E '^\s*port:' ".gc/runtime/packs/dolt/dolt-config.yaml" | head -1 | grep -oE '[0-9]+' || true)
   fi
   # Fallback: find listening dolt process
-  if [ -z "$dolt_port" ]; then
+  if [[ -z "$dolt_port" ]]; then
     dolt_port=$(ss -tlnp 2>/dev/null | grep dolt | grep -oE ':[0-9]+' | head -1 | tr -d ':' || true)
   fi
-  if [ -n "$dolt_port" ]; then
-    echo "FIXED dolt-degraded -> bd dolt set port $dolt_port"
+  if [[ -n "$dolt_port" ]]; then
     bd dolt set port "$dolt_port" >/dev/null 2>&1 || true
-    bd dolt test >/dev/null 2>&1 || true
+    # Re-test after fix — only report FIXED if dolt test passes
+    if timeout 10 bd dolt test >/dev/null 2>&1; then
+      echo "FIXED dolt-degraded -> bd dolt set port $dolt_port"
+      return 0
+    else
+      echo "ESCALATE dolt-degraded -> port set to $dolt_port but dolt test still failing"
+      return 1
+    fi
   else
     echo "ESCALATE dolt-down -> no dolt process found, manual intervention needed"
+    return 1
   fi
 }
 
 fix_stuck_session() {
   local sid="$1"
-  echo "FIXED agent-stuck:$sid -> gc session close $sid"
-  gc session close "$sid" >/dev/null 2>&1 || true
+  if gc session close "$sid" >/dev/null 2>&1; then
+    echo "FIXED agent-stuck:$sid -> gc session close $sid"
+    return 0
+  else
+    echo "ESCALATE agent-stuck:$sid -> gc session close failed"
+    return 1
+  fi
 }
 
 fix_zombie_session() {
   local sid="$1"
-  echo "FIXED agent-zombie:$sid -> gc session close $sid"
-  gc session close "$sid" >/dev/null 2>&1 || true
+  if gc session close "$sid" >/dev/null 2>&1; then
+    echo "FIXED agent-zombie:$sid -> gc session close $sid"
+    return 0
+  else
+    echo "ESCALATE agent-zombie:$sid -> gc session close failed"
+    return 1
+  fi
 }
 
 fix_orphaned_work() {
   local bid="$1"
-  echo "FIXED orphaned-work:$bid -> bd update $bid --status=open"
-  bd update "$bid" --status=open >/dev/null 2>&1 || true
+  # Clear dead assignee so the bead can be re-claimed, then reopen
+  bd update "$bid" --unassign >/dev/null 2>&1 || true
+  if bd update "$bid" --status=open >/dev/null 2>&1; then
+    echo "FIXED orphaned-work:$bid -> bd update --unassign + --status=open"
+    return 0
+  else
+    echo "ESCALATE orphaned-work:$bid -> bd update failed"
+    return 1
+  fi
 }
 
+# Nudge the mayor about unclaimed work using gc session nudge (not
+# gc session submit --intent interrupt_now, which is reserved for
+# answering pending mayor prompts per SKILL.md).
 nudge_mayor_about_work() {
   local mayor_sid="$1"
   local work_list="$2"
-  if [ -n "$mayor_sid" ]; then
-    echo "FIXED unclaimed-work -> gc session submit $mayor_sid (interrupt_now)"
-    gc session submit "$mayor_sid" "P1 beads unclaimed for >1h: $work_list. Please dispatch builders." --intent interrupt_now >/dev/null 2>&1 || true
+  if [[ -n "$mayor_sid" ]]; then
+    gc session nudge mayor "P1 beads unclaimed for >1h: ${work_list}. Please dispatch builders." >/dev/null 2>&1
+    return $?
   fi
+  return 1
 }
 
 # --- main loop ---
@@ -139,12 +235,12 @@ nudge_mayor_about_work() {
 while true; do
   ITER=$((ITER + 1))
   TS=$(date '+%H:%M:%S')
-  FIXED_ACTIONS=""
+  FIXED_ACTIONS=()
   ISSUES=""
 
   # 1. gc status
   STATUS=$(timeout 15 gc status 2>/dev/null || true)
-  if [ -z "$STATUS" ]; then
+  if [[ -z "$STATUS" ]]; then
     echo "[$TS] #$ITER WARN api-down | gc status timeout"
     sleep "$INTERVAL"
     continue
@@ -154,9 +250,21 @@ while true; do
   SESSIONS=$(printf '%s\n' "$STATUS" | awk '/^Sessions:/ {print; exit}')
   SUSPENDED=$(printf '%s\n' "$STATUS" | awk '/^Suspended:/ {print $2; exit}')
 
-  [ -z "$MAYOR" ] && ISSUES="$ISSUES mayor-missing"
-  [ -n "$MAYOR" ] && [ "$MAYOR" != "awake" ] && [ "$MAYOR" != "running" ] && [ "$MAYOR" != "active" ] && ISSUES="$ISSUES mayor:$MAYOR"
-  [ -n "${SUSPENDED:-}" ] && [ "$SUSPENDED" != "no" ] && ISSUES="$ISSUES suspended"
+  [[ -z "$MAYOR" ]] && ISSUES="$ISSUES mayor-missing"
+  if [[ -n "$MAYOR" && "$MAYOR" != "awake" && "$MAYOR" != "running" && "$MAYOR" != "active" ]]; then
+    ISSUES="$ISSUES mayor:$MAYOR"
+  fi
+  # Treat missing Suspended field as an issue, not a healthy default
+  if [[ -z "${SUSPENDED:-}" ]]; then
+    ISSUES="$ISSUES suspended-unknown"
+  elif [[ "$SUSPENDED" != "no" ]]; then
+    ISSUES="$ISSUES suspended"
+  fi
+
+  # 1b. API health probe — verify the HTTP endpoint, not just gc status
+  if ! timeout 5 curl -sf --max-time 3 http://127.0.0.1:8372/health >/dev/null 2>&1; then
+    ISSUES="$ISSUES api-down"
+  fi
 
   # 2. Dolt health
   if ! timeout 10 bd dolt test >/dev/null 2>&1; then
@@ -164,10 +272,13 @@ while true; do
     # Self-heal: check if dolt is running and fix port
     if pgrep -f "dolt sql-server" >/dev/null 2>&1; then
       FIX_OUT=$(fix_dolt_port)
-      [ -n "$FIX_OUT" ] && FIXED_ACTIONS="$FIXED_ACTIONS $FIX_OUT"
-      # Re-test after fix
-      if timeout 10 bd dolt test >/dev/null 2>&1; then
-        ISSUES="${ISSUES// dolt-degraded/}"
+      if [[ -n "$FIX_OUT" ]]; then
+        FIXED_ACTIONS+=("$FIX_OUT")
+        # Remove dolt-degraded from ISSUES only if fix succeeded
+        if echo "$FIX_OUT" | grep -q "^FIXED"; then
+          ISSUES="${ISSUES// dolt-degraded/}"
+          ISSUES="${ISSUES/#dolt-degraded/}"
+        fi
       fi
     else
       ISSUES="$ISSUES dolt-down"
@@ -180,96 +291,204 @@ while true; do
   INPROG_COUNT=$(count_real_issues "in_progress")
   INPROG_FAILED=$?
 
-  if [ "$OPEN_FAILED" -ne 0 ] || [ "$INPROG_FAILED" -ne 0 ]; then
+  if [[ "$OPEN_FAILED" -ne 0 || "$INPROG_FAILED" -ne 0 ]]; then
     ISSUES="$ISSUES bd-lookup-failed"
   fi
 
-  # 4. Unclaimed work detection
+  # 4. Unclaimed work detection (P1 open > 1h with no assignee)
   MAYOR_SID=$(get_mayor_session_id)
   UNCLAIMED=""
-  if [ "$OPEN_COUNT" -gt 0 ] && [ "$OPEN_FAILED" -eq 0 ]; then
-    while IFS='|' read -r bid assignee priority title; do
-      [ -z "$bid" ] && continue
-      if [ -z "$assignee" ] || [ "$assignee" = "" ]; then
-        if [ "$priority" = "1" ]; then
-          UNCLAIMED="$UNCLAIMED $bid($title)"
+  BEAD_LOOKUP_FAILED=0
+  if [[ "$OPEN_COUNT" -gt 0 && "$OPEN_FAILED" -eq 0 ]]; then
+    OPEN_BEADS_OUT=""
+    if ! OPEN_BEADS_OUT=$(get_open_bead_ids); then
+      BEAD_LOOKUP_FAILED=1
+      ISSUES="$ISSUES bd-lookup-failed"
+    fi
+    if [[ "$BEAD_LOOKUP_FAILED" -eq 0 ]]; then
+      while IFS='|' read -r bid assignee priority title age; do
+        [[ -z "$bid" ]] && continue
+        if [[ -z "$assignee" ]]; then
+          # Only flag P1 beads older than 1 hour (3600 seconds)
+          if [[ "$priority" == "1" && "${age:-0}" -gt 3600 ]]; then
+            age_min=$((age / 60))
+            UNCLAIMED="$UNCLAIMED $bid(${age_min}m)"
+            ISSUES="$ISSUES unclaimed-work:$bid:${age_min}m"
+          fi
+        fi
+      done <<< "$OPEN_BEADS_OUT"
+      if [[ -n "$UNCLAIMED" ]]; then
+        if nudge_mayor_about_work "$MAYOR_SID" "$UNCLAIMED"; then
+          FIXED_ACTIONS+=("FIXED unclaimed-work -> gc session nudge mayor")
+        else
+          FIXED_ACTIONS+=("ESCALATE unclaimed-work -> nudge mayor failed")
         fi
       fi
-    done <<< "$(get_open_bead_ids)"
-    if [ -n "$UNCLAIMED" ]; then
-      ISSUES="$ISSUES unclaimed-work"
-      nudge_mayor_about_work "$MAYOR_SID" "$UNCLAIMED" >/dev/null 2>&1 || true
-      FIXED_ACTIONS="$FIXED_ACTIONS FIXED unclaimed-work -> nudge mayor"
     fi
   fi
 
   # 5. Orphaned work detection
-  if [ "$INPROG_COUNT" -gt 0 ] && [ "$INPROG_FAILED" -eq 0 ]; then
-    while IFS='|' read -r bid assignee; do
-      [ -z "$bid" ] && continue
-      if [ -n "$assignee" ] && ! session_exists "$assignee"; then
-        ISSUES="$ISSUES orphaned-work:$bid"
-        fix_orphaned_work "$bid"
-        FIXED_ACTIONS="$FIXED_ACTIONS FIXED orphaned-work:$bid -> bd update --status=open"
-      fi
-    done <<< "$(get_inprogress_beads)"
+  if [[ "$INPROG_COUNT" -gt 0 && "$INPROG_FAILED" -eq 0 ]]; then
+    INPROG_BEADS_OUT=""
+    if ! INPROG_BEADS_OUT=$(get_inprogress_beads); then
+      BEAD_LOOKUP_FAILED=1
+      ISSUES="$ISSUES bd-lookup-failed"
+    fi
+    if [[ "$BEAD_LOOKUP_FAILED" -eq 0 ]]; then
+      while IFS='|' read -r bid assignee; do
+        [[ -z "$bid" ]] && continue
+        if [[ -n "$assignee" ]]; then
+          session_exists "$assignee"
+          sess_rc=$?
+          if [[ "$sess_rc" -eq 1 ]]; then
+            # Confirmed absent — orphaned
+            ISSUES="$ISSUES orphaned-work:$bid"
+            FIX_OUT=$(fix_orphaned_work "$bid")
+            [[ -n "$FIX_OUT" ]] && FIXED_ACTIONS+=("$FIX_OUT")
+          elif [[ "$sess_rc" -eq 2 ]]; then
+            # Timeout/error — don't reopen, flag lookup failure
+            ISSUES="$ISSUES session-lookup-failed"
+          fi
+        fi
+      done <<< "$INPROG_BEADS_OUT"
+    fi
   fi
 
   # 6. Session health
   SESS_LIST=$(timeout 10 gc session list 2>/dev/null || true)
-  if [ -n "$SESS_LIST" ]; then
+  if [[ -n "$SESS_LIST" ]]; then
     while read -r sid tmpl state reason rest; do
-      [ -z "$sid" ] && continue
+      [[ -z "$sid" ]] && continue
       [[ "$sid" != sv-wisp-* ]] && continue
 
       # user-hold = stuck on authorization
       if echo "$reason" | grep -q "user-hold"; then
-        if [ "$tmpl" != "mayor" ]; then
+        if [[ "$tmpl" != "mayor" ]]; then
           ISSUES="$ISSUES agent-stuck:$sid"
-          fix_stuck_session "$sid"
-          FIXED_ACTIONS="$FIXED_ACTIONS FIXED agent-stuck:$sid -> gc session close"
+          FIX_OUT=$(fix_stuck_session "$sid")
+          [[ -n "$FIX_OUT" ]] && FIXED_ACTIONS+=("$FIX_OUT")
         else
           ISSUES="$ISSUES mayor-stuck:$sid"
         fi
       fi
 
       # zombie = asleep + killed
-      if [ "$state" = "asleep" ] && echo "$reason" | grep -q "killed"; then
+      if [[ "$state" == "asleep" ]] && echo "$reason" | grep -q "killed"; then
         ISSUES="$ISSUES agent-zombie:$sid"
-        fix_zombie_session "$sid"
-        FIXED_ACTIONS="$FIXED_ACTIONS FIXED agent-zombie:$sid -> gc session close"
+        FIX_OUT=$(fix_zombie_session "$sid")
+        [[ -n "$FIX_OUT" ]] && FIXED_ACTIONS+=("$FIX_OUT")
+      fi
+
+      # stale = active but LAST ACTIVE > 60m
+      if [[ "$state" == "active" ]]; then
+        last_active=$(printf '%s\n' "$rest" | tr ' ' '\n' | grep -E '^[0-9]+[smhd]$' | head -1 || true)
+        if [[ -n "$last_active" ]]; then
+          last_mins=$(_duration_to_minutes "$last_active")
+          if [[ "$last_mins" -gt 60 ]]; then
+            ISSUES="$ISSUES agent-stale:$sid"
+            # Self-heal: kill the session so it can restart
+            if gc session kill "$sid" >/dev/null 2>&1; then
+              FIXED_ACTIONS+=("FIXED agent-stale:$sid -> gc session kill $sid")
+            else
+              FIXED_ACTIONS+=("ESCALATE agent-stale:$sid -> gc session kill failed")
+            fi
+          fi
+        fi
       fi
     done <<< "$SESS_LIST"
   fi
 
-  # 7. Mayor prompt check
-  if [ -n "$MAYOR_SID" ]; then
+  # 7. Critical infrastructure agents
+  # Only flag when there is work that requires the agent AND it is not running.
+  if [[ -n "$SESS_LIST" && ( "$OPEN_COUNT" -gt 0 || "$INPROG_COUNT" -gt 0 ) ]]; then
+    # Check for routed work needing bd.dog
+    ROUTED_WORK=$(timeout 10 bd list --status=open --json 2>/dev/null \
+      | python3 -c "
+import json, sys
+try:
+  data = json.load(sys.stdin)
+  if not isinstance(data, list):
+    print(0)
+  else:
+    routed = sum(1 for b in data
+                 if isinstance(b, dict)
+                 and b.get('id','').startswith('sv-')
+                 and ('routed_to' in b or 'gc.routed_to' in b
+                      or 'routed_to' in b.get('metadata',{})))
+    print(routed)
+except Exception:
+  print(0)
+" 2>/dev/null || true)
+    if [[ "${ROUTED_WORK:-0}" -gt 0 ]]; then
+      if ! printf '%s\n' "$SESS_LIST" | grep -q "bd\.dog"; then
+        ISSUES="$ISSUES bd.dog-down"
+      fi
+    fi
+    # Check builder pool when there's open work
+    if [[ "$OPEN_COUNT" -gt 0 ]]; then
+      if ! printf '%s\n' "$SESS_LIST" | grep -q "builder"; then
+        ISSUES="$ISSUES builder-pool-down"
+      fi
+    fi
+  fi
+
+  # Check control-dispatcher only if formula_v2 is true
+  FORMULA_V2=""
+  if [[ -f "city.toml" ]]; then
+    FORMULA_V2=$(grep -E '^\s*formula_v2\s*=' city.toml 2>/dev/null | grep -oE 'true|false' | head -1 || true)
+  fi
+  if [[ "$FORMULA_V2" == "true" ]]; then
+    V2_WORKFLOWS=$(timeout 10 bd list --status=in_progress --json 2>/dev/null \
+      | python3 -c "
+import json, sys
+try:
+  data = json.load(sys.stdin)
+  if not isinstance(data, list):
+    print(0)
+  else:
+    wf = sum(1 for b in data
+             if isinstance(b, dict)
+             and (b.get('metadata',{}).get('gc.kind','') == 'workflow'
+                  or b.get('gc.kind','') == 'workflow'))
+    print(wf)
+except Exception:
+  print(0)
+" 2>/dev/null || true)
+    if [[ "${V2_WORKFLOWS:-0}" -gt 0 ]]; then
+      if ! printf '%s\n' "$SESS_LIST" | grep -q "control-dispatcher"; then
+        ISSUES="$ISSUES control-dispatcher-down"
+      fi
+    fi
+  fi
+
+  # 8. Mayor prompt check
+  if [[ -n "$MAYOR_SID" ]]; then
     PEEK=$(timeout 10 gc session peek "$MAYOR_SID" 2>/dev/null || true)
     if echo "$PEEK" | grep -q "Press Enter to send\|authorize\|Authorization\|❯.*❯"; then
       # Mayor has a pending prompt — extract it
       PROMPT_SUMMARY=$(echo "$PEEK" | grep -E "❭|authorize|Authorize|Press Enter" | head -3 | tr '\n' ' ' | head -c 120)
       ISSUES="$ISSUES mayor-prompt"
       # In script mode we can only report — agent mode handles auto-respond
-      FIXED_ACTIONS="$FIXED_ACTIONS RELAY mayor-prompt -> user: $PROMPT_SUMMARY"
+      FIXED_ACTIONS+=("RELAY mayor-prompt -> user: $PROMPT_SUMMARY")
     fi
   fi
 
-  # 8. Report
-  if [ -n "$ISSUES" ]; then
+  # 9. Report
+  if [[ -n "$ISSUES" ]]; then
     echo "[$TS] #$ITER WARN$ISSUES | open:$OPEN_COUNT in_progress:$INPROG_COUNT | ${SESSIONS:-no-sessions}"
   else
     echo "[$TS] #$ITER OK mayor:$MAYOR | open:$OPEN_COUNT in_progress:$INPROG_COUNT | ${SESSIONS:-no-sessions}"
   fi
 
-  # Print fixed actions
-  if [ -n "$FIXED_ACTIONS" ]; then
-    for action in $FIXED_ACTIONS; do
-      [ -n "$action" ] && echo "[$TS] #$ITER $action"
+  # Print fixed actions — each complete action as one report line
+  if [[ "${#FIXED_ACTIONS[@]}" -gt 0 ]]; then
+    for action in "${FIXED_ACTIONS[@]}"; do
+      echo "[$TS] #$ITER $action"
     done
   fi
 
-  # 9. Exit condition
-  if [ "$OPEN_COUNT" -eq 0 ] && [ "$INPROG_COUNT" -eq 0 ] && [ -z "$ISSUES" ]; then
+  # 10. Exit condition
+  if [[ "$OPEN_COUNT" -eq 0 && "$INPROG_COUNT" -eq 0 && -z "$ISSUES" ]]; then
     echo "[$TS] #$ITER IDLE — no open work, no in-progress work. Watchdog exiting."
     exit 0
   fi
