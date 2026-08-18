@@ -81,7 +81,20 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
   assignOptional(result, "timeout", job.timeout);
   assignAllowFailure(result, job.allowFailure);
   assignRetry(result, job.retry);
-  assignOptional(result, "parallel", job.parallel);
+  if (job.parallel && job.parallel.matrix) {
+    // GitLab parallel:matrix requires each variable value to be an array.
+    result.parallel = {
+      matrix: job.parallel.matrix.map((row: Record<string, unknown>) => {
+        const wrapped: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(row)) {
+          wrapped[k] = Array.isArray(v) ? v : [v];
+        }
+        return wrapped;
+      }),
+    };
+  } else {
+    assignOptional(result, "parallel", job.parallel);
+  }
 
   return result;
 }
@@ -119,7 +132,8 @@ function assignRetry(
   value: GitlabJob["retry"],
 ): void {
   if (value === undefined) return;
-  const retry: Record<string, unknown> = { max: value.max };
+  // GitLab enforces a maximum of 2 retries.
+  const retry: Record<string, unknown> = { max: Math.min(value.max, 2) };
   if (value.when && value.when.length > 0) retry.when = [...value.when];
   if (value.exitCodes && value.exitCodes.length > 0) retry.exit_codes = [...value.exitCodes];
   result.retry = retry;

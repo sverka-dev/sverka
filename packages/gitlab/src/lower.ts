@@ -411,8 +411,7 @@ function lowerStep(
     ...(step.retry !== undefined
       ? {
           retry: {
-            // GitLab enforces a maximum of 2 retries.
-            max: Math.min(step.retry.max, 2),
+            max: step.retry.max,
             ...(step.retry.when ? { when: step.retry.when } : {}),
             ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
           },
@@ -630,23 +629,11 @@ type MatrixCombination = Record<string, MatrixValue>;
 function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[] {
   const combinations = computeMatrixCombinations(spec.dimensions, spec.exclude ?? []);
   const includeEntries = (spec.include ?? []).map((entry) => ({ ...entry }));
-  // GitLab parallel:matrix requires each variable value to be an array.
-  // Wrap each scalar combination value in a single-element array.
+  // Keep values flat in the target graph; array-wrapping for GitLab's
+  // parallel:matrix format happens at YAML emit time.
   return [
-    ...combinations.map((c) => {
-      const entry: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(c)) {
-        entry[k] = [v];
-      }
-      return entry;
-    }),
-    ...includeEntries.map((e) => {
-      const entry: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(e)) {
-        entry[k] = [v];
-      }
-      return entry;
-    }),
+    ...combinations.map((c) => ({ ...c })),
+    ...includeEntries,
   ];
 }
 
@@ -721,7 +708,7 @@ function translateGitlabContextRef(namespace: string, field: string): string {
     return `$${field}`;
   }
   if (namespace === "matrix") {
-    return `$${field}`;
+    return `$${field.toUpperCase()}`;
   }
   return `\${${namespace}.${field}}`;
 }
