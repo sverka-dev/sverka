@@ -186,6 +186,11 @@ function stepProps(command: string, options?: StepOptions): ShellStepProps {
     ...(options?.dependsOn ? { dependsOn: options.dependsOn } : {}),
     ...(options?.timeout !== undefined ? { timeout: options.timeout } : {}),
     ...(options?.matrix !== undefined ? { matrix: options.matrix } : {}),
+    ...(options?.condition !== undefined ? { condition: options.condition } : {}),
+    ...(options?.beforeScript ? { beforeScript: options.beforeScript } : {}),
+    ...(options?.afterScript ? { afterScript: options.afterScript } : {}),
+    ...(options?.continueOnError !== undefined ? { continueOnError: options.continueOnError } : {}),
+    ...(options?.retry !== undefined ? { retry: options.retry } : {}),
   };
 }
 
@@ -196,6 +201,11 @@ function applyOptionsToBuilder(builder: StepBuilder, options?: StepOptions): Ste
   if (options?.outputs) b = b.outputs(options.outputs);
   if (options?.dependsOn) b = b.dependsOn(options.dependsOn);
   if (options?.matrix !== undefined) b = b.matrix(options.matrix);
+  if (options?.condition !== undefined) b = b.condition(options.condition);
+  if (options?.beforeScript) b = b.beforeScript(options.beforeScript);
+  if (options?.afterScript) b = b.afterScript(options.afterScript);
+  if (options?.continueOnError !== undefined) b = b.continueOnError(options.continueOnError);
+  if (options?.retry !== undefined) b = b.retry(options.retry);
   return b;
 }
 
@@ -277,6 +287,11 @@ function isStepBuilder(value: unknown): boolean {
   );
 }
 
+const OUTPUT_TYPES = new Set<string>(["string", "number", "boolean", "artifact"]);
+const CONTEXT_NAMESPACES = new Set<string>([
+  "env", "secrets", "git", "change", "event", "run", "inputs", "matrix",
+]);
+
 function isReference(value: unknown): value is Reference {
   if (typeof value !== "object" || value === null || !("kind" in value)) {
     return false;
@@ -287,12 +302,17 @@ function isReference(value: unknown): value is Reference {
     return (
       typeof ref.step === "string" &&
       typeof ref.output === "string" &&
-      typeof ref.type === "string"
+      typeof ref.type === "string" &&
+      OUTPUT_TYPES.has(ref.type as string)
     );
   }
   if (kind === "context") {
     const ref = value as Record<string, unknown>;
-    return typeof ref.namespace === "string" && typeof ref.field === "string";
+    return (
+      typeof ref.namespace === "string" &&
+      typeof ref.field === "string" &&
+      CONTEXT_NAMESPACES.has(ref.namespace as string)
+    );
   }
   return false;
 }
