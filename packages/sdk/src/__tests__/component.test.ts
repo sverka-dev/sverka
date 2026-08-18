@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { Project, Entry, push, ComponentStep } from "@sverka/cdk";
-import { pipelineV0 as pipeline, sh, component, inputs } from "../index.js";
+import { pipelineV0 as pipeline, $, component, inputs } from "../index.js";
 
 describe("component builder", () => {
   it("creates a ComponentStep with name, version, and inputs", () => {
     const proj = new Project("test");
     const ci = pipeline(proj, "ci", {
       steps: [
-        (pip) => sh`make build`.build(pip, "build"),
+        (pip) => $`make build`.build(pip, "build"),
         (pip) =>
           component("deploy", "1.0.0", { env: "staging" })
             .dependsOn(["build"])

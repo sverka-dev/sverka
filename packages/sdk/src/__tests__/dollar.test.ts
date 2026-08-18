@@ -81,21 +81,21 @@ describe("StepBuilder", () => {
   it("interruptible() defaults to true", () => {
     const proj = new Project("test");
     const pipeline = new Pipeline(proj, "ci");
-    const step = sh`npm test`.interruptible().build(pipeline, "test");
+    const step = $`npm test`.interruptible().build(pipeline, "test");
     expect(step.interruptible).toBe(true);
   });
 
   it("interruptible(true) sets true explicitly", () => {
     const proj = new Project("test");
     const pipeline = new Pipeline(proj, "ci");
-    const step = sh`npm test`.interruptible(true).build(pipeline, "test");
+    const step = $`npm test`.interruptible(true).build(pipeline, "test");
     expect(step.interruptible).toBe(true);
   });
 
   it("interruptible(false) sets false", () => {
     const proj = new Project("test");
     const pipeline = new Pipeline(proj, "ci");
-    const step = sh`npm run deploy`.interruptible(false).build(pipeline, "deploy");
+    const step = $`npm run deploy`.interruptible(false).build(pipeline, "deploy");
     expect(step.interruptible).toBe(false);
   });
 
