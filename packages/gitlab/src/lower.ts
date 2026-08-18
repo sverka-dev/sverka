@@ -650,6 +650,7 @@ function lowerStep(
   const mergedRules = mergeRules(triggerRules, step.rules);
   const { script, artifacts, needs: importNeeds, variables, release, pages } = lowerOperations(
     step,
+    jobId,
     jobIdMap,
   );
 
@@ -898,6 +899,7 @@ interface OperationAccumulator {
  */
 function lowerOperations(
   step: StepDefinition,
+  jobId: string,
   jobIdMap: Map<string, string>,
 ): {
   script: string[];
@@ -921,7 +923,7 @@ function lowerOperations(
   };
 
   for (const op of step.operations) {
-    lowerOperation(op, acc, jobIdMap);
+    lowerOperation(op, jobId, acc, jobIdMap);
   }
 
   return assembleOperationResult(acc, step);
@@ -932,6 +934,7 @@ function lowerOperations(
  */
 function lowerOperation(
   op: OperationDefinition,
+  stepId: string,
   acc: OperationAccumulator,
   jobIdMap: Map<string, string>,
 ): void {
@@ -943,7 +946,7 @@ function lowerOperation(
       break;
     }
     case "exportOutput":
-      lowerExportOutput(op, acc);
+      lowerExportOutput(op, stepId, acc);
       break;
     case "exportArtifact":
       lowerExportArtifact(op, acc);
@@ -976,9 +979,11 @@ function lowerOperation(
  */
 function lowerExportOutput(
   op: Extract<OperationDefinition, { kind: "exportOutput" }>,
+  stepId: string,
   acc: OperationAccumulator,
 ): void {
-  const name = shellEscapeDoubleQuoted(op.name);
+  const key = `${stepId}_${op.name}`;
+  const name = shellEscapeDoubleQuoted(key);
   acc.script.push(`echo "${name}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`);
   acc.hasDotenv = true;
 }
