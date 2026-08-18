@@ -15,7 +15,7 @@ import { $ } from "./dollar.js";
  */
 export interface ShellProxy {
   // Tagged template: bare shell`command` → StepBuilder (no prefix).
-  (strings: TemplateStringsArray, ...values: readonly (string | unknown)[]): StepBuilder;
+  (strings: TemplateStringsArray, ...values: readonly unknown[]): StepBuilder;
   // Shell selector: shell("bash") → new ShellProxy with shell preset.
   (interpreter: string): ShellProxy;
   // Command prefix: shell.git`push` → StepBuilder with "git push".
@@ -30,7 +30,7 @@ export interface ShellProxy {
 function createShellProxy(prefix: string, shellOpt?: string): ShellProxy {
   const proxy: ShellProxy = function (
     stringsOrInterpreter: TemplateStringsArray | string,
-    ...values: readonly (string | unknown)[]
+    ...values: readonly unknown[]
   ): StepBuilder | ShellProxy {
     // Function call with interpreter string: shell("bash") → new proxy.
     if (typeof stringsOrInterpreter === "string") {
@@ -44,12 +44,12 @@ function createShellProxy(prefix: string, shellOpt?: string): ShellProxy {
 
     // Prepend command prefix if set (e.g. "git " for shell.git`push`).
     if (prefix) {
-      return wrapWithPrefix(builder, prefix, shellOpt);
+      return wrapBuilder(builder, (step) => applyPrefixAndShell(step, prefix, shellOpt));
     }
 
     // No prefix — bare shell`command` or shell("bash")`command`.
     if (shellOpt) {
-      return wrapWithShell(builder, shellOpt);
+      return wrapBuilder(builder, (step) => applyShell(step, shellOpt));
     }
     return builder;
   } as ShellProxy;
@@ -67,14 +67,44 @@ function createShellProxy(prefix: string, shellOpt?: string): ShellProxy {
 }
 
 /**
- * Wrap a StepBuilder so the final command is prefixed with `prefix`
- * and runtime.shell is set to `shellOpt` (if provided).
- * Chain methods return the wrapper so chaining preserves the prefix/shell.
+ * Apply a command prefix and optional shell interpreter to a built step.
  */
-function wrapWithPrefix(
-  builder: StepBuilder,
+function applyPrefixAndShell(
+  step: ReturnType<StepBuilder["build"]>,
   prefix: string,
   shellOpt?: string,
+): ReturnType<StepBuilder["build"]> {
+  const runtime = shellOpt
+    ? { ...step.runtime, shell: shellOpt }
+    : step.runtime;
+  return cloneStep(step, { command: `${prefix} ${step.command}`, runtime });
+}
+
+/**
+ * Apply a shell interpreter to a built step (no prefix).
+ */
+function applyShell(
+  step: ReturnType<StepBuilder["build"]>,
+  interpreter: string,
+): ReturnType<StepBuilder["build"]> {
+  const runtime: Runtime = { ...step.runtime, shell: interpreter };
+  return cloneStep(step, { runtime });
+}
+
+/**
+ * Clone a step with overridden fields, preserving its prototype.
+ */
+function cloneStep<S extends object>(step: S, overrides: Partial<S>): S {
+  return Object.assign(Object.create(Object.getPrototypeOf(step)), step, overrides);
+}
+
+/**
+ * Wrap a StepBuilder so `build()` applies a transform to the final step.
+ * Chain methods delegate to the original builder and return the wrapper.
+ */
+function wrapBuilder(
+  builder: StepBuilder,
+  transform: (step: ReturnType<StepBuilder["build"]>) => ReturnType<StepBuilder["build"]>,
 ): StepBuilder {
   const origBuild = builder.build.bind(builder);
   const wrapped: StepBuilder = {
@@ -85,39 +115,7 @@ function wrapWithPrefix(
     timeout(ms) { builder.timeout(ms); return wrapped; },
     condition(ref) { builder.condition(ref); return wrapped; },
     build(pipeline, id) {
-      const step = origBuild(pipeline, id);
-      const newCommand = `${prefix} ${step.command}`;
-      const runtime = shellOpt
-        ? { ...step.runtime, shell: shellOpt }
-        : step.runtime;
-      return Object.assign(Object.create(Object.getPrototypeOf(step)), step, {
-        command: newCommand,
-        runtime,
-      });
-    },
-  };
-  return wrapped;
-}
-
-/**
- * Wrap a StepBuilder so runtime.shell is set to `interpreter`.
- * Used for shell("bash")`command` (no prefix).
- */
-function wrapWithShell(builder: StepBuilder, interpreter: string): StepBuilder {
-  const origBuild = builder.build.bind(builder);
-  const wrapped: StepBuilder = {
-    outputs(o) { builder.outputs(o); return wrapped; },
-    inputs(i) { builder.inputs(i); return wrapped; },
-    dependsOn(s) { builder.dependsOn(s); return wrapped; },
-    runtime(r) { builder.runtime(r); return wrapped; },
-    timeout(ms) { builder.timeout(ms); return wrapped; },
-    condition(ref) { builder.condition(ref); return wrapped; },
-    build(pipeline, id) {
-      const step = origBuild(pipeline, id);
-      const runtime: Runtime = { ...step.runtime, shell: interpreter };
-      return Object.assign(Object.create(Object.getPrototypeOf(step)), step, {
-        runtime,
-      });
+      return transform(origBuild(pipeline, id));
     },
   };
   return wrapped;
