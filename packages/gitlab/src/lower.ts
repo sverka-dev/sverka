@@ -45,7 +45,7 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
   const jobs = lowerSteps(reachableSteps, jobIdMap, stageMap, jobRulesMap);
 
   return {
-    name: pipeline.id,
+    name: pipeline.name ?? pipeline.id,
     stages,
     jobs,
     variables: collectVariables(pipeline),
@@ -378,6 +378,7 @@ function lowerStep(
   const { script, artifacts, needs: importNeeds, variables } = lowerOperations(
     step,
     jobIdMap,
+    jobId,
   );
 
   const needs = mergeNeeds(step, jobIdMap, importNeeds);
@@ -410,7 +411,8 @@ function lowerStep(
     ...(step.retry !== undefined
       ? {
           retry: {
-            max: step.retry.max,
+            // GitLab enforces a maximum of 2 retries.
+            max: Math.min(step.retry.max, 2),
             ...(step.retry.when ? { when: step.retry.when } : {}),
             ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
           },
@@ -501,6 +503,7 @@ function lowerDependencies(
 function lowerOperations(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  jobId: string,
 ): {
   script: string[];
   artifacts?: { paths?: string[]; reports?: { dotenv?: string } };
@@ -519,9 +522,9 @@ function lowerOperations(
         script.push(translateGitlabCommand(op.command, step.inputs, jobIdMap));
         break;
       case "exportOutput": {
-        const name = shellEscapeDoubleQuoted(op.name);
+        const dotenvName = shellEscapeDoubleQuoted(`${jobId}_${op.name}`);
         script.push(
-          `echo "${name}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`,
+          `echo "${dotenvName}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`,
         );
         hasDotenv = true;
         break;
@@ -627,7 +630,24 @@ type MatrixCombination = Record<string, MatrixValue>;
 function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[] {
   const combinations = computeMatrixCombinations(spec.dimensions, spec.exclude ?? []);
   const includeEntries = (spec.include ?? []).map((entry) => ({ ...entry }));
-  return [...combinations.map((c) => ({ ...c })), ...includeEntries];
+  // GitLab parallel:matrix requires each variable value to be an array.
+  // Wrap each scalar combination value in a single-element array.
+  return [
+    ...combinations.map((c) => {
+      const entry: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(c)) {
+        entry[k] = [v];
+      }
+      return entry;
+    }),
+    ...includeEntries.map((e) => {
+      const entry: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(e)) {
+        entry[k] = [v];
+      }
+      return entry;
+    }),
+  ];
 }
 
 /**
@@ -644,7 +664,10 @@ function computeMatrixCombinations(
   let combinations: MatrixCombination[] = [{}];
   for (const key of keys) {
     const values = dimensions[key];
-    if (!values || values.length === 0) continue;
+    if (!values || values.length === 0) {
+      // A Cartesian product with an empty dimension produces zero combinations.
+      return [];
+    }
     const next: MatrixCombination[] = [];
     for (const combo of combinations) {
       for (const v of values) {
@@ -687,7 +710,7 @@ const GITLAB_CONTEXT_MAP: Readonly<Record<string, string>> = {
   "change.draft": "$CI_MERGE_REQUEST_DRAFT",
   "event.type": "$CI_PIPELINE_SOURCE",
   "run.id": "$CI_PIPELINE_ID",
-  "run.attempt": "$run_attempt",
+  // run.attempt has no GitLab equivalent; left unmapped.
 };
 
 function translateGitlabContextRef(namespace: string, field: string): string {
@@ -698,7 +721,7 @@ function translateGitlabContextRef(namespace: string, field: string): string {
     return `$${field}`;
   }
   if (namespace === "matrix") {
-    return `$${field.toUpperCase()}`;
+    return `$${field}`;
   }
   return `\${${namespace}.${field}}`;
 }
@@ -706,7 +729,7 @@ function translateGitlabContextRef(namespace: string, field: string): string {
 function translateGitlabCommand(
   command: string,
   inputs: readonly Reference[],
-  _jobIdMap: Map<string, string>,
+  jobIdMap: Map<string, string>,
 ): string {
   const lookup = new Map<string, Reference>();
   for (const ref of inputs) {
@@ -724,6 +747,9 @@ function translateGitlabCommand(
     if (ref.kind === "context") {
       return translateGitlabContextRef(ref.namespace, ref.field);
     }
-    return `$${ref.output}`;
+    // Use the producer job ID as a prefix to avoid collisions when
+    // multiple producers expose the same output name.
+    const producerJob = jobIdMap.get(ref.step) ?? ref.step;
+    return `$${producerJob}_${ref.output}`;
   });
 }
