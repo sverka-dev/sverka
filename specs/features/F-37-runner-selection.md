@@ -59,7 +59,7 @@ interface RunnerSpec {
 }
 ```
 
-Step gets optional `runner?: RunnerSpec`. When not specified, uses provider default (GitHub: `ubuntu-latest`, GitLab: any runner).
+Step gets optional `runner?: RunnerSpec`. When not specified, uses provider default (GitHub: `ubuntu-latest`, GitLab: runners configured to accept untagged jobs; if no eligible runner exists, the job remains pending).
 
 ### Authoring API
 

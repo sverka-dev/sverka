@@ -63,7 +63,7 @@ new Entry(pipeline, { trigger: { kind: "schedule", cron: "0 2 * * *" } });
 ### Lowering
 
 - **GitHub target:** `trigger.schedule` → `on: schedule:` with `cron` and `timezone`.
-- **GitLab target:** `trigger.schedule` → `rules: if: $CI_PIPELINE_SOURCE == "schedule"` (detects scheduled runs). The actual schedule must be created via GitLab API — emit a diagnostic at `warning` level: "Schedule trigger requires GitLab API configuration. Use `sverka sync --gitlab` to create scheduled pipelines."
+- **GitLab target:** `trigger.schedule` → `rules: if: $CI_PIPELINE_SOURCE == "schedule"` (detects scheduled runs). The actual schedule must be created via the GitLab API or project settings — emit a diagnostic at `warning` level: "Schedule trigger requires GitLab API configuration. Create scheduled pipelines in Project Settings → CI/CD → Schedules or via the GitLab API."
 - **Native engine:** not applicable (no scheduler). Could use `node-cron` or similar for local scheduled runs.
 
 ### Capability manifest
@@ -77,7 +77,7 @@ new Entry(pipeline, { trigger: { kind: "schedule", cron: "0 2 * * *" } });
 
 This is the starkest provider divergence in the trigger space. GitHub is YAML-native; GitLab requires out-of-band API configuration. Sverka's approach:
 1. Lower to GitHub `on: schedule` natively.
-2. On GitLab, lower to `rules:if` for detection + emit a warning diagnostic + provide a `sverka sync` command that creates schedules via GitLab API.
+2. On GitLab, lower to `rules:if` for detection + emit a warning diagnostic instructing the user to create schedules via GitLab project settings or API.
 3. Document the limitation clearly.
 
 ## Non-goals

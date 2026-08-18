@@ -138,12 +138,13 @@ Only `run` steps get these fields — checkout, upload, download steps don't.
 ### GitLab target
 
 GitLab has no native `working-directory` or `shell`. Emulate `workdir` by
-prepending `cd <workdir>` as the first script entry. All subsequent commands
-run in that directory (GitLab script entries share one shell).
+prepending `cd <workdir>` as the first script entry. The path is shell-quoted
+to prevent injection and handle spaces. All subsequent commands run in that
+directory (GitLab script entries share one shell).
 
 ```ts
 if (step.runtime.workingDir) {
-  script.unshift(`cd ${step.runtime.workingDir}`);
+  script.unshift(`cd ${shellQuoteSingle(step.runtime.workingDir)}`);
 }
 ```
 

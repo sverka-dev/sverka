@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import type { StatusCondition, Expression } from "@sverka/cdk";
 import { synthesize, type DefinitionGraph } from "@sverka/core";
 import {
   GithubTarget,
@@ -461,5 +462,187 @@ describe("compileGithub — artifact import (F-25)", () => {
     expect(downloadStep.uses).toBe("actions/download-artifact@v4");
     expect(downloadStep.with.name).toBe("build-dist");
     expect(downloadStep.with.path).toBe("dist");
+  });
+});
+
+// F-11: Step conditions — status conditions map to GitHub if: expressions
+describe("compileGithub — step conditions (F-11)", () => {
+  it("lowers failure status condition to failure()", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    const failureCond: StatusCondition = { kind: "status", status: "failure" };
+    new ShellStep(p, "notify", {
+      command: "echo failed",
+      condition: failureCond,
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["notify"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.notify.if).toBe("${{ failure() }}");
+  });
+
+  it("lowers always status condition to always()", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "cleanup", {
+      command: "echo cleanup",
+      condition: { kind: "status", status: "always" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["cleanup"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.cleanup.if).toBe("${{ always() }}");
+  });
+
+  it("lowers never status condition to false", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "skip", {
+      command: "echo skip",
+      condition: { kind: "status", status: "never" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["skip"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.skip.if).toBe("${{ false }}");
+  });
+
+  it("lowers success status condition to success()", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "ok", {
+      command: "echo ok",
+      condition: { kind: "status", status: "success" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["ok"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.ok.if).toBe("${{ success() }}");
+  });
+
+  it("lowers a context-ref condition to GitHub expression syntax", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo build",
+      condition: { kind: "context", namespace: "git", field: "branch" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build.if).toContain("github.ref_name");
+  });
+
+  it("lowers a step-ref condition to needs.<job>.outputs.<output>", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: 'echo "ok=true" > $SVERKA_OUTPUT_DIR/ok',
+      outputs: { ok: { type: "boolean" } },
+    });
+    new ShellStep(p, "deploy", {
+      command: "echo deploy",
+      dependsOn: ["build"],
+      condition: {
+        kind: "step",
+        step: "build",
+        output: "ok",
+        type: "boolean",
+      },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.deploy.if).toContain("needs.build.outputs.ok");
+  });
+
+  it("lowers an expression condition with context refs", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    const expr: Expression = {
+      kind: "expression",
+      template: "${git.branch} == 'main'",
+      refs: [{ kind: "context", namespace: "git", field: "branch" }],
+    };
+    new ShellStep(p, "build", {
+      command: "echo build",
+      condition: expr,
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.jobs.build.if).toContain("github.ref_name");
+    expect(yaml.jobs.build.if).toContain("main");
+  });
+});
+
+// F-06: Trigger filters — tag, branch, and path filters
+describe("compileGithub — trigger filters (F-06)", () => {
+  it("lowers push tag filter to tags in push trigger", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-tag", {
+      trigger: { kind: "push", filter: { tags: ["v*"] } },
+      roots: ["build"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.push.tags).toEqual(["v*"]);
+  });
+
+  it("lowers push branch filter to branches in push trigger", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-branch", {
+      trigger: { kind: "push", filter: { branches: ["main", "dev"] } },
+      roots: ["build"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.push.branches).toEqual(["main", "dev"]);
+  });
+
+  it("lowers push path filter to paths in push trigger", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-paths", {
+      trigger: { kind: "push", filter: { paths: ["src/**"] } },
+      roots: ["build"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.push.paths).toEqual(["src/**"]);
+  });
+
+  it("lowers pull-request path filter to paths in pull_request trigger", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest", filter: { paths: ["src/**"] } },
+      roots: ["build"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.pull_request.paths).toEqual(["src/**"]);
+  });
+
+  it("rejects tag filter on change-request trigger with UNSUPPORTED_TRIGGER", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest", filter: { tags: ["v*"] } },
+      roots: ["build"],
+    });
+    expect(() => compileGithub(synthesize(proj))).toThrow(GithubTargetError);
+    try {
+      compileGithub(synthesize(proj));
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("UNSUPPORTED_TRIGGER");
+    }
   });
 });

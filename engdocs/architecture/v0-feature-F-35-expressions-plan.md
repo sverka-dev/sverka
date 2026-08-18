@@ -102,10 +102,11 @@ engine-native). No new package. No new external deps.
 - `inputs.X` resolved from pipeline inputs
 - Unresolved context ref throws `StepExecError`
 
-**Deferred (M1):** Expression condition evaluation in `evaluateCondition`.
-Conditions are M1 per the feature matrix. For M0, only context ref resolution
-in command strings is needed. `evaluateCondition` already handles `Reference`
-conditions — `Expression` condition evaluation will be added with F-11.
+**Implemented (M0):** Expression condition evaluation in `evaluateCondition`.
+Native `Expression` conditions are evaluated by the engine and covered by tests
+in `packages/engine-native/src/__tests__/engine.test.ts`. `Reference` conditions
+are also handled. Context ref resolution in command strings is lowered to
+provider-specific syntax by both GitHub and GitLab targets.
 
 ### Step 8: Full monorepo gate
 

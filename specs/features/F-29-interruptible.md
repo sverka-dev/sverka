@@ -70,8 +70,10 @@ task("deploy", { run: ..., interruptible: false }),
 ### Capability manifest
 
 ```ts
-"concurrency.interruptible": "native",       // GitLab
-"concurrency.interruptible": "partial",      // GitHub (workflow-level only)
+"concurrency.interruptible": {
+  gitlab: "native",       // per-job interruptible: boolean
+  github: "partial",      // workflow-level cancel-in-progress only
+},
 ```
 
 ### Portability & divergence

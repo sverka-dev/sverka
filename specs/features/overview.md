@@ -74,48 +74,63 @@ and open questions.
 ## By category
 
 ### Triggers (F-02 – F-06)
+
 When a pipeline starts and which refs/paths trigger it.
 
 ### Scheduling (F-07 – F-08, F-11 – F-12, F-48)
+
 DAG ordering, stages, conditions, failure tolerance, delayed start.
 
 ### Execution (F-09 – F-10, F-13 – F-14, F-36, F-49)
+
 Shell commands, scripts, timeouts, retries, working directory, background steps.
 
 ### Runner (F-17 – F-18, F-37)
+
 Where jobs execute — host, container, labels.
 
 ### Environment (F-19 – F-21, F-30)
+
 Services, env vars, secrets, permissions.
 
 ### Artifacts (F-24 – F-26, F-46)
+
 Producing, consuming, expiring, and typing artifacts.
 
 ### Cache (F-27)
+
 Cross-run file caching.
 
 ### Outputs (F-23)
+
 Scalar values passed between steps.
 
 ### Matrix (F-15 – F-16)
+
 Fan-out execution across variable combinations.
 
 ### Concurrency (F-28 – F-29)
+
 Mutual exclusion and auto-cancellation.
 
 ### Deployment (F-22, F-39 – F-40)
+
 Environments, releases, pages.
 
 ### Reusable (F-31 – F-34)
+
 Workflows, components, child pipelines, downstream projects.
 
 ### Expressions (F-35)
+
 Expression syntax, contexts, functions.
 
 ### Import (F-43 – F-44)
+
 Importers and config merging.
 
 ### Workflow control (F-01, F-41 – F-42, F-45, F-47)
+
 Naming, rules, defaults, typed inputs.
 
 ## Review priority

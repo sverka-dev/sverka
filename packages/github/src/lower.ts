@@ -228,6 +228,14 @@ function collectFilters(
   const hasTags = filter?.tags && filter.tags.length > 0;
   const hasPaths = filter?.paths && filter.paths.length > 0;
 
+  // Tag filters are not meaningful on change-request triggers (PRs don't have tags).
+  if (hasTags && tags === undefined) {
+    throw new GithubTargetError(
+      "tag filters are not supported on change-request triggers",
+      "UNSUPPORTED_TRIGGER",
+    );
+  }
+
   if (hasBranches) addAll(branches, filter!.branches!);
   if (hasTags && tags) addAll(tags, filter!.tags!);
   if (hasPaths) addAll(paths, filter!.paths!);

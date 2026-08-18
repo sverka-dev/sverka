@@ -48,10 +48,12 @@ Authoritative keywords, sub-keys, semantics, a minimal example, and gotchas.
 ## Sverka proposal
 
 ### Portable model
+
 How the Definition Graph represents this provider-neutrally (IR node shape,
 fields, defaults).
 
 ### Authoring API
+
 How users express it across the three authoring layers — Construct, SDK,
 Decorator. Show the canonical snippet.
 
@@ -60,16 +62,19 @@ Decorator. Show the canonical snippet.
 ```
 
 ### Lowering
+
 - **GitHub target:** mapping to the GitHub key(s) above.
 - **GitLab target:** mapping to the GitLab keyword(s) above.
 - **Native engine:** runtime behavior when executed locally.
 
 ### Capability manifest
+
 ```ts
 "<capability.key>": "native" | "lowered" | "emulated" | "partial" | "unsupported"
 ```
 
 ### Portability & divergence
+
 Where the two providers diverge semantically and how Sverka resolves it
 (reject, lower to closest, emulate, or expose as a provider extension).
 

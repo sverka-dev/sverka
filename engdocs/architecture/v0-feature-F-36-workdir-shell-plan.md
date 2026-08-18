@@ -12,30 +12,37 @@ missing from model. Native engine already handles `workingDir`.
 ## Changes
 
 ### Model (constructs/src/model.ts)
+
 - Add `shell?: string` to `Runtime` (alongside existing `workingDir`)
 
 ### GitHub target
+
 - `types.ts`: add `workingDirectory?: string`, `shell?: string` to `GithubStep`
 - `lower.ts`: attach `workingDirectory`/`shell` to run steps in `flushRun`
 - `emit.ts`: emit `working-directory` and `shell` in YAML
 
 ### GitLab target
+
 - `lower.ts`: prepend `cd <workdir>` to script entries when `workingDir` is set
 - `shell`: unsupported — capability manifest says "unsupported", diagnostics
   emitted by capability analysis
 
 ### Capability detection (plugin/src/capabilities.ts)
+
 - Detect `execution.workdir` and `execution.shell` from step runtime
 
 ### Capability manifests
+
 - GitHub: `execution.workdir: native`, `execution.shell: native`
 - GitLab: `execution.workdir: emulated`, `execution.shell: unsupported`
 
 ### Native engine
+
 - `workingDir` already works (step-executor.ts:107-108). No changes.
 - `shell` deferred — host driver allowlist security model needs review.
 
 ### SDK
+
 - No changes needed. `sh().runtime({ workingDir, shell })` flows through.
 
 ## Test plan
