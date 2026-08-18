@@ -1,7 +1,7 @@
 // Matrix expansion — expands matrix steps into concrete step instances.
 // F-15 — plan-time expansion for the native engine.
 
-import type { StepDefinition, Dependency, MatrixSpec, MatrixValue } from "@sverka/core";
+import type { StepDefinition, Dependency, MatrixSpec, MatrixValue, Reference } from "@sverka/core";
 import { PlannerError } from "./errors.js";
 
 type MatrixCombination = Record<string, MatrixValue>;
@@ -48,6 +48,16 @@ export function expandMatrixSteps(
 
 function expandStep(step: StepDefinition): StepDefinition[] {
   const spec = step.matrix!;
+
+  if (spec.maxParallel !== undefined) {
+    if (!Number.isInteger(spec.maxParallel) || spec.maxParallel < 1) {
+      throw new PlannerError(
+        `matrix on step '${step.id}' has invalid maxParallel: must be a positive integer (got ${spec.maxParallel})`,
+        "INVALID_MATRIX",
+      );
+    }
+  }
+
   const combinations = computeCombinations(spec);
 
   if (combinations.length === 0) {
@@ -64,6 +74,8 @@ function expandStep(step: StepDefinition): StepDefinition[] {
       id: formatExpandedId(step.id, combo),
       matrixValues: combo,
       dependencies: step.dependencies,
+      ...(spec.failFast !== undefined ? { matrixFailFast: spec.failFast } : {}),
+      ...(spec.maxParallel !== undefined ? { matrixMaxParallel: spec.maxParallel } : {}),
     };
   });
 }
@@ -98,7 +110,11 @@ function computeCombinations(spec: MatrixSpec): readonly MatrixCombination[] {
   }
 
   const include = spec.include ?? [];
-  return [...combinations, ...include.map((e) => ({ ...e }))];
+  const includeEntries = include.map((e) => ({ ...e }));
+  // Deduplicate: skip include entries that exactly match an existing combination.
+  const existingKeys = new Set(combinations.map(comboKey));
+  const uniqueIncludes = includeEntries.filter((e) => !existingKeys.has(comboKey(e)));
+  return [...combinations, ...uniqueIncludes];
 }
 
 function matchesAnyRule(
@@ -113,6 +129,14 @@ function matchesAnyRule(
   return false;
 }
 
+/** Produce a deterministic string key for a combination (sorted key=value pairs). */
+function comboKey(combo: MatrixCombination): string {
+  return Object.keys(combo)
+    .sort((a, b) => a.localeCompare(b))
+    .map((k) => `${k}=${String(combo[k])}`)
+    .join(",");
+}
+
 function formatExpandedId(id: string, combo: MatrixCombination): string {
   const parts = Object.keys(combo)
     .sort((a, b) => a.localeCompare(b))
@@ -124,23 +148,66 @@ function rewireDependencies(
   step: StepDefinition,
   expansionMap: Map<string, StepDefinition[]>,
 ): StepDefinition {
-  if (step.dependencies.length === 0) return step;
+  const hasDeps = step.dependencies.length > 0;
+  const hasInputs = step.inputs.length > 0;
+  if (!hasDeps && !hasInputs) return step;
 
+  const newDeps = hasDeps ? rewireDeps(step.dependencies, expansionMap) : step.dependencies;
+  const newInputs = hasInputs ? rewireInputs(step.inputs, expansionMap) : step.inputs;
+
+  return { ...step, dependencies: newDeps, inputs: newInputs };
+}
+
+function rewireDeps(
+  deps: readonly Dependency[],
+  expansionMap: Map<string, StepDefinition[]>,
+): Dependency[] {
   const newDeps: Dependency[] = [];
   const seen = new Set<string>();
 
-  for (const dep of step.dependencies) {
+  for (const dep of deps) {
     const expanded = expansionMap.get(dep.producer);
-    if (!expanded || expanded.length === 1) {
+    if (!expanded) {
       addDep(newDeps, seen, dep);
       continue;
     }
+    // Rewire to all expanded instances — even when there's only one,
+    // because the expanded step has a new ID (e.g. "step[node=18]").
     for (const expStep of expanded) {
       addDep(newDeps, seen, { ...dep, producer: expStep.id });
     }
   }
+  return newDeps;
+}
 
-  return { ...step, dependencies: newDeps };
+function rewireInputs(
+  inputs: readonly Reference[],
+  expansionMap: Map<string, StepDefinition[]>,
+): Reference[] {
+  const newInputs: Reference[] = [];
+  const seen = new Set<string>();
+
+  for (const ref of inputs) {
+    if (ref.kind !== "step") {
+      newInputs.push(ref);
+      continue;
+    }
+    const expanded = expansionMap.get(ref.step);
+    if (!expanded) {
+      newInputs.push(ref);
+      continue;
+    }
+    // Rewire to all expanded instances — even when there's only one,
+    // because the expanded step has a new ID (e.g. "step[node=18]").
+    for (const expStep of expanded) {
+      const rewired = { ...ref, step: expStep.id };
+      const key = `${rewired.step}:${rewired.output}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      newInputs.push(rewired);
+    }
+  }
+  return newInputs;
 }
 
 function addDep(deps: Dependency[], seen: Set<string>, dep: Dependency): void {
