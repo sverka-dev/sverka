@@ -75,9 +75,12 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
     doc.include = allIncludes;
   }
 
-  // F-42: emit workflow rules.
+  // F-42: emit workflow rules (merge with auto_cancel if both present).
   if (graph.workflowRules && graph.workflowRules.length > 0) {
-    doc.workflow = { rules: graph.workflowRules.map(workflowRuleToYaml) };
+    doc.workflow = {
+      ...(doc.workflow as Record<string, unknown> | undefined),
+      rules: graph.workflowRules.map(workflowRuleToYaml),
+    };
   }
 
   for (const job of graph.jobs) {

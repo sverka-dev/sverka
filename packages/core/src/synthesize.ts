@@ -239,33 +239,67 @@ function buildCallInputs(
  * Pass 2: for each call step, copy the callee pipeline's outputs onto the
  * call step's `outputs` (producer = call step id). This lets downstream
  * caller steps reference callee outputs via the existing StepRef mechanism.
+ *
+ * Iterates to a fixed point so nested call chains (A calls B calls C)
+ * propagate transitively: B's outputs are resolved before A reads them.
  */
 function resolveCallOutputs(pipelines: PipelineDefinition[]): void {
   const byId = new Map(pipelines.map((p) => [p.id, p]));
 
-  for (let pi = 0; pi < pipelines.length; pi++) {
-    const pipeline = pipelines[pi]!;
-    let modified = false;
-    const newSteps = [...pipeline.steps];
+  let changed = true;
+  while (changed) {
+    changed = false;
 
-    for (let si = 0; si < newSteps.length; si++) {
-      const step = newSteps[si]!;
-      if (!step.call) continue;
-      const callee = byId.get(step.call.callee);
-      if (!callee) continue; // UNKNOWN_CALLEE is reported by validatePipelineCalls
-      // Copy callee's pipeline-level outputs onto the call step.
-      const copiedOutputs = callee.outputs.map((o) => ({
-        name: o.name,
-        type: o.type,
-        ...(o.path !== undefined ? { path: o.path } : {}),
-        ...(o.description !== undefined ? { description: o.description } : {}),
-      }));
-      newSteps[si] = { ...step, outputs: copiedOutputs };
-      modified = true;
-    }
+    for (let pi = 0; pi < pipelines.length; pi++) {
+      const pipeline = pipelines[pi]!;
+      let modified = false;
+      const newSteps = [...pipeline.steps];
 
-    if (modified) {
-      pipelines[pi] = { ...pipeline, steps: newSteps };
+      for (let si = 0; si < newSteps.length; si++) {
+        const step = newSteps[si]!;
+        if (!step.call) continue;
+        const callee = byId.get(step.call.callee);
+        if (!callee) continue; // UNKNOWN_CALLEE is reported by validatePipelineCalls
+        // Copy callee's pipeline-level outputs onto the call step, preserving
+        // retention and access metadata from the original declarations.
+        const copiedOutputs = callee.outputs.map((o) => ({
+          name: o.name,
+          type: o.type,
+          ...(o.path !== undefined ? { path: o.path } : {}),
+          ...(o.description !== undefined ? { description: o.description } : {}),
+          ...(o.retention !== undefined ? { retention: o.retention } : {}),
+          ...(o.access !== undefined ? { access: o.access } : {}),
+        }));
+        // Only mark modified if outputs actually changed (prevents infinite loop).
+        const prevOutputs = step.outputs;
+        const same =
+          prevOutputs.length === copiedOutputs.length &&
+          prevOutputs.every((po, i) => {
+            const co = copiedOutputs[i]!;
+            return (
+              po.name === co.name &&
+              po.type === co.type &&
+              po.path === co.path &&
+              po.description === co.description &&
+              po.retention === co.retention &&
+              po.access === co.access
+            );
+          });
+        if (!same) {
+          newSteps[si] = { ...step, outputs: copiedOutputs };
+          modified = true;
+        }
+      }
+
+      if (modified) {
+        // Recompute pipeline-level outputs from the updated steps so that
+        // callers of this pipeline see the resolved call-step outputs.
+        const newOutputs = newSteps.flatMap((s) =>
+          s.outputs.map((o) => ({ ...o, stepId: s.id })),
+        );
+        pipelines[pi] = { ...pipeline, steps: newSteps, outputs: newOutputs };
+        changed = true;
+      }
     }
   }
 }

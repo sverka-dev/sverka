@@ -79,6 +79,33 @@ function validateLiteralType(
   stepId: string,
   calleeId: string,
 ): void {
+  if (input.type === "array") {
+    if (!Array.isArray(value)) {
+      throw new SynthesisError(
+        "INPUT_TYPE_MISMATCH",
+        `Step '${stepId}' binds input '${inputName}' (type 'array') with value of type '${typeof value}' on callee '${calleeId}'`,
+        stepId,
+      );
+    }
+    return;
+  }
+  if (input.type === "choice") {
+    if (typeof value !== "string") {
+      throw new SynthesisError(
+        "INPUT_TYPE_MISMATCH",
+        `Step '${stepId}' binds input '${inputName}' (type 'choice') with value of type '${typeof value}' on callee '${calleeId}'`,
+        stepId,
+      );
+    }
+    if (input.options !== undefined && !input.options.includes(value)) {
+      throw new SynthesisError(
+        "INPUT_TYPE_MISMATCH",
+        `Step '${stepId}' binds input '${inputName}' with value '${value}' not in allowed options on callee '${calleeId}'`,
+        stepId,
+      );
+    }
+    return;
+  }
   const actual = typeof value;
   if (
     (input.type === "string" && actual !== "string") ||

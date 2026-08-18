@@ -124,7 +124,7 @@ export interface Input {
 }
 
 /** Literal value bindable to a callee pipeline input. */
-export type InputLiteral = string | number | boolean;
+export type InputLiteral = string | number | boolean | readonly string[];
 
 // ---------------------------------------------------------------------------
 // Components (F-32 — §25)
