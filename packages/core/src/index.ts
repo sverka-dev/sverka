@@ -23,6 +23,7 @@ export type {
   Condition,
   ContinueOnError,
   RetryPolicy,
+  Expression,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";

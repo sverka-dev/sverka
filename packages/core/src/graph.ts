@@ -16,7 +16,7 @@ import type {
 
 // Re-export types used in the graph schema so consumers can access them
 // from @sverka/core without depending on @sverka/cdk directly.
-export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy } from "@sverka/cdk";
+export type { Input, OutputDeclaration, OutputType, Reference, Runtime, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, Expression } from "@sverka/cdk";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;
@@ -41,6 +41,8 @@ export interface PipelineInputDefinition extends Input {
 
 export interface PipelineDefinition {
   readonly id: string;
+  readonly name?: string;
+  readonly runName?: string;
   readonly inputs: Readonly<Record<string, Input>>;
   readonly entries: readonly EntryDefinition[];
   readonly steps: readonly StepDefinition[];
