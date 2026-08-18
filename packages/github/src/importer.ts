@@ -129,11 +129,12 @@ export function importGithubWithDiagnostics(source: string): ImportResult {
               });
             } else if (step.uses.includes("actions/download-artifact")) {
               const withMap = (step.with as Record<string, unknown> | undefined) ?? {};
+              const artifactName = typeof withMap.name === "string" ? withMap.name : "artifact";
               operations.push({
                 kind: "importArtifact",
-                name: typeof withMap.name === "string" ? withMap.name : "artifact",
+                name: artifactName,
                 from: "ci/unknown",
-                output: typeof withMap.path === "string" ? withMap.path : ".",
+                output: artifactName,
               });
               diagnostics.push({
                 severity: "warn",
