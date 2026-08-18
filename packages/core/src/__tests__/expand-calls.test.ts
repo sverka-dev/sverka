@@ -166,7 +166,7 @@ describe("expandPipelineCalls", () => {
     const ciPipeline = graph.project.pipelines.find((p) => p.id === "ci")!;
     const expanded = expandPipelineCalls(graph, ciPipeline.steps);
 
-    expect(expanded.length).toBe(2);
+    expect(expanded).toHaveLength(2);
     expect(expanded.map((s) => s.id)).toEqual(["ci/build", "ci/test"]);
   });
 });

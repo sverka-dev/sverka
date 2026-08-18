@@ -156,6 +156,36 @@ export interface StepProps {
   readonly delay?: string;
 }
 
+const OPTIONAL_STEP_PROPS = [
+  "delay",
+  "timeout",
+  "condition",
+  "matrix",
+  "beforeScript",
+  "afterScript",
+  "continueOnError",
+  "retry",
+  "interruptible",
+  "runner",
+  "identity",
+  "rules",
+  "reports",
+  "services",
+  "environment",
+  "cache",
+  "concurrency",
+] as const;
+
+/** Copy optional `StepProps` fields onto the `Step` instance. */
+function applyOptionalStepProps(step: Step, props: StepProps): void {
+  for (const key of OPTIONAL_STEP_PROPS) {
+    const value = props[key];
+    if (value !== undefined) {
+      (step as unknown as Record<string, unknown>)[key] = value;
+    }
+  }
+}
+
 export abstract class Step extends Construct {
   readonly runtime: Runtime;
   readonly outputs: ReadonlyMap<string, OutputDeclaration>;
@@ -201,57 +231,7 @@ export abstract class Step extends Construct {
       : new Map();
     this.inputs = props.inputs ? [...props.inputs] : [];
     this.dependsOn = props.dependsOn ? [...props.dependsOn] : [];
-    if (props.delay !== undefined) {
-      this.delay = props.delay;
-    }
-    if (props.timeout !== undefined) {
-      this.timeout = props.timeout;
-    }
-    if (props.condition !== undefined) {
-      this.condition = props.condition;
-    }
-    if (props.matrix !== undefined) {
-      this.matrix = props.matrix;
-    }
-    if (props.beforeScript !== undefined) {
-      this.beforeScript = [...props.beforeScript];
-    }
-    if (props.afterScript !== undefined) {
-      this.afterScript = [...props.afterScript];
-    }
-    if (props.continueOnError !== undefined) {
-      this.continueOnError = props.continueOnError;
-    }
-    if (props.retry !== undefined) {
-      this.retry = props.retry;
-    }
-    if (props.interruptible !== undefined) {
-      this.interruptible = props.interruptible;
-    }
-    if (props.runner !== undefined) {
-      this.runner = props.runner;
-    }
-    if (props.identity !== undefined) {
-      this.identity = props.identity;
-    }
-    if (props.rules !== undefined) {
-      this.rules = props.rules;
-    }
-    if (props.reports !== undefined) {
-      this.reports = props.reports;
-    }
-    if (props.services !== undefined) {
-      this.services = props.services;
-    }
-    if (props.environment !== undefined) {
-      this.environment = props.environment;
-    }
-    if (props.cache !== undefined) {
-      this.cache = props.cache;
-    }
-    if (props.concurrency !== undefined) {
-      this.concurrency = props.concurrency;
-    }
+    applyOptionalStepProps(this, props);
   }
 }
 

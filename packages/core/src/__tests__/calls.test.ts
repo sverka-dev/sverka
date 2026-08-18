@@ -58,7 +58,7 @@ describe("synthesize — pipeline calls", () => {
   it("two-pipeline project: ci calls deploy; call step has call + callee outputs copied", () => {
     const proj = makeTwoPipelineProject(true);
     const graph = synthesize(proj);
-    expect(graph.project.pipelines.length).toBe(2);
+    expect(graph.project.pipelines).toHaveLength(2);
 
     const ci = graph.project.pipelines.find((p) => p.id === "ci")!;
     const deploy = graph.project.pipelines.find((p) => p.id === "deploy")!;
@@ -209,7 +209,7 @@ describe("synthesize — pipeline calls", () => {
 
     const graph = synthesize(proj);
     const deployGraph = graph.project.pipelines.find((p) => p.id === "deploy")!;
-    expect(deployGraph.entries.length).toBe(1);
+    expect(deployGraph.entries).toHaveLength(1);
     expect(deployGraph.entries[0]?.trigger.kind).toBe("push");
   });
 
@@ -219,7 +219,7 @@ describe("synthesize — pipeline calls", () => {
     new ShellStep(pipeline, "build", { command: "npm run build" });
     new Entry(pipeline, "on-push", { trigger: push(), roots: ["build"] });
     const graph = synthesize(proj);
-    expect(graph.project.pipelines.length).toBe(1);
+    expect(graph.project.pipelines).toHaveLength(1);
     expect(graph.project.pipelines[0]?.steps[0]?.id).toBe("ci/build");
   });
 });

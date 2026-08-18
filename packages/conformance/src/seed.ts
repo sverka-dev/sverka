@@ -154,15 +154,16 @@ const REUSABLE_CALLEE_COMMAND = `echo "deploying to $\{env}"`;
 export function createReusableSeedWithConstructs(): Project {
   const proj = new Project("conf-rw");
   const deploy = new Pipeline(proj, "deploy", { inputs: REUSABLE_CALLEE_INPUTS });
-  new ShellStep(deploy, "deploy", { command: REUSABLE_CALLEE_COMMAND });
+  const deployStep = new ShellStep(deploy, "deploy", { command: REUSABLE_CALLEE_COMMAND });
   const ci = new Pipeline(proj, "ci");
-  new ShellStep(ci, "build", { command: "make build" });
-  new PipelineCallStep(ci, "deploy-staging", {
+  const buildStep = new ShellStep(ci, "build", { command: "make build" });
+  const deployStaging = new PipelineCallStep(ci, "deploy-staging", {
     callee: "deploy",
     callInputs: { env: "staging" },
     dependsOn: ["build"],
   });
-  new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+  const entry = new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+  void deployStep; void buildStep; void deployStaging; void entry;
   return proj;
 }
 

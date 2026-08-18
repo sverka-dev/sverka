@@ -6,6 +6,10 @@ import { GitlabTargetError } from "./errors.js";
 import type {
   GitlabTargetGraph,
   GitlabJob,
+  GitlabRule,
+  GitlabService,
+  GitlabEnvironment,
+  GitlabCache,
   GeneratedArtifact,
 } from "./types.js";
 
@@ -57,19 +61,7 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
   }
 
   if (graph.default) {
-    const def: Record<string, unknown> = {};
-    if (graph.default.beforeScript !== undefined) def.before_script = [...graph.default.beforeScript];
-    if (graph.default.afterScript !== undefined) def.after_script = [...graph.default.afterScript];
-    if (graph.default.timeout !== undefined) def.timeout = graph.default.timeout;
-    if (graph.default.retry !== undefined) {
-      const retry: Record<string, unknown> = { max: graph.default.retry.max };
-      if (graph.default.retry.exitCodes !== undefined) {
-        retry.exit_codes = [...graph.default.retry.exitCodes];
-      }
-      def.retry = retry;
-    }
-    if (graph.default.interruptible !== undefined) def.interruptible = graph.default.interruptible;
-    doc.default = def;
+    doc.default = defaultToYaml(graph.default);
   }
 
   if (graph.specInputs && Object.keys(graph.specInputs).length > 0) {
@@ -78,6 +70,52 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
 
   // F-32: emit component includes.
   // F-44: emit local includes alongside component includes.
+  const allIncludes = collectIncludes(graph);
+  if (allIncludes.length > 0) {
+    doc.include = allIncludes;
+  }
+
+  // F-42: emit workflow rules.
+  if (graph.workflowRules && graph.workflowRules.length > 0) {
+    doc.workflow = { rules: graph.workflowRules.map(workflowRuleToYaml) };
+  }
+
+  for (const job of graph.jobs) {
+    if (RESERVED_TOP_LEVEL_KEYS.has(job.id)) {
+      throw new GitlabTargetError(
+        `job id '${job.id}' conflicts with a reserved top-level GitLab CI key`,
+        "EMIT_FAILED",
+      );
+    }
+    doc[job.id] = jobToYaml(job);
+  }
+
+  return stringify(doc, { sortMapEntries: false });
+}
+
+/**
+ * Convert a GitlabDefault to a YAML-compatible object.
+ */
+function defaultToYaml(def: NonNullable<GitlabTargetGraph["default"]>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  if (def.beforeScript !== undefined) result.before_script = [...def.beforeScript];
+  if (def.afterScript !== undefined) result.after_script = [...def.afterScript];
+  if (def.timeout !== undefined) result.timeout = def.timeout;
+  if (def.retry !== undefined) {
+    const retry: Record<string, unknown> = { max: def.retry.max };
+    if (def.retry.exitCodes !== undefined) {
+      retry.exit_codes = [...def.retry.exitCodes];
+    }
+    result.retry = retry;
+  }
+  if (def.interruptible !== undefined) result.interruptible = def.interruptible;
+  return result;
+}
+
+/**
+ * Collect all include entries (component + local) from a GitlabTargetGraph.
+ */
+function collectIncludes(graph: GitlabTargetGraph): Record<string, unknown>[] {
   const allIncludes: Record<string, unknown>[] = [];
   for (const inc of graph.includes) {
     allIncludes.push({
@@ -93,36 +131,20 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
       });
     }
   }
-  if (allIncludes.length > 0) {
-    doc.include = allIncludes;
-  }
+  return allIncludes;
+}
 
-  // F-42: emit workflow rules.
-  if (graph.workflowRules && graph.workflowRules.length > 0) {
-    doc.workflow = {
-      rules: graph.workflowRules.map((rule) => {
-        const r: Record<string, unknown> = {};
-        if (rule.if) r.if = rule.if;
-        if (rule.changes) r.changes = rule.changes;
-        if (rule.exists) r.exists = rule.exists;
-        if (rule.variables) r.variables = rule.variables;
-        if (rule.when) r.when = rule.when;
-        return r;
-      }),
-    };
-  }
-
-  for (const job of graph.jobs) {
-    if (RESERVED_TOP_LEVEL_KEYS.has(job.id)) {
-      throw new GitlabTargetError(
-        `job id '${job.id}' conflicts with a reserved top-level GitLab CI key`,
-        "EMIT_FAILED",
-      );
-    }
-    doc[job.id] = jobToYaml(job);
-  }
-
-  return stringify(doc, { sortMapEntries: false });
+/**
+ * Convert a workflow rule to a YAML-compatible object.
+ */
+function workflowRuleToYaml(rule: NonNullable<GitlabTargetGraph["workflowRules"]>[number]): Record<string, unknown> {
+  const r: Record<string, unknown> = {};
+  if (rule.if) r.if = rule.if;
+  if (rule.changes) r.changes = rule.changes;
+  if (rule.exists) r.exists = rule.exists;
+  if (rule.variables) r.variables = rule.variables;
+  if (rule.when) r.when = rule.when;
+  return r;
 }
 
 /**
@@ -146,12 +168,7 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
   assignOptionalList(result, "after_script", job.afterScript);
 
   if (job.artifacts) {
-    const artifacts: Record<string, unknown> = {};
-    if (job.artifacts.paths !== undefined) artifacts.paths = [...job.artifacts.paths];
-    if (job.artifacts.reports !== undefined) artifacts.reports = job.artifacts.reports;
-    if (job.artifacts.expireIn !== undefined) artifacts.expire_in = job.artifacts.expireIn;
-    if (job.artifacts.access !== undefined) artifacts.access = job.artifacts.access;
-    result.artifacts = artifacts;
+    result.artifacts = artifactsToYaml(job.artifacts);
   }
 
   if (job.variables) {
@@ -159,15 +176,7 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
   }
 
   if (job.rules && job.rules.length > 0) {
-    result.rules = job.rules.map((rule) => {
-      const yamlRule: Record<string, unknown> = {};
-      if (rule.if !== undefined) yamlRule.if = rule.if;
-      if (rule.when !== undefined) yamlRule.when = rule.when;
-      if (rule.changes !== undefined) yamlRule.changes = [...rule.changes];
-      if (rule.exists !== undefined) yamlRule.exists = [...rule.exists];
-      if (rule.variables !== undefined) yamlRule.variables = rule.variables;
-      return yamlRule;
-    });
+    result.rules = job.rules.map(ruleToYaml);
   }
 
   if (job.timeout) {
@@ -200,41 +209,19 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
   }
 
   if (job.idTokens && Object.keys(job.idTokens).length > 0) {
-    const idTokens: Record<string, { aud: string }> = {};
-    for (const [name, spec] of Object.entries(job.idTokens)) {
-      idTokens[name] = { aud: spec.aud };
-    }
-    result.id_tokens = idTokens;
+    result.id_tokens = idTokensToYaml(job.idTokens);
   }
 
   if (job.services && job.services.length > 0) {
-    result.services = job.services.map((svc) => {
-      const s: Record<string, unknown> = { name: svc.name };
-      if (svc.alias !== undefined) s.alias = svc.alias;
-      if (svc.entrypoint !== undefined) s.entrypoint = [...svc.entrypoint];
-      if (svc.command !== undefined) s.command = [...svc.command];
-      if (svc.variables !== undefined) s.variables = svc.variables;
-      return s;
-    });
+    result.services = job.services.map(serviceToYaml);
   }
 
   if (job.environment) {
-    const env: Record<string, unknown> = { name: job.environment.name };
-    if (job.environment.url !== undefined) env.url = job.environment.url;
-    if (job.environment.action !== undefined) env.action = job.environment.action;
-    if (job.environment.deploymentTier !== undefined) env.deployment_tier = job.environment.deploymentTier;
-    if (job.environment.onStop !== undefined) env.on_stop = job.environment.onStop;
-    result.environment = env;
+    result.environment = environmentToYaml(job.environment);
   }
 
   if (job.cache) {
-    const cache: Record<string, unknown> = {
-      paths: [...job.cache.paths],
-      key: job.cache.key,
-    };
-    if (job.cache.policy !== undefined) cache.policy = job.cache.policy;
-    if (job.cache.fallbackKeys !== undefined) cache.fallback_keys = [...job.cache.fallbackKeys];
-    result.cache = cache;
+    result.cache = cacheToYaml(job.cache);
   }
 
   if (job.resourceGroup !== undefined) {
@@ -302,4 +289,77 @@ function assignRetry(
   if (value.when && value.when.length > 0) retry.when = [...value.when];
   if (value.exitCodes && value.exitCodes.length > 0) retry.exit_codes = [...value.exitCodes];
   result.retry = retry;
+}
+
+/**
+ * Convert an artifacts spec to a YAML-compatible object.
+ */
+function artifactsToYaml(artifacts: GitlabJob["artifacts"]): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  if (artifacts!.paths !== undefined) result.paths = [...artifacts!.paths];
+  if (artifacts!.reports !== undefined) result.reports = artifacts!.reports;
+  if (artifacts!.expireIn !== undefined) result.expire_in = artifacts!.expireIn;
+  if (artifacts!.access !== undefined) result.access = artifacts!.access;
+  return result;
+}
+
+/**
+ * Convert a job rule to a YAML-compatible object.
+ */
+function ruleToYaml(rule: GitlabRule): Record<string, unknown> {
+  const r: Record<string, unknown> = {};
+  if (rule.if !== undefined) r.if = rule.if;
+  if (rule.when !== undefined) r.when = rule.when;
+  if (rule.changes !== undefined) r.changes = [...rule.changes];
+  if (rule.exists !== undefined) r.exists = [...rule.exists];
+  if (rule.variables !== undefined) r.variables = rule.variables;
+  return r;
+}
+
+/**
+ * Convert id tokens to a YAML-compatible object.
+ */
+function idTokensToYaml(idTokens: NonNullable<GitlabJob["idTokens"]>): Record<string, { aud: string }> {
+  const result: Record<string, { aud: string }> = {};
+  for (const [name, spec] of Object.entries(idTokens)) {
+    result[name] = { aud: spec.aud };
+  }
+  return result;
+}
+
+/**
+ * Convert a service to a YAML-compatible object.
+ */
+function serviceToYaml(svc: GitlabService): Record<string, unknown> {
+  const s: Record<string, unknown> = { name: svc.name };
+  if (svc.alias !== undefined) s.alias = svc.alias;
+  if (svc.entrypoint !== undefined) s.entrypoint = [...svc.entrypoint];
+  if (svc.command !== undefined) s.command = [...svc.command];
+  if (svc.variables !== undefined) s.variables = svc.variables;
+  return s;
+}
+
+/**
+ * Convert an environment spec to a YAML-compatible object.
+ */
+function environmentToYaml(env: GitlabEnvironment): Record<string, unknown> {
+  const result: Record<string, unknown> = { name: env.name };
+  if (env.url !== undefined) result.url = env.url;
+  if (env.action !== undefined) result.action = env.action;
+  if (env.deploymentTier !== undefined) result.deployment_tier = env.deploymentTier;
+  if (env.onStop !== undefined) result.on_stop = env.onStop;
+  return result;
+}
+
+/**
+ * Convert a cache spec to a YAML-compatible object.
+ */
+function cacheToYaml(cache: GitlabCache): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    paths: [...cache.paths],
+    key: cache.key,
+  };
+  if (cache.policy !== undefined) result.policy = cache.policy;
+  if (cache.fallbackKeys !== undefined) result.fallback_keys = [...cache.fallbackKeys];
+  return result;
 }

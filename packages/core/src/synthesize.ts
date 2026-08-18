@@ -16,11 +16,6 @@ import {
   type StepRef,
   type Reference,
   type InputLiteral,
-  type ComponentRef,
-  type ChildPipelineTrigger,
-  type DownstreamTrigger,
-  type ReleaseSpec,
-  type PagesSpec,
 } from "@sverka/cdk";
 import type {
   DefinitionGraph,
@@ -133,36 +128,76 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
 
 function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   const stepId = `${pipelineId}/${step.node.id}`;
-  const operations: OperationDefinition[] = [];
+  const operations: OperationDefinition[] = [...collectPrimaryOperations(step)];
   const dependencies: Dependency[] = [];
   const seenDeps = new Set<string>();
-
-  if (step instanceof ShellStep) {
-    operations.push({
-      kind: "shell",
-      command: step.command,
-      ...(step.background ? { background: true } : {}),
-    });
-  }
-
-  if (step instanceof ReleaseStep) {
-    operations.push({ kind: "release", ...step.release });
-  }
-
-  if (step instanceof PagesStep) {
-    operations.push({ kind: "deployPages", ...step.pages });
-  }
 
   collectExportOperations(step, stepId, operations);
   collectImportOperations(step, pipelineId, operations, dependencies, seenDeps);
   collectControlDeps(step, pipelineId, dependencies, seenDeps);
   collectReportOperations(step, operations);
 
+  const base = buildBaseStep(stepId, step, operations, dependencies);
+
+  // Pipeline-call step: set `call`, emit no shell operations (already empty).
+  // Outputs are resolved in pass 2 (resolveCallOutputs).
+  if (step instanceof PipelineCallStep) {
+    const call: PipelineCall = {
+      callee: step.callee,
+      inputs: buildCallInputs(step.callInputs),
+    };
+    return { ...base, call };
+  }
+
+  // Component step: set `component`, emit no shell operations.
+  if (step instanceof ComponentStep) {
+    return { ...base, component: step.component };
+  }
+
+  // Child-pipeline step: set `childPipeline`, emit no shell operations.
+  if (step instanceof ChildPipelineStep) {
+    return { ...base, childPipeline: step.childPipeline };
+  }
+
+  // Downstream step: set `downstream`, emit no shell operations.
+  if (step instanceof DownstreamStep) {
+    return { ...base, downstream: step.downstream };
+  }
+
+  return base;
+}
+
+/** Build the primary operation (shell/release/pages) for a step, if any. */
+function collectPrimaryOperations(step: Step): OperationDefinition[] {
+  if (step instanceof ShellStep) {
+    return [
+      {
+        kind: "shell",
+        command: step.command,
+        ...(step.background ? { background: true } : {}),
+      },
+    ];
+  }
+  if (step instanceof ReleaseStep) {
+    return [{ kind: "release", ...step.release }];
+  }
+  if (step instanceof PagesStep) {
+    return [{ kind: "deployPages", ...step.pages }];
+  }
+  return [];
+}
+
+/** Build the base `StepDefinition` (without call/component/child/downstream). */
+function buildBaseStep(
+  stepId: string,
+  step: Step,
+  operations: OperationDefinition[],
+  dependencies: Dependency[],
+): StepDefinition {
   const stepOutputs: OutputDefinition[] = [...step.outputs.entries()].map(
     ([name, decl]) => ({ ...decl, name }),
   );
-
-  const base: StepDefinition = {
+  return {
     id: stepId,
     runtime: step.runtime,
     operations,
@@ -187,34 +222,17 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
     ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
     ...(step.delay !== undefined ? { delay: step.delay } : {}),
   };
+}
 
-  // Pipeline-call step: set `call`, emit no shell operations (already empty).
-  // Outputs are resolved in pass 2 (resolveCallOutputs).
-  if (step instanceof PipelineCallStep) {
-    const callInputs: Record<string, Reference | InputLiteral> = {};
-    for (const [name, value] of step.callInputs) {
-      callInputs[name] = value;
-    }
-    const call: PipelineCall = { callee: step.callee, inputs: callInputs };
-    return { ...base, call };
+/** Convert a call step's `callInputs` map into a plain record. */
+function buildCallInputs(
+  callInputs: ReadonlyMap<string, Reference | InputLiteral>,
+): Record<string, Reference | InputLiteral> {
+  const result: Record<string, Reference | InputLiteral> = {};
+  for (const [name, value] of callInputs) {
+    result[name] = value;
   }
-
-  // Component step: set `component`, emit no shell operations.
-  if (step instanceof ComponentStep) {
-    return { ...base, component: step.component };
-  }
-
-  // Child-pipeline step: set `childPipeline`, emit no shell operations.
-  if (step instanceof ChildPipelineStep) {
-    return { ...base, childPipeline: step.childPipeline };
-  }
-
-  // Downstream step: set `downstream`, emit no shell operations.
-  if (step instanceof DownstreamStep) {
-    return { ...base, downstream: step.downstream };
-  }
-
-  return base;
+  return result;
 }
 
 /**

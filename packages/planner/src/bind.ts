@@ -376,7 +376,12 @@ function assertInputValue(
   type: Input["type"],
   name: string,
 ): void {
-  const expected = type === "array" ? "object" : type === "choice" ? "string" : type;
+  let expected = type;
+  if (type === "array") {
+    expected = "object";
+  } else if (type === "choice") {
+    expected = "string";
+  }
   const actual = Array.isArray(value) ? "object" : typeof value;
   if (actual !== expected) {
     throw new PlannerError(
