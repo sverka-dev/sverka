@@ -56,18 +56,18 @@ function createShellProxy(prefix: string, shellOpt?: string): ShellProxy {
 
   // Property access: shell.git → new ShellProxy with prefix "git".
   return new Proxy(proxy, {
-    get(_target, prop: string | symbol): ShellProxy {
-      if (typeof prop === "string") {
-        const newPrefix = prefix ? `${prefix} ${prop}` : prop;
-        return createShellProxy(newPrefix, shellOpt);
-      }
-      return createShellProxy(prefix, shellOpt);
+    get(_target, prop: string | symbol): ShellProxy | undefined {
+      // Guard against thenable/introspection props (then, toJSON, etc.)
+      if (typeof prop !== "string") return undefined;
+      const newPrefix = prefix ? `${prefix} ${prop}` : prop;
+      return createShellProxy(newPrefix, shellOpt);
     },
   });
 }
 
 /**
  * Apply a command prefix and optional shell interpreter to a built step.
+ * Mutates the step in-place to preserve pipeline registration.
  */
 function applyPrefixAndShell(
   step: ReturnType<StepBuilder["build"]>,
@@ -77,25 +77,21 @@ function applyPrefixAndShell(
   const runtime = shellOpt
     ? { ...step.runtime, shell: shellOpt }
     : step.runtime;
-  return cloneStep(step, { command: `${prefix} ${step.command}`, runtime });
+  Object.assign(step, { command: `${prefix} ${step.command}`, runtime });
+  return step;
 }
 
 /**
  * Apply a shell interpreter to a built step (no prefix).
+ * Mutates the step in-place to preserve pipeline registration.
  */
 function applyShell(
   step: ReturnType<StepBuilder["build"]>,
   interpreter: string,
 ): ReturnType<StepBuilder["build"]> {
   const runtime: Runtime = { ...step.runtime, shell: interpreter };
-  return cloneStep(step, { runtime });
-}
-
-/**
- * Clone a step with overridden fields, preserving its prototype.
- */
-function cloneStep<S extends object>(step: S, overrides: Partial<S>): S {
-  return Object.assign(Object.create(Object.getPrototypeOf(step)), step, overrides);
+  Object.assign(step, { runtime });
+  return step;
 }
 
 /**
