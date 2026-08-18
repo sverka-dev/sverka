@@ -1,0 +1,12 @@
+{
+  "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "If the user mentions 'watchdog', 'monitor', 'gc status', 'city health', or 'is the city ok', invoke the gc-watchdog skill to run a health check. If the user mentions 'mayor', 'stuck agent', 'dolt down', or 'beads', also run the watchdog check cycle."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "gc-watchdog",
+  "version": "0.1.0",
+  "description": "Gas City health monitor with self-healing. Detects stuck agents, Dolt issues, unclaimed work, and mayor prompts. Auto-responds or relays to user.",
+  "author": {
+    "name": "sverka-dev"
+  },
+  "keywords": ["gas-city", "watchdog", "monitoring", "self-healing", "orchestration"]
+}
