@@ -1,6 +1,6 @@
 // Test fixtures for engine tests.
-import type { RunPlan } from "@sverka/ir";
-import type { StepDefinition } from "@sverka/core";
+import type { RunPlan, InputValue } from "@sverka/ir";
+import type { StepDefinition, Reference, Expression } from "@sverka/core";
 
 export function makeSingleStepPlan(command: string = "echo hello"): RunPlan {
   const step: StepDefinition = {
@@ -17,6 +17,30 @@ export function makeSingleStepPlan(command: string = "echo hello"): RunPlan {
     graphId: "graph-test",
     entry: { id: "ci/on-push", trigger: { kind: "push" } },
     inputs: {},
+    steps: [step],
+    createdAt: "2026-08-13T00:00:00.000Z",
+  };
+}
+
+export function makeConditionalPlan(
+  condition: Reference | Expression,
+  inputs: Readonly<Record<string, InputValue>>,
+): RunPlan {
+  const step: StepDefinition = {
+    id: "ci/hello",
+    runtime: {},
+    operations: [{ kind: "shell", command: "echo hello" }],
+    inputs: [],
+    outputs: [],
+    dependencies: [],
+    condition,
+  };
+  return {
+    apiVersion: "sverka.dev/v1run",
+    id: "rp-cond-test",
+    graphId: "graph-cond-test",
+    entry: { id: "ci/on-push", trigger: { kind: "push" } },
+    inputs,
     steps: [step],
     createdAt: "2026-08-13T00:00:00.000Z",
   };

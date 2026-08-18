@@ -352,6 +352,22 @@ describe("compileGithub — environment variables (F-20)", () => {
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.env).toEqual({ nodeVersion: "22" });
   });
+
+  it("translates inputs.X refs to env.X in commands (inputs are in workflow env)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: { nodeVersion: { type: "string", default: "22" } },
+    });
+    new ShellStep(p, "build", {
+      command: "echo ${inputs.nodeVersion}",
+      inputs: [{ kind: "context", namespace: "inputs", field: "nodeVersion" }],
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    const runStep = yaml.jobs.build.steps.find((s: { run?: string }) => s.run);
+    expect(runStep.run).toContain("${{ env.nodeVersion }}");
+  });
 });
 
 // F-21: Secrets — runtime.secrets → ${{ secrets.X }} in job env
