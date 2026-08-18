@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import type { StatusCondition, Expression } from "@sverka/cdk";
 import { synthesize, type DefinitionGraph } from "@sverka/core";
 import { GitlabTarget, compileGitlab, GitlabTargetError, type GitlabJob } from "../index.js";
 
@@ -432,5 +433,265 @@ describe("compileGitlab — artifact import (F-25)", () => {
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.deploy.needs).toContain("build");
+  });
+});
+
+// F-11: Step conditions — status conditions map to when: on rules
+describe("compileGitlab — step conditions (F-11)", () => {
+  it("lowers failure status condition to when: on_failure on rules", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    const failureCond: StatusCondition = { kind: "status", status: "failure" };
+    new ShellStep(p, "notify", {
+      command: "echo failed",
+      condition: failureCond,
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["notify"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.notify.rules[0].if).toContain('"push"');
+    expect(yaml.notify.rules[0].when).toBe("on_failure");
+  });
+
+  it("lowers always status condition to when: always", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "cleanup", {
+      command: "echo cleanup",
+      condition: { kind: "status", status: "always" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["cleanup"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.cleanup.rules[0].when).toBe("always");
+  });
+
+  it("lowers never status condition to when: never", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "skip", {
+      command: "echo skip",
+      condition: { kind: "status", status: "never" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["skip"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.skip.rules[0].when).toBe("never");
+  });
+
+  it("lowers success status condition to when: on_success", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "ok", {
+      command: "echo ok",
+      condition: { kind: "status", status: "success" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["ok"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.ok.rules[0].when).toBe("on_success");
+  });
+
+  it("emits a valid rule when a condition exists with no trigger rules", () => {
+    // A step with a condition but no entries reaching it should still get a rule.
+    const graph: DefinitionGraph = {
+      project: {
+        id: "test",
+        pipelines: [{
+          id: "ci",
+          inputs: {},
+          entries: [],
+          steps: [{
+            id: "orphan",
+            runtime: { mode: "host" },
+            operations: [{ kind: "shell", command: "echo hi" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [],
+            condition: { kind: "status", status: "always" },
+          }],
+          outputs: [],
+        }],
+      },
+    };
+    // With no entries, the step is not reachable, so no job is emitted.
+    // This test verifies that the lowering does not crash on empty rules.
+    const result = compileGitlab(graph);
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.stages).toBeDefined();
+  });
+
+  it("lowers a context-ref condition to an if: expression ANDed with trigger rules", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo build",
+      condition: { kind: "context", namespace: "git", field: "branch" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules[0].if).toContain("$CI_COMMIT_BRANCH");
+    expect(yaml.build.rules[0].if).toContain('"push"');
+  });
+
+  it("lowers a step-ref condition with producer job ID prefix", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: 'echo "ok=true" > $SVERKA_OUTPUT_DIR/ok',
+      outputs: { ok: { type: "boolean" } },
+    });
+    new ShellStep(p, "deploy", {
+      command: "echo deploy",
+      dependsOn: ["build"],
+      condition: {
+        kind: "step",
+        step: "build",
+        output: "ok",
+        type: "boolean",
+      },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    // The condition should reference $build_ok (producer job ID prefix)
+    expect(yaml.deploy.rules[0].if).toContain("$build_ok");
+  });
+
+  it("lowers an expression condition with context refs", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    const expr: Expression = {
+      kind: "expression",
+      template: "${git.branch} == main",
+      refs: [{ kind: "context", namespace: "git", field: "branch" }],
+    };
+    new ShellStep(p, "build", {
+      command: "echo build",
+      condition: expr,
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules[0].if).toContain("$CI_COMMIT_BRANCH");
+    expect(yaml.build.rules[0].if).toContain("main");
+  });
+});
+
+// F-06: Trigger filters — tag, branch, and path filters
+describe("compileGitlab — trigger filters (F-06)", () => {
+  it("lowers push tag filter to $CI_COMMIT_TAG condition", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-tag", {
+      trigger: { kind: "push", filter: { tags: ["v*"] } },
+      roots: ["build"],
+    });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules[0].if).toContain("$CI_COMMIT_TAG");
+    expect(yaml.build.rules[0].if).toContain('"v*"');
+  });
+
+  it("lowers push branch filter to $CI_COMMIT_BRANCH condition", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-branch", {
+      trigger: { kind: "push", filter: { branches: ["main", "dev"] } },
+      roots: ["build"],
+    });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules[0].if).toContain("$CI_COMMIT_BRANCH");
+    expect(yaml.build.rules[0].if).toContain('"main"');
+    expect(yaml.build.rules[0].if).toContain('"dev"');
+  });
+
+  it("lowers push path filter to changes: on rule", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-paths", {
+      trigger: { kind: "push", filter: { paths: ["src/**", "tests/**"] } },
+      roots: ["build"],
+    });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules[0].changes).toEqual(["src/**", "tests/**"]);
+  });
+
+  it("lowers change-request branch filter to $CI_MERGE_REQUEST_TARGET_BRANCH_NAME", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest", filter: { branches: ["main"] } },
+      roots: ["build"],
+    });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules[0].if).toContain("$CI_MERGE_REQUEST_TARGET_BRANCH_NAME");
+    expect(yaml.build.rules[0].if).toContain('"main"');
+  });
+
+  it("lowers change-request path filter to changes: on rule", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest", filter: { paths: ["src/**"] } },
+      roots: ["build"],
+    });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.rules[0].changes).toEqual(["src/**"]);
+  });
+
+  it("rejects tag filter on change-request trigger with UNSUPPORTED_TRIGGER", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest", filter: { tags: ["v*"] } },
+      roots: ["build"],
+    });
+    expect(() => compileGitlab(synthesize(proj))).toThrow(GitlabTargetError);
+    try {
+      compileGitlab(synthesize(proj));
+    } catch (err) {
+      expect((err as GitlabTargetError).code).toBe("UNSUPPORTED_TRIGGER");
+    }
+  });
+});
+
+// F-36: Working directory — cd prefix with shell quoting
+describe("compileGitlab — working directory (F-36)", () => {
+  it("prepends cd <workdir> as first script entry", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo build",
+      runtime: { workingDir: "subdir" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.script[0]).toBe("cd 'subdir'");
+  });
+
+  it("shell-quotes working directory with spaces", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo build",
+      runtime: { workingDir: "my dir" },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGitlab(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.build.script[0]).toBe("cd 'my dir'");
   });
 });

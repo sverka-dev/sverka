@@ -32,7 +32,7 @@ on:
       - main
 ```
 
-Activity types: `opened`, `synchronize`, `reopened`, `closed`, `edited`, `labeled`, `unlabeled`, `assigned`, `unassigned`, `review_requested`, `ready_for_review`, `converted_to_draft`, `milestoned`, `demilestoned`.
+Activity types (illustrative, not exhaustive — see [GitHub docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpull_requestpull_request_target): `opened`, `synchronize`, `reopened`, `closed`, `edited`, `labeled`, `unlabeled`, `assigned`, `unassigned`, `review_requested`, `ready_for_review`, `converted_to_draft`, `milestoned`, `demilestoned`, `locked`, `unlocked`, `enqueued`, `dequeued`, `review_request_removed`, `auto_merge_enabled`, `auto_merge_disabled`.
 
 `pull_request_target` is a separate event that runs in the base branch context with write token — security-sensitive.
 

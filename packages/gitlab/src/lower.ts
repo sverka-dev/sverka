@@ -342,17 +342,25 @@ function buildFilterRule(
   filter: { readonly branches?: readonly string[]; readonly tags?: readonly string[]; readonly paths?: readonly string[] } | undefined,
   isMergeRequest: boolean,
 ): GitlabRule {
+  // Tag filters are not meaningful on change-request (merge request) triggers.
+  if (isMergeRequest && filter?.tags && filter.tags.length > 0) {
+    throw new GitlabTargetError(
+      "tag filters are not supported on change-request triggers",
+      "UNSUPPORTED_TRIGGER",
+    );
+  }
+
   // Source condition (push/MR/web) is always required.
   const conditions: string[] = [sourceCondition];
 
   // Branch and tag filters are OR'd: a push to a matching branch OR a matching tag.
-  // For MR triggers, only branch (target) filters apply; tags are not relevant.
+  // For MR triggers, tag filters are rejected above; only branch (target) filters apply.
   const refConditions: string[] = [];
   if (filter?.branches && filter.branches.length > 0) {
     const branchRef = isMergeRequest ? "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" : "$CI_COMMIT_BRANCH";
     refConditions.push(buildRefCondition(branchRef, filter.branches));
   }
-  if (filter?.tags && filter.tags.length > 0 && !isMergeRequest) {
+  if (filter?.tags && filter.tags.length > 0) {
     refConditions.push(buildRefCondition("$CI_COMMIT_TAG", filter.tags));
   }
   if (refConditions.length === 1) {
@@ -414,18 +422,29 @@ function lowerStep(
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
 
-  // If the step has a condition, AND it with each trigger rule's if expression.
+  // If the step has a condition, apply it to each trigger rule.
+  // - Status conditions (success/failure/always/never) set `when:` on each rule.
+  // - Other conditions (context/step/expression) AND an `if:` expression with each rule.
   // GitLab evaluates rules in order and stops at the first match, so appending
   // the condition as a separate rule would bypass it when a trigger rule matches.
   let rules = triggerRules;
   if (step.condition !== undefined) {
-    const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
-    rules = triggerRules.map((rule) => ({
-      ...rule,
-      if: condExpr ? `(${rule.if}) && (${condExpr})` : rule.if,
-    }));
-    if (rules.length === 0) {
-      rules = [{ if: condExpr }];
+    const cond = lowerGitlabCondition(step.condition, jobIdMap);
+    if (cond.ifExpr !== undefined) {
+      rules = triggerRules.map((rule) => ({
+        ...rule,
+        if: `(${rule.if}) && (${cond.ifExpr})`,
+      }));
+      if (rules.length === 0) {
+        rules = [{ if: cond.ifExpr }];
+      }
+    } else if (cond.when !== undefined) {
+      // Status condition — set when: on all trigger rules.
+      rules = triggerRules.map((rule) => ({ ...rule, when: cond.when }));
+      if (rules.length === 0) {
+        // No trigger rules — emit a single rule with the when: value.
+        rules = [{ if: "true", when: cond.when }];
+      }
     }
   }
 
@@ -821,10 +840,12 @@ function translateGitlabContextRef(namespace: string, field: string): string {
 }
 
 /**
- * Translate a step ref to GitLab variable syntax: $<output> (from dotenv artifact).
+ * Translate a step ref to GitLab variable syntax: $<producerJob>_<output> (from dotenv artifact).
+ * The producer job ID prefix matches the dotenv key format written by lowerOperations.
  */
-function translateGitlabStepRef(ref: StepRef): string {
-  return `$${ref.output}`;
+function translateGitlabStepRef(ref: StepRef, jobIdMap: Map<string, string>): string {
+  const producerJob = jobIdMap.get(ref.step) ?? ref.step;
+  return `$${producerJob}_${ref.output}`;
 }
 
 /**
@@ -868,46 +889,50 @@ function translateGitlabCommand(
 }
 
 /**
- * Lower a step condition to a GitLab if: expression string (without wrapping in a rule).
- * Returns the raw expression that can be combined with trigger rule conditions.
+ * Structured result of lowering a step condition.
+ * - `ifExpr`: a GitLab `if:` expression (for context/step/expression conditions)
+ * - `when`: a GitLab `when:` value (for status conditions like success/failure/always/never)
  */
-function lowerGitlabConditionExpr(
+interface ConditionLowering {
+  readonly ifExpr?: string;
+  readonly when?: string;
+}
+
+/**
+ * Lower a step condition to a structured GitLab rule fragment.
+ * Status conditions map to `when:` on the rule; other conditions produce an `if:` expression.
+ */
+function lowerGitlabCondition(
   condition: Reference | Expression | StatusCondition,
-  _jobIdMap: Map<string, string>,
-): string {
+  jobIdMap: Map<string, string>,
+): ConditionLowering {
   if (condition.kind === "status") {
-    // GitLab status conditions map to when: field, not if: expression.
-    // Return a sentinel that the caller can use to set when: instead.
-    // For if: expression purposes: success = no restriction, always = true, never = false.
-    if (condition.status === "always") return "true";
-    if (condition.status === "never") return "false";
-    return ""; // success/failure — no if: restriction (when: handles it)
+    switch (condition.status) {
+      case "always":
+        return { when: "always" };
+      case "never":
+        return { when: "never" };
+      case "failure":
+        return { when: "on_failure" };
+      case "success":
+        return { when: "on_success" };
+    }
   }
   if (condition.kind === "context") {
-    return translateGitlabContextRef(condition.namespace, condition.field);
+    return { ifExpr: translateGitlabContextRef(condition.namespace, condition.field) };
   }
   if (condition.kind === "step") {
-    // Step ref condition — truthiness check on the output variable
-    return translateGitlabStepRef(condition);
+    return { ifExpr: translateGitlabStepRef(condition, jobIdMap) };
   }
   // Expression — translate each ${...} placeholder, no single-quote wrapping
   const lookup = buildGitlabInputLookup(condition.refs);
-  return condition.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+  const ifExpr = condition.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
     const ref = lookup.get(key);
     if (ref === undefined) return `\${${key}}`;
     if (ref.kind === "context") {
       return translateGitlabContextRef(ref.namespace, ref.field);
     }
-    return translateGitlabStepRef(ref);
+    return translateGitlabStepRef(ref, jobIdMap);
   });
-}
-
-/**
- * Lower a step condition to a GitLab rule with an if: expression.
- */
-function lowerGitlabCondition(
-  condition: Reference | Expression | StatusCondition,
-  jobIdMap: Map<string, string>,
-): GitlabRule {
-  return { if: lowerGitlabConditionExpr(condition, jobIdMap) };
+  return { ifExpr };
 }

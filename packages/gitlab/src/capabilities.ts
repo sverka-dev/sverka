@@ -26,5 +26,7 @@ export const gitlabCapabilities: CapabilityManifest = {
   "execution.shell": "unsupported",
   "environment.variables": "native",
   "secrets.runtime": "native",
-  "secrets.pipeline-input": "native",
+  // Secret pipeline inputs are not emitted in the generated .gitlab-ci.yml;
+  // the user must configure a masked CI/CD variable in the project settings.
+  "secrets.pipeline-input": "emulated",
 };

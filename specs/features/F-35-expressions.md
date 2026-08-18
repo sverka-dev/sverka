@@ -70,7 +70,7 @@ const needs = context.needs;    // dependency outputs
 ```ts
 // SDK
 task("deploy", {
-  run: sh`deploy ${expr`${git.branch}`}`,
+  run: sh`deploy ${git.branch}`,
   condition: { expression: expr`${git.branch} == "main"` },
 }),
 
@@ -217,9 +217,11 @@ before trying step outputs:
 - `inputs.X` → from pipeline inputs
 - `change.*`, `event.*`, `run.*` → from run context (if available)
 
-Expression condition evaluation in `evaluateCondition` is deferred to M1
-(F-11 conditions). For M0, only context ref resolution in command strings
-is needed. `evaluateCondition` already handles `Reference` conditions.
+Expression condition evaluation in `evaluateCondition` is implemented in the
+native engine. Both `Reference` and `Expression` conditions are evaluated —
+`Expression` conditions resolve context refs from the run context and evaluate
+the template as a JavaScript expression. See
+`packages/engine-native/src/__tests__/engine.test.ts` for coverage.
 
 ## Non-goals
 
