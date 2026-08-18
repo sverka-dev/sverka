@@ -14,8 +14,8 @@ describe("Shell proxy — command prefix", () => {
   it("prepends multiple property accesses", () => {
     const project = new Project("shell-multi-prefix");
     const pipeline = new Pipeline(project, "ci");
-    const step = shell.git!`push`.build(pipeline, "push");
-    expect(step.command).toBe("git push");
+    const step = shell.git.remote!`show`.build(pipeline, "show");
+    expect(step.command).toBe("git remote show");
   });
 
   it("works with interpolation", () => {
