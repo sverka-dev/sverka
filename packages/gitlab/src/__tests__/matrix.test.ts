@@ -30,10 +30,10 @@ describe("GitLab matrix lowering", () => {
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.parallel).toBeDefined();
     expect(job?.parallel!.matrix).toHaveLength(4);
-    expect(job?.parallel!.matrix).toContainEqual({ node: [18], os: ["ubuntu"] });
-    expect(job?.parallel!.matrix).toContainEqual({ node: [18], os: ["windows"] });
-    expect(job?.parallel!.matrix).toContainEqual({ node: [20], os: ["ubuntu"] });
-    expect(job?.parallel!.matrix).toContainEqual({ node: [20], os: ["windows"] });
+    expect(job?.parallel!.matrix).toContainEqual({ node: 18, os: "ubuntu" });
+    expect(job?.parallel!.matrix).toContainEqual({ node: 18, os: "windows" });
+    expect(job?.parallel!.matrix).toContainEqual({ node: 20, os: "ubuntu" });
+    expect(job?.parallel!.matrix).toContainEqual({ node: 20, os: "windows" });
   });
 
   it("filters excluded combinations from parallel.matrix", () => {
@@ -45,7 +45,7 @@ describe("GitLab matrix lowering", () => {
     const targetGraph = target.lower(graph);
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.parallel!.matrix).toHaveLength(3);
-    expect(job?.parallel!.matrix).not.toContainEqual({ node: [18], os: ["windows"] });
+    expect(job?.parallel!.matrix).not.toContainEqual({ node: 18, os: "windows" });
   });
 
   it("appends include entries to parallel.matrix", () => {
@@ -57,7 +57,7 @@ describe("GitLab matrix lowering", () => {
     const targetGraph = target.lower(graph);
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.parallel!.matrix).toHaveLength(3);
-    expect(job?.parallel!.matrix).toContainEqual({ node: [22], experimental: [1] });
+    expect(job?.parallel!.matrix).toContainEqual({ node: 22, experimental: 1 });
   });
 
   it("translates matrix.* context refs to $VAR (uppercase)", () => {

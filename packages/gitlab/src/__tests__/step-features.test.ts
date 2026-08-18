@@ -96,7 +96,7 @@ describe("GitLab F-14: retry lowering", () => {
     const target = new GitlabTarget();
     const targetGraph = target.lower(graph);
     expect(targetGraph.jobs[0]!.retry).toEqual({
-      max: 2,
+      max: 3,
       when: ["timeout"],
       exitCodes: [1],
     });
