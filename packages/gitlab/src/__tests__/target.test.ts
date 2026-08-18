@@ -1043,6 +1043,7 @@ describe("compileGitlab — artifact import (F-25)", () => {
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.deploy.needs).toContain("build");
   });
+});
 
 describe("compileGitlab — reusable pipelines inlined (F-31)", () => {
   function makeReusableGraph(): DefinitionGraph {
@@ -1294,5 +1295,5 @@ describe("compileGitlab — background execution (F-49)", () => {
     const serverJob = yaml["start-server"];
     expect(serverJob).toBeDefined();
     expect(serverJob.script).toContain("npm start &");
-  }); (feat: F-31 reusable workflows, F-32 components, F-33 child pipelines, F-34 downstream, F-39 release, F-40 pages, F-42 rules, F-43 importer, F-44 includes, F-48 delayed, F-49 background)
+  });
 });

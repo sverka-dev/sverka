@@ -338,7 +338,7 @@ function lowerTriggers(
     hasManual,
     scheduleEntries,
     inputs,
-  );
+  });
 }
 
 function collectFilters(
@@ -670,7 +670,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const container = resolveContainer(step, mode);
   const jobEnv = collectJobEnv(runtime);
 
-  return assembleGithubJob(jobId, steps, needs, step, runsOn, container, jobEnv);
+  return assembleGithubJob(jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap);
 }
 
 /**
@@ -699,6 +699,7 @@ function assembleGithubJob(
   runsOn: GithubRunsOn,
   container: string | undefined,
   jobEnv: Record<string, string>,
+  jobIdMap: Map<string, string>,
 ): GithubJob {
   return {
     id: jobId,

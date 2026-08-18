@@ -948,6 +948,8 @@ describe("compileGithub — artifact import (F-25)", () => {
     expect(downloadStep.uses).toBe("actions/download-artifact@v4");
     expect(downloadStep.with.name).toBe("build-dist");
     expect(downloadStep.with.path).toBe("dist");
+  });
+});
 
 describe("compileGithub — reusable workflows (F-31)", () => {
   function makeReusableGraph(): DefinitionGraph {
@@ -1208,6 +1210,6 @@ describe("compileGithub — background execution (F-49)", () => {
     const runStep = serverJob.steps.find((s: { run?: string }) => s.run?.includes("npm start"));
     expect(runStep).toBeDefined();
     expect(runStep.run).toContain("&");
-    expect(runStep.run).toBe("npm start &"); (feat: F-31 reusable workflows, F-32 components, F-33 child pipelines, F-34 downstream, F-39 release, F-40 pages, F-42 rules, F-43 importer, F-44 includes, F-48 delayed, F-49 background)
+    expect(runStep.run).toBe("npm start &");
   });
 });
