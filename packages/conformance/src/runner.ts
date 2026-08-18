@@ -532,19 +532,15 @@ export async function runConformance(): Promise<readonly ConformanceResult[]> {
     checkScalarFlow(graphConstruct),
     checkArtifactFlow(graphConstruct),
     checkContainerImage(graphConstruct),
-  );
-
-  // Reuse events from checkEngineExecution for the context-namespace check.
-  results.push(
+    // Reuse events from checkEngineExecution for the context-namespace check.
     checkContextNamespaces(graphConstruct, events),
     checkCycleDiagnostics(),
     await checkNoNetwork(graphConstruct),
     checkProviderNeutral(graphConstruct),
     checkSerialization(graphConstruct),
+    // F-31: Reusable pipeline conformance.
+    ...checkReusablePipelineConformance(),
   );
-
-  // F-31: Reusable pipeline conformance.
-  results.push(...checkReusablePipelineConformance());
 
   return results;
 }
