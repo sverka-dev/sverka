@@ -16,7 +16,7 @@
     "sync-docs": "bun scripts/sync-docs.ts"
   },
   "dependencies": {
-    "mermaid": "^11.16.1",
+    "mermaid": "^11.17.0",
     "astro": "^7.2.2",
     "@astrojs/starlight": "0.41.7",
     "yaml": "^2.5.0",
