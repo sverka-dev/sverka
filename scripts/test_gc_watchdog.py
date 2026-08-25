@@ -51,7 +51,7 @@ def _count_real_issues(bd_json: str, status: str = "open", bd_exit: int = 0) -> 
             f.write(bd_json)
             f.write("\nBDEOF\n")
             f.write(f"exit {bd_exit}\n")
-        os.chmod(fake_bd, 0o755)
+        os.chmod(fake_bd, 0o700)
 
         script = _source_prefix() + f"\ncount_real_issues '{status}'\n"
         env = os.environ.copy()
@@ -77,7 +77,7 @@ def _get_open_bead_ids(bd_json: str) -> str:
             f.write("cat <<'BDEOF'\n")
             f.write(bd_json)
             f.write("\nBDEOF\n")
-        os.chmod(fake_bd, 0o755)
+        os.chmod(fake_bd, 0o700)
 
         script = _source_prefix() + "\nget_open_bead_ids\n"
         env = os.environ.copy()
@@ -197,7 +197,7 @@ def test_session_exists_timeout_returns_2():
         with open(fake_gc, "w") as f:
             f.write("#!/bin/bash\n")
             f.write("exit 1\n")  # Simulate gc session list failure
-        os.chmod(fake_gc, 0o755)
+        os.chmod(fake_gc, 0o700)
 
         script = _source_prefix() + '\nsession_exists "sv-wisp-test"\necho "RC=$?"\n'
         env = os.environ.copy()
