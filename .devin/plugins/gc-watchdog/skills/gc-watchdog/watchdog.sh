@@ -19,6 +19,7 @@ fi
 ITER=0
 
 # --- helpers ---
+# test-source-begin
 
 # Count real issues by status using JSON output.
 # Returns -1 on failure (distinct from a legitimate 0 count) so the
@@ -37,11 +38,17 @@ try:
   if not isinstance(data, list):
     print(-1)
     sys.exit(1)
+  def _is_real(bid):
+    if not bid.startswith('sv-'):
+      return False
+    # Exclude ephemeral wisp/nudge sessions: exact match or hyphen-suffixed
+    # (sv-wisp, sv-wisp-123, sv-nudge, sv-nudge-456) but NOT sv-wispish
+    for prefix in ('sv-wisp', 'sv-nudge'):
+      if bid == prefix or bid.startswith(prefix + '-'):
+        return False
+    return True
   count = sum(1 for b in data
-              if isinstance(b, dict)
-              and b.get('id','').startswith('sv-')
-              and 'wisp' not in b.get('id','')
-              and 'nudge' not in b.get('id',''))
+              if isinstance(b, dict) and _is_real(b.get('id','')))
   print(count)
 except Exception:
   print(-1)
@@ -64,10 +71,17 @@ try:
   data = json.load(sys.stdin)
   if not isinstance(data, list):
     sys.exit(1)
+  def _is_real(bid):
+    if not bid.startswith('sv-'):
+      return False
+    for prefix in ('sv-wisp', 'sv-nudge'):
+      if bid == prefix or bid.startswith(prefix + '-'):
+        return False
+    return True
   now = time.time()
   for b in data:
     bid = b.get('id','')
-    if bid.startswith('sv-') and 'wisp' not in bid and 'nudge' not in bid:
+    if _is_real(bid):
       assignee = b.get('assignee','') or ''
       priority = str(b.get('priority','') or '')
       title = b.get('title','') or ''
@@ -99,9 +113,16 @@ try:
   data = json.load(sys.stdin)
   if not isinstance(data, list):
     sys.exit(1)
+  def _is_real(bid):
+    if not bid.startswith('sv-'):
+      return False
+    for prefix in ('sv-wisp', 'sv-nudge'):
+      if bid == prefix or bid.startswith(prefix + '-'):
+        return False
+    return True
   for b in data:
     bid = b.get('id','')
-    if bid.startswith('sv-') and 'wisp' not in bid and 'nudge' not in bid:
+    if _is_real(bid):
       assignee = b.get('assignee','') or ''
       print(f'{bid}|{assignee}')
 except Exception:
@@ -148,6 +169,8 @@ _duration_to_minutes() {
     *) echo 0 ;;
   esac
 }
+
+# test-source-end
 
 # --- self-healing actions ---
 
@@ -355,7 +378,10 @@ while true; do
   fi
 
   # 6. Session health
-  SESS_LIST=$(timeout 10 gc session list 2>/dev/null || true)
+  SESS_LIST=""
+  if ! SESS_LIST=$(timeout 10 gc session list 2>/dev/null); then
+    ISSUES="$ISSUES session-lookup-failed"
+  fi
   if [[ -n "$SESS_LIST" ]]; then
     while read -r sid tmpl state reason rest; do
       [[ -z "$sid" ]] && continue
@@ -422,12 +448,34 @@ except Exception:
     if [[ "${ROUTED_WORK:-0}" -gt 0 ]]; then
       if ! printf '%s\n' "$SESS_LIST" | grep -q "bd\.dog"; then
         ISSUES="$ISSUES bd.dog-down"
+        # Self-heal: nudge mayor, then try gc sling, then ad-hoc session
+        if [[ -n "$MAYOR_SID" ]]; then
+          gc session nudge mayor "bd.dog pool is stopped with open routed work. Please dispatch." >/dev/null 2>&1 || true
+        fi
+        if ! gc sling bd.dog "check dolt health" --no-attach >/dev/null 2>&1; then
+          # Fallback: create an ad-hoc session (not pool-managed but provides coverage)
+          if gc session new bd.dog --no-attach >/dev/null 2>&1; then
+            FIXED_ACTIONS+=("FIXED bd.dog-down -> gc session new bd.dog --no-attach")
+          else
+            FIXED_ACTIONS+=("ESCALATE bd.dog-down -> nudge+sling+new all failed")
+          fi
+        else
+          FIXED_ACTIONS+=("FIXED bd.dog-down -> gc sling bd.dog --no-attach")
+        fi
       fi
     fi
     # Check builder pool when there's open work
     if [[ "$OPEN_COUNT" -gt 0 ]]; then
       if ! printf '%s\n' "$SESS_LIST" | grep -q "builder"; then
         ISSUES="$ISSUES builder-pool-down"
+        # Self-heal: nudge mayor to dispatch builders
+        if [[ -n "$MAYOR_SID" ]]; then
+          if gc session nudge mayor "Builder pool is stopped with $OPEN_COUNT open tasks. Please dispatch builders." >/dev/null 2>&1; then
+            FIXED_ACTIONS+=("FIXED builder-pool-down -> gc session nudge mayor")
+          else
+            FIXED_ACTIONS+=("ESCALATE builder-pool-down -> nudge mayor failed")
+          fi
+        fi
       fi
     fi
   fi
@@ -457,6 +505,17 @@ except Exception:
     if [[ "${V2_WORKFLOWS:-0}" -gt 0 ]]; then
       if ! printf '%s\n' "$SESS_LIST" | grep -q "control-dispatcher"; then
         ISSUES="$ISSUES control-dispatcher-down"
+        # Self-heal: start control-dispatcher, wait 15s, recheck
+        if gc session new core.control-dispatcher --no-attach >/dev/null 2>&1; then
+          sleep 15
+          if timeout 10 gc session list 2>/dev/null | grep -q "control-dispatcher"; then
+            FIXED_ACTIONS+=("FIXED control-dispatcher-down -> gc session new core.control-dispatcher --no-attach")
+          else
+            FIXED_ACTIONS+=("ESCALATE control-dispatcher-down -> started but not visible after 15s")
+          fi
+        else
+          FIXED_ACTIONS+=("ESCALATE control-dispatcher-down -> gc session new failed")
+        fi
       fi
     fi
   fi
