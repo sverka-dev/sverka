@@ -168,3 +168,4 @@ website/node_modules/
 tmp/
 .evidence/
 .opencode/
+.worktrees/
