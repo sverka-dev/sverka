@@ -107,7 +107,9 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
 
 /** Replace hyphens with underscores in a step ID for GitLab variable naming. */
 function stepIdToVar(id: string): string {
-  return id.replaceAll("-", "_");
+  // NOSONAR: SonarCloud S7781 prefers replaceAll, but Codacy flags it.
+  // Using regex replace satisfies both tools on Node 24+.
+  return id.replace(/-/g, "_");
 }
 
 /**
