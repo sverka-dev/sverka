@@ -697,6 +697,71 @@ function applyDelay(steps: GithubStep[], step: StepDefinition): void {
 }
 
 /**
+ * Collect scalar output names for the job's `outputs:` mapping.
+ * GitHub Actions requires outputs to be declared at the job level for
+ * `needs.<job>.outputs.<name>` expressions to work.
+ */
+function collectJobOutputs(step: StepDefinition): Record<string, string> {
+  const jobOutputs: Record<string, string> = {};
+  for (const op of step.operations) {
+    if (op.kind === "exportOutput") {
+      jobOutputs[op.name] = `\${{ steps.output.outputs.${op.name} }}`;
+    }
+  }
+  return jobOutputs;
+}
+
+/**
+ * Build the job's `steps` array, inserting a cache step after checkout when
+ * caching is enabled. Checkout is always the first step.
+ */
+function resolveJobSteps(steps: GithubStep[], step: StepDefinition): GithubStep[] {
+  if (step.cache === undefined) return steps;
+  // Cache step goes after checkout (always first) and before other steps.
+  return [steps[0]!, lowerCacheStep(step.cache), ...steps.slice(1)];
+}
+
+/**
+ * Resolve the job-level `if` expression.
+ *
+ * Rules take precedence over condition when both are present, matching
+ * GitHub's behavior where workflow rules override step conditions. Multiple
+ * rules are OR'd: GitHub's job-level `if` is a single expression, so we
+ * combine all rule `if` conditions with `||`.
+ */
+function resolveJobIf(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+): Record<string, string> {
+  if (step.rules !== undefined && step.rules.length > 0) {
+    return { if: lowerRulesIf(step.rules) };
+  }
+  if (step.condition !== undefined) {
+    return { if: lowerCondition(step.condition, jobIdMap) };
+  }
+  return {};
+}
+
+/**
+ * Resolve job-level permissions and environment for Pages deploys and
+ * identity-token requests.
+ *
+ * GitHub Pages jobs need pages:write and id-token:write permissions.
+ */
+function resolveJobPermissions(step: StepDefinition): Record<string, unknown> {
+  if (step.operations.some((op) => op.kind === "deployPages")) {
+    return {
+      permissions: { "pages": "write", "id-token": "write" },
+      environment: { name: "github-pages" },
+    };
+  }
+  if (step.identity !== undefined) {
+    return { permissions: { "id-token": "write" } };
+  }
+  return {};
+}
+
+/**
  * Assemble the final GithubJob object from its constituent parts.
  */
 function assembleGithubJob(
@@ -709,15 +774,9 @@ function assembleGithubJob(
   jobEnv: Record<string, string>,
   jobIdMap: Map<string, string>,
 ): GithubJob {
-  // Collect scalar output names for the job's `outputs:` mapping.
-  // GitHub Actions requires outputs to be declared at the job level for
-  // `needs.<job>.outputs.<name>` expressions to work.
-  const jobOutputs: Record<string, string> = {};
-  for (const op of step.operations) {
-    if (op.kind === "exportOutput") {
-      jobOutputs[op.name] = `\${{ steps.output.outputs.${op.name} }}`;
-    }
-  }
+  const jobOutputs = collectJobOutputs(step);
+  const jobIf = resolveJobIf(step, jobIdMap);
+  const jobPermissions = resolveJobPermissions(step);
 
   return {
     id: jobId,
@@ -725,29 +784,15 @@ function assembleGithubJob(
     runsOn,
     needs,
     ...(Object.keys(jobOutputs).length > 0 ? { outputs: jobOutputs } : {}),
-    // Cache step goes after checkout (always first) and before other steps.
-    steps: step.cache !== undefined
-      ? [steps[0]!, lowerCacheStep(step.cache), ...steps.slice(1)]
-      : steps,
+    steps: resolveJobSteps(steps, step),
     ...(step.timeout !== undefined
       ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
       : {}),
     ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
     ...(container ? { container } : {}),
     ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
-    // Rules take precedence over condition for the `if` field when both are present,
-    // matching GitHub's behavior where workflow rules override step conditions.
-    // Multiple rules are OR'd: GitHub's job-level `if` is a single expression,
-    // so we combine all rule `if` conditions with `||`.
-    ...(step.rules !== undefined && step.rules.length > 0
-      ? { if: lowerRulesIf(step.rules) }
-      : step.condition !== undefined
-        ? { if: lowerCondition(step.condition, jobIdMap) }
-        : {}),
-    // GitHub Pages jobs need pages:write and id-token:write permissions.
-    ...(step.operations.some((op) => op.kind === "deployPages")
-      ? { permissions: { "pages": "write", "id-token": "write" }, environment: { name: "github-pages" } }
-      : step.identity !== undefined ? { permissions: { "id-token": "write" } } : {}),
+    ...jobIf,
+    ...jobPermissions,
     ...(step.services !== undefined && step.services.length > 0
       ? { services: lowerServices(step.services) }
       : {}),
