@@ -109,18 +109,27 @@ function extractWorkflowRules(doc: Record<string, unknown>, pipelineRules: Pipel
   }
 }
 
-function convertWorkflowRule(rule: Record<string, unknown>): PipelineRule {
-  const pr: { if?: string; changes?: readonly string[]; exists?: readonly string[]; variables?: Record<string, string>; when?: "always" | "never" } = {};
-  if (typeof rule.if === "string") pr.if = rule.if;
-  if (Array.isArray(rule.changes)) pr.changes = rule.changes as readonly string[];
-  if (Array.isArray(rule.exists)) pr.exists = rule.exists as readonly string[];
+/**
+ * Extract string variables from a rule's `variables` field.
+ */
+function extractRuleVariables(rule: Record<string, unknown>): Record<string, string> | undefined {
   if (rule.variables && typeof rule.variables === "object") {
-    pr.variables = Object.fromEntries(
+    return Object.fromEntries(
       Object.entries(rule.variables as Record<string, unknown>).filter(
         ([, v]) => typeof v === "string",
       ),
     ) as Record<string, string>;
   }
+  return undefined;
+}
+
+function convertWorkflowRule(rule: Record<string, unknown>): PipelineRule {
+  const pr: { if?: string; changes?: readonly string[]; exists?: readonly string[]; variables?: Record<string, string>; when?: "always" | "never" } = {};
+  if (typeof rule.if === "string") pr.if = rule.if;
+  if (Array.isArray(rule.changes)) pr.changes = rule.changes as readonly string[];
+  if (Array.isArray(rule.exists)) pr.exists = rule.exists as readonly string[];
+  const variables = extractRuleVariables(rule);
+  if (variables) pr.variables = variables;
   if (rule.when === "always" || rule.when === "never") pr.when = rule.when;
   return pr;
 }
@@ -287,6 +296,27 @@ function recordUnmappableConstructs(
 }
 
 /**
+ * Valid `when` values for job-level rules.
+ */
+const JOB_RULE_WHEN_VALUES = new Set(["on_success", "on_failure", "always", "never", "manual"]);
+
+/**
+ * Convert a single raw rule object into a StepDefinition rule entry.
+ */
+function convertJobRuleEntry(r: Record<string, unknown>): Rule {
+  const ruleEntry: { if?: string; changes?: readonly string[]; exists?: readonly string[]; when?: Rule["when"]; variables?: Record<string, string> } = {};
+  if (typeof r.if === "string") ruleEntry.if = r.if;
+  if (Array.isArray(r.changes)) ruleEntry.changes = r.changes as readonly string[];
+  if (Array.isArray(r.exists)) ruleEntry.exists = r.exists as readonly string[];
+  if (typeof r.when === "string" && JOB_RULE_WHEN_VALUES.has(r.when)) {
+    ruleEntry.when = r.when as Rule["when"];
+  }
+  const variables = extractRuleVariables(r);
+  if (variables) ruleEntry.variables = variables;
+  return ruleEntry as Rule;
+}
+
+/**
  * Convert job-level `rules` into StepDefinition rules.
  */
 function convertJobRules(job: Record<string, unknown>): readonly Rule[] {
@@ -294,20 +324,7 @@ function convertJobRules(job: Record<string, unknown>): readonly Rule[] {
   const rules: Rule[] = [];
   for (const rule of job.rules) {
     if (!rule || typeof rule !== "object") continue;
-    const r = rule as Record<string, unknown>;
-    const ruleEntry: { if?: string; changes?: readonly string[]; exists?: readonly string[]; when?: Rule["when"]; variables?: Record<string, string> } = {};
-    if (typeof r.if === "string") ruleEntry.if = r.if;
-    if (Array.isArray(r.changes)) ruleEntry.changes = r.changes as readonly string[];
-    if (Array.isArray(r.exists)) ruleEntry.exists = r.exists as readonly string[];
-    if (r.when === "on_success" || r.when === "on_failure" || r.when === "always" || r.when === "never" || r.when === "manual") {
-      ruleEntry.when = r.when;
-    }
-    if (r.variables && typeof r.variables === "object") {
-      ruleEntry.variables = Object.fromEntries(
-        Object.entries(r.variables as Record<string, unknown>).filter(([, v]) => typeof v === "string"),
-      ) as Record<string, string>;
-    }
-    rules.push(ruleEntry);
+    rules.push(convertJobRuleEntry(rule as Record<string, unknown>));
   }
   return rules;
 }
@@ -336,26 +353,38 @@ function convertDelay(job: Record<string, unknown>): string | undefined {
 }
 
 /**
+ * Convert artifact `paths` into exportArtifact operations.
+ */
+function convertArtifactPaths(artifacts: Record<string, unknown>, operations: OperationDefinition[]): void {
+  const paths = artifacts.paths;
+  if (!Array.isArray(paths)) return;
+  for (const path of paths) {
+    if (typeof path === "string") {
+      operations.push({ kind: "exportArtifact", name: path.split("/").pop() ?? path, path });
+    }
+  }
+}
+
+/**
+ * Convert artifact `reports` into report operations.
+ * Reports are noted but not fully mapped — they require spec types.
+ */
+function convertArtifactReports(artifacts: Record<string, unknown>, operations: OperationDefinition[]): void {
+  if (!artifacts.reports || typeof artifacts.reports !== "object") return;
+  const reports = artifacts.reports as Record<string, unknown>;
+  for (const [type, value] of Object.entries(reports)) {
+    if (typeof value === "string") {
+      operations.push({ kind: "report", spec: { type, path: value } });
+    }
+  }
+}
+
+/**
  * Convert `artifacts` into exportArtifact operations.
  */
 function convertArtifacts(job: Record<string, unknown>, operations: OperationDefinition[]): void {
   if (!job.artifacts || typeof job.artifacts !== "object") return;
   const artifacts = job.artifacts as Record<string, unknown>;
-  const paths = artifacts.paths;
-  if (Array.isArray(paths)) {
-    for (const path of paths) {
-      if (typeof path === "string") {
-        operations.push({ kind: "exportArtifact", name: path.split("/").pop() ?? path, path });
-      }
-    }
-  }
-  // Reports are noted but not fully mapped — they require spec types.
-  if (artifacts.reports && typeof artifacts.reports === "object") {
-    const reports = artifacts.reports as Record<string, unknown>;
-    for (const [type, value] of Object.entries(reports)) {
-      if (typeof value === "string") {
-        operations.push({ kind: "report", spec: { type, path: value } });
-      }
-    }
-  }
+  convertArtifactPaths(artifacts, operations);
+  convertArtifactReports(artifacts, operations);
 }

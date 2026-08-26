@@ -775,23 +775,45 @@ interface JobFieldContext {
   concurrency: ConcurrencySpec | undefined;
 }
 
-function buildJobFields(ctx: JobFieldContext): Partial<GitlabJob> {
-  const { image, artifacts, variables, rules, timeout, interruptible, runner, identity, services, environment, cache, concurrency } = ctx;
+/** Build core job fields: image, artifacts, variables, rules. */
+function buildJobCoreFields(ctx: JobFieldContext): Partial<GitlabJob> {
   return {
-    ...(image ? { image } : {}),
-    ...(artifacts ? { artifacts } : {}),
-    ...(Object.keys(variables).length > 0 ? { variables } : {}),
-    ...(rules.length > 0 ? { rules } : {}),
-    ...(timeout !== undefined
-      ? { timeout: `${Math.ceil(timeout / 60000)}m` }
+    ...(ctx.image ? { image: ctx.image } : {}),
+    ...(ctx.artifacts ? { artifacts: ctx.artifacts } : {}),
+    ...(Object.keys(ctx.variables).length > 0 ? { variables: ctx.variables } : {}),
+    ...(ctx.rules.length > 0 ? { rules: ctx.rules } : {}),
+  };
+}
+
+/** Build runtime/execution fields: timeout, interruptible, runner tags, id_tokens. */
+function buildJobRuntimeFields(ctx: JobFieldContext): Partial<GitlabJob> {
+  return {
+    ...(ctx.timeout !== undefined
+      ? { timeout: `${Math.ceil(ctx.timeout / 60000)}m` }
       : {}),
-    ...(interruptible !== undefined ? { interruptible } : {}),
-    ...(runner !== undefined ? { tags: runner.labels } : {}),
-    ...lowerIdTokens(identity),
-    ...(services !== undefined && services.length > 0 ? { services: lowerGitlabServices(services) } : {}),
-    ...(environment !== undefined ? { environment: lowerGitlabEnvironment(environment) } : {}),
-    ...(cache !== undefined ? { cache: lowerGitlabCache(cache) } : {}),
-    ...(concurrency !== undefined ? { resourceGroup: concurrency.group } : {}),
+    ...(ctx.interruptible !== undefined ? { interruptible: ctx.interruptible } : {}),
+    ...(ctx.runner !== undefined ? { tags: ctx.runner.labels } : {}),
+    ...lowerIdTokens(ctx.identity),
+  };
+}
+
+/** Build environment-related fields: services, environment, cache, concurrency. */
+function buildJobEnvFields(ctx: JobFieldContext): Partial<GitlabJob> {
+  return {
+    ...(ctx.services !== undefined && ctx.services.length > 0
+      ? { services: lowerGitlabServices(ctx.services) }
+      : {}),
+    ...(ctx.environment !== undefined ? { environment: lowerGitlabEnvironment(ctx.environment) } : {}),
+    ...(ctx.cache !== undefined ? { cache: lowerGitlabCache(ctx.cache) } : {}),
+    ...(ctx.concurrency !== undefined ? { resourceGroup: ctx.concurrency.group } : {}),
+  };
+}
+
+function buildJobFields(ctx: JobFieldContext): Partial<GitlabJob> {
+  return {
+    ...buildJobCoreFields(ctx),
+    ...buildJobRuntimeFields(ctx),
+    ...buildJobEnvFields(ctx),
   };
 }
 
@@ -937,6 +959,19 @@ function lowerOperations(
 }
 
 /**
+ * Lower a shell operation, handling background execution.
+ */
+function lowerShellOp(
+  op: Extract<OperationDefinition, { kind: "shell" }>,
+  acc: OperationAccumulator,
+  jobIdMap: Map<string, string>,
+): void {
+  const translated = translateGitlabCommand(op.command, acc.inputs, jobIdMap);
+  // F-49: background shell → append & for async execution.
+  acc.script.push(op.background ? `${translated} &` : translated);
+}
+
+/**
  * Lower a single operation, mutating the accumulator.
  */
 function lowerOperation(
@@ -946,12 +981,9 @@ function lowerOperation(
   jobIdMap: Map<string, string>,
 ): void {
   switch (op.kind) {
-    case "shell": {
-      const translated = translateGitlabCommand(op.command, acc.inputs, jobIdMap);
-      // F-49: background shell → append & for async execution.
-      acc.script.push(op.background ? `${translated} &` : translated);
+    case "shell":
+      lowerShellOp(op, acc, jobIdMap);
       break;
-    }
     case "exportOutput":
       lowerExportOutput(op, stepId, acc);
       break;
