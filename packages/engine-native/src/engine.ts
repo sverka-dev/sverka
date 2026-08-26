@@ -580,12 +580,12 @@ function sortKeysDeep(value: unknown): unknown {
     return value.map(sortKeysDeep);
   }
   if (typeof value === "object" && value !== null) {
-    const sortedKeys = Object.keys(value).sort((a, b) => a.localeCompare(b));
-    const entries = sortedKeys.map((key) => [
-      key,
-      sortKeysDeep((value as Record<string, unknown>)[key]),
-    ]);
-    return Object.fromEntries(entries);
+    const src = value as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+    for (const key of Object.keys(src).sort((a, b) => a.localeCompare(b))) {
+      result[key] = sortKeysDeep(src[key]);
+    }
+    return result;
   }
   return value;
 }
