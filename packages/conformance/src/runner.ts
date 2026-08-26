@@ -581,8 +581,5 @@ export async function runConformance(): Promise<readonly ConformanceResult[]> {
     ...checkReusablePipelineConformance(),
   );
 
-  // F-31: Reusable pipeline conformance.
-  results.push(...checkReusablePipelineConformance());
-
   return results;
 }
