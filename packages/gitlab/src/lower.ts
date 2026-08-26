@@ -184,8 +184,7 @@ function lowerComponentInclude(ref: ComponentRef): GitlabComponentInclude {
       // Reference bindings — GitLab uses variable interpolation.
       const r = value as Reference;
       if (r.kind === "step") {
-        // codacy-disable-next-line: replaceAll is safe on Node 24+ (project target).
-        inputs[name] = `$CI_JOB_${r.step.replaceAll("-", "_").toUpperCase()}_OUTPUT_${r.output}`;
+        inputs[name] = `$CI_JOB_${r.step.replace(/-/g, "_").toUpperCase()}_OUTPUT_${r.output}`;
       } else if (r.kind === "context") {
         inputs[name] = `$${r.field.toUpperCase()}`;
       }
@@ -628,8 +627,7 @@ function lowerReferenceOrLiteral(value: Reference | InputLiteral): string {
   if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
     const r = value as Reference;
     if (r.kind === "step") {
-      // codacy-disable-next-line: replaceAll is safe on Node 24+ (project target).
-      return `$CI_JOB_${r.step.replaceAll("-", "_").toUpperCase()}_OUTPUT_${r.output}`;
+      return `$CI_JOB_${r.step.replace(/-/g, "_").toUpperCase()}_OUTPUT_${r.output}`;
     }
     if (r.kind === "context") {
       return `$${r.field.toUpperCase()}`;
