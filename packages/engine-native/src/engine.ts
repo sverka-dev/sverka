@@ -580,14 +580,12 @@ function sortKeysDeep(value: unknown): unknown {
     return value.map(sortKeysDeep);
   }
   if (typeof value === "object" && value !== null) {
-    return Object.keys(value)
-      .sort((a, b) => a.localeCompare(b))
-      .reduce<Record<string, unknown>>((acc, key) => {
-        // codacy-disable-next-line: false positive — no JSON.stringify here,
-        // this is a recursive key-sort. Determinism is guaranteed by sortKeysDeep.
-        acc[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
-        return acc;
-      }, {});
+    const sortedKeys = Object.keys(value).sort((a, b) => a.localeCompare(b));
+    const entries = sortedKeys.map((key) => [
+      key,
+      sortKeysDeep((value as Record<string, unknown>)[key]),
+    ]);
+    return Object.fromEntries(entries);
   }
   return value;
 }
