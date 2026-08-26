@@ -475,7 +475,9 @@ class NativeEngine implements Engine {
       const placeholder = ref.kind === "step" ? `\${${ref.step}.${ref.output}}` : `\${${ref.namespace}.${ref.field}}`;
       const value = this.resolveConditionRef(ref, ctx, stepId);
       const replacement = formatRefValue(value);
-      resolved = resolved.replaceAll(placeholder, replacement);
+      // Use a function replacement to avoid interpreting $&, $1, etc.
+      // in the replacement string as special patterns.
+      resolved = resolved.replaceAll(placeholder, () => replacement);
     }
 
     return evalSimpleBoolean(resolved);
@@ -557,7 +559,32 @@ function formatRefValue(value: unknown): string {
   if (value === undefined || value === null) return "";
   if (typeof value === "string") return `"${value.replace(/[\\"\n\r\t]/g, (ch) => ESCAPES[ch] ?? ch)}"`;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
+  // Use stable stringify so object key ordering is deterministic.
+  return stableStringify(value);
+}
+
+/**
+ * Produce a JSON string with stable (alphabetically sorted) key ordering.
+ * Ensures deterministic output for object values used in expression
+ * substitution, avoiding non-deterministic key ordering from JSON.stringify.
+ */
+function stableStringify(value: unknown): string {
+  return JSON.stringify(sortKeysDeep(value));
+}
+
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortKeysDeep);
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.keys(value)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+  return value;
 }
 
 const ESCAPES: Readonly<Record<string, string>> = {
@@ -663,26 +690,39 @@ function unescapeString(s: string): string {
   return s.replace(/\\(.)/g, "$1");
 }
 
+/**
+ * Shared character scanner for the boolean expression parser.
+ * Tracks parenthesis depth and string-literal state. Returns true when
+ * the current character is a backslash inside a string (caller should
+ * skip the next character).
+ */
+function advanceScan(state: { depth: number; inStr: string | null }, c: string): boolean {
+  if (state.inStr) {
+    if (c === "\\") return true;
+    if (c === state.inStr) state.inStr = null;
+    return false;
+  }
+  if (c === '"' || c === "'") {
+    state.inStr = c;
+  } else if (c === "(") {
+    state.depth++;
+  } else if (c === ")") {
+    state.depth--;
+  }
+  return false;
+}
+
 function splitTop(s: string, sep: string): string[] {
   const parts: string[] = [];
-  let depth = 0;
-  let inStr: string | null = null;
+  const state = { depth: 0, inStr: null as string | null };
   let last = 0;
   for (let i = 0; i < s.length; i++) {
     const c = s[i]!;
-    if (inStr) {
-      if (c === "\\") {
-        i++; // skip the next char (escaped)
-      } else if (c === inStr) {
-        inStr = null;
-      }
-    } else if (c === '"' || c === "'") {
-      inStr = c;
-    } else if (c === "(") {
-      depth++;
-    } else if (c === ")") {
-      depth--;
-    } else if (depth === 0 && s.slice(i, i + sep.length) === sep) {
+    if (advanceScan(state, c)) {
+      i++;
+      continue;
+    }
+    if (state.depth === 0 && s.slice(i, i + sep.length) === sep) {
       parts.push(s.slice(last, i));
       last = i + sep.length;
       i += sep.length - 1;
@@ -693,23 +733,14 @@ function splitTop(s: string, sep: string): string[] {
 }
 
 function findTop(s: string, sep: string): number {
-  let depth = 0;
-  let inStr: string | null = null;
+  const state = { depth: 0, inStr: null as string | null };
   for (let i = 0; i < s.length; i++) {
     const c = s[i]!;
-    if (inStr) {
-      if (c === "\\") {
-        i++; // skip the next char (escaped)
-      } else if (c === inStr) {
-        inStr = null;
-      }
-    } else if (c === '"' || c === "'") {
-      inStr = c;
-    } else if (c === "(") {
-      depth++;
-    } else if (c === ")") {
-      depth--;
-    } else if (depth === 0 && s.slice(i, i + sep.length) === sep) {
+    if (advanceScan(state, c)) {
+      i++;
+      continue;
+    }
+    if (state.depth === 0 && s.slice(i, i + sep.length) === sep) {
       return i;
     }
   }

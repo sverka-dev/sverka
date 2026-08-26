@@ -86,9 +86,21 @@ function computeCombinations(spec: MatrixSpec): readonly MatrixCombination[] {
     return (spec.include ?? []).map((e) => ({ ...e }));
   }
 
+  const combinations = applyExcludes(crossProduct(spec.dimensions, keys), spec.exclude ?? []);
+  return mergeIncludes(combinations, spec.include ?? []);
+}
+
+/**
+ * Compute the cross-product of all matrix dimensions.
+ * Throws INVALID_MATRIX if any dimension has no values.
+ */
+function crossProduct(
+  dimensions: Readonly<Record<string, readonly MatrixValue[]>>,
+  keys: readonly string[],
+): MatrixCombination[] {
   let combinations: MatrixCombination[] = [{}];
   for (const key of keys) {
-    const values = spec.dimensions[key];
+    const values = dimensions[key];
     if (!values || values.length === 0) {
       throw new PlannerError(
         `matrix dimension '${key}' has no values`,
@@ -103,15 +115,24 @@ function computeCombinations(spec: MatrixSpec): readonly MatrixCombination[] {
     }
     combinations = next;
   }
+  return combinations;
+}
 
-  const exclude = spec.exclude ?? [];
-  if (exclude.length > 0) {
-    combinations = combinations.filter((c) => !matchesAnyRule(c, exclude));
-  }
+/** Filter out combinations matching any exclude rule (partial match). */
+function applyExcludes(
+  combinations: readonly MatrixCombination[],
+  exclude: readonly Readonly<Record<string, MatrixValue>>[],
+): MatrixCombination[] {
+  if (exclude.length === 0) return [...combinations];
+  return combinations.filter((c) => !matchesAnyRule(c, exclude));
+}
 
-  const include = spec.include ?? [];
+/** Merge include entries, deduplicating against existing combinations. */
+function mergeIncludes(
+  combinations: readonly MatrixCombination[],
+  include: readonly Readonly<Record<string, MatrixValue>>[],
+): readonly MatrixCombination[] {
   const includeEntries = include.map((e) => ({ ...e }));
-  // Deduplicate: skip include entries that exactly match an existing combination.
   const existingKeys = new Set(combinations.map(comboKey));
   const uniqueIncludes = includeEntries.filter((e) => !existingKeys.has(comboKey(e)));
   return [...combinations, ...uniqueIncludes];

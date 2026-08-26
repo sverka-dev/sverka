@@ -15,22 +15,26 @@ export function isReference(value: unknown): value is Reference {
     return false;
   }
   const ref = value as { kind: string };
-  if (ref.kind === "step") {
-    const s = value as Partial<StepRef>;
-    return (
-      typeof s.step === "string" &&
-      typeof s.output === "string" &&
-      typeof s.type === "string" &&
-      OUTPUT_TYPES.has(s.type)
-    );
-  }
-  if (ref.kind === "context") {
-    const c = value as Partial<ContextRef>;
-    return (
-      typeof c.namespace === "string" &&
-      typeof c.field === "string" &&
-      CONTEXT_NAMESPACES.has(c.namespace)
-    );
-  }
+  if (ref.kind === "step") return isStepRef(value);
+  if (ref.kind === "context") return isContextRef(value);
   return false;
+}
+
+function isStepRef(value: object): boolean {
+  const s = value as Partial<StepRef>;
+  return (
+    typeof s.step === "string" &&
+    typeof s.output === "string" &&
+    typeof s.type === "string" &&
+    OUTPUT_TYPES.has(s.type)
+  );
+}
+
+function isContextRef(value: object): boolean {
+  const c = value as Partial<ContextRef>;
+  return (
+    typeof c.namespace === "string" &&
+    typeof c.field === "string" &&
+    CONTEXT_NAMESPACES.has(c.namespace)
+  );
 }
