@@ -81,57 +81,67 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
 
   // Normal job.
   result["runs-on"] = job.runsOn;
-
-  if (job.needs.length > 0) {
-    result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
-  }
-
-  if (job.timeoutMinutes !== undefined) {
-    result["timeout-minutes"] = job.timeoutMinutes;
-  }
-
-  if (job.container) {
-    result.container = job.container;
-  }
-
-  if (job.env) {
-    result.env = job.env;
-  }
-
-  if (job.strategy) {
-    const strat: Record<string, unknown> = { matrix: job.strategy.matrix };
-    if (job.strategy.failFast !== undefined) {
-      strat["fail-fast"] = job.strategy.failFast;
-    }
-    if (job.strategy.maxParallel !== undefined) {
-      strat["max-parallel"] = job.strategy.maxParallel;
-    }
-    result.strategy = strat;
-  }
-
-  if (job.permissions) {
-    result.permissions = job.permissions;
-  }
-
-  if (job.if) {
-    result.if = job.if;
-  }
-
-  if (job.services) {
-    result.services = job.services;
-  }
-
-  if (job.environment) {
-    result.environment = job.environment;
-  }
-
-  if (job.concurrency) {
-    result.concurrency = concurrencyToYaml(job.concurrency);
-  }
-
+  assignJobNeeds(job, result);
+  assignJobOptionalFields(job, result);
   result.steps = job.steps.map((step, i) => stepToYaml(step, i));
 
   return result;
+}
+
+/**
+ * Assign the `needs` field (scalar or array) when present.
+ */
+function assignJobNeeds(job: GithubJob, result: Record<string, unknown>): void {
+  if (job.needs.length > 0) {
+    result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
+  }
+}
+
+/**
+ * Assign all optional single-value fields from the job to the YAML result.
+ */
+function assignJobOptionalFields(job: GithubJob, result: Record<string, unknown>): void {
+  if (job.timeoutMinutes !== undefined) {
+    result["timeout-minutes"] = job.timeoutMinutes;
+  }
+  if (job.container) {
+    result.container = job.container;
+  }
+  if (job.env) {
+    result.env = job.env;
+  }
+  if (job.strategy) {
+    result.strategy = strategyToYaml(job.strategy);
+  }
+  if (job.permissions) {
+    result.permissions = job.permissions;
+  }
+  if (job.if) {
+    result.if = job.if;
+  }
+  if (job.services) {
+    result.services = job.services;
+  }
+  if (job.environment) {
+    result.environment = job.environment;
+  }
+  if (job.concurrency) {
+    result.concurrency = concurrencyToYaml(job.concurrency);
+  }
+}
+
+/**
+ * Convert a GitHub strategy spec to a YAML-compatible object.
+ */
+function strategyToYaml(strategy: NonNullable<GithubJob["strategy"]>): Record<string, unknown> {
+  const strat: Record<string, unknown> = { matrix: strategy.matrix };
+  if (strategy.failFast !== undefined) {
+    strat["fail-fast"] = strategy.failFast;
+  }
+  if (strategy.maxParallel !== undefined) {
+    strat["max-parallel"] = strategy.maxParallel;
+  }
+  return strat;
 }
 
 /**

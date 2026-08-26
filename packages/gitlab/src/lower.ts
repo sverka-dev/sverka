@@ -184,7 +184,7 @@ function lowerComponentInclude(ref: ComponentRef): GitlabComponentInclude {
       // Reference bindings — GitLab uses variable interpolation.
       const r = value as Reference;
       if (r.kind === "step") {
-        inputs[name] = `$CI_JOB_${r.step.replace(/-/g, "_").toUpperCase()}_OUTPUT_${r.output}`;
+        inputs[name] = `$CI_JOB_${r.step.replaceAll("-", "_").toUpperCase()}_OUTPUT_${r.output}`;
       } else if (r.kind === "context") {
         inputs[name] = `$${r.field.toUpperCase()}`;
       }
@@ -627,7 +627,7 @@ function lowerReferenceOrLiteral(value: Reference | InputLiteral): string {
   if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
     const r = value as Reference;
     if (r.kind === "step") {
-      return `$CI_JOB_${r.step.replace(/-/g, "_").toUpperCase()}_OUTPUT_${r.output}`;
+      return `$CI_JOB_${r.step.replaceAll("-", "_").toUpperCase()}_OUTPUT_${r.output}`;
     }
     if (r.kind === "context") {
       return `$${r.field.toUpperCase()}`;
@@ -662,22 +662,7 @@ function lowerStep(
   }
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
-
-  // If the step has a condition, AND it with each rule's if expression.
-  // GitLab evaluates rules in order and stops at the first match, so appending
-  // the condition as a separate rule would bypass it when a trigger rule matches.
-  let rules = mergedRules;
-  if (step.condition !== undefined) {
-    const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
-    rules = mergedRules.map((rule) => {
-      if (condExpr === undefined) return rule;
-      const ifExpr = rule.if !== undefined ? `(${rule.if}) && (${condExpr})` : condExpr;
-      return { ...rule, if: ifExpr };
-    });
-    if (rules.length === 0 && condExpr !== undefined) {
-      rules = [{ if: condExpr }];
-    }
-  }
+  const rules = applyStepCondition(step, mergedRules, jobIdMap);
 
   return {
     id: jobId,
@@ -685,31 +670,81 @@ function lowerStep(
     needs,
     script,
     ...buildJobFields({ image, artifacts, variables: jobVariables, rules, timeout: step.timeout, interruptible: step.interruptible, runner: step.runner, identity: step.identity, services: step.services, environment: step.environment, cache: step.cache, concurrency: step.concurrency }),
+    ...assembleStepExtras(step, release, pages),
+  };
+}
+
+/**
+ * If the step has a condition, AND it with each rule's if expression.
+ * GitLab evaluates rules in order and stops at the first match, so appending
+ * the condition as a separate rule would bypass it when a trigger rule matches.
+ */
+function applyStepCondition(
+  step: StepDefinition,
+  mergedRules: readonly GitlabRule[],
+  jobIdMap: Map<string, string>,
+): GitlabRule[] {
+  if (step.condition === undefined) {
+    return [...mergedRules];
+  }
+  const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
+  const rules = mergedRules.map((rule) => {
+    if (condExpr === undefined) return rule;
+    const ifExpr = rule.if !== undefined ? `(${rule.if}) && (${condExpr})` : condExpr;
+    return { ...rule, if: ifExpr };
+  });
+  if (rules.length === 0 && condExpr !== undefined) {
+    return [{ if: condExpr }];
+  }
+  return rules;
+}
+
+/**
+ * Assemble matrix, scripts, failure, retry, release, pages, and delay extras.
+ */
+function assembleStepExtras(
+  step: StepDefinition,
+  release: GitlabRelease | undefined,
+  pages: GitlabPages | undefined,
+): Partial<GitlabJob> {
+  return {
     ...(step.matrix !== undefined
       ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
       : {}),
     ...(step.beforeScript ? { beforeScript: step.beforeScript } : {}),
     ...(step.afterScript ? { afterScript: step.afterScript } : {}),
-    ...(step.continueOnError !== undefined
-      ? {
-          allowFailure:
-            typeof step.continueOnError === "boolean"
-              ? step.continueOnError
-              : { exitCodes: step.continueOnError.exitCodes },
-        }
-      : {}),
-    ...(step.retry !== undefined
-      ? {
-          retry: {
-            max: step.retry.max,
-            ...(step.retry.when ? { when: step.retry.when } : {}),
-            ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
-          },
-        }
-      : {}),
+    ...lowerContinueOnError(step.continueOnError),
+    ...lowerRetry(step.retry),
     ...(release ? { release } : {}),
     ...(pages ? { pages } : {}),
     ...(step.delay ? { when: "delayed" as const, start_in: step.delay } : {}),
+  };
+}
+
+/**
+ * Lower continueOnError to GitLab allowFailure.
+ */
+function lowerContinueOnError(continueOnError: StepDefinition["continueOnError"]): Partial<GitlabJob> {
+  if (continueOnError === undefined) return {};
+  return {
+    allowFailure:
+      typeof continueOnError === "boolean"
+        ? continueOnError
+        : { exitCodes: continueOnError.exitCodes },
+  };
+}
+
+/**
+ * Lower retry policy to GitLab retry keyword.
+ */
+function lowerRetry(retry: StepDefinition["retry"]): Partial<GitlabJob> {
+  if (retry === undefined) return {};
+  return {
+    retry: {
+      max: retry.max,
+      ...(retry.when ? { when: retry.when } : {}),
+      ...(retry.exitCodes ? { exitCodes: retry.exitCodes } : {}),
+    },
   };
 }
 
@@ -986,7 +1021,7 @@ function lowerOperation(
       lowerExportArtifact(op, acc);
       break;
     case "importArtifact":
-      acc.importNeeds.push(jobIdMap.get(op.from) ?? op.from);
+      lowerImportArtifact(op, acc, jobIdMap);
       break;
     case "diagnostic":
       acc.script.push(`echo ${shellQuoteSingle(op.message)}`);
@@ -1001,11 +1036,29 @@ function lowerOperation(
       lowerDeployPages(op, acc);
       break;
     default:
-      throw new GitlabTargetError(
-        `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
-        "LOWER_FAILED",
-      );
+      throwUnsupportedOpKind(op);
   }
+}
+
+/**
+ * Lower an importArtifact operation, recording the producer job as a need.
+ */
+function lowerImportArtifact(
+  op: Extract<OperationDefinition, { kind: "importArtifact" }>,
+  acc: OperationAccumulator,
+  jobIdMap: Map<string, string>,
+): void {
+  acc.importNeeds.push(jobIdMap.get(op.from) ?? op.from);
+}
+
+/**
+ * Throw a LOWER_FAILED error for an unsupported operation kind.
+ */
+function throwUnsupportedOpKind(op: OperationDefinition): never {
+  throw new GitlabTargetError(
+    `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
+    "LOWER_FAILED",
+  );
 }
 
 /**
@@ -1100,6 +1153,23 @@ function assembleOperationResult(acc: OperationAccumulator, step: StepDefinition
   release?: GitlabRelease;
   pages?: GitlabPages;
 } {
+  const artifacts = assembleArtifacts(acc);
+  prependWorkingDir(acc, step);
+
+  return {
+    script: acc.script,
+    ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
+    needs: acc.importNeeds,
+    variables: {},
+    ...(acc.release ? { release: acc.release } : {}),
+    ...(acc.pages ? { pages: acc.pages } : {}),
+  };
+}
+
+/**
+ * Assemble the artifacts object from the accumulator's paths, reports, retention, and access.
+ */
+function assembleArtifacts(acc: OperationAccumulator): { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } {
   const artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } = {};
   if (acc.artifactPaths.length > 0) {
     artifacts.paths = acc.artifactPaths;
@@ -1116,21 +1186,18 @@ function assembleOperationResult(acc: OperationAccumulator, step: StepDefinition
   if (acc.artifactAccess !== undefined) {
     artifacts.access = acc.artifactAccess;
   }
+  return artifacts;
+}
 
+/**
+ * Prepend a `cd` command to the script if a working directory is set.
+ */
+function prependWorkingDir(acc: OperationAccumulator, step: StepDefinition): void {
   if (step.runtime.workingDir && acc.script.length > 0) {
     // Shell-quote the directory to prevent injection and handle spaces
     const escapedDir = shellQuoteSingle(step.runtime.workingDir);
     acc.script.unshift(`cd ${escapedDir}`);
   }
-
-  return {
-    script: acc.script,
-    ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
-    needs: acc.importNeeds,
-    variables: {},
-    ...(acc.release ? { release: acc.release } : {}),
-    ...(acc.pages ? { pages: acc.pages } : {}),
-  };
 }
 
 /**
@@ -1252,7 +1319,7 @@ function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[]
  * GitLab variable name characters: letters, digits, underscores.
  */
 function validateMatrixKeys(spec: MatrixSpec): void {
-  const validKey = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  const validKey = /^[A-Za-z_]\w*$/;
   for (const key of Object.keys(spec.dimensions)) {
     if (!validKey.test(key)) {
       throw new GitlabTargetError(

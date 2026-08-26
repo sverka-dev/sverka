@@ -210,6 +210,16 @@ function buildBaseStep(
     inputs: [...step.inputs],
     outputs: stepOutputs,
     dependencies,
+    ...collectStepOptionalFields(step),
+  };
+}
+
+/**
+ * Collect all optional StepDefinition fields from a Step into a partial record.
+ * Extracted from buildBaseStep to keep cognitive complexity under the SonarCloud limit.
+ */
+function collectStepOptionalFields(step: Step): Partial<StepDefinition> {
+  return {
     ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
     ...(step.condition !== undefined ? { condition: step.condition } : {}),
     ...(step.matrix !== undefined ? { matrix: step.matrix } : {}),
@@ -258,44 +268,7 @@ function resolveCallOutputs(pipelines: PipelineDefinition[]): void {
 
     for (let pi = 0; pi < pipelines.length; pi++) {
       const pipeline = pipelines[pi]!;
-      let modified = false;
-      const newSteps = [...pipeline.steps];
-
-      for (let si = 0; si < newSteps.length; si++) {
-        const step = newSteps[si]!;
-        if (!step.call) continue;
-        const callee = byId.get(step.call.callee);
-        if (!callee) continue; // UNKNOWN_CALLEE is reported by validatePipelineCalls
-        // Copy callee's pipeline-level outputs onto the call step, preserving
-        // retention and access metadata from the original declarations.
-        const copiedOutputs = callee.outputs.map((o) => ({
-          name: o.name,
-          type: o.type,
-          ...(o.path !== undefined ? { path: o.path } : {}),
-          ...(o.description !== undefined ? { description: o.description } : {}),
-          ...(o.retention !== undefined ? { retention: o.retention } : {}),
-          ...(o.access !== undefined ? { access: o.access } : {}),
-        }));
-        // Only mark modified if outputs actually changed (prevents infinite loop).
-        const prevOutputs = step.outputs;
-        const same =
-          prevOutputs.length === copiedOutputs.length &&
-          prevOutputs.every((po, i) => {
-            const co = copiedOutputs[i]!;
-            return (
-              po.name === co.name &&
-              po.type === co.type &&
-              po.path === co.path &&
-              po.description === co.description &&
-              po.retention === co.retention &&
-              po.access === co.access
-            );
-          });
-        if (!same) {
-          newSteps[si] = { ...step, outputs: copiedOutputs };
-          modified = true;
-        }
-      }
+      const { steps: newSteps, modified } = resolvePipelineCallSteps(pipeline, byId);
 
       if (modified) {
         // Recompute pipeline-level outputs from the updated steps so that
@@ -308,6 +281,65 @@ function resolveCallOutputs(pipelines: PipelineDefinition[]): void {
       }
     }
   }
+}
+
+/**
+ * Resolve call-step outputs for a single pipeline, returning updated steps
+ * and whether any modification occurred.
+ */
+function resolvePipelineCallSteps(
+  pipeline: PipelineDefinition,
+  byId: ReadonlyMap<string, PipelineDefinition>,
+): { steps: StepDefinition[]; modified: boolean } {
+  const newSteps = [...pipeline.steps];
+  let modified = false;
+
+  for (let si = 0; si < newSteps.length; si++) {
+    const step = newSteps[si]!;
+    if (!step.call) continue;
+    const callee = byId.get(step.call.callee);
+    if (!callee) continue; // UNKNOWN_CALLEE is reported by validatePipelineCalls
+
+    const copiedOutputs = copyCalleeOutputs(callee);
+    if (!outputsEqual(step.outputs, copiedOutputs)) {
+      newSteps[si] = { ...step, outputs: copiedOutputs };
+      modified = true;
+    }
+  }
+
+  return { steps: newSteps, modified };
+}
+
+/**
+ * Copy callee's pipeline-level outputs, preserving retention and access metadata.
+ */
+function copyCalleeOutputs(callee: PipelineDefinition): OutputDefinition[] {
+  return callee.outputs.map((o) => ({
+    name: o.name,
+    type: o.type,
+    ...(o.path !== undefined ? { path: o.path } : {}),
+    ...(o.description !== undefined ? { description: o.description } : {}),
+    ...(o.retention !== undefined ? { retention: o.retention } : {}),
+    ...(o.access !== undefined ? { access: o.access } : {}),
+  }));
+}
+
+/**
+ * Compare two output arrays for structural equality (prevents infinite loops).
+ */
+function outputsEqual(prev: readonly OutputDefinition[], next: readonly OutputDefinition[]): boolean {
+  if (prev.length !== next.length) return false;
+  return prev.every((po, i) => {
+    const co = next[i]!;
+    return (
+      po.name === co.name &&
+      po.type === co.type &&
+      po.path === co.path &&
+      po.description === co.description &&
+      po.retention === co.retention &&
+      po.access === co.access
+    );
+  });
 }
 
 function collectReportOperations(

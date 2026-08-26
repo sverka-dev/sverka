@@ -16,7 +16,6 @@ import type {
   OutputType,
   ArtifactAccess,
   MatrixSpec,
-  MatrixValue,
   Condition,
   ContinueOnError,
   RetryPolicy,

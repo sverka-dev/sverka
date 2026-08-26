@@ -12,7 +12,7 @@ import type {
   Expression,
   Input,
 } from "@sverka/core";
-import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, ServiceContainer, CacheSpec, InputLiteral, Rule } from "@sverka/cdk";
+import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, ServiceContainer, CacheSpec, Rule } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
@@ -92,54 +92,63 @@ function lowerDefaults(defaults: PipelineDefaults): GithubDefaults {
  */
 function lowerMultiPipeline(graph: DefinitionGraph): readonly GithubTargetGraph[] {
   const pipelines = graph.project.pipelines;
+  const calledPipelineIds = collectCalledPipelineIds(pipelines);
 
-  // Find which pipelines are called by some call step.
-  const calledPipelineIds = new Set<string>();
+  return pipelines
+    .filter((p) => p.entries.length > 0 || calledPipelineIds.has(p.id))
+    .map((p) => lowerPipelineToTargetGraph(p, calledPipelineIds));
+}
+
+/**
+ * Collect the set of pipeline ids referenced by any call step.
+ */
+function collectCalledPipelineIds(pipelines: readonly PipelineDefinition[]): Set<string> {
+  const ids = new Set<string>();
   for (const p of pipelines) {
     for (const step of p.steps) {
       if (step.call) {
-        calledPipelineIds.add(step.call.callee);
+        ids.add(step.call.callee);
       }
     }
   }
+  return ids;
+}
 
-  const result: GithubTargetGraph[] = [];
+/**
+ * Lower a single pipeline into a GithubTargetGraph (root or reusable).
+ */
+function lowerPipelineToTargetGraph(
+  pipeline: PipelineDefinition,
+  calledPipelineIds: ReadonlySet<string>,
+): GithubTargetGraph {
+  const hasEntries = pipeline.entries.length > 0;
+  const isCalled = calledPipelineIds.has(pipeline.id);
 
-  for (const pipeline of pipelines) {
-    const hasEntries = pipeline.entries.length > 0;
-    const isCalled = calledPipelineIds.has(pipeline.id);
+  // For callees, all steps are reachable (no entries needed).
+  // For roots, filter by entry reachability.
+  const reachableSteps = hasEntries
+    ? filterReachableSteps(pipeline)
+    : pipeline.steps;
 
-    // Skip pipelines that are neither roots nor callees.
-    if (!hasEntries && !isCalled) continue;
+  const jobIdMap = buildJobIdMap(reachableSteps);
 
-    // For callees, all steps are reachable (no entries needed).
-    // For roots, filter by entry reachability.
-    const reachableSteps = hasEntries
-      ? filterReachableSteps(pipeline)
-      : pipeline.steps;
-
-    const jobIdMap = buildJobIdMap(reachableSteps);
-
-    // Triggers: root triggers + workflow_call if called.
-    let triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
-    if (isCalled) {
-      triggers = addWorkflowCall(triggers, pipeline.inputs);
-    }
-
-    const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
-
-    result.push({
-      name: pipeline.id,
-      on: triggers,
-      jobs,
-      env: collectEnv(pipeline),
-      ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
-      ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
-      ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
-    });
+  // Triggers: root triggers + workflow_call if called.
+  let triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
+  if (isCalled) {
+    triggers = addWorkflowCall(triggers, pipeline.inputs);
   }
 
-  return result;
+  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
+
+  return {
+    name: pipeline.id,
+    on: triggers,
+    jobs,
+    env: collectEnv(pipeline),
+    ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
+    ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
+    ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
+  };
 }
 
 /**
@@ -641,7 +650,7 @@ function lowerDownstreamStep(
   const ds = step.downstream!;
   // Build client_payload from inputs using JSON.stringify for valid JSON.
   const payloadObj = ds.inputs
-    ? lowerInputBindings(ds.inputs, jobIdMap, (v) => String(v))
+    ? lowerInputBindings(ds.inputs, jobIdMap, String)
     : {};
   const payload = JSON.stringify(payloadObj);
   const branchPart = ds.branch ? ` -f "ref=${ds.branch}"` : "";
@@ -701,7 +710,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const container = resolveContainer(step, mode);
   const jobEnv = collectJobEnv(runtime);
 
-  return assembleGithubJob(jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap);
+  return assembleGithubJob({ jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap });
 }
 
 /**
@@ -777,18 +786,24 @@ function assembleJobPermissions(step: StepDefinition): Partial<GithubJob> {
 }
 
 /**
+ * Parameters for {@link assembleGithubJob}.
+ */
+interface GithubJobParts {
+  jobId: string;
+  steps: GithubStep[];
+  needs: readonly string[];
+  step: StepDefinition;
+  runsOn: GithubRunsOn;
+  container: string | undefined;
+  jobEnv: Record<string, string>;
+  jobIdMap: Map<string, string>;
+}
+
+/**
  * Assemble the final GithubJob object from its constituent parts.
  */
-function assembleGithubJob(
-  jobId: string,
-  steps: GithubStep[],
-  needs: readonly string[],
-  step: StepDefinition,
-  runsOn: GithubRunsOn,
-  container: string | undefined,
-  jobEnv: Record<string, string>,
-  jobIdMap: Map<string, string>,
-): GithubJob {
+function assembleGithubJob(parts: GithubJobParts): GithubJob {
+  const { jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap } = parts;
   const jobOutputs = collectJobOutputs(step);
 
   return {
@@ -798,21 +813,39 @@ function assembleGithubJob(
     needs,
     ...(Object.keys(jobOutputs).length > 0 ? { outputs: jobOutputs } : {}),
     steps: assembleJobSteps(steps, step),
-    ...(step.timeout !== undefined
-      ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
-      : {}),
+    ...assembleJobTiming(step),
     ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
     ...(container ? { container } : {}),
     ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
     ...assembleJobConditional(step, jobIdMap),
     ...assembleJobPermissions(step),
+    ...assembleJobExtendedFields(step),
+  };
+}
+
+/**
+ * Assemble timeout and concurrency fields for a job.
+ */
+function assembleJobTiming(step: StepDefinition): Partial<GithubJob> {
+  return {
+    ...(step.timeout !== undefined
+      ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
+      : {}),
+    ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
+  };
+}
+
+/**
+ * Assemble services and environment fields for a job.
+ */
+function assembleJobExtendedFields(step: StepDefinition): Partial<GithubJob> {
+  return {
     ...(step.services !== undefined && step.services.length > 0
       ? { services: lowerServices(step.services) }
       : {}),
     ...(step.environment !== undefined
       ? { environment: { name: step.environment.name, ...(step.environment.url !== undefined ? { url: step.environment.url } : {}) } }
       : {}),
-    ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
   };
 }
 
