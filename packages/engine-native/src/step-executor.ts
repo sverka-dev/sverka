@@ -402,24 +402,26 @@ export function resolveGitContext(field: string, cwd?: string): string | undefin
     HOME: process.env.HOME ?? "",
   };
   const opts = { encoding: "utf-8" as const, env: controlledEnv, ...(cwd ? { cwd } : {}) };
+  const args = gitContextArgs(field);
+  if (args === undefined) return undefined;
   try {
-    switch (field) {
-      case "sha": {
-        const r = spawnSync("git", ["rev-parse", "HEAD"], opts); // NOSONAR
-        return r.status === 0 ? r.stdout.trim() : undefined;
-      }
-      case "branch": {
-        const r = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], opts); // NOSONAR
-        return r.status === 0 ? r.stdout.trim() : undefined;
-      }
-      case "tag": {
-        const r = spawnSync("git", ["describe", "--tags", "--exact-match"], opts); // NOSONAR
-        return r.status === 0 ? r.stdout.trim() : undefined;
-      }
-      default:
-        return undefined;
-    }
+    const r = spawnSync("git", args, opts); // NOSONAR
+    return r.status === 0 ? r.stdout.trim() : undefined;
   } catch {
     return undefined;
+  }
+}
+
+/** Map a git context field name to the corresponding git CLI arguments. */
+function gitContextArgs(field: string): readonly string[] | undefined {
+  switch (field) {
+    case "sha":
+      return ["rev-parse", "HEAD"];
+    case "branch":
+      return ["rev-parse", "--abbrev-ref", "HEAD"];
+    case "tag":
+      return ["describe", "--tags", "--exact-match"];
+    default:
+      return undefined;
   }
 }

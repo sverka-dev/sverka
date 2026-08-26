@@ -355,6 +355,23 @@ function buildFilterRule(
 
   // Branch and tag filters are OR'd: a push to a matching branch OR a matching tag.
   // For MR triggers, tag filters are rejected above; only branch (target) filters apply.
+  const refCondition = buildRefConditions(filter, isMergeRequest);
+  if (refCondition !== undefined) {
+    conditions.push(refCondition);
+  }
+
+  const rule: GitlabRule = { if: conditions.join(" && ") };
+  if (filter?.paths && filter.paths.length > 0) {
+    return { ...rule, changes: [...filter.paths] };
+  }
+  return rule;
+}
+
+/** Build the combined ref (branch/tag) condition string from a trigger filter. */
+function buildRefConditions(
+  filter: { readonly branches?: readonly string[]; readonly tags?: readonly string[] } | undefined,
+  isMergeRequest: boolean,
+): string | undefined {
   const refConditions: string[] = [];
   if (filter?.branches && filter.branches.length > 0) {
     const branchRef = isMergeRequest ? "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" : "$CI_COMMIT_BRANCH";
@@ -364,16 +381,12 @@ function buildFilterRule(
     refConditions.push(buildRefCondition("$CI_COMMIT_TAG", filter.tags));
   }
   if (refConditions.length === 1) {
-    conditions.push(refConditions[0]!);
-  } else if (refConditions.length > 1) {
-    conditions.push(`(${refConditions.join(" || ")})`);
+    return refConditions[0]!;
   }
-
-  const rule: GitlabRule = { if: conditions.join(" && ") };
-  if (filter?.paths && filter.paths.length > 0) {
-    return { ...rule, changes: [...filter.paths] };
+  if (refConditions.length > 1) {
+    return `(${refConditions.join(" || ")})`;
   }
-  return rule;
+  return undefined;
 }
 
 function buildRefCondition(ref: string, values: readonly string[]): string {
@@ -421,32 +434,7 @@ function lowerStep(
   }
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
-
-  // If the step has a condition, apply it to each trigger rule.
-  // - Status conditions (success/failure/always/never) set `when:` on each rule.
-  // - Other conditions (context/step/expression) AND an `if:` expression with each rule.
-  // GitLab evaluates rules in order and stops at the first match, so appending
-  // the condition as a separate rule would bypass it when a trigger rule matches.
-  let rules = triggerRules;
-  if (step.condition !== undefined) {
-    const cond = lowerGitlabCondition(step.condition, jobIdMap);
-    if (cond.ifExpr !== undefined) {
-      rules = triggerRules.map((rule) => ({
-        ...rule,
-        if: `(${rule.if}) && (${cond.ifExpr})`,
-      }));
-      if (rules.length === 0) {
-        rules = [{ if: cond.ifExpr }];
-      }
-    } else if (cond.when !== undefined) {
-      // Status condition — set when: on all trigger rules.
-      rules = triggerRules.map((rule) => ({ ...rule, when: cond.when }));
-      if (rules.length === 0) {
-        // No trigger rules — emit a single rule with the when: value.
-        rules = [{ if: "true", when: cond.when }];
-      }
-    }
-  }
+  const rules = applyStepCondition(step, triggerRules, jobIdMap);
 
   return {
     id: jobId,
@@ -454,28 +442,86 @@ function lowerStep(
     needs,
     script,
     ...buildJobFields(image, artifacts, jobVariables, rules, step.timeout),
-    ...(step.matrix !== undefined
-      ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
-      : {}),
-    ...(step.beforeScript ? { beforeScript: step.beforeScript } : {}),
-    ...(step.afterScript ? { afterScript: step.afterScript } : {}),
-    ...(step.continueOnError !== undefined
-      ? {
-          allowFailure:
-            typeof step.continueOnError === "boolean"
-              ? step.continueOnError
-              : { exitCodes: step.continueOnError.exitCodes },
-        }
-      : {}),
-    ...(step.retry !== undefined
-      ? {
-          retry: {
-            max: step.retry.max,
-            ...(step.retry.when ? { when: step.retry.when } : {}),
-            ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
-          },
-        }
-      : {}),
+    ...buildMatrixField(step),
+    ...buildBeforeAfterScript(step),
+    ...buildAllowFailureField(step),
+    ...buildRetryField(step),
+  };
+}
+
+/**
+ * Apply a step's condition to its trigger rules.
+ * - Status conditions (success/failure/always/never) set `when:` on each rule.
+ * - Other conditions (context/step/expression) AND an `if:` expression with each rule.
+ * GitLab evaluates rules in order and stops at the first match, so appending
+ * the condition as a separate rule would bypass it when a trigger rule matches.
+ */
+function applyStepCondition(
+  step: StepDefinition,
+  triggerRules: readonly GitlabRule[],
+  jobIdMap: Map<string, string>,
+): GitlabRule[] {
+  if (step.condition === undefined) {
+    return [...triggerRules];
+  }
+  const cond = lowerGitlabCondition(step.condition, jobIdMap);
+  if (cond.ifExpr !== undefined) {
+    const rules = triggerRules.map((rule) => ({
+      ...rule,
+      if: `(${rule.if}) && (${cond.ifExpr})`,
+    }));
+    return rules.length > 0 ? rules : [{ if: cond.ifExpr }];
+  }
+  if (cond.when !== undefined) {
+    const rules = triggerRules.map((rule) => ({ ...rule, when: cond.when }));
+    return rules.length > 0 ? rules : [{ if: "true", when: cond.when }];
+  }
+  return [...triggerRules];
+}
+
+/** Build the parallel:matrix field if the step defines a matrix. */
+function buildMatrixField(
+  step: StepDefinition,
+): { parallel: { matrix: readonly Record<string, unknown>[] } } | Record<string, never> {
+  return step.matrix !== undefined
+    ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
+    : {};
+}
+
+/** Build before_script / after_script fields if present. */
+function buildBeforeAfterScript(
+  step: StepDefinition,
+): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  if (step.beforeScript) fields.beforeScript = step.beforeScript;
+  if (step.afterScript) fields.afterScript = step.afterScript;
+  return fields;
+}
+
+/** Build the allow_failure field from continueOnError. */
+function buildAllowFailureField(
+  step: StepDefinition,
+): { allowFailure: boolean | { exitCodes: readonly number[] } } | Record<string, never> {
+  if (step.continueOnError === undefined) return {};
+  return {
+    allowFailure:
+      typeof step.continueOnError === "boolean"
+        ? step.continueOnError
+        : { exitCodes: step.continueOnError.exitCodes },
+  };
+}
+
+/** Build the retry field if present. */
+function buildRetryField(
+  step: StepDefinition,
+): { retry: { max: number; when?: string; exitCodes?: readonly number[] } } | Record<string, never> {
+  if (step.retry === undefined) return {};
+  return {
+    retry: {
+      max: step.retry.max,
+      ...(step.retry.when ? { when: step.retry.when } : {}),
+      ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
+    },
   };
 }
 
