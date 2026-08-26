@@ -17,6 +17,7 @@ export interface ComponentBuilder {
   runtime(runtime: Runtime): ComponentBuilder;
   timeout(ms: number): ComponentBuilder;
   condition(ref: Reference): ComponentBuilder;
+  interruptible(value: boolean): ComponentBuilder;
   build(pipeline: Pipeline, id: string): ComponentStep;
 }
 
@@ -27,6 +28,7 @@ interface ComponentBuilderState {
   runtime?: Runtime;
   timeout?: number;
   condition?: Reference;
+  interruptible?: boolean;
 }
 
 function createComponentBuilder(state: ComponentBuilderState): ComponentBuilder {
@@ -51,6 +53,10 @@ function createComponentBuilder(state: ComponentBuilderState): ComponentBuilder 
       state.condition = ref;
       return builder;
     },
+    interruptible(value: boolean): ComponentBuilder {
+      state.interruptible = value;
+      return builder;
+    },
     build(pipeline: Pipeline, id: string): ComponentStep {
       return new ComponentStep(pipeline, id, {
         component: state.component,
@@ -59,6 +65,7 @@ function createComponentBuilder(state: ComponentBuilderState): ComponentBuilder 
         ...(state.runtime ? { runtime: state.runtime } : {}),
         ...(state.timeout !== undefined ? { timeout: state.timeout } : {}),
         ...(state.condition !== undefined ? { condition: state.condition } : {}),
+        ...(state.interruptible !== undefined ? { interruptible: state.interruptible } : {}),
       });
     },
   };

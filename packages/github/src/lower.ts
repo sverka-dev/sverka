@@ -12,7 +12,7 @@ import type {
   Expression,
   Input,
 } from "@sverka/core";
-import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, ServiceContainer, CacheSpec, InputLiteral } from "@sverka/cdk";
+import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, ServiceContainer, CacheSpec, InputLiteral, Rule } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
@@ -65,8 +65,7 @@ function lowerSinglePipeline(pipeline: PipelineDefinition): GithubTargetGraph {
   const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
 
   return {
-    name: pipeline.name ?? pipeline.id,
-    ...(pipeline.runName !== undefined ? { runName: pipeline.runName } : {}),
+    name: pipeline.id,
     on: triggers,
     jobs,
     env: collectEnv(pipeline),
@@ -134,6 +133,9 @@ function lowerMultiPipeline(graph: DefinitionGraph): readonly GithubTargetGraph[
       on: triggers,
       jobs,
       env: collectEnv(pipeline),
+      ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
+      ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
+      ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
     });
   }
 
@@ -495,7 +497,7 @@ function lowerCallStep(
   // Build `with:` from bound inputs.
   const withMap: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(call.inputs)) {
-    if (typeof value === "object" && value !== null && "kind" in value) {
+    if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
       // Reference binding — lower to GitHub expression.
       const ref = value as Reference;
       if (ref.kind === "step") {
@@ -538,7 +540,7 @@ function lowerComponentStep(
   // Build `with:` from bound inputs.
   const withMap: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(comp.inputs)) {
-    if (typeof value === "object" && value !== null && "kind" in value) {
+    if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
       const ref = value as Reference;
       if (ref.kind === "step") {
         const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
@@ -549,6 +551,27 @@ function lowerComponentStep(
     } else {
       withMap[name] = value;
     }
+  }
+
+  // Component references that look like GitHub Actions (org/repo@ref) are
+  // emitted as normal jobs with an action step. Reusable workflow references
+  // (./.github/workflows/*.yml) remain as `uses:` jobs.
+  const isAction = !comp.name.startsWith("./");
+  if (isAction) {
+    return {
+      id: jobId,
+      name: jobId,
+      runsOn: resolveRunsOn(step),
+      needs,
+      steps: [
+        { name: "Checkout", uses: "actions/checkout@v4" },
+        {
+          name: `Component ${comp.name}`,
+          uses: `${comp.name}@${comp.version}`,
+          ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
+        },
+      ],
+    };
   }
 
   return {
@@ -577,7 +600,7 @@ function lowerChildPipelineStep(
   return {
     id: jobId,
     name: jobId,
-    runsOn: "ubuntu-latest",
+    runsOn: resolveRunsOn(step),
     needs,
     steps: [
       {
@@ -599,29 +622,29 @@ function lowerDownstreamStep(
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
   const ds = step.downstream!;
-  // Build client_payload from inputs.
-  const payloadParts: string[] = [];
+  // Build client_payload from inputs using JSON.stringify for valid JSON.
+  const payloadObj: Record<string, string> = {};
   if (ds.inputs) {
     for (const [name, value] of Object.entries(ds.inputs)) {
-      if (typeof value === "object" && value !== null && "kind" in value) {
+      if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
         const ref = value as Reference;
         if (ref.kind === "step") {
           const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
-          payloadParts.push(`\\"${name}\\": \\"\${{ needs.${producerJobId}.outputs.${ref.output} }}\\"`);
+          payloadObj[name] = `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
         } else if (ref.kind === "context") {
-          payloadParts.push(`\\"${name}\\": \\"\${{ ${ref.namespace}.${ref.field} }}\\"`);
+          payloadObj[name] = `\${{ ${ref.namespace}.${ref.field} }}`;
         }
       } else {
-        payloadParts.push(String.raw`\"${name}\": \"${String(value)}\"`);
+        payloadObj[name] = String(value);
       }
     }
   }
-  const payload = `{${payloadParts.join(", ")}}`;
+  const payload = JSON.stringify(payloadObj);
   const branchPart = ds.branch ? ` -f "ref=${ds.branch}"` : "";
   return {
     id: jobId,
     name: jobId,
-    runsOn: "ubuntu-latest",
+    runsOn: resolveRunsOn(step),
     needs,
     steps: [
       {
@@ -637,31 +660,22 @@ function lowerDownstreamStep(
  */
 function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJob {
   const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const { steps: rawSteps, outputs } = lowerOperations(step, jobIdMap);
+  const rawSteps = lowerOperations(step, jobIdMap);
 
-  // Apply continueOnError and shell to all run steps (not Checkout/uses steps).
-  // GitHub Actions continue-on-error only accepts a boolean; the
-  // { exitCodes } variant is GitLab-specific and must be rejected.
-  if (step.continueOnError !== undefined && typeof step.continueOnError !== "boolean") {
-    throw new GithubTargetError(
-      `step '${step.id}' uses exit-code continueOnError which is not supported by GitHub Actions`,
-      "LOWER_FAILED",
-    );
-  }
+  // Apply continueOnError to all run steps (not Checkout/uses steps).
   const steps =
-    step.continueOnError !== undefined || step.runtime.shell !== undefined
-      ? rawSteps.map((s) => {
-          if (s.run === undefined) return s;
-          return {
-            ...s,
-            ...(step.continueOnError !== undefined
-              ? {
-                  continueOnError: step.continueOnError,
-                }
-              : {}),
-            ...(step.runtime.shell !== undefined ? { shell: step.runtime.shell } : {}),
-          };
-        })
+    step.continueOnError !== undefined
+      ? rawSteps.map((s) =>
+          s.run !== undefined
+            ? {
+                ...s,
+                continueOnError:
+                  typeof step.continueOnError === "boolean"
+                    ? step.continueOnError
+                    : true,
+              }
+            : s,
+        )
       : rawSteps;
 
   const jobId = jobIdMap.get(step.id) ?? step.id;
@@ -706,24 +720,45 @@ function assembleGithubJob(
   jobEnv: Record<string, string>,
   jobIdMap: Map<string, string>,
 ): GithubJob {
+  // Collect scalar output names for the job's `outputs:` mapping.
+  // GitHub Actions requires outputs to be declared at the job level for
+  // `needs.<job>.outputs.<name>` expressions to work.
+  const jobOutputs: Record<string, string> = {};
+  for (const op of step.operations) {
+    if (op.kind === "exportOutput") {
+      jobOutputs[op.name] = `\${{ steps.output.outputs.${op.name} }}`;
+    }
+  }
+
   return {
     id: jobId,
     name: jobId,
     runsOn,
     needs,
-    steps: step.cache !== undefined ? [lowerCacheStep(step.cache), ...steps] : steps,
+    ...(Object.keys(jobOutputs).length > 0 ? { outputs: jobOutputs } : {}),
+    // Cache step goes after checkout (always first) and before other steps.
+    steps: step.cache !== undefined
+      ? [steps[0]!, lowerCacheStep(step.cache), ...steps.slice(1)]
+      : steps,
     ...(step.timeout !== undefined
       ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
       : {}),
     ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
     ...(container ? { container } : {}),
     ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
-    ...(Object.keys(outputs).length > 0 ? { outputs } : {}),
-    ...(step.condition !== undefined ? { if: lowerCondition(step.condition, jobIdMap) } : {}),
-    ...(step.identity !== undefined ? { permissions: { "id-token": "write" } } : {}),
-    ...(step.rules !== undefined && step.rules.length > 0 && step.rules[0]?.if !== undefined
-      ? { if: step.rules[0].if }
-      : {}),
+    // Rules take precedence over condition for the `if` field when both are present,
+    // matching GitHub's behavior where workflow rules override step conditions.
+    // Multiple rules are OR'd: GitHub's job-level `if` is a single expression,
+    // so we combine all rule `if` conditions with `||`.
+    ...(step.rules !== undefined && step.rules.length > 0
+      ? { if: lowerRulesIf(step.rules) }
+      : step.condition !== undefined
+        ? { if: lowerCondition(step.condition, jobIdMap) }
+        : {}),
+    // GitHub Pages jobs need pages:write and id-token:write permissions.
+    ...(step.operations.some((op) => op.kind === "deployPages")
+      ? { permissions: { "pages": "write", "id-token": "write" }, environment: { name: "github-pages" } }
+      : step.identity !== undefined ? { permissions: { "id-token": "write" } } : {}),
     ...(step.services !== undefined && step.services.length > 0
       ? { services: lowerServices(step.services) }
       : {}),
@@ -768,13 +803,19 @@ function lowerCacheStep(cache: CacheSpec): GithubStep {
 function lowerServices(services: readonly ServiceContainer[]): Readonly<Record<string, GithubService>> {
   const result: Record<string, GithubService> = {};
   for (const svc of services) {
-    result[svc.name] = {
+    // GitHub Actions does not support `entrypoint` or `command` on services.
+    // Translate them to Docker `options` as a best-effort emulation.
+    const options: string[] = [];
+    if (svc.entrypoint !== undefined) {
+      options.push(`--entrypoint=${svc.entrypoint[0] ?? ""}`);
+    }
+    const service: GithubService = {
       image: svc.image,
       ...(svc.env !== undefined ? { env: { ...svc.env } } : {}),
       ...(svc.ports !== undefined ? { ports: svc.ports.map((p) => `${p}:${p}`) } : {}),
-      ...(svc.entrypoint !== undefined ? { entrypoint: [...svc.entrypoint] } : {}),
-      ...(svc.command !== undefined ? { command: [...svc.command] } : {}),
+      ...(options.length > 0 ? { options: options.join(" ") } : {}),
     };
+    result[svc.name] = service;
   }
   return result;
 }
@@ -799,7 +840,12 @@ function resolveRunsOn(step: StepDefinition): GithubRunsOn {
  */
 function parseDurationToSeconds(duration: string): number {
   const match = /^(\d+)\s*(s|m|h|seconds?|minutes?|hours?)?$/i.exec(duration);
-  if (!match) return 0;
+  if (!match) {
+    throw new GithubTargetError(
+      `invalid delay duration '${duration}'`,
+      "LOWER_FAILED",
+    );
+  }
   const value = Number.parseInt(match[1]!, 10);
   const unit = (match[2] ?? "s").toLowerCase();
   if (unit.startsWith("h")) return value * 3600;
@@ -863,9 +909,8 @@ function lowerDependencies(
 function lowerOperations(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
-): { steps: readonly GithubStep[]; outputs: Record<string, string> } {
+): readonly GithubStep[] {
   const steps: GithubStep[] = [];
-  const outputs: Record<string, string> = {};
   const shortStepId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
 
   // Every job needs the repository checked out.
@@ -874,66 +919,46 @@ function lowerOperations(
     uses: "actions/checkout@v4",
   });
 
-  // beforeScript → run steps before main operations (translated for context refs).
+  // beforeScript → run steps before main operations.
   if (step.beforeScript) {
     for (const cmd of step.beforeScript) {
-      steps.push({ run: translateCommand(cmd, step.inputs, jobIdMap) });
+      steps.push({ run: cmd });
     }
   }
 
   let runLines: string[] = [];
-  let hasExportInRun = false;
-  let outputBlockIndex = 0;
+  let runHasOutput = false;
 
   function flushRun(): void {
     if (runLines.length === 0) return;
     const combined = runLines.join("\n");
     const translated = translateCommand(combined, step.inputs, jobIdMap);
-    // If this run block contains exportOutput lines, give it a unique id so
-    // job outputs can reference ${{ steps.<id>.outputs.* }}. Multiple
-    // output-producing blocks (separated by non-shell ops) get distinct IDs.
-    let outputStepId: string | undefined;
-    if (hasExportInRun) {
-      outputStepId =
-        outputBlockIndex === 0
-          ? `${shortStepId}-outputs`
-          : `${shortStepId}-outputs-${outputBlockIndex + 1}`;
-    }
     steps.push({
+      // Give the step an id when it contains exportOutput so job-level outputs can reference it.
+      ...(runHasOutput ? { id: "output" } : {}),
       run: translated,
-      ...(outputStepId !== undefined ? { id: outputStepId } : {}),
       ...(step.runtime.workingDir ? { workingDirectory: step.runtime.workingDir } : {}),
       ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
     });
-    if (hasExportInRun) outputBlockIndex++;
     runLines = [];
-    hasExportInRun = false;
+    runHasOutput = false;
   }
 
   for (const op of step.operations) {
-    if (op.kind === "exportOutput") {
-      runLines.push(`echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`);
-      const outputStepId =
-        outputBlockIndex === 0
-          ? `${shortStepId}-outputs`
-          : `${shortStepId}-outputs-${outputBlockIndex + 1}`;
-      outputs[op.name] = `\${{ steps.${outputStepId}.outputs.${op.name} }}`;
-      hasExportInRun = true;
-    } else {
-      lowerOperation(op, shortStepId, steps, runLines, flushRun);
-    }
+    if (op.kind === "exportOutput") runHasOutput = true;
+    lowerOperation(op, shortStepId, steps, runLines, flushRun);
   }
 
   flushRun();
 
-  // afterScript → run steps after main operations with if: always() (translated).
+  // afterScript → run steps after main operations with if: always().
   if (step.afterScript) {
     for (const cmd of step.afterScript) {
-      steps.push({ run: translateCommand(cmd, step.inputs, jobIdMap), if: "always()" });
+      steps.push({ run: cmd, if: "always()" });
     }
   }
 
-  return { steps, outputs };
+  return steps;
 }
 
 function lowerOperation(
@@ -947,6 +972,9 @@ function lowerOperation(
     case "shell":
       // F-49: background shell → append & for async execution.
       runLines.push(op.background ? `${op.command} &` : op.command);
+      break;
+    case "exportOutput":
+      runLines.push(`echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`);
       break;
     case "exportArtifact":
       flushRun();
@@ -999,7 +1027,7 @@ function lowerRelease(
   };
   if (op.name) withMap.name = op.name;
   if (op.description) withMap.body = op.description;
-  if (op.assets && op.assets.length > 0) withMap.assets = op.assets.join("\n");
+  if (op.assets && op.assets.length > 0) withMap.files = op.assets.join("\n");
   if (op.draft !== undefined) withMap.draft = op.draft;
   if (op.prerelease !== undefined) withMap.prerelease = op.prerelease;
   steps.push({
@@ -1151,14 +1179,6 @@ function lowerStrategy(spec: MatrixSpec): {
   readonly failFast?: boolean;
   readonly maxParallel?: number;
 } {
-  if (spec.maxParallel !== undefined) {
-    if (!Number.isInteger(spec.maxParallel) || spec.maxParallel < 1) {
-      throw new GithubTargetError(
-        `matrix maxParallel must be a positive integer, got ${spec.maxParallel}`,
-        "LOWER_FAILED",
-      );
-    }
-  }
   const matrix: Record<string, unknown> = {};
   for (const [key, values] of Object.entries(spec.dimensions)) {
     matrix[key] = [...values];
@@ -1183,7 +1203,7 @@ function lowerStrategy(spec: MatrixSpec): {
 const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
   "git.sha": "github.sha",
   "git.branch": "github.ref_name",
-  "git.tag": "(github.ref_type == 'tag' && github.ref_name || '')",
+  "git.tag": "github.ref_name",
   "change.id": "github.event.pull_request.number",
   "change.source": "github.event_name",
   "change.target": "github.base_ref",
@@ -1207,12 +1227,12 @@ function translateContextRef(namespace: string, field: string, inCondition = fal
   if (namespace === "env") {
     return `\${{ env.${field} }}`;
   }
+  if (namespace === "matrix") {
+    return `\${{ matrix.${field} }}`;
+  }
   // inputs.X → ${{ env.FIELD }} (pipeline inputs are lowered to workflow env)
   if (namespace === "inputs") {
     return `\${{ env.${field} }}`;
-  }
-  if (namespace === "matrix") {
-    return `\${{ matrix.${field} }}`;
   }
   // secrets.X in commands → $FIELD (env var, avoids exposing value in run logs)
   // secrets.X in conditions → not supported by GitHub if: context
@@ -1278,6 +1298,27 @@ function translateCommand(
     }
     return translateStepRef(ref, jobIdMap);
   });
+}
+
+/**
+ * Lower step rules to a single GitHub `if:` expression.
+ * Multiple rules are OR'd with `||`. Rules with `when: never` produce `false`.
+ * Rules without an `if` but with `when: always` produce `true`.
+ */
+function lowerRulesIf(rules: readonly Rule[]): string {
+  const parts: string[] = [];
+  for (const rule of rules) {
+    if (rule.when === "never") {
+      parts.push("${{ false }}");
+    } else if (rule.if !== undefined) {
+      parts.push(rule.if);
+    } else if (rule.when === "always") {
+      parts.push("${{ true }}");
+    }
+  }
+  if (parts.length === 0) return "${{ true }}";
+  if (parts.length === 1) return parts[0]!;
+  return parts.map((p) => p.replace(/^\$\{\{|\}\}$/g, "").trim()).join(" || ");
 }
 
 /**

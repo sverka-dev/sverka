@@ -483,7 +483,7 @@ function checkReusablePipelineConformance(): readonly ConformanceResult[] {
     const expanded = expandPipelineCalls(graphConstruct, ciPipeline.steps);
     const hasNoCallSteps = expanded.every((s) => s.call === undefined);
     const hasNamespacedStep = expanded.some((s) =>
-      s.id.includes("deploy-staging"),
+      s.id.includes("deploy-staging/deploy"),
     );
     results.push({
       name: "F-31: Expansion flattens call steps into inline namespaced steps",

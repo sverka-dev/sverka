@@ -16,6 +16,7 @@ export interface CallPipelineBuilder {
   runtime(runtime: Runtime): CallPipelineBuilder;
   timeout(ms: number): CallPipelineBuilder;
   condition(ref: Reference): CallPipelineBuilder;
+  interruptible(value: boolean): CallPipelineBuilder;
   build(pipeline: Pipeline, id: string): PipelineCallStep;
 }
 
@@ -27,6 +28,7 @@ interface CallBuilderState {
   runtime?: Runtime;
   timeout?: number;
   condition?: Reference;
+  interruptible?: boolean;
 }
 
 function createCallBuilder(state: CallBuilderState): CallPipelineBuilder {
@@ -51,6 +53,10 @@ function createCallBuilder(state: CallBuilderState): CallPipelineBuilder {
       state.condition = ref;
       return builder;
     },
+    interruptible(value: boolean): CallPipelineBuilder {
+      state.interruptible = value;
+      return builder;
+    },
     build(pipeline: Pipeline, id: string): PipelineCallStep {
       return new PipelineCallStep(pipeline, id, {
         callee: state.callee,
@@ -60,6 +66,7 @@ function createCallBuilder(state: CallBuilderState): CallPipelineBuilder {
         ...(state.runtime ? { runtime: state.runtime } : {}),
         ...(state.timeout !== undefined ? { timeout: state.timeout } : {}),
         ...(state.condition !== undefined ? { condition: state.condition } : {}),
+        ...(state.interruptible !== undefined ? { interruptible: state.interruptible } : {}),
       });
     },
   };

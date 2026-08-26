@@ -87,10 +87,9 @@ export interface GitlabDefault {
 export interface GitlabSpecInput {
   readonly type: string;
   readonly description?: string;
-  readonly required?: boolean;
   readonly default?: string | number | boolean | readonly string[];
   readonly options?: readonly string[];
-  readonly pattern?: string;
+  readonly regex?: string;
 }
 
 export interface GitlabPages {

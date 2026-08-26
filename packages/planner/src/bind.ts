@@ -376,13 +376,17 @@ function assertInputValue(
   type: Input["type"],
   name: string,
 ): void {
-  let expected = type;
   if (type === "array") {
-    expected = "object";
-  } else if (type === "choice") {
-    expected = "string";
+    if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+      throw new PlannerError(
+        `input "${name}" value ${JSON.stringify(value)} does not match declared type "array" (expected string array)`,
+        "INVALID_INPUT",
+      );
+    }
+    return;
   }
-  const actual = Array.isArray(value) ? "object" : typeof value;
+  const expected = type === "choice" ? "string" : type;
+  const actual = typeof value;
   if (actual !== expected) {
     throw new PlannerError(
       `input "${name}" value ${JSON.stringify(value)} does not match declared type "${type}"`,

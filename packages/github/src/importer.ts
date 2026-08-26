@@ -142,6 +142,9 @@ function parseJob(jobId: string, job: Record<string, unknown>, diagnostics: Impo
 
   const runtime: Runtime = {};
 
+  // runs-on → runner spec
+  const runner = parseRunsOn(job["runs-on"]);
+
   return {
     id: stepId,
     runtime,
@@ -149,6 +152,7 @@ function parseJob(jobId: string, job: Record<string, unknown>, diagnostics: Impo
     inputs: [],
     outputs: [],
     dependencies,
+    ...(runner !== undefined ? { runner } : {}),
   };
 }
 
@@ -268,17 +272,61 @@ function parseDownloadArtifactAction(
 ): void {
   const withMap = (step.with as Record<string, unknown> | undefined) ?? {};
   const artifactName = typeof withMap.name === "string" ? withMap.name : "artifact";
+  // Try to resolve the producing job from the artifact name.
+  // Artifact names follow the pattern `<stepId>-<outputName>`.
+  const from = resolveArtifactProducer(artifactName);
   operations.push({
     kind: "importArtifact",
     name: artifactName,
-    from: "ci/unknown",
+    from,
     output: artifactName,
   });
-  diagnostics.push({
-    severity: "warn",
-    message: `download-artifact in job '${jobId}' — 'from' may need manual correction`,
-    path: jobId,
-  });
+  if (from === "ci/unknown") {
+    diagnostics.push({
+      severity: "warn",
+      message: `download-artifact in job '${jobId}' — producer could not be resolved from name '${artifactName}', may need manual correction`,
+      path: jobId,
+    });
+  }
+}
+
+/**
+ * Try to resolve the producing job from an artifact name.
+ * Artifact names follow the pattern `<stepId>-<outputName>`, so the producer
+ * is `ci/<stepId>`.
+ */
+function resolveArtifactProducer(artifactName: string): string {
+  const dashIdx = artifactName.lastIndexOf("-");
+  if (dashIdx > 0) {
+    const stepId = artifactName.slice(0, dashIdx);
+    return `ci/${stepId}`;
+  }
+  return "ci/unknown";
+}
+
+/**
+ * Parse `runs-on` into a RunnerSpec.
+ * Supports string, array, and object forms.
+ */
+function parseRunsOn(runsOn: unknown): { labels: readonly string[]; group?: string } | undefined {
+  if (typeof runsOn === "string") {
+    return { labels: [runsOn] };
+  }
+  if (Array.isArray(runsOn)) {
+    const labels = runsOn.filter((v): v is string => typeof v === "string");
+    if (labels.length > 0) return { labels };
+  }
+  if (runsOn && typeof runsOn === "object") {
+    const obj = runsOn as Record<string, unknown>;
+    const group = typeof obj.group === "string" ? obj.group : undefined;
+    const labels = Array.isArray(obj.labels)
+      ? obj.labels.filter((v): v is string => typeof v === "string")
+      : [];
+    if (labels.length > 0 || group !== undefined) {
+      return { labels, ...(group !== undefined ? { group } : {}) };
+    }
+  }
+  return undefined;
 }
 
 /**

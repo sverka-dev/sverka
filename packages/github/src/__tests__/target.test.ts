@@ -370,7 +370,7 @@ describe("compileGithub — rules", () => {
     expect(yaml.jobs.build.if).toBe("github.ref == 'refs/heads/main'");
   });
 
-  it("omits if: when first rule has no if", () => {
+  it("emits if: false when first rule has when: never", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
@@ -380,7 +380,7 @@ describe("compileGithub — rules", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.build.if).toBeUndefined();
+    expect(yaml.jobs.build.if).toBe("${{ false }}");
   });
 
   it("omits if: when no rules", () => {
@@ -1055,9 +1055,12 @@ describe("compileGithub — components (F-32)", () => {
     const yaml = parse(result.artifacts[0]!.content);
     const deployJob = yaml.jobs.deploy;
     expect(deployJob).toBeDefined();
-    expect(deployJob.uses).toBe("org/deploy-action@v1");
-    expect(deployJob.with.env).toBe("staging");
+    // Action-like component references are emitted as normal jobs with action steps.
+    expect(deployJob["runs-on"]).toBe("ubuntu-latest");
     expect(deployJob.needs).toBe("build");
+    const actionStep = deployJob.steps.find((s: Record<string, unknown>) => s.uses === "org/deploy-action@v1");
+    expect(actionStep).toBeDefined();
+    expect(actionStep.with.env).toBe("staging");
   });
 
   it("single-pipeline graph with component → one artifact (backward compat)", () => {
@@ -1148,7 +1151,7 @@ describe("compileGithub — release (F-39)", () => {
     expect(releaseStep.with.tag_name).toBe("v1.0.0");
     expect(releaseStep.with.name).toBe("Release v1.0.0");
     expect(releaseStep.with.body).toBe("Release notes");
-    expect(releaseStep.with.assets).toBe("dist/bin.tar.gz");
+    expect(releaseStep.with.files).toBe("dist/bin.tar.gz");
   });
 });
 

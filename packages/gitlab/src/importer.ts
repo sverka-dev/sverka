@@ -3,7 +3,7 @@
 
 import { parse as parseYaml } from "yaml";
 import type { DefinitionGraph, ProjectDefinition, PipelineDefinition, StepDefinition, OperationDefinition, Dependency, EntryDefinition } from "@sverka/core";
-import type { Trigger, PipelineRule, Runtime } from "@sverka/cdk";
+import type { Trigger, PipelineRule, Runtime, Rule } from "@sverka/cdk";
 import { GitlabTargetError } from "./errors.js";
 
 /**
@@ -50,6 +50,8 @@ export function importGitlabWithDiagnostics(source: string): ImportResult {
 
   for (const [key, value] of Object.entries(doc)) {
     if (reservedKeys.has(key)) continue;
+    // Skip hidden jobs (dot-prefixed keys like .base) — they are templates, not executable.
+    if (key.startsWith(".")) continue;
     if (!value || typeof value !== "object") continue;
     const step = convertJobToStep(key, value as Record<string, unknown>, diagnostics);
     steps.push(step);
@@ -140,12 +142,23 @@ function convertJobToStep(
   convertTrigger(key, job, operations, diagnostics);
   convertRelease(job, operations);
   convertPages(job, operations);
+  convertArtifacts(job, operations);
   recordUnmappableConstructs(key, job, diagnostics);
 
   const runtime: Runtime =
     typeof job.image === "string"
       ? { mode: "container", image: job.image }
       : {};
+
+  // Job-level rules → StepDefinition.rules
+  const rules = convertJobRules(job);
+
+  // Job-level before_script/after_script
+  const beforeScript = convertScriptArray(job, "before_script");
+  const afterScript = convertScriptArray(job, "after_script");
+
+  // when: delayed + start_in → delay
+  const delay = convertDelay(job);
 
   return {
     id: stepId,
@@ -154,6 +167,10 @@ function convertJobToStep(
     inputs: [],
     outputs: [],
     dependencies,
+    ...(rules.length > 0 ? { rules } : {}),
+    ...(beforeScript !== undefined ? { beforeScript } : {}),
+    ...(afterScript !== undefined ? { afterScript } : {}),
+    ...(delay !== undefined ? { delay } : {}),
   };
 }
 
@@ -266,5 +283,79 @@ function recordUnmappableConstructs(
   }
   if (job.matrix) {
     diagnostics.push({ severity: "warn", message: `job '${key}' has matrix — not imported`, path: key });
+  }
+}
+
+/**
+ * Convert job-level `rules` into StepDefinition rules.
+ */
+function convertJobRules(job: Record<string, unknown>): readonly Rule[] {
+  if (!Array.isArray(job.rules)) return [];
+  const rules: Rule[] = [];
+  for (const rule of job.rules) {
+    if (!rule || typeof rule !== "object") continue;
+    const r = rule as Record<string, unknown>;
+    const ruleEntry: { if?: string; changes?: readonly string[]; exists?: readonly string[]; when?: Rule["when"]; variables?: Record<string, string> } = {};
+    if (typeof r.if === "string") ruleEntry.if = r.if;
+    if (Array.isArray(r.changes)) ruleEntry.changes = r.changes as readonly string[];
+    if (Array.isArray(r.exists)) ruleEntry.exists = r.exists as readonly string[];
+    if (r.when === "on_success" || r.when === "on_failure" || r.when === "always" || r.when === "never" || r.when === "manual") {
+      ruleEntry.when = r.when;
+    }
+    if (r.variables && typeof r.variables === "object") {
+      ruleEntry.variables = Object.fromEntries(
+        Object.entries(r.variables as Record<string, unknown>).filter(([, v]) => typeof v === "string"),
+      ) as Record<string, string>;
+    }
+    rules.push(ruleEntry);
+  }
+  return rules;
+}
+
+/**
+ * Convert a script array field (before_script/after_script) from a job.
+ */
+function convertScriptArray(job: Record<string, unknown>, field: string): readonly string[] | undefined {
+  const value = job[field];
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) {
+    const lines = value.filter((v): v is string => typeof v === "string");
+    if (lines.length > 0) return lines;
+  }
+  return undefined;
+}
+
+/**
+ * Convert `when: delayed` + `start_in` to a delay string.
+ */
+function convertDelay(job: Record<string, unknown>): string | undefined {
+  if (job.when === "delayed" && typeof job.start_in === "string") {
+    return job.start_in;
+  }
+  return undefined;
+}
+
+/**
+ * Convert `artifacts` into exportArtifact operations.
+ */
+function convertArtifacts(job: Record<string, unknown>, operations: OperationDefinition[]): void {
+  if (!job.artifacts || typeof job.artifacts !== "object") return;
+  const artifacts = job.artifacts as Record<string, unknown>;
+  const paths = artifacts.paths;
+  if (Array.isArray(paths)) {
+    for (const path of paths) {
+      if (typeof path === "string") {
+        operations.push({ kind: "exportArtifact", name: path.split("/").pop() ?? path, path });
+      }
+    }
+  }
+  // Reports are noted but not fully mapped — they require spec types.
+  if (artifacts.reports && typeof artifacts.reports === "object") {
+    const reports = artifacts.reports as Record<string, unknown>;
+    for (const [type, value] of Object.entries(reports)) {
+      if (typeof value === "string") {
+        operations.push({ kind: "report", spec: { type, path: value } });
+      }
+    }
   }
 }

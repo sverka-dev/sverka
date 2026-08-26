@@ -277,12 +277,12 @@ function assignRetry(
 /**
  * Convert an artifacts spec to a YAML-compatible object.
  */
-function artifactsToYaml(artifacts: GitlabJob["artifacts"]): Record<string, unknown> {
+function artifactsToYaml(artifacts: NonNullable<GitlabJob["artifacts"]>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  if (artifacts!.paths !== undefined) result.paths = [...artifacts!.paths];
-  if (artifacts!.reports !== undefined) result.reports = artifacts!.reports;
-  if (artifacts!.expireIn !== undefined) result.expire_in = artifacts!.expireIn;
-  if (artifacts!.access !== undefined) result.access = artifacts!.access;
+  if (artifacts.paths !== undefined) result.paths = [...artifacts.paths];
+  if (artifacts.reports !== undefined) result.reports = artifacts.reports;
+  if (artifacts.expireIn !== undefined) result.expire_in = artifacts.expireIn;
+  if (artifacts.access !== undefined) result.access = artifacts.access;
   return result;
 }
 

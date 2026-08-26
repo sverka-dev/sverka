@@ -511,10 +511,12 @@ describe("compileGitlab — typed inputs", () => {
     // choice → string with options
     expect(yaml.spec.inputs.environment.type).toBe("string");
     expect(yaml.spec.inputs.environment.options).toEqual(["staging", "production"]);
-    expect(yaml.spec.inputs.environment.required).toBe(true);
-    // pattern preserved
+    // GitLab spec:inputs without a default are mandatory; no `required` field is emitted.
+    expect(yaml.spec.inputs.environment.required).toBeUndefined();
+    // pattern → regex (GitLab spec:inputs uses `regex`, not `pattern`)
     expect(yaml.spec.inputs.version.type).toBe("string");
-    expect(yaml.spec.inputs.version.pattern).toBe("^v\\d+$");
+    expect(yaml.spec.inputs.version.regex).toBe("^v\\d+$");
+    expect(yaml.spec.inputs.version.pattern).toBeUndefined();
   });
 
   it("emits array type natively", () => {

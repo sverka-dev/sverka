@@ -50,6 +50,11 @@ interface CapabilityStep {
   environment?: { name?: string; action?: string; tier?: string };
   cache?: { policy?: string; restoreKeys?: readonly string[] };
   concurrency?: { group?: string; cancelInProgress?: boolean };
+  call?: unknown;
+  component?: unknown;
+  childPipeline?: unknown;
+  downstream?: unknown;
+  delay?: string;
 }
 
 interface CapabilityOperation {
@@ -127,6 +132,7 @@ function detectStepCapabilities(step: CapabilityStep, caps: Set<string>): void {
   detectEnvironmentCapabilities(step, caps);
   detectCacheCapabilities(step, caps);
   detectConcurrencyCapabilities(step, caps);
+  detectSpecialStepCapabilities(step, caps);
 
   const outputFlags: OutputFlags = { scalar: false, artifact: false };
   for (const op of step.operations) {
@@ -140,6 +146,18 @@ function detectStepCapabilities(step: CapabilityStep, caps: Set<string>): void {
 
   detectMatrixCapabilities(step.matrix, caps);
   detectScriptCapabilities(step, caps);
+}
+
+/**
+ * Detect capabilities for special step kinds: call, component, child pipeline,
+ * downstream, and delay.
+ */
+function detectSpecialStepCapabilities(step: CapabilityStep, caps: Set<string>): void {
+  if (step.call !== undefined) caps.add("reusable.pipeline");
+  if (step.component !== undefined) caps.add("reusable.component");
+  if (step.childPipeline !== undefined) caps.add("reusable.childPipeline");
+  if (step.downstream !== undefined) caps.add("reusable.downstream");
+  if (step.delay !== undefined) caps.add("scheduling.delay");
 }
 
 function detectMatrixCapabilities(
@@ -305,6 +323,8 @@ function detectPipelineCapabilities(pipeline: {
     interruptible?: unknown;
   };
   inputs?: Readonly<Record<string, { type?: string; options?: readonly string[]; pattern?: string; secret?: boolean }>>;
+  concurrency?: { group?: string; cancelInProgress?: boolean };
+  rules?: readonly unknown[];
 }, caps: Set<string>): void {
   detectTriggerCapabilities(pipeline.entries, caps);
   if (pipeline.permissions !== undefined) {
@@ -313,6 +333,13 @@ function detectPipelineCapabilities(pipeline: {
   detectInputCapabilities(pipeline.inputs, caps);
   if (pipeline.defaults !== undefined) {
     detectDefaultCapabilities(pipeline.defaults, caps);
+  }
+  if (pipeline.concurrency !== undefined) {
+    caps.add("concurrency.group");
+    if (pipeline.concurrency.cancelInProgress !== undefined) caps.add("concurrency.cancelInProgress");
+  }
+  if (pipeline.rules !== undefined && pipeline.rules.length > 0) {
+    caps.add("workflow.rules");
   }
   for (const step of pipeline.steps) {
     detectStepCapabilities(step, caps);

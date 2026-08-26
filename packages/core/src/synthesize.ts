@@ -142,6 +142,8 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   // Pipeline-call step: set `call`, emit no shell operations (already empty).
   // Outputs are resolved in pass 2 (resolveCallOutputs).
   if (step instanceof PipelineCallStep) {
+    // Collect dependencies from StepRef bindings in call inputs.
+    collectCallInputDeps(step.callInputs, pipelineId, dependencies, seenDeps);
     const call: PipelineCall = {
       callee: step.callee,
       inputs: buildCallInputs(step.callInputs),
@@ -151,6 +153,8 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
 
   // Component step: set `component`, emit no shell operations.
   if (step instanceof ComponentStep) {
+    // Collect dependencies from StepRef bindings in component inputs.
+    collectCallInputDeps(step.component.inputs as Readonly<Record<string, Reference | InputLiteral>>, pipelineId, dependencies, seenDeps);
     return { ...base, component: step.component };
   }
 
@@ -161,6 +165,8 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
 
   // Downstream step: set `downstream`, emit no shell operations.
   if (step instanceof DownstreamStep) {
+    // Collect dependencies from StepRef bindings in downstream inputs.
+    collectCallInputDeps(step.downstream.inputs as Readonly<Record<string, Reference | InputLiteral>>, pipelineId, dependencies, seenDeps);
     return { ...base, downstream: step.downstream };
   }
 
@@ -371,6 +377,32 @@ function collectImportOperations(
       producer: producerId,
       output: ref.output,
     });
+  }
+}
+
+/**
+ * Collect dependencies from StepRef bindings in call/component/downstream inputs.
+ * These ensure the producer step runs before the call step so its output is available.
+ */
+function collectCallInputDeps(
+  inputs: Readonly<Record<string, Reference | InputLiteral>> | ReadonlyMap<string, Reference | InputLiteral>,
+  pipelineId: string,
+  dependencies: Dependency[],
+  seenDeps: Set<string>,
+): void {
+  const entries = inputs instanceof Map ? inputs.entries() : Object.entries(inputs);
+  for (const [, value] of entries) {
+    if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
+      const ref = value as Reference;
+      if (ref.kind === "step") {
+        const producerId = resolveStepId(pipelineId, ref.step);
+        addDependency(dependencies, seenDeps, {
+          kind: ref.type === "artifact" ? "artifact" : "value",
+          producer: producerId,
+          output: ref.output,
+        });
+      }
+    }
   }
 }
 

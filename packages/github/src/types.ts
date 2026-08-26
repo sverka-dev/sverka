@@ -52,8 +52,7 @@ export interface GithubService {
   readonly image: string;
   readonly env?: Record<string, string>;
   readonly ports?: readonly string[];
-  readonly entrypoint?: readonly string[];
-  readonly command?: readonly string[];
+  readonly options?: string;
 }
 
 export interface GithubJob {

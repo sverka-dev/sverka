@@ -15,7 +15,7 @@ import type {
   OperationDefinition,
   Dependency,
 } from "./graph.js";
-import type { Reference, InputLiteral } from "@sverka/cdk";
+import type { Reference, InputLiteral, Expression, StatusCondition } from "@sverka/cdk";
 import { resolveStepId } from "./validate.js";
 
 /**
@@ -85,6 +85,15 @@ function expandCallStep(
   const prefix = parentIdMap.get(callStep.id) ?? callStep.id;
   const bindings = callStep.call!.inputs;
 
+  // Materialize callee defaults for inputs that have no explicit binding.
+  // This ensures the callee receives its default values during expansion.
+  const effectiveBindings: Record<string, Reference | InputLiteral> = { ...bindings };
+  for (const [name, input] of Object.entries(callee.inputs)) {
+    if (effectiveBindings[name] === undefined && input.default !== undefined && !input.secret) {
+      effectiveBindings[name] = input.default as InputLiteral;
+    }
+  }
+
   // Build idMap: callee step id → namespaced id (prefix + last segment).
   const localIdMap = new Map<string, string>(parentIdMap);
   for (const calleeStep of callee.steps) {
@@ -126,7 +135,7 @@ function expandCallStep(
     const originalCalleeId = reverseLookup(localIdMap, s.id);
     const isRoot = originalCalleeId !== undefined && rootIds.has(originalCalleeId);
 
-    let rewritten = substituteInputBindings(s, bindings, localIdMap, callerPipelineId);
+    let rewritten = substituteInputBindings(s, effectiveBindings, localIdMap, callerPipelineId);
 
     if (isRoot) {
       rewritten = addCallStepDeps(rewritten, callStep);
@@ -190,7 +199,8 @@ function rewriteInternalRefs(
 
 /**
  * Substitute callee `inputs.X` context refs with the caller's bound values.
- * - Literal → drop the ref (literal baked in at operation level).
+ * - Literal → drop the ref (literal baked in at operation level) AND rewrite
+ *   `${inputs.X}` placeholders in shell commands to the literal value.
  * - Reference → replace with the bound Reference, resolving caller StepRefs
  *   to pipeline-prefixed ids and rewriting callee-internal refs via idMap.
  */
@@ -207,7 +217,29 @@ function substituteInputBindings(
     idMap,
     callerPipelineId,
   );
-  return { ...step, inputs, ...(condition !== step.condition ? { condition } : {}) };
+  const operations = substituteCommandBindings(step.operations, bindings);
+  return { ...step, inputs, operations, ...(condition !== step.condition ? { condition } : {}) };
+}
+
+/**
+ * Rewrite `${inputs.X}` placeholders in shell command operations to the
+ * literal bound value. Reference bindings are left for the target lowering
+ * to translate.
+ */
+function substituteCommandBindings(
+  operations: readonly OperationDefinition[],
+  bindings: Readonly<Record<string, Reference | InputLiteral>>,
+): readonly OperationDefinition[] {
+  return operations.map((op) => {
+    if (op.kind !== "shell") return op;
+    const rewritten = op.command.replace(/\$\{inputs\.([^}]+)\}/g, (_, field: string) => {
+      const binding = bindings[field];
+      if (binding === undefined) return `\${inputs.${field}}`;
+      if (typeof binding === "object" && binding !== null) return `\${inputs.${field}}`;
+      return String(binding);
+    });
+    return { ...op, command: rewritten };
+  });
 }
 
 /**
@@ -273,12 +305,17 @@ function substituteStepCondition(
   bindings: Readonly<Record<string, Reference | InputLiteral>>,
   idMap: Map<string, string>,
   callerPipelineId: string,
-): Reference | undefined {
+): Reference | Expression | StatusCondition | undefined {
   const condition = step.condition;
   if (condition?.kind === "context" && condition.namespace === "inputs") {
     const binding = bindings[condition.field];
     if (binding !== undefined) {
-      return bindingToReference(binding, idMap, callerPipelineId);
+      const resolved = bindingToReference(binding, idMap, callerPipelineId);
+      // Preserve falsy literals (e.g. `false`) as a non-runnable condition
+      // rather than clearing it and making the step unconditional.
+      if (resolved !== undefined) return resolved;
+      if (binding === false) return { kind: "status", status: "never" };
+      return undefined;
     }
   }
   return condition;
@@ -286,6 +323,8 @@ function substituteStepCondition(
 
 /**
  * Add the call step's dependencies to a root callee step as control deps.
+ * Call step dependencies are caller-side ids; they are NOT rewritten through
+ * idMap because they refer to caller steps, not callee-internal steps.
  */
 function addCallStepDeps(
   rootStep: StepDefinition,
