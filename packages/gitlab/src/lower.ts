@@ -105,11 +105,6 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
   };
 }
 
-/** Replace hyphens with underscores in a step ID for GitLab variable naming. */
-function stepIdToVar(id: string): string {
-  return id.replace(/-/g, "_"); // NOSONAR: Codacy flags replaceAll; regex satisfies both
-}
-
 /**
  * Lower pipeline inputs to GitLab spec:inputs.
  * choice type → type: string with options.
@@ -189,7 +184,7 @@ function lowerComponentInclude(ref: ComponentRef): GitlabComponentInclude {
       // Reference bindings — GitLab uses variable interpolation.
       const r = value as Reference;
       if (r.kind === "step") {
-        inputs[name] = `$CI_JOB_${stepIdToVar(r.step).toUpperCase()}_OUTPUT_${r.output}`;
+        inputs[name] = `$CI_JOB_${r.step.replaceAll("-", "_").toUpperCase()}_OUTPUT_${r.output}`;
       } else if (r.kind === "context") {
         inputs[name] = `$${r.field.toUpperCase()}`;
       }
@@ -632,7 +627,7 @@ function lowerReferenceOrLiteral(value: Reference | InputLiteral): string {
   if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
     const r = value as Reference;
     if (r.kind === "step") {
-      return `$CI_JOB_${stepIdToVar(r.step).toUpperCase()}_OUTPUT_${r.output}`;
+      return `$CI_JOB_${r.step.replaceAll("-", "_").toUpperCase()}_OUTPUT_${r.output}`;
     }
     if (r.kind === "context") {
       return `$${r.field.toUpperCase()}`;
@@ -667,22 +662,7 @@ function lowerStep(
   }
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
-
-  // If the step has a condition, AND it with each rule's if expression.
-  // GitLab evaluates rules in order and stops at the first match, so appending
-  // the condition as a separate rule would bypass it when a trigger rule matches.
-  let rules = mergedRules;
-  if (step.condition !== undefined) {
-    const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
-    rules = mergedRules.map((rule) => {
-      if (condExpr === undefined) return rule;
-      const ifExpr = rule.if !== undefined ? `(${rule.if}) && (${condExpr})` : condExpr;
-      return { ...rule, if: ifExpr };
-    });
-    if (rules.length === 0 && condExpr !== undefined) {
-      rules = [{ if: condExpr }];
-    }
-  }
+  const rules = applyStepCondition(mergedRules, step, jobIdMap);
 
   return {
     id: jobId,
@@ -695,26 +675,57 @@ function lowerStep(
       : {}),
     ...(step.beforeScript ? { beforeScript: step.beforeScript } : {}),
     ...(step.afterScript ? { afterScript: step.afterScript } : {}),
-    ...(step.continueOnError !== undefined
-      ? {
-          allowFailure:
-            typeof step.continueOnError === "boolean"
-              ? step.continueOnError
-              : { exitCodes: step.continueOnError.exitCodes },
-        }
-      : {}),
-    ...(step.retry !== undefined
-      ? {
-          retry: {
-            max: step.retry.max,
-            ...(step.retry.when ? { when: step.retry.when } : {}),
-            ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
-          },
-        }
-      : {}),
+    ...resolveContinueOnError(step),
+    ...resolveRetryConfig(step),
     ...(release ? { release } : {}),
     ...(pages ? { pages } : {}),
     ...(step.delay ? { when: "delayed" as const, start_in: step.delay } : {}),
+  };
+}
+
+/**
+ * If the step has a condition, AND it with each rule's if expression.
+ * GitLab evaluates rules in order and stops at the first match, so appending
+ * the condition as a separate rule would bypass it when a trigger rule matches.
+ */
+function applyStepCondition(
+  mergedRules: readonly GitlabRule[],
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+): readonly GitlabRule[] {
+  if (step.condition === undefined) return mergedRules;
+  const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
+  let rules = mergedRules.map((rule) => {
+    if (condExpr === undefined) return rule;
+    const ifExpr = rule.if !== undefined ? `(${rule.if}) && (${condExpr})` : condExpr;
+    return { ...rule, if: ifExpr };
+  });
+  if (rules.length === 0 && condExpr !== undefined) {
+    rules = [{ if: condExpr }];
+  }
+  return rules;
+}
+
+/** Resolve continueOnError to GitLab allowFailure field. */
+function resolveContinueOnError(step: StepDefinition): Partial<GitlabJob> {
+  if (step.continueOnError === undefined) return {};
+  return {
+    allowFailure:
+      typeof step.continueOnError === "boolean"
+        ? step.continueOnError
+        : { exitCodes: step.continueOnError.exitCodes },
+  };
+}
+
+/** Resolve retry configuration to GitLab retry field. */
+function resolveRetryConfig(step: StepDefinition): Partial<GitlabJob> {
+  if (step.retry === undefined) return {};
+  return {
+    retry: {
+      max: step.retry.max,
+      ...(step.retry.when ? { when: step.retry.when } : {}),
+      ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
+    },
   };
 }
 
@@ -1261,7 +1272,7 @@ function validateMatrixKeys(spec: MatrixSpec): void {
   for (const key of Object.keys(spec.dimensions)) {
     if (!validKey.test(key)) {
       throw new GitlabTargetError(
-        `invalid matrix dimension key '${key}': must match [A-Za-z_]\\w*`,
+        String.raw`invalid matrix dimension key '${key}': must match [A-Za-z_]\w*`,
         "INVALID_MATRIX",
       );
     }
@@ -1271,7 +1282,7 @@ function validateMatrixKeys(spec: MatrixSpec): void {
       for (const key of Object.keys(entry)) {
         if (!validKey.test(key)) {
           throw new GitlabTargetError(
-            `invalid matrix include key '${key}': must match [A-Za-z_]\\w*`,
+            String.raw`invalid matrix include key '${key}': must match [A-Za-z_]\w*`,
             "INVALID_MATRIX",
           );
         }

@@ -135,49 +135,6 @@ export interface GitlabWorkflowRule {
   readonly when?: "always" | "never";
 }
 
-export interface GitlabPages {
-  readonly publish: string;
-  readonly path_prefix?: string;
-}
-
-export interface GitlabRelease {
-  readonly tag_name: string;
-  readonly name?: string;
-  readonly description?: string;
-  readonly assets?: { readonly links: readonly { readonly name: string; readonly url: string }[] };
-  readonly draft?: boolean;
-}
-
-export interface GitlabTrigger {
-  readonly include?: readonly GitlabTriggerInclude[];
-  readonly project?: string;
-  readonly branch?: string;
-  readonly strategy?: string;
-}
-
-export interface GitlabTriggerInclude {
-  readonly artifact: string;
-  readonly job: string;
-}
-
-export interface GitlabComponentInclude {
-  readonly component: string;
-  readonly inputs: Record<string, unknown>;
-}
-
-export interface GitlabLocalInclude {
-  readonly local: string;
-  readonly inputs?: Record<string, unknown>;
-}
-
-export interface GitlabWorkflowRule {
-  readonly if?: string;
-  readonly changes?: readonly string[];
-  readonly exists?: readonly string[];
-  readonly variables?: Record<string, string>;
-  readonly when?: "always" | "never";
-}
-
 export interface GitlabTargetGraph {
   readonly name: string;
   readonly stages: readonly string[];

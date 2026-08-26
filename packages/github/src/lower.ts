@@ -12,7 +12,7 @@ import type {
   Expression,
   Input,
 } from "@sverka/core";
-import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, ServiceContainer, CacheSpec, InputLiteral, Rule } from "@sverka/cdk";
+import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, ServiceContainer, CacheSpec, Rule } from "@sverka/cdk";
 import type {
   GithubTargetGraph,
   GithubTriggers,
@@ -64,6 +64,18 @@ function lowerSinglePipeline(pipeline: PipelineDefinition): GithubTargetGraph {
   const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
   const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
 
+  return assemblePipelineTarget(pipeline, triggers, jobs);
+}
+
+/**
+ * Assemble a GithubTargetGraph from a pipeline, its triggers, and jobs.
+ * Shared by lowerSinglePipeline and lowerMultiPipeline.
+ */
+function assemblePipelineTarget(
+  pipeline: PipelineDefinition,
+  triggers: GithubTriggers,
+  jobs: readonly GithubJob[],
+): GithubTargetGraph {
   return {
     name: pipeline.id,
     on: triggers,
@@ -92,54 +104,55 @@ function lowerDefaults(defaults: PipelineDefaults): GithubDefaults {
  */
 function lowerMultiPipeline(graph: DefinitionGraph): readonly GithubTargetGraph[] {
   const pipelines = graph.project.pipelines;
+  const calledPipelineIds = collectCalledPipelineIds(pipelines);
 
-  // Find which pipelines are called by some call step.
-  const calledPipelineIds = new Set<string>();
+  const result: GithubTargetGraph[] = [];
+  for (const pipeline of pipelines) {
+    const target = lowerPipelineInGraph(pipeline, calledPipelineIds.has(pipeline.id));
+    if (target !== undefined) result.push(target);
+  }
+  return result;
+}
+
+/**
+ * Collect the set of pipeline IDs that are referenced by at least one call step.
+ */
+function collectCalledPipelineIds(pipelines: readonly PipelineDefinition[]): Set<string> {
+  const called = new Set<string>();
   for (const p of pipelines) {
     for (const step of p.steps) {
       if (step.call) {
-        calledPipelineIds.add(step.call.callee);
+        called.add(step.call.callee);
       }
     }
   }
+  return called;
+}
 
-  const result: GithubTargetGraph[] = [];
+/**
+ * Lower a single pipeline within a multi-pipeline graph.
+ * Returns undefined if the pipeline is neither a root nor a callee.
+ */
+function lowerPipelineInGraph(
+  pipeline: PipelineDefinition,
+  isCalled: boolean,
+): GithubTargetGraph | undefined {
+  const hasEntries = pipeline.entries.length > 0;
+  if (!hasEntries && !isCalled) return undefined;
 
-  for (const pipeline of pipelines) {
-    const hasEntries = pipeline.entries.length > 0;
-    const isCalled = calledPipelineIds.has(pipeline.id);
+  // For callees, all steps are reachable (no entries needed).
+  // For roots, filter by entry reachability.
+  const reachableSteps = hasEntries ? filterReachableSteps(pipeline) : pipeline.steps;
+  const jobIdMap = buildJobIdMap(reachableSteps);
 
-    // Skip pipelines that are neither roots nor callees.
-    if (!hasEntries && !isCalled) continue;
-
-    // For callees, all steps are reachable (no entries needed).
-    // For roots, filter by entry reachability.
-    const reachableSteps = hasEntries
-      ? filterReachableSteps(pipeline)
-      : pipeline.steps;
-
-    const jobIdMap = buildJobIdMap(reachableSteps);
-
-    // Triggers: root triggers + workflow_call if called.
-    let triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
-    if (isCalled) {
-      triggers = addWorkflowCall(triggers, pipeline.inputs);
-    }
-
-    const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
-
-    result.push({
-      name: pipeline.id,
-      on: triggers,
-      jobs,
-      env: collectEnv(pipeline),
-      ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
-      ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
-      ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
-    });
+  // Triggers: root triggers + workflow_call if called.
+  let triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
+  if (isCalled) {
+    triggers = addWorkflowCall(triggers, pipeline.inputs);
   }
 
-  return result;
+  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
+  return assemblePipelineTarget(pipeline, triggers, jobs);
 }
 
 /**
@@ -485,6 +498,10 @@ function lowerStepsWithCalls(
  * Lower a Reference value to a GitHub expression string.
  * Returns the expression if `value` is a Reference, otherwise `undefined`
  * (meaning the value is a literal the caller should handle itself).
+ * Context references are mapped through GITHUB_CONTEXT_MAP so that Sverka
+ * namespaces (e.g. `git.sha`) become valid GitHub expressions (e.g.
+ * `github.sha`). Secret references are routed to env-var syntax (`$FIELD`)
+ * rather than emitted as unsupported `${{ secrets.X }}` in `with:` values.
  */
 function lowerReferenceExpr(
   value: unknown,
@@ -497,7 +514,7 @@ function lowerReferenceExpr(
       return `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
     }
     if (ref.kind === "context") {
-      return `\${{ ${ref.namespace}.${ref.field} }}`;
+      return translateContextRef(ref.namespace, ref.field, false);
     }
   }
   return undefined;
@@ -686,7 +703,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const container = resolveContainer(step, mode);
   const jobEnv = collectJobEnv(runtime);
 
-  return assembleGithubJob(jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap);
+  return assembleGithubJob({ jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap });
 }
 
 /**
@@ -770,18 +787,24 @@ function resolveJobPermissions(step: StepDefinition): Record<string, unknown> {
 }
 
 /**
+ * Constituent parts for assembling a GithubJob.
+ */
+interface GithubJobParts {
+  readonly jobId: string;
+  readonly steps: GithubStep[];
+  readonly needs: readonly string[];
+  readonly step: StepDefinition;
+  readonly runsOn: GithubRunsOn;
+  readonly container: string | undefined;
+  readonly jobEnv: Record<string, string>;
+  readonly jobIdMap: Map<string, string>;
+}
+
+/**
  * Assemble the final GithubJob object from its constituent parts.
  */
-function assembleGithubJob(
-  jobId: string,
-  steps: GithubStep[],
-  needs: readonly string[],
-  step: StepDefinition,
-  runsOn: GithubRunsOn,
-  container: string | undefined,
-  jobEnv: Record<string, string>,
-  jobIdMap: Map<string, string>,
-): GithubJob {
+function assembleGithubJob(parts: GithubJobParts): GithubJob {
+  const { jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap } = parts;
   const jobOutputs = collectJobOutputs(step);
   const jobIf = resolveJobIf(step, jobIdMap);
   const jobPermissions = resolveJobPermissions(step);
@@ -801,13 +824,26 @@ function assembleGithubJob(
     ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
     ...jobIf,
     ...jobPermissions,
-    ...(step.services !== undefined && step.services.length > 0
-      ? { services: lowerServices(step.services) }
-      : {}),
-    ...(step.environment !== undefined
-      ? { environment: { name: step.environment.name, ...(step.environment.url !== undefined ? { url: step.environment.url } : {}) } }
-      : {}),
+    ...resolveJobServices(step),
+    ...resolveJobEnvironment(step),
     ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
+  };
+}
+
+/** Resolve job-level services field from step services. */
+function resolveJobServices(step: StepDefinition): Partial<GithubJob> {
+  if (step.services === undefined || step.services.length === 0) return {};
+  return { services: lowerServices(step.services) };
+}
+
+/** Resolve job-level environment field from step environment spec. */
+function resolveJobEnvironment(step: StepDefinition): Partial<GithubJob> {
+  if (step.environment === undefined) return {};
+  return {
+    environment: {
+      name: step.environment.name,
+      ...(step.environment.url !== undefined ? { url: step.environment.url } : {}),
+    },
   };
 }
 
