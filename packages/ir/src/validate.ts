@@ -30,6 +30,9 @@ const OPERATION_KINDS = new Set([
   "exportArtifact",
   "importArtifact",
   "diagnostic",
+  "report",
+  "release",
+  "deployPages",
 ]);
 const DEPENDENCY_KINDS = new Set(["control", "value", "artifact"]);
 
@@ -163,7 +166,7 @@ function validateInputs(inputs: Record<string, unknown>): void {
 
 function validateInputValue(value: unknown, name: string): asserts value is InputValue {
   if (value === null || value === undefined) {
-    throw new ValidationError(`input '${name}' must be a string, number, or boolean`);
+    throw new ValidationError(`input '${name}' must be a string, number, boolean, or string array`);
   }
   if (typeof value === "number") {
     if (Number.isNaN(value) || !Number.isFinite(value)) {
@@ -174,7 +177,15 @@ function validateInputValue(value: unknown, name: string): asserts value is Inpu
   if (typeof value === "string" || typeof value === "boolean") {
     return;
   }
-  throw new ValidationError(`input '${name}' must be a string, number, or boolean`);
+  if (Array.isArray(value)) {
+    for (const el of value) {
+      if (typeof el !== "string") {
+        throw new ValidationError(`input '${name}' array must contain only strings`);
+      }
+    }
+    return;
+  }
+  throw new ValidationError(`input '${name}' must be a string, number, boolean, or string array`);
 }
 
 function validateBoundEntry(value: unknown): void {
@@ -347,6 +358,9 @@ function validateOperation(value: unknown): void {
     exportArtifact: validateExportArtifactOp,
     importArtifact: validateImportArtifactOp,
     diagnostic: validateDiagnosticOp,
+    report: validateReportOp,
+    release: validateReleaseOp,
+    deployPages: validateDeployPagesOp,
   };
   validators[op.kind]!(op);
 }
@@ -382,6 +396,24 @@ function validateDiagnosticOp(op: Record<string, unknown>): void {
   if (typeof op.severity !== "string" || !SEVERITIES.has(op.severity)) {
     throw new ValidationError("invalid diagnostic operation: missing or invalid 'severity'");
   }
+}
+
+function validateReportOp(op: Record<string, unknown>): void {
+  if (typeof op.spec !== "object" || op.spec === null) {
+    throw new ValidationError("invalid report operation: missing 'spec'");
+  }
+  const spec = op.spec as Record<string, unknown>;
+  if (typeof spec.type !== "string" || spec.type.length === 0) {
+    throw new ValidationError("invalid report operation: spec must have a non-empty 'type'");
+  }
+}
+
+function validateReleaseOp(op: Record<string, unknown>): void {
+  requireNonEmptyString(op, "tag", "invalid release operation: missing 'tag'");
+}
+
+function validateDeployPagesOp(op: Record<string, unknown>): void {
+  requireNonEmptyString(op, "path", "invalid deployPages operation: missing 'path'");
 }
 
 function validateDependency(value: unknown): void {

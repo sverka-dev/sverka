@@ -3,7 +3,7 @@
 **ID:** F-45
 **Category:** workflow-control
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -133,11 +133,18 @@ GitHub's `defaults` is narrow (shell, workdir only). GitLab's `default` is broad
 - **Depends on:** F-09 (shell operations), F-10 (before/after script), F-13 (timeout), F-14 (retry), F-29 (interruptible), F-36 (workdir/shell).
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should all Step properties be eligible for defaults, or only a subset?
-- Should defaults support nested override semantics (pipeline → step)?
-- Should the portable model include `image` and `services` as defaults?
+- **Only a subset of Step properties are eligible for defaults.** The
+  portable model covers: `shell`, `workdir`, `env`, `beforeScript`,
+  `afterScript`, `timeout`, `retry`, `interruptible`. Other step properties
+  (runner, identity, rules, outputs) are too step-specific to default.
+- **Nested override: pipeline → step.** Step-level properties override
+  pipeline defaults. This is simple and matches both GitHub and GitLab
+  semantics.
+- **No `image` and `services` as defaults in this feature.** Those are
+  covered by F-18 (container runtime) and F-19 (services). Applying them
+  as defaults is a future enhancement.
 
 ## References
 

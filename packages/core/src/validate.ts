@@ -137,11 +137,18 @@ function buildOutputTypeMap(
   const outputTypes = new Map<string, Map<string, OutputType>>();
   for (const step of steps) {
     const outs = new Map<string, OutputType>();
+    // Export operations (shell steps).
     for (const op of step.operations) {
       if (op.kind === "exportOutput") {
         outs.set(op.name, op.type);
       } else if (op.kind === "exportArtifact") {
         outs.set(op.name, "artifact");
+      }
+    }
+    // Call-step outputs (copied from callee at synthesis — no operations).
+    for (const out of step.outputs) {
+      if (!outs.has(out.name)) {
+        outs.set(out.name, out.type);
       }
     }
     outputTypes.set(step.id, outs);

@@ -1,5 +1,5 @@
 // Emit: GithubTargetGraph → YAML artifacts.
-// Spec 08 — §19.
+// Spec 08 — §19. F-31: multi-workflow emission.
 
 import { stringify } from "yaml";
 import type {
@@ -10,17 +10,26 @@ import type {
 } from "./types.js";
 
 /**
- * Emit a GithubTargetGraph as YAML artifacts.
- * Produces one .github/workflows/<name>.yml file.
+ * Emit one or more GithubTargetGraphs as YAML artifacts.
+ * Produces one .github/workflows/<name>.yml file per target graph.
  */
-export function emitGithub(targetGraph: GithubTargetGraph): readonly GeneratedArtifact[] {
-  const yaml = stringifyTargetGraph(targetGraph);
-  return [
-    {
-      path: `.github/workflows/${targetGraph.name}.yml`,
-      content: yaml,
-    },
-  ];
+export function emitGithub(
+  targetGraph: GithubTargetGraph | readonly GithubTargetGraph[],
+): readonly GeneratedArtifact[] {
+  const graphs = Array.isArray(targetGraph) ? targetGraph : [targetGraph];
+  return graphs.map((g) => ({
+    path: `.github/workflows/${sanitizeWorkflowName(g.name)}.yml`,
+    content: stringifyTargetGraph(g),
+  }));
+}
+
+/**
+ * Sanitize a graph name for use as a workflow filename.
+ * GitHub workflow filenames must be valid path segments; replace
+ * characters that could break path resolution.
+ */
+function sanitizeWorkflowName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
 /**
@@ -29,12 +38,23 @@ export function emitGithub(targetGraph: GithubTargetGraph): readonly GeneratedAr
 function stringifyTargetGraph(graph: GithubTargetGraph): string {
   const doc: Record<string, unknown> = {
     name: graph.name,
-    ...(graph.runName !== undefined ? { "run-name": graph.runName } : {}),
     on: graph.on,
   };
 
   if (Object.keys(graph.env).length > 0) {
     doc.env = graph.env;
+  }
+
+  if (graph.permissions) {
+    doc.permissions = graph.permissions;
+  }
+
+  if (graph.defaults) {
+    doc.defaults = graph.defaults;
+  }
+
+  if (graph.concurrency) {
+    doc.concurrency = concurrencyToYaml(graph.concurrency);
   }
 
   const jobs: Record<string, unknown> = {};
@@ -52,46 +72,100 @@ function stringifyTargetGraph(graph: GithubTargetGraph): string {
 function jobToYaml(job: GithubJob): Record<string, unknown> {
   const result: Record<string, unknown> = {
     name: job.name,
-    "runs-on": job.runsOn,
   };
 
+  // Reusable workflow call job: uses/with/secrets (no runs-on/steps).
+  if (job.uses) {
+    return reusableJobToYaml(job, result);
+  }
+
+  // Normal job.
+  result["runs-on"] = job.runsOn;
+  assignJobNeeds(job, result);
+  assignJobOptionalFields(job, result);
+  result.steps = job.steps.map((step, i) => stepToYaml(step, i));
+
+  return result;
+}
+
+/**
+ * Assign the `needs` field (scalar or array) when present.
+ */
+function assignJobNeeds(job: GithubJob, result: Record<string, unknown>): void {
   if (job.needs.length > 0) {
     result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
   }
+}
 
-  if (job.timeoutMinutes !== undefined) {
-    result["timeout-minutes"] = job.timeoutMinutes;
+/**
+ * Assign all optional single-value fields from the job to the YAML result.
+ */
+function assignJobOptionalFields(job: GithubJob, result: Record<string, unknown>): void {
+  assignSimpleFields(job, result);
+  assignTransformedFields(job, result);
+}
+
+/** Assign fields that map directly without transformation. */
+function assignSimpleFields(job: GithubJob, result: Record<string, unknown>): void {
+  const simple: Array<[string, unknown]> = [
+    ["timeout-minutes", job.timeoutMinutes],
+    ["container", job.container],
+    ["env", job.env],
+    ["permissions", job.permissions],
+    ["if", job.if],
+    ["services", job.services],
+    ["environment", job.environment],
+  ];
+  for (const [key, value] of simple) {
+    if (value !== undefined) result[key] = value;
   }
+}
 
-  if (job.container) {
-    result.container = job.container;
+/** Assign fields that require transformation before YAML emission. */
+function assignTransformedFields(job: GithubJob, result: Record<string, unknown>): void {
+  if (job.strategy) result.strategy = strategyToYaml(job.strategy);
+  if (job.concurrency) result.concurrency = concurrencyToYaml(job.concurrency);
+}
+
+/**
+ * Convert a GitHub strategy spec to a YAML-compatible object.
+ */
+function strategyToYaml(strategy: NonNullable<GithubJob["strategy"]>): Record<string, unknown> {
+  const strat: Record<string, unknown> = { matrix: strategy.matrix };
+  if (strategy.failFast !== undefined) {
+    strat["fail-fast"] = strategy.failFast;
   }
-
-  if (job.env) {
-    result.env = job.env;
+  if (strategy.maxParallel !== undefined) {
+    strat["max-parallel"] = strategy.maxParallel;
   }
+  return strat;
+}
 
-  if (job.strategy) {
-    const strat: Record<string, unknown> = { matrix: job.strategy.matrix };
-    if (job.strategy.failFast !== undefined) {
-      strat["fail-fast"] = job.strategy.failFast;
-    }
-    if (job.strategy.maxParallel !== undefined) {
-      strat["max-parallel"] = job.strategy.maxParallel;
-    }
-    result.strategy = strat;
+/**
+ * Convert a reusable workflow call job (uses) to a YAML-compatible object.
+ */
+function reusableJobToYaml(job: GithubJob, result: Record<string, unknown>): Record<string, unknown> {
+  result.uses = job.uses;
+  if (job.needs.length > 0) {
+    result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
   }
-
-  if (job.outputs && Object.keys(job.outputs).length > 0) {
-    result.outputs = job.outputs;
+  if (job.with && Object.keys(job.with).length > 0) {
+    result.with = job.with;
   }
-
-  if (job.if) {
-    result.if = job.if;
+  if (job.secrets) {
+    result.secrets = job.secrets;
   }
+  return result;
+}
 
-  result.steps = job.steps.map((step, i) => stepToYaml(step, i));
-
+/**
+ * Convert a concurrency spec to a YAML-compatible object.
+ */
+function concurrencyToYaml(conc: { readonly group: string; readonly cancelInProgress?: boolean }): Record<string, unknown> {
+  const result: Record<string, unknown> = { group: conc.group };
+  if (conc.cancelInProgress !== undefined) {
+    result["cancel-in-progress"] = conc.cancelInProgress;
+  }
   return result;
 }
 

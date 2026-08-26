@@ -8,11 +8,10 @@ import type {
   EntryDefinition,
   Input,
 } from "@sverka/core";
-import { validateGraph } from "@sverka/core";
+import { validateGraph, expandPipelineCalls } from "@sverka/core";
 import type { RunPlan, InputValue, BoundEntry } from "@sverka/ir";
 import { computeGraphId, computeRunPlanId } from "@sverka/ir";
 import { PlannerError } from "./errors.js";
-import { expandMatrixSteps } from "./matrix.js";
 
 export interface BindRunPlanOptions {
   readonly graph: DefinitionGraph;
@@ -40,7 +39,8 @@ export function bindRunPlan(options: BindRunPlanOptions): RunPlan {
   validatePipeline(graph, pipeline);
 
   const reachableSteps = computeReachableSteps(pipeline.steps, entry.roots);
-  const expandedSteps = expandMatrixSteps(reachableSteps);
+  // Expand pipeline-call steps into inline callee steps for the native engine.
+  const expandedSteps = expandPipelineCalls(graph, reachableSteps);
   const boundInputs = bindInputs(pipeline.inputs, inputs);
 
   const graphId = computeGraphId(graph);
@@ -376,7 +376,18 @@ function assertInputValue(
   type: Input["type"],
   name: string,
 ): void {
-  if (typeof value !== type) {
+  if (type === "array") {
+    if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+      throw new PlannerError(
+        `input "${name}" value ${JSON.stringify(value)} does not match declared type "array" (expected string array)`,
+        "INVALID_INPUT",
+      );
+    }
+    return;
+  }
+  const expected = type === "choice" ? "string" : type;
+  const actual = typeof value;
+  if (actual !== expected) {
     throw new PlannerError(
       `input "${name}" value ${JSON.stringify(value)} does not match declared type "${type}"`,
       "INVALID_INPUT",

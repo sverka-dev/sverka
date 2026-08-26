@@ -61,6 +61,32 @@ describe("decorator API — @stepWithOptions(options)", () => {
     expect(stepInstance.command).toBe("npm run build");
     expect(stepInstance.timeout).toBe(60000);
   });
+
+  it("threads interruptible option through to ShellStep", () => {
+    @pipeline
+    class TestPipeline {
+      @stepWithOptions({ interruptible: true })
+      build = "npm run build";
+    }
+
+    const proj = new Project("step-interruptible");
+    const p = decoratePipeline(TestPipeline, proj, "pipeline");
+    const stepInstance = p.node.children.find((c) => c.node.id === "build") as ShellStep;
+    expect(stepInstance.interruptible).toBe(true);
+  });
+
+  it("threads interruptible: false through to ShellStep", () => {
+    @pipeline
+    class TestPipeline {
+      @stepWithOptions({ interruptible: false })
+      deploy = "npm run deploy";
+    }
+
+    const proj = new Project("step-not-interruptible");
+    const p = decoratePipeline(TestPipeline, proj, "pipeline");
+    const stepInstance = p.node.children.find((c) => c.node.id === "deploy") as ShellStep;
+    expect(stepInstance.interruptible).toBe(false);
+  });
 });
 
 describe("decorator API — @step(options) overloaded form", () => {

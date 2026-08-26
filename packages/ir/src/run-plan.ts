@@ -4,7 +4,7 @@
 import type { StepDefinition } from "@sverka/core";
 import type { Trigger } from "@sverka/cdk";
 
-export type InputValue = string | number | boolean;
+export type InputValue = string | number | boolean | readonly string[];
 
 export interface BoundEntry {
   readonly id: string;

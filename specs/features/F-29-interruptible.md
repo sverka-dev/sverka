@@ -3,7 +3,7 @@
 **ID:** F-29
 **Category:** concurrency
 **Milestone:** M1
-**Status:** Proposed
+**Status:** Accepted
 **Parent epic:** sv-4wh9
 
 ## Summary
@@ -90,11 +90,28 @@ GitLab has fine-grained per-job interruptible control. GitHub only has workflow-
 - **Depends on:** F-28 (concurrency — related concept).
 - **Blocks:** none.
 
-## Open questions
+## Decisions (open questions resolved)
 
-- Should the GitHub approximation emit a warning or silently downgrade?
-- Should `interruptible` be Pipeline-level or Step-level?
-- Should the native engine support cancellation signals?
+- **GitHub approximation:** emit a `warning`-severity diagnostic via the
+  capability manifest (`concurrency.interruptible: "partial"` on GitHub).
+  Do NOT emit a `concurrency:` block — that is F-28's surface. Per-job
+  `interruptible` is silently dropped on GitHub; the diagnostic informs the
+  user. Rationale: GitHub has no per-job interruptible construct; emitting a
+  workflow-level `concurrency.cancel-in-progress` would change semantics for
+  the whole workflow and collide with F-28's explicit `concurrency` lowering.
+- **`interruptible` is Step-level only.** GitLab's `interruptible` is per-job;
+  GitHub's `cancel-in-progress` is workflow/concurrency-group level (F-28).
+  A Pipeline-level boolean would be redundant with F-28's
+  `cancelInProgress`. Keep the portable model aligned with the finer-grained
+  provider (GitLab) and let the GitHub diagnostic explain the downgrade.
+- **Native engine:** no new cancellation signals. The engine already has
+  `Engine.cancel(runId)` and `AbortController`-based step cancellation
+  (engine.ts:93, :400). `interruptible` is a *declaration* of cancellability,
+  not a new mechanism. A future "auto-cancel on new run" orchestrator can
+  consult `step.interruptible` before calling `cancel()`. This wave only
+  threads the field through the graph and lowering; engine behaviour change
+  is out of scope (no scheduler change needed for the declaration to be
+  useful to callers and to lower correctly).
 
 ## References
 

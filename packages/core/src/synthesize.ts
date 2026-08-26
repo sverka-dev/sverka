@@ -1,14 +1,21 @@
 // Synthesis: transforms a construct tree into a Definition Graph.
-// Spec 05 — §16, §11.3, §11.4.
+// Spec 05 — §16, §11.3, §11.4. F-31: two-pass for pipeline calls.
 
 import {
   Pipeline,
   ShellStep,
+  PipelineCallStep,
+  ComponentStep,
+  ChildPipelineStep,
+  DownstreamStep,
+  ReleaseStep,
+  PagesStep,
   Entry,
   type Project,
   Step,
   type StepRef,
-  type Expression,
+  type Reference,
+  type InputLiteral,
 } from "@sverka/cdk";
 import type {
   DefinitionGraph,
@@ -20,6 +27,7 @@ import type {
   Dependency,
   OutputDefinition,
   PipelineOutputDefinition,
+  PipelineCall,
 } from "./graph.js";
 import {
   detectCycles,
@@ -29,18 +37,24 @@ import {
   validateDependencies,
   resolveStepId,
 } from "./validate.js";
+import { validatePipelineCalls } from "./validate-calls.js";
 import { SynthesisError } from "./errors.js";
 
 /**
  * Transform a construct tree into a Definition Graph.
  *
- * Lifecycle: discover → instantiate → normalize → build graph → validate.
- * Discover and instantiate are implicit (user creates the tree directly).
+ * Three-pass: (1) synthesize all pipelines' steps/entries/outputs without
+ * resolving call-step outputs or validating references; (2) resolve call-step
+ * outputs from callee pipelines; (3) validate references, types, deps, cycles
+ * per pipeline + validate the call graph. This allows callees to be defined
+ * after callers and ensures call-step outputs are visible to reference
+ * validation.
  */
 export function synthesize(project: Project): DefinitionGraph {
   const projectId = project.node.id;
   const pipelines: PipelineDefinition[] = [];
 
+  // Pass 1: synthesize each pipeline's steps/entries/outputs (no validation).
   for (const child of project.node.children) {
     if (!(child instanceof Pipeline)) {
       throw new SynthesisError(
@@ -51,6 +65,19 @@ export function synthesize(project: Project): DefinitionGraph {
     }
     pipelines.push(synthesizePipeline(child, projectId));
   }
+
+  // Pass 2: resolve call-step outputs from callee pipelines.
+  resolveCallOutputs(pipelines);
+
+  // Pass 3: validate per-pipeline (refs, types, deps, cycles) + call graph.
+  for (const pipeline of pipelines) {
+    validateOutputCollisions(pipeline.steps);
+    validateReferences(pipeline.steps, pipeline.id);
+    validateReferenceTypes(pipeline.steps, pipeline.id);
+    validateDependencies(pipeline.steps);
+    detectCycles(pipeline.steps);
+  }
+  validatePipelineCalls(pipelines);
 
   return {
     project: {
@@ -85,42 +112,97 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
   );
   const inputs: Record<string, Input> = Object.fromEntries(pipeline.inputs);
 
-  // Validate.
-  validateOutputCollisions(steps);
-  validateReferences(steps, pipelineId);
-  validateReferenceTypes(steps, pipelineId);
-  validateDependencies(steps);
-  detectCycles(steps);
-
   return {
     id: pipelineId,
-    ...(pipeline.name !== undefined ? { name: pipeline.name } : {}),
-    ...(pipeline.runName !== undefined ? { runName: String(pipeline.runName) } : {}),
     inputs,
     entries,
     steps,
     outputs,
+    ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
+    ...(pipeline.defaults !== undefined ? { defaults: pipeline.defaults } : {}),
+    ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
+    ...(pipeline.rules.length > 0 ? { rules: pipeline.rules } : {}),
+    ...(pipeline.includes.length > 0 ? { includes: pipeline.includes } : {}),
   };
 }
 
 function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   const stepId = `${pipelineId}/${step.node.id}`;
-  const operations: OperationDefinition[] = [];
+  const operations: OperationDefinition[] = [...collectPrimaryOperations(step)];
   const dependencies: Dependency[] = [];
   const seenDeps = new Set<string>();
-
-  if (step instanceof ShellStep) {
-    operations.push({ kind: "shell", command: step.command });
-  }
 
   collectExportOperations(step, stepId, operations);
   collectImportOperations(step, pipelineId, operations, dependencies, seenDeps);
   collectControlDeps(step, pipelineId, dependencies, seenDeps);
+  collectReportOperations(step, operations);
 
+  const base = buildBaseStep(stepId, step, operations, dependencies);
+
+  // Pipeline-call step: set `call`, emit no shell operations (already empty).
+  // Outputs are resolved in pass 2 (resolveCallOutputs).
+  if (step instanceof PipelineCallStep) {
+    // Collect dependencies from StepRef bindings in call inputs.
+    collectCallInputDeps(step.callInputs, pipelineId, dependencies, seenDeps);
+    const call: PipelineCall = {
+      callee: step.callee,
+      inputs: buildCallInputs(step.callInputs),
+    };
+    return { ...base, call };
+  }
+
+  // Component step: set `component`, emit no shell operations.
+  if (step instanceof ComponentStep) {
+    // Collect dependencies from StepRef bindings in component inputs.
+    collectCallInputDeps(step.component.inputs as Readonly<Record<string, Reference | InputLiteral>>, pipelineId, dependencies, seenDeps);
+    return { ...base, component: step.component };
+  }
+
+  // Child-pipeline step: set `childPipeline`, emit no shell operations.
+  if (step instanceof ChildPipelineStep) {
+    return { ...base, childPipeline: step.childPipeline };
+  }
+
+  // Downstream step: set `downstream`, emit no shell operations.
+  if (step instanceof DownstreamStep) {
+    // Collect dependencies from StepRef bindings in downstream inputs.
+    collectCallInputDeps(step.downstream.inputs as Readonly<Record<string, Reference | InputLiteral>>, pipelineId, dependencies, seenDeps);
+    return { ...base, downstream: step.downstream };
+  }
+
+  return base;
+}
+
+/** Build the primary operation (shell/release/pages) for a step, if any. */
+function collectPrimaryOperations(step: Step): OperationDefinition[] {
+  if (step instanceof ShellStep) {
+    return [
+      {
+        kind: "shell",
+        command: step.command,
+        ...(step.background ? { background: true } : {}),
+      },
+    ];
+  }
+  if (step instanceof ReleaseStep) {
+    return [{ kind: "release", ...step.release }];
+  }
+  if (step instanceof PagesStep) {
+    return [{ kind: "deployPages", ...step.pages }];
+  }
+  return [];
+}
+
+/** Build the base `StepDefinition` (without call/component/child/downstream). */
+function buildBaseStep(
+  stepId: string,
+  step: Step,
+  operations: OperationDefinition[],
+  dependencies: Dependency[],
+): StepDefinition {
   const stepOutputs: OutputDefinition[] = [...step.outputs.entries()].map(
     ([name, decl]) => ({ ...decl, name }),
   );
-
   return {
     id: stepId,
     runtime: step.runtime,
@@ -128,14 +210,153 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
     inputs: [...step.inputs],
     outputs: stepOutputs,
     dependencies,
-    ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
-    ...(step.condition !== undefined ? { condition: step.condition } : {}),
-    ...(step.matrix !== undefined ? { matrix: step.matrix } : {}),
-    ...(step.beforeScript !== undefined ? { beforeScript: [...step.beforeScript] } : {}),
-    ...(step.afterScript !== undefined ? { afterScript: [...step.afterScript] } : {}),
-    ...(step.continueOnError !== undefined ? { continueOnError: step.continueOnError } : {}),
-    ...(step.retry !== undefined ? { retry: step.retry } : {}),
+    ...collectStepOptionalFields(step),
   };
+}
+
+/**
+ * Collect all optional StepDefinition fields from a Step into a partial record.
+ * Extracted from buildBaseStep to keep cognitive complexity under the SonarCloud limit.
+ */
+function collectStepOptionalFields(step: Step): Partial<StepDefinition> {
+  const result: Partial<StepDefinition> = {};
+  const fields: Array<[keyof StepDefinition, unknown]> = [
+    ["timeout", step.timeout],
+    ["condition", step.condition],
+    ["matrix", step.matrix],
+    ["beforeScript", step.beforeScript ? [...step.beforeScript] : undefined],
+    ["afterScript", step.afterScript ? [...step.afterScript] : undefined],
+    ["continueOnError", step.continueOnError],
+    ["retry", step.retry],
+    ["interruptible", step.interruptible],
+    ["runner", step.runner],
+    ["identity", step.identity],
+    ["rules", step.rules],
+    ["reports", step.reports],
+    ["services", step.services],
+    ["environment", step.environment],
+    ["cache", step.cache],
+    ["concurrency", step.concurrency],
+    ["delay", step.delay],
+  ];
+  for (const [key, value] of fields) {
+    if (value !== undefined) {
+      (result as Record<string, unknown>)[key] = value;
+    }
+  }
+  return result;
+}
+
+/** Convert a call step's `callInputs` map into a plain record. */
+function buildCallInputs(
+  callInputs: ReadonlyMap<string, Reference | InputLiteral>,
+): Record<string, Reference | InputLiteral> {
+  const result: Record<string, Reference | InputLiteral> = {};
+  for (const [name, value] of callInputs) {
+    result[name] = value;
+  }
+  return result;
+}
+
+/**
+ * Pass 2: for each call step, copy the callee pipeline's outputs onto the
+ * call step's `outputs` (producer = call step id). This lets downstream
+ * caller steps reference callee outputs via the existing StepRef mechanism.
+ *
+ * Iterates to a fixed point so nested call chains (A calls B calls C)
+ * propagate transitively: B's outputs are resolved before A reads them.
+ */
+function resolveCallOutputs(pipelines: PipelineDefinition[]): void {
+  const byId = new Map(pipelines.map((p) => [p.id, p]));
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+
+    for (let pi = 0; pi < pipelines.length; pi++) {
+      const pipeline = pipelines[pi]!;
+      const { steps: newSteps, modified } = resolvePipelineCallSteps(pipeline, byId);
+
+      if (modified) {
+        // Recompute pipeline-level outputs from the updated steps so that
+        // callers of this pipeline see the resolved call-step outputs.
+        const newOutputs = newSteps.flatMap((s) =>
+          s.outputs.map((o) => ({ ...o, stepId: s.id })),
+        );
+        pipelines[pi] = { ...pipeline, steps: newSteps, outputs: newOutputs };
+        changed = true;
+      }
+    }
+  }
+}
+
+/**
+ * Resolve call-step outputs for a single pipeline, returning updated steps
+ * and whether any modification occurred.
+ */
+function resolvePipelineCallSteps(
+  pipeline: PipelineDefinition,
+  byId: ReadonlyMap<string, PipelineDefinition>,
+): { steps: StepDefinition[]; modified: boolean } {
+  const newSteps = [...pipeline.steps];
+  let modified = false;
+
+  for (let si = 0; si < newSteps.length; si++) {
+    const step = newSteps[si]!;
+    if (!step.call) continue;
+    const callee = byId.get(step.call.callee);
+    if (!callee) continue; // UNKNOWN_CALLEE is reported by validatePipelineCalls
+
+    const copiedOutputs = copyCalleeOutputs(callee);
+    if (!outputsEqual(step.outputs, copiedOutputs)) {
+      newSteps[si] = { ...step, outputs: copiedOutputs };
+      modified = true;
+    }
+  }
+
+  return { steps: newSteps, modified };
+}
+
+/**
+ * Copy callee's pipeline-level outputs, preserving retention and access metadata.
+ */
+function copyCalleeOutputs(callee: PipelineDefinition): OutputDefinition[] {
+  return callee.outputs.map((o) => ({
+    name: o.name,
+    type: o.type,
+    ...(o.path !== undefined ? { path: o.path } : {}),
+    ...(o.description !== undefined ? { description: o.description } : {}),
+    ...(o.retention !== undefined ? { retention: o.retention } : {}),
+    ...(o.access !== undefined ? { access: o.access } : {}),
+  }));
+}
+
+/**
+ * Compare two output arrays for structural equality (prevents infinite loops).
+ */
+function outputsEqual(prev: readonly OutputDefinition[], next: readonly OutputDefinition[]): boolean {
+  if (prev.length !== next.length) return false;
+  return prev.every((po, i) => {
+    const co = next[i]!;
+    return (
+      po.name === co.name &&
+      po.type === co.type &&
+      po.path === co.path &&
+      po.description === co.description &&
+      po.retention === co.retention &&
+      po.access === co.access
+    );
+  });
+}
+
+function collectReportOperations(
+  step: Step,
+  operations: OperationDefinition[],
+): void {
+  if (step.reports === undefined) return;
+  for (const report of step.reports) {
+    operations.push({ kind: "report", spec: report });
+  }
 }
 
 function collectExportOperations(
@@ -152,7 +373,13 @@ function collectExportOperations(
           stepId,
         );
       }
-      operations.push({ kind: "exportArtifact", name, path: decl.path });
+      operations.push({
+        kind: "exportArtifact",
+        name,
+        path: decl.path,
+        ...(decl.retention !== undefined ? { retention: decl.retention } : {}),
+        ...(decl.access !== undefined ? { access: decl.access } : {}),
+      });
     } else {
       operations.push({ kind: "exportOutput", name, type: decl.type });
     }
@@ -192,6 +419,32 @@ function collectImportOperations(
   }
 }
 
+/**
+ * Collect dependencies from StepRef bindings in call/component/downstream inputs.
+ * These ensure the producer step runs before the call step so its output is available.
+ */
+function collectCallInputDeps(
+  inputs: Readonly<Record<string, Reference | InputLiteral>> | ReadonlyMap<string, Reference | InputLiteral>,
+  pipelineId: string,
+  dependencies: Dependency[],
+  seenDeps: Set<string>,
+): void {
+  const entries = inputs instanceof Map ? inputs.entries() : Object.entries(inputs);
+  for (const [, value] of entries) {
+    if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
+      const ref = value as Reference;
+      if (ref.kind === "step") {
+        const producerId = resolveStepId(pipelineId, ref.step);
+        addDependency(dependencies, seenDeps, {
+          kind: ref.type === "artifact" ? "artifact" : "value",
+          producer: producerId,
+          output: ref.output,
+        });
+      }
+    }
+  }
+}
+
 function collectControlDeps(
   step: Step,
   pipelineId: string,
@@ -208,13 +461,11 @@ function collectControlDeps(
       output: ref.output,
     });
   } else if (step.condition?.kind === "expression") {
-    // Expression conditions may reference step outputs — infer value deps.
-    const expr = step.condition as Expression;
-    for (const ref of expr.refs) {
+    for (const ref of step.condition.refs) {
       if (ref.kind === "step") {
         const producerId = resolveStepId(pipelineId, ref.step);
         addDependency(dependencies, seenDeps, {
-          kind: ref.type === "artifact" ? "artifact" : "value",
+          kind: "value",
           producer: producerId,
           output: ref.output,
         });
