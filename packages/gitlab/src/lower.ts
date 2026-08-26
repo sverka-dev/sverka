@@ -14,7 +14,7 @@ import type {
   ComponentRef,
 } from "@sverka/core";
 import { expandPipelineCalls } from "@sverka/core";
-import type { MatrixSpec, MatrixValue, StepRef, StatusCondition, Input, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec, InputLiteral } from "@sverka/cdk";
+import type { MatrixSpec, MatrixValue, StepRef, StatusCondition, StepStatus, Input, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec, InputLiteral } from "@sverka/cdk";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule, GitlabDefault, GitlabSpecInput, GitlabService, GitlabEnvironment, GitlabCache, GitlabComponentInclude, GitlabLocalInclude, GitlabTrigger, GitlabRelease, GitlabPages, GitlabWorkflowRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
 
@@ -684,7 +684,19 @@ function lowerStep(
 }
 
 /**
- * If the step has a condition, AND it with each rule's if expression.
+ * If the step has a condition, apply it to the merged rules.
+ *
+ * Status conditions (success/failure/always/never) map to GitLab `when`
+ * values, not `if:` expressions. GitLab's `if:` does not have equivalents for
+ * `on_success`/`on_failure` — those are `when` semantics. Emitting empty `if:`
+ * strings (as the previous code did for success/failure) produces invalid YAML.
+ *
+ * Step-output conditions reference dotenv variables from a producer job's
+ * artifacts. GitLab evaluates all job rules during pipeline creation, before
+ * any job runs — so dotenv variables are not available at that point. Reject
+ * step-output conditions with an error until runtime-safe handling exists.
+ *
+ * Context and expression conditions are AND'd with each rule's `if` expression.
  * GitLab evaluates rules in order and stops at the first match, so appending
  * the condition as a separate rule would bypass it when a trigger rule matches.
  */
@@ -694,6 +706,27 @@ function applyStepCondition(
   jobIdMap: Map<string, string>,
 ): readonly GitlabRule[] {
   if (step.condition === undefined) return mergedRules;
+
+  // Status conditions → map to GitLab rules `when` values.
+  if (step.condition.kind === "status") {
+    const when = statusToGitlabWhen(step.condition.status);
+    if (mergedRules.length === 0) {
+      return [{ when }];
+    }
+    return mergedRules.map((rule) => ({ ...rule, when }));
+  }
+
+  // Step-output conditions → reject. Producer outputs are dotenv variables
+  // that GitLab cannot evaluate during pipeline creation (when rules are
+  // evaluated). Runtime-safe handling does not yet exist.
+  if (step.condition.kind === "step") {
+    throw new GitlabTargetError(
+      `step '${step.id}' has a step-output condition (${step.condition.step}.${step.condition.output}), which GitLab cannot evaluate during pipeline creation — dotenv variables from producer jobs are not available when rules are evaluated`,
+      "LOWER_FAILED",
+    );
+  }
+
+  // Context and expression conditions → AND with each rule's if expression.
   const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
   let rules = mergedRules.map((rule) => {
     if (condExpr === undefined) return rule;
@@ -704,6 +737,26 @@ function applyStepCondition(
     rules = [{ if: condExpr }];
   }
   return rules;
+}
+
+/**
+ * Map a Sverka step status condition to a GitLab rules `when` value.
+ * - success → on_success (run only if all parent jobs succeed — GitLab default)
+ * - failure → on_failure (run only if at least one parent job fails)
+ * - always  → always
+ * - never   → never
+ */
+function statusToGitlabWhen(status: StepStatus): string {
+  switch (status) {
+    case "always":
+      return "always";
+    case "never":
+      return "never";
+    case "success":
+      return "on_success";
+    case "failure":
+      return "on_failure";
+  }
 }
 
 /** Resolve continueOnError to GitLab allowFailure field. */

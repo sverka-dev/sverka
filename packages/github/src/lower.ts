@@ -500,12 +500,20 @@ function lowerStepsWithCalls(
  * (meaning the value is a literal the caller should handle itself).
  * Context references are mapped through GITHUB_CONTEXT_MAP so that Sverka
  * namespaces (e.g. `git.sha`) become valid GitHub expressions (e.g.
- * `github.sha`). Secret references are routed to env-var syntax (`$FIELD`)
- * rather than emitted as unsupported `${{ secrets.X }}` in `with:` values.
+ * `github.sha`).
+ *
+ * Secret references are sink-specific:
+ * - In `with:` inputs (`forWithInput = true`): `${{ secrets.FIELD }}`.
+ *   GitHub Actions does not expand `$FIELD` in `with:` values — it treats it
+ *   as a literal string. The `secrets` context is the correct syntax here.
+ * - In `run:` commands (`forWithInput = false`, default): `$FIELD`.
+ *   The shell expands the env var, and this avoids exposing the secret value
+ *   in workflow logs.
  */
 function lowerReferenceExpr(
   value: unknown,
   jobIdMap: Map<string, string>,
+  forWithInput = false,
 ): string | undefined {
   if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
     const ref = value as Reference;
@@ -514,7 +522,7 @@ function lowerReferenceExpr(
       return `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
     }
     if (ref.kind === "context") {
-      return translateContextRef(ref.namespace, ref.field, false);
+      return translateContextRef(ref.namespace, ref.field, false, forWithInput);
     }
   }
   return undefined;
@@ -534,9 +542,11 @@ function lowerCallStep(
   const callee = call.callee;
 
   // Build `with:` from bound inputs.
+  // Secrets in `with:` inputs must use ${{ secrets.FIELD }} — GitHub Actions
+  // does not expand $FIELD in with: values (it treats it as a literal string).
   const withMap: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(call.inputs)) {
-    withMap[name] = lowerReferenceExpr(value, jobIdMap) ?? value;
+    withMap[name] = lowerReferenceExpr(value, jobIdMap, true) ?? value;
   }
 
   return {
@@ -564,9 +574,11 @@ function lowerComponentStep(
   const comp = step.component!;
 
   // Build `with:` from bound inputs.
+  // Secrets in `with:` inputs must use ${{ secrets.FIELD }} — GitHub Actions
+  // does not expand $FIELD in with: values (it treats it as a literal string).
   const withMap: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(comp.inputs)) {
-    withMap[name] = lowerReferenceExpr(value, jobIdMap) ?? value;
+    withMap[name] = lowerReferenceExpr(value, jobIdMap, true) ?? value;
   }
 
   // Component references that look like GitHub Actions (org/repo@ref) are
@@ -646,7 +658,17 @@ function lowerDownstreamStep(
     }
   }
   const payload = JSON.stringify(payloadObj);
-  const branchPart = ds.branch ? ` -f "ref=${ds.branch}"` : "";
+  // Pass the payload and optional branch through step env vars, then expand
+  // them as quoted shell variables. JSON.stringify does not escape apostrophes
+  // for a POSIX shell — embedding the payload in a single-quoted command would
+  // break if a runtime value (after GitHub expression expansion) contains a
+  // single quote. Env vars are expanded by the runner after GitHub expression
+  // evaluation, so the shell receives the value as a single argument.
+  const env: Record<string, string> = { CLIENT_PAYLOAD: payload };
+  if (ds.branch) {
+    env.DOWNSTREAM_BRANCH = ds.branch;
+  }
+  const refPart = ds.branch ? ` -f ref="$DOWNSTREAM_BRANCH"` : "";
   return {
     id: jobId,
     name: jobId,
@@ -655,7 +677,8 @@ function lowerDownstreamStep(
     steps: [
       {
         name: `Trigger downstream: ${ds.project}`,
-        run: `gh api repos/${ds.project}/dispatches -f event_type=sverka-trigger -f client_payload='${payload}'${branchPart}`,
+        env,
+        run: `gh api repos/${ds.project}/dispatches -f event_type=sverka-trigger -f client_payload="$CLIENT_PAYLOAD"${refPart}`,
       },
     ],
   };
@@ -1303,11 +1326,16 @@ const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
 
 /**
  * Translate a context ref (namespace.field) to GitHub expression syntax.
- * Secrets are emitted as env var references ($FIELD) in commands to avoid
- * exposing secret values in logs. In conditions, secrets are not supported
- * by GitHub's if: context and are emitted as env var references instead.
+ * Secrets are sink-specific:
+ * - In `with:` inputs (`forWithInput = true`): `${{ secrets.FIELD }}`.
+ *   GitHub Actions does not expand `$FIELD` in `with:` values — it treats it
+ *   as a literal string. The `secrets` context is the correct syntax here.
+ * - In `run:` commands (`forWithInput = false`): `$FIELD` (env var, avoids
+ *   exposing secret values in run logs).
+ * In conditions, secrets are not supported by GitHub's if: context and are
+ * emitted as env var references instead.
  */
-function translateContextRef(namespace: string, field: string, inCondition = false): string {
+function translateContextRef(namespace: string, field: string, inCondition = false, forWithInput = false): string {
   const key = `${namespace}.${field}`;
   const mapped = GITHUB_CONTEXT_MAP[key];
   if (mapped) return `\${{ ${mapped} }}`;
@@ -1322,13 +1350,18 @@ function translateContextRef(namespace: string, field: string, inCondition = fal
   if (namespace === "inputs") {
     return `\${{ env.${field} }}`;
   }
-  // secrets.X in commands → $FIELD (env var, avoids exposing value in run logs)
+  // secrets.X in with: inputs → ${{ secrets.FIELD }} (GitHub expands the
+  //   secrets context in with: values, but does NOT expand $FIELD there).
+  // secrets.X in commands → $FIELD (env var, avoids exposing value in logs)
   // secrets.X in conditions → not supported by GitHub if: context
   if (namespace === "secrets") {
     if (inCondition) {
       // GitHub does not support secrets context in if: expressions.
       // Use env var reference instead (secret is injected as env var).
       return `\${{ env.${field} }}`;
+    }
+    if (forWithInput) {
+      return `\${{ secrets.${field} }}`;
     }
     return `$${field}`;
   }
