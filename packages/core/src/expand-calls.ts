@@ -68,72 +68,6 @@ function expandAll(
 }
 
 /**
- * Materialize callee defaults for inputs that have no explicit binding.
- * This ensures the callee receives its default values during expansion.
- */
-function materializeEffectiveBindings(
-  bindings: Readonly<Record<string, Reference | InputLiteral>>,
-  callee: PipelineDefinition,
-): Record<string, Reference | InputLiteral> {
-  const effectiveBindings: Record<string, Reference | InputLiteral> = { ...bindings };
-  for (const [name, input] of Object.entries(callee.inputs)) {
-    if (effectiveBindings[name] === undefined && input.default !== undefined && !input.secret) {
-      effectiveBindings[name] = input.default as InputLiteral;
-    }
-  }
-  return effectiveBindings;
-}
-
-/**
- * Build a local idMap mapping callee step ids to namespaced ids.
- */
-function buildLocalIdMap(
-  callee: PipelineDefinition,
-  prefix: string,
-  parentIdMap: Map<string, string>,
-): Map<string, string> {
-  const localIdMap = new Map<string, string>(parentIdMap);
-  for (const calleeStep of callee.steps) {
-    const localName = calleeStep.id.split("/").pop()!;
-    localIdMap.set(calleeStep.id, `${prefix}/${localName}`);
-  }
-  return localIdMap;
-}
-
-/**
- * Register output rewrites: call step output name → callee producing step.
- * After expansion, refs to (callStep.id, outputName) should point to
- * (namespaced callee producer id, outputName).
- */
-function registerOutputRewrites(
-  callee: PipelineDefinition,
-  prefix: string,
-  localIdMap: Map<string, string>,
-  refRewrite: Map<string, { producer: string; output: string }>,
-): void {
-  for (const out of callee.outputs) {
-    const namespacedProducer = localIdMap.get(out.stepId) ?? out.stepId;
-    refRewrite.set(`${prefix}:${out.name}`, {
-      producer: namespacedProducer,
-      output: out.name,
-    });
-  }
-}
-
-/**
- * Determine callee root steps (no internal deps) — they inherit call step's
- * dependsOn/condition.
- */
-function findCalleeRoots(callee: PipelineDefinition): Set<string> {
-  const calleeStepIds = new Set(callee.steps.map((s) => s.id));
-  return new Set(
-    callee.steps
-      .filter((s) => s.dependencies.every((d) => !calleeStepIds.has(d.producer)))
-      .map((s) => s.id),
-  );
-}
-
-/**
  * Expand a single call step into the callee's steps, namespaced under the
  * call step's id. Registers output rewrites in refRewrite.
  */
@@ -149,10 +83,45 @@ function expandCallStep(
   // Use the namespaced id as prefix (handles nested calls where the call
   // step's original id has been rewritten by the parent idMap).
   const prefix = parentIdMap.get(callStep.id) ?? callStep.id;
-  const effectiveBindings = materializeEffectiveBindings(callStep.call!.inputs, callee);
-  const localIdMap = buildLocalIdMap(callee, prefix, parentIdMap);
-  registerOutputRewrites(callee, prefix, localIdMap, refRewrite);
-  const rootIds = findCalleeRoots(callee);
+  const bindings = callStep.call!.inputs;
+
+  // Materialize callee defaults for inputs that have no explicit binding.
+  // This ensures the callee receives its default values during expansion.
+  const effectiveBindings: Record<string, Reference | InputLiteral> = { ...bindings };
+  for (const [name, input] of Object.entries(callee.inputs)) {
+    if (effectiveBindings[name] === undefined && input.default !== undefined && !input.secret) {
+      effectiveBindings[name] = input.default as InputLiteral;
+    }
+  }
+
+  // Build idMap: callee step id → namespaced id (prefix + last segment).
+  const localIdMap = new Map<string, string>(parentIdMap);
+  for (const calleeStep of callee.steps) {
+    const localName = calleeStep.id.split("/").pop()!;
+    localIdMap.set(calleeStep.id, `${prefix}/${localName}`);
+  }
+
+  // Register output rewrites: call step output name → callee producing step.
+  // After expansion, refs to (callStep.id, outputName) should point to
+  // (namespaced callee producer id, outputName). Use the namespaced call step
+  // id (prefix) as the key source, since downstream refs may use either the
+  // original or namespaced id depending on expansion depth.
+  for (const out of callee.outputs) {
+    const namespacedProducer = localIdMap.get(out.stepId) ?? out.stepId;
+    refRewrite.set(`${prefix}:${out.name}`, {
+      producer: namespacedProducer,
+      output: out.name,
+    });
+  }
+
+  // Determine callee root steps (no internal deps) — they inherit call step's
+  // dependsOn/condition.
+  const calleeStepIds = new Set(callee.steps.map((s) => s.id));
+  const rootIds = new Set(
+    callee.steps
+      .filter((s) => s.dependencies.every((d) => !calleeStepIds.has(d.producer)))
+      .map((s) => s.id),
+  );
 
   // Expand callee steps recursively (for nested calls).
   const expandedCalleeSteps = expandAll(callee.steps, byId, localIdMap, refRewrite);

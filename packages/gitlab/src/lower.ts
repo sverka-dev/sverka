@@ -667,7 +667,22 @@ function lowerStep(
   }
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
-  const rules = applyStepCondition(step, mergedRules, jobIdMap);
+
+  // If the step has a condition, AND it with each rule's if expression.
+  // GitLab evaluates rules in order and stops at the first match, so appending
+  // the condition as a separate rule would bypass it when a trigger rule matches.
+  let rules = mergedRules;
+  if (step.condition !== undefined) {
+    const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
+    rules = mergedRules.map((rule) => {
+      if (condExpr === undefined) return rule;
+      const ifExpr = rule.if !== undefined ? `(${rule.if}) && (${condExpr})` : condExpr;
+      return { ...rule, if: ifExpr };
+    });
+    if (rules.length === 0 && condExpr !== undefined) {
+      rules = [{ if: condExpr }];
+    }
+  }
 
   return {
     id: jobId,
@@ -675,81 +690,31 @@ function lowerStep(
     needs,
     script,
     ...buildJobFields({ image, artifacts, variables: jobVariables, rules, timeout: step.timeout, interruptible: step.interruptible, runner: step.runner, identity: step.identity, services: step.services, environment: step.environment, cache: step.cache, concurrency: step.concurrency }),
-    ...assembleStepExtras(step, release, pages),
-  };
-}
-
-/**
- * If the step has a condition, AND it with each rule's if expression.
- * GitLab evaluates rules in order and stops at the first match, so appending
- * the condition as a separate rule would bypass it when a trigger rule matches.
- */
-function applyStepCondition(
-  step: StepDefinition,
-  mergedRules: readonly GitlabRule[],
-  jobIdMap: Map<string, string>,
-): GitlabRule[] {
-  if (step.condition === undefined) {
-    return [...mergedRules];
-  }
-  const condExpr = lowerGitlabConditionExpr(step.condition, jobIdMap);
-  const rules = mergedRules.map((rule) => {
-    if (condExpr === undefined) return rule;
-    const ifExpr = rule.if !== undefined ? `(${rule.if}) && (${condExpr})` : condExpr;
-    return { ...rule, if: ifExpr };
-  });
-  if (rules.length === 0 && condExpr !== undefined) {
-    return [{ if: condExpr }];
-  }
-  return rules;
-}
-
-/**
- * Assemble matrix, scripts, failure, retry, release, pages, and delay extras.
- */
-function assembleStepExtras(
-  step: StepDefinition,
-  release: GitlabRelease | undefined,
-  pages: GitlabPages | undefined,
-): Partial<GitlabJob> {
-  return {
     ...(step.matrix !== undefined
       ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
       : {}),
     ...(step.beforeScript ? { beforeScript: step.beforeScript } : {}),
     ...(step.afterScript ? { afterScript: step.afterScript } : {}),
-    ...lowerContinueOnError(step.continueOnError),
-    ...lowerRetry(step.retry),
+    ...(step.continueOnError !== undefined
+      ? {
+          allowFailure:
+            typeof step.continueOnError === "boolean"
+              ? step.continueOnError
+              : { exitCodes: step.continueOnError.exitCodes },
+        }
+      : {}),
+    ...(step.retry !== undefined
+      ? {
+          retry: {
+            max: step.retry.max,
+            ...(step.retry.when ? { when: step.retry.when } : {}),
+            ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
+          },
+        }
+      : {}),
     ...(release ? { release } : {}),
     ...(pages ? { pages } : {}),
     ...(step.delay ? { when: "delayed" as const, start_in: step.delay } : {}),
-  };
-}
-
-/**
- * Lower continueOnError to GitLab allowFailure.
- */
-function lowerContinueOnError(continueOnError: StepDefinition["continueOnError"]): Partial<GitlabJob> {
-  if (continueOnError === undefined) return {};
-  return {
-    allowFailure:
-      typeof continueOnError === "boolean"
-        ? continueOnError
-        : { exitCodes: continueOnError.exitCodes },
-  };
-}
-
-/**
- * Lower retry policy to GitLab retry keyword.
- */
-function lowerRetry(retry: StepDefinition["retry"]): Partial<GitlabJob> {
-  if (retry === undefined) return {};
-  return {
-    retry: {
-      max: retry.max,
-      ...(retry.when ? { when: retry.when } : {}),
-      ...(retry.exitCodes ? { exitCodes: retry.exitCodes } : {}),
-    },
   };
 }
 
@@ -810,45 +775,23 @@ interface JobFieldContext {
   concurrency: ConcurrencySpec | undefined;
 }
 
-/** Build core job fields: image, artifacts, variables, rules. */
-function buildJobCoreFields(ctx: JobFieldContext): Partial<GitlabJob> {
-  return {
-    ...(ctx.image ? { image: ctx.image } : {}),
-    ...(ctx.artifacts ? { artifacts: ctx.artifacts } : {}),
-    ...(Object.keys(ctx.variables).length > 0 ? { variables: ctx.variables } : {}),
-    ...(ctx.rules.length > 0 ? { rules: ctx.rules } : {}),
-  };
-}
-
-/** Build runtime/execution fields: timeout, interruptible, runner tags, id_tokens. */
-function buildJobRuntimeFields(ctx: JobFieldContext): Partial<GitlabJob> {
-  return {
-    ...(ctx.timeout !== undefined
-      ? { timeout: `${Math.ceil(ctx.timeout / 60000)}m` }
-      : {}),
-    ...(ctx.interruptible !== undefined ? { interruptible: ctx.interruptible } : {}),
-    ...(ctx.runner !== undefined ? { tags: ctx.runner.labels } : {}),
-    ...lowerIdTokens(ctx.identity),
-  };
-}
-
-/** Build environment-related fields: services, environment, cache, concurrency. */
-function buildJobEnvFields(ctx: JobFieldContext): Partial<GitlabJob> {
-  return {
-    ...(ctx.services !== undefined && ctx.services.length > 0
-      ? { services: lowerGitlabServices(ctx.services) }
-      : {}),
-    ...(ctx.environment !== undefined ? { environment: lowerGitlabEnvironment(ctx.environment) } : {}),
-    ...(ctx.cache !== undefined ? { cache: lowerGitlabCache(ctx.cache) } : {}),
-    ...(ctx.concurrency !== undefined ? { resourceGroup: ctx.concurrency.group } : {}),
-  };
-}
-
 function buildJobFields(ctx: JobFieldContext): Partial<GitlabJob> {
+  const { image, artifacts, variables, rules, timeout, interruptible, runner, identity, services, environment, cache, concurrency } = ctx;
   return {
-    ...buildJobCoreFields(ctx),
-    ...buildJobRuntimeFields(ctx),
-    ...buildJobEnvFields(ctx),
+    ...(image ? { image } : {}),
+    ...(artifacts ? { artifacts } : {}),
+    ...(Object.keys(variables).length > 0 ? { variables } : {}),
+    ...(rules.length > 0 ? { rules } : {}),
+    ...(timeout !== undefined
+      ? { timeout: `${Math.ceil(timeout / 60000)}m` }
+      : {}),
+    ...(interruptible !== undefined ? { interruptible } : {}),
+    ...(runner !== undefined ? { tags: runner.labels } : {}),
+    ...lowerIdTokens(identity),
+    ...(services !== undefined && services.length > 0 ? { services: lowerGitlabServices(services) } : {}),
+    ...(environment !== undefined ? { environment: lowerGitlabEnvironment(environment) } : {}),
+    ...(cache !== undefined ? { cache: lowerGitlabCache(cache) } : {}),
+    ...(concurrency !== undefined ? { resourceGroup: concurrency.group } : {}),
   };
 }
 
@@ -994,19 +937,6 @@ function lowerOperations(
 }
 
 /**
- * Lower a shell operation, handling background execution.
- */
-function lowerShellOp(
-  op: Extract<OperationDefinition, { kind: "shell" }>,
-  acc: OperationAccumulator,
-  jobIdMap: Map<string, string>,
-): void {
-  const translated = translateGitlabCommand(op.command, acc.inputs, jobIdMap);
-  // F-49: background shell → append & for async execution.
-  acc.script.push(op.background ? `${translated} &` : translated);
-}
-
-/**
  * Lower a single operation, mutating the accumulator.
  */
 function lowerOperation(
@@ -1016,9 +946,12 @@ function lowerOperation(
   jobIdMap: Map<string, string>,
 ): void {
   switch (op.kind) {
-    case "shell":
-      lowerShellOp(op, acc, jobIdMap);
+    case "shell": {
+      const translated = translateGitlabCommand(op.command, acc.inputs, jobIdMap);
+      // F-49: background shell → append & for async execution.
+      acc.script.push(op.background ? `${translated} &` : translated);
       break;
+    }
     case "exportOutput":
       lowerExportOutput(op, stepId, acc);
       break;
@@ -1026,7 +959,7 @@ function lowerOperation(
       lowerExportArtifact(op, acc);
       break;
     case "importArtifact":
-      lowerImportArtifact(op, acc, jobIdMap);
+      acc.importNeeds.push(jobIdMap.get(op.from) ?? op.from);
       break;
     case "diagnostic":
       acc.script.push(`echo ${shellQuoteSingle(op.message)}`);
@@ -1041,29 +974,11 @@ function lowerOperation(
       lowerDeployPages(op, acc);
       break;
     default:
-      throwUnsupportedOpKind(op);
+      throw new GitlabTargetError(
+        `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
+        "LOWER_FAILED",
+      );
   }
-}
-
-/**
- * Lower an importArtifact operation, recording the producer job as a need.
- */
-function lowerImportArtifact(
-  op: Extract<OperationDefinition, { kind: "importArtifact" }>,
-  acc: OperationAccumulator,
-  jobIdMap: Map<string, string>,
-): void {
-  acc.importNeeds.push(jobIdMap.get(op.from) ?? op.from);
-}
-
-/**
- * Throw a LOWER_FAILED error for an unsupported operation kind.
- */
-function throwUnsupportedOpKind(op: OperationDefinition): never {
-  throw new GitlabTargetError(
-    `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
-    "LOWER_FAILED",
-  );
 }
 
 /**
@@ -1158,23 +1073,6 @@ function assembleOperationResult(acc: OperationAccumulator, step: StepDefinition
   release?: GitlabRelease;
   pages?: GitlabPages;
 } {
-  const artifacts = assembleArtifacts(acc);
-  prependWorkingDir(acc, step);
-
-  return {
-    script: acc.script,
-    ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
-    needs: acc.importNeeds,
-    variables: {},
-    ...(acc.release ? { release: acc.release } : {}),
-    ...(acc.pages ? { pages: acc.pages } : {}),
-  };
-}
-
-/**
- * Assemble the artifacts object from the accumulator's paths, reports, retention, and access.
- */
-function assembleArtifacts(acc: OperationAccumulator): { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } {
   const artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } = {};
   if (acc.artifactPaths.length > 0) {
     artifacts.paths = acc.artifactPaths;
@@ -1191,18 +1089,21 @@ function assembleArtifacts(acc: OperationAccumulator): { paths?: string[]; repor
   if (acc.artifactAccess !== undefined) {
     artifacts.access = acc.artifactAccess;
   }
-  return artifacts;
-}
 
-/**
- * Prepend a `cd` command to the script if a working directory is set.
- */
-function prependWorkingDir(acc: OperationAccumulator, step: StepDefinition): void {
   if (step.runtime.workingDir && acc.script.length > 0) {
     // Shell-quote the directory to prevent injection and handle spaces
     const escapedDir = shellQuoteSingle(step.runtime.workingDir);
     acc.script.unshift(`cd ${escapedDir}`);
   }
+
+  return {
+    script: acc.script,
+    ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
+    needs: acc.importNeeds,
+    variables: {},
+    ...(acc.release ? { release: acc.release } : {}),
+    ...(acc.pages ? { pages: acc.pages } : {}),
+  };
 }
 
 /**
@@ -1306,45 +1207,9 @@ type MatrixCombination = Record<string, MatrixValue>;
  * combinations at synthesis time, include is appended to the array.
  */
 function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[] {
-  validateMatrixKeys(spec);
   const combinations = computeMatrixCombinations(spec.dimensions, spec.exclude ?? []);
-  const totalRows = combinations.length + (spec.include?.length ?? 0);
-  if (totalRows > 200) {
-    throw new GitlabTargetError(
-      `GitLab matrix has ${totalRows} rows, exceeding the 200-row limit`,
-      "MATRIX_TOO_LARGE",
-    );
-  }
   const includeEntries = (spec.include ?? []).map((entry) => ({ ...entry }));
   return [...combinations.map((c) => ({ ...c })), ...includeEntries];
-}
-
-/**
- * Validate that matrix dimension and include keys contain only valid
- * GitLab variable name characters: letters, digits, underscores.
- */
-function validateMatrixKeys(spec: MatrixSpec): void {
-  const validKey = /^[A-Za-z_]\w*$/;
-  for (const key of Object.keys(spec.dimensions)) {
-    if (!validKey.test(key)) {
-      throw new GitlabTargetError(
-        `invalid matrix dimension key '${key}': must match [A-Za-z_][A-Za-z0-9_]*`,
-        "INVALID_MATRIX",
-      );
-    }
-  }
-  if (spec.include) {
-    for (const entry of spec.include) {
-      for (const key of Object.keys(entry)) {
-        if (!validKey.test(key)) {
-          throw new GitlabTargetError(
-            `invalid matrix include key '${key}': must match [A-Za-z_][A-Za-z0-9_]*`,
-            "INVALID_MATRIX",
-          );
-        }
-      }
-    }
-  }
 }
 
 /**
