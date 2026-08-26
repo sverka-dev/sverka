@@ -15,7 +15,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     name: Build website
     permissions:
       contents: read
@@ -44,7 +44,7 @@ jobs:
           path: website/dist
 
   deploy:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     name: Deploy to GitHub Pages
     needs: build
     permissions:
