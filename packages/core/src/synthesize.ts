@@ -219,25 +219,32 @@ function buildBaseStep(
  * Extracted from buildBaseStep to keep cognitive complexity under the SonarCloud limit.
  */
 function collectStepOptionalFields(step: Step): Partial<StepDefinition> {
-  return {
-    ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
-    ...(step.condition !== undefined ? { condition: step.condition } : {}),
-    ...(step.matrix !== undefined ? { matrix: step.matrix } : {}),
-    ...(step.beforeScript !== undefined ? { beforeScript: [...step.beforeScript] } : {}),
-    ...(step.afterScript !== undefined ? { afterScript: [...step.afterScript] } : {}),
-    ...(step.continueOnError !== undefined ? { continueOnError: step.continueOnError } : {}),
-    ...(step.retry !== undefined ? { retry: step.retry } : {}),
-    ...(step.interruptible !== undefined ? { interruptible: step.interruptible } : {}),
-    ...(step.runner !== undefined ? { runner: step.runner } : {}),
-    ...(step.identity !== undefined ? { identity: step.identity } : {}),
-    ...(step.rules !== undefined ? { rules: step.rules } : {}),
-    ...(step.reports !== undefined ? { reports: step.reports } : {}),
-    ...(step.services !== undefined ? { services: step.services } : {}),
-    ...(step.environment !== undefined ? { environment: step.environment } : {}),
-    ...(step.cache !== undefined ? { cache: step.cache } : {}),
-    ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
-    ...(step.delay !== undefined ? { delay: step.delay } : {}),
-  };
+  const result: Partial<StepDefinition> = {};
+  const fields: Array<[keyof StepDefinition, unknown]> = [
+    ["timeout", step.timeout],
+    ["condition", step.condition],
+    ["matrix", step.matrix],
+    ["beforeScript", step.beforeScript ? [...step.beforeScript] : undefined],
+    ["afterScript", step.afterScript ? [...step.afterScript] : undefined],
+    ["continueOnError", step.continueOnError],
+    ["retry", step.retry],
+    ["interruptible", step.interruptible],
+    ["runner", step.runner],
+    ["identity", step.identity],
+    ["rules", step.rules],
+    ["reports", step.reports],
+    ["services", step.services],
+    ["environment", step.environment],
+    ["cache", step.cache],
+    ["concurrency", step.concurrency],
+    ["delay", step.delay],
+  ];
+  for (const [key, value] of fields) {
+    if (value !== undefined) {
+      (result as Record<string, unknown>)[key] = value;
+    }
+  }
+  return result;
 }
 
 /** Convert a call step's `callInputs` map into a plain record. */

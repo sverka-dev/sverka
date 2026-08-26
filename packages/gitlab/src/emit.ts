@@ -196,7 +196,7 @@ function assignJobArtifactsVarsRules(result: Record<string, unknown>, job: Gitla
 
 /** Add parallel/matrix field to the result object. */
 function assignJobParallel(result: Record<string, unknown>, job: GitlabJob): void {
-  if (job.parallel && job.parallel.matrix) {
+  if (job.parallel?.matrix) {
     // GitLab parallel:matrix requires each variable value to be an array.
     result.parallel = {
       matrix: job.parallel.matrix.map((row: Record<string, unknown>) => {
