@@ -102,7 +102,7 @@ async function executeShellOperation(
   stepWorkspace: string,
   outputDir: string,
 ): Promise<void> {
-  const { step, driver, secrets, valueStore, inputs, signal } = opts;
+  const { step, driver, valueStore, inputs, signal } = opts;
   const env = buildShellEnv(step, outputDir, stepScopedSecrets(opts));
   const cwd = step.runtime.workingDir
     ? resolveUnder(stepWorkspace, step.runtime.workingDir)

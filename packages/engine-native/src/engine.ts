@@ -569,6 +569,9 @@ function formatRefValue(value: unknown): string {
  * substitution, avoiding non-deterministic key ordering from JSON.stringify.
  */
 function stableStringify(value: unknown): string {
+  // JSON.stringify is safe here — keys are pre-sorted by sortKeysDeep so
+  // output ordering is deterministic. Suppress Codacy SAST warning:
+  // codacy-disable-next-line
   return JSON.stringify(sortKeysDeep(value));
 }
 
@@ -578,7 +581,7 @@ function sortKeysDeep(value: unknown): unknown {
   }
   if (typeof value === "object" && value !== null) {
     return Object.keys(value)
-      .sort()
+      .sort((a, b) => a.localeCompare(b))
       .reduce<Record<string, unknown>>((acc, key) => {
         acc[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
         return acc;
@@ -588,11 +591,11 @@ function sortKeysDeep(value: unknown): unknown {
 }
 
 const ESCAPES: Readonly<Record<string, string>> = {
-  '"': '\\"',
-  "\\": "\\\\",
-  "\n": "\\n",
-  "\r": "\\r",
-  "\t": "\\t",
+  '"': String.raw`\"`,
+  "\\": String.raw`\\`,
+  "\n": String.raw`\n`,
+  "\r": String.raw`\r`,
+  "\t": String.raw`\t`,
 };
 
 /**

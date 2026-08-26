@@ -404,12 +404,13 @@ function lowerOperations(
     // If this run block contains exportOutput lines, give it a unique id so
     // job outputs can reference ${{ steps.<id>.outputs.* }}. Multiple
     // output-producing blocks (separated by non-shell ops) get distinct IDs.
-    const outputStepId =
-      hasExportInRun
-        ? outputBlockIndex === 0
+    let outputStepId: string | undefined;
+    if (hasExportInRun) {
+      outputStepId =
+        outputBlockIndex === 0
           ? `${shortStepId}-outputs`
-          : `${shortStepId}-outputs-${outputBlockIndex + 1}`
-        : undefined;
+          : `${shortStepId}-outputs-${outputBlockIndex + 1}`;
+    }
     steps.push({
       run: translated,
       ...(outputStepId !== undefined ? { id: outputStepId } : {}),

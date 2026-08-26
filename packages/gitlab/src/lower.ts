@@ -571,7 +571,7 @@ function lowerOperations(
  * suffixes like "build-1") are replaced with underscores.
  */
 function dotenvVarName(jobId: string, outputName: string): string {
-  return `${jobId}_${outputName}`.replace(/[^A-Za-z0-9_]/g, "_");
+  return `${jobId}_${outputName}`.replace(/\W/g, "_");
 }
 
 /**
@@ -631,7 +631,7 @@ function collectVariables(pipeline: PipelineDefinition): Record<string, string> 
 
 type MatrixCombination = Record<string, MatrixValue>;
 
-const GITLAB_MATRIX_KEY_PATTERN = /^[A-Za-z0-9_]+$/;
+const GITLAB_MATRIX_KEY_PATTERN = /^\w+$/;
 const GITLAB_MATRIX_MAX_ROWS = 200;
 
 /**

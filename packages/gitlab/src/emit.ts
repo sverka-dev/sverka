@@ -81,7 +81,7 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
   assignOptional(result, "timeout", job.timeout);
   assignAllowFailure(result, job.allowFailure);
   assignRetry(result, job.retry);
-  if (job.parallel && job.parallel.matrix) {
+  if (job.parallel?.matrix) {
     // GitLab parallel:matrix requires each variable value to be an array.
     result.parallel = {
       matrix: job.parallel.matrix.map((row: Record<string, unknown>) => {
