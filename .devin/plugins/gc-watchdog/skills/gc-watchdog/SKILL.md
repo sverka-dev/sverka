@@ -86,8 +86,10 @@ If the watchdog can determine the answer from current state (e.g., the work
 the mayor is asking about was already done by the watchdog or another agent),
 respond on behalf of the user and report a FIXED line. Examples:
 - Mayor asks to authorize a push that was already done -> "Already pushed, discard your local changes"
-- Mayor asks which PR to merge next -> "Merge #62 first, then sync the stack"
 - Mayor asks about a status that the watchdog just checked -> relay the current status
+
+NEVER auto-respond to merge-related prompts. PR merges are the user's decision
+only. Always relay merge prompts to the user via `ask_user_question`.
 
 To auto-respond, use `gc session submit` with `--intent interrupt_now`:
 ```bash
@@ -356,7 +358,7 @@ Each tick is one subagent invocation: wait 60s, check, self-heal, report.
 ### As a standalone script
 
 ```bash
-bash .agents/skills/gc-watchdog/watchdog.sh [interval_seconds]
+bash .devin/plugins/gc-watchdog/skills/gc-watchdog/watchdog.sh [interval_seconds]
 ```
 
 Default interval: 60 seconds. Runs until idle or interrupted.
