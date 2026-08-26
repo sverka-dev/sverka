@@ -583,6 +583,8 @@ function sortKeysDeep(value: unknown): unknown {
     return Object.keys(value)
       .sort((a, b) => a.localeCompare(b))
       .reduce<Record<string, unknown>>((acc, key) => {
+        // codacy-disable-next-line: false positive — no JSON.stringify here,
+        // this is a recursive key-sort. Determinism is guaranteed by sortKeysDeep.
         acc[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
         return acc;
       }, {});
