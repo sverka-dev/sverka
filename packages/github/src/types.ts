@@ -3,8 +3,15 @@
 import type { CapabilitySupport } from "@sverka/plugin";
 
 export interface GithubTriggers {
-  readonly push?: { readonly branches?: readonly string[] };
-  readonly pull_request?: { readonly branches?: readonly string[] };
+  readonly push?: {
+    readonly branches?: readonly string[];
+    readonly tags?: readonly string[];
+    readonly paths?: readonly string[];
+  };
+  readonly pull_request?: {
+    readonly branches?: readonly string[];
+    readonly paths?: readonly string[];
+  };
   readonly workflow_dispatch?: null;
   readonly schedule?: readonly {
     readonly cron: string;
@@ -21,6 +28,7 @@ export interface GithubStep {
   readonly env?: Record<string, string>;
   readonly if?: string;
   readonly continueOnError?: boolean;
+  readonly workingDirectory?: string;
   readonly shell?: string;
 }
 
@@ -39,6 +47,7 @@ export interface GithubJob {
     readonly maxParallel?: number;
   };
   readonly outputs?: Record<string, string>;
+  readonly if?: string;
 }
 
 export interface GithubTargetGraph {

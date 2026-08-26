@@ -5,6 +5,7 @@ import type { CapabilitySupport } from "@sverka/plugin";
 export interface GitlabRule {
   readonly if: string;
   readonly when?: string;
+  readonly changes?: readonly string[];
 }
 
 export interface GitlabArtifactSpec {
