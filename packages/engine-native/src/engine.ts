@@ -4,6 +4,7 @@
 
 import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { sortKeysDeep } from "./internal/sort-keys.js";
 import type { RunPlan } from "@sverka/ir";
 import type { StepDefinition, Condition, Expression } from "@sverka/core";
 import type {
@@ -570,24 +571,8 @@ function formatRefValue(value: unknown): string {
  */
 function stableStringify(value: unknown): string {
   // JSON.stringify is safe here — keys are pre-sorted by sortKeysDeep so
-  // output ordering is deterministic. Suppress Codacy SAST warning:
-  // codacy-disable-next-line
+  // output ordering is deterministic.
   return JSON.stringify(sortKeysDeep(value));
-}
-
-function sortKeysDeep(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(sortKeysDeep);
-  }
-  if (typeof value === "object" && value !== null) {
-    const src = value as Record<string, unknown>;
-    const result: Record<string, unknown> = {};
-    for (const key of Object.keys(src).sort((a, b) => a.localeCompare(b))) {
-      result[key] = sortKeysDeep(src[key]);
-    }
-    return result;
-  }
-  return value;
 }
 
 const ESCAPES: Readonly<Record<string, string>> = {
