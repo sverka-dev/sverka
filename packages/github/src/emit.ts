@@ -81,54 +81,54 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
 
   // Normal job.
   result["runs-on"] = job.runsOn;
-  assignJobNeeds(job, result);
-  assignJobOptionalFields(job, result);
+
+  if (job.needs.length > 0) {
+    result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
+  }
+
+  if (job.timeoutMinutes !== undefined) {
+    result["timeout-minutes"] = job.timeoutMinutes;
+  }
+
+  if (job.container) {
+    result.container = job.container;
+  }
+
+  if (job.env) {
+    result.env = job.env;
+  }
+
+  if (job.strategy) {
+    result.strategy = strategyToYaml(job.strategy);
+  }
+
+  if (job.permissions) {
+    result.permissions = job.permissions;
+  }
+
+  if (job.if) {
+    result.if = job.if;
+  }
+
+  if (job.services) {
+    result.services = job.services;
+  }
+
+  if (job.environment) {
+    result.environment = job.environment;
+  }
+
+  if (job.concurrency) {
+    result.concurrency = concurrencyToYaml(job.concurrency);
+  }
+
   result.steps = job.steps.map((step, i) => stepToYaml(step, i));
 
   return result;
 }
 
 /**
- * Assign the `needs` field (scalar or array) when present.
- */
-function assignJobNeeds(job: GithubJob, result: Record<string, unknown>): void {
-  if (job.needs.length > 0) {
-    result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
-  }
-}
-
-/**
- * Assign all optional single-value fields from the job to the YAML result.
- */
-function assignJobOptionalFields(job: GithubJob, result: Record<string, unknown>): void {
-  assignSimpleFields(job, result);
-  assignTransformedFields(job, result);
-}
-
-/** Assign fields that map directly without transformation. */
-function assignSimpleFields(job: GithubJob, result: Record<string, unknown>): void {
-  const simple: Array<[string, unknown]> = [
-    ["timeout-minutes", job.timeoutMinutes],
-    ["container", job.container],
-    ["env", job.env],
-    ["permissions", job.permissions],
-    ["if", job.if],
-    ["services", job.services],
-    ["environment", job.environment],
-  ];
-  for (const [key, value] of simple) {
-    if (value !== undefined) result[key] = value;
-  }
-}
-
-/** Assign fields that require transformation before YAML emission. */
-function assignTransformedFields(job: GithubJob, result: Record<string, unknown>): void {
-  if (job.strategy) result.strategy = strategyToYaml(job.strategy);
-  if (job.concurrency) result.concurrency = concurrencyToYaml(job.concurrency);
-}
-
-/**
- * Convert a GitHub strategy spec to a YAML-compatible object.
+ * Convert a job strategy spec to a YAML-compatible object.
  */
 function strategyToYaml(strategy: NonNullable<GithubJob["strategy"]>): Record<string, unknown> {
   const strat: Record<string, unknown> = { matrix: strategy.matrix };

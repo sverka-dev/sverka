@@ -26,5 +26,5 @@ export interface FieldMetadata {
  * Planning context passed as `this` to method-based `@step` planning methods.
  */
 export interface PlanningContext {
-  sh(strings: TemplateStringsArray, ...values: readonly unknown[]): void;
+  $(strings: TemplateStringsArray, ...values: readonly unknown[]): void;
 }

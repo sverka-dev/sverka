@@ -64,6 +64,18 @@ function lowerSinglePipeline(pipeline: PipelineDefinition): GithubTargetGraph {
   const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
   const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
 
+  return assemblePipelineTarget(pipeline, triggers, jobs);
+}
+
+/**
+ * Assemble a GithubTargetGraph from a pipeline, its triggers, and jobs.
+ * Shared by lowerSinglePipeline and lowerMultiPipeline.
+ */
+function assemblePipelineTarget(
+  pipeline: PipelineDefinition,
+  triggers: GithubTriggers,
+  jobs: readonly GithubJob[],
+): GithubTargetGraph {
   return {
     name: pipeline.id,
     on: triggers,
@@ -94,42 +106,43 @@ function lowerMultiPipeline(graph: DefinitionGraph): readonly GithubTargetGraph[
   const pipelines = graph.project.pipelines;
   const calledPipelineIds = collectCalledPipelineIds(pipelines);
 
-  return pipelines
-    .filter((p) => p.entries.length > 0 || calledPipelineIds.has(p.id))
-    .map((p) => lowerPipelineToTargetGraph(p, calledPipelineIds));
+  const result: GithubTargetGraph[] = [];
+  for (const pipeline of pipelines) {
+    const target = lowerPipelineInGraph(pipeline, calledPipelineIds.has(pipeline.id));
+    if (target !== undefined) result.push(target);
+  }
+  return result;
 }
 
 /**
- * Collect the set of pipeline ids referenced by any call step.
+ * Collect the set of pipeline IDs that are referenced by at least one call step.
  */
 function collectCalledPipelineIds(pipelines: readonly PipelineDefinition[]): Set<string> {
-  const ids = new Set<string>();
+  const called = new Set<string>();
   for (const p of pipelines) {
     for (const step of p.steps) {
       if (step.call) {
-        ids.add(step.call.callee);
+        called.add(step.call.callee);
       }
     }
   }
-  return ids;
+  return called;
 }
 
 /**
- * Lower a single pipeline into a GithubTargetGraph (root or reusable).
+ * Lower a single pipeline within a multi-pipeline graph.
+ * Returns undefined if the pipeline is neither a root nor a callee.
  */
-function lowerPipelineToTargetGraph(
+function lowerPipelineInGraph(
   pipeline: PipelineDefinition,
-  calledPipelineIds: ReadonlySet<string>,
-): GithubTargetGraph {
+  isCalled: boolean,
+): GithubTargetGraph | undefined {
   const hasEntries = pipeline.entries.length > 0;
-  const isCalled = calledPipelineIds.has(pipeline.id);
+  if (!hasEntries && !isCalled) return undefined;
 
   // For callees, all steps are reachable (no entries needed).
   // For roots, filter by entry reachability.
-  const reachableSteps = hasEntries
-    ? filterReachableSteps(pipeline)
-    : pipeline.steps;
-
+  const reachableSteps = hasEntries ? filterReachableSteps(pipeline) : pipeline.steps;
   const jobIdMap = buildJobIdMap(reachableSteps);
 
   // Triggers: root triggers + workflow_call if called.
@@ -139,16 +152,7 @@ function lowerPipelineToTargetGraph(
   }
 
   const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
-
-  return {
-    name: pipeline.id,
-    on: triggers,
-    jobs,
-    env: collectEnv(pipeline),
-    ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
-    ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
-    ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
-  };
+  return assemblePipelineTarget(pipeline, triggers, jobs);
 }
 
 /**
@@ -295,50 +299,6 @@ function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
 }
 
 /**
- * Accumulator for trigger filters while iterating entries.
- */
-interface TriggerAccumulator {
-  pushBranches: Set<string>;
-  pushTags: Set<string>;
-  pushPaths: Set<string>;
-  pushAll: boolean;
-  prBranches: Set<string>;
-  prPaths: Set<string>;
-  prAll: boolean;
-  hasManual: boolean;
-  scheduleEntries: { cron: string; timezone?: string }[];
-}
-
-/**
- * Process a single trigger entry, mutating the accumulator.
- */
-function processTriggerEntry(entry: EntryDefinition, acc: TriggerAccumulator): void {
-  const t = entry.trigger;
-  switch (t.kind) {
-    case "push":
-      collectFilters(t, acc.pushBranches, acc.pushTags, acc.pushPaths, () => (acc.pushAll = true));
-      break;
-    case "changeRequest":
-      collectFilters(t, acc.prBranches, undefined, acc.prPaths, () => (acc.prAll = true));
-      break;
-    case "manual":
-      acc.hasManual = true;
-      break;
-    case "schedule":
-      acc.scheduleEntries.push({
-        cron: t.cron,
-        ...(t.timezone ? { timezone: t.timezone } : {}),
-      });
-      break;
-    default:
-      throw new GithubTargetError(
-        `unsupported trigger kind: ${JSON.stringify((t as Trigger).kind)}`,
-        "UNSUPPORTED_TRIGGER",
-      );
-  }
-}
-
-/**
  * Map Sverka triggers to GitHub triggers.
  * Multiple entries of the same kind have their filters merged.
  */
@@ -346,32 +306,52 @@ function lowerTriggers(
   entries: readonly EntryDefinition[],
   inputs: Readonly<Record<string, Input>>,
 ): GithubTriggers {
-  const acc: TriggerAccumulator = {
-    pushBranches: new Set<string>(),
-    pushTags: new Set<string>(),
-    pushPaths: new Set<string>(),
-    pushAll: false,
-    prBranches: new Set<string>(),
-    prPaths: new Set<string>(),
-    prAll: false,
-    hasManual: false,
-    scheduleEntries: [],
-  };
+  const pushBranches = new Set<string>();
+  const pushTags = new Set<string>();
+  const pushPaths = new Set<string>();
+  let pushAll = false;
+  const prBranches = new Set<string>();
+  const prPaths = new Set<string>();
+  let prAll = false;
+  let hasManual = false;
+  const scheduleEntries: { cron: string; timezone?: string }[] = [];
 
   for (const entry of entries) {
-    processTriggerEntry(entry, acc);
+    const t = entry.trigger;
+    switch (t.kind) {
+      case "push":
+        collectFilters(t, pushBranches, pushTags, pushPaths, () => (pushAll = true));
+        break;
+      case "changeRequest":
+        collectFilters(t, prBranches, undefined, prPaths, () => (prAll = true));
+        break;
+      case "manual":
+        hasManual = true;
+        break;
+      case "schedule":
+        scheduleEntries.push({
+          cron: t.cron,
+          ...(t.timezone ? { timezone: t.timezone } : {}),
+        });
+        break;
+      default:
+        throw new GithubTargetError(
+          `unsupported trigger kind: ${JSON.stringify((t as Trigger).kind)}`,
+          "UNSUPPORTED_TRIGGER",
+        );
+    }
   }
 
   return assembleTriggers({
-    pushAll: acc.pushAll,
-    pushBranches: acc.pushBranches,
-    pushTags: acc.pushTags,
-    pushPaths: acc.pushPaths,
-    prAll: acc.prAll,
-    prBranches: acc.prBranches,
-    prPaths: acc.prPaths,
-    hasManual: acc.hasManual,
-    scheduleEntries: acc.scheduleEntries,
+    pushAll,
+    pushBranches,
+    pushTags,
+    pushPaths,
+    prAll,
+    prBranches,
+    prPaths,
+    hasManual,
+    scheduleEntries,
     inputs,
   });
 }
@@ -515,30 +495,37 @@ function lowerStepsWithCalls(
 }
 
 /**
- * Lower a set of input bindings to a GitHub `with:` map.
- * Reference bindings are lowered to GitHub expressions; literals pass through
- * (optionally transformed, e.g. String() for downstream payloads).
+ * Lower a Reference value to a GitHub expression string.
+ * Returns the expression if `value` is a Reference, otherwise `undefined`
+ * (meaning the value is a literal the caller should handle itself).
+ * Context references are mapped through GITHUB_CONTEXT_MAP so that Sverka
+ * namespaces (e.g. `git.sha`) become valid GitHub expressions (e.g.
+ * `github.sha`).
+ *
+ * Secret references are sink-specific:
+ * - In `with:` inputs (`forWithInput = true`): `${{ secrets.FIELD }}`.
+ *   GitHub Actions does not expand `$FIELD` in `with:` values — it treats it
+ *   as a literal string. The `secrets` context is the correct syntax here.
+ * - In `run:` commands (`forWithInput = false`, default): `$FIELD`.
+ *   The shell expands the env var, and this avoids exposing the secret value
+ *   in workflow logs.
  */
-function lowerInputBindings(
-  inputs: Readonly<Record<string, unknown>>,
+function lowerReferenceExpr(
+  value: unknown,
   jobIdMap: Map<string, string>,
-  literalTransform: (v: unknown) => unknown = (v) => v,
-): Record<string, unknown> {
-  const map: Record<string, unknown> = {};
-  for (const [name, value] of Object.entries(inputs)) {
-    if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
-      const ref = value as Reference;
-      if (ref.kind === "step") {
-        const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
-        map[name] = `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
-      } else if (ref.kind === "context") {
-        map[name] = `\${{ ${ref.namespace}.${ref.field} }}`;
-      }
-    } else {
-      map[name] = literalTransform(value);
+  forWithInput = false,
+): string | undefined {
+  if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
+    const ref = value as Reference;
+    if (ref.kind === "step") {
+      const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
+      return `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
+    }
+    if (ref.kind === "context") {
+      return translateContextRef(ref.namespace, ref.field, false, forWithInput);
     }
   }
-  return map;
+  return undefined;
 }
 
 /**
@@ -552,7 +539,15 @@ function lowerCallStep(
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
   const call = step.call!;
-  const withMap = lowerInputBindings(call.inputs, jobIdMap);
+  const callee = call.callee;
+
+  // Build `with:` from bound inputs.
+  // Secrets in `with:` inputs must use ${{ secrets.FIELD }} — GitHub Actions
+  // does not expand $FIELD in with: values (it treats it as a literal string).
+  const withMap: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(call.inputs)) {
+    withMap[name] = lowerReferenceExpr(value, jobIdMap, true) ?? value;
+  }
 
   return {
     id: jobId,
@@ -560,7 +555,7 @@ function lowerCallStep(
     runsOn: "ubuntu-latest",
     needs,
     steps: [],
-    uses: `./.github/workflows/${call.callee}.yml`,
+    uses: `./.github/workflows/${callee}.yml`,
     ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
     secrets: "inherit",
   };
@@ -577,7 +572,14 @@ function lowerComponentStep(
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
   const comp = step.component!;
-  const withMap = lowerInputBindings(comp.inputs, jobIdMap);
+
+  // Build `with:` from bound inputs.
+  // Secrets in `with:` inputs must use ${{ secrets.FIELD }} — GitHub Actions
+  // does not expand $FIELD in with: values (it treats it as a literal string).
+  const withMap: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(comp.inputs)) {
+    withMap[name] = lowerReferenceExpr(value, jobIdMap, true) ?? value;
+  }
 
   // Component references that look like GitHub Actions (org/repo@ref) are
   // emitted as normal jobs with an action step. Reusable workflow references
@@ -649,11 +651,24 @@ function lowerDownstreamStep(
   const needs = lowerDependencies(step.dependencies, jobIdMap);
   const ds = step.downstream!;
   // Build client_payload from inputs using JSON.stringify for valid JSON.
-  const payloadObj = ds.inputs
-    ? lowerInputBindings(ds.inputs, jobIdMap, String)
-    : {};
+  const payloadObj: Record<string, string> = {};
+  if (ds.inputs) {
+    for (const [name, value] of Object.entries(ds.inputs)) {
+      payloadObj[name] = lowerReferenceExpr(value, jobIdMap) ?? String(value);
+    }
+  }
   const payload = JSON.stringify(payloadObj);
-  const branchPart = ds.branch ? ` -f "ref=${ds.branch}"` : "";
+  // Pass the payload and optional branch through step env vars, then expand
+  // them as quoted shell variables. JSON.stringify does not escape apostrophes
+  // for a POSIX shell — embedding the payload in a single-quoted command would
+  // break if a runtime value (after GitHub expression expansion) contains a
+  // single quote. Env vars are expanded by the runner after GitHub expression
+  // evaluation, so the shell receives the value as a single argument.
+  const env: Record<string, string> = { CLIENT_PAYLOAD: payload };
+  if (ds.branch) {
+    env.DOWNSTREAM_BRANCH = ds.branch;
+  }
+  const refPart = ds.branch ? ` -f ref="$DOWNSTREAM_BRANCH"` : "";
   return {
     id: jobId,
     name: jobId,
@@ -662,7 +677,8 @@ function lowerDownstreamStep(
     steps: [
       {
         name: `Trigger downstream: ${ds.project}`,
-        run: `gh api repos/${ds.project}/dispatches -f event_type=sverka-trigger -f client_payload='${payload}'${branchPart}`,
+        env,
+        run: `gh api repos/${ds.project}/dispatches -f event_type=sverka-trigger -f client_payload="$CLIENT_PAYLOAD"${refPart}`,
       },
     ],
   };
@@ -744,22 +760,27 @@ function collectJobOutputs(step: StepDefinition): Record<string, string> {
 }
 
 /**
- * Assemble the `steps` field, inserting a cache step after checkout if present.
+ * Build the job's `steps` array, inserting a cache step after checkout when
+ * caching is enabled. Checkout is always the first step.
  */
-function assembleJobSteps(steps: GithubStep[], step: StepDefinition): readonly GithubStep[] {
-  return step.cache !== undefined
-    ? [steps[0]!, lowerCacheStep(step.cache), ...steps.slice(1)]
-    : steps;
+function resolveJobSteps(steps: GithubStep[], step: StepDefinition): GithubStep[] {
+  if (step.cache === undefined) return steps;
+  // Cache step goes after checkout (always first) and before other steps.
+  return [steps[0]!, lowerCacheStep(step.cache), ...steps.slice(1)];
 }
 
 /**
- * Assemble the conditional `if` field from rules or condition.
- * Rules take precedence over condition when both are present.
+ * Resolve the job-level `if` expression.
+ *
+ * Rules take precedence over condition when both are present, matching
+ * GitHub's behavior where workflow rules override step conditions. Multiple
+ * rules are OR'd: GitHub's job-level `if` is a single expression, so we
+ * combine all rule `if` conditions with `||`.
  */
-function assembleJobConditional(
+function resolveJobIf(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
-): Partial<GithubJob> {
+): Record<string, string> {
   if (step.rules !== undefined && step.rules.length > 0) {
     return { if: lowerRulesIf(step.rules) };
   }
@@ -770,9 +791,12 @@ function assembleJobConditional(
 }
 
 /**
- * Assemble permissions and environment fields for Pages/identity jobs.
+ * Resolve job-level permissions and environment for Pages deploys and
+ * identity-token requests.
+ *
+ * GitHub Pages jobs need pages:write and id-token:write permissions.
  */
-function assembleJobPermissions(step: StepDefinition): Partial<GithubJob> {
+function resolveJobPermissions(step: StepDefinition): Record<string, unknown> {
   if (step.operations.some((op) => op.kind === "deployPages")) {
     return {
       permissions: { "pages": "write", "id-token": "write" },
@@ -786,17 +810,17 @@ function assembleJobPermissions(step: StepDefinition): Partial<GithubJob> {
 }
 
 /**
- * Parameters for {@link assembleGithubJob}.
+ * Constituent parts for assembling a GithubJob.
  */
 interface GithubJobParts {
-  jobId: string;
-  steps: GithubStep[];
-  needs: readonly string[];
-  step: StepDefinition;
-  runsOn: GithubRunsOn;
-  container: string | undefined;
-  jobEnv: Record<string, string>;
-  jobIdMap: Map<string, string>;
+  readonly jobId: string;
+  readonly steps: GithubStep[];
+  readonly needs: readonly string[];
+  readonly step: StepDefinition;
+  readonly runsOn: GithubRunsOn;
+  readonly container: string | undefined;
+  readonly jobEnv: Record<string, string>;
+  readonly jobIdMap: Map<string, string>;
 }
 
 /**
@@ -805,6 +829,8 @@ interface GithubJobParts {
 function assembleGithubJob(parts: GithubJobParts): GithubJob {
   const { jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap } = parts;
   const jobOutputs = collectJobOutputs(step);
+  const jobIf = resolveJobIf(step, jobIdMap);
+  const jobPermissions = resolveJobPermissions(step);
 
   return {
     id: jobId,
@@ -812,40 +838,35 @@ function assembleGithubJob(parts: GithubJobParts): GithubJob {
     runsOn,
     needs,
     ...(Object.keys(jobOutputs).length > 0 ? { outputs: jobOutputs } : {}),
-    steps: assembleJobSteps(steps, step),
-    ...assembleJobTiming(step),
-    ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
-    ...(container ? { container } : {}),
-    ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
-    ...assembleJobConditional(step, jobIdMap),
-    ...assembleJobPermissions(step),
-    ...assembleJobExtendedFields(step),
-  };
-}
-
-/**
- * Assemble timeout and concurrency fields for a job.
- */
-function assembleJobTiming(step: StepDefinition): Partial<GithubJob> {
-  return {
+    steps: resolveJobSteps(steps, step),
     ...(step.timeout !== undefined
       ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
       : {}),
+    ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
+    ...(container ? { container } : {}),
+    ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
+    ...jobIf,
+    ...jobPermissions,
+    ...resolveJobServices(step),
+    ...resolveJobEnvironment(step),
     ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
   };
 }
 
-/**
- * Assemble services and environment fields for a job.
- */
-function assembleJobExtendedFields(step: StepDefinition): Partial<GithubJob> {
+/** Resolve job-level services field from step services. */
+function resolveJobServices(step: StepDefinition): Partial<GithubJob> {
+  if (step.services === undefined || step.services.length === 0) return {};
+  return { services: lowerServices(step.services) };
+}
+
+/** Resolve job-level environment field from step environment spec. */
+function resolveJobEnvironment(step: StepDefinition): Partial<GithubJob> {
+  if (step.environment === undefined) return {};
   return {
-    ...(step.services !== undefined && step.services.length > 0
-      ? { services: lowerServices(step.services) }
-      : {}),
-    ...(step.environment !== undefined
-      ? { environment: { name: step.environment.name, ...(step.environment.url !== undefined ? { url: step.environment.url } : {}) } }
-      : {}),
+    environment: {
+      name: step.environment.name,
+      ...(step.environment.url !== undefined ? { url: step.environment.url } : {}),
+    },
   };
 }
 
@@ -1305,11 +1326,16 @@ const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
 
 /**
  * Translate a context ref (namespace.field) to GitHub expression syntax.
- * Secrets are emitted as env var references ($FIELD) in commands to avoid
- * exposing secret values in logs. In conditions, secrets are not supported
- * by GitHub's if: context and are emitted as env var references instead.
+ * Secrets are sink-specific:
+ * - In `with:` inputs (`forWithInput = true`): `${{ secrets.FIELD }}`.
+ *   GitHub Actions does not expand `$FIELD` in `with:` values — it treats it
+ *   as a literal string. The `secrets` context is the correct syntax here.
+ * - In `run:` commands (`forWithInput = false`): `$FIELD` (env var, avoids
+ *   exposing secret values in run logs).
+ * In conditions, secrets are not supported by GitHub's if: context and are
+ * emitted as env var references instead.
  */
-function translateContextRef(namespace: string, field: string, inCondition = false): string {
+function translateContextRef(namespace: string, field: string, inCondition = false, forWithInput = false): string {
   const key = `${namespace}.${field}`;
   const mapped = GITHUB_CONTEXT_MAP[key];
   if (mapped) return `\${{ ${mapped} }}`;
@@ -1324,13 +1350,18 @@ function translateContextRef(namespace: string, field: string, inCondition = fal
   if (namespace === "inputs") {
     return `\${{ env.${field} }}`;
   }
-  // secrets.X in commands → $FIELD (env var, avoids exposing value in run logs)
+  // secrets.X in with: inputs → ${{ secrets.FIELD }} (GitHub expands the
+  //   secrets context in with: values, but does NOT expand $FIELD there).
+  // secrets.X in commands → $FIELD (env var, avoids exposing value in logs)
   // secrets.X in conditions → not supported by GitHub if: context
   if (namespace === "secrets") {
     if (inCondition) {
       // GitHub does not support secrets context in if: expressions.
       // Use env var reference instead (secret is injected as env var).
       return `\${{ env.${field} }}`;
+    }
+    if (forWithInput) {
+      return `\${{ secrets.${field} }}`;
     }
     return `$${field}`;
   }

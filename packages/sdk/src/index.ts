@@ -2,7 +2,7 @@
 //
 // During the v0 redesign, this file exports the OLD SDK API as a compat
 // layer so the CLI and user config files continue to work. The new SDK
-// API (sh, artifact, pipeline, when, image, images, context) is exported
+// API ($, shell, artifact, pipeline, when, image, images, context) is exported
 // from ./v0/index.js and will take over the top-level exports when Wave L
 // rebuilds the CLI.
 
@@ -69,8 +69,10 @@ export { createSverka, plan, toPlan, execute } from "./compat/sverka.js";
 export { task, defineWorkflow } from "./compat/helpers.js";
 
 // ── New SDK API (v0) — available under /v0 subpath ─────────────────
-export { sh } from "./sh.js";
-export type { StepBuilder } from "./sh.js";
+export { $ } from "./dollar.js";
+export type { StepBuilder } from "./dollar.js";
+export { shell } from "./shell.js";
+export type { ShellProxy } from "./shell.js";
 export { artifact } from "./artifact.js";
 export { pipeline as pipelineV0 } from "./pipeline.js";
 export type { PipelineConfig } from "./pipeline.js";

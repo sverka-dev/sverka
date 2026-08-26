@@ -1117,7 +1117,12 @@ describe("compileGithub — downstream projects (F-34)", () => {
     expect(dsJob.needs).toBe("build");
     expect(dsJob.steps[0].run).toContain("gh api repos/group/other-project/dispatches");
     expect(dsJob.steps[0].run).toContain("sverka-trigger");
-    expect(dsJob.steps[0].run).toContain("staging");
+    // Payload is passed through an env var to avoid shell injection from
+    // single quotes in runtime values (CodeRabbit finding).
+    expect(dsJob.steps[0].env.CLIENT_PAYLOAD).toContain("staging");
+    expect(dsJob.steps[0].run).toContain("$CLIENT_PAYLOAD");
+    expect(dsJob.steps[0].env.DOWNSTREAM_BRANCH).toBe("main");
+    expect(dsJob.steps[0].run).toContain("$DOWNSTREAM_BRANCH");
   });
 });
 
