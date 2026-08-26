@@ -408,7 +408,7 @@ async function writeSidebarConfig(entries: FileEntry[]) {
   for (const dir of sortedDirs) {
     userItems.push({
       label: formatLabel(dir),
-      autogenerate: { directory: `user/${dir}`, collapsed: false },
+      items: [{ autogenerate: { directory: `user/${dir}`, collapsed: false } }],
     });
   }
   standalone.sort((a, b) => fileNameToTitle(a.srcPath).localeCompare(fileNameToTitle(b.srcPath)));

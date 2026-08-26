@@ -31,4 +31,4 @@ native targets, CLI, checks, findings, and policy.
 
 ## Policy
 
-- [Policy enforcement](./policy/overview.md) — rules, severities, enforcement
+- [Policy enforcement](./policy/evaluation.md) — rules, severities, enforcement
