@@ -29,7 +29,7 @@ steps:
       tag_name: v1.0.0
       name: Release v1.0.0
       body: ${{ github.event.release.body }}
-      assets: |
+      files: |
         dist/bin.tar.gz
         dist/bin.zip
       draft: false
@@ -62,7 +62,7 @@ interface ReleaseSpec {
   readonly tag: string;
   readonly name?: string;
   readonly description?: string;
-  readonly assets?: readonly string[];  // file paths or URLs
+  readonly assets?: readonly string[];  // file paths (GitHub) or URLs (GitLab)
   readonly draft?: boolean;
   readonly prerelease?: boolean;
 }
@@ -85,15 +85,17 @@ task("release", {
 
 ### Lowering
 
-- **GitHub target:** `release` → step with `uses: softprops/action-gh-release@v2`, `with:` mapping. `assets` → `assets:` (newline-separated file paths).
-- **GitLab target:** `release` → `release:` keyword. `tag` → `tag_name`. `assets` → `assets: links:` (requires URLs, not file paths — emit warning if file paths are provided).
+- **GitHub target:** `release` → step with `uses: softprops/action-gh-release@v2`, `with:` mapping. `assets` → `files:` (newline-separated file paths/globs). Requires `permissions: { contents: "write" }` — emit a diagnostic if that permission is unavailable.
+- **GitLab target:** `release` → `release:` keyword. `tag` → `tag_name`. `assets` → `assets: links:` (requires URLs, not file paths — emit warning if file paths are provided; local-path assets must be uploaded separately before linking).
 - **Native engine:** not applicable (no release system locally). Print release info.
 
 ### Capability manifest
 
 ```ts
-"deployment.release": "native",      // GitLab
-"deployment.release": "emulated",    // GitHub (via third-party action)
+// gitlabCapabilities:
+"deployment.release": "native",
+// githubCapabilities:
+"deployment.release": "emulated",  // via third-party action
 ```
 
 ### Portability & divergence

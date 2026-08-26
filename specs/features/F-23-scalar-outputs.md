@@ -69,11 +69,19 @@ them as env vars.
 (`core/graph.ts:65`). The native engine reads the output file from
 `$SVERKA_OUTPUT_DIR/<name>`, parses it by type, and stores it in `ValueStore`.
 
+**File format:** the output file contains only the raw scalar value (not
+`name=value`). The parser trims whitespace and applies type conversion:
+number→`Number()`, boolean→`=== "true"`, string→`trim()`. Examples:
+`1.2.3` (string), `42` (number), `true` (boolean). The GitHub and GitLab
+lowerings emit `echo "name=value" >> $GITHUB_OUTPUT` / `sverka.env` because
+those providers use dotenv format, but the native engine's file format is
+raw-value only.
+
 ### Authoring API
 
 ```ts
 // SDK — sh builder with outputs
-sh`echo "version=1.2.3" > $SVERKA_OUTPUT_DIR/version`
+sh`echo "1.2.3" > $SVERKA_OUTPUT_DIR/version`
   .outputs({ version: { type: "string" } })
   .build(pipeline, "build");
 
@@ -84,7 +92,7 @@ sh`echo ${buildRef.version}`.build(pipeline, "deploy");
 
 // Construct
 new ShellStep(pipeline, "build", {
-  command: "echo version=1.2.3 > $SVERKA_OUTPUT_DIR/version",
+  command: "echo 1.2.3 > $SVERKA_OUTPUT_DIR/version",
   outputs: { version: { type: "string" } },
 });
 

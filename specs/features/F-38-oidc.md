@@ -33,8 +33,9 @@ jobs:
         run: |
           TOKEN=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")
-          echo $TOKEN
-      - run: deploy-to-aws
+          # Parse the JWT from the response — do not echo the raw token
+          JWT=$(echo "$TOKEN" | jq -r '.value')
+          deploy-to-aws "$JWT"
 ```
 
 GitHub automatically provides `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` env vars when `id-token: write` is set.
@@ -83,14 +84,17 @@ task("deploy", {
 
 - **GitHub target:** `identity` → `permissions: id-token: write` at job level. Token request is done via the `ACTIONS_ID_TOKEN_REQUEST_*` env vars at runtime. Multiple tokens with different audiences: GitHub only supports one audience per job — emit warning if multiple audiences are specified.
 - **GitLab target:** `identity` → `id_tokens:` map with `aud` for each token.
-- **Native engine:** generate a self-signed JWT with the specified audience. Useful for local testing of OIDC-consuming code.
+- **Native engine:** generate a mock JWT with the specified audience. The token is not cryptographically valid — it is intended for local testing of OIDC-consuming code that checks audience claims. Standardized Self-Issued OIDC is a separate concern (see open questions).
 
 ### Capability manifest
 
 ```ts
+// gitlabCapabilities:
 "secrets.oidc": "native",
-"secrets.oidc.multiAudience": "native",       // GitLab
-"secrets.oidc.multiAudience": "unsupported",  // GitHub
+"secrets.oidc.multiAudience": "native",
+// githubCapabilities:
+"secrets.oidc": "native",
+"secrets.oidc.multiAudience": "unsupported",
 ```
 
 ### Portability & divergence

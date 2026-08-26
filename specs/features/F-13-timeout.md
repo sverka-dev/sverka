@@ -51,8 +51,8 @@ has runner-level maximums that may override.
 
 ### Portable model
 
-`Step.timeout?: number` in milliseconds (`constructs/src/constructs.ts:86,95`).
-Present on `StepDefinition.timeout` (`core/src/graph.ts:60`). Omitted when
+`Step.timeout?: number` in milliseconds (`packages/constructs/src/constructs.ts:86,95`).
+Present on `StepDefinition.timeout` (`packages/core/src/graph.ts:60`). Omitted when
 undefined.
 
 ### Authoring API
@@ -70,6 +70,13 @@ new ShellStep(pipeline, "build", { command: "echo build", timeout: 30000 });
 
 ### Lowering
 
+Timeout values are validated before lowering: the value must be a finite
+number greater than zero. Values that produce invalid provider
+representations (e.g., zero or negative) are rejected with a
+`LOWER_FAILED` diagnostic. GitHub-hosted runners enforce a 360-minute
+maximum; timeouts exceeding that limit are clamped with a warning
+diagnostic.
+
 - **GitHub target:** `Math.ceil(timeout / 60000)` → `timeoutMinutes`
   (`github/src/lower.ts:308-309`). Sub-minute precision is lost (rounded up).
 - **GitLab target:** `Math.ceil(timeout / 60000)` → `timeout: "${N}m"`
@@ -82,10 +89,12 @@ new ShellStep(pipeline, "build", { command: "echo build", timeout: 30000 });
 
 ### Capability manifest
 
-**Not yet declared.** Neither `githubCapabilities` nor `gitlabCapabilities`
-include `execution.timeout`. Timeout is lowered unconditionally when present
-— no capability diagnostic is emitted if a target lacks timeout support.
-Adding `"execution.timeout": "native"` to both manifests is a follow-up.
+**Declared as partial.** `githubCapabilities` and `gitlabCapabilities`
+include `"execution.timeout": "native"` (timeout is lowered when present).
+The native engine supports it via the runtime driver. The feature is
+marked **Implemented** because all three targets handle timeout, but
+capability-gated diagnostics for targets that lack timeout support are a
+follow-up.
 
 ### Portability & divergence
 

@@ -61,7 +61,9 @@ available in the working directory. No explicit download step required.
 { kind: "importArtifact", name: string, from: string, output: string }
 ```
 
-- `name`: local name (becomes the destination path in the step workspace)
+- `name`: local destination path in the step workspace (preserved across all
+  providers — the artifact is placed at this path regardless of the producer's
+  output name)
 - `from`: producer step ID
 - `output`: output name on the producer
 
@@ -93,11 +95,14 @@ new ShellStep(pipeline, "deploy", {
 ### Lowering
 
 - **GitHub target:** `importArtifact` → `actions/download-artifact@v4` step
-  with `name: <fromShortId>-<output>`, `path: <output>`
+  with `name: <fromShortId>-<output>`, `path: <name>` (the `name` field is
+  used as the destination path, preserving the import destination across
+  providers)
   (`github/lower.ts:396-404`). Preceding `run:` steps are flushed first.
 - **GitLab target:** `importArtifact` → adds `needs: [producerJob]`
   (`gitlab/lower.ts:505-509`). No explicit download — GitLab passes artifacts
-  implicitly via `needs`.
+  implicitly via `needs`. Artifacts appear at the producer's output path; if
+  this differs from `name`, a staging/rename step is emitted.
 - **Native engine:** `StepExecutor.executeImportArtifactOperation`
   (`engine-native/step-executor.ts:167-178`) calls
   `ArtifactStore.retrieve(producerId, output, destPath)`. The artifact is

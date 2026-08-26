@@ -45,10 +45,15 @@ Add to `MatrixSpec` (F-15):
 ```ts
 interface MatrixSpec {
   // ... dimensions, include, exclude (F-15)
-  readonly failFast?: boolean;      // default: true
+  readonly failFast?: boolean;      // normalized to true when omitted
   readonly maxParallel?: number;
 }
 ```
+
+When `failFast` is omitted, it is normalized to `true` before lowering. This
+matches GitHub's default and is the safer choice for CI (fail fast to save
+runner minutes). All targets consume the normalized value — no target
+independently chooses a different default.
 
 ### Authoring API
 
@@ -72,12 +77,15 @@ task("test", {
 ### Capability manifest
 
 ```ts
-"matrix.failFast": "native",       // GitHub
-"matrix.failFast": "emulated",     // native engine
-"matrix.failFast": "unsupported",  // GitLab
-"matrix.maxParallel": "native",    // GitHub
-"matrix.maxParallel": "emulated",  // native engine
-"matrix.maxParallel": "unsupported", // GitLab
+// githubCapabilities:
+"matrix.failFast": "native",
+"matrix.maxParallel": "native",
+// gitlabCapabilities:
+"matrix.failFast": "unsupported",
+"matrix.maxParallel": "unsupported",
+// nativeCapabilities:
+"matrix.failFast": "emulated",
+"matrix.maxParallel": "emulated",
 ```
 
 ### Portability & divergence
@@ -96,8 +104,8 @@ These are GitHub-only features. On GitLab, they are dropped with an info diagnos
 
 ## Open questions
 
-- Should `failFast` default to `true` (GitHub default) or `false` (safer for CI)?
 - Should the native engine warn when `maxParallel` exceeds CPU cores?
+- Resolved: `failFast` defaults to `true` (normalized before lowering).
 
 ## References
 

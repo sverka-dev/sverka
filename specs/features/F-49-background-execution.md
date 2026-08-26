@@ -88,15 +88,19 @@ task("test", {
 
 ### Lowering
 
-- **GitHub target:** `background: true` → append `&` to the run command. Store PID for cleanup. Emit info diagnostic: "Background execution is emulated via shell `&` on GitHub."
-- **GitLab target:** `background: true` → append `&` to the script entry. Same emulation as GitHub.
-- **Native engine:** spawn the process with `detached: true`, don't await. Store the child process handle. Provide a cleanup mechanism to kill background processes after the pipeline completes.
+- **GitHub target:** `background: true` → append `&` to the run command. Store PID in a file for cleanup. Background processes are scoped to the job — they are killed when the job's runner terminates. Emit info diagnostic: "Background execution is emulated via shell `&` on GitHub. Processes are terminated when the job ends."
+- **GitLab target:** `background: true` → append `&` to the script entry. Same emulation as GitHub. Processes are scoped to the job and terminated when the job ends.
+- **Native engine:** spawn the process with `detached: true`, don't await. Store the child process handle. Background processes are scoped to the pipeline run — they are killed when the pipeline completes (success or failure). Cleanup is automatic: the engine tracks all background PIDs and sends SIGTERM (then SIGKILL after 2s grace) on pipeline exit. Cross-job persistence is best-effort and not guaranteed.
 
 ### Capability manifest
 
 ```ts
-"execution.background": "emulated",  // both providers (shell &)
-"execution.background": "native",    // native engine
+// githubCapabilities:
+"execution.background": "emulated",  // shell &
+// gitlabCapabilities:
+"execution.background": "emulated",  // shell &
+// nativeCapabilities:
+"execution.background": "native",
 ```
 
 ### Portability & divergence

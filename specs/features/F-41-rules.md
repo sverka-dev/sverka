@@ -65,13 +65,14 @@ interface Rule {
   readonly changes?: readonly string[];
   readonly exists?: readonly string[];
   readonly when?: "on_success" | "on_failure" | "always" | "never" | "manual";
+  readonly allowFailure?: boolean;
   readonly variables?: Record<string, string>;
 }
 
 // Step gets optional `rules?: readonly Rule[]`
 ```
 
-Rules are evaluated in order. First match wins. If no rule matches, the step doesn't run.
+Rules are evaluated in order. First match wins. If no rule matches, the step doesn't run. `allowFailure` maps to GitLab's per-rule `allow_failure`. On GitHub, per-rule `allowFailure` is not supported — emit a diagnostic if set.
 
 ### Authoring API
 
@@ -95,12 +96,14 @@ task("deploy", {
 ### Capability manifest
 
 ```ts
-"workflow.rules": "native",          // GitLab
-"workflow.rules": "partial",         // GitHub (first rule only, no changes/exists)
-"workflow.rules.changes": "native",  // GitLab
-"workflow.rules.changes": "unsupported", // GitHub
-"workflow.rules.exists": "native",   // GitLab
-"workflow.rules.exists": "unsupported", // GitHub
+// gitlabCapabilities:
+"workflow.rules": "native",
+"workflow.rules.changes": "native",
+"workflow.rules.exists": "native",
+// githubCapabilities:
+"workflow.rules": "partial",          // first rule only, no changes/exists
+"workflow.rules.changes": "unsupported",
+"workflow.rules.exists": "unsupported",
 ```
 
 ### Portability & divergence

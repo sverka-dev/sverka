@@ -56,7 +56,7 @@ Key semantic: `after_script` runs even if `script` fails. `before_script` and `s
 
 ### Portable model
 
-Add optional `beforeScript?: readonly Operation[]` and `afterScript?: readonly Operation[]` to Step. `afterScript` operations are marked as always-run (equivalent to `if: always()`).
+Add optional `beforeScript?: readonly Operation[]` and `afterScript?: readonly Operation[]` to Step. `afterScript` operations are marked as always-run (equivalent to `if: always()`). During synthesis, each `Operation` is lowered to a command string (preserving shell and working-directory metadata) and stored as `readonly string[]` on `StepDefinition` in the core IR (`packages/core/src/graph.ts:71-72`).
 
 ### Authoring API
 
@@ -78,10 +78,12 @@ task("test", {
 ### Capability manifest
 
 ```ts
-"execution.beforeScript": "native",   // GitLab
-"execution.beforeScript": "lowered",  // GitHub (emulated as steps)
-"execution.afterScript": "native",    // GitLab
-"execution.afterScript": "lowered",   // GitHub (emulated as steps with if: always())
+// gitlabCapabilities:
+"execution.beforeScript": "native",
+"execution.afterScript": "native",
+// githubCapabilities:
+"execution.beforeScript": "lowered",   // emulated as steps
+"execution.afterScript": "lowered",    // emulated as steps with if: always()
 ```
 
 ### Portability & divergence

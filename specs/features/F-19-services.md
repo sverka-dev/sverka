@@ -94,15 +94,18 @@ task("test", {
 ### Lowering
 
 - **GitHub target:** `services` → `services:` map. `name` → map key. `image` → `image`. `alias` → ignored (GitHub uses service name as hostname). `env` → `env`. `ports` → `ports`.
-- **GitLab target:** `services` → `services:` array. `name` → `name`. `alias` → `alias`. `env` → `variables`. `ports` → not supported (emit warning). `entrypoint` → `entrypoint`. `command` → `command`.
-- **Native engine:** start service containers via Docker/Podman, wait for health, execute step, stop containers.
+- **GitLab target:** `services` → `services:` array. `image` → `name` (GitLab's `name` is the image reference). `name` → `alias` (Sverka's service identifier becomes the hostname alias). If `alias` is absent, fall back to the `name` value. `env` → `variables`. `ports` → not supported (emit warning). `entrypoint` → `entrypoint`. `command` → `command`.
+- **Native engine:** start service containers via Docker/Podman, execute step, stop containers. A bounded readiness check (TCP port probe with a 30-second timeout) is performed before executing the step. If the probe fails, the step fails with a diagnostic. Full health checks and custom wait conditions are non-goals (see below).
 
 ### Capability manifest
 
 ```ts
+// githubCapabilities:
 "environment.services": "native",
-"environment.services.ports": "native",       // GitHub
-"environment.services.ports": "unsupported",  // GitLab
+"environment.services.ports": "native",
+// gitlabCapabilities:
+"environment.services": "native",
+"environment.services.ports": "unsupported",
 ```
 
 ### Portability & divergence

@@ -27,14 +27,16 @@ include:
   - local: /templates/build.yml
     inputs:
       image: node:24
-  - project: group/shared
-    file: deploy.yml
-    ref: main
-  - remote: https://example.com/ci.yml
-  - template: Security/SAST.gitlab-ci.yml
+  # The following include types are NOT in the portable model (see Non-goals).
+  # They are shown here for reference; importing them produces diagnostics.
+  # - project: group/shared       # cross-project — unsupported
+  #   file: deploy.yml
+  #   ref: main
+  # - remote: https://example.com/ci.yml  # remote URL — unsupported
+  # - template: Security/SAST.gitlab-ci.yml  # GitLab template — unsupported
 ```
 
-Include types: `local` (file in same repo), `project` (file in another project), `remote` (URL), `template` (GitLab template), `component` (CI/CD component). Includes are merged deeply — later includes override earlier ones. `inputs` pass parameters to included configs with `spec:inputs`.
+Include types: `local` (file in same repo) is the only portable form. `project` (file in another project), `remote` (URL), `template` (GitLab template), and `component` (CI/CD component) are GitLab-specific and excluded from the portable model (see Non-goals). Includes are merged deeply — later includes override earlier ones. `inputs` pass parameters to included configs with `spec:inputs`.
 
 ## GitHub Actions
 
@@ -75,13 +77,15 @@ defineWorkflow({
 
 - **GitHub target:** `includes` → not supported (GitHub doesn't merge configs). Emit warning. Alternative: inline included fragments at synthesis time (Sverka resolves includes before lowering).
 - **GitLab target:** `includes` → `include:` array. `path` → `local:`. `inputs` → `inputs:`.
-- **Native engine:** resolve includes at synthesis time — read included files, merge definitions, produce unified Definition Graph.
+- **Native engine:** resolve includes at synthesis time — read included files, merge definitions, produce unified Definition Graph. Merge semantics: includes are processed in order; the main configuration takes precedence over included fragments. Duplicate identifiers (job names, step IDs) produce an error diagnostic. Map values are deep-merged with the main configuration overriding included values. Arrays are replaced wholesale (not item-wise merged). This ensures synthesis always produces a reproducible Definition Graph.
 
 ### Capability manifest
 
 ```ts
-"import.include": "native",       // GitLab
-"import.include": "emulated",     // GitHub (resolved at synthesis)
+// gitlabCapabilities:
+"import.include": "native",
+// githubCapabilities:
+"import.include": "emulated",  // resolved at synthesis
 ```
 
 ### Portability & divergence

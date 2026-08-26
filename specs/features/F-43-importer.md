@@ -14,7 +14,7 @@ Importers read existing GitHub Actions workflows or GitLab CI configs and conver
 
 | Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
 |--------|---------------|-----------|-------------------|
-| Construct | `.github/workflows/*.yml` | `.gitlab-ci.yml` | `importGithub()` / `importGitlab()` |
+| Construct | `.github/workflows/*.yml` | `.gitlab-ci.yml` | `importGitHub()` / `importGitLab()` |
 | Semantics | Parse YAML → Definition Graph | Parse YAML → Definition Graph | Reverse lowering |
 | Value type | YAML file | YAML file | `DefinitionGraph` |
 | Limitations | not all GitHub features map | not all GitLab features map | lossy import for unsupported features |
@@ -36,7 +36,7 @@ Importing a GitHub workflow requires:
 
 Importing a GitLab CI config requires:
 1. Parse the YAML file.
-2. Resolve `include` directives.
+2. Resolve `include` directives via an injected, allowlisted resolver. Local includes are anchored to the repository root. Remote and cross-project includes are disabled by default (network access off) and produce diagnostics. Only source-controlled local YAML targets are resolved.
 3. Extract `workflow:rules` → pipeline rules.
 4. Extract jobs → Step nodes.
 5. Extract `needs`, `dependencies` → dependency edges.
@@ -62,9 +62,9 @@ const gitlabImporter: Importer = createGitlabImporter();
 
 ```ts
 // Import existing workflow
-const graph = importGithub(workflowYaml);
+const graph = importGitHub(workflowYaml);
 // or
-const graph = importGitlab(gitlabCiYaml);
+const graph = importGitLab(gitlabCiYaml);
 
 // With diagnostics
 const { graph, diagnostics } = githubImporter.importWithDiagnostics(yaml);
@@ -74,8 +74,8 @@ const { graph, diagnostics } = githubImporter.importWithDiagnostics(yaml);
 
 Importers are the reverse of lowering — they parse provider YAML and construct a Definition Graph. The import is inherently lossy for provider-specific features. Unmappable constructs are preserved as provider extension nodes with diagnostic warnings.
 
-- **GitHub target:** `importGithub()` parses `.github/workflows/*.yml`.
-- **GitLab target:** `importGitlab()` parses `.gitlab-ci.yml` + includes.
+- **GitHub target:** `importGitHub()` parses `.github/workflows/*.yml`.
+- **GitLab target:** `importGitLab()` parses `.gitlab-ci.yml` + includes.
 - **Native engine:** not applicable (importers produce IR, not runtime behavior).
 
 ### Capability manifest

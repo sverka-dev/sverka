@@ -65,7 +65,7 @@ GitLab `spec:inputs` supports `type` (string, boolean, number, array), `default`
 
 ```ts
 interface InputSpec {
-  readonly type: "string" | "boolean" | "number" | "choice" | "array";
+  readonly type: "string" | "boolean" | "number" | "choice" | "array" | "environment";
   readonly description?: string;
   readonly required?: boolean;
   readonly default?: string | boolean | number | readonly string[];
@@ -74,7 +74,11 @@ interface InputSpec {
 }
 ```
 
-Pipeline gets optional `inputs: Record<string, InputSpec>`.
+Pipeline gets optional `inputs: Record<string, InputSpec>`. The `environment`
+type is GitHub-only (`workflow_dispatch` selects configured environments). It
+is not supported for `workflow_call` — emit a downgrade diagnostic when
+targeting `workflow_call`. On GitLab, `environment` is mapped to `choice` with
+the configured environment options.
 
 ### Authoring API
 
@@ -107,11 +111,15 @@ definePipeline({
 ### Capability manifest
 
 ```ts
+// gitlabCapabilities:
 "workflow.inputs": "native",
-"workflow.inputs.pattern": "native",       // GitLab
-"workflow.inputs.pattern": "unsupported",  // GitHub
-"workflow.inputs.array": "native",         // GitLab
-"workflow.inputs.array": "unsupported",    // GitHub
+"workflow.inputs.pattern": "native",
+"workflow.inputs.array": "native",
+// githubCapabilities:
+"workflow.inputs": "native",
+"workflow.inputs.pattern": "unsupported",
+"workflow.inputs.array": "unsupported",
+"workflow.inputs.environment": "native",  // workflow_dispatch only
 ```
 
 ### Portability & divergence

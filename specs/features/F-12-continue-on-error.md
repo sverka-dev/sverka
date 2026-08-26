@@ -65,21 +65,24 @@ task("optional", { run: ..., continueOnError: { exitCodes: [1, 2] } }),
 
 ### Lowering
 
-- **GitHub target:** `continueOnError: true` → `continue-on-error: true`. `continueOnError: { exitCodes }` → not supported natively. Emulate: set `continue-on-error: true` and emit a warning that exit-code filtering is not available on GitHub.
+- **GitHub target:** `continueOnError: true` → `continue-on-error: true`. `continueOnError: { exitCodes }` → not supported natively. Emit an unsupported diagnostic: exit-code filtering is not available on GitHub. Do not set `continue-on-error: true` for `{ exitCodes }` because that would suppress all failures, not just the specified exit codes.
 - **GitLab target:** `continueOnError: true` → `allow_failure: true`. `continueOnError: { exitCodes }` → `allow_failure: { exit_codes: [...] }`.
 - **Native engine:** if `continueOnError` is true, step failure is recorded as a warning, not an error. Exit-code filtering: only mark as non-blocking if exit code matches.
 
 ### Capability manifest
 
 ```ts
+// gitlabCapabilities:
 "scheduling.continueOnError": "native",
-"scheduling.continueOnError.exitCodes": "native",   // GitLab
-"scheduling.continueOnError.exitCodes": "emulated", // GitHub (approximate)
+"scheduling.continueOnError.exitCodes": "native",
+// githubCapabilities:
+"scheduling.continueOnError": "native",
+"scheduling.continueOnError.exitCodes": "unsupported",
 ```
 
 ### Portability & divergence
 
-Exit-code filtering is GitLab-only. On GitHub, Sverka approximates by setting `continue-on-error: true` (all failures are non-blocking) and emits a warning diagnostic. This is a semantic loss — on GitLab, exit code 3 would still fail the pipeline, but on GitHub it wouldn't.
+Exit-code filtering is GitLab-only. On GitHub, Sverka emits an unsupported diagnostic for `{ exitCodes }` rather than approximating with `continue-on-error: true`, because that would suppress all failures instead of only the specified exit codes. Boolean `continueOnError: true` maps directly to `continue-on-error: true` on GitHub.
 
 ## Non-goals
 

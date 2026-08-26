@@ -70,16 +70,19 @@ task("build", {
 
 ### Lowering
 
-- **GitHub target:** `retention` → `retention-days` (parse duration, convert to days). `access` → not supported in YAML (emit warning — access is controlled by repo settings).
+- **GitHub target:** `retention` → `retention-days` (parse duration, convert to days). Conversion rules: `"7d"` → `7`, `"1h"` → `1` (minimum 1 day — emit warning that sub-day retention is rounded up). `"never"` → omit `retention-days` (uses repository default; `retention-days: 0` is not used because it means "use repository default", not "never expire"). `access` → not supported in YAML (emit warning — access is controlled by repo settings).
 - **GitLab target:** `retention` → `artifacts: expire_in`. `access` → `artifacts: access`.
 - **Native engine:** `retention` is metadata (artifacts cleaned up by external process). `access` is not enforced locally.
 
 ### Capability manifest
 
 ```ts
+// gitlabCapabilities:
 "artifact.retention": "native",
-"artifact.access": "native",       // GitLab
-"artifact.access": "unsupported",  // GitHub
+"artifact.access": "native",
+// githubCapabilities:
+"artifact.retention": "native",
+"artifact.access": "unsupported",
 ```
 
 ### Portability & divergence

@@ -79,9 +79,12 @@ task("deploy", {
 ### Capability manifest
 
 ```ts
+// githubCapabilities:
 "concurrency.group": "native",
-"concurrency.cancelInProgress": "native",       // GitHub
-"concurrency.cancelInProgress": "unsupported",  // GitLab
+"concurrency.cancelInProgress": "native",
+// gitlabCapabilities:
+"concurrency.group": "native",
+"concurrency.cancelInProgress": "unsupported",
 ```
 
 ### Portability & divergence
@@ -90,7 +93,12 @@ GitHub has richer concurrency control (cancel, queue). GitLab only has mutual ex
 
 ## Non-goals
 
-- `queue` mode (GitHub-only, `single` vs `max`).
+- `queue` mode is a GitHub-specific provider extension, not part of
+  `ConcurrencySpec`. It accepts `single` (one pending run) or `max` (all
+  pending runs), rejects more than 100 pending runs, and disallows `max`
+  with `cancel-in-progress: true`. Lowering emits GitHub Actions
+  `concurrency.queue` configuration. GitLab and native targets do not
+  support it.
 - Cross-repository concurrency groups.
 - Dynamic group name evaluation on GitLab (static only).
 

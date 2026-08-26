@@ -93,7 +93,11 @@ new ShellStep(pipeline, "deploy", {
   (`github/lower.ts:297-301`). Pipeline secret inputs → `${{ secrets.X }}` in
   workflow env (`github/lower.ts:432-442`).
 - **GitLab target:** `runtime.secrets` → `$X` in job variables
-  (`gitlab/lower.ts:428-432`). Pipeline secret inputs → **omitted** from
+  (`gitlab/lower.ts:428-432`). **Note:** these self-referential assignments
+  (e.g., `NPM_TOKEN: $NPM_TOKEN`) are redundant because GitLab CI/CD
+  variables are already available as environment variables. A future revision
+  should omit runtime secret names from the generated variables block.
+  Pipeline secret inputs → **omitted** from
   variables (`gitlab/lower.ts:579`) — must be defined in GitLab CI/CD
   settings. This is correct: GitLab secrets are project settings, not
   pipeline config.

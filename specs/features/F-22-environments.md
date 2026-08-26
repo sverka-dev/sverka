@@ -64,10 +64,14 @@ interface EnvironmentSpec {
   readonly url?: string;
   readonly action?: "start" | "stop" | "verify";
   readonly tier?: "production" | "staging" | "testing" | "development";
+  readonly onStop?: string;  // step ID of the stop job (GitLab on_stop)
 }
 ```
 
-Step gets optional `environment?: EnvironmentSpec`.
+Step gets optional `environment?: EnvironmentSpec`. For `action: "stop"`,
+`onStop` references the start step that manages the environment lifecycle.
+Validation requires `onStop` to be set for `action: "stop"` steps and verifies
+the referenced step exists in the pipeline.
 
 ### Authoring API
 
@@ -94,11 +98,14 @@ task("stop-deploy", {
 ### Capability manifest
 
 ```ts
+// gitlabCapabilities:
 "deployment.environment": "native",
-"deployment.environment.action": "native",       // GitLab
-"deployment.environment.action": "unsupported",  // GitHub
-"deployment.environment.tier": "native",         // GitLab
-"deployment.environment.tier": "unsupported",    // GitHub
+"deployment.environment.action": "native",
+"deployment.environment.tier": "native",
+// githubCapabilities:
+"deployment.environment": "native",
+"deployment.environment.action": "unsupported",
+"deployment.environment.tier": "unsupported",
 ```
 
 ### Portability & divergence

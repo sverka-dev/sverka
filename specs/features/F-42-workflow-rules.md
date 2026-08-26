@@ -14,7 +14,7 @@ Workflow-level rules control whether an entire pipeline runs. GitLab uses `workf
 
 | Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
 |--------|---------------|-----------|-------------------|
-| Construct | trigger filters (approximate) | `workflow:rules` | `pipelineRules` on Pipeline |
+| Construct | trigger filters (approximate) | `workflow:rules` | `rules` on Pipeline |
 | Semantics | Filter when workflow triggers | Determine if pipeline should run | Gate pipeline execution |
 | Value type | trigger filter maps | array of rule objects | array of rule objects |
 | Limitations | no workflow-level if | — | GitHub: emulated via trigger filters |
@@ -48,7 +48,7 @@ on:
 
 This filters when the workflow triggers, but doesn't support the full `rules` model (no `exists`, no per-rule variables, no `when: never` fallback).
 
-## Sverika proposal
+## Sverka proposal
 
 ### Portable model
 
@@ -62,14 +62,14 @@ interface PipelineRule {
 }
 ```
 
-Pipeline gets optional `rules?: readonly PipelineRule[]`.
+Pipeline gets optional `rules?: readonly PipelineRule[]`. In the authoring API, this field is named `rules` (not `pipelineRules`) for consistency with the portable model.
 
 ### Authoring API
 
 ```ts
 defineWorkflow({
   name: "CI",
-  pipelineRules: [
+  rules: [
     { if: expr`${git.branch} == "main"`, variables: { DEPLOY_TARGET: "production" } },
     { if: expr`${event.source} == "merge_request"`, when: "always" },
     { when: "never" },
@@ -80,15 +80,17 @@ defineWorkflow({
 
 ### Lowering
 
-- **GitHub target:** `pipelineRules` → no direct equivalent. Approximate: if rules are static (branch/tag/source checks), translate to trigger filters. If rules use `exists` or `when: never` fallback, emit warning that GitHub doesn't support workflow-level rules.
-- **GitLab target:** `pipelineRules` → `workflow:rules:` array. Direct mapping.
+- **GitHub target:** `rules` → no direct equivalent. Approximate: if rules are static (branch/tag/source checks), translate to trigger filters. If rules use `exists` or `when: never` fallback, emit warning that GitHub doesn't support workflow-level rules.
+- **GitLab target:** `rules` → `workflow:rules:` array. Direct mapping.
 - **Native engine:** evaluate pipeline rules before execution. If no rule matches, skip the pipeline.
 
 ### Capability manifest
 
 ```ts
-"workflow.rules": "native",          // GitLab
-"workflow.rules": "partial",         // GitHub (trigger filters approximation)
+// gitlabCapabilities:
+"workflow.rules": "native",
+// githubCapabilities:
+"workflow.rules": "partial",  // trigger filters approximation
 ```
 
 ### Portability & divergence

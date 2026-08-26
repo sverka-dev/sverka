@@ -49,7 +49,7 @@ This blocks the runner for the entire sleep duration — not efficient.
 
 ### Portable model
 
-Add optional `delay?: string` (duration string) to Step. When specified, the step waits for the given duration before starting.
+Add optional `delay?: string` (duration string) to Step. When specified, the step waits for the given duration before starting. The canonical duration grammar is `<number><unit>` where unit is `s`, `m`, or `h` (e.g., `"5m"`, `"30s"`, `"1h"`). Values are normalized before lowering. Unsupported values are rejected before synthesis.
 
 ### Authoring API
 
@@ -62,15 +62,17 @@ task("delayed-deploy", {
 
 ### Lowering
 
-- **GitHub target:** `delay` → not natively supported. Emulate: insert a `sleep` step before the main step. Convert duration to seconds. Emit warning: "Delayed execution is emulated on GitHub via sleep. The runner will be occupied during the delay."
-- **GitLab target:** `delay` → `when: delayed` + `start_in: <duration>`. Direct mapping.
+- **GitHub target:** `delay` → not natively supported. Emulate: insert a `sleep` step before the main step. Convert normalized duration to seconds. Emit warning: "Delayed execution is emulated on GitHub via sleep. The runner will be occupied during the delay."
+- **GitLab target:** `delay` → `when: delayed` + `start_in: <duration>`. The normalized duration is converted to GitLab's `start_in` syntax (e.g., `"5 minutes"`). Direct mapping. GitLab's documented maximum is 1 hour (the provider matrix reflects this); the one-week limit applies to `expire_in`, not `start_in`.
 - **Native engine:** wait for the specified duration before starting the step. Use `setTimeout` or similar.
 
 ### Capability manifest
 
 ```ts
-"scheduling.delay": "native",      // GitLab
-"scheduling.delay": "emulated",    // GitHub (sleep step)
+// gitlabCapabilities:
+"scheduling.delay": "native",
+// githubCapabilities:
+"scheduling.delay": "emulated",  // sleep step
 ```
 
 ### Portability & divergence

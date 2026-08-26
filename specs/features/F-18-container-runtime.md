@@ -119,7 +119,11 @@ provider's own container isolation.
 ## Open questions
 
 - Should `Runtime` support `imageDigest` for supply-chain pinning in compiled
-  output (the native engine already supports it)?
+  output (the native engine already supports it)? **Recommendation:** yes —
+  accept `image@sha256:digest` references and require them for reproducible
+  builds. Mutable tags should emit a warning diagnostic. Both compiled
+  targets should preserve the pinned reference instead of silently lowering
+  an unpinned tag.
 - Should `--network=none` be configurable for steps that need network access?
 
 ## References

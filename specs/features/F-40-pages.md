@@ -54,7 +54,7 @@ pages:
       - dist/
 ```
 
-GitLab requires the job to be named `pages`. `publish` sets the content directory. `path_prefix` for parallel deployments. `expire_in` controls deployment lifetime.
+GitLab requires the job to use the `pages` keyword. Modern GitLab no longer requires the job to be named `pages` — a user-defined job name with `pages: { publish: <path> }` is supported. `publish` sets the content directory. `path_prefix` for parallel deployments. `expire_in` controls deployment lifetime.
 
 ## Sverka proposal
 
@@ -79,14 +79,19 @@ task("deploy-pages", {
 
 ### Lowering
 
-- **GitHub target:** `deployPages` → step with `uses: actions/upload-pages-artifact@v3` (upload) + `uses: actions/deploy-pages@v4` (deploy). Auto-set `permissions: { pages: "write", idToken: "write" }` and `environment: { name: "github-pages" }`.
-- **GitLab target:** `deployPages` → job named `pages` with `pages: publish: <path>`. `prefix` → `path_prefix`. Artifacts auto-declared for the path.
+- **GitHub target:** `deployPages` → step with `uses: actions/upload-pages-artifact@v3` (upload) + `uses: actions/deploy-pages@v4` (deploy). Auto-set `permissions: { pages: "write", "id-token": "write" }` and `environment: { name: "github-pages" }`.
+- **GitLab target:** `deployPages` → job with `pages: publish: <path>`. The job name is user-defined (collision-safe); the legacy `pages` job name is not required on modern GitLab. `prefix` → `path_prefix`. Artifacts auto-declared for the path.
 - **Native engine:** not applicable (no Pages hosting locally). Print deployment info.
 
 ### Capability manifest
 
 ```ts
-"deployment.pages": "native",
+// githubCapabilities:
+"deployment.pages": "lowered",     // via actions
+// gitlabCapabilities:
+"deployment.pages": "lowered",     // via pages keyword
+// nativeCapabilities:
+"deployment.pages": "unsupported", // no Pages hosting locally
 ```
 
 ### Portability & divergence

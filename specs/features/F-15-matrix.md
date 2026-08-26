@@ -88,11 +88,14 @@ task("test", {
 ### Capability manifest
 
 ```ts
+// gitlabCapabilities:
 "matrix.expansion": "native",
-"matrix.include": "native",       // GitHub
-"matrix.include": "lowered",      // GitLab (appended to array)
-"matrix.exclude": "native",       // GitHub
-"matrix.exclude": "emulated",     // GitLab (filtered at synthesis)
+"matrix.include": "lowered",      // appended to array
+"matrix.exclude": "emulated",     // filtered at synthesis
+// githubCapabilities:
+"matrix.expansion": "native",
+"matrix.include": "native",
+"matrix.exclude": "native",
 ```
 
 ### Portability & divergence

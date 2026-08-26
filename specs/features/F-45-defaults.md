@@ -8,7 +8,7 @@
 
 ## Summary
 
-Defaults provide workflow-wide or job-wide settings that apply to all steps unless overridden. GitHub uses `defaults.run` (shell, working-directory) at workflow and job level. GitLab uses `default` (image, services, cache, before_script, after_script, etc.) at global level. Sverka needs a portable defaults model.
+Defaults provide pipeline-wide settings that apply to all steps unless overridden. GitHub uses `defaults.run` (shell, working-directory) at workflow and job level. GitLab uses `default` (image, services, cache, before_script, after_script, etc.) at global level. Sverka needs a portable defaults model. The portable model covers pipeline-wide defaults only; job-level overrides are handled by per-step properties.
 
 ## Provider matrix
 
@@ -108,16 +108,19 @@ defineWorkflow({
 ### Capability manifest
 
 ```ts
+// githubCapabilities:
 "workflow.defaults": "native",
-"workflow.defaults.shell": "native",       // GitHub
-"workflow.defaults.shell": "unsupported",  // GitLab
-"workflow.defaults.beforeScript": "native", // GitLab
-"workflow.defaults.beforeScript": "lowered", // GitHub (per-step)
+"workflow.defaults.shell": "native",
+"workflow.defaults.beforeScript": "lowered",  // per-step
+// gitlabCapabilities:
+"workflow.defaults": "native",
+"workflow.defaults.shell": "unsupported",
+"workflow.defaults.beforeScript": "native",
 ```
 
 ### Portability & divergence
 
-GitHub's `defaults` is narrow (shell, workdir only). GitLab's `default` is broad (image, services, cache, scripts, tags, retry, timeout, interruptible). Sverka's portable model covers the union. Each provider lowers what it supports and warns about the rest.
+GitHub's `defaults` is narrow (shell, workdir only). GitLab's `default` is broad (image, services, cache, scripts, tags, retry, timeout, interruptible). Sverka's portable model covers a portable subset of both. Each provider lowers what it supports and warns about the rest.
 
 ## Non-goals
 

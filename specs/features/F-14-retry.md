@@ -23,6 +23,7 @@ Retries automatically re-run a failed step. GitLab has native `retry` with max c
 ## GitHub Actions
 
 No native retry. Workarounds:
+
 ```yaml
 steps:
   - name: Retry build
@@ -33,6 +34,7 @@ steps:
 ```
 
 Or shell loop:
+
 ```yaml
 steps:
   - run: |
@@ -64,7 +66,7 @@ Add optional `retry?: RetryPolicy` to Step:
 
 ```ts
 interface RetryPolicy {
-  readonly max: number;           // 0-2 (GitLab limit)
+  readonly max: number;           // 0-2 (GitLab limit); native engine allows higher
   readonly when?: readonly RetryWhen[];
   readonly exitCodes?: readonly number[];
 }
@@ -73,9 +75,14 @@ type RetryWhen =
   | "always"
   | "script_failure"
   | "runner_system_failure"
-  | "timeout"
+  | "stuck_or_timeout_failure"
   | "unknown_failure";
 ```
+
+`RetryWhen` values mirror GitLab's `when` enum directly. The portable model
+does not include `api_failure` or `runner_unsupported` (rarely retried
+usefully). `max` is capped at 2 for GitLab lowering; values above 2 are
+accepted for the native engine and emit a warning when lowered to GitLab.
 
 ### Authoring API
 
@@ -89,15 +96,17 @@ task("build", {
 
 ### Lowering
 
-- **GitHub target:** no native retry. Emulate: wrap `run` command in a shell retry loop. `exitCodes` → check `$?` in loop. `when` filtering not possible (GitHub doesn't expose failure types) — approximate: retry on any non-zero exit.
+- **GitHub target:** no native retry. Emulate: wrap `run` command in a shell retry loop that captures the exit code of each attempt and exits non-zero after retries are exhausted (do not end with `sleep`, which returns zero). `exitCodes` → check `$?` in loop. `when` filtering not possible (GitHub doesn't expose failure types) — approximate: retry on any non-zero exit.
 - **GitLab target:** `retry` → `retry:` with `max`, `when`, `exit_codes`. Direct mapping.
 - **Native engine:** re-run the step's operations up to `max` times. Check exit code against `exitCodes` if specified. Apply `when` filtering based on failure type.
 
 ### Capability manifest
 
 ```ts
-"execution.retry": "native",       // GitLab
-"execution.retry": "emulated",     // GitHub (shell wrapper)
+// gitlabCapabilities:
+"execution.retry": "native",
+// githubCapabilities:
+"execution.retry": "emulated",  // shell wrapper
 ```
 
 ### Portability & divergence

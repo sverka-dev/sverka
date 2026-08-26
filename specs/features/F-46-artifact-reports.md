@@ -81,9 +81,13 @@ type ReportType =
 interface ReportSpec {
   readonly type: ReportType;
   readonly path: string;
-  readonly format?: string;  // e.g., "cobertura" for coverage
+  readonly format?: string;  // required for "coverage": "cobertura" | "jacoco"
 }
 ```
+
+For `type: "coverage"`, `format` is required and must be `"cobertura"` or
+`"jacoco"`. For other report types, `format` is optional. Unsupported or
+missing coverage formats are rejected before lowering.
 
 `Operation` with `kind: "report"`, `spec: ReportSpec`.
 
@@ -101,20 +105,23 @@ task("test", {
 
 ### Lowering
 
-- **GitHub target:** `report` → mapped to appropriate action. `junit` → `dorny/test-reporter@v1`. `sast`/`sarif` → `github/codeql-action/upload-sarif@v3`. Others → no standard action (emit warning, upload as generic artifact).
+- **GitHub target:** `report` → mapped to appropriate action. `junit` → `dorny/test-reporter@v1`. `sarif` → `github/codeql-action/upload-sarif@v3`. `sast` → GitLab SAST JSON is not SARIF; either convert to SARIF before upload or reject with a diagnostic (do not map `sast` directly to `upload-sarif`). Others → no standard action (emit warning, upload as generic artifact).
 - **GitLab target:** `report` → `artifacts:reports:` with type mapping. `junit` → `junit:`. `coverage` → `coverage_report:`. `dotenv` → `dotenv:`. etc.
 - **Native engine:** store report file. Sverka's findings package can consume SARIF and JUnit reports.
 
 ### Capability manifest
 
 ```ts
-"artifact.report.junit": "native",       // GitLab
-"artifact.report.junit": "emulated",     // GitHub (via action)
-"artifact.report.coverage": "native",    // GitLab
-"artifact.report.coverage": "emulated",  // GitHub (via action)
-"artifact.report.sarif": "native",       // both (GitHub via upload-sarif, GitLab via API)
-"artifact.report.sast": "native",        // GitLab
-"artifact.report.sast": "emulated",      // GitHub (via SARIF upload)
+// gitlabCapabilities:
+"artifact.report.junit": "native",
+"artifact.report.coverage": "native",
+"artifact.report.sarif": "native",
+"artifact.report.sast": "native",
+// githubCapabilities:
+"artifact.report.junit": "emulated",      // via dorny/test-reporter
+"artifact.report.coverage": "emulated",   // via action
+"artifact.report.sarif": "native",        // via upload-sarif
+"artifact.report.sast": "emulated",       // requires SARIF conversion
 ```
 
 ### Portability & divergence
