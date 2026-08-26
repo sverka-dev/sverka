@@ -18,6 +18,21 @@ export interface ShellProxy {
   (strings: TemplateStringsArray, ...values: readonly unknown[]): StepBuilder;
   // Shell selector: shell("bash") → new ShellProxy with shell preset.
   (interpreter: string): ShellProxy;
+  // Common command prefixes — named properties avoid | undefined under
+  // noUncheckedIndexedAccess and provide autocomplete. The index signature
+  // below covers any other string prefix dynamically.
+  readonly git: ShellProxy;
+  readonly npm: ShellProxy;
+  readonly npx: ShellProxy;
+  readonly bun: ShellProxy;
+  readonly pnpm: ShellProxy;
+  readonly yarn: ShellProxy;
+  readonly docker: ShellProxy;
+  readonly make: ShellProxy;
+  readonly cargo: ShellProxy;
+  readonly go: ShellProxy;
+  readonly python: ShellProxy;
+  readonly pip: ShellProxy;
   // Command prefix: shell.git`push` → StepBuilder with "git push".
   readonly [key: string]: ShellProxy;
 }
