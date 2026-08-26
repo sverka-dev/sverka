@@ -651,6 +651,14 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const needs = lowerDependencies(step.dependencies, jobIdMap);
   const rawSteps = lowerOperations(step, jobIdMap);
 
+  // GitHub only supports boolean continue-on-error, not exit-code mapping.
+  if (step.continueOnError !== undefined && typeof step.continueOnError !== "boolean") {
+    throw new GithubTargetError(
+      "GitHub does not support exit-code continueOnError; use a boolean value",
+      "UNSUPPORTED_FEATURE",
+    );
+  }
+
   // Apply continueOnError to all run steps (not Checkout/uses steps).
   const steps =
     step.continueOnError !== undefined
@@ -1226,7 +1234,17 @@ function lowerStrategy(spec: MatrixSpec): {
   return {
     matrix,
     ...(spec.failFast !== undefined ? { failFast: spec.failFast } : {}),
-    ...(spec.maxParallel !== undefined ? { maxParallel: spec.maxParallel } : {}),
+    ...(spec.maxParallel !== undefined
+      ? (() => {
+          if (!Number.isInteger(spec.maxParallel) || spec.maxParallel <= 0) {
+            throw new GithubTargetError(
+              `maxParallel must be a positive integer, got ${spec.maxParallel}`,
+              "INVALID_MATRIX",
+            );
+          }
+          return { maxParallel: spec.maxParallel };
+        })()
+      : {}),
   };
 }
 
