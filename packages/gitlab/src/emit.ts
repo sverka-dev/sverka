@@ -181,15 +181,8 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
   return result;
 }
 
-/** Add fields requiring transformation to the result object. */
-function addComplexJobFields(result: Record<string, unknown>, job: GitlabJob): void {
-  if (job.needs.length > 0) {
-    result.needs = [...job.needs];
-  }
-
-  assignOptionalList(result, "before_script", job.beforeScript);
-  assignOptionalList(result, "after_script", job.afterScript);
-
+/** Add artifacts, variables, and rules fields to the result object. */
+function assignJobArtifactsVarsRules(result: Record<string, unknown>, job: GitlabJob): void {
   if (job.artifacts) {
     result.artifacts = artifactsToYaml(job.artifacts);
   }
@@ -199,10 +192,11 @@ function addComplexJobFields(result: Record<string, unknown>, job: GitlabJob): v
   if (job.rules && job.rules.length > 0) {
     result.rules = job.rules.map(ruleToYaml);
   }
+}
 
-  assignAllowFailure(result, job.allowFailure);
-  assignRetry(result, job.retry);
-  if (job.parallel?.matrix) {
+/** Add parallel/matrix field to the result object. */
+function assignJobParallel(result: Record<string, unknown>, job: GitlabJob): void {
+  if (job.parallel && job.parallel.matrix) {
     // GitLab parallel:matrix requires each variable value to be an array.
     result.parallel = {
       matrix: job.parallel.matrix.map((row: Record<string, unknown>) => {
@@ -216,7 +210,10 @@ function addComplexJobFields(result: Record<string, unknown>, job: GitlabJob): v
   } else {
     assignOptional(result, "parallel", job.parallel);
   }
+}
 
+/** Add tags, id_tokens, services, environment, and cache fields. */
+function assignJobContainerFields(result: Record<string, unknown>, job: GitlabJob): void {
   if (job.tags && job.tags.length > 0) {
     result.tags = [...job.tags];
   }
@@ -232,6 +229,24 @@ function addComplexJobFields(result: Record<string, unknown>, job: GitlabJob): v
   if (job.cache) {
     result.cache = cacheToYaml(job.cache);
   }
+}
+
+/** Add fields requiring transformation to the result object. */
+function addComplexJobFields(result: Record<string, unknown>, job: GitlabJob): void {
+  if (job.needs.length > 0) {
+    result.needs = [...job.needs];
+  }
+
+  assignOptionalList(result, "before_script", job.beforeScript);
+  assignOptionalList(result, "after_script", job.afterScript);
+
+  assignJobArtifactsVarsRules(result, job);
+
+  assignAllowFailure(result, job.allowFailure);
+  assignRetry(result, job.retry);
+  assignJobParallel(result, job);
+
+  assignJobContainerFields(result, job);
 }
 
 function assignOptional(

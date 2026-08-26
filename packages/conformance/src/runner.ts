@@ -408,18 +408,18 @@ function checkSerialization(graph: DefinitionGraph): ConformanceResult {
 }
 
 /**
- * F-31 conformance: reusable pipelines authored through all 3 surfaces
- * produce equivalent graphs, compile to both targets, and expand correctly.
+ * F-31 conformance: reusable pipeline authoring through all 3 surfaces.
  */
-function checkReusablePipelineConformance(): readonly ConformanceResult[] {
-  const results: ConformanceResult[] = [];
-
-  // Authoring.
+function checkReusableAuthoring(): {
+  results: ConformanceResult[];
+  projConstruct: Project;
+  projSDK: Project;
+  projDecorator: Project;
+} {
   const projConstruct = createReusableSeedWithConstructs();
   const projSDK = createReusableSeedWithSDK();
   const projDecorator = createReusableSeedWithDecorators();
-
-  results.push(
+  const results: ConformanceResult[] = [
     {
       name: "F-31: Reusable pipeline authored through Construct API",
       passed: projConstruct !== undefined,
@@ -435,9 +435,19 @@ function checkReusablePipelineConformance(): readonly ConformanceResult[] {
       passed: projDecorator !== undefined,
       message: "Decorator API produced a Project with 2 pipelines",
     },
-  );
+  ];
+  return { results, projConstruct, projSDK, projDecorator };
+}
 
-  // Synthesis.
+/**
+ * F-31 conformance: synthesize reusable pipeline graphs from all 3 surfaces.
+ * Returns the graphs or an error result.
+ */
+function checkReusableSynthesis(
+  projConstruct: Project,
+  projSDK: Project,
+  projDecorator: Project,
+): { results: ConformanceResult[]; graph?: DefinitionGraph } {
   let graphConstruct: DefinitionGraph;
   let graphSDK: DefinitionGraph;
   let graphDecorator: DefinitionGraph;
@@ -446,29 +456,38 @@ function checkReusablePipelineConformance(): readonly ConformanceResult[] {
     graphSDK = synthesize(projSDK);
     graphDecorator = synthesize(projDecorator);
   } catch (err) {
-    results.push({
-      name: "F-31: All 3 APIs synthesize reusable pipeline graph",
-      passed: false,
-      message: `Synthesis error: ${err instanceof Error ? err.message : String(err)}`,
-    });
-    return results;
+    return {
+      results: [
+        {
+          name: "F-31: All 3 APIs synthesize reusable pipeline graph",
+          passed: false,
+          message: `Synthesis error: ${err instanceof Error ? err.message : String(err)}`,
+        },
+      ],
+    };
   }
-
-  // Graph equivalence.
   const constructJson = normalizeGraph(graphConstruct);
   const sdkJson = normalizeGraph(graphSDK);
   const decoratorJson = normalizeGraph(graphDecorator);
   const graphsMatch = constructJson === sdkJson && sdkJson === decoratorJson;
-  results.push({
-    name: "F-31: All 3 APIs synthesize equivalent reusable pipeline graph",
-    passed: graphsMatch,
-    message: graphsMatch
-      ? "All 3 reusable pipeline graphs are equivalent"
-      : `Graphs differ: construct===sdk: ${constructJson === sdkJson}, sdk===decorator: ${sdkJson === decoratorJson}`,
-  });
+  const results: ConformanceResult[] = [
+    {
+      name: "F-31: All 3 APIs synthesize equivalent reusable pipeline graph",
+      passed: graphsMatch,
+      message: graphsMatch
+        ? "All 3 reusable pipeline graphs are equivalent"
+        : `Graphs differ: construct===sdk: ${constructJson === sdkJson}, sdk===decorator: ${sdkJson === decoratorJson}`,
+    },
+  ];
+  return { results, graph: graphConstruct };
+}
 
-  // Call step presence.
-  const hasCallStep = graphConstruct.project.pipelines.some((p) =>
+/**
+ * F-31 conformance: call step presence and expansion in the reusable pipeline.
+ */
+function checkReusableCallAndExpansion(graph: DefinitionGraph): ConformanceResult[] {
+  const results: ConformanceResult[] = [];
+  const hasCallStep = graph.project.pipelines.some((p) =>
     p.steps.some((s) => s.call !== undefined),
   );
   results.push({
@@ -476,11 +495,9 @@ function checkReusablePipelineConformance(): readonly ConformanceResult[] {
     passed: hasCallStep,
     message: hasCallStep ? "Call step found in graph" : "No call step in graph",
   });
-
-  // Expansion: call steps expand to namespaced inline steps.
-  const ciPipeline = graphConstruct.project.pipelines.find((p) => p.id === "ci");
+  const ciPipeline = graph.project.pipelines.find((p) => p.id === "ci");
   if (ciPipeline) {
-    const expanded = expandPipelineCalls(graphConstruct, ciPipeline.steps);
+    const expanded = expandPipelineCalls(graph, ciPipeline.steps);
     const hasNoCallSteps = expanded.every((s) => s.call === undefined);
     const hasNamespacedStep = expanded.some((s) =>
       s.id.includes("deploy-staging/deploy"),
@@ -491,11 +508,33 @@ function checkReusablePipelineConformance(): readonly ConformanceResult[] {
       message: `Expanded ${expanded.length} steps; no call steps: ${hasNoCallSteps}; namespaced step present: ${hasNamespacedStep}`,
     });
   }
+  return results;
+}
 
-  // Target compilation.
+/**
+ * F-31 conformance: reusable pipelines authored through all 3 surfaces
+ * produce equivalent graphs, compile to both targets, and expand correctly.
+ */
+function checkReusablePipelineConformance(): readonly ConformanceResult[] {
+  const results: ConformanceResult[] = [];
+
+  const { results: authoringResults, projConstruct, projSDK, projDecorator } =
+    checkReusableAuthoring();
+  results.push(...authoringResults);
+
+  const { results: synthesisResults, graph } = checkReusableSynthesis(
+    projConstruct,
+    projSDK,
+    projDecorator,
+  );
+  results.push(...synthesisResults);
+  if (!graph) return results;
+
+  results.push(...checkReusableCallAndExpansion(graph));
+
   results.push(
-    checkTargetCompile(graphConstruct, "github", "workflow_call"),
-    checkTargetCompile(graphConstruct, "gitlab", "script:"),
+    checkTargetCompile(graph, "github", "workflow_call"),
+    checkTargetCompile(graph, "gitlab", "script:"),
   );
 
   return results;

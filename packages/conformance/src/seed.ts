@@ -153,7 +153,7 @@ const REUSABLE_CALLEE_INPUTS = {
   env: { type: "string" as const, required: true as const },
 };
 
-const REUSABLE_CALLEE_COMMAND = `echo "deploying to $\{env}"`;
+const REUSABLE_CALLEE_COMMAND = 'echo "deploying to ${env}"';
 
 // --- Construct API ---
 

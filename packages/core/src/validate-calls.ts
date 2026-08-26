@@ -72,6 +72,67 @@ function validateCallStep(
   }
 }
 
+function typeMismatchError(
+  inputName: string,
+  expectedType: string,
+  actualType: string,
+  stepId: string,
+  calleeId: string,
+): SynthesisError {
+  return new SynthesisError(
+    "INPUT_TYPE_MISMATCH",
+    `Step '${stepId}' binds input '${inputName}' (type '${expectedType}') with value of type '${actualType}' on callee '${calleeId}'`,
+    stepId,
+  );
+}
+
+function validateArrayType(
+  value: InputLiteral,
+  inputName: string,
+  stepId: string,
+  calleeId: string,
+): void {
+  if (!Array.isArray(value)) {
+    throw typeMismatchError(inputName, "array", typeof value, stepId, calleeId);
+  }
+}
+
+function validateChoiceType(
+  value: InputLiteral,
+  input: Input,
+  inputName: string,
+  stepId: string,
+  calleeId: string,
+): void {
+  if (typeof value !== "string") {
+    throw typeMismatchError(inputName, "choice", typeof value, stepId, calleeId);
+  }
+  if (input.options !== undefined && !input.options.includes(value)) {
+    throw new SynthesisError(
+      "INPUT_TYPE_MISMATCH",
+      `Step '${stepId}' binds input '${inputName}' with value '${value}' not in allowed options on callee '${calleeId}'`,
+      stepId,
+    );
+  }
+}
+
+function validateScalarType(
+  value: InputLiteral,
+  input: Input,
+  inputName: string,
+  stepId: string,
+  calleeId: string,
+): void {
+  const actual = typeof value;
+  if (
+    (input.type === "string" && actual !== "string") ||
+    (input.type === "number" && actual !== "number") ||
+    (input.type === "boolean" && actual !== "boolean")
+  ) {
+    throw typeMismatchError(inputName, input.type, actual, stepId, calleeId);
+  }
+}
+
 function validateLiteralType(
   value: InputLiteral,
   input: Input,
@@ -80,44 +141,14 @@ function validateLiteralType(
   calleeId: string,
 ): void {
   if (input.type === "array") {
-    if (!Array.isArray(value)) {
-      throw new SynthesisError(
-        "INPUT_TYPE_MISMATCH",
-        `Step '${stepId}' binds input '${inputName}' (type 'array') with value of type '${typeof value}' on callee '${calleeId}'`,
-        stepId,
-      );
-    }
+    validateArrayType(value, inputName, stepId, calleeId);
     return;
   }
   if (input.type === "choice") {
-    if (typeof value !== "string") {
-      throw new SynthesisError(
-        "INPUT_TYPE_MISMATCH",
-        `Step '${stepId}' binds input '${inputName}' (type 'choice') with value of type '${typeof value}' on callee '${calleeId}'`,
-        stepId,
-      );
-    }
-    if (input.options !== undefined && !input.options.includes(value)) {
-      throw new SynthesisError(
-        "INPUT_TYPE_MISMATCH",
-        `Step '${stepId}' binds input '${inputName}' with value '${value}' not in allowed options on callee '${calleeId}'`,
-        stepId,
-      );
-    }
+    validateChoiceType(value, input, inputName, stepId, calleeId);
     return;
   }
-  const actual = typeof value;
-  if (
-    (input.type === "string" && actual !== "string") ||
-    (input.type === "number" && actual !== "number") ||
-    (input.type === "boolean" && actual !== "boolean")
-  ) {
-    throw new SynthesisError(
-      "INPUT_TYPE_MISMATCH",
-      `Step '${stepId}' binds input '${inputName}' (type '${input.type}') with value of type '${actual}' on callee '${calleeId}'`,
-      stepId,
-    );
-  }
+  validateScalarType(value, input, inputName, stepId, calleeId);
 }
 
 /**
