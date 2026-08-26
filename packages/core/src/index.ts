@@ -18,6 +18,12 @@ export type {
   Reference,
   Runtime,
   Trigger,
+  MatrixSpec,
+  MatrixValue,
+  Condition,
+  ContinueOnError,
+  RetryPolicy,
+  Expression,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";

@@ -3,6 +3,7 @@
 
 import { mkdir, readFile } from "node:fs/promises";
 import { isAbsolute, join, normalize, relative } from "node:path";
+import { spawnSync } from "node:child_process";
 import type { StepDefinition, OperationDefinition } from "@sverka/core";
 import type { InputValue } from "@sverka/ir";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore, RunEvent } from "./types.js";
@@ -101,12 +102,12 @@ async function executeShellOperation(
   stepWorkspace: string,
   outputDir: string,
 ): Promise<void> {
-  const { step, driver, secrets, valueStore, inputs, signal } = opts;
-  const env = buildShellEnv(step, outputDir, secrets);
-  const command = interpolateCommand(op.command, step, valueStore, inputs);
+  const { step, driver, valueStore, inputs, signal } = opts;
+  const env = buildShellEnv(step, outputDir, stepScopedSecrets(opts));
   const cwd = step.runtime.workingDir
     ? resolveUnder(stepWorkspace, step.runtime.workingDir)
     : stepWorkspace;
+  const command = interpolateCommand(op.command, step, valueStore, inputs, opts);
   const request: ShellExecuteRequest = {
     command,
     workspace: stepWorkspace,
@@ -115,6 +116,7 @@ async function executeShellOperation(
     ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
     ...(step.runtime.image ? { image: step.runtime.image } : {}),
     ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
+    ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
     ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
       ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
       : {}),
@@ -188,6 +190,22 @@ function executeDiagnosticOperation(
     message: op.message,
     severity: op.severity,
   });
+}
+
+/**
+ * Filter the run-level secrets map to only the secrets declared by this step.
+ * Prevents a step from interpolating secrets it did not declare.
+ */
+function stepScopedSecrets(opts: StepExecOptions): Readonly<Record<string, string>> {
+  const { step, secrets } = opts;
+  if (!step.runtime.secrets) return {};
+  const scoped: Record<string, string> = {};
+  for (const name of step.runtime.secrets) {
+    if (secrets[name] !== undefined) {
+      scoped[name] = secrets[name];
+    }
+  }
+  return scoped;
 }
 
 function buildShellEnv(
@@ -280,6 +298,7 @@ function interpolateCommand(
   step: StepDefinition,
   valueStore: ValueStore,
   inputs: Readonly<Record<string, InputValue>> | undefined,
+  opts: StepExecOptions,
 ): string {
   const prefix = stepPrefix(step.id);
   return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
@@ -292,6 +311,14 @@ function interpolateCommand(
     }
     const ns = key.slice(0, dot);
     const field = key.slice(dot + 1);
+
+    // Context ref resolution (F-35, F-15)
+    const ctxValue = resolveContextRef(ns, field, inputs, opts.secrets, step.matrixValues);
+    if (ctxValue !== undefined) {
+      return shellQuote(ctxValue as InputValue);
+    }
+
+    // Step output resolution
     const stepId = resolveProducerId(prefix, ns);
     const value = valueStore.get(stepId, field);
     if (value !== undefined) {
@@ -301,6 +328,67 @@ function interpolateCommand(
     if (inputs && inputs[inputKey] !== undefined) {
       return shellQuote(inputs[inputKey] as InputValue);
     }
-    throw new StepExecError(`unresolved step reference '\${${key}}'`, "STEP_EXEC_ERROR");
+    throw new StepExecError(`unresolved context or step reference '\${${key}}'`, "STEP_EXEC_ERROR");
   });
+}
+
+/**
+ * Resolve a context ref (namespace.field) against runtime state.
+ * Returns undefined if the namespace is not a context namespace or the value is not found.
+ */
+function resolveContextRef(
+  namespace: string,
+  field: string,
+  inputs: Readonly<Record<string, InputValue>> | undefined,
+  secrets: Readonly<Record<string, string>>,
+  matrixValues?: Readonly<Record<string, string | number>>,
+): string | undefined {
+  switch (namespace) {
+    case "env":
+      return process.env[field];
+    case "secrets":
+      return secrets[field];
+    case "inputs":
+      return inputs?.[field] !== undefined ? String(inputs[field]) : undefined;
+    case "git":
+      return resolveGitContext(field);
+    case "matrix":
+      return resolveMatrixField(matrixValues, field);
+    default:
+      return undefined;
+  }
+}
+
+function resolveMatrixField(
+  matrixValues: Readonly<Record<string, string | number>> | undefined,
+  field: string,
+): string | undefined {
+  if (matrixValues === undefined) return undefined;
+  const mv = matrixValues[field];
+  return mv !== undefined ? String(mv) : undefined;
+}
+
+/**
+ * Resolve git.* context refs using git CLI.
+ * Uses an absolute path to git to avoid PATH-based lookup.
+ */
+export function resolveGitContext(field: string): string | undefined {
+  const args: string[] | undefined = gitArgsForField(field);
+  if (!args) return undefined;
+  const result = spawnSync("/usr/bin/git", args, { encoding: "utf-8" });
+  if (result.status !== 0 || result.error) return undefined;
+  return result.stdout.trim() || undefined;
+}
+
+function gitArgsForField(field: string): string[] | undefined {
+  switch (field) {
+    case "sha":
+      return ["rev-parse", "HEAD"];
+    case "branch":
+      return ["rev-parse", "--abbrev-ref", "HEAD"];
+    case "tag":
+      return ["describe", "--tags", "--exact-match"];
+    default:
+      return undefined;
+  }
 }

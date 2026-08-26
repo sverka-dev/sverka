@@ -29,6 +29,7 @@ export function emitGithub(targetGraph: GithubTargetGraph): readonly GeneratedAr
 function stringifyTargetGraph(graph: GithubTargetGraph): string {
   const doc: Record<string, unknown> = {
     name: graph.name,
+    ...(graph.runName !== undefined ? { "run-name": graph.runName } : {}),
     on: graph.on,
   };
 
@@ -70,6 +71,21 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
     result.env = job.env;
   }
 
+  if (job.strategy) {
+    const strat: Record<string, unknown> = { matrix: job.strategy.matrix };
+    if (job.strategy.failFast !== undefined) {
+      strat["fail-fast"] = job.strategy.failFast;
+    }
+    if (job.strategy.maxParallel !== undefined) {
+      strat["max-parallel"] = job.strategy.maxParallel;
+    }
+    result.strategy = strat;
+  }
+
+  if (job.outputs && Object.keys(job.outputs).length > 0) {
+    result.outputs = job.outputs;
+  }
+
   result.steps = job.steps.map((step, i) => stepToYaml(step, i));
 
   return result;
@@ -102,6 +118,18 @@ function stepToYaml(step: GithubStep, index: number): Record<string, unknown> {
   }
   if (step.env) {
     result.env = step.env;
+  }
+
+  if (step.if) {
+    result.if = step.if;
+  }
+
+  if (step.continueOnError !== undefined) {
+    result["continue-on-error"] = step.continueOnError;
+  }
+
+  if (step.shell) {
+    result.shell = step.shell;
   }
 
   return result;

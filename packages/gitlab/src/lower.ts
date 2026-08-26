@@ -9,7 +9,9 @@ import type {
   OperationDefinition,
   Dependency,
   Trigger,
+  Reference,
 } from "@sverka/core";
+import type { MatrixSpec, MatrixValue } from "@sverka/cdk";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
 
@@ -43,7 +45,7 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
   const jobs = lowerSteps(reachableSteps, jobIdMap, stageMap, jobRulesMap);
 
   return {
-    name: pipeline.id,
+    name: pipeline.name ?? pipeline.id,
     stages,
     jobs,
     variables: collectVariables(pipeline),
@@ -319,6 +321,9 @@ function lowerTriggers(entries: readonly EntryDefinition[]): readonly GitlabRule
       case "manual":
         rules.push({ if: '$CI_PIPELINE_SOURCE == "web"' });
         break;
+      case "schedule":
+        rules.push({ if: '$CI_PIPELINE_SOURCE == "schedule"' });
+        break;
       default:
         throw new GitlabTargetError(
           `unsupported trigger kind: ${JSON.stringify((t as Trigger).kind)}`,
@@ -373,6 +378,7 @@ function lowerStep(
   const { script, artifacts, needs: importNeeds, variables } = lowerOperations(
     step,
     jobIdMap,
+    jobId,
   );
 
   const needs = mergeNeeds(step, jobIdMap, importNeeds);
@@ -389,6 +395,28 @@ function lowerStep(
     needs,
     script,
     ...buildJobFields(image, artifacts, jobVariables, rules, step.timeout),
+    ...(step.matrix !== undefined
+      ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
+      : {}),
+    ...(step.beforeScript ? { beforeScript: step.beforeScript } : {}),
+    ...(step.afterScript ? { afterScript: step.afterScript } : {}),
+    ...(step.continueOnError !== undefined
+      ? {
+          allowFailure:
+            typeof step.continueOnError === "boolean"
+              ? step.continueOnError
+              : { exitCodes: step.continueOnError.exitCodes },
+        }
+      : {}),
+    ...(step.retry !== undefined
+      ? {
+          retry: {
+            max: step.retry.max,
+            ...(step.retry.when ? { when: step.retry.when } : {}),
+            ...(step.retry.exitCodes ? { exitCodes: step.retry.exitCodes } : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -474,6 +502,7 @@ function lowerDependencies(
 function lowerOperations(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  jobId: string,
 ): {
   script: string[];
   artifacts?: { paths?: string[]; reports?: { dotenv?: string } };
@@ -489,12 +518,12 @@ function lowerOperations(
   for (const op of step.operations) {
     switch (op.kind) {
       case "shell":
-        script.push(op.command);
+        script.push(translateGitlabCommand(op.command, step.inputs, jobIdMap));
         break;
       case "exportOutput": {
-        const name = shellEscapeDoubleQuoted(op.name);
+        const dotenvName = dotenvVarName(jobId, op.name);
         script.push(
-          `echo "${name}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`,
+          `echo "${shellEscapeDoubleQuoted(dotenvName)}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`,
         );
         hasDotenv = true;
         break;
@@ -533,6 +562,16 @@ function lowerOperations(
     needs: importNeeds,
     variables: jobVariables,
   };
+}
+
+/**
+ * Build a dotenv-safe variable name from a job ID and output name.
+ * GitLab dotenv variable names allow only ASCII letters, digits, and
+ * underscores. Hyphens and other characters (e.g. from job ID collision
+ * suffixes like "build-1") are replaced with underscores.
+ */
+function dotenvVarName(jobId: string, outputName: string): string {
+  return `${jobId}_${outputName}`.replace(/\W/g, "_");
 }
 
 /**
@@ -584,4 +623,170 @@ function collectVariables(pipeline: PipelineDefinition): Record<string, string> 
     }
   }
   return vars;
+}
+
+// ---------------------------------------------------------------------------
+// Matrix lowering (F-15)
+// ---------------------------------------------------------------------------
+
+type MatrixCombination = Record<string, MatrixValue>;
+
+const GITLAB_MATRIX_KEY_PATTERN = /^\w+$/;
+const GITLAB_MATRIX_MAX_ROWS = 200;
+
+/**
+ * Lower a MatrixSpec to a GitLab parallel:matrix array.
+ * GitLab has no native include/exclude — exclude is emulated by filtering
+ * combinations at synthesis time, include is appended to the array.
+ * Validates that all dimension and include-entry keys are GitLab-safe
+ * identifiers and that the total row count does not exceed 200.
+ */
+function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[] {
+  validateMatrixKeys(spec);
+  const combinations = computeMatrixCombinations(spec.dimensions, spec.exclude ?? []);
+  const includeEntries = (spec.include ?? []).map((entry) => ({ ...entry }));
+  const rows = [
+    ...combinations.map((c) => ({ ...c })),
+    ...includeEntries,
+  ];
+  if (rows.length > GITLAB_MATRIX_MAX_ROWS) {
+    throw new GitlabTargetError(
+      `matrix produces ${rows.length} rows, exceeding GitLab's limit of ${GITLAB_MATRIX_MAX_ROWS}`,
+      "LOWER_FAILED",
+    );
+  }
+  // Keep values flat in the target graph; array-wrapping for GitLab's
+  // parallel:matrix format happens at YAML emit time.
+  return rows;
+}
+
+/**
+ * Validate that all dimension and include-entry keys match the GitLab-safe
+ * identifier pattern [A-Za-z0-9_]+. Keys like "node-version" are rejected
+ * because GitLab dotenv variable names cannot contain hyphens.
+ */
+function validateMatrixKeys(spec: MatrixSpec): void {
+  for (const key of Object.keys(spec.dimensions)) {
+    if (!GITLAB_MATRIX_KEY_PATTERN.test(key)) {
+      throw new GitlabTargetError(
+        `matrix dimension key '${key}' is not a valid GitLab identifier (only letters, digits, and underscores are allowed)`,
+        "LOWER_FAILED",
+      );
+    }
+  }
+  for (const entry of spec.include ?? []) {
+    for (const key of Object.keys(entry)) {
+      if (!GITLAB_MATRIX_KEY_PATTERN.test(key)) {
+        throw new GitlabTargetError(
+          `matrix include key '${key}' is not a valid GitLab identifier (only letters, digits, and underscores are allowed)`,
+          "LOWER_FAILED",
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Compute the cross-product of matrix dimensions, then filter out
+ * combinations matching any exclude rule (partial match).
+ */
+function computeMatrixCombinations(
+  dimensions: Readonly<Record<string, readonly MatrixValue[]>>,
+  exclude: readonly Readonly<Record<string, MatrixValue>>[],
+): readonly MatrixCombination[] {
+  const keys = Object.keys(dimensions);
+  if (keys.length === 0) return [];
+
+  let combinations: MatrixCombination[] = [{}];
+  for (const key of keys) {
+    const values = dimensions[key];
+    if (!values || values.length === 0) {
+      // A Cartesian product with an empty dimension produces zero combinations.
+      return [];
+    }
+    const next: MatrixCombination[] = [];
+    for (const combo of combinations) {
+      for (const v of values) {
+        next.push({ ...combo, [key]: v });
+      }
+    }
+    combinations = next;
+  }
+
+  if (exclude.length === 0) return combinations;
+  return combinations.filter((combo) => !matchesAny(combo, exclude));
+}
+
+/**
+ * Check if a combination matches any exclude rule (partial match).
+ */
+function matchesAny(
+  combo: MatrixCombination,
+  rules: readonly Readonly<Record<string, MatrixValue>>[],
+): boolean {
+  for (const rule of rules) {
+    const ruleEntries = Object.entries(rule);
+    if (ruleEntries.length === 0) continue;
+    if (ruleEntries.every(([k, v]) => combo[k] === v)) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Context ref translation (F-35)
+// ---------------------------------------------------------------------------
+
+const GITLAB_CONTEXT_MAP: Readonly<Record<string, string>> = {
+  "git.sha": "$CI_COMMIT_SHA",
+  "git.branch": "$CI_COMMIT_BRANCH",
+  "git.tag": "$CI_COMMIT_TAG",
+  "change.id": "$CI_MERGE_REQUEST_IID",
+  "change.source": "$CI_PIPELINE_SOURCE",
+  "change.target": "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME",
+  "change.draft": "$CI_MERGE_REQUEST_DRAFT",
+  "event.type": "$CI_PIPELINE_SOURCE",
+  "run.id": "$CI_PIPELINE_ID",
+  // run.attempt has no GitLab equivalent; left unmapped.
+};
+
+function translateGitlabContextRef(namespace: string, field: string): string {
+  const key = `${namespace}.${field}`;
+  const mapped = GITLAB_CONTEXT_MAP[key];
+  if (mapped) return mapped;
+  if (namespace === "env" || namespace === "secrets" || namespace === "inputs") {
+    return `$${field}`;
+  }
+  if (namespace === "matrix") {
+    return `$${field.toUpperCase()}`;
+  }
+  return `\${${namespace}.${field}}`;
+}
+
+function translateGitlabCommand(
+  command: string,
+  inputs: readonly Reference[],
+  jobIdMap: Map<string, string>,
+): string {
+  const lookup = new Map<string, Reference>();
+  for (const ref of inputs) {
+    if (ref.kind === "context") {
+      lookup.set(`${ref.namespace}.${ref.field}`, ref);
+    } else if (ref.kind === "step") {
+      lookup.set(`${ref.step}.${ref.output}`, ref);
+    }
+  }
+  return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+    const ref = lookup.get(key);
+    if (ref === undefined) {
+      return `\${${key}}`;
+    }
+    if (ref.kind === "context") {
+      return translateGitlabContextRef(ref.namespace, ref.field);
+    }
+    // Use the producer job ID as a prefix to avoid collisions when
+    // multiple producers expose the same output name. Sanitize to
+    // dotenv-safe characters so GitLab accepts the variable name.
+    const producerJob = jobIdMap.get(ref.step) ?? ref.step;
+    return `$${dotenvVarName(producerJob, ref.output)}`;
+  });
 }

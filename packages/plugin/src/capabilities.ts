@@ -88,6 +88,11 @@ function detectStepCapabilities(step: {
   operations: readonly { kind: string }[];
   outputs: readonly { type: string }[];
   dependencies: readonly unknown[];
+  matrix?: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number };
+  beforeScript?: readonly unknown[];
+  afterScript?: readonly unknown[];
+  continueOnError?: unknown;
+  retry?: { max?: number };
 }, caps: Set<string>): void {
   const mode = step.runtime?.mode ?? "host";
   caps.add(`runtime.${mode}`);
@@ -96,11 +101,39 @@ function detectStepCapabilities(step: {
   detectOperationCapabilities(step.operations, caps, outputFlags);
   detectOutputTypeCapabilities(step.outputs, outputFlags);
 
-  if (step.dependencies.length > 0) {
-    caps.add("graph.dependencies");
-  }
+  if (step.dependencies.length > 0) caps.add("graph.dependencies");
   if (outputFlags.scalar) caps.add("output.scalar");
   if (outputFlags.artifact) caps.add("output.artifact");
+
+  detectMatrixCapabilities(step.matrix, caps);
+  detectScriptCapabilities(step, caps);
+}
+
+function detectMatrixCapabilities(
+  matrix: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number } | undefined,
+  caps: Set<string>,
+): void {
+  if (!matrix) return;
+  caps.add("graph.matrix");
+  if (matrix.include && matrix.include.length > 0) caps.add("matrix.include");
+  if (matrix.exclude && matrix.exclude.length > 0) caps.add("matrix.exclude");
+  if (matrix.failFast !== undefined) caps.add("matrix.failFast");
+  if (matrix.maxParallel !== undefined) caps.add("matrix.maxParallel");
+}
+
+function detectScriptCapabilities(
+  step: {
+    beforeScript?: readonly unknown[];
+    afterScript?: readonly unknown[];
+    continueOnError?: unknown;
+    retry?: { max?: number };
+  },
+  caps: Set<string>,
+): void {
+  if (step.beforeScript && step.beforeScript.length > 0) caps.add("step.beforeScript");
+  if (step.afterScript && step.afterScript.length > 0) caps.add("step.afterScript");
+  if (step.continueOnError !== undefined) caps.add("step.continueOnError");
+  if (step.retry !== undefined) caps.add("policy.retry");
 }
 
 function detectOperationCapabilities(
@@ -136,6 +169,7 @@ function detectPipelineCapabilities(pipeline: {
     operations: readonly { kind: string }[];
     outputs: readonly { type: string }[];
     dependencies: readonly unknown[];
+    matrix?: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number };
   }[];
 }, caps: Set<string>): void {
   for (const entry of pipeline.entries) {

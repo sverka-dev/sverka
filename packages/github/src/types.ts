@@ -6,6 +6,10 @@ export interface GithubTriggers {
   readonly push?: { readonly branches?: readonly string[] };
   readonly pull_request?: { readonly branches?: readonly string[] };
   readonly workflow_dispatch?: null;
+  readonly schedule?: readonly {
+    readonly cron: string;
+    readonly timezone?: string;
+  }[];
 }
 
 export interface GithubStep {
@@ -15,6 +19,9 @@ export interface GithubStep {
   readonly uses?: string;
   readonly with?: Record<string, unknown>;
   readonly env?: Record<string, string>;
+  readonly if?: string;
+  readonly continueOnError?: boolean;
+  readonly shell?: string;
 }
 
 export interface GithubJob {
@@ -26,10 +33,17 @@ export interface GithubJob {
   readonly timeoutMinutes?: number;
   readonly env?: Record<string, string>;
   readonly container?: string;
+  readonly strategy?: {
+    readonly matrix: Record<string, unknown>;
+    readonly failFast?: boolean;
+    readonly maxParallel?: number;
+  };
+  readonly outputs?: Record<string, string>;
 }
 
 export interface GithubTargetGraph {
   readonly name: string;
+  readonly runName?: string;
   readonly on: GithubTriggers;
   readonly jobs: readonly GithubJob[];
   readonly env: Record<string, string>;

@@ -4,8 +4,9 @@
 
 import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { sortKeysDeep } from "./internal/sort-keys.js";
 import type { RunPlan } from "@sverka/ir";
-import type { StepDefinition } from "@sverka/core";
+import type { StepDefinition, Condition, Expression } from "@sverka/core";
 import type {
   Engine,
   RunRequest,
@@ -18,7 +19,7 @@ import type {
 } from "./types.js";
 import { createValueStore } from "./value-store.js";
 import { createArtifactStore } from "./artifact-store.js";
-import { executeStep, type StepExecOptions } from "./step-executor.js";
+import { executeStep, type StepExecOptions, resolveGitContext } from "./step-executor.js";
 import { buildStepExecutionGraph, transitiveDependents, type StepState, type StepGraph } from "./scheduler.js";
 import { stepPrefix } from "./refs.js";
 
@@ -250,7 +251,11 @@ class NativeEngine implements Engine {
         const id = ctx.readyQueue.shift()!;
         const step = ctx.stepMap.get(id)!;
 
-        if (step.condition && !this.evaluateCondition(step.condition, ctx, step.id)) {
+        // F-11: Default condition is status:success when a step has dependencies
+        // and no explicit condition. This preserves backward compatibility
+        // (dependents of failed steps are skipped by default).
+        const effectiveCondition = step.condition ?? defaultCondition(step);
+        if (!this.evaluateCondition(effectiveCondition, ctx, step.id)) {
           ctx.states.set(id, "skipped");
           ctx.emit({ type: "step-skipped", stepId: id });
           this.onStepComplete(ctx, id);
@@ -267,7 +272,8 @@ class NativeEngine implements Engine {
             durationMs: 0,
           });
           ctx.hasFailure = true;
-          this.cancelDependents(ctx, id);
+          // Enqueue dependents so they can evaluate their conditions (e.g. failure/always).
+          this.onStepComplete(ctx, id);
           continue;
         }
 
@@ -344,7 +350,9 @@ class NativeEngine implements Engine {
         durationMs: result.durationMs,
       });
       ctx.hasFailure = true;
-      this.cancelDependents(ctx, step.id);
+      // Enqueue dependents so they can evaluate their conditions (e.g. failure/always).
+      // Previously this cancelled dependents, which prevented failure/always conditions from running.
+      this.onStepComplete(ctx, step.id);
     } else if (result.status === "cancelled") {
       ctx.states.set(step.id, "cancelled");
       ctx.emit({ type: "step-cancelled", stepId: step.id });
@@ -406,6 +414,9 @@ class NativeEngine implements Engine {
     ctx: RunContext,
     stepId: string,
   ): boolean {
+    if (condition.kind === "status") {
+      return this.evaluateStatusCondition(condition.status, ctx, stepId);
+    }
     if (condition.kind === "context") {
       const key = `${condition.namespace}.${condition.field}`;
       const value = ctx.plan.inputs?.[key] ?? ctx.plan.inputs?.[condition.field];
@@ -424,8 +435,304 @@ class NativeEngine implements Engine {
       const value = ctx.valueStore.get(resolvedId, condition.output);
       return value !== undefined && value !== false && value !== "" && value !== 0;
     }
+    if (condition.kind === "expression") {
+      return this.evaluateExpressionCondition(condition, ctx, stepId);
+    }
     return true;
   }
+
+  private evaluateStatusCondition(
+    status: "success" | "failure" | "always" | "never",
+    ctx: RunContext,
+    stepId: string,
+  ): boolean {
+    if (status === "always") return true;
+    if (status === "never") return false;
+
+    const step = ctx.stepMap.get(stepId);
+    if (!step) return status === "success";
+
+    const depStates = step.dependencies.map((dep) => ctx.states.get(dep.producer));
+
+    if (status === "success") {
+      return depStates.every((s) => s === "succeeded");
+    }
+    if (status === "failure") {
+      // Check both direct failures and failures that propagated through
+      // skipped intermediate dependencies.
+      return depStates.some((s) => s === "failed" || s === "skipped");
+    }
+    return false;
+  }
+
+  private evaluateExpressionCondition(
+    condition: Expression,
+    ctx: RunContext,
+    stepId: string,
+  ): boolean {
+    let resolved = condition.template;
+
+    for (const ref of condition.refs) {
+      const placeholder = ref.kind === "step" ? `\${${ref.step}.${ref.output}}` : `\${${ref.namespace}.${ref.field}}`;
+      const value = this.resolveConditionRef(ref, ctx, stepId);
+      const replacement = formatRefValue(value);
+      // Use a function replacement to avoid interpreting $&, $1, etc.
+      // in the replacement string as special patterns.
+      resolved = resolved.replaceAll(placeholder, () => replacement);
+    }
+
+    return evalSimpleBoolean(resolved);
+  }
+
+  private resolveConditionRef(
+    ref: import("@sverka/core").Reference,
+    ctx: RunContext,
+    stepId: string,
+  ): unknown {
+    if (ref.kind === "context") {
+      return this.resolveContextRef(ref, ctx, stepId);
+    }
+    if (ref.kind === "step") {
+      const prefix = stepPrefix(stepId);
+      const resolvedId = resolveStepId(ref.step, prefix);
+      return ctx.valueStore.get(resolvedId, ref.output);
+    }
+    return undefined;
+  }
+
+  private resolveContextRef(
+    ref: import("@sverka/core").Reference,
+    ctx: RunContext,
+    stepId: string,
+  ): unknown {
+    if (ref.kind !== "context") return undefined;
+    const key = `${ref.namespace}.${ref.field}`;
+    let value: unknown = ctx.plan.inputs?.[key] ?? ctx.plan.inputs?.[ref.field];
+    if (value === undefined && ref.namespace === "env") {
+      value = process.env[ref.field];
+    }
+    if (value === undefined && ref.namespace === "secrets") {
+      value = ctx.secrets[ref.field];
+    }
+    if (value === undefined && ref.namespace === "git") {
+      value = resolveGitContext(ref.field);
+    }
+    if (value === undefined && ref.namespace === "matrix") {
+      const step = ctx.stepMap.get(stepId);
+      if (step?.matrixValues) {
+        const mv = step.matrixValues[ref.field];
+        value = mv !== undefined ? String(mv) : undefined;
+      }
+    }
+    return value;
+  }
+}
+
+/**
+ * Default condition for a step with no explicit condition.
+ * Steps with dependencies default to status:success (only run if all deps succeeded).
+ * Steps with no dependencies default to status:always (always run).
+ */
+function defaultCondition(step: StepDefinition): Condition {
+  if (step.dependencies.length > 0) {
+    return { kind: "status", status: "success" };
+  }
+  return { kind: "status", status: "always" };
+}
+
+/**
+ * Resolve a step reference to its full ID, prepending the pipeline prefix
+ * when the reference is relative and a prefix is available.
+ */
+function resolveStepId(refStep: string, prefix: string | undefined): string {
+  if (refStep.includes("/")) return refStep;
+  if (prefix) return `${prefix}/${refStep}`;
+  return refStep;
+}
+
+/**
+ * Format a resolved reference value for substitution into an expression.
+ * Returns empty string for undefined; safely stringifies objects via JSON.
+ * String values are double-quoted so they are parsed as string literals
+ * by the boolean evaluator, preventing injection of operators or syntax.
+ */
+function formatRefValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return `"${value.replace(/[\\"\n\r\t]/g, (ch) => ESCAPES[ch] ?? ch)}"`;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  // Use stable stringify so object key ordering is deterministic.
+  return stableStringify(value);
+}
+
+/**
+ * Produce a JSON string with stable (alphabetically sorted) key ordering.
+ * Ensures deterministic output for object values used in expression
+ * substitution, avoiding non-deterministic key ordering from JSON.stringify.
+ */
+function stableStringify(value: unknown): string {
+  // JSON.stringify is safe here — keys are pre-sorted by sortKeysDeep so
+  // output ordering is deterministic.
+  return JSON.stringify(sortKeysDeep(value));
+}
+
+const ESCAPES: Readonly<Record<string, string>> = {
+  '"': String.raw`\"`,
+  "\\": String.raw`\\`,
+  "\n": String.raw`\n`,
+  "\r": String.raw`\r`,
+  "\t": String.raw`\t`,
+};
+
+/**
+ * Minimal boolean expression evaluator.
+ * Supports: ==, !=, &&, ||, !, parentheses, string/number/boolean literals.
+ * Returns false on parse failure (defensive — conditions should be well-formed).
+ */
+function evalSimpleBoolean(expr: string): boolean {
+  try {
+    const result = parseOr(expr.trim());
+    // Only accept actual boolean true; strings, numbers, and other types
+    // (e.g. from unparseable operators like >, <) must not be truthy.
+    return result === true;
+  } catch {
+    return false;
+  }
+}
+
+function parseOr(s: string): unknown {
+  const parts = splitTop(s, "||");
+  if (parts.length > 1) {
+    return parts.reduce((acc, p) => Boolean(acc) || Boolean(parseAnd(p)), false);
+  }
+  return parseAnd(s);
+}
+
+function parseAnd(s: string): unknown {
+  const parts = splitTop(s, "&&");
+  if (parts.length > 1) {
+    return parts.reduce((acc, p) => Boolean(acc) && Boolean(parseNot(p)), true);
+  }
+  return parseNot(s);
+}
+
+function parseNot(s: string): unknown {
+  const trimmed = s.trim();
+  if (trimmed.startsWith("!")) {
+    return !parseNot(trimmed.slice(1));
+  }
+  return parseComparison(trimmed);
+}
+
+function parseComparison(s: string): unknown {
+  const trimmed = s.trim();
+  const eqIdx = findTop(trimmed, "==");
+  const neqIdx = findTop(trimmed, "!=");
+  if (eqIdx !== -1 && (neqIdx === -1 || eqIdx < neqIdx)) {
+    const left = parsePrimary(trimmed.slice(0, eqIdx).trim());
+    const right = parsePrimary(trimmed.slice(eqIdx + 2).trim());
+    return looseEqual(left, right);
+  }
+  if (neqIdx !== -1) {
+    const left = parsePrimary(trimmed.slice(0, neqIdx).trim());
+    const right = parsePrimary(trimmed.slice(neqIdx + 2).trim());
+    return !looseEqual(left, right);
+  }
+  return parsePrimary(trimmed);
+}
+
+/**
+ * Compare two parsed values with type coercion for numeric/string pairs.
+ * A number and a numeric-looking string are considered equal (e.g. 2 == "2").
+ * Otherwise falls back to strict equality.
+ */
+function looseEqual(left: unknown, right: unknown): boolean {
+  if (typeof left === "number" && typeof right === "string") {
+    return left === Number(right);
+  }
+  if (typeof left === "string" && typeof right === "number") {
+    return Number(left) === right;
+  }
+  return left === right;
+}
+
+function parsePrimary(s: string): unknown {
+  const trimmed = s.trim();
+  if (trimmed.startsWith("(") && trimmed.endsWith(")")) {
+    return parseOr(trimmed.slice(1, -1));
+  }
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return unescapeString(trimmed.slice(1, -1));
+  }
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    return trimmed.slice(1, -1);
+  }
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+  return trimmed;
+}
+
+function unescapeString(s: string): string {
+  return s.replace(/\\(.)/g, "$1");
+}
+
+/**
+ * Shared character scanner for the boolean expression parser.
+ * Tracks parenthesis depth and string-literal state. Returns true when
+ * the current character is a backslash inside a string (caller should
+ * skip the next character).
+ */
+function advanceScan(state: { depth: number; inStr: string | null }, c: string): boolean {
+  if (state.inStr) {
+    if (c === "\\") return true;
+    if (c === state.inStr) state.inStr = null;
+    return false;
+  }
+  if (c === '"' || c === "'") {
+    state.inStr = c;
+  } else if (c === "(") {
+    state.depth++;
+  } else if (c === ")") {
+    state.depth--;
+  }
+  return false;
+}
+
+function splitTop(s: string, sep: string): string[] {
+  const parts: string[] = [];
+  const state = { depth: 0, inStr: null as string | null };
+  let last = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]!;
+    if (advanceScan(state, c)) {
+      i++;
+      continue;
+    }
+    if (state.depth === 0 && s.slice(i, i + sep.length) === sep) {
+      parts.push(s.slice(last, i));
+      last = i + sep.length;
+      i += sep.length - 1;
+    }
+  }
+  parts.push(s.slice(last));
+  return parts;
+}
+
+function findTop(s: string, sep: string): number {
+  const state = { depth: 0, inStr: null as string | null };
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]!;
+    if (advanceScan(state, c)) {
+      i++;
+      continue;
+    }
+    if (state.depth === 0 && s.slice(i, i + sep.length) === sep) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 async function resolveSecrets(
