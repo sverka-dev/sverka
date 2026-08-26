@@ -1202,9 +1202,45 @@ type MatrixCombination = Record<string, MatrixValue>;
  * combinations at synthesis time, include is appended to the array.
  */
 function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[] {
+  validateMatrixKeys(spec);
   const combinations = computeMatrixCombinations(spec.dimensions, spec.exclude ?? []);
+  const totalRows = combinations.length + (spec.include?.length ?? 0);
+  if (totalRows > 200) {
+    throw new GitlabTargetError(
+      `GitLab matrix has ${totalRows} rows, exceeding the 200-row limit`,
+      "MATRIX_TOO_LARGE",
+    );
+  }
   const includeEntries = (spec.include ?? []).map((entry) => ({ ...entry }));
   return [...combinations.map((c) => ({ ...c })), ...includeEntries];
+}
+
+/**
+ * Validate that matrix dimension and include keys contain only valid
+ * GitLab variable name characters: letters, digits, underscores.
+ */
+function validateMatrixKeys(spec: MatrixSpec): void {
+  const validKey = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  for (const key of Object.keys(spec.dimensions)) {
+    if (!validKey.test(key)) {
+      throw new GitlabTargetError(
+        `invalid matrix dimension key '${key}': must match [A-Za-z_][A-Za-z0-9_]*`,
+        "INVALID_MATRIX",
+      );
+    }
+  }
+  if (spec.include) {
+    for (const entry of spec.include) {
+      for (const key of Object.keys(entry)) {
+        if (!validKey.test(key)) {
+          throw new GitlabTargetError(
+            `invalid matrix include key '${key}': must match [A-Za-z_][A-Za-z0-9_]*`,
+            "INVALID_MATRIX",
+          );
+        }
+      }
+    }
+  }
 }
 
 /**
