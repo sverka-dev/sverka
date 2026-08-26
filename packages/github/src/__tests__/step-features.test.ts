@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Project, Pipeline, ShellStep, Entry, push, schedule } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import { GithubTarget } from "../target.js";
+import { GithubTargetError } from "../errors.js";
 
 describe("GitHub F-05: schedule trigger lowering", () => {
   it("lowers schedule trigger to on.schedule", () => {
@@ -113,5 +114,20 @@ describe("GitHub F-12: continueOnError lowering", () => {
     const target = new GithubTarget();
     const yaml = target.compile(graph).artifacts[0]!.content;
     expect(yaml).toContain("continue-on-error: true");
+  });
+
+  it("rejects exit-code continueOnError with GithubTargetError", () => {
+    const project = new Project("gh-coe-codes");
+    const pipeline = new Pipeline(project, "ci");
+    new ShellStep(pipeline, "test", {
+      command: "make test",
+      continueOnError: { exitCodes: [1, 2] },
+    });
+    new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
+
+    const graph = synthesize(project);
+    const target = new GithubTarget();
+    expect(() => target.lower(graph)).toThrow(GithubTargetError);
+    expect(() => target.lower(graph)).toThrow(/exit-code continueOnError/);
   });
 });

@@ -39,6 +39,12 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
         throw new HostDriverError("host driver is disabled", "EXECUTOR_DISABLED");
       }
 
+      // When a shell is requested, execute the command through that shell
+      // binary with -c, preserving the allowlist and safety checks.
+      if (request.shell) {
+        return executeViaShell(request, config, maxLogBytes);
+      }
+
       const { tokens, valid } = tokenize(request.command);
       if (!valid) {
         throw new CommandNotAllowedError("command has unterminated quote or trailing escape", { command: request.command });
@@ -194,6 +200,165 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
       });
     },
   };
+}
+
+/**
+ * Execute a command through a configured shell binary (e.g. bash -c).
+ * Preserves the allowlist check on the shell binary and the safety check
+ * on the command (shell scripts may contain metacharacters).
+ */
+async function executeViaShell(
+  request: ShellExecuteRequest,
+  config: HostDriverConfig,
+  maxLogBytes: number,
+): Promise<ShellResult> {
+  const shellBinary = request.shell!;
+  const shellBase = basename(shellBinary).toLowerCase();
+  if (!SHELL_BINARIES.has(shellBase)) {
+    throw new CommandNotAllowedError(
+      `shell '${shellBinary}' is not in the allowed shell set`,
+      { command: request.command },
+    );
+  }
+  if (!config.allowlist.isAllowed(shellBinary)) {
+    throw new CommandNotAllowedError(
+      `shell '${shellBinary}' is not in the allowlist`,
+      { command: request.command },
+    );
+  }
+
+  const env = buildEnv(request, config);
+  const cwd = request.cwd ?? request.workspace;
+  const args = ["-c", request.command];
+  const start = Date.now();
+
+  return new Promise((resolve) => {
+    let stdout: Uint8Array = Buffer.alloc(0);
+    let stderr: Uint8Array = Buffer.alloc(0);
+    let timedOut = false;
+    let spawnErrored = false;
+    let closed = false;
+    let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const spawnOptions: {
+      cwd: string | undefined;
+      env: Record<string, string>;
+      stdio: ["ignore", "pipe", "pipe"];
+      shell: false;
+      detached: true;
+      signal?: AbortSignal;
+    } = {
+      cwd,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: false,
+      detached: true,
+    };
+    if (request.signal !== undefined) {
+      spawnOptions.signal = request.signal;
+    }
+    const child = spawn(shellBinary, args, spawnOptions);
+
+    let abortSigkillTimer: ReturnType<typeof setTimeout> | undefined;
+    const abortListener = (): void => {
+      if (child.pid !== undefined) {
+        try {
+          process.kill(-child.pid, "SIGTERM");
+        } catch {
+          child.kill("SIGTERM");
+        }
+        abortSigkillTimer = setTimeout(() => {
+          if (closed) return;
+          if (child.pid !== undefined) {
+            try {
+              process.kill(-child.pid, "SIGKILL");
+            } catch {
+              child.kill("SIGKILL");
+            }
+          } else {
+            child.kill("SIGKILL");
+          }
+        }, GRACE_PERIOD_MS);
+      } else {
+        child.kill("SIGTERM");
+      }
+    };
+
+    if (request.signal !== undefined) {
+      request.signal.addEventListener("abort", abortListener, { once: true });
+    }
+
+    const timer = request.timeoutMs
+      ? setTimeout(() => {
+          timedOut = true;
+          if (child.pid !== undefined) {
+            try {
+              process.kill(-child.pid, "SIGTERM");
+            } catch {
+              child.kill("SIGTERM");
+            }
+          } else {
+            child.kill("SIGTERM");
+          }
+          sigkillTimer = setTimeout(() => {
+            if (closed) return;
+            if (child.pid !== undefined) {
+              try {
+                process.kill(-child.pid, "SIGKILL");
+              } catch {
+                child.kill("SIGKILL");
+              }
+            } else {
+              child.kill("SIGKILL");
+            }
+          }, GRACE_PERIOD_MS);
+        }, request.timeoutMs)
+      : undefined;
+
+    const appendStdout = makeAppender(maxLogBytes);
+    const appendStderr = makeAppender(maxLogBytes);
+
+    child.stdout?.on("data", (data: Buffer) => {
+      stdout = appendStdout(stdout, data);
+    });
+    child.stderr?.on("data", (data: Buffer) => {
+      stderr = appendStderr(stderr, data);
+    });
+
+    const finish = (): void => {
+      if (closed) return;
+      closed = true;
+      if (timer) clearTimeout(timer);
+      if (sigkillTimer) clearTimeout(sigkillTimer);
+      if (abortSigkillTimer) clearTimeout(abortSigkillTimer);
+      if (request.signal !== undefined) {
+        request.signal.removeEventListener("abort", abortListener);
+      }
+    };
+
+    child.on("error", (err) => {
+      finish();
+      spawnErrored = true;
+      resolve({
+        exitCode: -1,
+        stdout: "",
+        stderr: truncateBytes(Buffer.from(`spawn error: ${err.message}`, "utf8"), maxLogBytes).toString("utf8"),
+        durationMs: Date.now() - start,
+        timedOut: false,
+      });
+    });
+
+    child.on("close", (code) => {
+      finish();
+      resolve({
+        exitCode: spawnErrored ? -1 : (code ?? -1),
+        stdout: truncateBytes(stdout, maxLogBytes).toString("utf8"),
+        stderr: truncateBytes(stderr, maxLogBytes).toString("utf8"),
+        durationMs: Date.now() - start,
+        timedOut,
+      });
+    });
+  });
 }
 
 function buildEnv(

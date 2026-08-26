@@ -615,14 +615,29 @@ function parseComparison(s: string): unknown {
   if (eqIdx !== -1 && (neqIdx === -1 || eqIdx < neqIdx)) {
     const left = parsePrimary(trimmed.slice(0, eqIdx).trim());
     const right = parsePrimary(trimmed.slice(eqIdx + 2).trim());
-    return left === right;
+    return looseEqual(left, right);
   }
   if (neqIdx !== -1) {
     const left = parsePrimary(trimmed.slice(0, neqIdx).trim());
     const right = parsePrimary(trimmed.slice(neqIdx + 2).trim());
-    return left !== right;
+    return !looseEqual(left, right);
   }
   return parsePrimary(trimmed);
+}
+
+/**
+ * Compare two parsed values with type coercion for numeric/string pairs.
+ * A number and a numeric-looking string are considered equal (e.g. 2 == "2").
+ * Otherwise falls back to strict equality.
+ */
+function looseEqual(left: unknown, right: unknown): boolean {
+  if (typeof left === "number" && typeof right === "string") {
+    return left === Number(right);
+  }
+  if (typeof left === "string" && typeof right === "number") {
+    return Number(left) === right;
+  }
+  return left === right;
 }
 
 function parsePrimary(s: string): unknown {
@@ -630,7 +645,10 @@ function parsePrimary(s: string): unknown {
   if (trimmed.startsWith("(") && trimmed.endsWith(")")) {
     return parseOr(trimmed.slice(1, -1));
   }
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return unescapeString(trimmed.slice(1, -1));
+  }
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
     return trimmed.slice(1, -1);
   }
   if (trimmed === "true") return true;
@@ -641,6 +659,10 @@ function parsePrimary(s: string): unknown {
   return trimmed;
 }
 
+function unescapeString(s: string): string {
+  return s.replace(/\\(.)/g, "$1");
+}
+
 function splitTop(s: string, sep: string): string[] {
   const parts: string[] = [];
   let depth = 0;
@@ -649,7 +671,11 @@ function splitTop(s: string, sep: string): string[] {
   for (let i = 0; i < s.length; i++) {
     const c = s[i]!;
     if (inStr) {
-      if (c === inStr) inStr = null;
+      if (c === "\\") {
+        i++; // skip the next char (escaped)
+      } else if (c === inStr) {
+        inStr = null;
+      }
     } else if (c === '"' || c === "'") {
       inStr = c;
     } else if (c === "(") {
@@ -672,7 +698,11 @@ function findTop(s: string, sep: string): number {
   for (let i = 0; i < s.length; i++) {
     const c = s[i]!;
     if (inStr) {
-      if (c === inStr) inStr = null;
+      if (c === "\\") {
+        i++; // skip the next char (escaped)
+      } else if (c === inStr) {
+        inStr = null;
+      }
     } else if (c === '"' || c === "'") {
       inStr = c;
     } else if (c === "(") {

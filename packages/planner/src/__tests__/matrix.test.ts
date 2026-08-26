@@ -3,12 +3,12 @@ import { expandMatrixSteps } from "../matrix.js";
 import { PlannerError } from "../errors.js";
 import type { StepDefinition, MatrixSpec } from "@sverka/core";
 
-function makeStep(id: string, matrix?: MatrixSpec, deps: string[] = []): StepDefinition {
+function makeStep(id: string, matrix?: MatrixSpec, deps: string[] = [], inputs: StepDefinition["inputs"] = []): StepDefinition {
   return {
     id,
     runtime: { mode: "host" },
     operations: [{ kind: "shell", command: "echo" }],
-    inputs: [],
+    inputs,
     outputs: [],
     dependencies: deps.map((p) => ({ kind: "control" as const, producer: p })),
     ...(matrix ? { matrix } : {}),
@@ -141,11 +141,9 @@ describe("expandMatrixSteps", () => {
 
   it("rewires step inputs to expanded producer IDs", () => {
     const producer = makeStep("build", { dimensions: { node: [18, 20] } });
-    const consumer = makeStep("test", undefined, ["build"]);
-    // Add a step-input reference to the producer
-    consumer.inputs = [
+    const consumer = makeStep("test", undefined, ["build"], [
       { kind: "step", step: "build", output: "artifact", type: "artifact" },
-    ];
+    ]);
     const result = expandMatrixSteps([producer, consumer]);
     expect(result).toHaveLength(3); // 2 build + 1 test
     const testStep = result.find((s) => s.id === "test");

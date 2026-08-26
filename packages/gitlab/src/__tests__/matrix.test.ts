@@ -3,6 +3,7 @@ import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
 import type { ContextRef } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import { GitlabTarget } from "../target.js";
+import { GitlabTargetError } from "../errors.js";
 
 function matrixRef(field: string): ContextRef {
   return { kind: "context", namespace: "matrix", field };
@@ -123,5 +124,37 @@ describe("GitLab matrix lowering", () => {
     const diag = result.diagnostics.find((d) => d.capability === "matrix.maxParallel");
     expect(diag).toBeDefined();
     expect(diag?.support).toBe("unsupported");
+  });
+
+  it("rejects dimension keys with invalid characters", () => {
+    const graph = makeGraphWithMatrix({
+      dimensions: { "node-version": [18, 20] },
+    });
+    const target = new GitlabTarget();
+    expect(() => target.lower(graph)).toThrow(GitlabTargetError);
+    expect(() => target.lower(graph)).toThrow(/node-version/);
+  });
+
+  it("rejects include keys with invalid characters", () => {
+    const graph = makeGraphWithMatrix({
+      dimensions: { node: [18, 20] },
+      include: [{ "extra-key": 1 }],
+    });
+    const target = new GitlabTarget();
+    expect(() => target.lower(graph)).toThrow(GitlabTargetError);
+    expect(() => target.lower(graph)).toThrow(/extra-key/);
+  });
+
+  it("rejects matrices exceeding 200 permutations", () => {
+    // 15^1 = 15 per dimension, 14 dimensions → 15^14 which is way too large
+    // to compute. Instead use 2^8 = 256 > 200 with 8 binary dimensions.
+    const dimensions: Record<string, number[]> = {};
+    for (let i = 0; i < 8; i++) {
+      dimensions[`d${i}`] = [1, 2];
+    }
+    const graph = makeGraphWithMatrix({ dimensions });
+    const target = new GitlabTarget();
+    expect(() => target.lower(graph)).toThrow(GitlabTargetError);
+    expect(() => target.lower(graph)).toThrow(/200/);
   });
 });

@@ -3,6 +3,7 @@ import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
 import type { ContextRef } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import { GithubTarget } from "../target.js";
+import { GithubTargetError } from "../errors.js";
 
 function matrixRef(field: string): ContextRef {
   return { kind: "context", namespace: "matrix", field };
@@ -129,5 +130,33 @@ describe("GitHub matrix lowering", () => {
     const targetGraph = target.lower(graph);
     expect(targetGraph.jobs[0]!.strategy!.failFast).toBeUndefined();
     expect(targetGraph.jobs[0]!.strategy!.maxParallel).toBeUndefined();
+  });
+
+  it("rejects zero maxParallel", () => {
+    const graph = makeGraphWithMatrix({
+      dimensions: { node: [18, 20] },
+      maxParallel: 0,
+    });
+    const target = new GithubTarget();
+    expect(() => target.lower(graph)).toThrow(GithubTargetError);
+    expect(() => target.lower(graph)).toThrow(/positive integer/);
+  });
+
+  it("rejects negative maxParallel", () => {
+    const graph = makeGraphWithMatrix({
+      dimensions: { node: [18, 20] },
+      maxParallel: -1,
+    });
+    const target = new GithubTarget();
+    expect(() => target.lower(graph)).toThrow(GithubTargetError);
+  });
+
+  it("rejects fractional maxParallel", () => {
+    const graph = makeGraphWithMatrix({
+      dimensions: { node: [18, 20] },
+      maxParallel: 2.5,
+    });
+    const target = new GithubTarget();
+    expect(() => target.lower(graph)).toThrow(GithubTargetError);
   });
 });

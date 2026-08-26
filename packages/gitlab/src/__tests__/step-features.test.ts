@@ -32,6 +32,9 @@ describe("GitLab F-10: beforeScript/afterScript lowering", () => {
     const target = new GitlabTarget();
     const targetGraph = target.lower(graph);
     expect(targetGraph.jobs[0]!.beforeScript).toEqual(["echo setup"]);
+    const yaml = target.compile(graph).artifacts[0]!.content;
+    expect(yaml).toContain("before_script:");
+    expect(yaml).toContain("echo setup");
   });
 
   it("lowers afterScript to after_script", () => {
@@ -47,6 +50,9 @@ describe("GitLab F-10: beforeScript/afterScript lowering", () => {
     const target = new GitlabTarget();
     const targetGraph = target.lower(graph);
     expect(targetGraph.jobs[0]!.afterScript).toEqual(["echo cleanup"]);
+    const yaml = target.compile(graph).artifacts[0]!.content;
+    expect(yaml).toContain("after_script:");
+    expect(yaml).toContain("echo cleanup");
   });
 });
 
@@ -64,6 +70,8 @@ describe("GitLab F-12: continueOnError lowering", () => {
     const target = new GitlabTarget();
     const targetGraph = target.lower(graph);
     expect(targetGraph.jobs[0]!.allowFailure).toBe(true);
+    const yaml = target.compile(graph).artifacts[0]!.content;
+    expect(yaml).toContain("allow_failure: true");
   });
 
   it("lowers exitCodes continueOnError to allow_failure with exit_codes", () => {
@@ -79,6 +87,11 @@ describe("GitLab F-12: continueOnError lowering", () => {
     const target = new GitlabTarget();
     const targetGraph = target.lower(graph);
     expect(targetGraph.jobs[0]!.allowFailure).toEqual({ exitCodes: [1, 2] });
+    const yaml = target.compile(graph).artifacts[0]!.content;
+    expect(yaml).toContain("allow_failure:");
+    expect(yaml).toContain("exit_codes:");
+    expect(yaml).toContain("1");
+    expect(yaml).toContain("2");
   });
 });
 

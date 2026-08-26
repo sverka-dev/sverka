@@ -7,8 +7,9 @@ import { isReference } from "./internal/is-reference.js";
 
 /**
  * Create a symbolic expression from a tagged template.
- * References interpolated in the template produce `${namespace.field}`
- * placeholders and are collected into `refs` for dependency inference.
+ * Context references produce `${namespace.field}` placeholders while step
+ * references produce `${step.output}` placeholders; both are collected into
+ * `refs` for dependency inference.
  * String, number, and boolean values are inlined into the template.
  */
 export function expr(

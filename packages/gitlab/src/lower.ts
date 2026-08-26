@@ -521,9 +521,9 @@ function lowerOperations(
         script.push(translateGitlabCommand(op.command, step.inputs, jobIdMap));
         break;
       case "exportOutput": {
-        const dotenvName = shellEscapeDoubleQuoted(`${jobId}_${op.name}`);
+        const dotenvName = dotenvVarName(jobId, op.name);
         script.push(
-          `echo "${dotenvName}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`,
+          `echo "${shellEscapeDoubleQuoted(dotenvName)}=\${${op.name}}" >> ${DOTENV_REPORT_FILE}`,
         );
         hasDotenv = true;
         break;
@@ -562,6 +562,16 @@ function lowerOperations(
     needs: importNeeds,
     variables: jobVariables,
   };
+}
+
+/**
+ * Build a dotenv-safe variable name from a job ID and output name.
+ * GitLab dotenv variable names allow only ASCII letters, digits, and
+ * underscores. Hyphens and other characters (e.g. from job ID collision
+ * suffixes like "build-1") are replaced with underscores.
+ */
+function dotenvVarName(jobId: string, outputName: string): string {
+  return `${jobId}_${outputName}`.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
 /**
@@ -621,20 +631,59 @@ function collectVariables(pipeline: PipelineDefinition): Record<string, string> 
 
 type MatrixCombination = Record<string, MatrixValue>;
 
+const GITLAB_MATRIX_KEY_PATTERN = /^[A-Za-z0-9_]+$/;
+const GITLAB_MATRIX_MAX_ROWS = 200;
+
 /**
  * Lower a MatrixSpec to a GitLab parallel:matrix array.
  * GitLab has no native include/exclude — exclude is emulated by filtering
  * combinations at synthesis time, include is appended to the array.
+ * Validates that all dimension and include-entry keys are GitLab-safe
+ * identifiers and that the total row count does not exceed 200.
  */
 function lowerGitlabMatrix(spec: MatrixSpec): readonly Record<string, unknown>[] {
+  validateMatrixKeys(spec);
   const combinations = computeMatrixCombinations(spec.dimensions, spec.exclude ?? []);
   const includeEntries = (spec.include ?? []).map((entry) => ({ ...entry }));
-  // Keep values flat in the target graph; array-wrapping for GitLab's
-  // parallel:matrix format happens at YAML emit time.
-  return [
+  const rows = [
     ...combinations.map((c) => ({ ...c })),
     ...includeEntries,
   ];
+  if (rows.length > GITLAB_MATRIX_MAX_ROWS) {
+    throw new GitlabTargetError(
+      `matrix produces ${rows.length} rows, exceeding GitLab's limit of ${GITLAB_MATRIX_MAX_ROWS}`,
+      "LOWER_FAILED",
+    );
+  }
+  // Keep values flat in the target graph; array-wrapping for GitLab's
+  // parallel:matrix format happens at YAML emit time.
+  return rows;
+}
+
+/**
+ * Validate that all dimension and include-entry keys match the GitLab-safe
+ * identifier pattern [A-Za-z0-9_]+. Keys like "node-version" are rejected
+ * because GitLab dotenv variable names cannot contain hyphens.
+ */
+function validateMatrixKeys(spec: MatrixSpec): void {
+  for (const key of Object.keys(spec.dimensions)) {
+    if (!GITLAB_MATRIX_KEY_PATTERN.test(key)) {
+      throw new GitlabTargetError(
+        `matrix dimension key '${key}' is not a valid GitLab identifier (only letters, digits, and underscores are allowed)`,
+        "LOWER_FAILED",
+      );
+    }
+  }
+  for (const entry of spec.include ?? []) {
+    for (const key of Object.keys(entry)) {
+      if (!GITLAB_MATRIX_KEY_PATTERN.test(key)) {
+        throw new GitlabTargetError(
+          `matrix include key '${key}' is not a valid GitLab identifier (only letters, digits, and underscores are allowed)`,
+          "LOWER_FAILED",
+        );
+      }
+    }
+  }
 }
 
 /**
@@ -735,8 +784,9 @@ function translateGitlabCommand(
       return translateGitlabContextRef(ref.namespace, ref.field);
     }
     // Use the producer job ID as a prefix to avoid collisions when
-    // multiple producers expose the same output name.
+    // multiple producers expose the same output name. Sanitize to
+    // dotenv-safe characters so GitLab accepts the variable name.
     const producerJob = jobIdMap.get(ref.step) ?? ref.step;
-    return `$${producerJob}_${ref.output}`;
+    return `$${dotenvVarName(producerJob, ref.output)}`;
   });
 }

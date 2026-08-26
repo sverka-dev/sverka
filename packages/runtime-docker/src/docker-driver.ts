@@ -95,7 +95,8 @@ export function buildDockerArgs(
   // Terminate option parsing so an image name starting with "--" cannot be
   // interpreted as a Docker flag.
   args.push("--", image);
-  args.push("sh", "-c", request.command);
+  const shellBin = request.shell ?? "sh";
+  args.push(shellBin, "-c", request.command);
 
   return args;
 }

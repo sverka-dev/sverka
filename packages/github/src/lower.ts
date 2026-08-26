@@ -269,6 +269,14 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
   const { steps: rawSteps, outputs } = lowerOperations(step, jobIdMap);
 
   // Apply continueOnError and shell to all run steps (not Checkout/uses steps).
+  // GitHub Actions continue-on-error only accepts a boolean; the
+  // { exitCodes } variant is GitLab-specific and must be rejected.
+  if (step.continueOnError !== undefined && typeof step.continueOnError !== "boolean") {
+    throw new GithubTargetError(
+      `step '${step.id}' uses exit-code continueOnError which is not supported by GitHub Actions`,
+      "LOWER_FAILED",
+    );
+  }
   const steps =
     step.continueOnError !== undefined || step.runtime.shell !== undefined
       ? rawSteps.map((s) => {
@@ -277,10 +285,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
             ...s,
             ...(step.continueOnError !== undefined
               ? {
-                  continueOnError:
-                    typeof step.continueOnError === "boolean"
-                      ? step.continueOnError
-                      : true,
+                  continueOnError: step.continueOnError,
                 }
               : {}),
             ...(step.runtime.shell !== undefined ? { shell: step.runtime.shell } : {}),
@@ -390,17 +395,26 @@ function lowerOperations(
 
   let runLines: string[] = [];
   let hasExportInRun = false;
+  let outputBlockIndex = 0;
 
   function flushRun(): void {
     if (runLines.length === 0) return;
     const combined = runLines.join("\n");
     const translated = translateCommand(combined, step.inputs, jobIdMap);
+    // If this run block contains exportOutput lines, give it a unique id so
+    // job outputs can reference ${{ steps.<id>.outputs.* }}. Multiple
+    // output-producing blocks (separated by non-shell ops) get distinct IDs.
+    const outputStepId =
+      hasExportInRun
+        ? outputBlockIndex === 0
+          ? `${shortStepId}-outputs`
+          : `${shortStepId}-outputs-${outputBlockIndex + 1}`
+        : undefined;
     steps.push({
       run: translated,
-      // If this run block contains exportOutput lines, give it an id so
-      // job outputs can reference ${{ steps.<id>.outputs.* }}.
-      ...(hasExportInRun ? { id: `${shortStepId}-outputs` } : {}),
+      ...(outputStepId !== undefined ? { id: outputStepId } : {}),
     });
+    if (hasExportInRun) outputBlockIndex++;
     runLines = [];
     hasExportInRun = false;
   }
@@ -408,7 +422,11 @@ function lowerOperations(
   for (const op of step.operations) {
     if (op.kind === "exportOutput") {
       runLines.push(`echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`);
-      outputs[op.name] = `\${{ steps.${shortStepId}-outputs.outputs.${op.name} }}`;
+      const outputStepId =
+        outputBlockIndex === 0
+          ? `${shortStepId}-outputs`
+          : `${shortStepId}-outputs-${outputBlockIndex + 1}`;
+      outputs[op.name] = `\${{ steps.${outputStepId}.outputs.${op.name} }}`;
       hasExportInRun = true;
     } else {
       lowerOperation(op, shortStepId, steps, runLines, flushRun);
@@ -528,6 +546,14 @@ function lowerStrategy(spec: MatrixSpec): {
   readonly failFast?: boolean;
   readonly maxParallel?: number;
 } {
+  if (spec.maxParallel !== undefined) {
+    if (!Number.isInteger(spec.maxParallel) || spec.maxParallel < 1) {
+      throw new GithubTargetError(
+        `matrix maxParallel must be a positive integer, got ${spec.maxParallel}`,
+        "LOWER_FAILED",
+      );
+    }
+  }
   const matrix: Record<string, unknown> = {};
   for (const [key, values] of Object.entries(spec.dimensions)) {
     matrix[key] = [...values];
