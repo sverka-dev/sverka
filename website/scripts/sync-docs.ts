@@ -16,6 +16,7 @@ interface RootMapping {
 
 const roots: RootMapping[] = [
   { src: "engdocs/user", dest: "user", indexNames: ["README.md"] },
+  { src: "specs/features", dest: "features", indexNames: ["overview.md"] },
 ];
 
 interface FileEntry {
@@ -420,9 +421,20 @@ async function writeSidebarConfig(entries: FileEntry[]) {
     userItems.push({ label: fileNameToTitle(page.srcPath), slug: page.slug });
   }
 
+  // Feature matrix section: auto-generate from specs/features.
+  const hasFeatures = entries.some((e) => e.route.startsWith("features/"));
+  const featureItems: unknown[] = [{ slug: "features" }];
+  if (hasFeatures) {
+    featureItems.push({
+      label: "All features",
+      items: [{ autogenerate: { directory: "features", collapsed: true } }],
+    });
+  }
+
   const sidebar = [
     { slug: "index" },
     { label: "User documentation", collapsed: false, items: userItems },
+    ...(hasFeatures ? [{ label: "Feature matrix", collapsed: true, items: featureItems }] : []),
   ];
 
   try {

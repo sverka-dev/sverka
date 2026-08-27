@@ -32,3 +32,7 @@ native targets, CLI, checks, findings, and policy.
 ## Policy
 
 - [Policy enforcement](./policy/evaluation.md) — rules, severities, enforcement
+
+## Feature matrix
+
+- [All features](../../specs/features/overview.md) — F-01 to F-49: every GitHub Actions and GitLab CI capability mapped to Sverka's portable model, with provider matrices and lowering rules
