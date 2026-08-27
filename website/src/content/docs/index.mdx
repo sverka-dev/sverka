@@ -5,6 +5,8 @@ editUrl: https://github.com/sverka-dev/sverka/edit/main/website/src/content/docs
 sidebar:
   label: Home
 template: splash
+banner:
+  content: "⚠️ Work in progress — pre-alpha. APIs may change. Not ready for production use."
 hero:
   title: Sverka
   tagline: Code-first TypeScript pipeline engine. Run locally. Compile to CI.
@@ -25,10 +27,14 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
+> **⚠️ Work in progress — pre-alpha.** Sverka is under active development and
+> not ready for production use. APIs may change without notice. The compiler
+> packages currently emit thin-wrapper CI YAML; native lowering is planned.
+
 Sverka is a code-first TypeScript pipeline engine. Author workflows in
 code — not YAML, not config files, not prompts. Execute them locally
-through a native engine. Lower the same Definition Graph to GitHub Actions
-or GitLab CI.
+through a native engine. Compile the same Plan to GitHub Actions
+or GitLab CI YAML.
 
 AI agents leverage Sverka through skills and CLI. An agent says `sverka run
 --entry ci --format json` — Sverka builds the pipeline, runs everything
@@ -53,34 +59,34 @@ locally, and returns structured findings. The agent spends ~50 tokens, not
     Sverka, saving tokens. `--format json` on every command. One command
     replaces 6+ tool-call round-trips.
   </Card>
-  <Card title="Three authoring surfaces" icon="approve-check">
-    Construct API (CDK-style), SDK composables (`sh`, `pipeline`, `when`),
-    Decorator syntax (`@step`, `@pipeline`, `@entry`). All produce the
-    same graph.
+  <Card title="Two authoring surfaces" icon="approve-check">
+    Construct API (CDK-style) and Decorator syntax (`@step`, `@pipeline`,
+    `@entry`). Both produce the same graph. SDK builder API planned.
   </Card>
   <Card title="CLI" icon="forward-slash">
-    `sverka plan`, `run`, `check`, `synth`, `validate`, `discover`,
+    `sverka plan`, `run`, `check`, `compile`, `validate`, `discover`,
     `policy`, `graph`, `doctor`. One tool, full pipeline.
   </Card>
   <Card title="Compile to CI" icon="seti:yaml">
-    Same workflow lowers to GitHub Actions or GitLab CI YAML. Native
-    lowering — one job per step, not thin wrappers.
+    Same Plan compiles to GitHub Actions or GitLab CI YAML. Thin-wrapper
+    mode today (runs `sverka execute`); native one-job-per-step lowering
+    planned.
   </Card>
 </CardGrid>
 
 ## How it works
 
 ```text
-author → plan → run → synth
+author → plan → run → compile
 ```
 
-1. **Author** — Define your pipeline in `sverka.config.ts` using the Construct,
-   SDK, or Decorator API. Steps, dependencies, artifacts, triggers.
+1. **Author** — Define your pipeline in `sverka.config.ts` using the Construct
+   or Decorator API. Steps, dependencies, artifacts, triggers.
 2. **Plan** — `sverka plan` binds the Definition Graph to a Run Plan. Resolves
    reachable steps from entry roots.
 3. **Run** — `sverka run` executes the Run Plan through the native engine.
    Local, parallel, with artifact and scalar transfer between steps.
-4. **Synth** — `sverka synth --target github` lowers the same workflow to
+4. **Compile** — `sverka compile --target github` compiles the Plan to
    GitHub Actions YAML. Or `--target gitlab` for GitLab CI.
 
 ## Start here

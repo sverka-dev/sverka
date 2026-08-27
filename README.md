@@ -8,8 +8,11 @@ A provider-neutral workflow framework and execution platform for software
 verification. Author workflows in TypeScript, execute them locally, and
 compile the same definition to GitHub Actions or GitLab CI.
 
-> **v0 redesign — Work in progress.** Sverka is under active development.
-> APIs may change without notice. Not ready for production use.
+> **⚠️ Work in progress — pre-alpha.** Sverka is under active development.
+> Not ready for production use. APIs may change without notice. The compiler
+> packages currently emit thin-wrapper CI YAML (a single job that runs
+> `sverka execute`); native one-job-per-step lowering is planned. The SDK
+> builder composables (`sh`, `artifact`, `images`) are not yet shipped.
 
 [Website](https://sverka.dev) &middot; [Documentation](https://sverka.dev/docs) &middot; [CLI Reference](https://sverka.dev/docs/cli)
 
@@ -44,15 +47,15 @@ export default proj;
 
 The same workflow can be:
 
-- **Authored** through Construct, SDK, or Decorator APIs — all produce the same graph
+- **Authored** through Construct or Decorator APIs — both produce the same graph
 - **Executed locally** through the native engine with host or container runtime
 - **Planned** without executing — see what will run before it runs
-- **Compiled** to GitHub Actions or GitLab CI through native lowering
+- **Compiled** to GitHub Actions or GitLab CI YAML
 - **Serialized** for deterministic replay and distribution
 
-## Three authoring surfaces
+## Two authoring surfaces
 
-All three produce the **same Definition Graph**:
+Both produce the **same Definition Graph**:
 
 ### Construct API
 
@@ -62,18 +65,6 @@ import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");
 new ShellStep(p, "build", { command: "npm run build" });
-new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-```
-
-### SDK API
-
-```ts
-import { Project, Pipeline, Entry } from "@sverka/cdk";
-import { sh } from "@sverka/sdk";
-
-const proj = new Project("myproj");
-const p = new Pipeline(proj, "ci");
-sh`npm run build`.build(p, "build");
 new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
@@ -93,19 +84,20 @@ const proj = new Project("myproj");
 decoratePipeline(MyPipeline, proj, "ci");
 ```
 
+> **Planned:** an SDK builder API (`sh`, `artifact`, `when`, `images`) is
+> designed but not yet shipped.
+
 ## Features
 
-- **Three authoring surfaces** — Construct, SDK, and Decorator APIs produce equivalent graphs
+- **Two authoring surfaces** — Construct and Decorator APIs produce equivalent graphs (SDK builder API planned)
 - **Provider-neutral Definition Graph** — no GitHub or GitLab terms in your workflow
 - **Native engine** — topological scheduling, parallel steps, failure propagation
-- **Native target lowering** — GitHub Actions and GitLab CI, not thin wrappers
-- **Plugin capability model** — declare what targets support, detect unsupported features
+- **CI compilation** — compile the Plan to GitHub Actions or GitLab CI YAML (thin-wrapper mode today; native lowering planned)
 - **Automatic discovery** — zero-config project detection
 - **Run Plan binding** — select entries, provide inputs, get a bound plan
 - **Serialization** — serialize and deserialize graphs for distribution
 - **Normalized findings** — one model for all tool outputs
 - **Policy engine** — decide what fails and what passes
-- **Conformance suite** — §34 acceptance gate verifies all surfaces agree
 
 ## Quick start
 
@@ -126,11 +118,14 @@ sverka graph
 sverka run
 
 # Compile to GitHub Actions
-sverka synth --target github
+sverka compile --target github --output .github/workflows/sverka.yml
 
 # Compile to GitLab CI
-sverka synth --target gitlab
+sverka compile --target gitlab --output .gitlab-ci.yml
 ```
+
+> **Note:** `sverka synth` exists as a stub but is not implemented. Use
+> `sverka compile` instead.
 
 ## Architecture
 
@@ -166,22 +161,21 @@ sverka synth --target gitlab
 | Package | Description |
 |---------|-------------|
 | `@sverka/cdk` | Construct API: Project, Pipeline, ShellStep, Entry |
-| `@sverka/sdk` | SDK API: sh, artifact, when, images, context refs |
 | `@sverka/decorators` | Decorator API: @pipeline, @step, @entry, @input |
+| `@sverka/sdk` | SDK entry point (createSverka) and core re-exports; builder API planned |
 | `@sverka/core` | Definition Graph synthesis and validation |
-| `@sverka/ir` | Serializable graph schema, Run Plan, validation |
+| `@sverka/ir` | Serializable graph schema, Plan, Run Plan, validation |
 | `@sverka/planner` | Discovery, Run Plan binding |
 | `@sverka/engine-native` | Native execution engine, scheduler |
 | `@sverka/runtime-host` | Host process runtime driver |
 | `@sverka/runtime-docker` | Docker container runtime driver |
 | `@sverka/runtime-podman` | Podman container runtime driver |
-| `@sverka/plugin` | Plugin model, capability manifests |
-| `@sverka/github` | GitHub Actions native target |
-| `@sverka/gitlab` | GitLab CI native target |
+| `@sverka/compiler-github` | Compile Plan → GitHub Actions YAML |
+| `@sverka/compiler-gitlab` | Compile Plan → GitLab CI YAML |
 | `@sverka/checks` | Built-in check providers |
 | `@sverka/findings` | SARIF normalization, fingerprints, baselines |
 | `@sverka/policy` | Policy evaluation |
-| `@sverka/conformance` | §34 acceptance gate conformance suite |
+| `@sverka/conformance` | Conformance suite |
 | `@sverka/cli` | Command-line interface |
 
 ## Development
@@ -221,9 +215,8 @@ The v0 redesign rebuilt Sverka from the ground up as a provider-neutral
 workflow framework. Key changes:
 
 - **Definition Graph** replaces the old Plan IR as the canonical source
-- **Three authoring surfaces** (Construct/SDK/Decorator) replace the old single SDK
-- **Native target lowering** replaces thin-wrapper compilers
-- **Plugin capability model** declares what each target supports
+- **Two authoring surfaces** (Construct/Decorator) replace the old single SDK (builder API planned)
+- **CI compilation** via `@sverka/compiler-github` and `@sverka/compiler-gitlab` — thin-wrapper mode today (single job running `sverka execute`), native one-job-per-step lowering planned
 - **Conformance suite** verifies all surfaces produce equivalent graphs
 
 The v0 redesign was organized in waves:

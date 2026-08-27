@@ -197,6 +197,10 @@ function mergeFrontmatter(
   if (description) fields.description = description;
   fields.editUrl = editUrl;
   if (sidebar) fields.sidebar = sidebar;
+  fields.banner = {
+    content:
+      "⚠️ Work in progress — pre-alpha. APIs may change. Not ready for production use.",
+  };
 
   const yaml = stringifyYaml(fields, { lineWidth: 0, defaultStringType: "PLAIN" });
   return `---\n${yaml}---\n\n`;
