@@ -150,3 +150,106 @@ sverka compile --target github --output .github/workflows/sverka.yml
 
 > **Note:** `sverka synth --target github` is a **stub** and returns
 > "not yet implemented". Use `sverka compile` instead.
+## Support levels
+
+| Level | Meaning |
+|---|---|
+| `native` | Target has a direct 1:1 mapping for this feature |
+| `lowered` | Feature is translated to an equivalent target construct |
+| `emulated` | Feature is approximated via a combination of target constructs |
+| `partial` | Only some aspects of the feature are supported |
+| `connector` | Feature requires a plugin connector to provide |
+| `unsupported` | Target cannot express this feature; produces a diagnostic |
+
+## GitHub capability manifest
+
+> **Note:** This manifest is from the `@sverka/github` native target package (Wave H). The shipped `@sverka/compiler-github` thin-wrapper compiler does not use capability analysis — it delegates everything to `sverka execute`. This manifest documents the **planned** native lowering support matrix.
+
+| Capability | Support |
+|---|---|
+| `trigger.push` | `native` |
+| `trigger.changeRequest` | `native` |
+| `trigger.manual` | `native` |
+| `runtime.host` | `native` |
+| `runtime.container` | `native` |
+| `operation.shell` | `native` |
+| `operation.import` | `lowered` |
+| `output.scalar` | `lowered` |
+| `output.artifact` | `native` |
+| `graph.dependencies` | `native` |
+| `graph.matrix` | `native` |
+| `matrix.include` | `native` |
+| `matrix.exclude` | `native` |
+| `matrix.failFast` | `native` |
+| `matrix.maxParallel` | `native` |
+| `trigger.schedule` | `native` |
+| `step.beforeScript` | `native` |
+| `step.afterScript` | `native` |
+| `step.continueOnError` | `native` |
+| `policy.retry` | `unsupported` |
+| `execution.workdir` | `native` |
+| `execution.shell` | `native` |
+| `environment.variables` | `native` |
+| `secrets.runtime` | `native` |
+| `secrets.pipeline-input` | `native` |
+| `concurrency.interruptible` | `partial` |
+| `environment.permissions` | `native` |
+| `runner.selection` | `native` |
+| `runner.group` | `native` |
+| `secrets.oidc` | `native` |
+| `secrets.oidc.multiAudience` | `unsupported` |
+| `workflow.rules` | `partial` |
+| `workflow.rules.changes` | `unsupported` |
+| `workflow.rules.exists` | `unsupported` |
+| `workflow.defaults` | `native` |
+| `workflow.defaults.shell` | `native` |
+| `workflow.defaults.workdir` | `native` |
+| `workflow.defaults.env` | `unsupported` |
+| `workflow.defaults.beforeScript` | `lowered` |
+| `workflow.defaults.afterScript` | `lowered` |
+| `workflow.defaults.timeout` | `unsupported` |
+| `workflow.defaults.retry` | `unsupported` |
+| `workflow.defaults.interruptible` | `unsupported` |
+| `artifact.report` | `emulated` |
+| `artifact.report.junit` | `emulated` |
+| `artifact.report.coverage` | `emulated` |
+| `artifact.report.dotenv` | `emulated` |
+| `artifact.report.sast` | `emulated` |
+| `artifact.report.dast` | `emulated` |
+| `artifact.report.dependencyScanning` | `emulated` |
+| `artifact.report.containerScanning` | `emulated` |
+| `artifact.report.licenseScanning` | `emulated` |
+| `artifact.report.performance` | `emulated` |
+| `artifact.report.metrics` | `emulated` |
+| `artifact.report.terraform` | `emulated` |
+| `artifact.report.quality` | `emulated` |
+| `artifact.report.sarif` | `emulated` |
+| `workflow.inputs` | `native` |
+| `workflow.inputs.choice` | `native` |
+| `workflow.inputs.array` | `unsupported` |
+| `workflow.inputs.pattern` | `unsupported` |
+| `environment.services` | `native` |
+| `environment.services.ports` | `native` |
+| `deployment.environment` | `native` |
+| `deployment.environment.action` | `unsupported` |
+| `deployment.environment.tier` | `unsupported` |
+| `artifact.retention` | `native` |
+| `artifact.access` | `unsupported` |
+| `cache` | `native` |
+| `cache.policy` | `emulated` |
+| `cache.fallbackKeys` | `native` |
+| `concurrency.group` | `native` |
+| `concurrency.cancelInProgress` | `native` |
+| `reusable.pipeline` | `native` |
+| `reusable.pipeline.inputs` | `native` |
+| `reusable.pipeline.outputs` | `native` |
+| `reusable.component` | `native` |
+| `reusable.component.versioning` | `native` |
+| `reusable.childPipeline` | `unsupported` |
+| `reusable.downstream` | `emulated` |
+| `deployment.release` | `emulated` |
+| `deployment.pages` | `native` |
+| `import.github` | `native` |
+| `import.include` | `emulated` |
+| `scheduling.delay` | `emulated` |
+| `execution.background` | `emulated` |
