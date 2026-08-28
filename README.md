@@ -2,11 +2,11 @@
 
 # Sverka
 
-### Define checks once. Plan locally. Run anywhere.
+### Code-defined workflows. Run locally. Compile to any CI.
 
-A provider-neutral workflow framework and execution platform for software
-verification. Author workflows in TypeScript, execute them locally, and
-compile the same definition to GitHub Actions or GitLab CI.
+A portable workflow runtime — code-defined workflows with CI semantics.
+Author workflows in TypeScript, run them locally, and compile the same
+definition to GitHub Actions or GitLab CI.
 
 > **⚠️ Work in progress — pre-alpha.** Sverka is under active development.
 > Not ready for production use. APIs may change without notice. The compiler
@@ -33,7 +33,7 @@ Your workflow, defined once, lowered everywhere.
 ```ts
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 
-const proj = new Project("verify");
+const proj = new Project("ci");
 const p = new Pipeline(proj, "ci");
 
 new ShellStep(p, "lint", { command: "npm run lint" });
@@ -75,13 +75,12 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 
 - **Single authoring surface** — the Construct API (SDK builder API planned)
 - **Provider-neutral Definition Graph** — no GitHub or GitLab terms in your workflow
-- **Native engine** — topological scheduling, parallel steps, failure propagation
+- **Local-first execution** — run the same graph on host or container
 - **CI compilation** — compile the Plan to GitHub Actions or GitLab CI YAML (thin-wrapper mode today; native lowering planned)
 - **Automatic discovery** — zero-config project detection
 - **Run Plan binding** — select entries, provide inputs, get a bound plan
 - **Serialization** — serialize and deserialize graphs for distribution
-- **Normalized findings** — one model for all tool outputs
-- **Policy engine** — decide what fails and what passes
+- **Optional verification profile** — built-in checks, normalized findings, and policy evaluation
 
 ## Quick start
 
@@ -98,7 +97,7 @@ sverka validate
 # See the graph
 sverka graph
 
-# Run verification locally
+# Run the workflow locally
 sverka run
 
 # Compile to GitHub Actions
@@ -123,10 +122,11 @@ sverka compile --target gitlab --output .gitlab-ci.yml
   │          Definition Graph (IR)               │
   │  Project → Pipeline → Steps / Entries        │
   └──────┬──────────────────────────┬────────────┘
-         │                          │ lower
+         │                          │
+         │ bind                     │ lower
   ┌──────▼──────────┐    ┌──────────▼──────────┐
-  │   Run Plan      │    │   Target Graphs     │
-  │   (bound)       │    │  GitHub │ GitLab    │
+  │   Run Plan      │    │   Target Compilers  │
+  │   (local)       │    │  GitHub │ GitLab    │
   └──────┬──────────┘    └──────────┬──────────┘
          │ execute                  │ emit
   ┌──────▼──────────┐    ┌──────────▼──────────┐
@@ -136,7 +136,12 @@ sverka compile --target gitlab --output .gitlab-ci.yml
          │               └─────────────────────┘
   ┌──────▼──────────┐
   │  Run Events     │
-  │  + Findings     │
+  └─────────────────┘
+         │
+         │ (optional)
+  ┌──────▼──────────┐
+  │  Findings /     │
+  │  Policy         │
   └─────────────────┘
 ```
 
@@ -144,21 +149,11 @@ sverka compile --target gitlab --output .gitlab-ci.yml
 
 | Package | Description |
 |---------|-------------|
-| `@sverka/workflow` | Construct API: Project, Pipeline, ShellStep, Entry |
-
-| `@sverka/sdk` | SDK entry point (createSverka) and core re-exports; builder API planned |
-| `@sverka/workflow` | Definition Graph synthesis and validation |
-| `@sverka/workflow` | Serializable graph schema, Plan, Run Plan, validation |
-| `@sverka/sdk` | Discovery, Run Plan binding |
-| `@sverka/runtime` | Native execution engine, scheduler |
-| `@sverka/runtime` | Host process runtime driver |
-| `@sverka/runtime` | Docker container runtime driver |
-| `@sverka/compiler` | Compile Plan → GitHub Actions YAML |
-| `@sverka/compiler` | Compile Plan → GitLab CI YAML |
-| `@sverka/verification` | Built-in check providers |
-| `@sverka/verification` | SARIF normalization, fingerprints, baselines |
-| `@sverka/verification` | Policy evaluation |
-
+| `@sverka/workflow` | Workflow definition: Construct API, Definition Graph, Plan IR, validation |
+| `@sverka/runtime` | Execution runtime: scheduler, native engine, host & Docker drivers |
+| `@sverka/compiler` | Target compilation: GitHub Actions, GitLab CI, plugin system |
+| `@sverka/sdk` | Public TypeScript API (createSverka), planner, builder API planned |
+| `@sverka/verification` | Optional profile: findings, policy, built-in checks |
 | `@sverka/cli` | Command-line interface |
 
 ## Development
@@ -195,11 +190,11 @@ website/      # sverka.dev website
 ## v0 redesign
 
 The v0 redesign rebuilt Sverka from the ground up as a provider-neutral
-workflow framework. Key changes:
+workflow framework and portable runtime. Key changes:
 
 - **Definition Graph** replaces the old Plan IR as the canonical source
 - **Single authoring surface** (Construct) replaces the old SDK (builder API planned)
-- **CI compilation** via `@sverka/compiler` and `@sverka/compiler` — thin-wrapper mode today (single job running `sverka execute`), native one-job-per-step lowering planned
+- **CI compilation** via `@sverka/compiler` (GitHub Actions and GitLab CI) — thin-wrapper mode today (single job running `sverka execute`), native one-job-per-step lowering planned
 - **Conformance coverage** is maintained by package test suites
 
 The v0 redesign was organized in waves:

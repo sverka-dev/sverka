@@ -1,27 +1,29 @@
 # Architecture Overview
 
-Sverka is a composable workflow SDK, local CI runtime, and multi-target
-compiler for software verification.
+Sverka is a portable workflow runtime — code-defined workflows with CI
+semantics, local execution, and optional multi-target compilation.
 
 ## System flow
 
 ```text
-Workflow SDK (TypeScript code)
+Workflow definition (TypeScript code)
   → Discovery + Planner (project context detection)
   → Canonical Plan IR (stable, serializable DAG)
-  → Local Executors (Docker, Podman, Host, Remote API)
-  → Target Compilers (GitHub Actions, GitLab CI, Earthly)
-  → Findings + Verdict (normalized output)
+  → Run Plan binding
+  → Local execution (Host, Container, or remote API)
+  → Optional: compile to GitHub Actions, GitLab CI, or Earthly
+  → Optional: findings + verdict (verification profile)
 ```
 
 ## Key principles
 
 1. **Canonical source is the workflow code + Plan IR.** CI providers are
    compilation targets, not the source of truth.
-2. **Local executor is first-class.** Not a CI emulator — a real runtime.
+2. **Local execution is the primary mode.** CI compilation is optional.
 3. **Operations are lazy and composable.** Planning records intent without
    side effects.
-4. **Findings are normalized.** Every tool's output maps to one Finding model.
+4. **Verification is an optional profile.** Checks, findings, and policy
+   layer on top of the workflow runtime.
 5. **Zero-config by default, full CDK-style customization when needed.**
 
 ## Package dependency graph

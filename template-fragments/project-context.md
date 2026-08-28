@@ -2,9 +2,9 @@
 
 ## Project
 
-Sverka is a composable workflow SDK, local CI runtime, and multi-target
-compiler for software verification. Define checks once. Plan locally. Run
-anywhere.
+Sverka is a portable workflow runtime — code-defined workflows with CI
+semantics, local execution, and optional multi-target compilation. Define
+workflows once. Plan locally. Run anywhere.
 
 The project is a TypeScript native monorepo (nx + tsdown), built spec-first
 (SDD), test-first (TDD), in waves.

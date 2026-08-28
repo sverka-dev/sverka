@@ -70,9 +70,9 @@ bun run typecheck    # typecheck all packages
 
 ## Architecture Overview
 
-Sverka is a composable workflow SDK, local CI runtime, and multi-target
-compiler for software verification. See `engdocs/architecture/overview.md`
-for the full architecture overview.
+Sverka is a portable workflow runtime — code-defined workflows with CI
+semantics, local execution, and optional multi-target compilation. See
+`engdocs/architecture/overview.md` for the full architecture overview.
 
 ## Conventions & Patterns
 
