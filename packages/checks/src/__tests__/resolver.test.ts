@@ -167,6 +167,12 @@ describe("custom CheckResolver", () => {
             outputs: [],
             dependencies: [],
           },
+          operation: {
+            id: "checks/custom",
+            kind: "run" as const,
+            name: "custom",
+            command: "my-tool --sarif out.sarif",
+          },
           outputs: [{ path: "out.sarif", format: "sarif" }],
         };
       },

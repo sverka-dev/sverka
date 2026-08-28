@@ -3,6 +3,12 @@ import { Project, Pipeline, ShellStep, Entry, push, schedule } from "@sverka/cdk
 import { synthesize } from "@sverka/core";
 import { GithubTarget } from "../target.js";
 import { GithubTargetError } from "../errors.js";
+import type { GithubTargetGraph } from "../types.js";
+
+function singleGraph(result: GithubTargetGraph | readonly GithubTargetGraph[]): GithubTargetGraph {
+  if ("jobs" in result) return result;
+  return result[0]!;
+}
 
 describe("GitHub F-05: schedule trigger lowering", () => {
   it("lowers schedule trigger to on.schedule", () => {
@@ -13,7 +19,7 @@ describe("GitHub F-05: schedule trigger lowering", () => {
 
     const graph = synthesize(project);
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.on.schedule).toBeDefined();
     expect(targetGraph.on.schedule).toEqual([{ cron: "0 0 * * *" }]);
   });
@@ -26,7 +32,7 @@ describe("GitHub F-05: schedule trigger lowering", () => {
 
     const graph = synthesize(project);
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.on.schedule).toEqual([{ cron: "0 0 * * *", timezone: "UTC" }]);
   });
 
@@ -57,7 +63,7 @@ describe("GitHub F-10: beforeScript/afterScript lowering", () => {
 
     const graph = synthesize(project);
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs[0]!;
     const runSteps = job.steps.filter((s) => s.run !== undefined);
     expect(runSteps[0]!.run).toBe("echo setup");
@@ -75,7 +81,7 @@ describe("GitHub F-10: beforeScript/afterScript lowering", () => {
 
     const graph = synthesize(project);
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs[0]!;
     const lastRunStep = job.steps[job.steps.length - 1]!;
     expect(lastRunStep.run).toBe("echo cleanup");
@@ -95,7 +101,7 @@ describe("GitHub F-12: continueOnError lowering", () => {
 
     const graph = synthesize(project);
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs[0]!;
     const runStep = job.steps.find((s) => s.run !== undefined);
     expect(runStep?.continueOnError).toBe(true);

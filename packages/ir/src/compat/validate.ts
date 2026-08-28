@@ -32,7 +32,7 @@ function isValidImageDigest(s: string): boolean {
   if (s.length !== 71) return false; // "sha256:" + 64 hex chars
   if (!s.startsWith("sha256:")) return false;
   for (let i = 7; i < s.length; i++) {
-    const c = s.codePointAt(i);
+    const c = s.codePointAt(i) ?? -1;
     const isHex = (c >= 48 && c <= 57) || (c >= 97 && c <= 102); // 0-9, a-f
     if (!isHex) return false;
   }
@@ -44,7 +44,7 @@ function isValidCpuString(s: string): boolean {
   if (s.length === 0 || s.length > 10) return false;
   let hasDot = false;
   for (let i = 0; i < s.length; i++) {
-    const c = s.codePointAt(i);
+    const c = s.codePointAt(i) ?? -1;
     if (c === 46) { // '.'
       if (hasDot || i === 0 || i === s.length - 1) return false;
       hasDot = true;
@@ -58,7 +58,7 @@ function isValidCpuString(s: string): boolean {
 /** Find the boundary between digit and suffix portions (from the right). */
 function findDigitBoundary(s: string): number {
   for (let i = s.length - 1; i >= 0; i--) {
-    const c = s.codePointAt(i);
+    const c = s.codePointAt(i) ?? -1;
     if (c >= 48 && c <= 57) return i + 1; // '0'-'9'
   }
   return 0;
@@ -67,7 +67,7 @@ function findDigitBoundary(s: string): number {
 /** Check if all chars in s[start..end) are ASCII digits. */
 function isAllDigits(s: string, start: number, end: number): boolean {
   for (let i = start; i < end; i++) {
-    const c = s.codePointAt(i);
+    const c = s.codePointAt(i) ?? -1;
     if (c < 48 || c > 57) return false;
   }
   return true;

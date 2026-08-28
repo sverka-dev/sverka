@@ -4,6 +4,12 @@ import type { ContextRef } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import { GitlabTarget } from "../target.js";
 import { GitlabTargetError } from "../errors.js";
+import type { GitlabTargetGraph } from "../types.js";
+
+function singleGraph(result: GitlabTargetGraph | readonly GitlabTargetGraph[]): GitlabTargetGraph {
+  if ("jobs" in result) return result;
+  return result[0]!;
+}
 
 function matrixRef(field: string): ContextRef {
   return { kind: "context", namespace: "matrix", field };
@@ -27,7 +33,7 @@ describe("GitLab matrix lowering", () => {
       dimensions: { node: [18, 20], os: ["ubuntu", "windows"] },
     });
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.parallel).toBeDefined();
     expect(job?.parallel!.matrix).toHaveLength(4);
@@ -43,7 +49,7 @@ describe("GitLab matrix lowering", () => {
       exclude: [{ node: 18, os: "windows" }],
     });
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.parallel!.matrix).toHaveLength(3);
     expect(job?.parallel!.matrix).not.toContainEqual({ node: 18, os: "windows" });
@@ -55,7 +61,7 @@ describe("GitLab matrix lowering", () => {
       include: [{ node: 22, experimental: 1 }],
     });
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.parallel!.matrix).toHaveLength(3);
     expect(job?.parallel!.matrix).toContainEqual({ node: 22, experimental: 1 });
@@ -68,7 +74,7 @@ describe("GitLab matrix lowering", () => {
       [matrixRef("node")],
     );
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.script).toContain("make test NODE=$NODE");
   });
@@ -76,7 +82,7 @@ describe("GitLab matrix lowering", () => {
   it("no parallel key when step has no matrix", () => {
     const graph = makeGraphWithMatrix(undefined);
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.parallel).toBeUndefined();
   });

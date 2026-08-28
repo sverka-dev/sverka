@@ -37,8 +37,8 @@ interface RunContext {
   readonly drivers: readonly RuntimeDriver[];
   readonly maxConcurrent: number;
   readonly order: readonly string[];
-  readonly stepMap: Map<string, StepDefinition>;
-  readonly dependents: Map<string, string[]>;
+  readonly stepMap: ReadonlyMap<string, StepDefinition>;
+  readonly dependents: ReadonlyMap<string, readonly string[]>;
   indegree: Map<string, number>;
   readonly states: Map<string, StepState>;
   readonly valueStore: ValueStore;
@@ -186,7 +186,7 @@ class NativeEngine implements Engine {
       order: setup.graph.order,
       stepMap: setup.graph.stepMap,
       dependents: setup.graph.dependents,
-      indegree: setup.graph.indegree,
+      indegree: new Map(setup.graph.indegree),
       states,
       valueStore: createValueStore(),
       artifactStore: createArtifactStore(request.artifactDir),
@@ -199,12 +199,12 @@ class NativeEngine implements Engine {
     plan: RunPlan,
   ): Promise<{ error: string | null; graph: StepGraph; secrets: Record<string, string> }> {
     const secretsResult = await resolveRunSecrets(request, plan);
-    if (secretsResult.error) {
+    if ("error" in secretsResult) {
       return { error: secretsResult.error, graph: emptyGraph(), secrets: {} };
     }
 
     const graphResult = buildStepGraph(plan.steps);
-    if (graphResult.error) {
+    if ("error" in graphResult) {
       return { error: graphResult.error, graph: emptyGraph(), secrets: {} };
     }
 

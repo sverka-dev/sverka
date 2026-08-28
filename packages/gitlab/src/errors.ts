@@ -5,7 +5,9 @@ export type GitlabTargetErrorCode =
   | "UNSUPPORTED_TRIGGER"
   | "LOWER_FAILED"
   | "EMIT_FAILED"
-  | "IMPORT_FAILED";
+  | "IMPORT_FAILED"
+  | "MATRIX_TOO_LARGE"
+  | "INVALID_MATRIX";
 
 export class GitlabTargetError extends Error {
   readonly code: GitlabTargetErrorCode;

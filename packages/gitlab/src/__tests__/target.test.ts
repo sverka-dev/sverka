@@ -3,6 +3,12 @@ import { parse } from "yaml";
 import { Project, Pipeline, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, Entry } from "@sverka/cdk";
 import { synthesize, type DefinitionGraph } from "@sverka/core";
 import { GitlabTarget, compileGitlab, GitlabTargetError, type GitlabJob } from "../index.js";
+import type { GitlabTargetGraph } from "../types.js";
+
+function singleGraph(result: GitlabTargetGraph | readonly GitlabTargetGraph[]): GitlabTargetGraph {
+  if ("jobs" in result) return result;
+  return result[0]!;
+}
 
 function makeSimpleGraph(): ReturnType<typeof synthesize> {
   const proj = new Project("test");
@@ -808,14 +814,14 @@ describe("GitlabTarget — lower", () => {
   it("produces correct job count", () => {
     const graph = makeGraphWithDeps();
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs).toHaveLength(2);
   });
 
   it("job IDs match step IDs", () => {
     const graph = makeGraphWithDeps();
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const ids = targetGraph.jobs.map((j: GitlabJob) => j.id);
     expect(ids).toEqual(["lint", "build"]);
   });
@@ -825,7 +831,7 @@ describe("GitlabTarget — emit", () => {
   it("produces YAML artifact", () => {
     const graph = makeSimpleGraph();
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const artifacts = target.emit(targetGraph);
     expect(artifacts).toHaveLength(1);
     expect(artifacts[0]?.content).toContain("script:");

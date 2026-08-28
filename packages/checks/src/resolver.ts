@@ -4,7 +4,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { StepDefinition } from "@sverka/core";
+import type { StepDefinition, OperationSpec } from "@sverka/core";
 import type {
   ProposedCheck,
   ProjectContext,
@@ -26,6 +26,7 @@ export interface CheckResolver {
 export interface ResolvedCheck {
   readonly checkId: string;
   readonly step: StepDefinition;
+  readonly operation: OperationSpec;
   readonly outputs: readonly CheckOutput[];
 }
 
@@ -114,7 +115,13 @@ function findEntry(
       outputs: [],
       dependencies: [],
     };
-    return { checkId: check.checkId, step, outputs: [] };
+    const operation: OperationSpec = {
+      id: `checks/${check.checkId}`,
+      kind: "run",
+      name: check.checkId,
+      command,
+    };
+    return { checkId: check.checkId, step, operation, outputs: [] };
   }
   return null;
 }

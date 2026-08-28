@@ -3,7 +3,7 @@
 
 import { parse as parseYaml } from "yaml";
 import type { DefinitionGraph, ProjectDefinition, PipelineDefinition, StepDefinition, OperationDefinition, Dependency, EntryDefinition } from "@sverka/core";
-import type { Trigger, PipelineRule, Runtime, Rule } from "@sverka/cdk";
+import type { Trigger, PipelineRule, Runtime, Rule, ReportType } from "@sverka/cdk";
 import { GitlabTargetError } from "./errors.js";
 
 /**
@@ -374,7 +374,7 @@ function convertArtifactReports(artifacts: Record<string, unknown>, operations: 
   const reports = artifacts.reports as Record<string, unknown>;
   for (const [type, value] of Object.entries(reports)) {
     if (typeof value === "string") {
-      operations.push({ kind: "report", spec: { type, path: value } });
+      operations.push({ kind: "report", spec: { type: type as ReportType, path: value } });
     }
   }
 }

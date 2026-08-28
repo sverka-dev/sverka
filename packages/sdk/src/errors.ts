@@ -5,7 +5,10 @@ export type SdkErrorCode =
   | "INVALID_IMAGE"
   // Legacy config-discovery codes retained while CLI migrates to the new SDK API.
   | "CONFIG_NOT_FOUND"
-  | "CONFIG_LOAD_FAILED";
+  | "CONFIG_INVALID"
+  | "CONFIG_LOAD_FAILED"
+  | "CONFIG_PATH_ESCAPE"
+  | "EXECUTION_FAILED";
 
 export class SdkError extends Error {
   override readonly cause?: unknown;

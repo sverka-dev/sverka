@@ -67,6 +67,12 @@ describe("synthesizeCheckSteps", () => {
             outputs: [],
             dependencies: [],
           },
+          operation: {
+            id: `checks/${check.checkId}`,
+            kind: "run" as const,
+            name: check.checkId,
+            command: "echo hello",
+          },
           outputs: [{ path: "out.sarif", format: "sarif" }],
         };
       },

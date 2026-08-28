@@ -713,7 +713,7 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
               }
             : s,
         )
-      : rawSteps;
+      : [...rawSteps];
 
   const jobId = jobIdMap.get(step.id) ?? step.id;
 
