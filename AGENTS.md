@@ -26,12 +26,9 @@ packages/
   ir/               # canonical plan schema and validation
   runtime/          # executor interfaces and scheduler
   runtime-docker/   # Docker executor
-  runtime-podman/   # Podman executor
   runtime-host/     # host process executor
-  runtime-remote/   # GitHub/GitLab/SonarCloud API checks
   compiler-github/  # GitHub Actions compiler
   compiler-gitlab/  # GitLab CI compiler
-  compiler-earthly/ # optional Earthly compiler
   findings/         # normalization, fingerprints, baseline
   policy/           # policy evaluation
   cli/              # command-line interface

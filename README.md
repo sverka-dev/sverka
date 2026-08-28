@@ -169,7 +169,6 @@ sverka compile --target gitlab --output .gitlab-ci.yml
 | `@sverka/engine-native` | Native execution engine, scheduler |
 | `@sverka/runtime-host` | Host process runtime driver |
 | `@sverka/runtime-docker` | Docker container runtime driver |
-| `@sverka/runtime-podman` | Podman container runtime driver |
 | `@sverka/compiler-github` | Compile Plan → GitHub Actions YAML |
 | `@sverka/compiler-gitlab` | Compile Plan → GitLab CI YAML |
 | `@sverka/checks` | Built-in check providers |

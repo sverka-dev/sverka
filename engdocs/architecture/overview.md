@@ -31,8 +31,6 @@ sdk → core → ir
               ↓
          runtime → runtime-docker
                  → runtime-host
-                 → runtime-podman
-                 → runtime-remote
          planner → core, ir
          findings → ir
          policy → findings
