@@ -96,29 +96,6 @@
         "vitest": "^4.1.11",
       },
     },
-    "packages/conformance": {
-      "name": "@sverka/conformance",
-      "version": "0.0.0",
-      "dependencies": {
-        "@sverka/cdk": "workspace:*",
-        "@sverka/core": "workspace:*",
-        "@sverka/decorators": "workspace:*",
-        "@sverka/engine-native": "workspace:*",
-        "@sverka/github": "workspace:*",
-        "@sverka/gitlab": "workspace:*",
-        "@sverka/ir": "workspace:*",
-        "@sverka/planner": "workspace:*",
-        "@sverka/runtime-host": "workspace:*",
-        "@sverka/sdk": "workspace:*",
-      },
-      "devDependencies": {
-        "@sverka/plugin": "workspace:*",
-        "tsdown": "^0.22.0",
-        "typescript": "^5.8.0",
-        "vitest": "^4.1.11",
-        "yaml": "^2.9.0",
-      },
-    },
     "packages/core": {
       "name": "@sverka/core",
       "version": "0.0.0",
@@ -126,20 +103,6 @@
         "@sverka/cdk": "workspace:*",
       },
       "devDependencies": {
-        "tsdown": "^0.22.0",
-        "typescript": "^5.8.0",
-        "vitest": "^4.1.11",
-      },
-    },
-    "packages/decorators": {
-      "name": "@sverka/decorators",
-      "version": "0.0.0",
-      "dependencies": {
-        "@sverka/cdk": "workspace:*",
-        "@sverka/sdk": "workspace:*",
-      },
-      "devDependencies": {
-        "@sverka/core": "workspace:*",
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
         "vitest": "^4.1.11",
@@ -519,11 +482,7 @@
 
     "@sverka/compiler-gitlab": ["@sverka/compiler-gitlab@workspace:packages/compiler-gitlab"],
 
-    "@sverka/conformance": ["@sverka/conformance@workspace:packages/conformance"],
-
     "@sverka/core": ["@sverka/core@workspace:packages/core"],
-
-    "@sverka/decorators": ["@sverka/decorators@workspace:packages/decorators"],
 
     "@sverka/engine-native": ["@sverka/engine-native@workspace:packages/engine-native"],
 

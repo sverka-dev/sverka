@@ -1,8 +1,10 @@
 # Spec 04 — Authoring decorators
 
-**Status:** Active
+> **Note:** This spec is **superseded**. The `@sverka/decorators` package has been removed; the Construct/CDK API (`@sverka/cdk`) is the sole authoring surface.
+
+**Status:** Superseded
 **Source:** specs/architecture-spec.md §9.3–9.8, §12, §14, §15
-**Package:** `@sverka/decorators` (new)
+**Package:** `@sverka/decorators` (removed)
 
 ## Overview
 
