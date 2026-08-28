@@ -1,12 +1,6 @@
-// @sverka/runtime — public API
+// @sverka/runtime — public barrel
 
-export { type Executor, type ExecuteRequest, type ExecuteResult } from "./executor.js";
-export { type StateStore } from "./state-store.js";
-export { type CacheBackend, type CacheKey, type CacheEntry } from "./cache.js";
-export {
-  type ExecutionResult,
-  type OperationOutcome,
-  type ExecutionState,
-} from "./result.js";
-export { RuntimeExecutionError, SchedulerError, ExecutorError } from "./errors.js";
-export { Scheduler, type SchedulerConfig } from "./scheduler.js";
+export * from "./runtime/index.js";
+export * from "./engine-native/index.js";
+export * from "./runtime-host/index.js";
+export * from "./runtime-docker/index.js";

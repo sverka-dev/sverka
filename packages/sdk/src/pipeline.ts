@@ -1,8 +1,8 @@
 // pipeline() factory — creates a Pipeline and runs step/entry functions.
 // Spec 03 — §9.2.
 
-import { Project, Pipeline, Entry } from "@sverka/cdk";
-import type { Input } from "@sverka/cdk";
+import { Project, Pipeline, Entry } from "@sverka/workflow";
+import type { Input } from "@sverka/workflow";
 
 export interface PipelineConfig {
   inputs?: Readonly<Record<string, Input>>;

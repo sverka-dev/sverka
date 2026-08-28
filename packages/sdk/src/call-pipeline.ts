@@ -1,14 +1,8 @@
 // callPipeline() builder — invokes a callee pipeline as a step (F-31).
 // Returns a builder that creates a PipelineCallStep when .build() is called.
 
-import {
-  PipelineCallStep,
-  type Pipeline,
-  type Reference,
-  type InputLiteral,
-  type Runtime,
-  type OutputDeclaration,
-} from "@sverka/cdk";
+import { PipelineCallStep, Pipeline } from "@sverka/workflow";
+import type { Reference, InputLiteral, Runtime, OutputDeclaration } from "@sverka/workflow";
 
 export interface CallPipelineBuilder {
   outputs(outputs: Readonly<Record<string, OutputDeclaration>>): CallPipelineBuilder;

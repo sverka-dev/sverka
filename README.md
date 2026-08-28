@@ -31,7 +31,7 @@ intermediate representation. Not GitHub Actions YAML. Not GitLab CI YAML.
 Your workflow, defined once, lowered everywhere.
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 
 const proj = new Project("verify");
 const p = new Pipeline(proj, "ci");
@@ -60,7 +60,7 @@ The Construct API produces the **same Definition Graph**:
 ### Construct API
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");
@@ -144,20 +144,20 @@ sverka compile --target gitlab --output .gitlab-ci.yml
 
 | Package | Description |
 |---------|-------------|
-| `@sverka/cdk` | Construct API: Project, Pipeline, ShellStep, Entry |
+| `@sverka/workflow` | Construct API: Project, Pipeline, ShellStep, Entry |
 
 | `@sverka/sdk` | SDK entry point (createSverka) and core re-exports; builder API planned |
-| `@sverka/core` | Definition Graph synthesis and validation |
-| `@sverka/ir` | Serializable graph schema, Plan, Run Plan, validation |
-| `@sverka/planner` | Discovery, Run Plan binding |
-| `@sverka/engine-native` | Native execution engine, scheduler |
-| `@sverka/runtime-host` | Host process runtime driver |
-| `@sverka/runtime-docker` | Docker container runtime driver |
-| `@sverka/compiler-github` | Compile Plan → GitHub Actions YAML |
-| `@sverka/compiler-gitlab` | Compile Plan → GitLab CI YAML |
-| `@sverka/checks` | Built-in check providers |
-| `@sverka/findings` | SARIF normalization, fingerprints, baselines |
-| `@sverka/policy` | Policy evaluation |
+| `@sverka/workflow` | Definition Graph synthesis and validation |
+| `@sverka/workflow` | Serializable graph schema, Plan, Run Plan, validation |
+| `@sverka/sdk` | Discovery, Run Plan binding |
+| `@sverka/runtime` | Native execution engine, scheduler |
+| `@sverka/runtime` | Host process runtime driver |
+| `@sverka/runtime` | Docker container runtime driver |
+| `@sverka/compiler` | Compile Plan → GitHub Actions YAML |
+| `@sverka/compiler` | Compile Plan → GitLab CI YAML |
+| `@sverka/verification` | Built-in check providers |
+| `@sverka/verification` | SARIF normalization, fingerprints, baselines |
+| `@sverka/verification` | Policy evaluation |
 
 | `@sverka/cli` | Command-line interface |
 
@@ -199,7 +199,7 @@ workflow framework. Key changes:
 
 - **Definition Graph** replaces the old Plan IR as the canonical source
 - **Single authoring surface** (Construct) replaces the old SDK (builder API planned)
-- **CI compilation** via `@sverka/compiler-github` and `@sverka/compiler-gitlab` — thin-wrapper mode today (single job running `sverka execute`), native one-job-per-step lowering planned
+- **CI compilation** via `@sverka/compiler` and `@sverka/compiler` — thin-wrapper mode today (single job running `sverka execute`), native one-job-per-step lowering planned
 - **Conformance coverage** is maintained by package test suites
 
 The v0 redesign was organized in waves:

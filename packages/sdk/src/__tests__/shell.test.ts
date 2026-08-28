@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep } from "@sverka/workflow";
 import { shell } from "../index.js";
 
 describe("Shell proxy — command prefix", () => {

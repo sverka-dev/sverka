@@ -1,0 +1,33 @@
+{
+  "name": "@sverka/compiler",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sverka/workflow": "workspace:*",
+    "yaml": "^2.9.0",
+    "@sverka/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "tsdown": "^0.22.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,7 +1,7 @@
 // Graph helpers used by CLI commands.
 // Spec 17 — §30.
 
-import type { DefinitionGraph } from "@sverka/core";
+import type { DefinitionGraph } from "@sverka/workflow";
 
 /**
  * Return the id of the first entry found across all pipelines.

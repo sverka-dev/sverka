@@ -1,7 +1,7 @@
 // expr tagged template — symbolic expression builder.
 // Spec 03 — §12.3. Architecture spec §11.1, §12.3.
 
-import type { Reference, Expression } from "@sverka/cdk";
+import type { Reference, Expression } from "@sverka/workflow";
 import { SdkError } from "./errors.js";
 import { isReference } from "./internal/is-reference.js";
 

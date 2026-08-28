@@ -11,7 +11,9 @@
       "import": "./dist/index.mjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
@@ -19,16 +21,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/cdk": "workspace:*",
-    "@sverka/core": "workspace:*",
-    "@sverka/ir": "workspace:*",
+    "@sverka/workflow": "workspace:*",
     "@sverka/runtime": "workspace:*",
-    "@sverka/runtime-docker": "workspace:*",
-    "@sverka/runtime-host": "workspace:*",
-    "@sverka/planner": "workspace:*",
-    "@sverka/findings": "workspace:*",
-    "@sverka/policy": "workspace:*",
-    "@sverka/checks": "workspace:*"
+    "@sverka/verification": "workspace:*",
+    "@sverka/compiler": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",

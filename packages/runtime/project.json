@@ -18,7 +18,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bun run eslint src --ext .ts",
+        "command": "bun run eslint src",
         "cwd": "packages/runtime"
       }
     },

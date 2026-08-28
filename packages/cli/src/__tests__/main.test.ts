@@ -124,7 +124,7 @@ describe("main — global flags", () => {
     await writefile(
       dir,
       "custom.config.ts",
-      `import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+      `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 const proj = new Project("myproj");
 const pipeline = new Pipeline(proj, "ci");
 new ShellStep(pipeline, "build", { command: "echo build" });

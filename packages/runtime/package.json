@@ -11,15 +11,17 @@
       "import": "./dist/index.mjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsdown",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/ir": "workspace:*"
+    "@sverka/workflow": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",

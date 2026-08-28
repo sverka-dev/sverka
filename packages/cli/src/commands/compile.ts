@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createSverka } from "@sverka/sdk";
-import { compileGithubWorkflow } from "@sverka/compiler-github";
-import { compileGitlabCi } from "@sverka/compiler-gitlab";
+import { compileGithubWorkflow } from "@sverka/compiler";
+import { compileGitlabCi } from "@sverka/compiler";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { resolveUnderRoot } from "../internal/paths.js";

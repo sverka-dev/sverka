@@ -1,5 +1,5 @@
 // Standalone helpers that don't depend on runtime packages.
-import type { Operation } from "@sverka/core";
+import type { Operation } from "@sverka/workflow";
 import type { WorkflowDefinition } from "./types.js";
 
 /** Name an operation. Sugar for `op.named(name)`. */

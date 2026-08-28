@@ -1,7 +1,7 @@
 // validate command — synthesize Definition Graph, run validators.
 // Spec 17 — §30.
 
-import { validateGraph } from "@sverka/core";
+import { validateGraph } from "@sverka/workflow";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";

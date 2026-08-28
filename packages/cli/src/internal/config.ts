@@ -6,9 +6,9 @@ import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { join, resolve, isAbsolute, dirname } from "node:path";
-import type { Project } from "@sverka/cdk";
-import { synthesize } from "@sverka/core";
-import type { DefinitionGraph } from "@sverka/core";
+import type { Project } from "@sverka/workflow";
+import { synthesize } from "@sverka/workflow";
+import type { DefinitionGraph } from "@sverka/workflow";
 import { resolveUnderRoot } from "./paths.js";
 import { CliError, ExitCode } from "../types.js";
 

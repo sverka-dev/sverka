@@ -1,15 +1,8 @@
 // $ tagged template — shell command step builder.
 // Spec 03 — §9.2, §15. Architecture spec §9.2.
 
-import {
-  ShellStep,
-  type Pipeline,
-  type Reference,
-  type Runtime,
-  type OutputDeclaration,
-  type MatrixSpec,
-  type Condition,
-} from "@sverka/cdk";
+import { ShellStep, Pipeline } from "@sverka/workflow";
+import type { Reference, Runtime, OutputDeclaration, MatrixSpec, Condition } from "@sverka/workflow";
 import { SdkError } from "./errors.js";
 import { isReference } from "./internal/is-reference.js";
 

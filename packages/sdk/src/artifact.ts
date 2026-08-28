@@ -1,7 +1,7 @@
 // artifact() — output declaration factory for artifact outputs.
 // Spec 03 — §12.2.
 
-import type { OutputDeclaration } from "@sverka/cdk";
+import type { OutputDeclaration } from "@sverka/workflow";
 
 /** Create an artifact output declaration with the given path. */
 export function artifact(path: string): OutputDeclaration {

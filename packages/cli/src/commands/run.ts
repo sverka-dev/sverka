@@ -2,12 +2,14 @@
 // Spec 17 — §30.
 
 import { join } from "node:path";
-import type { DefinitionGraph } from "@sverka/core";
-import type { RuntimeDriver } from "@sverka/engine-native";
-import { createEngine, type RunEvent } from "@sverka/engine-native";
-import { createHostDriver, type CommandAllowlist } from "@sverka/runtime-host";
-import { createDockerDriver } from "@sverka/runtime-docker";
-import { bindRunPlan } from "@sverka/planner";
+import type { DefinitionGraph } from "@sverka/workflow";
+import type { RuntimeDriver } from "@sverka/runtime";
+import { createEngine } from "@sverka/runtime";
+import type { RunEvent } from "@sverka/runtime";
+import { createHostDriver } from "@sverka/runtime";
+import type { CommandAllowlist } from "@sverka/runtime";
+import { createDockerDriver } from "@sverka/runtime";
+import { bindRunPlan } from "@sverka/sdk";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";

@@ -1,7 +1,7 @@
 // Context namespaces — typed references to context values.
 // Spec 03 — §12.3. Architecture spec §12.3.
 
-import type { ContextRef, ContextNamespace } from "@sverka/cdk";
+import type { ContextRef, ContextNamespace } from "@sverka/workflow";
 import { createDynamicProxy } from "./internal/proxy-props.js";
 
 /** Create a ContextRef for a namespace + field. */

@@ -1,7 +1,7 @@
 // status() factory — creates a StatusCondition for step conditions.
 // F-11 — §conditions.
 
-import type { StepStatus, StatusCondition } from "@sverka/cdk";
+import type { StepStatus, StatusCondition } from "@sverka/workflow";
 
 /**
  * Create a status-based condition.

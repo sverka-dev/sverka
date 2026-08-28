@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Entry, push } from "@sverka/cdk";
+import { Project, Entry, push } from "@sverka/workflow";
 import { pipelineV0 as pipeline, $, artifact } from "../index.js";
 
 describe("pipeline factory", () => {
