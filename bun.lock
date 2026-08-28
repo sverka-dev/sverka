@@ -40,7 +40,6 @@
       "name": "@sverka/compiler",
       "version": "0.0.0",
       "dependencies": {
-        "@sverka/runtime": "workspace:*",
         "@sverka/workflow": "workspace:*",
         "yaml": "^2.9.0",
       },
@@ -81,7 +80,6 @@
       "name": "@sverka/verification",
       "version": "0.0.0",
       "dependencies": {
-        "@sverka/sdk": "workspace:*",
         "@sverka/workflow": "workspace:*",
       },
       "devDependencies": {
