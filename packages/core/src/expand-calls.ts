@@ -249,7 +249,11 @@ function substituteInputBindings(
     callerPipelineId,
   );
   const operations = substituteCommandBindings(step.operations, bindings);
-  return { ...step, inputs, operations, ...(condition !== undefined && condition !== step.condition ? { condition } : {}) };
+  // Destructure to drop the original condition so that truthy-literal bindings
+  // (where substituteStepCondition returns undefined) clear the condition
+  // instead of preserving a stale inputs.* reference.
+  const { condition: _originalCondition, ...rest } = step;
+  return { ...rest, inputs, operations, ...(condition !== undefined ? { condition } : {}) };
 }
 
 /**
