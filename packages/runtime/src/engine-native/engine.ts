@@ -14,6 +14,7 @@ import type {
   RunRequest,
   ResumeRequest,
   RunEvent,
+  RunState,
   ValueStore,
   SecretProvider,
   EngineConfig,
@@ -48,6 +49,7 @@ interface RunContext {
   readonly dependents: ReadonlyMap<string, readonly string[]>;
   indegree: Map<string, number>;
   readonly states: Map<string, StepState>;
+  readonly stepDurations: Map<string, number>;
   readonly valueStore: ValueStore;
   readonly artifactStore: ArtifactStore;
   readonly secrets: Readonly<Record<string, string>>;
@@ -61,9 +63,27 @@ interface RunContext {
 class NativeEngine implements Engine {
   private readonly config: EngineConfig;
   private activeRun: AbortController | undefined = undefined;
+  private currentRun: { runId: string; planId: string; startedAt: number; ctx: RunContext; status: "running" | import("./types.js").RunStatus } | undefined = undefined;
 
   constructor(config: EngineConfig) {
     this.config = config;
+  }
+
+  query(runId?: string): RunState | undefined {
+    const cr = this.currentRun;
+    if (!cr) return undefined;
+    if (runId !== undefined && runId !== cr.runId) return undefined;
+    return {
+      runId: cr.runId,
+      planId: cr.planId,
+      status: cr.status,
+      startedAt: cr.startedAt,
+      steps: cr.ctx.order.map((stepId) => {
+        const state = cr.ctx.states.get(stepId) ?? "pending";
+        const durationMs = cr.ctx.stepDurations.get(stepId);
+        return durationMs !== undefined ? { stepId, state, durationMs } : { stepId, state };
+      }),
+    };
   }
 
   async *run(request: RunRequest): AsyncIterable<RunEvent> {
@@ -96,6 +116,7 @@ class NativeEngine implements Engine {
       if (this.activeRun === thisRun) {
         this.activeRun = undefined;
       }
+      this.currentRun = undefined;
     }
   }
 
@@ -127,8 +148,11 @@ class NativeEngine implements Engine {
       eventQueue: [],
       readyQueue: [],
       hasFailure: false,
+      stepDurations: new Map(),
       emit: () => undefined,
     };
+
+    this.currentRun = { runId, planId: request.plan.id, startedAt: start, ctx, status: "running" };
 
     class Deferred {
       promise: Promise<void>;
@@ -163,12 +187,16 @@ class NativeEngine implements Engine {
       : ctx.hasFailure
         ? "failure"
         : "success";
+    if (this.currentRun) {
+      this.currentRun = { ...this.currentRun, status };
+    }
     yield {
       type: "run-completed",
       runId,
       status,
       durationMs: Date.now() - start,
     };
+    this.currentRun = undefined;
   }
 
   private async *prepareRun(
@@ -176,7 +204,7 @@ class NativeEngine implements Engine {
     runId: string,
     start: number,
     abort: AbortController,
-  ): AsyncGenerator<RunEvent, Omit<RunContext, "eventQueue" | "readyQueue" | "hasFailure" | "emit"> | null, void> {
+  ): AsyncGenerator<RunEvent, Omit<RunContext, "eventQueue" | "readyQueue" | "hasFailure" | "stepDurations" | "emit"> | null, void> {
     const plan = request.plan;
     const drivers = request.drivers ?? this.config.drivers;
     const agentDrivers = request.agentDrivers ?? this.config.agentDrivers ?? [];
@@ -284,6 +312,7 @@ class NativeEngine implements Engine {
         const driver = ctx.drivers.find((d) => d.canExecute(step));
         if (!driver) {
           ctx.states.set(id, "failed");
+          ctx.stepDurations.set(id, 0);
           ctx.emit({
             type: "step-failed",
             stepId: id,
@@ -371,6 +400,7 @@ class NativeEngine implements Engine {
           });
           if (hit) {
             ctx.states.set(step.id, "succeeded");
+            ctx.stepDurations.set(step.id, 0);
             ctx.emit({ type: "step-cache-hit", stepId: step.id, key: hit.key });
             ctx.emit({ type: "step-succeeded", stepId: step.id, durationMs: 0 });
             this.onStepComplete(ctx, step.id);
@@ -429,6 +459,7 @@ class NativeEngine implements Engine {
 
     if (result.status === "succeeded") {
       ctx.states.set(step.id, "succeeded");
+      ctx.stepDurations.set(step.id, result.durationMs);
       ctx.emit({
         type: "step-succeeded",
         stepId: step.id,
@@ -437,6 +468,7 @@ class NativeEngine implements Engine {
       this.onStepComplete(ctx, step.id);
     } else if (result.status === "failed") {
       ctx.states.set(step.id, "failed");
+      ctx.stepDurations.set(step.id, result.durationMs);
       ctx.emit({
         type: "step-failed",
         stepId: step.id,

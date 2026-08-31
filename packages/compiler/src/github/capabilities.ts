@@ -91,4 +91,5 @@ export const githubCapabilities: CapabilityManifest = {
   "runtime.network": "emulated",
   "step.permissions": "native",
   "agent.step": "emulated",
+  "run.query": "emulated",
 };

@@ -1,4 +1,4 @@
-// @sverka/engine-native — public API. Spec 10. Spec 29 (snapshot types).
+// @sverka/engine-native — public API. Spec 10. Spec 29 (snapshot types). Spec 32 (RunState).
 
 export { createEngine } from "./engine.js";
 export { createValueStore } from "./value-store.js";
@@ -12,6 +12,7 @@ export type {
   ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore,
   SecretProvider, EngineConfig,
   RunSnapshot, SnapshotStore, ResumeSchema,
+  RunState,
 } from "./types.js";
 export type {
   CacheStore,

@@ -1,10 +1,12 @@
 // Type definitions for @sverka/engine-native. Spec 10 — Interfaces.
 // Spec 29 — Suspend/Resume snapshot types.
+// Spec 32 — Run Queries (RunState).
 
 import type { RunPlan, InputValue, NetworkAllowlist } from "@sverka/workflow";
 import type { StepDefinition } from "@sverka/workflow";
 import type { CacheStore } from "./cache-store.js";
 import type { AgentDriver } from "./agent-driver.js";
+import type { StepState } from "./scheduler.js";
 
 // --- Resume schema (Spec 29) ---
 
@@ -48,10 +50,25 @@ export interface RunRequest {
   readonly snapshotStore?: SnapshotStore;
 }
 
+// --- Run query (Spec 32) ---
+
+export interface RunState {
+  readonly runId: string;
+  readonly planId: string;
+  readonly status: "running" | RunStatus;
+  readonly startedAt: number;
+  readonly steps: readonly {
+    readonly stepId: string;
+    readonly state: StepState;
+    readonly durationMs?: number;
+  }[];
+}
+
 export interface Engine {
   run(request: RunRequest): AsyncIterable<RunEvent>;
   resume(request: ResumeRequest): AsyncIterable<RunEvent>;
   cancel(): Promise<void>;
+  query(runId?: string): RunState | undefined;
 }
 
 export interface ResumeRequest {
