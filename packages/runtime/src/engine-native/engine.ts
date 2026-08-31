@@ -18,6 +18,7 @@ import type {
   RuntimeDriver,
   ArtifactStore,
 } from "./types.js";
+import type { AgentDriver } from "./agent-driver.js";
 import type { CacheStore } from "./cache-store.js";
 import { createValueStore } from "./value-store.js";
 import { createArtifactStore } from "./artifact-store.js";
@@ -38,6 +39,7 @@ interface RunContext {
   readonly abort: AbortController;
   readonly plan: RunPlan;
   readonly drivers: readonly RuntimeDriver[];
+  readonly agentDrivers: readonly AgentDriver[];
   readonly maxConcurrent: number;
   readonly order: readonly string[];
   readonly stepMap: ReadonlyMap<string, StepDefinition>;
@@ -168,6 +170,7 @@ class NativeEngine implements Engine {
   ): AsyncGenerator<RunEvent, Omit<RunContext, "eventQueue" | "readyQueue" | "hasFailure" | "emit"> | null, void> {
     const plan = request.plan;
     const drivers = request.drivers ?? this.config.drivers;
+    const agentDrivers = request.agentDrivers ?? this.config.agentDrivers ?? [];
     const maxConcurrent = request.maxConcurrent ?? this.config.maxConcurrent ?? 4;
     const cache = request.cache ?? this.config.cache;
 
@@ -187,6 +190,7 @@ class NativeEngine implements Engine {
       abort,
       plan,
       drivers,
+      agentDrivers,
       maxConcurrent,
       order: setup.graph.order,
       stepMap: setup.graph.stepMap,
@@ -337,10 +341,14 @@ class NativeEngine implements Engine {
   ): Promise<void> {
     const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", step.id));
 
+    // Spec 27: agent steps are non-deterministic and skip cache restore/store
+    // entirely, even if a cache spec is present.
+    const isAgentStep = step.operations.some((op) => op.kind === "agent");
+
     // Cache pull: try to restore before executing (policy pull / pull-push).
     // A hit skips execution entirely and emits step-cache-hit + step-succeeded
     // (no step-ready/step-started — Spec 21 ordering).
-    if (step.cache && ctx.cache) {
+    if (!isAgentStep && step.cache && ctx.cache) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "pull" || policy === "pull-push") {
         const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
@@ -373,6 +381,16 @@ class NativeEngine implements Engine {
     ctx.emit({ type: "step-ready", stepId: step.id });
     ctx.emit({ type: "step-started", stepId: step.id });
 
+    // Spec 26: host runtime cannot enforce network allowlist — emit advisory diagnostic.
+    if (step.runtime.network && driver.name === "host") {
+      ctx.emit({
+        type: "diagnostic",
+        stepId: step.id,
+        message: "network allowlist not enforced on host runtime",
+        severity: "info",
+      });
+    }
+
     const result = await executeStepWithRetry(
       this.buildStepExecOptions(ctx, step, driver),
       step.retry,
@@ -382,7 +400,8 @@ class NativeEngine implements Engine {
 
     // Cache push: store declared paths after a successful execution
     // (policy push / pull-push). Best-effort — failures emit a warn diagnostic.
-    if (result.status === "succeeded" && step.cache && ctx.cache) {
+    // Spec 27: agent steps skip cache storage.
+    if (!isAgentStep && result.status === "succeeded" && step.cache && ctx.cache) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "push" || policy === "pull-push") {
         const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
@@ -442,6 +461,8 @@ class NativeEngine implements Engine {
       emit: ctx.emit,
       isCancelled: () => this.isCancelled(ctx.abort),
       signal: ctx.abort.signal,
+      agentDrivers: ctx.agentDrivers,
+      artifactDir: ctx.request.artifactDir,
     };
   }
 

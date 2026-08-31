@@ -329,3 +329,54 @@ describe("validateGraph — entry roots", () => {
     expect(() => validateGraph(graph)).not.toThrow();
   });
 });
+
+describe("synthesize — validation: safe-outputs write declarations (Spec 25)", () => {
+  it("item 2: WriteDeclaration with empty kind → SynthesisError(INVALID_WRITE_DECLARATION)", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      permissions: {
+        write: [{ kind: "", target: "production" }],
+      },
+    });
+    expect(() => synthesize(proj)).toThrow(SynthesisError);
+    try {
+      synthesize(proj);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("INVALID_WRITE_DECLARATION");
+    }
+  });
+
+  it("item 3: WriteDeclaration with empty target → SynthesisError(INVALID_WRITE_DECLARATION)", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      permissions: {
+        write: [{ kind: "deploy", target: "" }],
+      },
+    });
+    expect(() => synthesize(proj)).toThrow(SynthesisError);
+    try {
+      synthesize(proj);
+    } catch (err) {
+      expect((err as SynthesisError).code).toBe("INVALID_WRITE_DECLARATION");
+    }
+  });
+
+  it("valid write declarations pass synthesis", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      permissions: {
+        write: [
+          { kind: "deploy", target: "production" },
+          { kind: "comment", target: "pr" },
+        ],
+      },
+    });
+    expect(() => synthesize(proj)).not.toThrow();
+  });
+});

@@ -9,6 +9,7 @@ command = "devin"
 prompt_mode = "none"
 ready_delay_ms = 2000
 instructions_file = "AGENTS.md"
+resume_flag = "--resume"
 
 [daemon]
 formula_v2 = true

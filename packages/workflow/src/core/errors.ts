@@ -16,7 +16,9 @@ export type SynthesisErrorCode =
   | "CALL_CYCLE"
   | "NESTING_TOO_DEEP"
   | "CACHE_KEY_STEP_REF"
-  | "INVALID_RETRY_POLICY";
+  | "INVALID_RETRY_POLICY"
+  | "INVALID_NETWORK_ALLOWLIST"
+  | "INVALID_WRITE_DECLARATION";
 
 export class SynthesisError extends Error {
   override readonly cause: unknown;

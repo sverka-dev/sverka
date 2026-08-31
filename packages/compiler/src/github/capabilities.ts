@@ -88,4 +88,7 @@ export const githubCapabilities: CapabilityManifest = {
   "import.include": "emulated",
   "scheduling.delay": "emulated",
   "execution.background": "emulated",
+  "runtime.network": "emulated",
+  "step.permissions": "native",
+  "agent.step": "emulated",
 };

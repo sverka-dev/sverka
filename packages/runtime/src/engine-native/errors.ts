@@ -6,7 +6,11 @@ export type EngineErrorCode =
   | "NO_DRIVER"
   | "TIMEOUT"
   | "OUTPUT_CAPTURE_ERROR"
-  | "ARTIFACT_ERROR";
+  | "ARTIFACT_ERROR"
+  | "NO_AGENT_DRIVER"
+  | "AGENT_EXECUTION_FAILED";
+
+export type AgentDriverErrorCode = "NO_AGENT_DRIVER" | "AGENT_EXECUTION_FAILED";
 
 export class EngineError extends Error {
   override readonly cause: unknown;
@@ -44,5 +48,13 @@ export class StepExecError extends EngineError {
     if (timedOut !== undefined) {
       this.timedOut = timedOut;
     }
+  }
+}
+
+/** Raised when an AgentDriver fails or no driver is available for an engine. Spec 27. */
+export class AgentDriverError extends EngineError {
+  constructor(message: string, code: AgentDriverErrorCode, cause?: unknown) {
+    super(message, code, cause);
+    this.name = "AgentDriverError";
   }
 }

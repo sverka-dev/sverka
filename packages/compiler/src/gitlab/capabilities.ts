@@ -74,4 +74,7 @@ export const gitlabCapabilities: CapabilityManifest = {
   "import.include": "native",
   "scheduling.delay": "native",
   "execution.background": "emulated",
+  "runtime.network": "emulated",
+  "step.permissions": "native",
+  "agent.step": "emulated",
 };

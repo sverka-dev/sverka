@@ -31,6 +31,8 @@ import type {
   DownstreamTrigger,
   ReleaseSpec,
   PagesSpec,
+  StepPermissions,
+  AgentToolRef,
 } from "./model.js";
 
 function isDuplicateConstructError(err: unknown): boolean {
@@ -154,6 +156,7 @@ export interface StepProps {
   readonly cache?: CacheSpec;
   readonly concurrency?: ConcurrencySpec;
   readonly delay?: string;
+  readonly permissions?: StepPermissions;
 }
 
 const OPTIONAL_STEP_PROPS = [
@@ -174,6 +177,7 @@ const OPTIONAL_STEP_PROPS = [
   "environment",
   "cache",
   "concurrency",
+  "permissions",
 ] as const;
 
 /** Copy optional `StepProps` fields onto the `Step` instance.
@@ -214,6 +218,7 @@ export abstract class Step extends Construct {
   readonly cache?: CacheSpec;
   readonly concurrency?: ConcurrencySpec;
   readonly delay?: string;
+  readonly permissions?: StepPermissions;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
     if (!(scope instanceof Pipeline)) {
@@ -365,6 +370,39 @@ export class PagesStep extends Step {
   constructor(scope: Pipeline, id: string, props: PagesStepProps) {
     super(scope, id, props);
     this.pages = props.pages;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AgentStep — AI agent as a step type (Spec 27).
+// ---------------------------------------------------------------------------
+
+export interface AgentStepProps extends StepProps {
+  readonly engine: string;
+  readonly model?: string;
+  readonly prompt: string;
+  readonly tools?: readonly AgentToolRef[];
+  readonly maxTokens?: number;
+}
+
+export class AgentStep extends Step {
+  readonly engine: string;
+  readonly model?: string;
+  readonly prompt: string;
+  readonly tools: readonly AgentToolRef[];
+  readonly maxTokens?: number;
+
+  constructor(scope: Pipeline, id: string, props: AgentStepProps) {
+    super(scope, id, props);
+    this.engine = props.engine;
+    if (props.model !== undefined) {
+      this.model = props.model;
+    }
+    this.prompt = props.prompt;
+    this.tools = props.tools ? [...props.tools] : [];
+    if (props.maxTokens !== undefined) {
+      this.maxTokens = props.maxTokens;
+    }
   }
 }
 

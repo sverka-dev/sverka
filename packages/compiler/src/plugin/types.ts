@@ -82,6 +82,45 @@ export interface NativeExtension {
 }
 
 // ---------------------------------------------------------------------------
+// Tools facet (§17.2 — Spec 23: MCP plugin transport)
+// ---------------------------------------------------------------------------
+
+export interface ToolDefinition {
+  /** Globally unique within plugin: "<server>.<tool>". */
+  readonly name: string;
+  readonly description?: string;
+  /** JSON Schema describing accepted arguments. */
+  readonly inputSchema?: Readonly<Record<string, unknown>>;
+}
+
+export type ToolResultContent =
+  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "image"; readonly data: string; readonly mimeType: string }
+  | {
+      readonly type: "resource";
+      readonly resource: { readonly uri: string; readonly mimeType?: string };
+    };
+
+export interface ToolResult {
+  readonly content: readonly ToolResultContent[];
+  readonly isError?: boolean;
+}
+
+/**
+ * Runtime facet for listing and calling tools. Added by Spec 23 to enable
+ * MCP plugin transport; consumed by AgentStep (sv-wthn.2.2). Tools are
+ * called at runtime, not synthesized into the Definition Graph.
+ */
+export interface ToolProvider {
+  listTools(): Promise<readonly ToolDefinition[]>;
+  callTool(
+    name: string,
+    args?: Readonly<Record<string, unknown>>,
+  ): Promise<ToolResult>;
+  dispose?(): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
 // Plugin interface (§17.1)
 // ---------------------------------------------------------------------------
 
@@ -97,6 +136,8 @@ export interface SverkaPlugin {
   readonly engines?: readonly Engine[];
   readonly connectors?: readonly ConnectorFactory[];
   readonly extensions?: readonly NativeExtension[];
+  /** Tools facet (Spec 23): runtime tool listing/calling (e.g. MCP). */
+  readonly tools?: ToolProvider;
 }
 
 export interface PluginOptions {

@@ -1,11 +1,11 @@
 // Definition Graph types — the canonical provider-neutral source of truth.
 // Spec 02 — §10, §11, §15.
 
-import type { Reference, Trigger, Runtime, Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, ArtifactAccess, MatrixSpec, Condition, ContinueOnError, RetryPolicy, BackoffSpec, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec } from "../cdk/index.js";
+import type { Reference, Trigger, Runtime, NetworkAllowlist, Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, ArtifactAccess, MatrixSpec, Condition, ContinueOnError, RetryPolicy, BackoffSpec, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec, StepPermissions, WriteDeclaration, AgentToolRef, AgentOperation } from "../cdk/index.js";
 
 // Re-export types used in the graph schema so consumers can access them
 // from @sverka/core without depending on @sverka/cdk directly.
-export type { Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, Reference, Expression, Runtime, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, BackoffSpec, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, EnvironmentAction, EnvironmentTier, ArtifactAccess, CacheSpec, CachePolicy, ConcurrencySpec } from "../cdk/index.js";
+export type { Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, Reference, Expression, Runtime, NetworkAllowlist, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, BackoffSpec, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, EnvironmentAction, EnvironmentTier, ArtifactAccess, CacheSpec, CachePolicy, ConcurrencySpec, StepPermissions, WriteDeclaration, AgentToolRef, AgentOperation } from "../cdk/index.js";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;
@@ -83,6 +83,7 @@ export interface StepDefinition {
   readonly component?: ComponentRef;
   readonly childPipeline?: ChildPipelineTrigger;
   readonly downstream?: DownstreamTrigger;
+  readonly permissions?: StepPermissions;
 }
 
 export type OperationDefinition =
@@ -117,7 +118,8 @@ export type OperationDefinition =
       readonly kind: "deployPages";
       readonly path: string;
       readonly prefix?: string;
-    };
+    }
+  | AgentOperation;
 
 export type Dependency =
   | { readonly kind: "control"; readonly producer: string }

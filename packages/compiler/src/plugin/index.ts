@@ -20,5 +20,9 @@ export type {
   Engine,
   ConnectorFactory,
   NativeExtension,
+  ToolProvider,
+  ToolDefinition,
+  ToolResult,
+  ToolResultContent,
 } from "./types.js";
 export { PluginError, type PluginErrorCode } from "./errors.js";

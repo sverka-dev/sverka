@@ -1,8 +1,9 @@
 // Type definitions for @sverka/engine-native. Spec 10 — Interfaces.
 
-import type { RunPlan, InputValue } from "@sverka/workflow";
+import type { RunPlan, InputValue, NetworkAllowlist } from "@sverka/workflow";
 import type { StepDefinition } from "@sverka/workflow";
 import type { CacheStore } from "./cache-store.js";
+import type { AgentDriver } from "./agent-driver.js";
 
 // --- Engine ---
 
@@ -12,6 +13,7 @@ export interface RunRequest {
   readonly artifactDir: string;
   readonly secrets?: SecretProvider;
   readonly drivers?: readonly RuntimeDriver[];
+  readonly agentDrivers?: readonly AgentDriver[];
   readonly maxConcurrent?: number;
   readonly cache?: CacheStore;
 }
@@ -58,6 +60,7 @@ export interface ShellExecuteRequest {
   readonly imageDigest?: string;
   readonly mode?: "host" | "container";
   readonly shell?: string;
+  readonly network?: NetworkAllowlist;
   readonly signal?: AbortSignal;
 }
 
@@ -93,6 +96,7 @@ export interface SecretProvider {
 
 export interface EngineConfig {
   readonly drivers: readonly RuntimeDriver[];
+  readonly agentDrivers?: readonly AgentDriver[];
   readonly maxConcurrent?: number;
   readonly cache?: CacheStore;
 }

@@ -43,6 +43,9 @@ export type {
   CacheSpec,
   CachePolicy,
   ConcurrencySpec,
+  NetworkAllowlist,
+  AgentToolRef,
+  AgentOperation,
 } from "./graph.js";
 
 export { synthesize } from "./synthesize.js";

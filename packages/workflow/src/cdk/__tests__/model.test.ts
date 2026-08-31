@@ -13,6 +13,8 @@ import {
   type Runtime,
   type BackoffSpec,
   type RetryPolicy,
+  type WriteDeclaration,
+  type StepPermissions,
 } from "../index.js";
 
 describe("Trigger factories", () => {
@@ -117,5 +119,35 @@ describe("RetryPolicy and BackoffSpec exports (Spec 20 item 12)", () => {
     const retry: RetryPolicy = { max: 3, backoff: { baseMs: 100 } };
     expect(retry.max).toBe(3);
     expect(retry.backoff?.baseMs).toBe(100);
+  });
+});
+
+describe("Safe-outputs: WriteDeclaration and StepPermissions (Spec 25 item 12)", () => {
+  it("WriteDeclaration is exported and usable", () => {
+    const decl: WriteDeclaration = { kind: "pull-request", target: "comment" };
+    expect(decl.kind).toBe("pull-request");
+    expect(decl.target).toBe("comment");
+  });
+
+  it("WriteDeclaration with optional description", () => {
+    const decl: WriteDeclaration = {
+      kind: "deploy",
+      target: "production",
+      description: "Deploy to production environment",
+    };
+    expect(decl.description).toBe("Deploy to production environment");
+  });
+
+  it("StepPermissions is exported and usable", () => {
+    const perms: StepPermissions = {
+      write: [{ kind: "push", target: "main" }],
+    };
+    expect(perms.write).toHaveLength(1);
+    expect(perms.write[0]!.kind).toBe("push");
+  });
+
+  it("StepPermissions with empty write array (read-only)", () => {
+    const perms: StepPermissions = { write: [] };
+    expect(perms.write).toHaveLength(0);
   });
 });
