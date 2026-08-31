@@ -100,6 +100,8 @@ export type RunEvent =
   | { readonly type: "step-suspended"; readonly stepId: string; readonly resumeSchema?: ResumeSchema }
   | { readonly type: "run-suspended"; readonly runId: string; readonly suspendedStepId: string; readonly durationMs: number }
   | { readonly type: "run-resumed"; readonly runId: string; readonly planId: string }
+  | { readonly type: "step-compensating"; readonly stepId: string; readonly command: string }
+  | { readonly type: "step-compensated"; readonly stepId: string; readonly status: "succeeded" | "failed"; readonly durationMs: number }
   | { readonly type: "run-completed"; readonly runId: string; readonly status: RunStatus; readonly durationMs: number }
   | { readonly type: "diagnostic"; readonly stepId: string; readonly message: string; readonly severity: "info" | "warn" | "error" };
 

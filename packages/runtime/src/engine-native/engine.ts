@@ -20,6 +20,8 @@ import type {
   EngineConfig,
   RuntimeDriver,
   ArtifactStore,
+  ShellExecuteRequest,
+  ShellResult,
 } from "./types.js";
 import type { AgentDriver } from "./agent-driver.js";
 import type { CacheStore } from "./cache-store.js";
@@ -56,6 +58,7 @@ interface RunContext {
   readonly cache: CacheStore | undefined;
   readonly eventQueue: RunEvent[];
   readonly readyQueue: string[];
+  readonly completionOrder: string[];
   hasFailure: boolean;
   emit(event: RunEvent): void;
 }
@@ -183,6 +186,7 @@ class NativeEngine implements Engine {
       ...setup,
       eventQueue: [],
       readyQueue: [],
+      completionOrder: [],
       hasFailure: false,
       stepDurations: new Map(),
       emit: () => undefined,
@@ -229,6 +233,14 @@ class NativeEngine implements Engine {
     if (this.currentRun?.runId === runId) {
       this.updateRunStatus(runId, status);
     }
+
+    // Spec 30 — Saga compensations: on failure (not cancelled), run
+    // compensations for succeeded steps that declared one, in reverse
+    // completion order, before run-completed.
+    if (status === "failure") {
+      yield* this.runCompensations(ctx);
+    }
+
     yield {
       type: "run-completed",
       runId,
@@ -243,7 +255,7 @@ class NativeEngine implements Engine {
     runId: string,
     start: number,
     abort: AbortController,
-  ): AsyncGenerator<RunEvent, Omit<RunContext, "eventQueue" | "readyQueue" | "hasFailure" | "stepDurations" | "emit"> | null, void> {
+  ): AsyncGenerator<RunEvent, Omit<RunContext, "eventQueue" | "readyQueue" | "stepDurations" | "completionOrder" | "hasFailure" | "emit"> | null, void> {
     const plan = request.plan;
     const drivers = request.drivers ?? this.config.drivers;
     const agentDrivers = request.agentDrivers ?? this.config.agentDrivers ?? [];
@@ -442,6 +454,7 @@ class NativeEngine implements Engine {
             ctx.stepDurations.set(step.id, 0);
             ctx.emit({ type: "step-cache-hit", stepId: step.id, key: hit.key });
             ctx.emit({ type: "step-succeeded", stepId: step.id, durationMs: 0 });
+            ctx.completionOrder.push(step.id);
             this.onStepComplete(ctx, step.id);
             return;
           }
@@ -504,6 +517,7 @@ class NativeEngine implements Engine {
         stepId: step.id,
         durationMs: result.durationMs,
       });
+      ctx.completionOrder.push(step.id);
       this.onStepComplete(ctx, step.id);
     } else if (result.status === "failed") {
       ctx.states.set(step.id, "failed");
@@ -522,6 +536,88 @@ class NativeEngine implements Engine {
       ctx.states.set(step.id, "cancelled");
       ctx.emit({ type: "step-cancelled", stepId: step.id });
       this.cancelDependents(ctx, step.id);
+    }
+  }
+
+  /**
+   * Spec 30 — Saga compensations: run compensation operations for succeeded
+   * steps that declared one, in reverse completion order. Serial. Non-fatal
+   * (a failed compensation emits a warn diagnostic and continues). Only
+   * invoked when the run status is "failure" (not cancelled).
+   */
+  private async *runCompensations(
+    ctx: RunContext,
+  ): AsyncGenerator<RunEvent, void, void> {
+    for (let i = ctx.completionOrder.length - 1; i >= 0; i--) {
+      const stepId = ctx.completionOrder[i]!;
+      if (ctx.states.get(stepId) !== "succeeded") continue;
+      const step = ctx.stepMap.get(stepId);
+      if (!step?.compensation) continue;
+      // v1: compensation is always kind "shell" (validated at synthesis).
+      const command = step.compensation.kind === "shell" ? step.compensation.command : "";
+      if (!command) continue;
+
+      const driver = ctx.drivers.find((d) => d.canExecute(step));
+      if (!driver) {
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          message: `no runtime driver for compensation of step '${stepId}'`,
+          severity: "warn",
+        });
+        continue;
+      }
+
+      ctx.emit({ type: "step-compensating", stepId, command });
+
+      const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
+      const request: ShellExecuteRequest = {
+        command,
+        workspace: stepWorkspace,
+        env: buildCompensationEnv(step, ctx.secrets),
+        ...(step.runtime.workingDir !== undefined
+          ? { cwd: resolveUnder(stepWorkspace, step.runtime.workingDir) }
+          : {}),
+        ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
+        ...(step.runtime.image ? { image: step.runtime.image } : {}),
+        ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
+        ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
+        ...(step.runtime.network ? { network: step.runtime.network } : {}),
+        ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
+          ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
+          : {}),
+        ...(ctx.abort.signal !== undefined ? { signal: ctx.abort.signal } : {}),
+      };
+
+      const compStart = Date.now();
+      let result: ShellResult;
+      try {
+        result = await driver.executeShell(request);
+      } catch (e) {
+        const durationMs = Date.now() - compStart;
+        ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          message: `compensation failed: ${e instanceof Error ? e.message : String(e)}`,
+          severity: "warn",
+        });
+        yield* this.drainEvents(ctx);
+        continue;
+      }
+      const durationMs = Date.now() - compStart;
+      if (result.exitCode === 0) {
+        ctx.emit({ type: "step-compensated", stepId, status: "succeeded", durationMs });
+      } else {
+        ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          message: `compensation for step '${stepId}' failed with exit code ${result.exitCode}`,
+          severity: "warn",
+        });
+      }
+      yield* this.drainEvents(ctx);
     }
   }
 
@@ -971,4 +1067,33 @@ async function ensureWorkspace(workspace: string): Promise<string | undefined> {
   } catch (e) {
     return `failed to create workspace: ${e instanceof Error ? e.message : String(e)}`;
   }
+}
+
+/**
+ * Build the environment for a compensation shell command. Mirrors the env
+ * construction in step-executor's buildShellEnv but without output-dir
+ * concerns (compensation is a single rollback command, no outputs captured).
+ * Spec 30 — compensation runs with the step's runtime env + secrets.
+ */
+function buildCompensationEnv(
+  step: StepDefinition,
+  secrets: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (step.runtime.secrets) {
+    for (const secretRef of step.runtime.secrets) {
+      const val = secrets[secretRef];
+      if (val !== undefined) {
+        env[secretRef] = val;
+      }
+    }
+  }
+  if (step.runtime.env) {
+    for (const [k, v] of Object.entries(step.runtime.env)) {
+      if (v !== undefined) {
+        env[k] = v;
+      }
+    }
+  }
+  return env;
 }

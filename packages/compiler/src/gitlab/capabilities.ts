@@ -22,6 +22,7 @@ export const gitlabCapabilities: CapabilityManifest = {
   "step.afterScript": "native",
   "step.continueOnError": "native",
   "policy.retry": "native",
+  "policy.compensation": "emulated",
   "execution.workdir": "emulated",
   "execution.shell": "unsupported",
   "environment.variables": "native",

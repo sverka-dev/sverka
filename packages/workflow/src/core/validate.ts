@@ -1,7 +1,7 @@
 // Validation functions for the Definition Graph.
 // Spec 05 — §11.4.
 
-import type { StepDefinition, DefinitionGraph } from "./graph.js";
+import type { StepDefinition, DefinitionGraph, OperationDefinition } from "./graph.js";
 import { SynthesisError } from "./errors.js";
 import type { StepRef, OutputType, CacheSpec, RetryPolicy, NetworkAllowlist, WriteDeclaration } from "../cdk/index.js";
 
@@ -275,6 +275,7 @@ export function validateGraph(graph: DefinitionGraph): void {
       validateRetryPolicy(step);
       validateNetworkAllowlist(step);
       validateWriteDeclarations(step);
+      validateCompensation(step);
     }
     for (const entry of pipeline.entries) {
       if (entry.roots.length === 0) {
@@ -400,5 +401,22 @@ export function validateWriteDeclarations(step: StepDefinition): void {
         step.id,
       );
     }
+  }
+}
+
+/**
+ * Validate a step's compensation. Spec 30 — v1 constrains compensation to
+ * kind: "shell". Throws SynthesisError(INVALID_COMPENSATION) when the
+ * compensation kind is not "shell".
+ */
+export function validateCompensation(step: StepDefinition): void {
+  const compensation: OperationDefinition | undefined = step.compensation;
+  if (!compensation) return;
+  if (compensation.kind !== "shell") {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' must be kind 'shell', got '${compensation.kind}'`,
+      step.id,
+    );
   }
 }

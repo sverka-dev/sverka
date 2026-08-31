@@ -34,6 +34,7 @@ import type {
   StepPermissions,
   AgentToolRef,
 } from "./model.js";
+import type { OperationDefinition } from "../core/graph.js";
 
 function isDuplicateConstructError(err: unknown): boolean {
   return err instanceof Error && err.message.includes("There is already a Construct");
@@ -157,6 +158,7 @@ export interface StepProps {
   readonly concurrency?: ConcurrencySpec;
   readonly delay?: string;
   readonly permissions?: StepPermissions;
+  readonly compensation?: OperationDefinition;
 }
 
 const OPTIONAL_STEP_PROPS = [
@@ -178,6 +180,7 @@ const OPTIONAL_STEP_PROPS = [
   "cache",
   "concurrency",
   "permissions",
+  "compensation",
 ] as const;
 
 /** Copy optional `StepProps` fields onto the `Step` instance.
@@ -219,6 +222,7 @@ export abstract class Step extends Construct {
   readonly concurrency?: ConcurrencySpec;
   readonly delay?: string;
   readonly permissions?: StepPermissions;
+  readonly compensation?: OperationDefinition;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
     if (!(scope instanceof Pipeline)) {

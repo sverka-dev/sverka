@@ -25,6 +25,7 @@ import {
   validateRetryPolicy,
   validateNetworkAllowlist,
   validateWriteDeclarations,
+  validateCompensation,
   resolveStepId,
 } from "./validate.js";
 import { validatePipelineCalls } from "./validate-calls.js";
@@ -71,6 +72,7 @@ export function synthesize(project: Project): DefinitionGraph {
       validateRetryPolicy(step);
       validateNetworkAllowlist(step);
       validateWriteDeclarations(step);
+      validateCompensation(step);
     }
   }
   validatePipelineCalls(pipelines);
@@ -245,6 +247,7 @@ function collectStepOptionalFields(step: Step): Partial<StepDefinition> {
     ["concurrency", step.concurrency],
     ["delay", step.delay],
     ["permissions", step.permissions],
+    ["compensation", step.compensation],
   ];
   for (const [key, value] of fields) {
     if (value !== undefined) {

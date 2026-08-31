@@ -128,6 +128,7 @@ function wrapBuilder(
     condition(ref) { builder.condition(ref); return wrapped; },
     matrix(spec) { builder.matrix(spec); return wrapped; },
     interruptible(value) { builder.interruptible(value); return wrapped; },
+    compensate(command) { builder.compensate(command); return wrapped; },
     build(pipeline, id) {
       return transform(origBuild(pipeline, id));
     },
