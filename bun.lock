@@ -70,15 +70,6 @@
         "vitest": "^4.1.11",
       },
     },
-    "packages/compiler-earthly": {
-      "name": "@sverka/compiler-earthly",
-      "version": "0.0.0",
-      "devDependencies": {
-        "tsdown": "^0.22.0",
-        "typescript": "^5.8.0",
-        "vitest": "^4.1.11",
-      },
-    },
     "packages/compiler-github": {
       "name": "@sverka/compiler-github",
       "version": "0.0.0",
@@ -293,24 +284,6 @@
         "@sverka/ir": "workspace:*",
         "@sverka/runtime": "workspace:*",
       },
-      "devDependencies": {
-        "tsdown": "^0.22.0",
-        "typescript": "^5.8.0",
-        "vitest": "^4.1.11",
-      },
-    },
-    "packages/runtime-podman": {
-      "name": "@sverka/runtime-podman",
-      "version": "0.0.0",
-      "devDependencies": {
-        "tsdown": "^0.22.0",
-        "typescript": "^5.8.0",
-        "vitest": "^4.1.11",
-      },
-    },
-    "packages/runtime-remote": {
-      "name": "@sverka/runtime-remote",
-      "version": "0.0.0",
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -542,8 +515,6 @@
 
     "@sverka/cli": ["@sverka/cli@workspace:packages/cli"],
 
-    "@sverka/compiler-earthly": ["@sverka/compiler-earthly@workspace:packages/compiler-earthly"],
-
     "@sverka/compiler-github": ["@sverka/compiler-github@workspace:packages/compiler-github"],
 
     "@sverka/compiler-gitlab": ["@sverka/compiler-gitlab@workspace:packages/compiler-gitlab"],
@@ -575,10 +546,6 @@
     "@sverka/runtime-docker": ["@sverka/runtime-docker@workspace:packages/runtime-docker"],
 
     "@sverka/runtime-host": ["@sverka/runtime-host@workspace:packages/runtime-host"],
-
-    "@sverka/runtime-podman": ["@sverka/runtime-podman@workspace:packages/runtime-podman"],
-
-    "@sverka/runtime-remote": ["@sverka/runtime-remote@workspace:packages/runtime-remote"],
 
     "@sverka/sdk": ["@sverka/sdk@workspace:packages/sdk"],
 
