@@ -4,6 +4,12 @@ import type { ContextRef } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import { GithubTarget } from "../target.js";
 import { GithubTargetError } from "../errors.js";
+import type { GithubTargetGraph } from "../types.js";
+
+function singleGraph(result: GithubTargetGraph | readonly GithubTargetGraph[]): GithubTargetGraph {
+  if ("jobs" in result) return result;
+  return result[0]!;
+}
 
 function matrixRef(field: string): ContextRef {
   return { kind: "context", namespace: "matrix", field };
@@ -27,7 +33,7 @@ describe("GitHub matrix lowering", () => {
       dimensions: { node: [18, 20], os: ["ubuntu", "windows"] },
     });
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs[0]!;
     expect(job.strategy).toBeDefined();
     expect(job.strategy!.matrix).toEqual({
@@ -42,7 +48,7 @@ describe("GitHub matrix lowering", () => {
       include: [{ node: 22, experimental: 1 }],
     });
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.strategy!.matrix).toEqual({
       node: [18, 20],
       include: [{ node: 22, experimental: 1 }],
@@ -55,7 +61,7 @@ describe("GitHub matrix lowering", () => {
       exclude: [{ node: 18 }],
     });
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.strategy!.matrix).toEqual({
       node: [18, 20],
       exclude: [{ node: 18 }],
@@ -69,7 +75,7 @@ describe("GitHub matrix lowering", () => {
       [matrixRef("node")],
     );
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const runStep = targetGraph.jobs[0]!.steps.find((s) => s.run !== undefined);
     expect(runStep?.run).toBe("make test NODE=${{ matrix.node }}");
   });
@@ -77,7 +83,7 @@ describe("GitHub matrix lowering", () => {
   it("no strategy key when step has no matrix", () => {
     const graph = makeGraphWithMatrix(undefined);
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.strategy).toBeUndefined();
   });
 
@@ -97,7 +103,7 @@ describe("GitHub matrix lowering", () => {
       failFast: false,
     });
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.strategy!.failFast).toBe(false);
   });
 
@@ -107,7 +113,7 @@ describe("GitHub matrix lowering", () => {
       maxParallel: 4,
     });
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.strategy!.maxParallel).toBe(4);
   });
 
@@ -127,7 +133,7 @@ describe("GitHub matrix lowering", () => {
   it("no fail-fast/max-parallel when not specified", () => {
     const graph = makeGraphWithMatrix({ dimensions: { node: [18, 20] } });
     const target = new GithubTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.strategy!.failFast).toBeUndefined();
     expect(targetGraph.jobs[0]!.strategy!.maxParallel).toBeUndefined();
   });

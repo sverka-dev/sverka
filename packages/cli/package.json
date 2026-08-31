@@ -32,6 +32,9 @@
     "@sverka/checks": "workspace:*",
     "@sverka/findings": "workspace:*",
     "@sverka/policy": "workspace:*",
+    "@sverka/sdk": "workspace:*",
+    "@sverka/compiler-github": "workspace:*",
+    "@sverka/compiler-gitlab": "workspace:*",
     "yargs": "^18.1.0"
   },
   "devDependencies": {

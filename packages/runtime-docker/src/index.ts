@@ -7,7 +7,7 @@
 // Old API (SDK compat)
 export { DockerExecutor } from "./docker-executor.js";
 export { type DockerExecutorConfig } from "./config.js";
-export { type CacheManager, DockerCacheManager } from "./cache.ts";
+export { type CacheManager, DockerCacheManager } from "./cache.js";
 
 // New API (Wave F+ driver)
 export { createDockerDriver, buildDockerArgs } from "./docker-driver.js";

@@ -50,6 +50,8 @@
       "dependencies": {
         "@sverka/cdk": "workspace:*",
         "@sverka/checks": "workspace:*",
+        "@sverka/compiler-github": "workspace:*",
+        "@sverka/compiler-gitlab": "workspace:*",
         "@sverka/core": "workspace:*",
         "@sverka/engine-native": "workspace:*",
         "@sverka/findings": "workspace:*",
@@ -58,6 +60,7 @@
         "@sverka/policy": "workspace:*",
         "@sverka/runtime-docker": "workspace:*",
         "@sverka/runtime-host": "workspace:*",
+        "@sverka/sdk": "workspace:*",
         "yargs": "^18.1.0",
       },
       "devDependencies": {

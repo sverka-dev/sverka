@@ -23,7 +23,7 @@ function makeGraph(steps: Array<{ matrix?: unknown; dependencies?: unknown[] }>)
         },
       ],
     },
-  } satisfies DefinitionGraph;
+  } as unknown as DefinitionGraph;
   return graph;
 }
 

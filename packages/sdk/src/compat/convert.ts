@@ -7,8 +7,8 @@ import type {
 } from "@sverka/core";
 import { canonicalStringify } from "@sverka/core";
 
-const SVERKA_VERSION: string = (() => {
-  let raw: string;
+const SVERKA_VERSION: string = ((): string => {
+  let raw: string = "";
   try {
     raw = readFileSync(new URL("../package.json", import.meta.url), "utf-8");
   } catch {
@@ -20,7 +20,7 @@ const SVERKA_VERSION: string = (() => {
   }
   const parsed: unknown = JSON.parse(raw);
   if (typeof parsed === "object" && parsed !== null && "version" in parsed && typeof (parsed as Record<string, unknown>).version === "string") {
-    return (parsed as Record<string, string>).version;
+    return (parsed as { version: string }).version;
   }
   return "0.0.0";
 })();

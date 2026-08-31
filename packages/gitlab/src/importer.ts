@@ -3,7 +3,7 @@
 
 import { parse as parseYaml } from "yaml";
 import type { DefinitionGraph, ProjectDefinition, PipelineDefinition, StepDefinition, OperationDefinition, Dependency, EntryDefinition } from "@sverka/core";
-import type { Trigger, PipelineRule, Runtime, Rule } from "@sverka/cdk";
+import type { Trigger, PipelineRule, Runtime, Rule, ReportType } from "@sverka/cdk";
 import { GitlabTargetError } from "./errors.js";
 
 /**
@@ -368,13 +368,21 @@ function convertArtifactPaths(artifacts: Record<string, unknown>, operations: Op
 /**
  * Convert artifact `reports` into report operations.
  * Reports are noted but not fully mapped — they require spec types.
+ * Unsupported report keys are silently skipped to avoid producing invalid
+ * graph nodes that violate the CDK report-type contract.
  */
+const SUPPORTED_REPORT_TYPES: ReadonlySet<string> = new Set([
+  "junit", "coverage", "dotenv", "sast", "dast",
+  "dependencyScanning", "containerScanning", "licenseScanning",
+  "performance", "metrics", "terraform", "quality", "sarif",
+]);
+
 function convertArtifactReports(artifacts: Record<string, unknown>, operations: OperationDefinition[]): void {
   if (!artifacts.reports || typeof artifacts.reports !== "object") return;
   const reports = artifacts.reports as Record<string, unknown>;
   for (const [type, value] of Object.entries(reports)) {
-    if (typeof value === "string") {
-      operations.push({ kind: "report", spec: { type, path: value } });
+    if (typeof value === "string" && SUPPORTED_REPORT_TYPES.has(type)) {
+      operations.push({ kind: "report", spec: { type: type as ReportType, path: value } });
     }
   }
 }

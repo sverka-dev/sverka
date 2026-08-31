@@ -3,8 +3,11 @@
 export type GithubTargetErrorCode =
   | "INVALID_GRAPH"
   | "UNSUPPORTED_TRIGGER"
+  | "UNSUPPORTED_FEATURE"
   | "LOWER_FAILED"
-  | "IMPORT_FAILED";
+  | "LOWERING_ERROR"
+  | "IMPORT_FAILED"
+  | "INVALID_MATRIX";
 
 export class GithubTargetError extends Error {
   readonly code: GithubTargetErrorCode;

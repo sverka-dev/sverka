@@ -15,7 +15,7 @@ import type {
   OperationDefinition,
   Dependency,
 } from "./graph.js";
-import type { Reference, InputLiteral, Expression, StatusCondition } from "@sverka/cdk";
+import type { Reference, InputLiteral, Expression, StatusCondition, Condition } from "@sverka/cdk";
 import { resolveStepId } from "./validate.js";
 
 /**
@@ -249,7 +249,11 @@ function substituteInputBindings(
     callerPipelineId,
   );
   const operations = substituteCommandBindings(step.operations, bindings);
-  return { ...step, inputs, operations, ...(condition !== step.condition ? { condition } : {}) };
+  // Destructure to drop the original condition so that truthy-literal bindings
+  // (where substituteStepCondition returns undefined) clear the condition
+  // instead of preserving a stale inputs.* reference.
+  const { condition: _originalCondition, ...rest } = step;
+  return { ...rest, inputs, operations, ...(condition !== undefined ? { condition } : {}) };
 }
 
 /**
@@ -382,7 +386,7 @@ function rewriteCallOutputRefs(
 ): StepDefinition {
   if (refRewrite.size === 0) return step;
 
-  const rewriteRef = (ref: Reference): Reference => {
+  const rewriteRef = (ref: Condition): Condition => {
     if (ref.kind !== "step") return ref;
     const key = `${ref.step}:${ref.output}`;
     const target = refRewrite.get(key);
@@ -390,7 +394,7 @@ function rewriteCallOutputRefs(
     return { ...ref, step: target.producer, output: target.output };
   };
 
-  const inputs: Reference[] = step.inputs.map(rewriteRef);
+  const inputs: Reference[] = step.inputs.map(rewriteRef) as Reference[];
 
   const dependencies: Dependency[] = step.dependencies.map((d) => {
     if (d.kind === "control") return d;

@@ -145,11 +145,15 @@ function validatePipelineChildren(pipeline: Record<string, unknown>, index: numb
   for (const [name, descriptor] of Object.entries(inputs)) {
     validateInputDescriptor(descriptor, index, name);
   }
-  for (let j = 0; j < pipeline.entries.length; j++) {
-    validateEntryShape(pipeline.entries[j], index, j);
+  const entries = pipeline.entries;
+  if (!Array.isArray(entries)) return;
+  const steps = pipeline.steps;
+  if (!Array.isArray(steps)) return;
+  for (let j = 0; j < entries.length; j++) {
+    validateEntryShape(entries[j], index, j);
   }
-  for (let j = 0; j < pipeline.steps.length; j++) {
-    validateStepShape(pipeline.steps[j], index, j);
+  for (let j = 0; j < steps.length; j++) {
+    validateStepShape(steps[j], index, j);
   }
 }
 

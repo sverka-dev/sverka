@@ -7,6 +7,7 @@ import type { OperationSpec, Workflow, Operation, ArtifactDeclaration } from "@s
 import { workflow as makeWorkflow } from "@sverka/core";
 import type { Plan } from "@sverka/ir";
 import { validatePlan } from "@sverka/ir";
+import type { OperationOutcome } from "@sverka/runtime";
 import { createPlanner } from "@sverka/planner";
 import type { ProjectContext } from "@sverka/planner";
 import { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/policy";
@@ -36,10 +37,12 @@ type Scheduler = {
 };
 type Executor = unknown;
 type RuntimeExecutionResult = {
-  status: string;
-  outcomes: Record<string, unknown>;
+  planId: string;
+  status: "success" | "failure" | "partial";
+  outcomes: ReadonlyMap<string, OperationOutcome>;
   durationMs: number;
-  runtimeFailure?: unknown;
+  cancelledOperations: readonly string[];
+  runtimeFailure?: boolean;
 };
 
 /**

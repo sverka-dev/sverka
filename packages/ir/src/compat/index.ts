@@ -16,7 +16,7 @@ export type {
 
 export { computePlanId, computeOperationId } from "./ids.js";
 export { serializePlan, deserializePlan } from "./serialize.js";
-export { validatePlan, type ValidationResult, type ValidationErrorInfo } from "./validate.js";
+export { validatePlan, type ValidationResult, type ValidationErrorDetail } from "./validate.js";
 export { IRError, ValidationError, SerializationError } from "./errors.js";
 export { PLAN_SCHEMA_VERSION } from "./version.js";
 

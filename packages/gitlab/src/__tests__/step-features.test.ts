@@ -2,6 +2,12 @@ import { describe, it, expect } from "vitest";
 import { Project, Pipeline, ShellStep, Entry, push, schedule } from "@sverka/cdk";
 import { synthesize } from "@sverka/core";
 import { GitlabTarget } from "../target.js";
+import type { GitlabTargetGraph } from "../types.js";
+
+function singleGraph(result: GitlabTargetGraph | readonly GitlabTargetGraph[]): GitlabTargetGraph {
+  if ("jobs" in result) return result;
+  return result[0]!;
+}
 
 describe("GitLab F-05: schedule trigger lowering", () => {
   it("lowers schedule trigger to a schedule rule", () => {
@@ -12,7 +18,7 @@ describe("GitLab F-05: schedule trigger lowering", () => {
 
     const graph = synthesize(project);
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs[0]!;
     expect(job.rules).toContainEqual({ if: '$CI_PIPELINE_SOURCE == "schedule"' });
   });
@@ -30,7 +36,7 @@ describe("GitLab F-10: beforeScript/afterScript lowering", () => {
 
     const graph = synthesize(project);
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.beforeScript).toEqual(["echo setup"]);
     const yaml = target.compile(graph).artifacts[0]!.content;
     expect(yaml).toContain("before_script:");
@@ -48,7 +54,7 @@ describe("GitLab F-10: beforeScript/afterScript lowering", () => {
 
     const graph = synthesize(project);
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.afterScript).toEqual(["echo cleanup"]);
     const yaml = target.compile(graph).artifacts[0]!.content;
     expect(yaml).toContain("after_script:");
@@ -68,7 +74,7 @@ describe("GitLab F-12: continueOnError lowering", () => {
 
     const graph = synthesize(project);
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.allowFailure).toBe(true);
     const yaml = target.compile(graph).artifacts[0]!.content;
     expect(yaml).toContain("allow_failure: true");
@@ -85,7 +91,7 @@ describe("GitLab F-12: continueOnError lowering", () => {
 
     const graph = synthesize(project);
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.allowFailure).toEqual({ exitCodes: [1, 2] });
     const yaml = target.compile(graph).artifacts[0]!.content;
     expect(yaml).toContain("allow_failure:");
@@ -107,7 +113,7 @@ describe("GitLab F-14: retry lowering", () => {
 
     const graph = synthesize(project);
     const target = new GitlabTarget();
-    const targetGraph = target.lower(graph);
+    const targetGraph = singleGraph(target.lower(graph));
     expect(targetGraph.jobs[0]!.retry).toEqual({
       max: 3,
       when: ["timeout"],
