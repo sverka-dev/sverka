@@ -36,11 +36,11 @@ FAILED=0
 IFS=',' read -r -a GATE_LIST <<<"$GATES"
 for g in "${GATE_LIST[@]}"; do
   g="$(printf '%s' "$g" | tr -d '[:space:]')"
-  [ -n "$g" ] || continue
+  [[ -n "$g" ]] || continue
   run_gate "$g" || { FAILED=1; break; }
 done
 
-if [ "$FAILED" -ne 0 ]; then
+if [[ "$FAILED" -ne 0 ]]; then
   fail "one or more gates failed"
 fi
 

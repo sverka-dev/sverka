@@ -169,7 +169,7 @@ description_file = "../assets/workflows/sverka-wave/finalize.md"
 id = "publish"
 title = "Publish: push branch and create stacked PR"
 needs = ["finalize"]
-condition = "{{push}} == true"
+condition = "{{push}} == true and {{open_pr}} == true"
 metadata = { "gc.run_target" = "mayor" }
 description = """
 Push the wave's branch and create a stacked PR targeting the previous wave's

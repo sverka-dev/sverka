@@ -24,7 +24,8 @@ cheapest code is code that already exists and is already paid for.
 Don't defer work that can be done now. Don't split what can be done in one
 response. Don't ask what can be inferred. Don't leave technical debt for
 "later" — later never comes. If a fix is needed, fix it now. If a test is
-missing, write it now. If a dependency is outdated, upgrade it now.
+missing, write it now. If a dependency is outdated, file a spec and upgrade
+it — but verify compatibility first (tests, changelog, breaking changes).
 
 **Skill:** `token-rationalism` (Rule: do-it-now autonomy), `one-shot-patch`
 
@@ -79,8 +80,10 @@ first draft. Documentation is a first-class artifact, not an afterthought.
 
 Write a failing test before writing the code that makes it pass. For bug
 fixes, reproduce the bug with a test before attempting a fix. Tests are
-proof — "seems right" is not done. No exceptions. No "it's trivial." No
-"I'll add tests later." Everything is tested.
+proof — "seems right" is not done. No "it's trivial." No "I'll add tests
+later." Everything with behavior is tested. Pure configuration,
+documentation, and static-content changes are exempt — the TDD skill
+documents this exception.
 
 **Skill:** `test-driven-development`, `evidence`
 

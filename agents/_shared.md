@@ -37,6 +37,12 @@ Stage ONLY the wave's package files + specs + plans + bun.lock.
 Do NOT commit (conservative profile). Do NOT stage:
 `city.toml`, `agents/`, `.devin/`, `.gc/`, `.beads/`, `formulas/`.
 
+## Beads
+
+Run `bd prime` before any bead operations (`bd ready`, `bd show`, `bd close`,
+etc.). Use `bd` for all task tracking — do NOT use markdown TODO lists.
+Run `bd prime` at session start and when context is stale.
+
 ## Environment
 
 Agent name: `$GC_AGENT`. City commands: `gc <cmd> --help`.

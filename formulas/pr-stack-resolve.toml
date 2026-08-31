@@ -79,7 +79,14 @@ For each PR that needs work, working from BOTTOM of stack to TOP:
    - After rebasing, ALL PRs above must also be rebased. Cascade upward.
 
 2. /ACT ON COMMENTS: For PRs with open review threads:
-   - gh api repos/sverka-dev/sverka/pulls/<PR>/comments
+   - Query unresolved threads via GraphQL:
+     gh api graphql -F owner='sverka-dev' -F name='sverka' -F pr='<PR>' -f query='
+       query($owner:String!,$name:String!,$pr:Int!){
+         repository(owner:$owner,name:$name){
+           pullRequest(number:$pr){
+             reviewThreads(last:100){ nodes{ id isResolved
+               comments(first:1){ nodes{ body path line } } } } } } }' \
+       | jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)'
    - For each unresolved thread: fix the code or reply with reasoning.
    - After each /act, re-check for NEW comments. Loop until stable.
 

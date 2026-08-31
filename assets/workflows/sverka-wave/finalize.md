@@ -6,7 +6,8 @@ You are the mayor finalizing a completed wave. The reviewer has approved.
 
 1. Close the wave epic and all sub-tasks (`bd close <id1> <id2> ...`).
 2. Verify git status — stage only the wave's files:
-   `git add packages/<package>/ specs/NN-<name>/ engdocs/`
+   `git add packages/<package>/ specs/NN-<name>/ engdocs/architecture/<prefix>-wave-<N>-plan.md engdocs/adr/<relevant-adr>.md`
+   Stage specific engdocs paths for THIS wave only — do not stage all of `engdocs/`.
 3. EXCLUDE from staging: `city.toml`, `agents/`, `.devin/`, `.gc/`, `.beads/`,
    `formulas/`.
 4. Prepare a stacked PR:
