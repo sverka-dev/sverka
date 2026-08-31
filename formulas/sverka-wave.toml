@@ -1,43 +1,177 @@
 formula = "sverka-wave"
-description = "Execute a Sverka implementation wave: architect designs, builder implements, reviewer gates"
+version = 1
+contract = "graph.v2"
+extends = ["build-from-plan-base"]
+target_required = false
 
-[requires]
-formula_compiler = ">=2.0.0"
-
-[[steps]]
-id = "design"
-title = "Architect: design spec and plan"
 description = """
-Read the wave spec and produce a detailed implementation plan.
-The architect reads specs/ for the relevant wave, produces or refines
-the spec, and defines interfaces the builder will implement against.
-"""
-agent = "architect"
+Sverka implementation wave: architect designs from spec, builder implements
+(TDD), reviewer gates, mayor finalizes as stacked PR.
 
+This formula extends the standard Gas City build-from-plan-base methodology.
+The spec tree in specs/NN-*/ serves as pre-existing requirements; the architect
+produces the implementation plan, the builder implements via TDD, the reviewer
+gates, and the mayor finalizes with a stacked PR.
+
+Project-specific prose lives in description_files under assets/workflows/
+sverka-wave/, not in the formula TOML or agent prompts.
+"""
+
+[catalog]
+name = "sverka-wave"
+description = "Execute one Sverka implementation wave: plan -> implement -> review -> finalize (stacked PR)."
+
+[metadata.gc.methodology]
+allowed_drain_policies = ["separate", "same-session"]
+implementation_strategy = "drain"
+interaction_modes = ["interactive", "autonomous", "headless"]
+review_modes = ["report", "agent", "interactive"]
+
+[vars]
+[vars.artifact_root]
+description = "Build artifact root (defaults to .gc/build)."
+default = ".gc/build"
+
+[vars.requirements_path]
+description = "Approved requirements artifact path (the spec for this wave)."
+default = ""
+
+[vars.wave_prefix]
+description = "Branch/spec prefix for this wave (e.g. v0, v1)."
+default = "v1"
+
+[vars.wave_num]
+description = "Wave number or letter (e.g. 1, 2, A, B)."
+default = ""
+
+[vars.wave_package]
+description = "Package name being built in this wave."
+default = ""
+
+[vars.prev_wave_branch]
+description = "Previous wave's branch for stacked PR base. Empty means base on main."
+default = ""
+
+[vars.spec_source]
+description = "Path to the authoritative spec source (architecture spec or mega-plan)."
+default = "specs/architecture-spec.md"
+
+[vars.drain_policy]
+description = "Implementation drain policy: separate (one session per task) or same-session (shared session)."
+default = "separate"
+
+[vars.review_mode]
+description = "Review authority: report, agent, or interactive."
+default = "agent"
+
+[vars.push]
+description = "Set true to allow final publish push after all checks pass."
+default = "false"
+
+[vars.open_pr]
+description = "Set true to allow final PR creation after all checks pass."
+default = "false"
+
+# --- Step overrides ---
+
+# Plan: architect produces implementation plan from spec.
+# Spec (requirements) already exists in specs/NN-*/ — this is the "plan" stage
+# of build-from-plan-base, not the "requirements" stage.
+[[steps]]
+id = "plan"
+title = "Architect: design spec and implementation plan"
+needs = ["prepare-plan"]
+metadata = { "gc.run_target" = "architect" }
+description_file = "../assets/workflows/sverka-wave/plan.md"
+
+# Plan-review: skip formal plan review (architect is trusted in Sverka).
+# The inherited plan-review step is overridden to a no-op pass-through.
+[[steps]]
+id = "plan-review"
+title = "Plan review (architect self-review)"
+needs = ["plan"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Architect's plan is trusted. Mayor acknowledges and proceeds to decomposition."
+
+# Decompose: mayor creates task beads for the wave.
+# For single-package waves, this is one bead. For multi-feature waves,
+# the mayor creates multiple beads with dependencies.
+[[steps]]
+id = "decompose"
+title = "Mayor: create wave task beads"
+needs = ["plan-review"]
+metadata = { "gc.run_target" = "mayor" }
+description = """
+Create beads for each task in this wave. For single-package waves, create one
+builder bead. For multi-feature waves, create beads with dependencies matching
+the wave's feature dependency graph. Use `bd create --parent=<wave-epic-id>`
+for each task.
+"""
+
+# Implement: builder implements via TDD, drained into separate sessions.
 [[steps]]
 id = "implement"
 title = "Builder: implement from spec (TDD)"
-description = """
-The builder reads the spec and implementation plan, writes failing tests
-first, then implements until all tests pass and the build succeeds.
-"""
-needs = ["design"]
-agent = "builder"
+needs = ["decompose"]
+condition = "{{drain_policy}} == separate"
+metadata = { "gc.run_target" = "builder" }
+description_file = "../assets/workflows/sverka-wave/implement.md"
 
+[steps.drain]
+context = "separate"
+formula = "do-work"
+member_access = "exclusive"
+
+[[steps]]
+id = "implement-same-session"
+title = "Builder: implement in shared session"
+needs = ["decompose"]
+condition = "{{drain_policy}} == same-session"
+metadata = { "gc.run_target" = "builder" }
+description_file = "../assets/workflows/sverka-wave/implement.md"
+
+[steps.drain]
+context = "shared"
+formula = "do-work-item"
+on_item_failure = "skip_remaining"
+member_access = "exclusive"
+
+[steps.drain.item]
+single_lane = true
+
+# Review: reviewer gates quality with real exec checks.
+# needs = ["prepare-review"] inherited from build-from-review-base.
 [[steps]]
 id = "review"
 title = "Reviewer: gate quality"
-description = """
-The reviewer checks the implementation against the spec, runs all checks
-(test, build, lint, typecheck), and approves or rejects.
-On rejection, the reviewer reports specific issues back to the mayor.
-"""
-needs = ["implement"]
-agent = "reviewer"
+needs = ["prepare-review"]
+metadata = { "gc.run_target" = "reviewer" }
+description_file = "../assets/workflows/sverka-wave/review.md"
 
+[steps.check]
+max_attempts = 3
+
+[steps.check.check]
+mode = "exec"
+path = "assets/scripts/checks/sverka-gates.sh"
+timeout = "10m"
+
+# Finalize: mayor commits, creates stacked PR, dispatches next wave.
 [[steps]]
 id = "finalize"
-title = "Finalize wave"
-description = "Wave is complete. Mayor records completion and prepares next wave."
-needs = ["review"]
-agent = "mayor"
+title = "Mayor: finalize wave and prepare stacked PR"
+needs = ["repair-review"]
+metadata = { "gc.run_target" = "mayor" }
+description_file = "../assets/workflows/sverka-wave/finalize.md"
+
+# Publish: push and create PR (only when authorized).
+[[steps]]
+id = "publish"
+title = "Publish: push branch and create stacked PR"
+needs = ["finalize"]
+condition = "{{push}} == true and {{open_pr}} == true"
+metadata = { "gc.run_target" = "mayor" }
+description = """
+Push the wave's branch and create a stacked PR targeting the previous wave's
+branch (or main for the first wave). Only execute when push=true (authorized).
+"""

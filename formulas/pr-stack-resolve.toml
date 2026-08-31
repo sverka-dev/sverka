@@ -1,12 +1,44 @@
 formula = "pr-stack-resolve"
-description = "Resolve all open PRs in the stack: rebase, /act on review comments, follow CI, loop until green"
+version = 1
+contract = "graph.v2"
+extends = ["fix-loop-base"]
+target_required = false
 
-[requires]
-formula_compiler = ">=2.0.0"
+description = """
+Resolve all open PRs in a Sverka stacked-PR stack: rebase, address review
+comments, follow CI to green, loop until all PRs are resolved.
 
+This formula extends the standard Gas City fix-loop-base methodology. The
+'findings' are the open review threads, CI failures, and merge conflicts on
+each PR in the stack. The fix loop iterates until all PRs are resolved.
+"""
+
+[catalog]
+name = "pr-stack-resolve"
+description = "Resolve all open PRs in a Sverka stack: rebase, /act on comments, follow CI, loop until green."
+
+[vars]
+[vars.context_path]
+description = "Optional context bundle path."
+default = ""
+
+[vars.findings_path]
+description = "Path to the PR stack status report (produced by the discover step)."
+default = ".gc/pr-stack-status.json"
+
+[vars.implementation_target]
+description = "Role target for fix work."
+default = "builder"
+
+[vars.max_iterations]
+description = "Maximum fix/review attempts per PR."
+default = "10"
+
+# Step 1: Discover and assess PR stack
 [[steps]]
-id = "discover"
+id = "plan-fixes"
 title = "Discover and assess PR stack"
+metadata = { "gc.run_target" = "builder" }
 description = """
 Run the deterministic check script to discover all open PRs and their
 resolution state:
@@ -19,142 +51,96 @@ threads, CI status, and whether it's behind its base.
 If ALL PRs are resolved (exit 0), close the formula — nothing to do.
 
 For each PR that NEEDS WORK, note the reasons:
-- merge_conflict → needs rebase
-- open_threads(N) → needs /act on N review comments
-- ci_failing(checks) → needs CI fix
-- ci_pending → wait for CI to complete
-- behind_base(N) → needs rebase on base
+- merge_conflict -> needs rebase
+- open_threads(N) -> needs /act on N review comments
+- ci_failing(checks) -> needs CI fix
+- ci_pending -> wait for CI to complete
+- behind_base(N) -> needs rebase on base
 
-Order work by stack position (base → top) — fixing a lower PR may
+Order work by stack position (base -> top) — fixing a lower PR may
 cascade to upper PRs.
 """
-agent = "builder"
 
+# Step 2: Apply fixes (rebase + /act on comments + CI fix)
 [[steps]]
-id = "rebase"
-title = "Rebase PRs on their base branches"
+id = "apply-fixes"
+title = "Rebase, address comments, fix CI"
+needs = ["plan-fixes"]
+metadata = { "gc.run_target" = "{{implementation_target}}" }
 description = """
-For each PR that needs rebase (behind_base or merge_conflict), working
-from BOTTOM of stack to TOP:
+For each PR that needs work, working from BOTTOM of stack to TOP:
 
-1. Fetch latest:
-       git fetch origin
+1. REBASE: For PRs behind base or with merge conflicts:
+   - git fetch origin
+   - git checkout <head-ref>
+   - git rebase origin/<base-ref>
+   - If conflicts: STOP, report to mayor. Do NOT force.
+   - If success: git push --force-with-lease origin <head-ref>
+   - After rebasing, ALL PRs above must also be rebased. Cascade upward.
 
-2. Checkout the PR's head branch:
-       git checkout <head-ref>
+2. /ACT ON COMMENTS: For PRs with open review threads:
+   - Query unresolved threads via GraphQL:
+     gh api graphql -F owner='sverka-dev' -F name='sverka' -F pr='<PR>' -f query='
+       query($owner:String!,$name:String!,$pr:Int!){
+         repository(owner:$owner,name:$name){
+           pullRequest(number:$pr){
+             reviewThreads(last:100){ nodes{ id isResolved
+               comments(first:1){ nodes{ body path line } } } } } } }' \
+       | jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)'
+   - For each unresolved thread: fix the code or reply with reasoning.
+   - After each /act, re-check for NEW comments. Loop until stable.
 
-3. Rebase on the PR's base branch:
-       git rebase origin/<base-ref>
-
-4. If rebase fails with conflicts:
-   - STOP. Do NOT force anything.
-   - Report the conflict to the mayor.
-   - Do NOT continue to upper PRs.
-
-5. If rebase succeeds, force-push with lease:
-       git push --force-with-lease origin <head-ref>
-
-6. After rebasing a PR, ALL PRs above it in the stack MUST also be
-   rebased on their (now-updated) bases. Cascade upward.
+3. CI FOLLOWUP: For PRs with failing CI:
+   - gh pr checks <PR> --watch
+   - Read failing logs: gh run view --log-failed
+   - Fix root cause, push, wait for CI again.
+   - Re-check for new quality findings (SonarCloud, CodeQL, etc.).
 
 NEVER use `git push --force` without `--force-with-lease`.
 NEVER skip the fetch step.
 NEVER work on a stale branch.
+
+Core pipeline MUST pass locally before pushing:
+    bun run build && bun run lint && bun run typecheck && bun run test
 """
-needs = ["discover"]
-agent = "builder"
 
+# Step 3: Re-review — verify all PRs are resolved
 [[steps]]
-id = "act-comments"
-title = "/act on all open review comments"
-description = """
-For each PR with open review threads, resolve them:
-
-1. Fetch all review comments:
-       gh api repos/sverka-dev/sverka/pulls/<PR>/comments
-
-2. For each unresolved thread:
-   a. Read the comment carefully.
-   b. Decide: fix the code, or reply with reasoning.
-   c. If fixing: make the change, commit, push.
-   d. If replying: post a substantive reply explaining the decision.
-   e. After pushing a fix, wait for CI to start.
-
-3. CRITICAL — AFTER each /act, re-check for NEW review comments:
-   - Fetch comments again: gh api repos/sverka-dev/sverka/pulls/<PR>/comments
-   - Compare with previous fetch — are there new comments?
-   - If yes → /act on those too.
-   - Repeat until no new comments appear.
-
-This prevents the known bug where agents reply but don't check for
-follow-up comments. You MUST loop until stable.
-
-4. After all comments are addressed and no new ones appear, verify:
-   - All threads are resolved (0 open)
-   - The fix commits exist on the branch
-"""
-needs = ["rebase"]
-agent = "builder"
-
-[[steps]]
-id = "ci-followup"
-title = "Follow CI to green"
-description = """
-After all pushes (rebase + /act fixes), follow CI to completion:
-
-1. For each PR that was pushed to:
-       gh pr checks <PR> --watch
-
-2. If CI fails:
-   a. Read the failing check logs:
-         gh run view --log-failed
-   b. Identify the root cause.
-   c. Fix the issue (this is another /act).
-   d. Push the fix.
-   e. Wait for CI again.
-   f. Re-check for new review comments (CI may trigger bot reviews).
-
-3. If CI passes:
-   a. Check for new quality findings (SonarCloud, CodeQL, etc.).
-   b. If new findings → /act to fix them.
-   c. If no findings → PR is CI-green.
-
-4. Core pipeline MUST pass:
-       bun run build && bun run lint && bun run typecheck && bun run test
-
-   If any of these fail locally, fix before pushing.
-"""
-needs = ["act-comments"]
-agent = "builder"
-
-[[steps]]
-id = "verify"
+id = "re-review"
 title = "Verify all PRs are resolved"
+needs = ["apply-fixes"]
+metadata = { "gc.run_target" = "reviewer" }
 description = """
 Run the deterministic check script one final time:
 
     bash assets/scripts/pr-stack-resolve.sh
 
 A PR is RESOLVED when ALL of:
-✓ CI green (build, lint, typecheck, test, quality gates)
-✓ All review threads resolved (0 open)
-✓ No merge conflicts with base
-✓ Branch is rebased on latest base
-✓ No new quality findings
-✓ At least one follow-up check after last /act (no new comments appeared)
+- CI green (build, lint, typecheck, test, quality gates)
+- All review threads resolved (0 open)
+- No merge conflicts with base
+- Branch is rebased on latest base
+- No new quality findings
+- At least one follow-up check after last /act (no new comments)
 
-If any PR is still not resolved, loop back to the appropriate step:
-- merge_conflict → rebase step
-- open_threads → act-comments step
-- ci_failing → ci-followup step
-- behind_base → rebase step
+If any PR is still not resolved, loop back:
+- merge_conflict -> rebase
+- open_threads -> act on comments
+- ci_failing -> CI fix
+- behind_base -> rebase
 
 If ALL PRs are resolved, report to the mayor:
 - Total PRs resolved
-- Any PRs that were skipped and why
+- Any PRs skipped and why
 - Summary of changes made
 
-The mayor will then send a mail to the human with the resolution report.
+The mayor will send mail to the human with the resolution report.
 """
-needs = ["ci-followup"]
-agent = "builder"
+
+[steps.check]
+max_attempts = 3
+
+[steps.check.check]
+mode = "exec"
+path = "assets/scripts/pr-stack-resolve.sh"
+timeout = "5m"
