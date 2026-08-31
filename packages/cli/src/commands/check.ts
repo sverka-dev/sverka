@@ -1,9 +1,9 @@
 // check command — resolve proposed checks → StepDefinitions, display.
 // Spec 17 — §30.
 
-import { createPlanner } from "@sverka/planner";
-import { createBuiltinResolver, synthesizeCheckSteps } from "@sverka/checks";
-import type { OperationDefinition } from "@sverka/core";
+import { createPlanner } from "@sverka/sdk";
+import { createBuiltinResolver, synthesizeCheckSteps } from "@sverka/verification";
+import type { OperationDefinition } from "@sverka/workflow";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
 
@@ -34,7 +34,7 @@ export async function checkCommand(
       JSON.stringify({
         command: "check",
         data: {
-          proposed: proposal.checks.map((c) => c.checkId),
+          proposed: proposal.checks.map((c: { checkId: string }) => c.checkId),
           resolved: steps.map((s) => ({ id: s.step.id, command: getShellCommand(s.step.operations) })),
         },
         durationMs,

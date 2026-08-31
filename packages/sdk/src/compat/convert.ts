@@ -1,11 +1,24 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { canonicalStringify } from "@sverka/workflow";
 import type {
   OperationSpec,
-  CacheDeclaration as CoreCache,
-  ArtifactDeclaration as CoreArtifact,
-} from "@sverka/core";
-import { canonicalStringify } from "@sverka/core";
+  CacheDeclaration as CoreCacheDeclaration,
+  ArtifactDeclaration as CoreArtifactDeclaration,
+} from "@sverka/workflow";
+import type {
+  Plan,
+  PlanOperation,
+  PlanMetadata,
+  ExecutorSpec,
+  ResourceLimits,
+  PlanRetryPolicy,
+  PlanCacheDeclaration,
+  PlanArtifactDeclaration,
+} from "@sverka/workflow";
+import { computePlanId } from "@sverka/workflow";
+import type { ProjectContext } from "../planner/index.js";
+import { SdkError } from "../errors.js";
 
 const SVERKA_VERSION: string = ((): string => {
   let raw: string = "";
@@ -24,19 +37,6 @@ const SVERKA_VERSION: string = ((): string => {
   }
   return "0.0.0";
 })();
-import type {
-  Plan,
-  PlanOperation,
-  PlanMetadata,
-  ExecutorSpec,
-  ResourceLimits,
-  RetryPolicy,
-  CacheDeclaration as IrCache,
-  ArtifactDeclaration as IrArtifact,
-} from "@sverka/ir";
-import { computePlanId } from "@sverka/ir";
-import type { ProjectContext } from "@sverka/planner";
-import { SdkError } from "../errors.js";
 
 export interface ConvertOptions {
   /** Plan name (from WorkflowDefinition.name or default). */
@@ -115,7 +115,7 @@ function buildResources(spec: OperationSpec): ResourceLimits {
   };
 }
 
-function buildRetry(spec: OperationSpec): RetryPolicy {
+function buildRetry(spec: OperationSpec): PlanRetryPolicy {
   const retries = spec.retries ?? 0;
   return {
     maxAttempts: Math.max(1, retries + 1),
@@ -128,9 +128,9 @@ function buildPlanOperation(
   spec: OperationSpec,
   executor: ExecutorSpec,
   resources: ResourceLimits,
-  retry: RetryPolicy,
-  artifacts: IrArtifact[],
-  cache: IrCache | undefined,
+  retry: PlanRetryPolicy,
+  artifacts: PlanArtifactDeclaration[],
+  cache: PlanCacheDeclaration | undefined,
 ): PlanOperation {
   return {
     id: spec.id,
@@ -181,7 +181,7 @@ function optionalFields(spec: OperationSpec): Partial<PlanOperation> {
   };
 }
 
-function convertArtifact(a: CoreArtifact): IrArtifact {
+function convertArtifact(a: CoreArtifactDeclaration): PlanArtifactDeclaration {
   return {
     path: a.path,
     ...(a.name !== undefined ? { name: a.name } : {}),
@@ -189,7 +189,7 @@ function convertArtifact(a: CoreArtifact): IrArtifact {
   };
 }
 
-function convertCache(c: CoreCache): IrCache {
+function convertCache(c: CoreCacheDeclaration): PlanCacheDeclaration {
   return {
     inputs: c.inputs,
     outputs: c.outputs ?? [],

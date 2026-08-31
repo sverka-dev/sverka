@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline } from "@sverka/cdk";
+import { Project, Pipeline } from "@sverka/workflow";
 import { $, matrixContext } from "../index.js";
 
 describe("StepBuilder.matrix()", () => {

@@ -1,17 +1,11 @@
-import type {
-  Runtime,
-  RuntimeMode,
-  RuntimeResult,
-  OperationOutcome,
-  OperationSpec,
-} from "@sverka/core";
+import type { PlanRuntime as IPlanRuntime, RuntimeMode, RuntimeResult, OperationOutcome, OperationSpec } from "@sverka/workflow";
 
 /**
  * A plan-mode Runtime that records operations without side effects.
  * Used by the SDK to evaluate a workflow graph into an OperationSpec[]
  * without executing any commands.
  */
-export class PlanRuntime implements Runtime {
+export class PlanRuntime implements IPlanRuntime {
   readonly mode: RuntimeMode = "plan";
   private readonly recorded: OperationSpec[] = [];
   private readonly start: number;

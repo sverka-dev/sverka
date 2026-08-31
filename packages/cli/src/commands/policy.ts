@@ -3,9 +3,9 @@
 
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { DEFAULT_POLICY, evaluatePolicy } from "@sverka/policy";
-import { loadBaseline, normalizeSarif } from "@sverka/findings";
-import type { Finding, NormalizeContext, SarifLog } from "@sverka/findings";
+import { DEFAULT_POLICY, evaluatePolicy } from "@sverka/verification";
+import { loadBaseline, normalizeSarif } from "@sverka/verification";
+import type { Finding, NormalizeContext, SarifLog } from "@sverka/verification";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { resolveUnderRoot } from "../internal/paths.js";

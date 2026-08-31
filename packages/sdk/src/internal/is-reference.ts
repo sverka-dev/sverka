@@ -1,4 +1,4 @@
-import type { Reference, StepRef, ContextRef } from "@sverka/cdk";
+import type { Reference, StepRef, ContextRef } from "@sverka/workflow";
 
 const OUTPUT_TYPES = new Set<string>(["string", "number", "boolean", "artifact"]);
 const CONTEXT_NAMESPACES = new Set<string>([

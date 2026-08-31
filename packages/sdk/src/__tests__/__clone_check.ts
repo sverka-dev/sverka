@@ -1,5 +1,5 @@
-import { Project, Pipeline, ShellStep } from "@sverka/cdk";
-import { shell } from "@sverka/sdk";
+import { Project, Pipeline, ShellStep } from "@sverka/workflow";
+import { shell } from "../index.js";
 
 const project = new Project("test");
 const pipeline = new Pipeline(project, "ci");

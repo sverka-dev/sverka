@@ -3,19 +3,19 @@ import { mkdtempSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
-import type { OperationSpec, Workflow, Operation, ArtifactDeclaration } from "@sverka/core";
-import { workflow as makeWorkflow } from "@sverka/core";
-import type { Plan } from "@sverka/ir";
-import { validatePlan } from "@sverka/ir";
+import type { OperationSpec, Workflow, Operation, ArtifactDeclaration } from "@sverka/workflow";
+import { workflow } from "@sverka/workflow";
+import type { Plan } from "@sverka/workflow";
+import { validatePlan } from "@sverka/workflow";
 import type { OperationOutcome } from "@sverka/runtime";
-import { createPlanner } from "@sverka/planner";
-import type { ProjectContext } from "@sverka/planner";
-import { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/policy";
-import type { Policy } from "@sverka/policy";
-import { loadBaseline, filterOnlyNew } from "@sverka/findings";
-import type { Finding } from "@sverka/findings";
-import { createBuiltinResolver, extractFindings } from "@sverka/checks";
-import type { CheckResolver, ResolvedCheck } from "@sverka/checks";
+import { createPlanner } from "./planner/index.js";
+import type { ProjectContext } from "./planner/index.js";
+import { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/verification";
+import type { Policy } from "@sverka/verification";
+import { loadBaseline, filterOnlyNew } from "@sverka/verification";
+import type { Finding } from "@sverka/verification";
+import { createBuiltinResolver, extractFindings } from "@sverka/verification";
+import type { CheckResolver, ResolvedCheck } from "@sverka/verification";
 
 import type {
   SverkaOptions,
@@ -385,7 +385,7 @@ function normalizeWorkflow(name: string, wf: Workflow | Operation): Workflow {
     return wf;
   }
   // It's an Operation — wrap it.
-  return makeWorkflow(name, wf);
+  return workflow(name, wf);
 }
 
 function isWorkflow(wf: Workflow | Operation): wf is Workflow {
@@ -398,13 +398,13 @@ async function createExecutor(
   operations: readonly { command?: string }[],
 ): Promise<Executor> {
   if (type === "docker") {
-    const { DockerExecutor } = await import("@sverka/runtime-docker");
+    const { DockerExecutor } = await import("@sverka/runtime");
     return new DockerExecutor({
       runAs: `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
       cacheDir,
     });
   }
-  const { HostExecutor, createAllowlist } = await import("@sverka/runtime-host");
+  const { HostExecutor, createAllowlist } = await import("@sverka/runtime");
   const commands = operations
     .map((op) => op.command)
     .filter((c): c is string => typeof c === "string" && c.length > 0);

@@ -1,7 +1,7 @@
 // discover command — run planner discovery, show project context.
 // Spec 17 — §30.
 
-import { createPlanner } from "@sverka/planner";
+import { createPlanner } from "@sverka/sdk";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
 
@@ -41,8 +41,8 @@ export async function discoverCommand(
     output.writeLine(`Project: ${ctx.root}`);
     output.writeLine(`  commit: ${ctx.commit || "(none)"}`);
     output.writeLine(`  dirty: ${ctx.dirty}`);
-    output.writeLine(`  languages: ${ctx.languages.map((l) => l.name).join(", ") || "(none)"}`);
-    output.writeLine(`  package managers: ${ctx.packageManagers.map((p) => p.name).join(", ") || "(none)"}`);
+    output.writeLine(`  languages: ${ctx.languages.map((l: { name: string }) => l.name).join(", ") || "(none)"}`);
+    output.writeLine(`  package managers: ${ctx.packageManagers.map((p: { name: string }) => p.name).join(", ") || "(none)"}`);
     output.writeLine(`  container build: ${ctx.hasContainerBuild}`);
     output.writeLine(`  CI definition: ${ctx.hasCiDefinition}`);
     if (ctx.monorepo) {

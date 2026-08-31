@@ -1,7 +1,7 @@
 // plan command — bind Entry + inputs → Run Plan, display steps.
 // Spec 17 — §30.
 
-import { bindRunPlan } from "@sverka/planner";
+import { bindRunPlan } from "@sverka/sdk";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";

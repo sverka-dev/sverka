@@ -14,7 +14,9 @@
   "bin": {
     "sverka": "./dist/bin.mjs"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
@@ -22,19 +24,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/cdk": "workspace:*",
-    "@sverka/core": "workspace:*",
-    "@sverka/ir": "workspace:*",
-    "@sverka/planner": "workspace:*",
-    "@sverka/engine-native": "workspace:*",
-    "@sverka/runtime-host": "workspace:*",
-    "@sverka/runtime-docker": "workspace:*",
-    "@sverka/checks": "workspace:*",
-    "@sverka/findings": "workspace:*",
-    "@sverka/policy": "workspace:*",
+    "@sverka/workflow": "workspace:*",
     "@sverka/sdk": "workspace:*",
-    "@sverka/compiler-github": "workspace:*",
-    "@sverka/compiler-gitlab": "workspace:*",
+    "@sverka/runtime": "workspace:*",
+    "@sverka/verification": "workspace:*",
+    "@sverka/compiler": "workspace:*",
     "yargs": "^18.1.0"
   },
   "devDependencies": {

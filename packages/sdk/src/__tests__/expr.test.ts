@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { expr } from "../expr.js";
 import { git, env } from "../context.js";
 import { SdkError } from "../errors.js";
-import type { Expression } from "@sverka/cdk";
+import type { Expression } from "@sverka/workflow";
 
 describe("expr tagged template", () => {
   it("produces an Expression with kind, template, and refs", () => {

@@ -6,56 +6,24 @@
 // from ./v0/index.js and will take over the top-level exports when Wave L
 // rebuilds the CLI.
 
+
+export * from "./planner/index.js";
 // ── Compat: old @sverka/sdk API ────────────────────────────────────
-export { pipeline, run, parallel, when, matrix, workflow } from "@sverka/core";
-export type {
-  Operation,
-  OperationKind,
-  OperationSpec,
-  Workflow,
-  Runtime,
-  RuntimeMode,
-  RuntimeResult,
-  OperationOutcome,
-  PlanContext,
-  Artifact,
-  CacheDeclaration,
-  ArtifactDeclaration,
-  NetworkPolicy,
-  CredentialDeclaration,
-} from "@sverka/core";
-export { CoreError, PlanningError, CompositionError } from "@sverka/core";
-export type { Plan, PlanOperation, PlanMetadata, ExecutorSpec } from "@sverka/ir";
-export { validatePlan, computePlanId } from "@sverka/ir";
-export { createPlanner } from "@sverka/planner";
-export type {
-  Planner,
-  DiscoverOptions,
-  ProjectContext,
-  PlanProposal,
-  ProposedCheck,
-  DiscoveryExplanation,
-} from "@sverka/planner";
-export type { Finding, Severity, FindingSource } from "@sverka/findings";
-export { normalizeSarif, computeFingerprint } from "@sverka/findings";
-export {
-  createBaseline,
-  updateBaseline,
-  loadBaseline,
-  saveBaseline,
-  filterOnlyNew,
-} from "@sverka/findings";
-export type {
-  Verdict,
-  Policy,
-  FailOnRule,
-  PolicyResult,
-  PolicyConfig,
-} from "@sverka/policy";
-export { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/policy";
-export type { CheckResolver, ResolvedCheck, CheckOutput } from "@sverka/checks";
-export { createBuiltinResolver, extractFindings } from "@sverka/checks";
-export { CheckError, type CheckErrorCode } from "@sverka/checks";
+export { pipeline, run, parallel, when, matrix, workflow } from "@sverka/workflow";
+export type { Operation, OperationKind, OperationSpec, Workflow, Runtime, RuntimeMode, RuntimeResult, OperationOutcome, PlanContext, Artifact, CacheDeclaration, ArtifactDeclaration, NetworkPolicy, CredentialDeclaration } from "@sverka/workflow";
+export { CoreError, PlanningError, CompositionError } from "@sverka/workflow";
+export type { Plan, PlanOperation, PlanMetadata, ExecutorSpec } from "@sverka/workflow";
+export { validatePlan, computePlanId } from "@sverka/workflow";
+export { createPlanner } from "./planner/index.js";
+export type { Planner, DiscoverOptions, ProjectContext, PlanProposal, ProposedCheck, DiscoveryExplanation } from "./planner/index.js";
+export type { Finding, Severity, FindingSource } from "@sverka/verification";
+export { normalizeSarif, computeFingerprint } from "@sverka/verification";
+export { createBaseline, updateBaseline, loadBaseline, saveBaseline, filterOnlyNew } from "@sverka/verification";
+export type { Verdict, Policy, FailOnRule, PolicyResult, PolicyConfig } from "@sverka/verification";
+export { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/verification";
+export type { CheckResolver, ResolvedCheck, CheckOutput } from "@sverka/verification";
+export { createBuiltinResolver, extractFindings } from "@sverka/verification";
+export { CheckError, type CheckErrorCode } from "@sverka/verification";
 export { SdkError, type SdkErrorCode } from "./errors.js";
 export type {
   WorkflowDefinition,
@@ -86,4 +54,4 @@ export { status } from "./status.js";
 export { image, images } from "./images.js";
 export type { ImageRef } from "./images.js";
 export { env, secrets, git, change, event, run as runContext, inputs, matrix as matrixContext } from "./context.js";
-export type { Expression } from "@sverka/cdk";
+export type { Expression } from "@sverka/workflow";

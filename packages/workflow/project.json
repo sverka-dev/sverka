@@ -1,0 +1,33 @@
+{
+  "name": "workflow",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsdown",
+        "cwd": "packages/workflow"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run vitest run --passWithNoTests",
+        "cwd": "packages/workflow"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run eslint src",
+        "cwd": "packages/workflow"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsc --noEmit",
+        "cwd": "packages/workflow"
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 // Shell proxy: command-prefix + shell-selector API.
 // Spec 03 — §9.2. Issue sv-kbu6.
 
-import type { Runtime, Reference } from "@sverka/cdk";
+import type { Runtime, Reference } from "@sverka/workflow";
 import type { StepBuilder } from "./dollar.js";
 import { $ } from "./dollar.js";
 

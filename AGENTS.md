@@ -21,19 +21,12 @@ anywhere.
 
 ```
 packages/
-  core/             # workflow graph, operations, outputs
-  planner/          # discovery and plan synthesis
-  ir/               # canonical plan schema and validation
-  runtime/          # executor interfaces and scheduler
-  runtime-docker/   # Docker executor
-  runtime-host/     # host process executor
-  compiler-github/  # GitHub Actions compiler
-  compiler-gitlab/  # GitLab CI compiler
-  findings/         # normalization, fingerprints, baseline
-  policy/           # policy evaluation
+  workflow/         # cdk + core + ir — constructs, graph model, canonical plan
+  runtime/          # scheduler, native engine, host + docker executors
+  compiler/         # github + gitlab importers + compilers + plugin framework
+  verification/     # findings + policy + checks
+  sdk/              # public TypeScript API, including planner
   cli/              # command-line interface
-  checks/           # built-in check providers
-  sdk/              # public TypeScript API
 website/            # sverka.dev minimalistic site
 specs/              # numbered spec tree (SDD)
 engdocs/            # engineering docs (document-first)

@@ -1,15 +1,8 @@
 // component() builder — invokes a versioned component as a step (F-32).
 // Returns a builder that creates a ComponentStep when .build() is called.
 
-import {
-  ComponentStep,
-  type Pipeline,
-  type Reference,
-  type InputLiteral,
-  type ComponentRef,
-  type Runtime,
-  type OutputDeclaration,
-} from "@sverka/cdk";
+import { ComponentStep, Pipeline } from "@sverka/workflow";
+import type { Reference, InputLiteral, ComponentRef, Runtime, OutputDeclaration } from "@sverka/workflow";
 
 export interface ComponentBuilder {
   outputs(outputs: Readonly<Record<string, OutputDeclaration>>): ComponentBuilder;

@@ -1,10 +1,10 @@
-import type { Workflow, Operation, OperationSpec } from "@sverka/core";
-import type { CheckResolver } from "@sverka/checks";
-import type { ProjectContext, PlanProposal } from "@sverka/planner";
-import type { Finding } from "@sverka/findings";
-import type { Plan } from "@sverka/ir";
-import type { Verdict, PolicyResult, PolicyConfig } from "@sverka/policy";
-import type { OperationOutcome as RuntimeOperationOutcome } from "@sverka/runtime";
+import type { Workflow, Operation, OperationSpec } from "@sverka/workflow";
+import type { CheckResolver } from "@sverka/verification";
+import type { ProjectContext, PlanProposal } from "./planner/index.js";
+import type { Finding } from "@sverka/verification";
+import type { Plan } from "@sverka/workflow";
+import type { Verdict, PolicyResult, PolicyConfig } from "@sverka/verification";
+import type { OperationOutcome } from "@sverka/runtime";
 
 /**
  * A type-safe workflow definition for `sverka.config.ts`.
@@ -72,7 +72,7 @@ export interface ExecutionResult {
    */
   runtimeFailure?: boolean;
   /** Per-operation outcomes (runtime's OperationOutcome with fromCache). */
-  outcomes: ReadonlyMap<string, RuntimeOperationOutcome>;
+  outcomes: ReadonlyMap<string, OperationOutcome>;
   /** Total execution time in ms. */
   durationMs: number;
 }
