@@ -55,6 +55,7 @@ interface CapabilityStep {
   childPipeline?: unknown;
   downstream?: unknown;
   delay?: string;
+  condition?: unknown;
 }
 
 interface CapabilityOperation {
@@ -141,6 +142,7 @@ function detectStepCapabilities(step: CapabilityStep, caps: Set<string>): void {
   detectOutputTypeCapabilities(step.outputs, outputFlags);
 
   if (step.dependencies.length > 0) caps.add("graph.dependencies");
+  if (step.condition !== undefined) caps.add("graph.conditions");
   if (outputFlags.scalar) caps.add("output.scalar");
   if (outputFlags.artifact) caps.add("output.artifact");
 
