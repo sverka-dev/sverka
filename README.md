@@ -23,7 +23,7 @@ compile the same definition to GitHub Actions or GitLab CI.
 ## What is Sverka?
 
 Sverka lets you define verification workflows as TypeScript code through
-three equivalent authoring surfaces, execute them locally through a native
+the Construct API, execute them locally through a native
 engine, and compile the same Definition Graph to GitHub Actions or GitLab CI.
 
 The canonical source of truth is the **Definition Graph** — a provider-neutral
@@ -47,15 +47,15 @@ export default proj;
 
 The same workflow can be:
 
-- **Authored** through Construct or Decorator APIs — both produce the same graph
+- **Authored** through the Construct API
 - **Executed locally** through the native engine with host or container runtime
 - **Planned** without executing — see what will run before it runs
 - **Compiled** to GitHub Actions or GitLab CI YAML
 - **Serialized** for deterministic replay and distribution
 
-## Two authoring surfaces
+## Authoring surface
 
-Both produce the **same Definition Graph**:
+The Construct API produces the **same Definition Graph**:
 
 ### Construct API
 
@@ -68,28 +68,12 @@ new ShellStep(p, "build", { command: "npm run build" });
 new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
-### Decorator API
-
-```ts
-import { pipeline, step, entry, decoratePipeline } from "@sverka/decorators";
-import { Project } from "@sverka/cdk";
-
-@pipeline
-class MyPipeline {
-  @step build = "npm run build";
-  @entry({ kind: "push" }) ["on-push"] = ["build"];
-}
-
-const proj = new Project("myproj");
-decoratePipeline(MyPipeline, proj, "ci");
-```
-
 > **Planned:** an SDK builder API (`sh`, `artifact`, `when`, `images`) is
 > designed but not yet shipped.
 
 ## Features
 
-- **Two authoring surfaces** — Construct and Decorator APIs produce equivalent graphs (SDK builder API planned)
+- **Single authoring surface** — the Construct API (SDK builder API planned)
 - **Provider-neutral Definition Graph** — no GitHub or GitLab terms in your workflow
 - **Native engine** — topological scheduling, parallel steps, failure propagation
 - **CI compilation** — compile the Plan to GitHub Actions or GitLab CI YAML (thin-wrapper mode today; native lowering planned)
@@ -132,7 +116,7 @@ sverka compile --target gitlab --output .gitlab-ci.yml
 ```text
   ┌──────────────────────────────────────────────┐
   │           Authoring Surfaces                 │
-  │  Constructs  │  SDK  │  Decorators           │
+  │  Constructs  │  SDK                         │
   └──────────────────┬───────────────────────────┘
                      │ synthesize
   ┌──────────────────▼───────────────────────────┐
@@ -161,7 +145,7 @@ sverka compile --target gitlab --output .gitlab-ci.yml
 | Package | Description |
 |---------|-------------|
 | `@sverka/cdk` | Construct API: Project, Pipeline, ShellStep, Entry |
-| `@sverka/decorators` | Decorator API: @pipeline, @step, @entry, @input |
+
 | `@sverka/sdk` | SDK entry point (createSverka) and core re-exports; builder API planned |
 | `@sverka/core` | Definition Graph synthesis and validation |
 | `@sverka/ir` | Serializable graph schema, Plan, Run Plan, validation |
@@ -174,7 +158,7 @@ sverka compile --target gitlab --output .gitlab-ci.yml
 | `@sverka/checks` | Built-in check providers |
 | `@sverka/findings` | SARIF normalization, fingerprints, baselines |
 | `@sverka/policy` | Policy evaluation |
-| `@sverka/conformance` | Conformance suite |
+
 | `@sverka/cli` | Command-line interface |
 
 ## Development
@@ -214,9 +198,9 @@ The v0 redesign rebuilt Sverka from the ground up as a provider-neutral
 workflow framework. Key changes:
 
 - **Definition Graph** replaces the old Plan IR as the canonical source
-- **Two authoring surfaces** (Construct/Decorator) replace the old single SDK (builder API planned)
+- **Single authoring surface** (Construct) replaces the old SDK (builder API planned)
 - **CI compilation** via `@sverka/compiler-github` and `@sverka/compiler-gitlab` — thin-wrapper mode today (single job running `sverka execute`), native one-job-per-step lowering planned
-- **Conformance suite** verifies all surfaces produce equivalent graphs
+- **Conformance coverage** is maintained by package test suites
 
 The v0 redesign was organized in waves:
 
@@ -225,7 +209,7 @@ The v0 redesign was organized in waves:
 | A | Construct API |
 | B | IR schemas |
 | C | SDK authoring |
-| D | Decorator authoring |
+
 | E | Plugin/capability model |
 | F | Native engine/runtime drivers |
 | G | Planner |
@@ -234,7 +218,7 @@ The v0 redesign was organized in waves:
 | J | Checks integration |
 | K | Findings/policy carry-over |
 | L | CLI |
-| M | Conformance suite (§34 acceptance gate) |
+
 | N | Documentation |
 
 ## Contributing

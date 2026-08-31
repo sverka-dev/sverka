@@ -1,8 +1,10 @@
 # Spec 18 — Conformance
 
-**Status:** Active
+> **Note:** This spec is **superseded**. The `@sverka/conformance` package has been removed; the remaining packages cover their own conformance tests.
+
+**Status:** Superseded
 **Source:** specs/architecture-spec.md §33, §34
-**Package:** `@sverka/conformance` (new)
+**Package:** `@sverka/conformance` (removed)
 
 ## Overview
 
