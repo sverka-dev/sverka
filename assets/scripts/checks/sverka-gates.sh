@@ -15,8 +15,7 @@ ROOT="${GC_WORK_DIR:-$(pwd)}"
 
 cd "$ROOT"
 
-# Determine which gates to run based on GC_BEAD metadata or default to all.
-# The step bead may carry gc.sverka.gates metadata (comma-separated subset).
+# Gates to run. Override by setting SVERKA_GATES (comma-separated subset).
 GATES="${SVERKA_GATES:-test,typecheck,lint,build}"
 
 run_gate() {
@@ -38,7 +37,7 @@ IFS=',' read -r -a GATE_LIST <<<"$GATES"
 for g in "${GATE_LIST[@]}"; do
   g="$(printf '%s' "$g" | tr -d '[:space:]')"
   [ -n "$g" ] || continue
-  run_gate "$g" || FAILED=1
+  run_gate "$g" || { FAILED=1; break; }
 done
 
 if [ "$FAILED" -ne 0 ]; then
