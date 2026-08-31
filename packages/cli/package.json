@@ -29,7 +29,9 @@
     "@sverka/runtime": "workspace:*",
     "@sverka/verification": "workspace:*",
     "@sverka/compiler": "workspace:*",
-    "yargs": "^18.1.0"
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "yargs": "^18.1.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/yargs": "^17.0.33",

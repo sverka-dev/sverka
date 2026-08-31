@@ -13,6 +13,7 @@ import { discoverCommand } from "./commands/discover.js";
 import { checkCommand } from "./commands/check.js";
 import { policyCommand, type PolicyArgs } from "./commands/policy.js";
 import { synthCommand, type SynthArgs } from "./commands/synth.js";
+import { mcpServerCommand } from "./commands/mcp-server.js";
 import { doctorCommand } from "./commands/doctor.js";
 
 /** Optional dependencies for main (testability seam). */
@@ -109,6 +110,7 @@ function buildParser(): Argv {
     .command("check", "Resolve proposed checks → StepDefinitions")
     .command("policy", "Evaluate findings against policy", addPolicyCommand)
     .command("synth", "Compile to a target (stub — requires Waves H/I)", addSynthCommand)
+    .command("mcp-server", "Expose Sverka as an MCP server (stdio)")
     .command("doctor", "Diagnose environment and dependencies")
     .demandCommand(1, "No command given")
     .strict()
@@ -145,6 +147,8 @@ async function dispatch(
       return dispatchPolicy(parsed, global, output, start);
     case "synth":
       return dispatchSynth(parsed, global, output, start);
+    case "mcp-server":
+      return mcpServerCommand({}, global, output, start);
     case "doctor":
       return doctorCommand(global, output, start);
     default:
