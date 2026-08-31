@@ -9,6 +9,10 @@ version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
 [imports.core]
 source = "https://github.com/gastownhall/gascity/tree/main/internal/bootstrap/packs/core"
 version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
+[imports.gascity]
+source = "/home/vscode/.gc/cache/repos/6fe2cc156f84fc349b1f4fcd3927e6b3d0781b572a3d9d980e1b6d65e1a66421/gascity"
+[imports.gc-roles]
+source = "/home/vscode/.gc/cache/repos/6fe2cc156f84fc349b1f4fcd3927e6b3d0781b572a3d9d980e1b6d65e1a66421/gascity/roles"
 
 # Mayor — always-on orchestrator that plans and dispatches all work
 [[named_session]]
