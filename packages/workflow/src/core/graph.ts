@@ -1,11 +1,11 @@
 // Definition Graph types — the canonical provider-neutral source of truth.
 // Spec 02 — §10, §11, §15.
 
-import type { Reference, Trigger, Runtime, Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, ArtifactAccess, MatrixSpec, Condition, ContinueOnError, RetryPolicy, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec } from "../cdk/index.js";
+import type { Reference, Trigger, Runtime, Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, ArtifactAccess, MatrixSpec, Condition, ContinueOnError, RetryPolicy, BackoffSpec, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec } from "../cdk/index.js";
 
 // Re-export types used in the graph schema so consumers can access them
 // from @sverka/core without depending on @sverka/cdk directly.
-export type { Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, Reference, Expression, Runtime, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, EnvironmentAction, EnvironmentTier, ArtifactAccess, CacheSpec, CachePolicy, ConcurrencySpec } from "../cdk/index.js";
+export type { Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, Reference, Expression, Runtime, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, BackoffSpec, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, EnvironmentAction, EnvironmentTier, ArtifactAccess, CacheSpec, CachePolicy, ConcurrencySpec } from "../cdk/index.js";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;

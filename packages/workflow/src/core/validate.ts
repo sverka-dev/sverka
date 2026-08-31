@@ -3,7 +3,7 @@
 
 import type { StepDefinition, DefinitionGraph } from "./graph.js";
 import { SynthesisError } from "./errors.js";
-import type { StepRef, OutputType } from "../cdk/index.js";
+import type { StepRef, OutputType, CacheSpec, RetryPolicy } from "../cdk/index.js";
 
 /**
  * Detect cycles in the dependency graph using DFS.
@@ -270,6 +270,10 @@ export function validateGraph(graph: DefinitionGraph): void {
     validateReferences(steps, pipeline.id);
     validateReferenceTypes(steps, pipeline.id);
     detectCycles(steps);
+    for (const step of steps) {
+      validateCacheKeys(step);
+      validateRetryPolicy(step);
+    }
     for (const entry of pipeline.entries) {
       if (entry.roots.length === 0) {
         throw new SynthesisError(
@@ -289,4 +293,65 @@ export function validateGraph(graph: DefinitionGraph): void {
       }
     }
   }
+}
+
+/**
+ * Validate that cache keys and restore keys do not reference step outputs.
+ * Step-output references are unavailable before execution and cannot be used
+ * to address the cache. Throws SynthesisError(CACHE_KEY_STEP_REF).
+ *
+ * Recognizes `${{ steps.<id>.outputs.<name> }}` and `${{ step.<id>.<name> }}`
+ * patterns. Context refs (env/git/matrix/inputs/secrets) are allowed.
+ */
+export function validateCacheKeys(step: StepDefinition): void {
+  const cache: CacheSpec | undefined = step.cache;
+  if (!cache) return;
+  for (const key of [cache.key, ...(cache.restoreKeys ?? [])]) {
+    if (hasStepOutputRef(key)) {
+      throw new SynthesisError(
+        "CACHE_KEY_STEP_REF",
+        `Cache key in step '${step.id}' must not reference step outputs: '${key}'`,
+        step.id,
+      );
+    }
+  }
+}
+
+/**
+ * Validate a step's retry policy. Throws SynthesisError(INVALID_RETRY_POLICY)
+ * when `max` is negative or `backoff.baseMs` is negative.
+ */
+export function validateRetryPolicy(step: StepDefinition): void {
+  const retry: RetryPolicy | undefined = step.retry;
+  if (!retry) return;
+  if (retry.max < 0) {
+    throw new SynthesisError(
+      "INVALID_RETRY_POLICY",
+      `Retry policy in step '${step.id}' has negative max (${retry.max})`,
+      step.id,
+    );
+  }
+  if (retry.backoff && retry.backoff.baseMs < 0) {
+    throw new SynthesisError(
+      "INVALID_RETRY_POLICY",
+      `Retry policy in step '${step.id}' has negative backoff.baseMs (${retry.backoff.baseMs})`,
+      step.id,
+    );
+  }
+}
+
+/**
+ * Returns true if the given cache key string contains a step-output reference
+ * such as `${{ steps.build.outputs.version }}` or `${{ step.build.version }}`.
+ */
+function hasStepOutputRef(key: string): boolean {
+  const refPattern = /\$\{\{\s*([^}]+?)\s*\}\}/g;
+  for (const match of key.matchAll(refPattern)) {
+    const inner = match[1]!.trim();
+    // `steps.<id>.outputs.<name>` or `step.<id>.<name>` — both refer to step outputs.
+    if (inner.startsWith("steps.") || inner.startsWith("step.")) {
+      return true;
+    }
+  }
+  return false;
 }

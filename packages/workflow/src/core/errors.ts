@@ -14,7 +14,9 @@ export type SynthesisErrorCode =
   | "INPUT_TYPE_MISMATCH"
   | "UNKNOWN_INPUT"
   | "CALL_CYCLE"
-  | "NESTING_TOO_DEEP";
+  | "NESTING_TOO_DEEP"
+  | "CACHE_KEY_STEP_REF"
+  | "INVALID_RETRY_POLICY";
 
 export class SynthesisError extends Error {
   override readonly cause: unknown;

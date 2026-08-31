@@ -32,8 +32,17 @@ export class SchedulerError extends EngineError {
 
 /** Raised when a step's operations fail during execution. */
 export class StepExecError extends EngineError {
-  constructor(message: string, code: EngineErrorCode, cause?: unknown) {
+  readonly exitCode?: number;
+  readonly timedOut?: boolean;
+
+  constructor(message: string, code: EngineErrorCode, cause?: unknown, exitCode?: number, timedOut?: boolean) {
     super(message, code, cause);
     this.name = "StepExecError";
+    if (exitCode !== undefined) {
+      this.exitCode = exitCode;
+    }
+    if (timedOut !== undefined) {
+      this.timedOut = timedOut;
+    }
   }
 }

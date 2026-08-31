@@ -2,6 +2,7 @@
 
 import type { RunPlan, InputValue } from "@sverka/workflow";
 import type { StepDefinition } from "@sverka/workflow";
+import type { CacheStore } from "./cache-store.js";
 
 // --- Engine ---
 
@@ -12,6 +13,7 @@ export interface RunRequest {
   readonly secrets?: SecretProvider;
   readonly drivers?: readonly RuntimeDriver[];
   readonly maxConcurrent?: number;
+  readonly cache?: CacheStore;
 }
 
 export interface Engine {
@@ -30,6 +32,8 @@ export type RunEvent =
   | { readonly type: "step-failed"; readonly stepId: string; readonly error: string; readonly durationMs: number }
   | { readonly type: "step-skipped"; readonly stepId: string }
   | { readonly type: "step-cancelled"; readonly stepId: string }
+  | { readonly type: "step-cache-hit"; readonly stepId: string; readonly key: string }
+  | { readonly type: "step-retry"; readonly stepId: string; readonly attempt: number; readonly nextAttemptMs: number }
   | { readonly type: "run-completed"; readonly runId: string; readonly status: RunStatus; readonly durationMs: number }
   | { readonly type: "diagnostic"; readonly stepId: string; readonly message: string; readonly severity: "info" | "warn" | "error" };
 
@@ -90,4 +94,5 @@ export interface SecretProvider {
 export interface EngineConfig {
   readonly drivers: readonly RuntimeDriver[];
   readonly maxConcurrent?: number;
+  readonly cache?: CacheStore;
 }

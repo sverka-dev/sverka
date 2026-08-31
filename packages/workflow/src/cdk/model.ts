@@ -267,10 +267,17 @@ export type RetryWhen =
   | "timeout"
   | "unknown_failure";
 
+export interface BackoffSpec {
+  readonly baseMs: number;
+  readonly maxMs?: number;
+  readonly factor?: number;
+}
+
 export interface RetryPolicy {
   readonly max: number;
   readonly when?: readonly RetryWhen[];
   readonly exitCodes?: readonly number[];
+  readonly backoff?: BackoffSpec;
 }
 
 // ---------------------------------------------------------------------------
