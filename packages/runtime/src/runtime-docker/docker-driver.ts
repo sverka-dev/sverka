@@ -2,7 +2,7 @@
 // Spec 12 — §22.4, §14. Implements RuntimeDriver from @sverka/engine-native.
 
 import { isAbsolute, normalize, relative } from "node:path";
-import type { StepDefinition } from "@sverka/workflow";
+import type { StepDefinition, NetworkAllowlist } from "@sverka/workflow";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "../engine-native/index.js";
 import type { DockerDriverConfig } from "./config.js";
 import { DockerExecutorError, ContainerPolicyError } from "./errors.js";
@@ -42,7 +42,7 @@ export function createDockerDriver(config: DockerDriverConfig): RuntimeDriver {
       const containerCwd = toContainerPath(request.cwd ?? request.workspace, request.workspace);
       const containerEnv = buildContainerEnv(request.env, request.workspace);
 
-      const args = buildDockerArgs(request, runAs, network, image, containerCwd, containerEnv);
+      const args = buildDockerArgs(request, runAs, network, image, containerCwd, containerEnv, request.network);
       const start = Date.now();
       const runDockerOptions = buildRunDockerOptions(config, request, dockerPath, maxLogBytes);
       const result = await runDocker(args, runDockerOptions);
@@ -61,6 +61,11 @@ export function createDockerDriver(config: DockerDriverConfig): RuntimeDriver {
 /**
  * Build the `docker run` argument array. Pure — no side effects.
  * Exported for testing.
+ *
+ * Network allowlist (Spec 26): when `networkAllowlist` is provided with a
+ * non-empty `allowed` list, a declarative `--label` is emitted (the native
+ * engine does not implement kernel-level filtering in v1). When `allowed` is
+ * empty or the allowlist is absent, `--network=none` is used (default deny).
  */
 export function buildDockerArgs(
   request: ShellExecuteRequest,
@@ -69,9 +74,13 @@ export function buildDockerArgs(
   image: string,
   containerCwd?: string,
   containerEnv?: Readonly<Record<string, string>>,
+  networkAllowlist?: NetworkAllowlist,
 ): string[] {
   const cwd = containerCwd ?? toContainerPath(request.cwd ?? request.workspace, request.workspace);
   const env = containerEnv ?? buildContainerEnv(request.env, request.workspace);
+
+  const hasAllowed = networkAllowlist !== undefined && networkAllowlist.allowed.length > 0;
+  const effectiveNetwork = hasAllowed ? network : "none";
 
   const args: string[] = [
     "run",
@@ -79,10 +88,14 @@ export function buildDockerArgs(
     "--read-only",
     "--cap-drop=ALL",
     `--user=${runAs}`,
-    `--network=${network}`,
+    `--network=${effectiveNetwork}`,
     "-v", `${request.workspace}:${CONTAINER_WORKSPACE}`,
     "-w", cwd,
   ];
+
+  if (hasAllowed) {
+    args.push(`--label=sverka.network.allowlist=${networkAllowlist!.allowed.join(",")}`);
+  }
 
   for (const [k, v] of Object.entries(env)) {
     args.push("--env", `${k}=${v}`);

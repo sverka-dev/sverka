@@ -45,6 +45,10 @@ function snapshotPlugin(plugin: SverkaPlugin): SverkaPlugin {
   if (plugin.engines) copy.engines = [...plugin.engines];
   if (plugin.connectors) copy.connectors = [...plugin.connectors];
   if (plugin.extensions) copy.extensions = [...plugin.extensions];
+  // Tools facet is a live runtime object (ToolProvider); shallow-copy the
+  // reference so the registry snapshot preserves the facet without trying to
+  // deep-clone stateful connections (Spec 23).
+  if (plugin.tools) copy.tools = plugin.tools;
   return copy as unknown as SverkaPlugin;
 }
 

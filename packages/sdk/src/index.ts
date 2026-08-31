@@ -55,3 +55,5 @@ export { image, images } from "./images.js";
 export type { ImageRef } from "./images.js";
 export { env, secrets, git, change, event, run as runContext, inputs, matrix as matrixContext } from "./context.js";
 export type { Expression } from "@sverka/workflow";
+export { agent } from "./agent.js";
+export type { AgentStepBuilder } from "./agent.js";

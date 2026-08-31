@@ -652,13 +652,14 @@ function lowerStep(
 
   const { image, variables: jobVariables } = lowerRuntime(step, variables);
   const rules = applyStepCondition(mergedRules, step, jobIdMap);
+  const writeVariables = lowerWriteVariables(step);
 
   return {
     id: jobId,
     stage,
     needs,
     script,
-    ...buildJobFields({ image, artifacts, variables: jobVariables, rules, timeout: step.timeout, interruptible: step.interruptible, runner: step.runner, identity: step.identity, services: step.services, environment: step.environment, cache: step.cache, concurrency: step.concurrency }),
+    ...buildJobFields({ image, artifacts, variables: { ...jobVariables, ...writeVariables }, rules, timeout: step.timeout, interruptible: step.interruptible, runner: step.runner, identity: step.identity, services: step.services, environment: step.environment, cache: step.cache, concurrency: step.concurrency }),
     ...(step.matrix !== undefined
       ? { parallel: { matrix: lowerGitlabMatrix(step.matrix) } }
       : {}),
@@ -809,8 +810,29 @@ function lowerRuntime(
       variables[secret] = `$${secret}`;
     }
   }
+  // Spec 26: network allowlist annotation (GitLab has no native per-job egress control).
+  if (runtime.network && runtime.network.allowed.length > 0) {
+    variables["SVERKA_NETWORK_ALLOWLIST"] = runtime.network.allowed.join(",");
+  }
 
   return { ...(image ? { image } : {}), variables };
+}
+
+/**
+ * Safe-outputs (Spec 25): GitLab has no per-job permission block.
+ * Steps with declared writes receive CI variables corresponding to their
+ * declared write kinds (e.g. SV_WRITE_DEPLOY=true). Steps without writes
+ * receive no SV_WRITE_* variables.
+ */
+function lowerWriteVariables(step: StepDefinition): Record<string, string> {
+  const writes = step.permissions?.write;
+  if (!writes || writes.length === 0) return {};
+  const vars: Record<string, string> = {};
+  for (const decl of writes) {
+    const varName = `SV_WRITE_${decl.kind.toUpperCase().replace(/-/g, "_")}`;
+    vars[varName] = "true";
+  }
+  return vars;
 }
 
 interface JobFieldContext {

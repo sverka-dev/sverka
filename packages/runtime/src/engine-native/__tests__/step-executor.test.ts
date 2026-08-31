@@ -220,6 +220,7 @@ describe("StepExecutor — context ref resolution", () => {
       inputs: [{ kind: "context", namespace: "secrets", field: "TOKEN" }],
       outputs: [],
       dependencies: [],
+      permissions: { write: [{ kind: "comment", target: "pr" }] },
     };
     await executeStep({
       step, driver, workspace: testDir,
@@ -428,6 +429,7 @@ describe("StepExecutor — secret injection (F-21)", () => {
       inputs: [],
       outputs: [],
       dependencies: [],
+      permissions: { write: [{ kind: "deploy", target: "production" }] },
     };
     await executeStep({
       step, driver, workspace: testDir,

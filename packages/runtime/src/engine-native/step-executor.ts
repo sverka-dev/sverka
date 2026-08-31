@@ -1,13 +1,14 @@
 // StepExecutor — runs ordered Operations inside one Step.
 // Spec 10 — §22.1 component 3.
 
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, join, normalize, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import type { StepDefinition, OperationDefinition } from "@sverka/workflow";
 import type { InputValue } from "@sverka/workflow";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore, RunEvent } from "./types.js";
-import { StepExecError, EngineError } from "./errors.js";
+import type { AgentDriver, AgentExecuteRequest, AgentResult } from "./agent-driver.js";
+import { StepExecError, EngineError, AgentDriverError } from "./errors.js";
 import { stepPrefix, resolveProducerId } from "./refs.js";
 
 export interface StepExecOptions {
@@ -21,6 +22,8 @@ export interface StepExecOptions {
   readonly emit: (event: RunEvent) => void;
   readonly isCancelled: () => boolean;
   readonly signal?: AbortSignal;
+  readonly agentDrivers?: readonly AgentDriver[];
+  readonly artifactDir?: string;
 }
 
 export interface StepExecResult {
@@ -97,6 +100,9 @@ async function executeOperation(
     case "diagnostic":
       executeDiagnosticOperation(op, opts);
       break;
+    case "agent":
+      await executeAgentOperation(op, opts);
+      break;
   }
 }
 
@@ -121,6 +127,7 @@ async function executeShellOperation(
     ...(step.runtime.image ? { image: step.runtime.image } : {}),
     ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
     ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
+    ...(step.runtime.network ? { network: step.runtime.network } : {}),
     ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
       ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
       : {}),
@@ -200,12 +207,110 @@ function executeDiagnosticOperation(
 }
 
 /**
+ * Execute an agent operation. Spec 27.
+ *
+ * 1. Select an AgentDriver from config.agentDrivers using canExecute(engine).
+ * 2. If no driver is available, fail the step with NO_AGENT_DRIVER.
+ * 3. Resolve/interpolate the prompt.
+ * 4. Resolve tool references through the plugin registry. Missing tools are
+ *    non-fatal: emit a warning and run without that tool.
+ * 5. Execute the driver.
+ * 6. Save the result artifact to <artifactDir>/<stepId>/agent-result.json.
+ * 7. Mark success unless finishReason === "error".
+ * 8. Wrap driver-thrown errors in AgentDriverError (AGENT_EXECUTION_FAILED).
+ */
+async function executeAgentOperation(
+  op: Extract<OperationDefinition, { kind: "agent" }>,
+  opts: StepExecOptions,
+): Promise<void> {
+  const { step, emit, agentDrivers, artifactDir, signal, valueStore, inputs, secrets, workspace } = opts;
+
+  // 1. Select a driver.
+  const drivers = agentDrivers ?? [];
+  const driver = drivers.find((d) => d.canExecute(op.engine));
+
+  // 2. No driver → fail step (do not throw out of the engine).
+  if (!driver) {
+    throw new AgentDriverError(
+      `NO_AGENT_DRIVER: no agent driver can execute engine '${op.engine}' for step '${step.id}'`,
+      "NO_AGENT_DRIVER",
+    );
+  }
+
+  // 3. Resolve/interpolate the prompt (reuse shell interpolation logic).
+  const prompt = interpolateCommand(op.prompt, step, valueStore, inputs, secrets, workspace);
+
+  // 4. Resolve tool references. Missing tools are non-fatal.
+  //    The plugin registry is not yet wired (Spec 23 follow-up); for now we
+  //    treat all tool refs as "unknown" and emit a warning, then run without
+  //    them. This keeps the contract: missing tools never fail the step.
+  let resolvedTools = op.tools;
+  if (op.tools && op.tools.length > 0) {
+    const known: typeof op.tools = [];
+    for (const ref of op.tools) {
+      // Plugin registry lookup would go here. Until the registry is wired,
+      // every tool ref is treated as missing → warn + skip.
+      emit({
+        type: "diagnostic",
+        stepId: step.id,
+        message: `agent tool '${ref.plugin}.${ref.tool}' not found; running without it`,
+        severity: "warn",
+      });
+    }
+    resolvedTools = known.length > 0 ? known : undefined;
+  }
+
+  // 5. Execute the driver. Wrap thrown errors.
+  let result: AgentResult;
+  try {
+    const request: AgentExecuteRequest = {
+      engine: op.engine,
+      ...(op.model !== undefined ? { model: op.model } : {}),
+      prompt,
+      ...(resolvedTools !== undefined ? { tools: resolvedTools } : {}),
+      ...(op.maxTokens !== undefined ? { maxTokens: op.maxTokens } : {}),
+      ...(signal !== undefined ? { signal } : {}),
+    };
+    result = await driver.executeAgent(request);
+  } catch (e) {
+    throw new AgentDriverError(
+      `AGENT_EXECUTION_FAILED: agent execution failed for step '${step.id}': ${e instanceof Error ? e.message : String(e)}`,
+      "AGENT_EXECUTION_FAILED",
+      e,
+    );
+  }
+
+  // 6. Save the result artifact to <artifactDir>/<stepId>/agent-result.json.
+  if (artifactDir !== undefined) {
+    const resultDir = join(artifactDir, step.id);
+    await mkdir(resultDir, { recursive: true });
+    const resultPath = join(resultDir, "agent-result.json");
+    await writeFile(resultPath, JSON.stringify(result, null, 2), "utf-8");
+  }
+
+  // 7. Mark success unless finishReason === "error".
+  if (result.finishReason === "error") {
+    throw new AgentDriverError(
+      `AGENT_EXECUTION_FAILED: agent for step '${step.id}' finished with reason 'error'`,
+      "AGENT_EXECUTION_FAILED",
+    );
+  }
+}
+
+/**
  * Filter the run-level secrets map to only the secrets declared by this step.
  * Prevents a step from interpolating secrets it did not declare.
+ *
+ * Safe-outputs (Spec 25): steps without `permissions.write` are read-only
+ * and receive an empty secret set, even if they declare `runtime.secrets`.
+ * Steps with at least one write declaration resolve secrets normally.
  */
 function stepScopedSecrets(opts: StepExecOptions): Readonly<Record<string, string>> {
   const { step, secrets } = opts;
   if (!step.runtime.secrets) return {};
+  // Safe-outputs: read-only steps get no secrets
+  const writes = step.permissions?.write;
+  if (!writes || writes.length === 0) return {};
   const scoped: Record<string, string> = {};
   for (const name of step.runtime.secrets) {
     if (secrets[name] !== undefined) {

@@ -785,7 +785,19 @@ function resolveJobIf(
  * identity-token requests.
  *
  * GitHub Pages jobs need pages:write and id-token:write permissions.
+ * Safe-outputs (Spec 25): steps with permissions.write get a scoped
+ * permissions block from write kinds. Steps without writes get
+ * permissions: {} (read-only). deployPages/identity take precedence.
  */
+const WRITE_KIND_TO_GHA_PERMISSION: Readonly<Record<string, string>> = {
+  "pull-request": "pull-requests: write",
+  "comment": "issues: write",
+  "deploy": "deployments: write",
+  "push": "contents: write",
+  "id-token": "id-token: write",
+  "pages": "pages: write",
+};
+
 function resolveJobPermissions(step: StepDefinition): Record<string, unknown> {
   if (step.operations.some((op) => op.kind === "deployPages")) {
     return {
@@ -796,6 +808,28 @@ function resolveJobPermissions(step: StepDefinition): Record<string, unknown> {
   if (step.identity !== undefined) {
     return { permissions: { "id-token": "write" } };
   }
+  // Safe-outputs: derive permissions from write declarations.
+  // Only emit a permissions block when step.permissions is explicitly set.
+  if (step.permissions !== undefined) {
+    const writes = step.permissions.write;
+    if (writes && writes.length > 0) {
+      const perms: Record<string, string> = {};
+      for (const decl of writes) {
+        const mapped = WRITE_KIND_TO_GHA_PERMISSION[decl.kind];
+        if (mapped !== undefined) {
+          const [scope, level] = mapped.split(": ");
+          perms[scope!] = level!;
+        } else {
+          // Unknown kind → safe default
+          perms["contents"] = "read";
+        }
+      }
+      return { permissions: perms };
+    }
+    // permissions set but no writes → explicit read-only
+    return { permissions: {} };
+  }
+  // No permissions set → backward compatible (no permissions key)
   return {};
 }
 
@@ -1009,6 +1043,14 @@ function lowerOperations(
     name: "Checkout",
     uses: "actions/checkout@v4",
   });
+
+  // Spec 26: network allowlist annotation (GHA has no native per-job egress control).
+  if (step.runtime.network && step.runtime.network.allowed.length > 0) {
+    steps.push({
+      name: "Sverka network allowlist",
+      run: `echo "# sverka:network-allowlist: ${step.runtime.network.allowed.join(",")}"`,
+    });
+  }
 
   // beforeScript → run steps before main operations.
   if (step.beforeScript) {

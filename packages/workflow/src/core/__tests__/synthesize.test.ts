@@ -578,3 +578,30 @@ describe("synthesize — step conditions", () => {
     });
   });
 });
+
+describe("synthesize — safe-outputs: step permissions (Spec 25)", () => {
+  it("item 1: StepPermissions with one write declaration synthesizes onto StepDefinition.permissions", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      permissions: {
+        write: [{ kind: "deploy", target: "production" }],
+      },
+    });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.permissions).toEqual({
+      write: [{ kind: "deploy", target: "production" }],
+    });
+  });
+
+  it("item 4: Step with no permissions → StepDefinition.permissions is undefined (read-only default)", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const graph = synthesize(proj);
+    const step = graph.project.pipelines[0]?.steps[0];
+    expect(step?.permissions).toBeUndefined();
+  });
+});

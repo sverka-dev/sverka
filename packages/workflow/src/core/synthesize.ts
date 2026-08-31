@@ -1,7 +1,7 @@
 // Synthesis: transforms a construct tree into a Definition Graph.
 // Spec 05 — §16, §11.3, §11.4. F-31: two-pass for pipeline calls.
 
-import { Pipeline, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, Entry, Project, Step } from "../cdk/index.js";
+import { Pipeline, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, AgentStep, Entry, Project, Step } from "../cdk/index.js";
 import type { StepRef, Reference, InputLiteral } from "../cdk/index.js";
 import type {
   DefinitionGraph,
@@ -23,6 +23,8 @@ import {
   validateDependencies,
   validateCacheKeys,
   validateRetryPolicy,
+  validateNetworkAllowlist,
+  validateWriteDeclarations,
   resolveStepId,
 } from "./validate.js";
 import { validatePipelineCalls } from "./validate-calls.js";
@@ -67,6 +69,8 @@ export function synthesize(project: Project): DefinitionGraph {
     for (const step of pipeline.steps) {
       validateCacheKeys(step);
       validateRetryPolicy(step);
+      validateNetworkAllowlist(step);
+      validateWriteDeclarations(step);
     }
   }
   validatePipelineCalls(pipelines);
@@ -182,6 +186,16 @@ function collectPrimaryOperations(step: Step): OperationDefinition[] {
   if (step instanceof PagesStep) {
     return [{ kind: "deployPages", ...step.pages }];
   }
+  if (step instanceof AgentStep) {
+    return [{
+      kind: "agent",
+      engine: step.engine,
+      ...(step.model !== undefined ? { model: step.model } : {}),
+      prompt: step.prompt,
+      ...(step.tools.length > 0 ? { tools: [...step.tools] } : {}),
+      ...(step.maxTokens !== undefined ? { maxTokens: step.maxTokens } : {}),
+    }];
+  }
   return [];
 }
 
@@ -230,6 +244,7 @@ function collectStepOptionalFields(step: Step): Partial<StepDefinition> {
     ["cache", step.cache],
     ["concurrency", step.concurrency],
     ["delay", step.delay],
+    ["permissions", step.permissions],
   ];
   for (const [key, value] of fields) {
     if (value !== undefined) {

@@ -210,6 +210,11 @@ export interface IncludeRef {
 // Runtime (§14.1)
 // ---------------------------------------------------------------------------
 
+/** Per-step egress control: allowed domains for network access. */
+export interface NetworkAllowlist {
+  readonly allowed: readonly string[];
+}
+
 export interface Runtime {
   readonly mode?: "host" | "container";
   readonly image?: string;
@@ -217,6 +222,7 @@ export interface Runtime {
   readonly secrets?: readonly string[];
   readonly workingDir?: string;
   readonly shell?: string;
+  readonly network?: NetworkAllowlist;
 }
 
 // ---------------------------------------------------------------------------
@@ -408,4 +414,40 @@ export interface CacheSpec {
 export interface ConcurrencySpec {
   readonly group: string;
   readonly cancelInProgress?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Safe-outputs: step-level write permissions (Spec 25)
+// ---------------------------------------------------------------------------
+
+/** Declares what a step writes (e.g. a PR comment, a deployment, a push). */
+export interface WriteDeclaration {
+  readonly kind: string;        // e.g. "pull-request", "comment", "deploy", "push"
+  readonly target: string;      // e.g. "comment", "production", "main"
+  readonly description?: string;
+}
+
+/** Step-level permissions. Steps are read-only by default. */
+export interface StepPermissions {
+  readonly write: readonly WriteDeclaration[];
+}
+
+// ---------------------------------------------------------------------------
+// AgentStep (Spec 27 — AI agent as step type)
+// ---------------------------------------------------------------------------
+
+/** Reference to a tool exposed by a plugin (e.g. MCP). */
+export interface AgentToolRef {
+  readonly plugin: string;   // e.g. "mcp"
+  readonly tool: string;     // e.g. "github.create-pr"
+}
+
+/** Operation that runs an AI agent inside a step. */
+export interface AgentOperation {
+  readonly kind: "agent";
+  readonly engine: string;           // e.g. "claude", "gpt-4", "copilot"
+  readonly model?: string;           // e.g. "claude-sonnet-4-5"
+  readonly prompt: string;
+  readonly tools?: readonly AgentToolRef[];
+  readonly maxTokens?: number;
 }

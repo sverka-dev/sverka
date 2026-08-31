@@ -3,7 +3,7 @@
 
 import type { StepDefinition, DefinitionGraph } from "./graph.js";
 import { SynthesisError } from "./errors.js";
-import type { StepRef, OutputType, CacheSpec, RetryPolicy } from "../cdk/index.js";
+import type { StepRef, OutputType, CacheSpec, RetryPolicy, NetworkAllowlist, WriteDeclaration } from "../cdk/index.js";
 
 /**
  * Detect cycles in the dependency graph using DFS.
@@ -273,6 +273,8 @@ export function validateGraph(graph: DefinitionGraph): void {
     for (const step of steps) {
       validateCacheKeys(step);
       validateRetryPolicy(step);
+      validateNetworkAllowlist(step);
+      validateWriteDeclarations(step);
     }
     for (const entry of pipeline.entries) {
       if (entry.roots.length === 0) {
@@ -354,4 +356,49 @@ function hasStepOutputRef(key: string): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Validate a step's network allowlist. Throws SynthesisError(
+ * INVALID_NETWORK_ALLOWLIST) when `allowed` contains a non-string or an
+ * empty string. An empty `allowed` array (deny all) is valid.
+ */
+export function validateNetworkAllowlist(step: StepDefinition): void {
+  const network: NetworkAllowlist | undefined = step.runtime.network;
+  if (!network) return;
+  for (const domain of network.allowed) {
+    if (typeof domain !== "string" || domain.length === 0) {
+      throw new SynthesisError(
+        "INVALID_NETWORK_ALLOWLIST",
+        `Network allowlist in step '${step.id}' contains an invalid domain (must be a non-empty string)`,
+        step.id,
+      );
+    }
+  }
+}
+
+/**
+ * Validate a step's write declarations. Throws SynthesisError(
+ * INVALID_WRITE_DECLARATION) when any WriteDeclaration has an empty `kind`
+ * or `target`.
+ */
+export function validateWriteDeclarations(step: StepDefinition): void {
+  const perms = step.permissions;
+  if (!perms || !perms.write) return;
+  for (const decl of perms.write) {
+    if (!decl.kind || decl.kind.length === 0) {
+      throw new SynthesisError(
+        "INVALID_WRITE_DECLARATION",
+        `Write declaration in step '${step.id}' has an empty kind`,
+        step.id,
+      );
+    }
+    if (!decl.target || decl.target.length === 0) {
+      throw new SynthesisError(
+        "INVALID_WRITE_DECLARATION",
+        `Write declaration in step '${step.id}' has an empty target`,
+        step.id,
+      );
+    }
+  }
 }
