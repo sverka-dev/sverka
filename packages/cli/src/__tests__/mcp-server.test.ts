@@ -153,7 +153,7 @@ describe("sverka mcp-server", () => {
     const tool = server.tools.get("sverka.validate")!;
     const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
     expect(result.isError).not.toBe(true);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.valid).toBe(true);
   });
 
@@ -173,7 +173,7 @@ describe("sverka mcp-server", () => {
     const server = lastServer();
     const tool = server.tools.get("sverka.run")!;
     const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data).toHaveProperty("status");
   });
 
@@ -185,7 +185,7 @@ describe("sverka mcp-server", () => {
     const tool = server.tools.get("sverka.plan")!;
     const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
     expect(result.isError).not.toBe(true);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data).toHaveProperty("steps");
   });
 
@@ -197,7 +197,7 @@ describe("sverka mcp-server", () => {
     const tool = server.tools.get("sverka.graph")!;
     const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
     expect(result.isError).not.toBe(true);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data).toHaveProperty("project");
   });
 
@@ -209,7 +209,7 @@ describe("sverka mcp-server", () => {
     const tool = server.tools.get("sverka.synth")!;
     const result = await tool.callback({ target: "github" }) as { content: { text: string }[]; isError?: boolean };
     expect(result.isError).not.toBe(true);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data).toHaveProperty("target", "github");
     expect(data).toHaveProperty("artifacts");
     expect(Array.isArray(data.artifacts)).toBe(true);
@@ -254,7 +254,7 @@ describe("sverka mcp-server", () => {
         dir,
       );
       expect(result.isError).not.toBe(true);
-      const data = JSON.parse(result.content[0].text);
+      const data = JSON.parse(result.content[0]!.text);
       expect(data.valid).toBe(true);
     });
 
@@ -274,7 +274,7 @@ describe("sverka mcp-server", () => {
         dir,
       );
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("boom");
+      expect(result.content[0]!.text).toBe("boom");
     });
   });
 
