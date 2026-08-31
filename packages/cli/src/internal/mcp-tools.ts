@@ -16,6 +16,7 @@ import { BufferingOutputWriter } from "./buffering-writer.js";
 
 /** MCP CallToolResult shape (kept loose to avoid deep SDK type coupling). */
 interface ToolResult {
+  [x: string]: unknown;
   content: { type: "text"; text: string }[];
   isError?: boolean;
 }
@@ -117,7 +118,7 @@ export function registerSverkaTools(server: McpServer, defaultRoot: string): voi
     "sverka.validate",
     "Validate a sverka config: synthesize the Definition Graph and run validators.",
     { root: z.string().optional() },
-    async (args: { root?: string }) => {
+    async (args) => {
       return runCommandAsTool(
         (w, g, s) => validateCommand(g, w, s),
         args.root ?? defaultRoot,
@@ -129,9 +130,9 @@ export function registerSverkaTools(server: McpServer, defaultRoot: string): voi
     "sverka.plan",
     "Bind an Entry and inputs into a Run Plan and return the step list.",
     { root: z.string().optional(), entryId: z.string().optional() },
-    async (args: { root?: string; entryId?: string }) => {
+    async (args) => {
       return runCommandAsTool(
-        (w, g, s) => planCommand({ entryId: args.entryId }, g, w, s),
+        (w, g, s) => planCommand({ ...(args.entryId !== undefined && { entryId: args.entryId }) }, g, w, s),
         args.root ?? defaultRoot,
       );
     },
@@ -141,7 +142,7 @@ export function registerSverkaTools(server: McpServer, defaultRoot: string): voi
     "sverka.graph",
     "Display the Definition Graph: pipelines, entries, steps, and dependencies.",
     { root: z.string().optional() },
-    async (args: { root?: string }) => {
+    async (args) => {
       return runCommandAsTool(
         (w, g, s) => graphCommand(g, w, s),
         args.root ?? defaultRoot,
@@ -153,9 +154,9 @@ export function registerSverkaTools(server: McpServer, defaultRoot: string): voi
     "sverka.run",
     "Execute the workflow locally through the native engine and return the run status.",
     { root: z.string().optional(), entryId: z.string().optional(), executor: z.enum(["host", "docker"]).optional() },
-    async (args: { root?: string; entryId?: string; executor?: "host" | "docker" }) => {
+    async (args) => {
       return runCommandAsTool(
-        (w, g, s) => runCommand({ entryId: args.entryId, executor: args.executor }, g, w, s),
+        (w, g, s) => runCommand({ ...(args.entryId !== undefined && { entryId: args.entryId }), ...(args.executor !== undefined && { executor: args.executor }) }, g, w, s),
         args.root ?? defaultRoot,
       );
     },
@@ -165,7 +166,7 @@ export function registerSverkaTools(server: McpServer, defaultRoot: string): voi
     "sverka.synth",
     "Compile the workflow to a target CI YAML (github or gitlab).",
     { root: z.string().optional(), target: z.enum(["github", "gitlab"]) },
-    async (args: { root?: string; target: "github" | "gitlab" }) => {
+    async (args) => {
       return synthTool(args.root ?? defaultRoot, args.target);
     },
   );

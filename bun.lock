@@ -22,12 +22,14 @@
         "sverka": "./dist/bin.mjs",
       },
       "dependencies": {
+        "@modelcontextprotocol/sdk": "1.30.0",
         "@sverka/compiler": "workspace:*",
         "@sverka/runtime": "workspace:*",
         "@sverka/sdk": "workspace:*",
         "@sverka/verification": "workspace:*",
         "@sverka/workflow": "workspace:*",
         "yargs": "^18.1.0",
+        "zod": "^4.0.0",
       },
       "devDependencies": {
         "@types/yargs": "^17.0.33",
