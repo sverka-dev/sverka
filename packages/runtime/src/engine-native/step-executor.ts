@@ -27,6 +27,8 @@ export interface StepExecResult {
   readonly status: "succeeded" | "failed" | "cancelled";
   readonly error?: string;
   readonly durationMs: number;
+  readonly exitCode?: number;
+  readonly timedOut?: boolean;
 }
 
 /** Execute all operations in a step in order. */
@@ -61,7 +63,9 @@ export async function executeStep(opts: StepExecOptions): Promise<StepExecResult
         return { status: "cancelled", durationMs: Date.now() - start };
       }
       const error = e instanceof Error ? e.message : String(e);
-      return { status: "failed", error, durationMs: Date.now() - start };
+      const exitCode = e instanceof StepExecError ? e.exitCode : undefined;
+      const timedOut = e instanceof StepExecError ? e.timedOut : undefined;
+      return { status: "failed", error, durationMs: Date.now() - start, ...(exitCode !== undefined ? { exitCode } : {}), ...(timedOut ? { timedOut } : {}) };
     }
     if (isCancelled()) {
       return { status: "cancelled", durationMs: Date.now() - start };
@@ -129,6 +133,9 @@ async function executeShellOperation(
         ? `step '${step.id}' timed out`
         : `step '${step.id}' shell command failed with exit code ${result.exitCode}`,
       result.timedOut ? "TIMEOUT" : "STEP_EXEC_ERROR",
+      undefined,
+      result.exitCode,
+      result.timedOut,
     );
   }
 }
@@ -265,7 +272,7 @@ function resolveCwd(base: string, workingDir: string | undefined): string {
   return resolveUnder(base, workingDir);
 }
 
-function resolveUnder(base: string, subpath: string): string {
+export function resolveUnder(base: string, subpath: string): string {
   if (isAbsolute(subpath)) {
     throw new EngineError(`path must be relative: '${subpath}'`, "STEP_EXEC_ERROR");
   }

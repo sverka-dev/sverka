@@ -1,5 +1,5 @@
 // Emit: GithubTargetGraph → YAML artifacts.
-// Spec 08 — §19. F-31: multi-workflow emission.
+// Spec 08 — §19. F-31: multi-workflow emission. Spec 22 — action pinning.
 
 import { stringify } from "yaml";
 import type {
@@ -9,17 +9,24 @@ import type {
   GeneratedArtifact,
 } from "./types.js";
 
+/** Optional emit-time transforms (spec 22: action SHA pinning). */
+export interface EmitOptions {
+  /** When set, every emitted `uses:` ref is routed through this function. */
+  readonly pinUses?: (ref: string) => string;
+}
+
 /**
  * Emit one or more GithubTargetGraphs as YAML artifacts.
  * Produces one .github/workflows/<name>.yml file per target graph.
  */
 export function emitGithub(
   targetGraph: GithubTargetGraph | readonly GithubTargetGraph[],
+  options?: EmitOptions,
 ): readonly GeneratedArtifact[] {
   const graphs = Array.isArray(targetGraph) ? targetGraph : [targetGraph];
   return graphs.map((g) => ({
     path: `.github/workflows/${sanitizeWorkflowName(g.name)}.yml`,
-    content: stringifyTargetGraph(g),
+    content: stringifyTargetGraph(g, options),
   }));
 }
 
@@ -35,7 +42,7 @@ function sanitizeWorkflowName(name: string): string {
 /**
  * Convert a GithubTargetGraph to a YAML string.
  */
-function stringifyTargetGraph(graph: GithubTargetGraph): string {
+function stringifyTargetGraph(graph: GithubTargetGraph, options?: EmitOptions): string {
   const doc: Record<string, unknown> = {
     name: graph.name,
     on: graph.on,
@@ -59,7 +66,7 @@ function stringifyTargetGraph(graph: GithubTargetGraph): string {
 
   const jobs: Record<string, unknown> = {};
   for (const job of graph.jobs) {
-    jobs[job.id] = jobToYaml(job);
+    jobs[job.id] = jobToYaml(job, options);
   }
   doc.jobs = jobs;
 
@@ -69,14 +76,14 @@ function stringifyTargetGraph(graph: GithubTargetGraph): string {
 /**
  * Convert a GithubJob to a YAML-compatible object.
  */
-function jobToYaml(job: GithubJob): Record<string, unknown> {
+function jobToYaml(job: GithubJob, options?: EmitOptions): Record<string, unknown> {
   const result: Record<string, unknown> = {
     name: job.name,
   };
 
   // Reusable workflow call job: uses/with/secrets (no runs-on/steps).
   if (job.uses) {
-    return reusableJobToYaml(job, result);
+    return reusableJobToYaml(job, result, options);
   }
 
   // Normal job.
@@ -122,7 +129,7 @@ function jobToYaml(job: GithubJob): Record<string, unknown> {
     result.concurrency = concurrencyToYaml(job.concurrency);
   }
 
-  result.steps = job.steps.map((step, i) => stepToYaml(step, i));
+  result.steps = job.steps.map((step, i) => stepToYaml(step, i, options));
 
   return result;
 }
@@ -144,8 +151,8 @@ function strategyToYaml(strategy: NonNullable<GithubJob["strategy"]>): Record<st
 /**
  * Convert a reusable workflow call job (uses) to a YAML-compatible object.
  */
-function reusableJobToYaml(job: GithubJob, result: Record<string, unknown>): Record<string, unknown> {
-  result.uses = job.uses;
+function reusableJobToYaml(job: GithubJob, result: Record<string, unknown>, options?: EmitOptions): Record<string, unknown> {
+  result.uses = options?.pinUses ? options.pinUses(job.uses!) : job.uses;
   if (job.needs.length > 0) {
     result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
   }
@@ -172,7 +179,7 @@ function concurrencyToYaml(conc: { readonly group: string; readonly cancelInProg
 /**
  * Convert a GithubStep to a YAML-compatible object.
  */
-function stepToYaml(step: GithubStep, index: number): Record<string, unknown> {
+function stepToYaml(step: GithubStep, index: number, options?: EmitOptions): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
   // GitHub steps require a name or uses or run.
@@ -186,7 +193,7 @@ function stepToYaml(step: GithubStep, index: number): Record<string, unknown> {
   }
 
   if (step.uses) {
-    result.uses = step.uses;
+    result.uses = options?.pinUses ? options.pinUses(step.uses) : step.uses;
   }
   if (step.run) {
     result.run = step.run;

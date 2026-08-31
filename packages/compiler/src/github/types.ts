@@ -1,6 +1,7 @@
-// GitHub target types. Spec 08 — §18.1, §19.
+// GitHub target types. Spec 08 — §18.1, §19. Spec 22 — action pinning.
 
 import type { CapabilitySupport } from "../plugin/index.js";
+import type { PinningConfig } from "./pinning.js";
 
 export interface GithubInput {
   readonly type: string;
@@ -124,4 +125,12 @@ export interface TargetDiagnostic {
 export interface CompilationResult {
   readonly artifacts: readonly GeneratedArtifact[];
   readonly diagnostics: readonly TargetDiagnostic[];
+}
+
+/**
+ * Optional {@link GithubTarget} constructor config. Spec 22.
+ */
+export interface GithubTargetConfig {
+  /** Action SHA pinning policy; defaults to `{ mode: "off" }` with the bundled registry. */
+  readonly pinning?: PinningConfig;
 }

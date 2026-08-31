@@ -21,6 +21,8 @@ import {
   validateOutputCollisions,
   validateReferenceTypes,
   validateDependencies,
+  validateCacheKeys,
+  validateRetryPolicy,
   resolveStepId,
 } from "./validate.js";
 import { validatePipelineCalls } from "./validate-calls.js";
@@ -55,13 +57,17 @@ export function synthesize(project: Project): DefinitionGraph {
   // Pass 2: resolve call-step outputs from callee pipelines.
   resolveCallOutputs(pipelines);
 
-  // Pass 3: validate per-pipeline (refs, types, deps, cycles) + call graph.
+  // Pass 3: validate per-pipeline (refs, types, deps, cycles, cache, retry) + call graph.
   for (const pipeline of pipelines) {
     validateOutputCollisions(pipeline.steps);
     validateReferences(pipeline.steps, pipeline.id);
     validateReferenceTypes(pipeline.steps, pipeline.id);
     validateDependencies(pipeline.steps);
     detectCycles(pipeline.steps);
+    for (const step of pipeline.steps) {
+      validateCacheKeys(step);
+      validateRetryPolicy(step);
+    }
   }
   validatePipelineCalls(pipelines);
 

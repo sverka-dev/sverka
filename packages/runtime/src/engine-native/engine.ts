@@ -4,6 +4,7 @@
 
 import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
 import type { RunPlan } from "@sverka/workflow";
 import type { StepDefinition, Condition, Expression } from "@sverka/workflow";
@@ -17,9 +18,11 @@ import type {
   RuntimeDriver,
   ArtifactStore,
 } from "./types.js";
+import type { CacheStore } from "./cache-store.js";
 import { createValueStore } from "./value-store.js";
 import { createArtifactStore } from "./artifact-store.js";
-import { executeStep, type StepExecOptions, resolveGitContext } from "./step-executor.js";
+import { type StepExecOptions, resolveGitContext, resolveUnder } from "./step-executor.js";
+import { executeStepWithRetry } from "./retry.js";
 import { buildStepExecutionGraph, transitiveDependents, type StepState, type StepGraph } from "./scheduler.js";
 import { stepPrefix } from "./refs.js";
 
@@ -44,6 +47,7 @@ interface RunContext {
   readonly valueStore: ValueStore;
   readonly artifactStore: ArtifactStore;
   readonly secrets: Readonly<Record<string, string>>;
+  readonly cache: CacheStore | undefined;
   readonly eventQueue: RunEvent[];
   readonly readyQueue: string[];
   hasFailure: boolean;
@@ -165,6 +169,7 @@ class NativeEngine implements Engine {
     const plan = request.plan;
     const drivers = request.drivers ?? this.config.drivers;
     const maxConcurrent = request.maxConcurrent ?? this.config.maxConcurrent ?? 4;
+    const cache = request.cache ?? this.config.cache;
 
     const setup = await this.resolveSetup(request, plan);
     if (setup.error) {
@@ -191,6 +196,7 @@ class NativeEngine implements Engine {
       valueStore: createValueStore(),
       artifactStore: createArtifactStore(request.artifactDir),
       secrets: setup.secrets,
+      cache,
     };
   }
 
@@ -278,8 +284,6 @@ class NativeEngine implements Engine {
         }
 
         ctx.states.set(id, "running");
-        ctx.emit({ type: "step-ready", stepId: id });
-        ctx.emit({ type: "step-started", stepId: id });
 
         const promise = this.runStep(ctx, step, driver);
         running.set(promise, id);
@@ -331,7 +335,69 @@ class NativeEngine implements Engine {
     step: StepDefinition,
     driver: RuntimeDriver,
   ): Promise<void> {
-    const result = await executeStep(this.buildStepExecOptions(ctx, step, driver));
+    const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", step.id));
+
+    // Cache pull: try to restore before executing (policy pull / pull-push).
+    // A hit skips execution entirely and emits step-cache-hit + step-succeeded
+    // (no step-ready/step-started — Spec 21 ordering).
+    if (step.cache && ctx.cache) {
+      const policy = step.cache.policy ?? "pull-push";
+      if (policy === "pull" || policy === "pull-push") {
+        const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
+        const restoreKeys = step.cache.restoreKeys?.map((k) => this.resolveCacheKey(k, ctx, step.id)) ?? [];
+        try {
+          const hit = await ctx.cache.restore({
+            key,
+            restoreKeys,
+            paths: step.cache.paths,
+            targetDir: stepWorkspace,
+          });
+          if (hit) {
+            ctx.states.set(step.id, "succeeded");
+            ctx.emit({ type: "step-cache-hit", stepId: step.id, key: hit.key });
+            ctx.emit({ type: "step-succeeded", stepId: step.id, durationMs: 0 });
+            this.onStepComplete(ctx, step.id);
+            return;
+          }
+        } catch (e) {
+          ctx.emit({
+            type: "diagnostic",
+            stepId: step.id,
+            message: `cache restore failed: ${e instanceof Error ? e.message : String(e)}`,
+            severity: "warn",
+          });
+        }
+      }
+    }
+
+    ctx.emit({ type: "step-ready", stepId: step.id });
+    ctx.emit({ type: "step-started", stepId: step.id });
+
+    const result = await executeStepWithRetry(
+      this.buildStepExecOptions(ctx, step, driver),
+      step.retry,
+      ctx.emit,
+      ctx.abort.signal,
+    );
+
+    // Cache push: store declared paths after a successful execution
+    // (policy push / pull-push). Best-effort — failures emit a warn diagnostic.
+    if (result.status === "succeeded" && step.cache && ctx.cache) {
+      const policy = step.cache.policy ?? "pull-push";
+      if (policy === "push" || policy === "pull-push") {
+        const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
+        try {
+          await ctx.cache.store({ key, paths: step.cache.paths, sourceDir: stepWorkspace });
+        } catch (e) {
+          ctx.emit({
+            type: "diagnostic",
+            stepId: step.id,
+            message: `cache store failed: ${e instanceof Error ? e.message : String(e)}`,
+            severity: "warn",
+          });
+        }
+      }
+    }
 
     if (result.status === "succeeded") {
       ctx.states.set(step.id, "succeeded");
@@ -525,6 +591,24 @@ class NativeEngine implements Engine {
       }
     }
     return value;
+  }
+
+  /**
+   * Resolve `${{ namespace.field }}` context references in a cache key string.
+   * Only context namespaces are substituted (env/git/matrix/inputs/secrets);
+   * step-output refs are disallowed in cache keys (validated at analyze time)
+   * and left unresolved here. Unknown refs are replaced with an empty string.
+   */
+  private resolveCacheKey(key: string, ctx: RunContext, stepId: string): string {
+    return key.replace(/\$\{\{\s*([^}]+?)\s*\}\}/g, (whole, inner: string) => {
+      const dot = inner.lastIndexOf(".");
+      if (dot === -1) return whole;
+      const namespace = inner.slice(0, dot).trim();
+      const field = inner.slice(dot + 1).trim();
+      const ref = { kind: "context" as const, namespace: namespace as never, field };
+      const value = this.resolveContextRef(ref, ctx, stepId);
+      return value === undefined ? "" : String(value);
+    });
   }
 }
 

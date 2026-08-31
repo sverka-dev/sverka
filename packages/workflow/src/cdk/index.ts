@@ -36,6 +36,6 @@ export type { OutputType, OutputDeclaration, InputType, Input, ArtifactAccess, I
 export type { Runtime, RunnerSpec, IdentitySpec, IdentityTokenSpec, Rule, RuleWhen, PipelineDefaults, ReportType, ReportSpec, ServiceContainer, EnvironmentAction, EnvironmentTier, EnvironmentSpec, CachePolicy, CacheSpec, ConcurrencySpec } from "./model.js";
 export type { MatrixValue, MatrixSpec } from "./model.js";
 export type { StepStatus, StatusCondition, Condition } from "./model.js";
-export type { ContinueOnError, RetryWhen, RetryPolicy } from "./model.js";
+export type { ContinueOnError, RetryWhen, RetryPolicy, BackoffSpec } from "./model.js";
 
 export { ConstructError, type ConstructErrorCode } from "./errors.js";

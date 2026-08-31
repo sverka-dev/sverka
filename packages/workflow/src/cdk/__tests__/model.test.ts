@@ -11,6 +11,8 @@ import {
   type Input,
   type OutputDeclaration,
   type Runtime,
+  type BackoffSpec,
+  type RetryPolicy,
 } from "../index.js";
 
 describe("Trigger factories", () => {
@@ -100,5 +102,20 @@ describe("Input/Output/Runtime types", () => {
     expect(rt.mode).toBe("container");
     expect(rt.image).toBe("node:24");
     expect(rt.env?.NODE_ENV).toBe("production");
+  });
+});
+
+describe("RetryPolicy and BackoffSpec exports (Spec 20 item 12)", () => {
+  it("BackoffSpec is exported and usable", () => {
+    const backoff: BackoffSpec = { baseMs: 100, factor: 2, maxMs: 5000 };
+    expect(backoff.baseMs).toBe(100);
+    expect(backoff.factor).toBe(2);
+    expect(backoff.maxMs).toBe(5000);
+  });
+
+  it("RetryPolicy with backoff is exported and usable", () => {
+    const retry: RetryPolicy = { max: 3, backoff: { baseMs: 100 } };
+    expect(retry.max).toBe(3);
+    expect(retry.backoff?.baseMs).toBe(100);
   });
 });
