@@ -1,0 +1,33 @@
+{
+  "name": "storage",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsdown",
+        "cwd": "packages/storage"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run vitest run --passWithNoTests",
+        "cwd": "packages/storage"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run eslint src",
+        "cwd": "packages/storage"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsc --noEmit",
+        "cwd": "packages/storage"
+      }
+    }
+  }
+}

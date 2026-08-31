@@ -6,6 +6,7 @@ export type EngineErrorCode =
   | "NO_DRIVER"
   | "TIMEOUT"
   | "OUTPUT_CAPTURE_ERROR"
+  | "RESUME_NOT_IMPLEMENTED"
   | "ARTIFACT_ERROR"
   | "NO_AGENT_DRIVER"
   | "AGENT_EXECUTION_FAILED";

@@ -6,11 +6,13 @@ import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
+import { EngineError } from "./errors.js";
 import type { RunPlan } from "@sverka/workflow";
 import type { StepDefinition, Condition, Expression } from "@sverka/workflow";
 import type {
   Engine,
   RunRequest,
+  ResumeRequest,
   RunEvent,
   ValueStore,
   SecretProvider,
@@ -100,6 +102,13 @@ class NativeEngine implements Engine {
   cancel(): Promise<void> {
     this.activeRun?.abort();
     return Promise.resolve();
+  }
+
+  async *resume(_request: ResumeRequest): AsyncIterable<RunEvent> {
+    // Suspend/resume engine implementation is sv-wthn.3.1 scope.
+    // This stub satisfies the Engine interface; the full implementation
+    // loads a snapshot, injects resume data, and continues scheduling.
+    throw new EngineError("Engine.resume() is not yet implemented", "RESUME_NOT_IMPLEMENTED");
   }
 
   private async *executeRun(
