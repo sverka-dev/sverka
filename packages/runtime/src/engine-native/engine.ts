@@ -116,7 +116,9 @@ class NativeEngine implements Engine {
       if (this.activeRun === thisRun) {
         this.activeRun = undefined;
       }
-      this.currentRun = undefined;
+      if (this.currentRun?.runId === runId) {
+        this.currentRun = undefined;
+      }
     }
   }
 
@@ -196,7 +198,9 @@ class NativeEngine implements Engine {
       status,
       durationMs: Date.now() - start,
     };
-    this.currentRun = undefined;
+    if (this.currentRun?.runId === runId) {
+      this.currentRun = undefined;
+    }
   }
 
   private async *prepareRun(

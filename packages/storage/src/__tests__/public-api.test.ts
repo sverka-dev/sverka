@@ -41,6 +41,8 @@ describe("@sverka/storage public API", () => {
     expect(e1.code).toBe("STORE_IO_FAILED");
     const e2 = new StorageError("CORRUPT_SNAPSHOT", "corrupt");
     expect(e2.code).toBe("CORRUPT_SNAPSHOT");
+    const e3 = new StorageError("INVALID_RUN_ID", "bad id");
+    expect(e3.code).toBe("INVALID_RUN_ID");
   });
 
   // Type-level: config types are usable

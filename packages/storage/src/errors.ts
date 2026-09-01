@@ -1,7 +1,7 @@
 // StorageError — error class for @sverka/storage.
 // Spec 31 — Error handling.
 
-export type StorageErrorCode = "STORE_IO_FAILED" | "CORRUPT_SNAPSHOT";
+export type StorageErrorCode = "STORE_IO_FAILED" | "CORRUPT_SNAPSHOT" | "INVALID_RUN_ID";
 
 export class StorageError extends Error {
   readonly code: StorageErrorCode;

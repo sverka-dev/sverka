@@ -106,4 +106,60 @@ describe("FileSnapshotStore", () => {
     const loaded = await store.load("run-cycle");
     expect(loaded).toBeUndefined();
   });
+
+  it("save rejects runId with path traversal (..)", async () => {
+    const store = createFileSnapshotStore({ root: dir });
+    const snap = makeSnapshot("../escape");
+    await expect(store.save(snap)).rejects.toThrow(StorageError);
+    try {
+      await store.save(snap);
+    } catch (e) {
+      expect((e as StorageError).code).toBe("INVALID_RUN_ID");
+    }
+  });
+
+  it("save rejects runId with path separator", async () => {
+    const store = createFileSnapshotStore({ root: dir });
+    const snap = makeSnapshot("foo/bar");
+    await expect(store.save(snap)).rejects.toThrow(StorageError);
+  });
+
+  it("load rejects runId with path traversal", async () => {
+    const store = createFileSnapshotStore({ root: dir });
+    await expect(store.load("../../etc/passwd")).rejects.toThrow(StorageError);
+    try {
+      await store.load("../../etc/passwd");
+    } catch (e) {
+      expect((e as StorageError).code).toBe("INVALID_RUN_ID");
+    }
+  });
+
+  it("delete rejects runId with path traversal", async () => {
+    const store = createFileSnapshotStore({ root: dir });
+    await expect(store.delete("../escape")).rejects.toThrow(StorageError);
+  });
+
+  it("save writes atomically — no .tmp file left after success", async () => {
+    const store = createFileSnapshotStore({ root: dir });
+    const snap = makeSnapshot("run-atomic");
+    await store.save(snap);
+    const tmpPath = join(dir, ".sverka", "runs", "run-atomic", "snapshot.json.tmp");
+    expect(existsSync(tmpPath)).toBe(false);
+    const finalPath = join(dir, ".sverka", "runs", "run-atomic", "snapshot.json");
+    expect(existsSync(finalPath)).toBe(true);
+  });
+
+  it("load throws CORRUPT_SNAPSHOT when snapshot runId does not match requested runId", async () => {
+    const store = createFileSnapshotStore({ root: dir });
+    const snapDir = join(dir, ".sverka", "runs", "run-mismatch");
+    await mkdir(snapDir, { recursive: true });
+    const snap = makeSnapshot("run-different");
+    await writeFile(join(snapDir, "snapshot.json"), JSON.stringify(snap, null, 2));
+    await expect(store.load("run-mismatch")).rejects.toThrow(StorageError);
+    try {
+      await store.load("run-mismatch");
+    } catch (e) {
+      expect((e as StorageError).code).toBe("CORRUPT_SNAPSHOT");
+    }
+  });
 });

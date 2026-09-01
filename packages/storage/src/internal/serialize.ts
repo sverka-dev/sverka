@@ -13,7 +13,7 @@ export function serialize(snapshot: RunSnapshot): string {
  * Deserialize a JSON string into a RunSnapshot, validating required fields.
  * Throws StorageError(CORRUPT_SNAPSHOT) on parse failure or shape mismatch.
  */
-export function deserialize(text: string, _runId: string): RunSnapshot {
+export function deserialize(text: string, runId: string): RunSnapshot {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -30,6 +30,12 @@ export function deserialize(text: string, _runId: string): RunSnapshot {
   if (typeof obj["runId"] !== "string") {
     throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: runId");
   }
+  if (obj["runId"] !== runId) {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      `snapshot runId "${obj["runId"]}" does not match requested runId "${runId}"`,
+    );
+  }
   if (typeof obj["planId"] !== "string") {
     throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: planId");
   }
@@ -39,6 +45,19 @@ export function deserialize(text: string, _runId: string): RunSnapshot {
   if (!Array.isArray(obj["completedSteps"])) {
     throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: completedSteps");
   }
+  for (let i = 0; i < obj["completedSteps"].length; i++) {
+    const entry = (obj["completedSteps"] as unknown[])[i];
+    if (typeof entry !== "object" || entry === null) {
+      throw new StorageError("CORRUPT_SNAPSHOT", `completedSteps[${i}] is not an object`);
+    }
+    const step = entry as Record<string, unknown>;
+    if (typeof step["stepId"] !== "string") {
+      throw new StorageError("CORRUPT_SNAPSHOT", `completedSteps[${i}].stepId is missing or not a string`);
+    }
+    if (typeof step["outputs"] !== "object" || step["outputs"] === null) {
+      throw new StorageError("CORRUPT_SNAPSHOT", `completedSteps[${i}].outputs is missing or not an object`);
+    }
+  }
   if (typeof obj["suspendedStepId"] !== "string") {
     throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: suspendedStepId");
   }
@@ -47,6 +66,17 @@ export function deserialize(text: string, _runId: string): RunSnapshot {
   }
   if (typeof obj["suspendedAt"] !== "number") {
     throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: suspendedAt");
+  }
+  if (obj["resumeSchema"] !== undefined) {
+    if (typeof obj["resumeSchema"] !== "object" || obj["resumeSchema"] === null) {
+      throw new StorageError("CORRUPT_SNAPSHOT", "resumeSchema is not an object");
+    }
+    const rs = obj["resumeSchema"] as Record<string, unknown>;
+    if (rs["required"] !== undefined) {
+      if (!Array.isArray(rs["required"]) || !rs["required"].every((v) => typeof v === "string")) {
+        throw new StorageError("CORRUPT_SNAPSHOT", "resumeSchema.required is not an array of strings");
+      }
+    }
   }
 
   return parsed as RunSnapshot;

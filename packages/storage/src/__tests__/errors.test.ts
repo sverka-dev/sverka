@@ -28,4 +28,9 @@ describe("StorageError", () => {
     const err = new StorageError("STORE_IO_FAILED", "no cause");
     expect(err.cause).toBeUndefined();
   });
+
+  it("supports INVALID_RUN_ID code", () => {
+    const err = new StorageError("INVALID_RUN_ID", "bad runId");
+    expect(err.code).toBe("INVALID_RUN_ID");
+  });
 });

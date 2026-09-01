@@ -51,11 +51,23 @@ export function createSqliteSnapshotStore(
     throw new StorageError("STORE_IO_FAILED", `failed to open sqlite database at ${path}`, e);
   }
 
-  const saveStmt = db.prepare(
-    "INSERT OR REPLACE INTO snapshots (run_id, plan_id, status, suspended_at, snapshot_json) VALUES (?, ?, ?, ?, ?)",
-  );
-  const loadStmt = db.prepare("SELECT snapshot_json FROM snapshots WHERE run_id = ?");
-  const deleteStmt = db.prepare("DELETE FROM snapshots WHERE run_id = ?");
+  let saveStmt: ReturnType<DatabaseSync["prepare"]>;
+  let loadStmt: ReturnType<DatabaseSync["prepare"]>;
+  let deleteStmt: ReturnType<DatabaseSync["prepare"]>;
+  try {
+    saveStmt = db.prepare(
+      "INSERT OR REPLACE INTO snapshots (run_id, plan_id, status, suspended_at, snapshot_json) VALUES (?, ?, ?, ?, ?)",
+    );
+    loadStmt = db.prepare("SELECT snapshot_json FROM snapshots WHERE run_id = ?");
+    deleteStmt = db.prepare("DELETE FROM snapshots WHERE run_id = ?");
+  } catch (e) {
+    try {
+      db.close();
+    } catch {
+      // Ignore close errors during cleanup.
+    }
+    throw new StorageError("STORE_IO_FAILED", `failed to prepare sqlite statements at ${path}`, e);
+  }
 
   return {
     async save(snapshot: RunSnapshot): Promise<void> {

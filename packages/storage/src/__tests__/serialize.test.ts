@@ -57,4 +57,65 @@ describe("serialize / deserialize", () => {
     const text = serialize(snap).replace('"suspended"', '"success"');
     expect(() => deserialize(text, "run-1")).toThrow(StorageError);
   });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when runId does not match requested runId", () => {
+    const snap = makeSnapshot("run-a");
+    const text = serialize(snap);
+    expect(() => deserialize(text, "run-b")).toThrow(StorageError);
+    try {
+      deserialize(text, "run-b");
+    } catch (e) {
+      expect((e as StorageError).code).toBe("CORRUPT_SNAPSHOT");
+    }
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry is not an object", () => {
+    const snap = makeSnapshot();
+    const obj = JSON.parse(serialize(snap));
+    obj.completedSteps[0] = null;
+    const text = JSON.stringify(obj);
+    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry has no stepId", () => {
+    const snap = makeSnapshot();
+    const obj = JSON.parse(serialize(snap));
+    delete obj.completedSteps[0].stepId;
+    const text = JSON.stringify(obj);
+    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry has no outputs", () => {
+    const snap = makeSnapshot();
+    const obj = JSON.parse(serialize(snap));
+    delete obj.completedSteps[0].outputs;
+    const text = JSON.stringify(obj);
+    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when resumeSchema is not an object", () => {
+    const snap = makeSnapshot();
+    const obj = JSON.parse(serialize(snap));
+    obj.resumeSchema = "bad";
+    const text = JSON.stringify(obj);
+    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when resumeSchema.required is not string array", () => {
+    const snap = makeSnapshot();
+    const obj = JSON.parse(serialize(snap));
+    obj.resumeSchema.required = [123];
+    const text = JSON.stringify(obj);
+    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+  });
+
+  it("deserialize accepts snapshot without resumeSchema", () => {
+    const snap = makeSnapshot();
+    const obj = JSON.parse(serialize(snap));
+    delete obj.resumeSchema;
+    const text = JSON.stringify(obj);
+    const restored = deserialize(text, "run-1");
+    expect(restored.runId).toBe("run-1");
+    expect(restored.resumeSchema).toBeUndefined();
+  });
 });
