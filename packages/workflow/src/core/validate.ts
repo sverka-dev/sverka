@@ -419,4 +419,11 @@ export function validateCompensation(step: StepDefinition): void {
       step.id,
     );
   }
+  if (!compensation.command || compensation.command.trim() === "") {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' has an empty command`,
+      step.id,
+    );
+  }
 }

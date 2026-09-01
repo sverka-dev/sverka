@@ -483,4 +483,114 @@ describe("Engine — saga compensations (Spec 30)", () => {
     const compensating2 = events2.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
     expect(compensating2).toContain("ci/a");
   });
+
+  it("compensation command is interpolated — ${...} references resolved", async () => {
+    const seenCommands: string[] = [];
+    const driver: RuntimeDriver = {
+      name: "tracking",
+      canExecute: () => true,
+      executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
+        seenCommands.push(req.command);
+        if (req.command.trim().startsWith("exit 1")) {
+          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        }
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    };
+    // Plan: A succeeds with a compensation that references a plan input, B fails
+    const plan: RunPlan = {
+      apiVersion: "sverka.dev/v1run",
+      id: "rp-interp",
+      graphId: "graph-interp",
+      entry: { id: "ci/on-push", trigger: { kind: "push" } },
+      inputs: { env: "production" },
+      steps: [
+        {
+          id: "ci/a",
+          runtime: {},
+          operations: [{ kind: "shell", command: "echo a" }],
+          inputs: [],
+          outputs: [],
+          dependencies: [],
+          compensation: { kind: "shell", command: "rollback --env=${env}" },
+        },
+        {
+          id: "ci/b",
+          runtime: {},
+          operations: [{ kind: "shell", command: "exit 1" }],
+          inputs: [],
+          outputs: [],
+          dependencies: [{ kind: "control", producer: "ci/a" }],
+        },
+      ],
+      createdAt: "2026-08-31T00:00:00.000Z",
+    };
+    const engine = createEngine({ drivers: [driver] });
+    await collectEvents(engine, {
+      plan,
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+    });
+    // The compensation command should have ${env} interpolated to "production"
+    const compCmd = seenCommands.find((c) => c.startsWith("rollback"));
+    expect(compCmd).toBeDefined();
+    expect(compCmd).toContain("production");
+  });
+
+  it("compensation respects safe-outputs — read-only steps get no secrets", async () => {
+    const seenEnv: Record<string, string>[] = [];
+    const driver: RuntimeDriver = {
+      name: "tracking",
+      canExecute: () => true,
+      executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
+        seenEnv.push(req.env);
+        if (req.command.trim().startsWith("exit 1")) {
+          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        }
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    };
+    // Step A declares a secret but has NO permissions.write (read-only)
+    // Its compensation should NOT receive the secret
+    const plan: RunPlan = {
+      apiVersion: "sverka.dev/v1run",
+      id: "rp-safe",
+      graphId: "graph-safe",
+      entry: { id: "ci/on-push", trigger: { kind: "push" } },
+      inputs: {},
+      steps: [
+        {
+          id: "ci/a",
+          runtime: { secrets: ["MY_SECRET"] },
+          operations: [{ kind: "shell", command: "echo a" }],
+          inputs: [],
+          outputs: [],
+          dependencies: [],
+          compensation: { kind: "shell", command: "rollback.sh" },
+        },
+        {
+          id: "ci/b",
+          runtime: {},
+          operations: [{ kind: "shell", command: "exit 1" }],
+          inputs: [],
+          outputs: [],
+          dependencies: [{ kind: "control", producer: "ci/a" }],
+        },
+      ],
+      createdAt: "2026-08-31T00:00:00.000Z",
+    };
+    const engine = createEngine({ drivers: [driver] });
+    await collectEvents(engine, {
+      plan,
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+      secrets: { resolve: async (name: string) => (name === "MY_SECRET" ? "secret-value" : undefined) },
+    });
+    // Find the compensation env (for rollback.sh)
+    const compEnv = seenEnv.find((e) => Object.keys(e).length > 0);
+    // Read-only step: secret should NOT be in env
+    if (compEnv) {
+      expect(compEnv["MY_SECRET"]).toBeUndefined();
+    }
+  });
 });

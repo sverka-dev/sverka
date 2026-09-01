@@ -27,7 +27,7 @@ import type { AgentDriver } from "./agent-driver.js";
 import type { CacheStore } from "./cache-store.js";
 import { createValueStore } from "./value-store.js";
 import { createArtifactStore } from "./artifact-store.js";
-import { type StepExecOptions, resolveGitContext, resolveUnder } from "./step-executor.js";
+import { type StepExecOptions, interpolateCommand, resolveGitContext, resolveUnder, scopeSecretsForStep } from "./step-executor.js";
 import { executeStepWithRetry } from "./retry.js";
 import { buildStepExecutionGraph, transitiveDependents, type StepState, type StepGraph } from "./scheduler.js";
 import { stepPrefix } from "./refs.js";
@@ -554,8 +554,8 @@ class NativeEngine implements Engine {
       const step = ctx.stepMap.get(stepId);
       if (!step?.compensation) continue;
       // v1: compensation is always kind "shell" (validated at synthesis).
-      const command = step.compensation.kind === "shell" ? step.compensation.command : "";
-      if (!command) continue;
+      const rawCommand = step.compensation.kind === "shell" ? step.compensation.command : "";
+      if (!rawCommand) continue;
 
       const driver = ctx.drivers.find((d) => d.canExecute(step));
       if (!driver) {
@@ -568,13 +568,24 @@ class NativeEngine implements Engine {
         continue;
       }
 
+      // Interpolate ${...} references in the compensation command, same as
+      // normal step execution. Uses the step's value store and inputs.
+      const command = interpolateCommand(
+        rawCommand,
+        step,
+        ctx.valueStore,
+        ctx.request.plan.inputs,
+        ctx.secrets,
+        ctx.request.workspace,
+      );
+
       ctx.emit({ type: "step-compensating", stepId, command });
 
       const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
       const request: ShellExecuteRequest = {
         command,
         workspace: stepWorkspace,
-        env: buildCompensationEnv(step, ctx.secrets),
+        env: buildCompensationEnv(step, scopeSecretsForStep(step, ctx.secrets)),
         ...(step.runtime.workingDir !== undefined
           ? { cwd: resolveUnder(stepWorkspace, step.runtime.workingDir) }
           : {}),

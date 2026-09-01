@@ -66,4 +66,32 @@ describe("Spec 30 — compensation in synthesis", () => {
     }
     expect(caught).toBeInstanceOf(SynthesisError);
   });
+
+  it("empty compensation command raises INVALID_COMPENSATION", () => {
+    const project = new Project("saga-empty");
+    const pipeline = new Pipeline(project, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy.sh",
+      compensation: { kind: "shell", command: "" },
+    });
+    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
+
+    expect(() => synthesize(project)).toThrowError(
+      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
+    );
+  });
+
+  it("whitespace-only compensation command raises INVALID_COMPENSATION", () => {
+    const project = new Project("saga-ws");
+    const pipeline = new Pipeline(project, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy.sh",
+      compensation: { kind: "shell", command: "   " },
+    });
+    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
+
+    expect(() => synthesize(project)).toThrowError(
+      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
+    );
+  });
 });

@@ -306,7 +306,18 @@ async function executeAgentOperation(
  * Steps with at least one write declaration resolve secrets normally.
  */
 function stepScopedSecrets(opts: StepExecOptions): Readonly<Record<string, string>> {
-  const { step, secrets } = opts;
+  return scopeSecretsForStep(opts.step, opts.secrets);
+}
+
+/**
+ * Filter the run-level secrets map to only the secrets declared by a step.
+ * Safe-outputs (Spec 25): read-only steps (no `permissions.write`) get no
+ * secrets, even if they declare `runtime.secrets`.
+ */
+export function scopeSecretsForStep(
+  step: StepDefinition,
+  secrets: Readonly<Record<string, string>>,
+): Readonly<Record<string, string>> {
   if (!step.runtime.secrets) return {};
   // Safe-outputs: read-only steps get no secrets
   const writes = step.permissions?.write;
@@ -405,7 +416,7 @@ function shellQuote(value: InputValue): string {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
-function interpolateCommand(
+export function interpolateCommand(
   command: string,
   step: StepDefinition,
   valueStore: ValueStore,
