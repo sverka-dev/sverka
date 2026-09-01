@@ -21,7 +21,7 @@ Drone). No new packages, no new external dependencies. All live in
 
 Each sub-module follows the existing `gitlab/` pattern:
 
-```
+```text
 packages/compiler/src/<target>/
   types.ts        — config + IR types
   capabilities.ts — CapabilityManifest
@@ -61,6 +61,10 @@ packages/compiler/src/<target>/
 8. Write `drone/index.ts` — exports.
 9. Write `drone/__tests__/public-api.test.ts` — export assertions.
 10. Run gates: `bun run test --filter @sverka/compiler`, typecheck, lint.
+
+Note: steps 1-3 produce types/errors used by the failing tests in step 4
+(TDD). The test file is written before the lower/emit implementation in
+steps 5-6.
 
 ### Step 2: Temporal target (TypeScript code generation)
 

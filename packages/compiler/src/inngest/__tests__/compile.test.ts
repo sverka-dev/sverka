@@ -37,16 +37,16 @@ describe("compileInngest — basic", () => {
     expect(result.artifacts[0]?.path).toBe("ci.ts");
   });
 
-  it("imports @inngest/agent-kit", () => {
+  it("imports Inngest from inngest core", () => {
     const result = compileInngest(makeSimpleGraph());
     const content = result.artifacts[0]!.content;
-    expect(content).toContain('import { createFunction } from "@inngest/agent-kit"');
+    expect(content).toContain('import { Inngest } from "inngest"');
   });
 
-  it("uses createFunction", () => {
+  it("uses inngest.createFunction", () => {
     const result = compileInngest(makeSimpleGraph());
     const content = result.artifacts[0]!.content;
-    expect(content).toContain("createFunction(");
+    expect(content).toContain("inngest.createFunction(");
   });
 });
 
@@ -136,17 +136,50 @@ describe("compileInngest — retry and timeout", () => {
 });
 
 describe("compileInngest — conditions and matrix", () => {
-  it("condition → if/else in generated code", () => {
+  it("condition status:failure → if (_failed) guard in generated code", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new ShellStep(p, "notify", {
+      command: "echo failed",
+      condition: { kind: "status", status: "failure" },
+      dependsOn: ["build"],
+    });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["notify"] });
+    const result = compileInngest(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain("if (_failed)");
+    expect(content).not.toContain("if (true)");
+  });
+
+  it("condition status:never → if (false) guard", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
       command: "echo hi",
-      condition: { kind: "status", status: "failure" },
+      condition: { kind: "status", status: "never" },
     });
     new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
     const result = compileInngest(synthesize(proj));
     const content = result.artifacts[0]!.content;
-    expect(content).toContain("if (true)");
+    expect(content).toContain("if (false)");
+    expect(content).not.toContain("if (true)");
+  });
+
+  it("condition status:success → if (!_failed) guard", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new ShellStep(p, "test", {
+      command: "echo test",
+      condition: { kind: "status", status: "success" },
+      dependsOn: ["build"],
+    });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["test"] });
+    const result = compileInngest(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain("if (!_failed)");
+    expect(content).not.toContain("if (true)");
   });
 
   it("matrix → Promise.all in generated code", () => {
@@ -162,6 +195,18 @@ describe("compileInngest — conditions and matrix", () => {
     expect(content).toContain("Promise.all");
     expect(content).toContain('"18"');
     expect(content).toContain('"20"');
+  });
+});
+
+describe("compileInngest — identifier validation", () => {
+  it("entry ID starting with digit → prefixed with underscore", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "1on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileInngest(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain("_1on_manual");
   });
 });
 

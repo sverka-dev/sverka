@@ -59,8 +59,10 @@ class TemporalTarget implements Target {
 }
 ```
 
-No new types exported beyond `TemporalTargetConfig`. `CompilationResult`
-and `Target` are reused from `@sverka/compiler` plugin types.
+Exported types: `TemporalTargetConfig`, `TemporalTargetGraph`,
+`TemporalWorkflow`, `TemporalActivity`, `GeneratedArtifact`,
+`TargetDiagnostic`, `CompilationResult`. `Target` is reused from
+`@sverka/compiler` plugin types.
 
 ## Data models
 

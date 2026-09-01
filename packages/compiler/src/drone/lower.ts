@@ -30,11 +30,11 @@ export function lowerDrone(
     throw new DroneTargetError("graph has no root pipelines (with entries)", "INVALID_GRAPH");
   }
 
-  // For v1, lower the first root pipeline (single .drone.yml).
+  // Multi-root pipeline support is not yet implemented — reject explicitly.
   if (rootPipelines.length > 1) {
-    const dropped = rootPipelines.slice(1).map((p) => p.id);
-    console.warn(
-      `Drone lowering: dropping ${dropped.length} additional root pipeline(s): ${dropped.join(", ")}. Multi-root Drone support is not yet implemented.`,
+    throw new DroneTargetError(
+      `multi-root pipeline support is not yet implemented: found ${rootPipelines.length} root pipelines (${rootPipelines.map((p) => p.id).join(", ")})`,
+      "INVALID_GRAPH",
     );
   }
   const pipeline = rootPipelines[0]!;
@@ -84,18 +84,7 @@ function reachableStepIds(
   const reachable = new Set<string>();
   const queue: string[] = [];
 
-  for (const root of roots) {
-    if (!byId.has(root)) {
-      throw new DroneTargetError(
-        `entry references unknown root step '${root}'`,
-        "INVALID_GRAPH",
-      );
-    }
-    if (!reachable.has(root)) {
-      reachable.add(root);
-      queue.push(root);
-    }
-  }
+  enqueueRoots(roots, byId, reachable, queue);
 
   let head = 0;
   while (head < queue.length) {
@@ -122,6 +111,29 @@ function reachableStepIds(
 }
 
 /**
+ * Validate and enqueue root step IDs.
+ */
+function enqueueRoots(
+  roots: readonly string[],
+  byId: Map<string, StepDefinition>,
+  reachable: Set<string>,
+  queue: string[],
+): void {
+  for (const root of roots) {
+    if (!byId.has(root)) {
+      throw new DroneTargetError(
+        `entry references unknown root step '${root}'`,
+        "INVALID_GRAPH",
+      );
+    }
+    if (!reachable.has(root)) {
+      reachable.add(root);
+      queue.push(root);
+    }
+  }
+}
+
+/**
  * Return the ids of all producer steps referenced by a step.
  */
 function producerIds(step: StepDefinition): readonly string[] {
@@ -145,18 +157,23 @@ function lowerSteps(
   steps: readonly StepDefinition[],
   defaultImage: string,
 ): readonly DroneStep[] {
+  // Build the name map first so dependencies can reference the correct short name.
   const used = new Set<string>();
+  const nameByStepId = new Map<string, string>();
+  for (const step of steps) {
+    nameByStepId.set(step.id, uniqueName(step.id, used));
+  }
+
   return steps.map((step) => {
-    const name = uniqueName(step.id, used);
+    const name = nameByStepId.get(step.id)!;
     const commands = lowerCommands(step.operations);
     const image = resolveImage(step, defaultImage);
-    const dependsOn = lowerDependsOn(step);
+    const dependsOn = lowerDependsOn(step, nameByStepId);
     return {
       name,
       image,
       commands,
       dependsOn,
-      ...(step.timeout !== undefined ? { timeout: Math.ceil(step.timeout / 1000) } : {}),
     };
   });
 }
@@ -202,23 +219,21 @@ function resolveImage(step: StepDefinition, defaultImage: string): string {
 }
 
 /**
- * Lower step dependencies to Drone depends_on (producer short names).
+ * Lower step dependencies to Drone depends_on using the generated name map.
  */
-function lowerDependsOn(step: StepDefinition): readonly string[] {
+function lowerDependsOn(step: StepDefinition, nameByStepId: Map<string, string>): readonly string[] {
   const deps: string[] = [];
   for (const dep of step.dependencies) {
-    const shortId = dep.producer.includes("/")
-      ? dep.producer.split("/").pop()!
-      : dep.producer;
-    if (!deps.includes(shortId)) {
-      deps.push(shortId);
+    const name = nameByStepId.get(dep.producer) ?? dep.producer;
+    if (!deps.includes(name)) {
+      deps.push(name);
     }
   }
   for (const op of step.operations) {
     if (op.kind === "importArtifact") {
-      const shortId = op.from.includes("/") ? op.from.split("/").pop()! : op.from;
-      if (!deps.includes(shortId)) {
-        deps.push(shortId);
+      const name = nameByStepId.get(op.from) ?? op.from;
+      if (!deps.includes(name)) {
+        deps.push(name);
       }
     }
   }
@@ -233,7 +248,6 @@ function lowerTrigger(entries: readonly EntryDefinition[]): DroneTrigger {
   const branches: string[] = [];
   const events: string[] = [];
   const crons: string[] = [];
-  let custom = false;
 
   for (const entry of entries) {
     switch (entry.trigger.kind) {
@@ -248,7 +262,6 @@ function lowerTrigger(entries: readonly EntryDefinition[]): DroneTrigger {
         break;
       case "manual":
         events.push("custom");
-        custom = true;
         break;
       case "schedule":
         events.push("cron");
@@ -261,7 +274,6 @@ function lowerTrigger(entries: readonly EntryDefinition[]): DroneTrigger {
     ...(branches.length > 0 ? { branch: dedupe(branches) } : {}),
     ...(events.length > 0 ? { event: dedupe(events) } : {}),
     ...(crons.length > 0 ? { cron: dedupe(crons) } : {}),
-    ...(custom ? { custom: true } : {}),
   };
   return trigger;
 }

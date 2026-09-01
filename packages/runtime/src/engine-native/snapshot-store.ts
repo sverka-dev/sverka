@@ -9,13 +9,16 @@ import type { RunSnapshot, SnapshotStore } from "./types.js";
  * Not durable — snapshots are lost when the process exits.
  */
 export function createInMemorySnapshotStore(): SnapshotStore {
-  const store = new Map<string, RunSnapshot>();
+  const store = new Map<string, string>();
   return {
     async save(snapshot: RunSnapshot): Promise<void> {
-      store.set(snapshot.runId, snapshot);
+      // Store a serialized copy to prevent alias mutations
+      store.set(snapshot.runId, JSON.stringify(snapshot));
     },
     async load(runId: string): Promise<RunSnapshot | undefined> {
-      return store.get(runId);
+      const text = store.get(runId);
+      if (text === undefined) return undefined;
+      return JSON.parse(text) as RunSnapshot;
     },
     async delete(runId: string): Promise<void> {
       store.delete(runId);

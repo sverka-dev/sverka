@@ -4,7 +4,7 @@
 **Source:** specs/architecture-spec.md §19 (Target Contract), §24 (Capability Model), §29 (Package Surface)
 **Package:** `@sverka/compiler` (drone sub-module)
 **Capability namespace:** `drone.*`
-**Related:** ADR-016, Spec 08 (github target), Spec 09 (gitlab target)
+**Related:** ADR-016, Spec 08 (GitHub target), Spec 09 (GitLab target)
 
 ## Overview
 

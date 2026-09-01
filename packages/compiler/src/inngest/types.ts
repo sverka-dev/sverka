@@ -1,7 +1,7 @@
 // Inngest target types. Spec 35 — §19.
 
 import type { CapabilitySupport } from "../plugin/index.js";
-import type { MatrixValue } from "@sverka/workflow";
+import type { MatrixValue, Condition } from "@sverka/workflow";
 
 /**
  * Optional {@link InngestTarget} constructor config.
@@ -18,7 +18,7 @@ export interface InngestStep {
   readonly dependsOn: readonly string[];
   readonly timeout?: number;
   readonly retry?: { readonly max: number };
-  readonly condition?: unknown;
+  readonly condition?: Condition;
   readonly matrix?: { readonly dimensions: Readonly<Record<string, readonly MatrixValue[]>> };
   readonly hasScalarOutput: boolean;
   readonly hasArtifactOutput: boolean;

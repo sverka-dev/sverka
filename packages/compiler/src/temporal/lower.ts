@@ -33,9 +33,9 @@ export function lowerTemporal(
   }
 
   if (rootPipelines.length > 1) {
-    const dropped = rootPipelines.slice(1).map((p) => p.id);
-    console.warn(
-      `Temporal lowering: dropping ${dropped.length} additional root pipeline(s): ${dropped.join(", ")}.`,
+    throw new TemporalTargetError(
+      `multi-root pipeline support is not yet implemented: found ${rootPipelines.length} root pipelines (${rootPipelines.map((p) => p.id).join(", ")})`,
+      "INVALID_GRAPH",
     );
   }
   const pipeline = rootPipelines[0]!;
@@ -103,6 +103,7 @@ function lowerActivity(step: StepDefinition): TemporalActivity {
     stepId: step.id,
     ...(step.retry !== undefined ? { retry: { max: step.retry.max } } : {}),
     ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
+    ...(step.condition !== undefined ? { condition: step.condition } : {}),
   };
 }
 

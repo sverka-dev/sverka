@@ -1,6 +1,7 @@
 // Temporal target types. Spec 33 — §19.
 
 import type { CapabilitySupport } from "../plugin/index.js";
+import type { Condition } from "@sverka/workflow";
 
 /**
  * Optional {@link TemporalTarget} constructor config.
@@ -17,6 +18,7 @@ export interface TemporalActivity {
   readonly stepId: string;
   readonly retry?: { readonly max: number };
   readonly timeoutMs?: number;
+  readonly condition?: Condition;
 }
 
 /** A lowered Temporal workflow entry. */

@@ -48,9 +48,6 @@ function stepToYaml(step: DroneStep): Record<string, unknown> {
   if (step.dependsOn.length > 0) {
     obj.depends_on = step.dependsOn;
   }
-  if (step.timeout !== undefined) {
-    obj.timeout = step.timeout;
-  }
   return obj;
 }
 
@@ -62,6 +59,5 @@ function triggerToYaml(trigger: DroneTargetGraph["trigger"]): Record<string, unk
   if (trigger.branch) obj.branch = trigger.branch;
   if (trigger.event) obj.event = trigger.event;
   if (trigger.cron) obj.cron = trigger.cron;
-  if (trigger.custom) obj.custom = trigger.custom;
   return obj;
 }

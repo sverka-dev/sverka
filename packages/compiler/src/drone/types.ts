@@ -18,7 +18,6 @@ export interface DroneStep {
   readonly image: string;
   readonly commands: readonly string[];
   readonly dependsOn: readonly string[];
-  readonly timeout?: number; // seconds
 }
 
 /** A Drone trigger block. */
@@ -26,7 +25,6 @@ export interface DroneTrigger {
   readonly branch?: readonly string[];
   readonly event?: readonly string[];
   readonly cron?: readonly string[];
-  readonly custom?: boolean;
 }
 
 /** Lowered Drone pipeline graph. */

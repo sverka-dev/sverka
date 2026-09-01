@@ -34,9 +34,9 @@ export function lowerInngest(
   }
 
   if (rootPipelines.length > 1) {
-    const dropped = rootPipelines.slice(1).map((p) => p.id);
-    console.warn(
-      `Inngest lowering: dropping ${dropped.length} additional root pipeline(s): ${dropped.join(", ")}.`,
+    throw new InngestTargetError(
+      `multi-root pipeline support is not yet implemented: found ${rootPipelines.length} root pipelines (${rootPipelines.map((p) => p.id).join(", ")})`,
+      "INVALID_GRAPH",
     );
   }
   const pipeline = rootPipelines[0]!;
@@ -177,18 +177,7 @@ function filterReachableSteps(
   const reachable = new Set<string>();
   const queue: string[] = [];
 
-  for (const root of roots) {
-    if (!byId.has(root)) {
-      throw new InngestTargetError(
-        `entry references unknown root step '${root}'`,
-        "INVALID_GRAPH",
-      );
-    }
-    if (!reachable.has(root)) {
-      reachable.add(root);
-      queue.push(root);
-    }
-  }
+  enqueueRoots(roots, byId, reachable, queue);
 
   let head = 0;
   while (head < queue.length) {
@@ -212,6 +201,29 @@ function filterReachableSteps(
   }
 
   return pipeline.steps.filter((step) => reachable.has(step.id));
+}
+
+/**
+ * Validate and enqueue root step IDs.
+ */
+function enqueueRoots(
+  roots: readonly string[],
+  byId: Map<string, StepDefinition>,
+  reachable: Set<string>,
+  queue: string[],
+): void {
+  for (const root of roots) {
+    if (!byId.has(root)) {
+      throw new InngestTargetError(
+        `entry references unknown root step '${root}'`,
+        "INVALID_GRAPH",
+      );
+    }
+    if (!reachable.has(root)) {
+      reachable.add(root);
+      queue.push(root);
+    }
+  }
 }
 
 /**

@@ -41,13 +41,13 @@ describe("compileTemporal — basic", () => {
   it("workflow file imports temporalio/workflow", () => {
     const result = compileTemporal(makeSimpleGraph());
     const wf = result.artifacts[0]!.content;
-    expect(wf).toContain('import { defineWorkflow, proxyActivities } from "@temporalio/workflow"');
+    expect(wf).toContain('import { proxyActivities } from "@temporalio/workflow"');
   });
 
-  it("activities file imports temporalio/activity", () => {
+  it("activities file exports runStep function", () => {
     const result = compileTemporal(makeSimpleGraph());
     const acts = result.artifacts[1]!.content;
-    expect(acts).toContain('import { defineActivity } from "@temporalio/activity"');
+    expect(acts).toContain("export async function runStep");
   });
 });
 
@@ -108,7 +108,7 @@ describe("compileTemporal — triggers", () => {
 });
 
 describe("compileTemporal — retry and timeout", () => {
-  it("RetryPolicy → activity retry config", () => {
+  it("RetryPolicy → activity retry config in lowered graph", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi", retry: { max: 5 } });
@@ -121,6 +121,17 @@ describe("compileTemporal — retry and timeout", () => {
     expect(activity?.retry?.max).toBe(5);
   });
 
+  it("RetryPolicy → retry config in emitted workflow code", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi", retry: { max: 5 } });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileTemporal(synthesize(proj));
+    const wf = result.artifacts[0]!.content;
+    expect(wf).toContain("retry");
+    expect(wf).toContain("5");
+  });
+
   it("Timeout → activity timeout in lowered graph", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
@@ -130,6 +141,59 @@ describe("compileTemporal — retry and timeout", () => {
     const graph = target.lower(synthesize(proj));
     const activity = graph.workflows[0]!.activities.find((a) => a.stepId === "ci/build");
     expect(activity?.timeoutMs).toBe(30000);
+  });
+
+  it("Timeout → startToCloseTimeout in emitted workflow code", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi", timeout: 30000 });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileTemporal(synthesize(proj));
+    const wf = result.artifacts[0]!.content;
+    expect(wf).toContain("startToCloseTimeout");
+    expect(wf).toContain("30");
+  });
+});
+
+describe("compileTemporal — conditions", () => {
+  it("condition status:failure → if (_failed) in workflow body", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new ShellStep(p, "notify", {
+      command: "echo failed",
+      condition: { kind: "status", status: "failure" },
+      dependsOn: ["build"],
+    });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["notify"] });
+    const result = compileTemporal(synthesize(proj));
+    const wf = result.artifacts[0]!.content;
+    expect(wf).toContain("if (_failed)");
+  });
+
+  it("condition status:never → if (false) in workflow body", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo hi",
+      condition: { kind: "status", status: "never" },
+    });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileTemporal(synthesize(proj));
+    const wf = result.artifacts[0]!.content;
+    expect(wf).toContain("if (false)");
+  });
+});
+
+describe("compileTemporal — identifier validation", () => {
+  it("entry ID starting with digit → prefixed with underscore", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "1on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileTemporal(synthesize(proj));
+    const wf = result.artifacts[0]!.content;
+    expect(wf).toContain("_1on_manual");
   });
 });
 

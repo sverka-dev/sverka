@@ -58,10 +58,10 @@ describe("compileDagger — basic", () => {
 });
 
 describe("compileDagger — shell operations", () => {
-  it("maps shell command to withExec", () => {
+  it("maps shell command to withExec via sh -c", () => {
     const result = compileDagger(makeSimpleGraph());
     const content = result.artifacts[0]!.content;
-    expect(content).toContain('ctx.withExec(["bun", "run", "build"])');
+    expect(content).toContain('ctx.withExec(["sh", "-c", "bun run build"])');
   });
 });
 
@@ -69,8 +69,8 @@ describe("compileDagger — dependencies", () => {
   it("chains steps in dependency order", () => {
     const result = compileDagger(makeGraphWithDeps());
     const content = result.artifacts[0]!.content;
-    const lintIdx = content.indexOf('withExec(["bun", "run", "lint"])');
-    const buildIdx = content.indexOf('withExec(["bun", "run", "build"])');
+    const lintIdx = content.indexOf('bun run lint');
+    const buildIdx = content.indexOf('bun run build');
     expect(lintIdx).toBeGreaterThan(-1);
     expect(buildIdx).toBeGreaterThan(-1);
     expect(lintIdx).toBeLessThan(buildIdx);
@@ -79,9 +79,9 @@ describe("compileDagger — dependencies", () => {
   it("diamond dependency → producers before consumer", () => {
     const result = compileDagger(makeDiamondGraph());
     const content = result.artifacts[0]!.content;
-    const lintIdx = content.indexOf('withExec(["bun", "run", "lint"])');
-    const testIdx = content.indexOf('withExec(["bun", "run", "test"])');
-    const buildIdx = content.indexOf('withExec(["bun", "run", "build"])');
+    const lintIdx = content.indexOf('bun run lint');
+    const testIdx = content.indexOf('bun run test');
+    const buildIdx = content.indexOf('bun run build');
     expect(lintIdx).toBeLessThan(buildIdx);
     expect(testIdx).toBeLessThan(buildIdx);
   });
@@ -119,33 +119,80 @@ describe("compileDagger — retry and timeout", () => {
     new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
     const result = compileDagger(synthesize(proj));
     const content = result.artifacts[0]!.content;
-    expect(content).toContain("attempt <= 3");
+    expect(content).toContain("attempt < 3");
     expect(content).toContain("Retry wrapper");
   });
 
-  it("timeout → withTimeout in generated code", () => {
+  it("timeout → documented in generated code (Dagger has no withTimeout)", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi", timeout: 30000 });
     new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
     const result = compileDagger(synthesize(proj));
     const content = result.artifacts[0]!.content;
-    expect(content).toContain("withTimeout(30)");
+    expect(content).toContain("timeout: 30s");
   });
 });
 
 describe("compileDagger — conditions and matrix", () => {
-  it("condition → if/else emulation in code", () => {
+  it("condition status:failure → if (_failed) guard in code", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new ShellStep(p, "notify", {
+      command: "echo failed",
+      condition: { kind: "status", status: "failure" },
+      dependsOn: ["build"],
+    });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["notify"] });
+    const result = compileDagger(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain("if (_failed)");
+    expect(content).not.toContain("if (true)");
+  });
+
+  it("condition status:never → if (false) guard", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
       command: "echo hi",
-      condition: { kind: "status", status: "failure" },
+      condition: { kind: "status", status: "never" },
     });
     new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
     const result = compileDagger(synthesize(proj));
     const content = result.artifacts[0]!.content;
-    expect(content).toContain("Condition: emulated");
+    expect(content).toContain("if (false)");
+    expect(content).not.toContain("if (true)");
+  });
+
+  it("condition status:always → no if guard", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", {
+      command: "echo hi",
+      condition: { kind: "status", status: "always" },
+    });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileDagger(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).not.toContain("if (true)");
+    expect(content).not.toContain("if (false)");
+  });
+
+  it("condition status:success → if (!_failed) guard", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new ShellStep(p, "test", {
+      command: "echo test",
+      condition: { kind: "status", status: "success" },
+      dependsOn: ["build"],
+    });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["test"] });
+    const result = compileDagger(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain("if (!_failed)");
+    expect(content).not.toContain("if (true)");
   });
 
   it("matrix → loop in generated code", () => {
@@ -161,6 +208,48 @@ describe("compileDagger — conditions and matrix", () => {
     expect(content).toContain("Matrix: emulated");
     expect(content).toContain('"18"');
     expect(content).toContain('"20"');
+  });
+});
+
+describe("compileDagger — command quoting", () => {
+  it("preserves quoted arguments via sh -c", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: 'echo "hello world"' });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileDagger(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain('"sh"');
+    expect(content).toContain('"-c"');
+    expect(content).toContain('echo \\"hello world\\"');
+    // Should NOT split on whitespace
+    expect(content).not.toContain('"echo"');
+  });
+});
+
+describe("compileDagger — retry off-by-one", () => {
+  it("retry max:3 → loop runs exactly 3 attempts (0..2)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi", retry: { max: 3 } });
+    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileDagger(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain("attempt < 3");
+    expect(content).not.toContain("attempt <= 3");
+  });
+});
+
+describe("compileDagger — identifier validation", () => {
+  it("entry ID starting with digit → prefixed with underscore", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "echo hi" });
+    new Entry(p, "1on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const result = compileDagger(synthesize(proj));
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain("_1on_manual");
+    expect(content).not.toContain(" 1on_manual");
   });
 });
 

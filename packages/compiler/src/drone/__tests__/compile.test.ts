@@ -4,6 +4,34 @@ import { Project, Pipeline, ShellStep, Entry, type DefinitionGraph } from "@sver
 import { synthesize } from "@sverka/workflow";
 import { compileDrone, DroneTarget, DroneTargetError } from "../index.js";
 
+interface DroneYamlStep {
+  readonly name: string;
+  readonly image: string;
+  readonly commands: readonly string[];
+  readonly depends_on?: readonly string[];
+  readonly timeout?: number;
+}
+
+interface DroneYamlTrigger {
+  readonly branch?: readonly string[];
+  readonly event?: readonly string[];
+  readonly cron?: readonly string[];
+}
+
+interface DroneYaml {
+  readonly kind: string;
+  readonly type: string;
+  readonly name: string;
+  readonly steps: readonly DroneYamlStep[];
+  readonly trigger: DroneYamlTrigger;
+}
+
+function parseDroneYaml(text: string): DroneYaml {
+  const parsed = parse(text) as DroneYaml;
+  if (typeof parsed.kind !== "string") throw new Error("invalid YAML: missing kind");
+  return parsed;
+}
+
 function makeSimpleGraph(): DefinitionGraph {
   const proj = new Project("test");
   const p = new Pipeline(proj, "ci");
@@ -40,7 +68,7 @@ describe("compileDrone — basic", () => {
 
   it("produces valid YAML", () => {
     const result = compileDrone(makeSimpleGraph());
-    const yaml = parse(result.artifacts[0]!.content);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.kind).toBe("pipeline");
     expect(yaml.type).toBe("docker");
     expect(yaml.steps).toBeDefined();
@@ -50,24 +78,24 @@ describe("compileDrone — basic", () => {
 describe("compileDrone — shell operations", () => {
   it("maps shell operation to commands array", () => {
     const result = compileDrone(makeSimpleGraph());
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.steps[0].commands).toEqual(["bun run build"]);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
+    expect(yaml.steps[0]?.commands).toEqual(["bun run build"]);
   });
 });
 
 describe("compileDrone — dependencies", () => {
   it("maps step dependencies to depends_on", () => {
     const result = compileDrone(makeGraphWithDeps());
-    const yaml = parse(result.artifacts[0]!.content);
-    const buildStep = yaml.steps.find((s: { name: string }) => s.name === "build");
-    expect(buildStep.depends_on).toEqual(["lint"]);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
+    const buildStep = yaml.steps.find((s) => s.name === "build");
+    expect(buildStep?.depends_on).toEqual(["lint"]);
   });
 
   it("maps diamond dependencies correctly", () => {
     const result = compileDrone(makeDiamondGraph());
-    const yaml = parse(result.artifacts[0]!.content);
-    const buildStep = yaml.steps.find((s: { name: string }) => s.name === "build");
-    expect(buildStep.depends_on).toEqual(["lint", "test"]);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
+    const buildStep = yaml.steps.find((s) => s.name === "build");
+    expect(buildStep?.depends_on).toEqual(["lint", "test"]);
   });
 });
 
@@ -81,7 +109,7 @@ describe("compileDrone — trigger mapping", () => {
       roots: ["build"],
     });
     const result = compileDrone(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("push");
     expect(yaml.trigger.branch).toContain("main");
   });
@@ -92,7 +120,7 @@ describe("compileDrone — trigger mapping", () => {
     new ShellStep(p, "build", { command: "echo hi" });
     new Entry(p, "on-pr", { trigger: { kind: "changeRequest" }, roots: ["build"] });
     const result = compileDrone(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("pull_request");
   });
 
@@ -102,9 +130,8 @@ describe("compileDrone — trigger mapping", () => {
     new ShellStep(p, "build", { command: "echo hi" });
     new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
     const result = compileDrone(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("custom");
-    expect(yaml.trigger.custom).toBe(true);
   });
 
   it("maps schedule trigger to cron", () => {
@@ -113,7 +140,7 @@ describe("compileDrone — trigger mapping", () => {
     new ShellStep(p, "build", { command: "echo hi" });
     new Entry(p, "on-schedule", { trigger: { kind: "schedule", cron: "0 * * * *" }, roots: ["build"] });
     const result = compileDrone(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("cron");
     expect(yaml.trigger.cron).toContain("0 * * * *");
   });
@@ -129,32 +156,32 @@ describe("compileDrone — runtime", () => {
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileDrone(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.steps[0].image).toBe("golang:1.24");
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
+    expect(yaml.steps[0]?.image).toBe("golang:1.24");
   });
 
   it("emulates host runtime with default image", () => {
     const result = compileDrone(makeSimpleGraph());
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.steps[0].image).toBe("node:24");
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
+    expect(yaml.steps[0]?.image).toBe("node:24");
   });
 
   it("honors custom default image via config", () => {
     const result = compileDrone(makeSimpleGraph(), { image: "bun:latest" });
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.steps[0].image).toBe("bun:latest");
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
+    expect(yaml.steps[0]?.image).toBe("bun:latest");
   });
 });
 
 describe("compileDrone — timeout", () => {
-  it("maps timeout to seconds in step", () => {
+  it("does not emit per-step timeout (Drone Docker/K8s do not support it)", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi", timeout: 60000 });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileDrone(synthesize(proj));
-    const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.steps[0].timeout).toBe(60);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
+    expect(yaml.steps[0]?.timeout).toBeUndefined();
   });
 });
 
@@ -226,7 +253,7 @@ describe("compileDrone — DroneTarget class", () => {
 
   it("honors type config (kubernetes)", () => {
     const result = compileDrone(makeSimpleGraph(), { type: "kubernetes" });
-    const yaml = parse(result.artifacts[0]!.content);
+    const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.type).toBe("kubernetes");
   });
 });
