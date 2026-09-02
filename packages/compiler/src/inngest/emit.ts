@@ -2,8 +2,7 @@
 // Spec 35 — §19.
 
 import { InngestTargetError } from "./errors.js";
-import { sanitizeForComment } from "../internal/sanitize.js";
-import type { Condition } from "@sverka/workflow";
+import { sanitizeForComment, conditionGuard } from "../internal/sanitize.js";
 import type { InngestTargetGraph, InngestFunction, InngestStep, GeneratedArtifact } from "./types.js";
 
 /**
@@ -90,7 +89,7 @@ function emitStepRun(step: InngestStep): string[] {
   const lines: string[] = [];
   const shortName = step.stepId.includes("/") ? step.stepId.split("/").pop()! : step.stepId;
 
-  const guard = conditionGuard(step.condition);
+  const guard = conditionGuard(step.condition, "    ");
 
   if (guard.open) {
     lines.push(guard.open);
@@ -162,30 +161,7 @@ function emitSimpleStep(step: InngestStep, shortName: string): string[] {
   return lines;
 }
 
-/**
- * Generate condition guard lines for a step.
- */
-function conditionGuard(condition: Condition | undefined): { open: string; close: string } {
-  if (condition === undefined) {
-    return { open: "", close: "" };
-  }
 
-  if (condition.kind === "status") {
-    switch (condition.status) {
-      case "success":
-        return { open: `    if (!_failed) {`, close: `    }` };
-      case "failure":
-        return { open: `    if (_failed) {`, close: `    }` };
-      case "always":
-        return { open: "", close: "" };
-      case "never":
-        return { open: `    if (false) { // condition: never`, close: `    }` };
-    }
-  }
-
-  // Expression or Reference — cannot be evaluated at compile time
-  return { open: `    // WARNING: condition kind '${condition.kind}' cannot be evaluated at compile time; step is unconditional`, close: "" };
-}
 
 /**
  * Convert an entry ID to a valid TypeScript identifier.

@@ -2,8 +2,7 @@
 // Spec 33 — §19.
 
 import { TemporalTargetError } from "./errors.js";
-import { sanitizeForComment } from "../internal/sanitize.js";
-import type { Condition } from "@sverka/workflow";
+import { sanitizeForComment, conditionGuard } from "../internal/sanitize.js";
 import type { TemporalTargetGraph, TemporalWorkflow, TemporalActivity, GeneratedArtifact } from "./types.js";
 
 /**
@@ -97,7 +96,7 @@ function emitWorkflowHandler(wf: TemporalWorkflow): string[] {
  */
 function emitActivityCall(activity: TemporalActivity): string[] {
   const lines: string[] = [];
-  const guard = conditionGuard(activity.condition);
+  const guard = conditionGuard(activity.condition, "  ");
 
   // Surface lowering warnings (background execution, dropped non-shell ops,
   // secret references in commands) as comments in the generated workflow.
@@ -140,31 +139,6 @@ function emitActivityCall(activity: TemporalActivity): string[] {
   }
 
   return lines;
-}
-
-/**
- * Generate condition guard lines for an activity.
- */
-function conditionGuard(condition: Condition | undefined): { open: string; close: string } {
-  if (condition === undefined) {
-    return { open: "", close: "" };
-  }
-
-  if (condition.kind === "status") {
-    switch (condition.status) {
-      case "success":
-        return { open: `  if (!_failed) {`, close: `  }` };
-      case "failure":
-        return { open: `  if (_failed) {`, close: `  }` };
-      case "always":
-        return { open: "", close: "" };
-      case "never":
-        return { open: `  if (false) { // condition: never`, close: `  }` };
-    }
-  }
-
-  // Expression or Reference — cannot be evaluated at compile time
-  return { open: `  // WARNING: condition kind '${condition.kind}' cannot be evaluated at compile time; step is unconditional`, close: "" };
 }
 
 /**
