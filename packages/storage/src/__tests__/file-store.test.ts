@@ -1,11 +1,29 @@
 // Spec 31 — FileSnapshotStore tests (test plan items 1–6).
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { createFileSnapshotStore } from "../file-store.js";
 import { StorageError } from "../errors.js";
 import { makeSnapshot, makeTempDir, cleanupTempDir } from "./helpers/fixtures.js";
+
+/** Write a file at <dir>/.sverka/runs/<runId>/snapshot.json with the given content. */
+async function writeSnapshotFile(dir: string, runId: string, content: string): Promise<void> {
+  const snapDir = join(dir, ".sverka", "runs", runId);
+  await mkdir(snapDir, { recursive: true });
+  await writeFile(join(snapDir, "snapshot.json"), content);
+}
+
+/** Expect store.load(runId) to reject with a StorageError having the given code. */
+async function expectLoadError(dir: string, runId: string, code: string): Promise<void> {
+  const store = createFileSnapshotStore({ root: dir });
+  await expect(store.load(runId)).rejects.toThrow(StorageError);
+  try {
+    await store.load(runId);
+  } catch (e) {
+    expect((e as StorageError).code).toBe(code);
+  }
+}
 
 describe("FileSnapshotStore", () => {
   let dir: string;
@@ -23,10 +41,8 @@ describe("FileSnapshotStore", () => {
     const store = createFileSnapshotStore({ root: dir });
     const snap = makeSnapshot("run-1");
     await store.save(snap);
-
     const expectedPath = join(dir, ".sverka", "runs", "run-1", "snapshot.json");
     expect(existsSync(expectedPath)).toBe(true);
-
     const loaded = await store.load("run-1");
     expect(loaded).toEqual(snap);
   });
@@ -55,36 +71,21 @@ describe("FileSnapshotStore", () => {
 
   // Item 5: load throws CORRUPT_SNAPSHOT for invalid JSON
   it("load throws StorageError(CORRUPT_SNAPSHOT) when file has invalid JSON", async () => {
-    const store = createFileSnapshotStore({ root: dir });
-    const snapDir = join(dir, ".sverka", "runs", "run-bad");
-    await mkdir(snapDir, { recursive: true });
-    await writeFile(join(snapDir, "snapshot.json"), "{ not valid json");
-
-    await expect(store.load("run-bad")).rejects.toThrow(StorageError);
-    try {
-      await store.load("run-bad");
-    } catch (e) {
-      expect((e as StorageError).code).toBe("CORRUPT_SNAPSHOT");
-    }
+    await writeSnapshotFile(dir, "run-bad", "{ not valid json");
+    await expectLoadError(dir, "run-bad", "CORRUPT_SNAPSHOT");
   });
 
   // Item 6: load throws CORRUPT_SNAPSHOT when JSON parses but required fields missing / status !== suspended
   it("load throws CORRUPT_SNAPSHOT when JSON parses but status !== suspended", async () => {
-    const store = createFileSnapshotStore({ root: dir });
-    const snapDir = join(dir, ".sverka", "runs", "run-wrong-status");
-    await mkdir(snapDir, { recursive: true });
     const bad = JSON.stringify({ ...makeSnapshot(), status: "success" });
-    await writeFile(join(snapDir, "snapshot.json"), bad);
-
+    await writeSnapshotFile(dir, "run-wrong-status", bad);
+    const store = createFileSnapshotStore({ root: dir });
     await expect(store.load("run-wrong-status")).rejects.toThrow(StorageError);
   });
 
   it("load throws CORRUPT_SNAPSHOT when required fields are missing", async () => {
+    await writeSnapshotFile(dir, "run-missing", JSON.stringify({ foo: "bar" }));
     const store = createFileSnapshotStore({ root: dir });
-    const snapDir = join(dir, ".sverka", "runs", "run-missing");
-    await mkdir(snapDir, { recursive: true });
-    await writeFile(join(snapDir, "snapshot.json"), JSON.stringify({ foo: "bar" }));
-
     await expect(store.load("run-missing")).rejects.toThrow(StorageError);
   });
 
@@ -150,16 +151,8 @@ describe("FileSnapshotStore", () => {
   });
 
   it("load throws CORRUPT_SNAPSHOT when snapshot runId does not match requested runId", async () => {
-    const store = createFileSnapshotStore({ root: dir });
-    const snapDir = join(dir, ".sverka", "runs", "run-mismatch");
-    await mkdir(snapDir, { recursive: true });
     const snap = makeSnapshot("run-different");
-    await writeFile(join(snapDir, "snapshot.json"), JSON.stringify(snap, null, 2));
-    await expect(store.load("run-mismatch")).rejects.toThrow(StorageError);
-    try {
-      await store.load("run-mismatch");
-    } catch (e) {
-      expect((e as StorageError).code).toBe("CORRUPT_SNAPSHOT");
-    }
+    await writeSnapshotFile(dir, "run-mismatch", JSON.stringify(snap, null, 2));
+    await expectLoadError(dir, "run-mismatch", "CORRUPT_SNAPSHOT");
   });
 });
