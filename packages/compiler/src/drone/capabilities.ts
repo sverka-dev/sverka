@@ -13,7 +13,7 @@ export const droneCapabilities: CapabilityManifest = {
   "trigger.push": "native",
   "trigger.changeRequest": "native",
   "trigger.manual": "native",
-  "trigger.schedule": "native",
+  "trigger.schedule": "unsupported",
   "runtime.host": "emulated",
   "runtime.container": "native",
   "agent.step": "unsupported",

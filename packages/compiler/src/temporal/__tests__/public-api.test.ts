@@ -40,7 +40,7 @@ describe("public API — exports", () => {
 
   it("exports type-only interfaces (compile-time check)", () => {
     const _config: TemporalTargetConfig = { namespace: "default", taskQueue: "sverka" };
-    const _activity: TemporalActivity = { stepId: "build" };
+    const _activity: TemporalActivity = { stepId: "build", commands: [] };
     const _wf: TemporalWorkflow = {
       entryId: "on-manual",
       triggerKind: "manual",

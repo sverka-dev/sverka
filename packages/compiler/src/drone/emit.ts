@@ -48,6 +48,9 @@ function stepToYaml(step: DroneStep): Record<string, unknown> {
   if (step.dependsOn.length > 0) {
     obj.depends_on = step.dependsOn;
   }
+  if (step.detached === true) {
+    obj.detached = true;
+  }
   return obj;
 }
 

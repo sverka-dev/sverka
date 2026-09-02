@@ -3,11 +3,11 @@ import type { CapabilityManifest } from "../plugin/index.js";
 
 export const inngestCapabilities: CapabilityManifest = {
   "graph.dependencies": "native",
-  "graph.conditions": "native",
+  "graph.conditions": "partial",
   "graph.matrix": "emulated",
   "operation.shell": "emulated",
-  "output.scalar": "native",
-  "output.artifact": "partial",
+  "output.scalar": "unsupported",
+  "output.artifact": "unsupported",
   "policy.retry": "native",
   "policy.timeout": "native",
   "trigger.push": "unsupported",

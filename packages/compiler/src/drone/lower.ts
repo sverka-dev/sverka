@@ -169,11 +169,13 @@ function lowerSteps(
     const commands = lowerCommands(step.operations);
     const image = resolveImage(step, defaultImage);
     const dependsOn = lowerDependsOn(step, nameByStepId);
+    const detached = step.operations.some((op) => op.kind === "shell" && op.background === true);
     return {
       name,
       image,
       commands,
       dependsOn,
+      ...(detached ? { detached: true } : {}),
     };
   });
 }

@@ -97,25 +97,30 @@ function emitStepRun(step: InngestStep): string[] {
     if (matrixKeys.length > 0) {
       const key = matrixKeys[0]!;
       const values = step.matrix.dimensions[key] ?? [];
-      lines.push(`    await Promise.all([${values.map((v) => `"${v}"`).join(", ")}].map(async (${key}) => {`);
-      lines.push(`      await step.run("${shortName}", async () => {`);
-      lines.push(`        // sverka run --step ${step.stepId}`);
+      const serializedValues = values.map((v) => JSON.stringify(String(v))).join(", ");
+      lines.push(`    await Promise.all([${serializedValues}].map(async (${key}) => {`);
+      lines.push(`      try {`);
+      lines.push(`        await step.run("${shortName}", async () => {`);
+      lines.push(`          // sverka run --step ${step.stepId}`);
       for (const cmd of step.commands) {
-        lines.push(`        execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
+        lines.push(`          execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
       }
-      lines.push(`      });`);
+      lines.push(`        });`);
+      lines.push(`      } catch { _failed = true; }`);
       lines.push(`    }));`);
     }
   } else {
     if (step.timeout !== undefined) {
       lines.push(`    // timeout: ${Math.ceil(step.timeout / 1000)}s (Inngest step.run has no per-step timeout; use function-level timeouts.finish)`);
     }
-    lines.push(`    await step.run("${shortName}", async () => {`);
-    lines.push(`      // sverka run --step ${step.stepId}`);
+    lines.push(`    try {`);
+    lines.push(`      await step.run("${shortName}", async () => {`);
+    lines.push(`        // sverka run --step ${step.stepId}`);
     for (const cmd of step.commands) {
-      lines.push(`      execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
+      lines.push(`        execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
     }
-    lines.push(`    });`);
+    lines.push(`      });`);
+    lines.push(`    } catch { _failed = true; }`);
   }
 
   if (guard.close) {
@@ -146,8 +151,8 @@ function conditionGuard(condition: Condition | undefined): { open: string; close
     }
   }
 
-  // Expression or Reference — emit as comment
-  return { open: `    // condition: ${condition.kind} — emulated`, close: "" };
+  // Expression or Reference — cannot be evaluated at compile time
+  return { open: `    // WARNING: condition kind '${condition.kind}' cannot be evaluated at compile time; step is unconditional`, close: "" };
 }
 
 /**

@@ -5,6 +5,7 @@ import type {
   DefinitionGraph,
   PipelineDefinition,
   StepDefinition,
+  OperationDefinition,
   EntryDefinition,
 } from "@sverka/workflow";
 import type {
@@ -101,10 +102,25 @@ function mapTriggerKind(kind: string): TemporalWorkflow["triggerKind"] {
 function lowerActivity(step: StepDefinition): TemporalActivity {
   return {
     stepId: step.id,
+    commands: lowerCommands(step.operations),
     ...(step.retry !== undefined ? { retry: { max: step.retry.max } } : {}),
     ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
     ...(step.condition !== undefined ? { condition: step.condition } : {}),
   };
+}
+
+/**
+ * Extract shell commands from a step's operations.
+ * Non-shell operations are ignored (Temporal has no native scalar/artifact output).
+ */
+function lowerCommands(operations: readonly OperationDefinition[]): readonly string[] {
+  const commands: string[] = [];
+  for (const op of operations) {
+    if (op.kind === "shell") {
+      commands.push(op.command);
+    }
+  }
+  return commands;
 }
 
 /**

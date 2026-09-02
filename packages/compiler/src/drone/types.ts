@@ -18,6 +18,7 @@ export interface DroneStep {
   readonly image: string;
   readonly commands: readonly string[];
   readonly dependsOn: readonly string[];
+  readonly detached?: boolean;
 }
 
 /** A Drone trigger block. */

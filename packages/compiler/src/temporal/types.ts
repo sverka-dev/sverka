@@ -16,6 +16,7 @@ export interface TemporalTargetConfig {
 /** A lowered Temporal activity (one per step). */
 export interface TemporalActivity {
   readonly stepId: string;
+  readonly commands: readonly string[];
   readonly retry?: { readonly max: number };
   readonly timeoutMs?: number;
   readonly condition?: Condition;

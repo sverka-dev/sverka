@@ -66,6 +66,11 @@ function emitStep(step: DaggerStep): string[] {
     lines.push(`    // Host runtime is unsupported by Dagger; using container context.`);
   }
 
+  // Switch to a different container image when the step declares one
+  if (step.runtime.mode === "container" && step.runtime.image) {
+    lines.push(`    ctx = dag.container().from("${step.runtime.image}").withMountedDirectory("/src", dag.git(".").tree()).withWorkdir("/src");`);
+  }
+
   const guard = conditionGuard(step.condition);
 
   if (guard.open) {
@@ -99,7 +104,8 @@ function emitStep(step: DaggerStep): string[] {
   if (step.matrix !== undefined) {
     lines.push(`    // Matrix: emulated via loop`);
     for (const [key, values] of Object.entries(step.matrix.dimensions)) {
-      lines.push(`    for (const ${key} of [${values.map((v) => `"${v}"`).join(", ")}]) {`);
+      const serializedValues = values.map((v) => JSON.stringify(String(v))).join(", ");
+      lines.push(`    for (const ${key} of [${serializedValues}]) {`);
       lines.push(`      // matrix iteration: ${key}`);
       lines.push(`    }`);
     }
@@ -108,9 +114,12 @@ function emitStep(step: DaggerStep): string[] {
   if (step.retry !== undefined) {
     lines.push(`        break;`);
     lines.push(`      } catch (err) {`);
-    lines.push(`        if (attempt === ${step.retry.max - 1}) throw err;`);
+    lines.push(`        if (attempt === ${step.retry.max - 1}) { _failed = true; }`);
     lines.push(`      }`);
     lines.push(`    }`);
+  } else {
+    // Non-retry path: force execution and catch errors to set _failed
+    lines.push(`    try { ctx.stdout(); } catch { _failed = true; }`);
   }
 
   // Track failure for condition guards
@@ -147,8 +156,8 @@ function conditionGuard(condition: Condition | undefined): { open: string; close
     }
   }
 
-  // Expression or Reference — emit as comment with best-effort guard
-  return { open: `    // condition: ${condition.kind} — emulated`, close: "", alwaysWrap: false };
+  // Expression or Reference — cannot be evaluated at compile time
+  return { open: `    // WARNING: condition kind '${condition.kind}' cannot be evaluated at compile time; step is unconditional`, close: "", alwaysWrap: false };
 }
 
 /**

@@ -3,11 +3,11 @@ import type { CapabilityManifest } from "../plugin/index.js";
 
 export const daggerCapabilities: CapabilityManifest = {
   "graph.dependencies": "native",
-  "graph.conditions": "emulated",
+  "graph.conditions": "partial",
   "graph.matrix": "emulated",
   "operation.shell": "native",
-  "output.scalar": "native",
-  "output.artifact": "native",
+  "output.scalar": "unsupported",
+  "output.artifact": "unsupported",
   "policy.retry": "emulated",
   "policy.timeout": "native",
   "trigger.push": "unsupported",
