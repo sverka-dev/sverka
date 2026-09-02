@@ -2,6 +2,7 @@
 // Spec 33 — §19.
 
 import { TemporalTargetError } from "./errors.js";
+import { sanitizeForComment } from "../internal/sanitize.js";
 import type { Condition } from "@sverka/workflow";
 import type { TemporalTargetGraph, TemporalWorkflow, TemporalActivity, GeneratedArtifact } from "./types.js";
 
@@ -89,16 +90,6 @@ function emitWorkflowHandler(wf: TemporalWorkflow): string[] {
     `});`,
   ]);
   return lines;
-}
-
-/**
- * Sanitize text for safe embedding in a single-line `//` comment.
- * Replaces newlines, carriage returns, Unicode line terminators (U+2028,
- * U+2029), and other control characters with spaces to prevent comment
- * termination or code injection.
- */
-function sanitizeForComment(text: string): string {
-  return text.replace(/[\r\n\t\u0000-\u001f\u2028\u2029]/g, " ");
 }
 
 /**
