@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, synthesize } from "@sverka/workflow";
 import { compileInngest, InngestTarget, InngestTargetError } from "../index.js";
-import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic, conditionSteps, expectCondition } from "../../__tests__/helpers/graphs.js";
+import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic, conditionSteps, expectCondition, matrixStep, timeoutStep } from "../../__tests__/helpers/graphs.js";
 import type { GraphOptions } from "../../__tests__/helpers/graphs.js";
 
 /** Compile the default simple graph and return the first artifact's content. */
@@ -77,7 +77,7 @@ describe("compileInngest — retry and timeout", () => {
   });
 
   it("timeout → timeout option in step.run", () => {
-    expect(compileContent({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] })).toContain("timeout: 30");
+    expect(compileContent({ steps: [timeoutStep()] })).toContain("timeout: 30");
   });
 });
 
@@ -95,7 +95,7 @@ describe("compileInngest — conditions and matrix", () => {
   });
 
   it("matrix → Promise.all in generated code", () => {
-    const content = compileContent({ steps: [{ id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } }] });
+    const content = compileContent({ steps: [matrixStep()] });
     expect(content).toContain("Promise.all");
     expect(content).toContain('"18"');
     expect(content).toContain('"20"');

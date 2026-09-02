@@ -115,3 +115,13 @@ export function expectCondition(
   expect(content).toContain(expectGuard);
   if (excludeGuard) expect(content).not.toContain(excludeGuard);
 }
+
+/** Standard matrix step used in compiler target tests. */
+export function matrixStep(): StepSpec {
+  return { id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } };
+}
+
+/** Standard timeout step (30s) used in compiler target tests. */
+export function timeoutStep(): StepSpec {
+  return { id: "build", command: "echo hi", timeout: 30000 };
+}

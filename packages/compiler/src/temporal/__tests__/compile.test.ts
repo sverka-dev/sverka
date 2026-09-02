@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { synthesize, Project, Pipeline } from "@sverka/workflow";
 import { compileTemporal, TemporalTarget, TemporalTargetError } from "../index.js";
-import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic } from "../../__tests__/helpers/graphs.js";
+import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic, conditionSteps, expectCondition, timeoutStep } from "../../__tests__/helpers/graphs.js";
 
 describe("compileTemporal — basic", () => {
   it("produces two TypeScript artifacts", () => {
@@ -100,7 +100,7 @@ describe("compileTemporal — retry and timeout", () => {
   });
 
   it("Timeout → activity timeout in lowered graph", () => {
-    const graph = makeGraph({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] });
+    const graph = makeGraph({ steps: [timeoutStep()] });
     const target = new TemporalTarget();
     const lowered = target.lower(graph);
     const activity = lowered.workflows[0]!.activities.find((a) => a.stepId === "ci/build");
@@ -108,7 +108,7 @@ describe("compileTemporal — retry and timeout", () => {
   });
 
   it("Timeout → startToCloseTimeout in emitted workflow code", () => {
-    const result = compileTemporal(makeGraph({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] }));
+    const result = compileTemporal(makeGraph({ steps: [timeoutStep()] }));
     const wf = result.artifacts[0]!.content;
     expect(wf).toContain("startToCloseTimeout");
     expect(wf).toContain("30");
@@ -117,23 +117,11 @@ describe("compileTemporal — retry and timeout", () => {
 
 describe("compileTemporal — conditions", () => {
   it("condition status:failure → if (_failed) in workflow body", () => {
-    const result = compileTemporal(makeGraph({
-      steps: [
-        { id: "build", command: "echo hi" },
-        { id: "notify", command: "echo failed", condition: { kind: "status", status: "failure" }, dependsOn: ["build"] },
-      ],
-      roots: ["notify"],
-    }));
-    const wf = result.artifacts[0]!.content;
-    expect(wf).toContain("if (_failed)");
+    expectCondition(compileTemporal(makeGraph({ steps: conditionSteps("failure"), roots: ["notify"] })).artifacts[0]!.content, "if (_failed)");
   });
 
   it("condition status:never → if (false) in workflow body", () => {
-    const result = compileTemporal(makeGraph({
-      steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }],
-    }));
-    const wf = result.artifacts[0]!.content;
-    expect(wf).toContain("if (false)");
+    expectCondition(compileTemporal(makeGraph({ steps: conditionSteps("never") })).artifacts[0]!.content, "if (false)");
   });
 });
 

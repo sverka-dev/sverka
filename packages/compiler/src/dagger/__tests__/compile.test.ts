@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, synthesize } from "@sverka/workflow";
 import { compileDagger, DaggerTarget, DaggerTargetError } from "../index.js";
-import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic, conditionSteps, expectCondition } from "../../__tests__/helpers/graphs.js";
+import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic, conditionSteps, expectCondition, matrixStep, timeoutStep } from "../../__tests__/helpers/graphs.js";
 import type { GraphOptions } from "../../__tests__/helpers/graphs.js";
 
 /** Compile the default simple graph and return the first artifact's content. */
@@ -77,7 +77,7 @@ describe("compileDagger — retry and timeout", () => {
   });
 
   it("timeout → documented in generated code (Dagger has no withTimeout)", () => {
-    expect(compileContent({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] })).toContain("timeout: 30s");
+    expect(compileContent({ steps: [timeoutStep()] })).toContain("timeout: 30s");
   });
 });
 
@@ -101,7 +101,7 @@ describe("compileDagger — conditions and matrix", () => {
   });
 
   it("matrix → loop in generated code", () => {
-    const content = compileContent({ steps: [{ id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } }] });
+    const content = compileContent({ steps: [matrixStep()] });
     expect(content).toContain("Matrix: emulated");
     expect(content).toContain('"18"');
     expect(content).toContain('"20"');
