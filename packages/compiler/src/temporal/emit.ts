@@ -141,7 +141,7 @@ function emitActivityCall(activity: TemporalActivity): string[] {
     lines.push(guard.open);
   }
 
-  lines.push(`  try { await runStep("${activity.stepId}"${optsStr}); } catch { _failed = true; }`);
+  lines.push(`  try { await runStep(${JSON.stringify(activity.stepId)}${optsStr}); } catch { _failed = true; }`);
 
   if (guard.close) {
     lines.push(guard.close);

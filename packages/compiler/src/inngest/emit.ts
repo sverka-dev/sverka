@@ -6,6 +6,15 @@ import type { Condition } from "@sverka/workflow";
 import type { InngestTargetGraph, InngestFunction, InngestStep, GeneratedArtifact } from "./types.js";
 
 /**
+ * Sanitize text for safe embedding in a single-line `//` comment.
+ * Replaces newlines, carriage returns, and other control characters
+ * with spaces to prevent comment termination or code injection.
+ */
+function sanitizeForComment(text: string): string {
+  return text.replace(/[\r\n\t\u0000-\u001f]/g, " ");
+}
+
+/**
  * Emit an InngestTargetGraph as a TypeScript Inngest function artifact.
  * Produces one <appId>.ts file.
  */
@@ -121,8 +130,8 @@ function emitMatrixStep(step: InngestStep, shortName: string): string[] {
   lines.push(...[
     `    await Promise.all([${serializedValues}].map(async (${key}) => {`,
     `      try {`,
-    `        await step.run("${shortName}", async () => {`,
-    `          // sverka run --step ${step.stepId}`,
+    `        await step.run(${JSON.stringify(shortName)}, async () => {`,
+    `          // sverka run --step ${sanitizeForComment(step.stepId)}`,
   ]);
   for (const cmd of step.commands) {
     lines.push(`          execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
@@ -145,8 +154,8 @@ function emitSimpleStep(step: InngestStep, shortName: string): string[] {
   }
   lines.push(...[
     `    try {`,
-    `      await step.run("${shortName}", async () => {`,
-    `        // sverka run --step ${step.stepId}`,
+    `      await step.run(${JSON.stringify(shortName)}, async () => {`,
+    `        // sverka run --step ${sanitizeForComment(step.stepId)}`,
   ]);
   for (const cmd of step.commands) {
     lines.push(`        execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
