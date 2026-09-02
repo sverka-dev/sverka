@@ -1,8 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { Project, Pipeline, ShellStep, Entry, type DefinitionGraph } from "@sverka/workflow";
+import { Project, Pipeline } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import { compileDrone, DroneTarget, DroneTargetError } from "../index.js";
+import {
+  makeGraph,
+  makeSimpleGraph,
+  makeGraphWithDeps,
+  makeDiamondGraph,
+} from "../../__tests__/helpers/graphs.js";
 
 interface DroneYamlStep {
   readonly name: string;
@@ -32,42 +38,15 @@ function parseDroneYaml(text: string): DroneYaml {
   return parsed;
 }
 
-function makeSimpleGraph(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "build", { command: "bun run build" });
-  new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
-function makeGraphWithDeps(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint", { command: "bun run lint" });
-  new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint"] });
-  new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
-function makeDiamondGraph(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint", { command: "bun run lint" });
-  new ShellStep(p, "test", { command: "bun run test" });
-  new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint", "test"] });
-  new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
 describe("compileDrone — basic", () => {
   it("produces one YAML artifact", () => {
-    const result = compileDrone(makeSimpleGraph());
+    const result = compileDrone(makeSimpleGraph({ kind: "push" }));
     expect(result.artifacts).toHaveLength(1);
     expect(result.artifacts[0]?.path).toBe(".drone.yml");
   });
 
   it("produces valid YAML", () => {
-    const result = compileDrone(makeSimpleGraph());
+    const result = compileDrone(makeSimpleGraph({ kind: "push" }));
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.kind).toBe("pipeline");
     expect(yaml.type).toBe("docker");
@@ -77,7 +56,7 @@ describe("compileDrone — basic", () => {
 
 describe("compileDrone — shell operations", () => {
   it("maps shell operation to commands array", () => {
-    const result = compileDrone(makeSimpleGraph());
+    const result = compileDrone(makeSimpleGraph({ kind: "push" }));
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.steps[0]?.commands).toEqual(["bun run build"]);
   });
@@ -85,14 +64,14 @@ describe("compileDrone — shell operations", () => {
 
 describe("compileDrone — dependencies", () => {
   it("maps step dependencies to depends_on", () => {
-    const result = compileDrone(makeGraphWithDeps());
+    const result = compileDrone(makeGraphWithDeps({ kind: "push" }));
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     const buildStep = yaml.steps.find((s) => s.name === "build");
     expect(buildStep?.depends_on).toEqual(["lint"]);
   });
 
   it("maps diamond dependencies correctly", () => {
-    const result = compileDrone(makeDiamondGraph());
+    const result = compileDrone(makeDiamondGraph({ kind: "push" }));
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     const buildStep = yaml.steps.find((s) => s.name === "build");
     expect(buildStep?.depends_on).toEqual(["lint", "test"]);
@@ -101,45 +80,46 @@ describe("compileDrone — dependencies", () => {
 
 describe("compileDrone — trigger mapping", () => {
   it("maps push trigger to branch trigger", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-push", {
-      trigger: { kind: "push", filter: { branches: ["main"] } },
-      roots: ["build"],
-    });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "push", filter: { branches: ["main"] } },
+        steps: [{ id: "build", command: "echo hi" }],
+      }),
+    );
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("push");
     expect(yaml.trigger.branch).toContain("main");
   });
 
   it("maps changeRequest trigger to pull_request event", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-pr", { trigger: { kind: "changeRequest" }, roots: ["build"] });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "changeRequest" },
+        steps: [{ id: "build", command: "echo hi" }],
+      }),
+    );
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("pull_request");
   });
 
   it("maps manual trigger to custom event", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "manual" },
+        steps: [{ id: "build", command: "echo hi" }],
+      }),
+    );
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("custom");
   });
 
   it("maps schedule trigger to cron", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-schedule", { trigger: { kind: "schedule", cron: "0 * * * *" }, roots: ["build"] });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "schedule", cron: "0 * * * *" },
+        steps: [{ id: "build", command: "echo hi" }],
+      }),
+    );
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("cron");
     expect(yaml.trigger.cron).toContain("0 * * * *");
@@ -148,26 +128,30 @@ describe("compileDrone — trigger mapping", () => {
 
 describe("compileDrone — runtime", () => {
   it("maps container runtime to image field", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      runtime: { mode: "container", image: "golang:1.24" },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "push" },
+        steps: [
+          {
+            id: "build",
+            command: "echo hi",
+            runtime: { mode: "container", image: "golang:1.24" },
+          },
+        ],
+      }),
+    );
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.steps[0]?.image).toBe("golang:1.24");
   });
 
   it("emulates host runtime with default image", () => {
-    const result = compileDrone(makeSimpleGraph());
+    const result = compileDrone(makeSimpleGraph({ kind: "push" }));
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.steps[0]?.image).toBe("node:24");
   });
 
   it("honors custom default image via config", () => {
-    const result = compileDrone(makeSimpleGraph(), { image: "bun:latest" });
+    const result = compileDrone(makeSimpleGraph({ kind: "push" }), { image: "bun:latest" });
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.steps[0]?.image).toBe("bun:latest");
   });
@@ -175,11 +159,12 @@ describe("compileDrone — runtime", () => {
 
 describe("compileDrone — timeout", () => {
   it("does not emit per-step timeout (Drone Docker/K8s do not support it)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", timeout: 60000 });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "push" },
+        steps: [{ id: "build", command: "echo hi", timeout: 60000 }],
+      }),
+    );
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.steps[0]?.timeout).toBeUndefined();
   });
@@ -187,38 +172,50 @@ describe("compileDrone — timeout", () => {
 
 describe("compileDrone — unsupported features (diagnostics)", () => {
   it("emits diagnostic for conditions (unsupported)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      condition: { kind: "status", status: "failure" },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "push" },
+        steps: [
+          {
+            id: "build",
+            command: "echo hi",
+            condition: { kind: "status", status: "failure" },
+          },
+        ],
+      }),
+    );
     expect(result.diagnostics.some((d) => d.capability === "graph.conditions")).toBe(true);
   });
 
   it("emits diagnostic for matrix (unsupported)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      matrix: { dimensions: { node: ["18", "20"] } },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "push" },
+        steps: [
+          {
+            id: "build",
+            command: "echo hi",
+            matrix: { dimensions: { node: ["18", "20"] } },
+          },
+        ],
+      }),
+    );
     expect(result.diagnostics.some((d) => d.capability === "graph.matrix")).toBe(true);
   });
 
   it("emits diagnostic for scalar output (unsupported)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      outputs: { version: { type: "string" } },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileDrone(synthesize(proj));
+    const result = compileDrone(
+      makeGraph({
+        trigger: { kind: "push" },
+        steps: [
+          {
+            id: "build",
+            command: "echo hi",
+            outputs: { version: { type: "string" } },
+          },
+        ],
+      }),
+    );
     expect(result.diagnostics.some((d) => d.capability === "output.scalar")).toBe(true);
   });
 });
@@ -236,8 +233,8 @@ describe("compileDrone — errors", () => {
 
 describe("compileDrone — determinism", () => {
   it("same graph → identical output", () => {
-    const g1 = makeSimpleGraph();
-    const g2 = makeSimpleGraph();
+    const g1 = makeSimpleGraph({ kind: "push" });
+    const g2 = makeSimpleGraph({ kind: "push" });
     const r1 = compileDrone(g1);
     const r2 = compileDrone(g2);
     expect(r1.artifacts[0]?.content).toBe(r2.artifacts[0]?.content);
@@ -252,7 +249,7 @@ describe("compileDrone — DroneTarget class", () => {
   });
 
   it("honors type config (kubernetes)", () => {
-    const result = compileDrone(makeSimpleGraph(), { type: "kubernetes" });
+    const result = compileDrone(makeSimpleGraph({ kind: "push" }), { type: "kubernetes" });
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.type).toBe("kubernetes");
   });

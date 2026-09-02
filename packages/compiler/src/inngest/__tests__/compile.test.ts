@@ -1,34 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, Entry, type DefinitionGraph } from "@sverka/workflow";
+import { Project, Pipeline } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import { compileInngest, InngestTarget, InngestTargetError } from "../index.js";
-
-function makeSimpleGraph(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "build", { command: "bun run build" });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
-function makeGraphWithDeps(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint", { command: "bun run lint" });
-  new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint"] });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
-function makeDiamondGraph(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint", { command: "bun run lint" });
-  new ShellStep(p, "test", { command: "bun run test" });
-  new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint", "test"] });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
+import {
+  makeGraph,
+  makeSimpleGraph,
+  makeGraphWithDeps,
+  makeDiamondGraph,
+  expectDiagnostic,
+} from "../../__tests__/helpers/graphs.js";
 
 describe("compileInngest — basic", () => {
   it("produces one TypeScript artifact", () => {
@@ -94,42 +74,28 @@ describe("compileInngest — triggers", () => {
   });
 
   it("schedule trigger → cron trigger", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-schedule", { trigger: { kind: "schedule", cron: "0 * * * *" }, roots: ["build"] });
-    const result = compileInngest(synthesize(proj));
+    const result = compileInngest(
+      makeGraph({ trigger: { kind: "schedule", cron: "0 * * * *" }, steps: [{ id: "build", command: "echo hi" }] }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain('cron: "0 * * * *"');
   });
 
   it("push trigger → unsupported diagnostic", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileInngest(synthesize(proj));
-    expect(result.diagnostics.some((d) => d.capability === "trigger.push")).toBe(true);
+    const result = compileInngest(makeGraph({ trigger: { kind: "push" }, steps: [{ id: "build", command: "echo hi" }] }));
+    expectDiagnostic(result.diagnostics, "trigger.push");
   });
 });
 
 describe("compileInngest — retry and timeout", () => {
   it("retry → retries in createFunction config", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", retry: { max: 5 } });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileInngest(synthesize(proj));
+    const result = compileInngest(makeGraph({ steps: [{ id: "build", command: "echo hi", retry: { max: 5 } }] }));
     const content = result.artifacts[0]!.content;
     expect(content).toContain("retries: 5");
   });
 
   it("timeout → timeout option in step.run", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", timeout: 30000 });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileInngest(synthesize(proj));
+    const result = compileInngest(makeGraph({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] }));
     const content = result.artifacts[0]!.content;
     expect(content).toContain("timeout: 30");
   });
@@ -137,60 +103,58 @@ describe("compileInngest — retry and timeout", () => {
 
 describe("compileInngest — conditions and matrix", () => {
   it("condition status:failure → if (_failed) guard in generated code", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new ShellStep(p, "notify", {
-      command: "echo failed",
-      condition: { kind: "status", status: "failure" },
-      dependsOn: ["build"],
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["notify"] });
-    const result = compileInngest(synthesize(proj));
+    const result = compileInngest(
+      makeGraph({
+        steps: [
+          { id: "build", command: "echo hi" },
+          {
+            id: "notify",
+            command: "echo failed",
+            condition: { kind: "status", status: "failure" },
+            dependsOn: ["build"],
+          },
+        ],
+        roots: ["notify"],
+      }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("if (_failed)");
     expect(content).not.toContain("if (true)");
   });
 
   it("condition status:never → if (false) guard", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      condition: { kind: "status", status: "never" },
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileInngest(synthesize(proj));
+    const result = compileInngest(
+      makeGraph({ steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }] }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("if (false)");
     expect(content).not.toContain("if (true)");
   });
 
   it("condition status:success → if (!_failed) guard", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new ShellStep(p, "test", {
-      command: "echo test",
-      condition: { kind: "status", status: "success" },
-      dependsOn: ["build"],
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["test"] });
-    const result = compileInngest(synthesize(proj));
+    const result = compileInngest(
+      makeGraph({
+        steps: [
+          { id: "build", command: "echo hi" },
+          {
+            id: "test",
+            command: "echo test",
+            condition: { kind: "status", status: "success" },
+            dependsOn: ["build"],
+          },
+        ],
+        roots: ["test"],
+      }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("if (!_failed)");
     expect(content).not.toContain("if (true)");
   });
 
   it("matrix → Promise.all in generated code", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      matrix: { dimensions: { node: ["18", "20"] } },
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileInngest(synthesize(proj));
+    const result = compileInngest(
+      makeGraph({ steps: [{ id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } }] }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("Promise.all");
     expect(content).toContain('"18"');
@@ -200,11 +164,7 @@ describe("compileInngest — conditions and matrix", () => {
 
 describe("compileInngest — identifier validation", () => {
   it("entry ID starting with digit → prefixed with underscore", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "1on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileInngest(synthesize(proj));
+    const result = compileInngest(makeGraph({ entryId: "1on-manual", steps: [{ id: "build", command: "echo hi" }] }));
     const content = result.artifacts[0]!.content;
     expect(content).toContain("_1on_manual");
   });

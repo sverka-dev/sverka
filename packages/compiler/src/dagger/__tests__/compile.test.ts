@@ -1,34 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, Entry, type DefinitionGraph } from "@sverka/workflow";
-import { synthesize } from "@sverka/workflow";
+import { Project, Pipeline, synthesize } from "@sverka/workflow";
 import { compileDagger, DaggerTarget, DaggerTargetError } from "../index.js";
-
-function makeSimpleGraph(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "build", { command: "bun run build" });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
-function makeGraphWithDeps(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint", { command: "bun run lint" });
-  new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint"] });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
-function makeDiamondGraph(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint", { command: "bun run lint" });
-  new ShellStep(p, "test", { command: "bun run test" });
-  new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint", "test"] });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
+import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph } from "../../__tests__/helpers/graphs.js";
 
 describe("compileDagger — basic", () => {
   it("produces one TypeScript artifact", () => {
@@ -89,46 +62,37 @@ describe("compileDagger — dependencies", () => {
 
 describe("compileDagger — runtime", () => {
   it("container runtime → native (no warning)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      runtime: { mode: "container", image: "node:24" },
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({
+        steps: [{ id: "build", command: "echo hi", runtime: { mode: "container", image: "node:24" } }],
+      }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).not.toContain("Host runtime is unsupported");
   });
 
   it("host runtime → unsupported diagnostic", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", runtime: { mode: "host" } });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({ steps: [{ id: "build", command: "echo hi", runtime: { mode: "host" } }] }),
+    );
     expect(result.diagnostics.some((d) => d.capability === "runtime.host")).toBe(true);
   });
 });
 
 describe("compileDagger — retry and timeout", () => {
   it("retry → wrapper loop in generated code", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", retry: { max: 3 } });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({ steps: [{ id: "build", command: "echo hi", retry: { max: 3 } }] }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("attempt < 3");
     expect(content).toContain("Retry wrapper");
   });
 
   it("timeout → documented in generated code (Dagger has no withTimeout)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", timeout: 30000 });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("timeout: 30s");
   });
@@ -136,74 +100,75 @@ describe("compileDagger — retry and timeout", () => {
 
 describe("compileDagger — conditions and matrix", () => {
   it("condition status:failure → if (_failed) guard in code", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new ShellStep(p, "notify", {
-      command: "echo failed",
-      condition: { kind: "status", status: "failure" },
-      dependsOn: ["build"],
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["notify"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({
+        steps: [
+          { id: "build", command: "echo hi" },
+          {
+            id: "notify",
+            command: "echo failed",
+            condition: { kind: "status", status: "failure" },
+            dependsOn: ["build"],
+          },
+        ],
+        roots: ["notify"],
+      }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("if (_failed)");
     expect(content).not.toContain("if (true)");
   });
 
   it("condition status:never → if (false) guard", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      condition: { kind: "status", status: "never" },
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({
+        steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }],
+      }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("if (false)");
     expect(content).not.toContain("if (true)");
   });
 
   it("condition status:always → no if guard", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      condition: { kind: "status", status: "always" },
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({
+        steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "always" } }],
+      }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).not.toContain("if (true)");
     expect(content).not.toContain("if (false)");
   });
 
   it("condition status:success → if (!_failed) guard", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new ShellStep(p, "test", {
-      command: "echo test",
-      condition: { kind: "status", status: "success" },
-      dependsOn: ["build"],
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["test"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({
+        steps: [
+          { id: "build", command: "echo hi" },
+          {
+            id: "test",
+            command: "echo test",
+            condition: { kind: "status", status: "success" },
+            dependsOn: ["build"],
+          },
+        ],
+        roots: ["test"],
+      }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("if (!_failed)");
     expect(content).not.toContain("if (true)");
   });
 
   it("matrix → loop in generated code", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      matrix: { dimensions: { node: ["18", "20"] } },
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({
+        steps: [
+          { id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } },
+        ],
+      }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("Matrix: emulated");
     expect(content).toContain('"18"');
@@ -213,11 +178,9 @@ describe("compileDagger — conditions and matrix", () => {
 
 describe("compileDagger — command quoting", () => {
   it("preserves quoted arguments via sh -c", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: 'echo "hello world"' });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({ steps: [{ id: "build", command: 'echo "hello world"' }] }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain('"sh"');
     expect(content).toContain('"-c"');
@@ -229,11 +192,9 @@ describe("compileDagger — command quoting", () => {
 
 describe("compileDagger — retry off-by-one", () => {
   it("retry max:3 → loop runs exactly 3 attempts (0..2)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", retry: { max: 3 } });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({ steps: [{ id: "build", command: "echo hi", retry: { max: 3 } }] }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("attempt < 3");
     expect(content).not.toContain("attempt <= 3");
@@ -242,11 +203,9 @@ describe("compileDagger — retry off-by-one", () => {
 
 describe("compileDagger — identifier validation", () => {
   it("entry ID starting with digit → prefixed with underscore", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "1on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileDagger(synthesize(proj));
+    const result = compileDagger(
+      makeGraph({ entryId: "1on-manual", steps: [{ id: "build", command: "echo hi" }] }),
+    );
     const content = result.artifacts[0]!.content;
     expect(content).toContain("_1on_manual");
     expect(content).not.toContain(" 1on_manual");

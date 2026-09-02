@@ -1,34 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, Entry, type DefinitionGraph } from "@sverka/workflow";
-import { synthesize } from "@sverka/workflow";
+import { synthesize, Project, Pipeline } from "@sverka/workflow";
 import { compileTemporal, TemporalTarget, TemporalTargetError } from "../index.js";
-
-function makeSimpleGraph(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "build", { command: "bun run build" });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
-function makeGraphWithDeps(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint", { command: "bun run lint" });
-  new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint"] });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
-
-function makeDiamondGraph(): DefinitionGraph {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint", { command: "bun run lint" });
-  new ShellStep(p, "test", { command: "bun run test" });
-  new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint", "test"] });
-  new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-  return synthesize(proj);
-}
+import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic } from "../../__tests__/helpers/graphs.js";
 
 describe("compileTemporal — basic", () => {
   it("produces two TypeScript artifacts", () => {
@@ -90,68 +63,52 @@ describe("compileTemporal — triggers", () => {
   });
 
   it("schedule trigger → workflow with schedule trigger and cron", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-schedule", { trigger: { kind: "schedule", cron: "0 * * * *" }, roots: ["build"] });
-    const result = compileTemporal(synthesize(proj));
+    const result = compileTemporal(makeGraph({
+      entryId: "on-schedule",
+      trigger: { kind: "schedule", cron: "0 * * * *" },
+      steps: [{ id: "build", command: "echo hi" }],
+    }));
     const wf = result.artifacts[0]!.content;
     expect(wf).toContain("Trigger: schedule");
     expect(wf).toContain("0 * * * *");
   });
 
   it("push trigger → unsupported diagnostic", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    const result = compileTemporal(synthesize(proj));
-    expect(result.diagnostics.some((d) => d.capability === "trigger.push")).toBe(true);
+    const result = compileTemporal(makeGraph({
+      entryId: "on-push",
+      trigger: { kind: "push" },
+      steps: [{ id: "build", command: "echo hi" }],
+    }));
+    expectDiagnostic(result.diagnostics, "trigger.push");
   });
 });
 
 describe("compileTemporal — retry and timeout", () => {
   it("RetryPolicy → activity retry config in lowered graph", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", retry: { max: 5 } });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileTemporal(synthesize(proj));
-    // The retry config is in the lowered graph; verify via the target graph
+    const graph = makeGraph({ steps: [{ id: "build", command: "echo hi", retry: { max: 5 } }] });
     const target = new TemporalTarget();
-    const graph = target.lower(synthesize(proj));
-    const activity = graph.workflows[0]!.activities.find((a) => a.stepId === "ci/build");
+    const lowered = target.lower(graph);
+    const activity = lowered.workflows[0]!.activities.find((a) => a.stepId === "ci/build");
     expect(activity?.retry?.max).toBe(5);
   });
 
   it("RetryPolicy → retry config in emitted workflow code", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", retry: { max: 5 } });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileTemporal(synthesize(proj));
+    const result = compileTemporal(makeGraph({ steps: [{ id: "build", command: "echo hi", retry: { max: 5 } }] }));
     const wf = result.artifacts[0]!.content;
     expect(wf).toContain("retry");
-    expect(wf).toContain("5");
+    expect(wf).toContain("6");
   });
 
   it("Timeout → activity timeout in lowered graph", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", timeout: 30000 });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    const graph = makeGraph({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] });
     const target = new TemporalTarget();
-    const graph = target.lower(synthesize(proj));
-    const activity = graph.workflows[0]!.activities.find((a) => a.stepId === "ci/build");
+    const lowered = target.lower(graph);
+    const activity = lowered.workflows[0]!.activities.find((a) => a.stepId === "ci/build");
     expect(activity?.timeoutMs).toBe(30000);
   });
 
   it("Timeout → startToCloseTimeout in emitted workflow code", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi", timeout: 30000 });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileTemporal(synthesize(proj));
+    const result = compileTemporal(makeGraph({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] }));
     const wf = result.artifacts[0]!.content;
     expect(wf).toContain("startToCloseTimeout");
     expect(wf).toContain("30");
@@ -160,29 +117,21 @@ describe("compileTemporal — retry and timeout", () => {
 
 describe("compileTemporal — conditions", () => {
   it("condition status:failure → if (_failed) in workflow body", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new ShellStep(p, "notify", {
-      command: "echo failed",
-      condition: { kind: "status", status: "failure" },
-      dependsOn: ["build"],
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["notify"] });
-    const result = compileTemporal(synthesize(proj));
+    const result = compileTemporal(makeGraph({
+      steps: [
+        { id: "build", command: "echo hi" },
+        { id: "notify", command: "echo failed", condition: { kind: "status", status: "failure" }, dependsOn: ["build"] },
+      ],
+      roots: ["notify"],
+    }));
     const wf = result.artifacts[0]!.content;
     expect(wf).toContain("if (_failed)");
   });
 
   it("condition status:never → if (false) in workflow body", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", {
-      command: "echo hi",
-      condition: { kind: "status", status: "never" },
-    });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileTemporal(synthesize(proj));
+    const result = compileTemporal(makeGraph({
+      steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }],
+    }));
     const wf = result.artifacts[0]!.content;
     expect(wf).toContain("if (false)");
   });
@@ -190,11 +139,10 @@ describe("compileTemporal — conditions", () => {
 
 describe("compileTemporal — identifier validation", () => {
   it("entry ID starting with digit → prefixed with underscore", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "1on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
-    const result = compileTemporal(synthesize(proj));
+    const result = compileTemporal(makeGraph({
+      entryId: "1on-manual",
+      steps: [{ id: "build", command: "echo hi" }],
+    }));
     const wf = result.artifacts[0]!.content;
     expect(wf).toContain("_1on_manual");
   });
