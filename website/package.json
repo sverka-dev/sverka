@@ -18,7 +18,7 @@
   "dependencies": {
     "mermaid": "^11.17.2",
     "astro": "^7.2.9",
-    "@astrojs/starlight": "0.41.7",
+    "@astrojs/starlight": "0.41.10",
     "yaml": "^2.5.0",
     "@astrojs/sitemap": "^3.7.3"
   }
