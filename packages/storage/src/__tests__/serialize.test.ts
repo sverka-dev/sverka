@@ -13,6 +13,13 @@ function expectCorruptSnapshot(mutate: (obj: Record<string, unknown>) => void, r
   expect(() => deserialize(text, runId)).toThrow(StorageError);
 }
 
+/** Serialize a snapshot, rename a field in the JSON string, then expect deserialization to throw. */
+function expectCorruptByFieldRename(field: string): void {
+  const snap = makeSnapshot();
+  const text = serialize(snap).replace(`"${field}"`, `"x${field}"`);
+  expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+}
+
 describe("serialize / deserialize", () => {
   it("round-trips a snapshot (JSON-serializable fields preserved)", () => {
     const snap = makeSnapshot("run-rt");
@@ -38,27 +45,19 @@ describe("serialize / deserialize", () => {
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when runId is missing", () => {
-    const snap = makeSnapshot();
-    const text = serialize(snap).replace('"runId"', '"xrunId"');
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptByFieldRename("runId");
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when planId is missing", () => {
-    const snap = makeSnapshot();
-    const text = serialize(snap).replace('"planId"', '"xplanId"');
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptByFieldRename("planId");
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when suspendedStepId is missing", () => {
-    const snap = makeSnapshot();
-    const text = serialize(snap).replace('"suspendedStepId"', '"xsuspendedStepId"');
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptByFieldRename("suspendedStepId");
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when completedSteps is missing", () => {
-    const snap = makeSnapshot();
-    const text = serialize(snap).replace('"completedSteps"', '"xcompletedSteps"');
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptByFieldRename("completedSteps");
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when status !== suspended", () => {
