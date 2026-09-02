@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { RunSnapshot, SnapshotStore } from "@sverka/runtime";
 import { StorageError } from "./errors.js";
 import { serialize, deserialize } from "./internal/serialize.js";
+import { wrapIO } from "./internal/io-helpers.js";
 
 export interface SqliteSnapshotStoreConfig {
   readonly path?: string;
@@ -52,11 +53,7 @@ export function createSqliteSnapshotStore(
   try {
     db.exec(CREATE_TABLE_SQL);
   } catch (e) {
-    try {
-      db.close();
-    } catch {
-      // Ignore close errors during cleanup.
-    }
+    try { db.close(); } catch { /* ignore */ }
     throw new StorageError("STORE_IO_FAILED", `failed to initialize sqlite schema at ${path}`, e);
   }
 
@@ -70,17 +67,13 @@ export function createSqliteSnapshotStore(
     loadStmt = db.prepare("SELECT snapshot_json FROM snapshots WHERE run_id = ?");
     deleteStmt = db.prepare("DELETE FROM snapshots WHERE run_id = ?");
   } catch (e) {
-    try {
-      db.close();
-    } catch {
-      // Ignore close errors during cleanup.
-    }
+    try { db.close(); } catch { /* ignore */ }
     throw new StorageError("STORE_IO_FAILED", `failed to prepare sqlite statements at ${path}`, e);
   }
 
   return {
     async save(snapshot: RunSnapshot): Promise<void> {
-      try {
+      await wrapIO(`save snapshot ${snapshot.runId}`, () => {
         saveStmt.run(
           snapshot.runId,
           snapshot.planId,
@@ -88,9 +81,7 @@ export function createSqliteSnapshotStore(
           snapshot.suspendedAt,
           serialize(snapshot),
         );
-      } catch (e) {
-        throw new StorageError("STORE_IO_FAILED", `failed to save snapshot ${snapshot.runId}`, e);
-      }
+      });
     },
 
     async load(runId: string): Promise<RunSnapshot | undefined> {
