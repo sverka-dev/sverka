@@ -153,6 +153,12 @@ class NativeEngine implements Engine {
     // Suspend/resume engine implementation is sv-wthn.3.1 scope.
     // This stub satisfies the Engine interface; the full implementation
     // loads a snapshot, injects resume data, and continues scheduling.
+    yield {
+      type: "diagnostic",
+      stepId: "",
+      message: "Engine.resume() is not yet implemented",
+      severity: "error",
+    };
     throw new EngineError("Engine.resume() is not yet implemented", "RESUME_NOT_IMPLEMENTED");
   }
 
