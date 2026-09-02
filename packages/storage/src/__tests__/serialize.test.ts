@@ -4,6 +4,15 @@ import { serialize, deserialize } from "../internal/serialize.js";
 import { StorageError } from "../errors.js";
 import { makeSnapshot } from "./helpers/fixtures.js";
 
+/** Serialize a snapshot, apply a mutation to the JSON, then expect deserialization to throw. */
+function expectCorruptSnapshot(mutate: (obj: Record<string, unknown>) => void, runId = "run-1"): void {
+  const snap = makeSnapshot();
+  const obj = JSON.parse(serialize(snap)) as Record<string, unknown>;
+  mutate(obj);
+  const text = JSON.stringify(obj);
+  expect(() => deserialize(text, runId)).toThrow(StorageError);
+}
+
 describe("serialize / deserialize", () => {
   it("round-trips a snapshot (JSON-serializable fields preserved)", () => {
     const snap = makeSnapshot("run-rt");
@@ -70,43 +79,23 @@ describe("serialize / deserialize", () => {
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry is not an object", () => {
-    const snap = makeSnapshot();
-    const obj = JSON.parse(serialize(snap));
-    obj.completedSteps[0] = null;
-    const text = JSON.stringify(obj);
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptSnapshot((obj) => { (obj.completedSteps as unknown[])[0] = null; });
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry has no stepId", () => {
-    const snap = makeSnapshot();
-    const obj = JSON.parse(serialize(snap));
-    delete obj.completedSteps[0].stepId;
-    const text = JSON.stringify(obj);
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptSnapshot((obj) => { delete (obj.completedSteps as Record<string, unknown>[])[0]!.stepId; });
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry has no outputs", () => {
-    const snap = makeSnapshot();
-    const obj = JSON.parse(serialize(snap));
-    delete obj.completedSteps[0].outputs;
-    const text = JSON.stringify(obj);
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptSnapshot((obj) => { delete (obj.completedSteps as Record<string, unknown>[])[0]!.outputs; });
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when resumeSchema is not an object", () => {
-    const snap = makeSnapshot();
-    const obj = JSON.parse(serialize(snap));
-    obj.resumeSchema = "bad";
-    const text = JSON.stringify(obj);
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptSnapshot((obj) => { obj.resumeSchema = "bad"; });
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when resumeSchema.required is not string array", () => {
-    const snap = makeSnapshot();
-    const obj = JSON.parse(serialize(snap));
-    obj.resumeSchema.required = [123];
-    const text = JSON.stringify(obj);
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expectCorruptSnapshot((obj) => { ((obj.resumeSchema as Record<string, unknown>).required as unknown[])[0] = 123; });
   });
 
   it("deserialize accepts snapshot without resumeSchema", () => {
