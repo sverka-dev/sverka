@@ -9,7 +9,7 @@ export const droneCapabilities: CapabilityManifest = {
   "output.scalar": "unsupported",
   "output.artifact": "partial",
   "policy.retry": "unsupported",
-  "policy.timeout": "emulated",
+  "policy.timeout": "unsupported",
   "trigger.push": "native",
   "trigger.changeRequest": "native",
   "trigger.manual": "native",

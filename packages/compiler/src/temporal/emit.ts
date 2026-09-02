@@ -121,7 +121,8 @@ function emitActivityCall(activity: TemporalActivity): string[] {
   // Build activity options with retry and timeout
   const opts: string[] = [];
   if (activity.retry !== undefined) {
-    opts.push(`retry: { maximumAttempts: ${activity.retry.max} }`);
+    // retry.max is the number of retries; maximumAttempts is total attempts (initial + retries).
+    opts.push(`retry: { maximumAttempts: ${activity.retry.max + 1} }`);
   }
   if (activity.timeoutMs !== undefined) {
     opts.push(`startToCloseTimeout: "${Math.ceil(activity.timeoutMs / 1000)}s"`);
@@ -296,6 +297,7 @@ function emitRunStepExecution(): string[] {
     `    }`,
     `  }`,
     `  // Foreground commands are awaited synchronously with retry support.`,
+    `  // maximumAttempts is the total number of attempts (initial + retries).`,
     `  const maxAttempts = opts?.retry?.maximumAttempts ?? 1;`,
     `  for (let attempt = 0; attempt < maxAttempts; attempt++) {`,
     `    try {`,
@@ -305,6 +307,7 @@ function emitRunStepExecution(): string[] {
     `          maxBuffer: 10 * 1024 * 1024,`,
     `          ...(cfg.cwd !== undefined ? { cwd: cfg.cwd } : {}),`,
     `          env: childEnv,`,
+    `          ...(opts?.startToCloseTimeout !== undefined ? { timeout: parseInt(opts.startToCloseTimeout) * 1000 } : {}),`,
     `        });`,
     `      }`,
     `      return;`,

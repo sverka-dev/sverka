@@ -95,8 +95,9 @@ function emitStepRun(step: InngestStep): string[] {
     lines.push(guard.open);
   }
 
-  // Skip downstream steps after a failure (fail-fast)
-  lines.push(`    if (_failed) return;`);
+  // Skip downstream steps after a failure (fail-fast) — throw to ensure
+  // the function reports failure rather than returning success.
+  lines.push(`    if (_failed) throw new Error("function failed");`);
 
   if (step.matrix !== undefined) {
     lines.push(...emitMatrixStep(step, shortName));

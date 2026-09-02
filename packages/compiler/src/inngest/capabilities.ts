@@ -9,7 +9,7 @@ export const inngestCapabilities: CapabilityManifest = {
   "output.scalar": "unsupported",
   "output.artifact": "unsupported",
   "policy.retry": "native",
-  "policy.timeout": "emulated",
+  "policy.timeout": "unsupported",
   "trigger.push": "unsupported",
   "trigger.changeRequest": "unsupported",
   "trigger.manual": "native",

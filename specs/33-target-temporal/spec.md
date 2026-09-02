@@ -97,8 +97,8 @@ Exported types: `TemporalTargetConfig`, `TemporalTargetGraph`,
 | RetryPolicy | Activity retry config |
 | Timeout | `startToCloseTimeout` |
 | Shell operation | Activity stub calls `sverka run --step` |
-| Scalar output | Activity return value |
-| Artifact output | `sverka run` handles; activity returns path |
+| Scalar output | Unsupported (activities are `Promise<void>`) |
+| Artifact output | Unsupported (no output propagation in generated activities) |
 
 ### Capability manifest
 

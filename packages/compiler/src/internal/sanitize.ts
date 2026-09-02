@@ -39,9 +39,9 @@ export function conditionGuard(
     }
   }
 
-  // Expression or Reference — cannot be evaluated at compile time
-  return {
-    open: `${indent}// WARNING: condition kind '${condition.kind}' cannot be evaluated at compile time; step is unconditional`,
-    close: "",
-  };
+  // Expression or Reference — cannot be evaluated at compile time.
+  // Reject rather than silently executing the step unconditionally.
+  throw new Error(
+    `condition kind '${condition.kind}' cannot be evaluated at compile time and is not supported by this target`,
+  );
 }
