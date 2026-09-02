@@ -1,7 +1,7 @@
 // Validation functions for the Definition Graph.
 // Spec 05 — §11.4.
 
-import type { StepDefinition, DefinitionGraph, OperationDefinition } from "./graph.js";
+import type { StepDefinition, DefinitionGraph } from "./graph.js";
 import { SynthesisError } from "./errors.js";
 import type { StepRef, OutputType, CacheSpec, RetryPolicy, NetworkAllowlist, WriteDeclaration } from "../cdk/index.js";
 

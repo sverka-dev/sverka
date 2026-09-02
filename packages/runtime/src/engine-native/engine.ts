@@ -553,97 +553,109 @@ class NativeEngine implements Engine {
       if (ctx.states.get(stepId) !== "succeeded") continue;
       const step = ctx.stepMap.get(stepId);
       if (!step?.compensation) continue;
-      // v1: compensation is always kind "shell" (validated at synthesis).
-      const rawCommand = step.compensation.kind === "shell" ? step.compensation.command : "";
-      if (!rawCommand) continue;
-
-      const driver = ctx.drivers.find((d) => d.canExecute(step));
-      if (!driver) {
-        ctx.emit({
-          type: "diagnostic",
-          stepId,
-          message: `no runtime driver for compensation of step '${stepId}'`,
-          severity: "warn",
-        });
-        continue;
-      }
-
-      // Interpolate ${...} references in the compensation command, same as
-      // normal step execution. Uses the step's value store and inputs.
-      let command: string;
-      try {
-        command = interpolateCommand(
-          rawCommand,
-          step,
-          ctx.valueStore,
-          ctx.request.plan.inputs,
-          ctx.secrets,
-          ctx.request.workspace,
-        );
-      } catch (e) {
-        ctx.emit({
-          type: "diagnostic",
-          stepId,
-          message: `compensation interpolation failed: ${e instanceof Error ? e.message : String(e)}`,
-          severity: "warn",
-        });
-        ctx.emit({ type: "step-compensated", stepId, status: "failed" });
-        yield* this.drainEvents(ctx);
-        continue;
-      }
-
-      ctx.emit({ type: "step-compensating", stepId, command });
-      yield* this.drainEvents(ctx);
-
-      const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
-      const request: ShellExecuteRequest = {
-        command,
-        workspace: stepWorkspace,
-        env: buildCompensationEnv(step, scopeSecretsForStep(step, ctx.secrets)),
-        ...(step.runtime.workingDir !== undefined
-          ? { cwd: resolveUnder(stepWorkspace, step.runtime.workingDir) }
-          : {}),
-        ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
-        ...(step.runtime.image ? { image: step.runtime.image } : {}),
-        ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
-        ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
-        ...(step.runtime.network ? { network: step.runtime.network } : {}),
-        ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
-          ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
-          : {}),
-        ...(ctx.abort.signal !== undefined ? { signal: ctx.abort.signal } : {}),
-      };
-
-      const compStart = Date.now();
-      let result: ShellResult;
-      try {
-        result = await driver.executeShell(request);
-      } catch (e) {
-        const durationMs = Date.now() - compStart;
-        ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
-        ctx.emit({
-          type: "diagnostic",
-          stepId,
-          message: `compensation failed: ${e instanceof Error ? e.message : String(e)}`,
-          severity: "warn",
-        });
-        yield* this.drainEvents(ctx);
-        continue;
-      }
-      const durationMs = Date.now() - compStart;
-      if (result.exitCode === 0) {
-        ctx.emit({ type: "step-compensated", stepId, status: "succeeded", durationMs });
-      } else {
-        ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
-        ctx.emit({
-          type: "diagnostic",
-          stepId,
-          message: `compensation for step '${stepId}' failed with exit code ${result.exitCode}`,
-          severity: "warn",
-        });
-      }
-      yield* this.drainEvents(ctx);
+      yield* this.compensateStep(ctx, stepId, step);
     }
+  }
+
+  /**
+   * Run compensation for a single step. Emits step-compensating /
+   * step-compensated events and a warn diagnostic on failure.
+   */
+  private async *compensateStep(
+    ctx: RunContext,
+    stepId: string,
+    step: StepDefinition,
+  ): AsyncGenerator<RunEvent, void, void> {
+    // v1: compensation is always kind "shell" (validated at synthesis).
+    const rawCommand = step.compensation?.kind === "shell" ? step.compensation.command : "";
+    if (!rawCommand) return;
+
+    const driver = ctx.drivers.find((d) => d.canExecute(step));
+    if (!driver) {
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        message: `no runtime driver for compensation of step '${stepId}'`,
+        severity: "warn",
+      });
+      return;
+    }
+
+    // Interpolate ${...} references in the compensation command, same as
+    // normal step execution. Uses the step's value store and inputs.
+    let command: string;
+    try {
+      command = interpolateCommand(
+        rawCommand,
+        step,
+        ctx.valueStore,
+        ctx.request.plan.inputs,
+        ctx.secrets,
+        ctx.request.workspace,
+      );
+    } catch (e) {
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        message: `compensation interpolation failed: ${e instanceof Error ? e.message : String(e)}`,
+        severity: "warn",
+      });
+      ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs: 0 });
+      yield* this.drainEvents(ctx);
+      return;
+    }
+
+    ctx.emit({ type: "step-compensating", stepId, command });
+    yield* this.drainEvents(ctx);
+
+    const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
+    const request: ShellExecuteRequest = {
+      command,
+      workspace: stepWorkspace,
+      env: buildCompensationEnv(step, scopeSecretsForStep(step, ctx.secrets)),
+      ...(step.runtime.workingDir !== undefined
+        ? { cwd: resolveUnder(stepWorkspace, step.runtime.workingDir) }
+        : {}),
+      ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
+      ...(step.runtime.image ? { image: step.runtime.image } : {}),
+      ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
+      ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
+      ...(step.runtime.network ? { network: step.runtime.network } : {}),
+      ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
+        ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
+        : {}),
+      ...(ctx.abort.signal !== undefined ? { signal: ctx.abort.signal } : {}),
+    };
+
+    const compStart = Date.now();
+    let result: ShellResult;
+    try {
+      result = await driver.executeShell(request);
+    } catch (e) {
+      const durationMs = Date.now() - compStart;
+      ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        message: `compensation failed: ${e instanceof Error ? e.message : String(e)}`,
+        severity: "warn",
+      });
+      yield* this.drainEvents(ctx);
+      return;
+    }
+    const durationMs = Date.now() - compStart;
+    if (result.exitCode === 0) {
+      ctx.emit({ type: "step-compensated", stepId, status: "succeeded", durationMs });
+    } else {
+      ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        message: `compensation for step '${stepId}' failed with exit code ${result.exitCode}`,
+        severity: "warn",
+      });
+    }
+    yield* this.drainEvents(ctx);
   }
 
   private buildStepExecOptions(
