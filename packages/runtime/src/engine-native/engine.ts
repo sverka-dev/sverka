@@ -95,6 +95,21 @@ class NativeEngine implements Engine {
     };
   }
 
+  /** Set or clear the current run for query() visibility. */
+  private setCurrentRun(run: typeof this.currentRun): void {
+    this.currentRun = run;
+  }
+
+  /** Clear currentRun if it matches the given runId. */
+  private clearCurrentRun(runId: string): void {
+    if (this.currentRun?.runId === runId) this.currentRun = undefined;
+  }
+
+  /** Update currentRun status if it matches the given runId. */
+  private updateRunStatus(runId: string, status: "running" | import("./types.js").RunStatus): void {
+    if (this.currentRun?.runId === runId) this.currentRun = { ...this.currentRun, status };
+  }
+
   async *run(request: RunRequest): AsyncIterable<RunEvent> {
     const runId = randomUUID();
     const start = Date.now();
@@ -125,9 +140,7 @@ class NativeEngine implements Engine {
       if (this.activeRun === thisRun) {
         this.activeRun = undefined;
       }
-      if (this.currentRun?.runId === runId) {
-        this.currentRun = undefined;
-      }
+      this.clearCurrentRun(runId);
     }
   }
 
@@ -152,11 +165,11 @@ class NativeEngine implements Engine {
     yield { type: "run-started", runId, planId: request.plan.id };
 
     // Set currentRun early so query() works during prepareRun
-    this.currentRun = { runId, planId: request.plan.id, startedAt: start, ctx: null, status: "running" };
+    this.setCurrentRun({ runId, planId: request.plan.id, startedAt: start, ctx: null, status: "running" });
 
     const setup = yield* this.prepareRun(request, runId, start, abort);
     if (setup === null) {
-      if (this.currentRun?.runId === runId) this.currentRun = undefined;
+      this.clearCurrentRun(runId);
       return;
     }
 
@@ -171,7 +184,7 @@ class NativeEngine implements Engine {
 
     // Update currentRun with the real context
     if (this.currentRun?.runId === runId) {
-      this.currentRun = { runId, planId: request.plan.id, startedAt: start, ctx, status: "running" };
+      this.setCurrentRun({ runId, planId: request.plan.id, startedAt: start, ctx, status: "running" });
     }
 
     class Deferred {
@@ -208,7 +221,7 @@ class NativeEngine implements Engine {
         ? "failure"
         : "success";
     if (this.currentRun?.runId === runId) {
-      this.currentRun = { ...this.currentRun, status };
+      this.updateRunStatus(runId, status);
     }
     yield {
       type: "run-completed",
@@ -216,9 +229,7 @@ class NativeEngine implements Engine {
       status,
       durationMs: Date.now() - start,
     };
-    if (this.currentRun?.runId === runId) {
-      this.currentRun = undefined;
-    }
+    this.clearCurrentRun(runId);
   }
 
   private async *prepareRun(
