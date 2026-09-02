@@ -411,7 +411,14 @@ export function validateWriteDeclarations(step: StepDefinition): void {
  */
 export function validateCompensation(step: StepDefinition): void {
   const compensation = step.compensation;
-  if (compensation === undefined || compensation === null) return;
+  if (compensation === undefined) return;
+  if (compensation === null) {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' must be an object, got null`,
+      step.id,
+    );
+  }
   if (typeof compensation !== "object") {
     throw new SynthesisError(
       "INVALID_COMPENSATION",
@@ -426,7 +433,14 @@ export function validateCompensation(step: StepDefinition): void {
       step.id,
     );
   }
-  if (!compensation.command || compensation.command.trim() === "") {
+  if (typeof compensation.command !== "string") {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' has a non-string command (got ${typeof compensation.command})`,
+      step.id,
+    );
+  }
+  if (compensation.command.trim() === "") {
     throw new SynthesisError(
       "INVALID_COMPENSATION",
       `Compensation in step '${step.id}' has an empty command`,

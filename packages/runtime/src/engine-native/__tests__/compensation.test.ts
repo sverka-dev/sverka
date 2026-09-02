@@ -260,11 +260,7 @@ describe("Engine — saga compensations (Spec 30)", () => {
   });
 
   it("item 9: run that ends cancelled — no compensation events emitted", async () => {
-    // Use a cancellable driver to cancel mid-run.
-    // Single step that succeeds but we cancel before it completes.
-    // Actually, cancellation needs to happen during a running step.
-    // Simpler: a plan where the only step fails → failure, not cancelled.
-    // For cancelled, we need to abort. Use a slow driver + cancel.
+    // Cancel mid-run using a slow driver + engine.cancel().
     const { createCancellableMockDriver } = await import("./helpers/mock-driver.js");
     const slowDriver = createCancellableMockDriver(500);
     const engine = createEngine({ drivers: [slowDriver] });
@@ -466,7 +462,8 @@ describe("Engine — saga compensations (Spec 30)", () => {
     const compensating1 = events1.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
     expect(compensating1).toContain("ci/a");
 
-    // Second run: A should be a cache hit, B fails → compensation should still run for A.
+    // Second run: A should be a cache hit, B fails → compensation should
+    // NOT run for A because cache-restored steps did not execute.
     calls.length = 0;
     const engine2 = createEngine({ drivers: [driver], cache });
     const events2 = await collectEvents(engine2, {
@@ -479,9 +476,9 @@ describe("Engine — saga compensations (Spec 30)", () => {
     expect(cacheHit).toBeDefined();
     expect(cacheHit!.stepId).toBe("ci/a");
 
-    // Compensation should still run for A (cache-hit success is in completionOrder)
+    // Cache-restored steps did not execute, so compensation should NOT run.
     const compensating2 = events2.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
-    expect(compensating2).toContain("ci/a");
+    expect(compensating2).not.toContain("ci/a");
   });
 
   it("compensation command is interpolated — ${...} references resolved", async () => {
@@ -538,12 +535,12 @@ describe("Engine — saga compensations (Spec 30)", () => {
   });
 
   it("compensation respects safe-outputs — read-only steps get no secrets", async () => {
-    const seenEnv: Record<string, string>[] = [];
+    const seenRequests: { command: string; env: Record<string, string> }[] = [];
     const driver: RuntimeDriver = {
       name: "tracking",
       canExecute: () => true,
       executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
-        seenEnv.push(req.env);
+        seenRequests.push({ command: req.command, env: req.env });
         if (req.command.trim().startsWith("exit 1")) {
           return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
         }
@@ -586,11 +583,10 @@ describe("Engine — saga compensations (Spec 30)", () => {
       artifactDir: join(testDir, "art"),
       secrets: { resolve: async (name: string) => (name === "MY_SECRET" ? "secret-value" : undefined) },
     });
-    // Find the compensation env (for rollback.sh)
-    const compEnv = seenEnv.find((e) => Object.keys(e).length > 0);
-    // Read-only step: secret should NOT be in env
-    if (compEnv) {
-      expect(compEnv["MY_SECRET"]).toBeUndefined();
-    }
+    // Find the compensation request (rollback.sh)
+    const compReq = seenRequests.find((r) => r.command.includes("rollback.sh"));
+    expect(compReq).toBeDefined();
+    // Read-only step: secret should NOT be in compensation env
+    expect(compReq!.env["MY_SECRET"]).toBeUndefined();
   });
 });

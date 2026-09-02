@@ -454,7 +454,8 @@ class NativeEngine implements Engine {
             ctx.stepDurations.set(step.id, 0);
             ctx.emit({ type: "step-cache-hit", stepId: step.id, key: hit.key });
             ctx.emit({ type: "step-succeeded", stepId: step.id, durationMs: 0 });
-            ctx.completionOrder.push(step.id);
+            // Cache-restored steps are not added to completionOrder —
+            // they did not execute, so compensation should not run.
             this.onStepComplete(ctx, step.id);
             return;
           }

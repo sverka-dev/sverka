@@ -94,4 +94,46 @@ describe("Spec 30 — compensation in synthesis", () => {
       expect.objectContaining({ code: "INVALID_COMPENSATION" }),
     );
   });
+
+  it("null compensation raises INVALID_COMPENSATION", () => {
+    const project = new Project("saga-null");
+    const pipeline = new Pipeline(project, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy.sh",
+      compensation: null as never,
+    });
+    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
+
+    expect(() => synthesize(project)).toThrowError(
+      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
+    );
+  });
+
+  it("non-object compensation (string) raises INVALID_COMPENSATION", () => {
+    const project = new Project("saga-str");
+    const pipeline = new Pipeline(project, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy.sh",
+      compensation: "rollback.sh" as never,
+    });
+    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
+
+    expect(() => synthesize(project)).toThrowError(
+      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
+    );
+  });
+
+  it("non-string compensation command (number) raises INVALID_COMPENSATION", () => {
+    const project = new Project("saga-numcmd");
+    const pipeline = new Pipeline(project, "ci");
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy.sh",
+      compensation: { kind: "shell", command: 1 } as never,
+    });
+    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
+
+    expect(() => synthesize(project)).toThrowError(
+      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
+    );
+  });
 });

@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline } from "@sverka/workflow";
-import { $ } from "../index.js";
+import { $, shell } from "../index.js";
 
 describe("Spec 30 — StepBuilder.compensate()", () => {
   it("item 2: .compensate('rollback.sh') sets compensation to { kind: 'shell', command: 'rollback.sh' }", () => {
@@ -29,5 +29,20 @@ describe("Spec 30 — StepBuilder.compensate()", () => {
     expect(returned).toBe(builder);
     const step = builder.build(pipeline, "deploy");
     expect(step.compensation).toEqual({ kind: "shell", command: "rollback.sh" });
+  });
+
+  it("item 2: .compensate() works through the shell proxy wrapper", () => {
+    const proj = new Project("saga-sdk-shell-proxy");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = shell`deploy`.compensate("rollback.sh").build(pipeline, "deploy");
+    expect(step.compensation).toEqual({ kind: "shell", command: "rollback.sh" });
+  });
+
+  it("item 2: .compensate() works through shell proxy with interpreter", () => {
+    const proj = new Project("saga-sdk-shell-bash");
+    const pipeline = new Pipeline(proj, "ci");
+    const step = shell("bash")`deploy.sh`.compensate("cleanup.sh").build(pipeline, "deploy");
+    expect(step.compensation).toEqual({ kind: "shell", command: "cleanup.sh" });
+    expect(step.runtime.shell).toBe("bash");
   });
 });
