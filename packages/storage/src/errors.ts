@@ -11,6 +11,8 @@ export class StorageError extends Error {
     super(message);
     this.name = "StorageError";
     this.code = code;
-    this.cause = cause;
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
   }
 }

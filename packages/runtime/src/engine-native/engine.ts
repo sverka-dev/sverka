@@ -63,7 +63,7 @@ interface RunContext {
 class NativeEngine implements Engine {
   private readonly config: EngineConfig;
   private activeRun: AbortController | undefined = undefined;
-  private currentRun: { runId: string; planId: string; startedAt: number; ctx: RunContext; status: "running" | import("./types.js").RunStatus } | undefined = undefined;
+  private currentRun: { runId: string; planId: string; startedAt: number; ctx: RunContext | null; status: "running" | import("./types.js").RunStatus } | undefined = undefined;
 
   constructor(config: EngineConfig) {
     this.config = config;
@@ -73,6 +73,15 @@ class NativeEngine implements Engine {
     const cr = this.currentRun;
     if (!cr) return undefined;
     if (runId !== undefined && runId !== cr.runId) return undefined;
+    if (cr.ctx === null) {
+      return {
+        runId: cr.runId,
+        planId: cr.planId,
+        status: cr.status,
+        startedAt: cr.startedAt,
+        steps: [],
+      };
+    }
     return {
       runId: cr.runId,
       planId: cr.planId,
@@ -142,8 +151,14 @@ class NativeEngine implements Engine {
   ): AsyncGenerator<RunEvent, void, void> {
     yield { type: "run-started", runId, planId: request.plan.id };
 
+    // Set currentRun early so query() works during prepareRun
+    this.currentRun = { runId, planId: request.plan.id, startedAt: start, ctx: null, status: "running" };
+
     const setup = yield* this.prepareRun(request, runId, start, abort);
-    if (setup === null) return;
+    if (setup === null) {
+      if (this.currentRun?.runId === runId) this.currentRun = undefined;
+      return;
+    }
 
     const ctx: RunContext = {
       ...setup,
@@ -154,7 +169,10 @@ class NativeEngine implements Engine {
       emit: () => undefined,
     };
 
-    this.currentRun = { runId, planId: request.plan.id, startedAt: start, ctx, status: "running" };
+    // Update currentRun with the real context
+    if (this.currentRun?.runId === runId) {
+      this.currentRun = { runId, planId: request.plan.id, startedAt: start, ctx, status: "running" };
+    }
 
     class Deferred {
       promise: Promise<void>;
@@ -189,7 +207,7 @@ class NativeEngine implements Engine {
       : ctx.hasFailure
         ? "failure"
         : "success";
-    if (this.currentRun) {
+    if (this.currentRun?.runId === runId) {
       this.currentRun = { ...this.currentRun, status };
     }
     yield {

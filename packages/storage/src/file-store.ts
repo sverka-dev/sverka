@@ -3,6 +3,7 @@
 
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { randomBytes } from "node:crypto";
 import process from "node:process";
 import type { RunSnapshot, SnapshotStore } from "@sverka/runtime";
 import { StorageError } from "./errors.js";
@@ -22,7 +23,7 @@ function validateRunId(runId: string): void {
     runId === "." ||
     runId.includes("\0")
   ) {
-    throw new StorageError("INVALID_RUN_ID", `runId contains invalid path characters: "${runId}"`);
+    throw new StorageError("INVALID_RUN_ID", `runId contains invalid path characters`);
   }
 }
 
@@ -40,7 +41,7 @@ export function createFileSnapshotStore(config?: FileSnapshotStoreConfig): Snaps
       validateRunId(snapshot.runId);
       const dir = join(root, ".sverka", "runs", snapshot.runId);
       const finalPath = join(dir, "snapshot.json");
-      const tmpPath = join(dir, "snapshot.json.tmp");
+      const tmpPath = join(dir, `.snapshot.${randomBytes(6).toString("hex")}.tmp`);
       try {
         await mkdir(dir, { recursive: true });
         await writeFile(tmpPath, serialize(snapshot), "utf8");

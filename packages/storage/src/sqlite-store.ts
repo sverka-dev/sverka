@@ -46,9 +46,18 @@ export function createSqliteSnapshotStore(
   let db: DatabaseSync;
   try {
     db = new DatabaseSync(path);
-    db.exec(CREATE_TABLE_SQL);
   } catch (e) {
     throw new StorageError("STORE_IO_FAILED", `failed to open sqlite database at ${path}`, e);
+  }
+  try {
+    db.exec(CREATE_TABLE_SQL);
+  } catch (e) {
+    try {
+      db.close();
+    } catch {
+      // Ignore close errors during cleanup.
+    }
+    throw new StorageError("STORE_IO_FAILED", `failed to initialize sqlite schema at ${path}`, e);
   }
 
   let saveStmt: ReturnType<DatabaseSync["prepare"]>;
