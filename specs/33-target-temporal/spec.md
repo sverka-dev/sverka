@@ -68,16 +68,16 @@ Exported types: `TemporalTargetConfig`, `TemporalTargetGraph`,
 
 ### Generated workflow structure
 
-```
+```text
 <name>.workflow.ts
   - import { defineWorkflow, proxyActivities } from "@temporalio/workflow"
   - import type * as activities from "./<name>.activities.js"
   - proxyActivities({ startToCloseTimeout, retry })
-  - export const <entryId> = defineWorkflow(<entryId>, [<inputs>], async (...) => {
+  - export const <entryId> = async (...) => {
       // One await runStep(<stepId>) per step, sequenced by DAG
       // Conditions → if/else
       // Matrix → for-loop with one activity call per combo
-    })
+    }
 
 <name>.activities.ts
   - import { defineActivity } from "@temporalio/activity"
@@ -105,11 +105,11 @@ Exported types: `TemporalTargetConfig`, `TemporalTargetGraph`,
 ```ts
 const temporalCapabilities: CapabilityManifest = {
   "graph.dependencies": "native",
-  "graph.conditions": "native",
+  "graph.conditions": "partial",
   "graph.matrix": "emulated",
   "operation.shell": "emulated",
-  "output.scalar": "native",
-  "output.artifact": "partial",
+  "output.scalar": "unsupported",
+  "output.artifact": "unsupported",
   "policy.retry": "native",
   "policy.timeout": "native",
   "trigger.push": "unsupported",

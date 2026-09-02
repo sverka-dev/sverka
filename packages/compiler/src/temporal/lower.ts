@@ -261,16 +261,20 @@ function producerIds(step: StepDefinition): readonly string[] {
 
 /**
  * Topologically sort steps by dependency order.
- * Producers come before consumers.
+ * Producers come before consumers. Throws on cycles.
  */
 function topoSort(steps: readonly StepDefinition[]): readonly string[] {
   const byId = new Map(steps.map((s) => [s.id, s]));
   const visited = new Set<string>();
+  const visiting = new Set<string>();
   const result: string[] = [];
 
   function visit(id: string): void {
     if (visited.has(id)) return;
-    visited.add(id);
+    if (visiting.has(id)) {
+      throw new TemporalTargetError(`cycle detected in step dependencies at "${id}"`);
+    }
+    visiting.add(id);
     const step = byId.get(id);
     if (!step) return;
     for (const producer of producerIds(step)) {
@@ -278,6 +282,8 @@ function topoSort(steps: readonly StepDefinition[]): readonly string[] {
         visit(producer);
       }
     }
+    visiting.delete(id);
+    visited.add(id);
     result.push(id);
   }
 

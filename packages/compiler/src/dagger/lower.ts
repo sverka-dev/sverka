@@ -6,7 +6,6 @@ import type {
   PipelineDefinition,
   StepDefinition,
   OperationDefinition,
-  EntryDefinition,
 } from "@sverka/workflow";
 import type {
   DaggerTargetGraph,

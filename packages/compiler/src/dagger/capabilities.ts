@@ -9,7 +9,7 @@ export const daggerCapabilities: CapabilityManifest = {
   "output.scalar": "unsupported",
   "output.artifact": "unsupported",
   "policy.retry": "emulated",
-  "policy.timeout": "native",
+  "policy.timeout": "emulated",
   "trigger.push": "unsupported",
   "trigger.changeRequest": "unsupported",
   "trigger.manual": "unsupported",

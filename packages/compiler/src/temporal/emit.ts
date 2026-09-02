@@ -250,7 +250,7 @@ function emitStepConfigEntry(activity: TemporalActivity): string[] {
   if (activity.secrets !== undefined) {
     fields.push(`secrets: ${JSON.stringify(activity.secrets)}`);
   }
-  lines.push(`  ${JSON.stringify(activity.stepId)}: { ${fields.join(", ") },`);
+  lines.push(`  ${JSON.stringify(activity.stepId)}: { ${fields.join(", ") } },`);
   return lines;
 }
 
@@ -290,7 +290,12 @@ function emitHelpers(): string[] {
  */
 function emitRunStepBody(): string[] {
   return [
-    `export async function runStep(stepId: string): Promise<void> {`,
+    `interface RunStepOptions {`,
+    `  retry?: { maximumAttempts: number };`,
+    `  startToCloseTimeout?: string;`,
+    `}`,
+    ``,
+    `export async function runStep(stepId: string, opts?: RunStepOptions): Promise<void> {`,
     `  const cfg = stepConfig[stepId];`,
     `  if (!cfg) throw new Error(\`unknown step: \${stepId}\`);`,
     `  const shell = cfg.shell ?? "sh";`,
@@ -317,14 +322,23 @@ function emitRunStepBody(): string[] {
     `      }).unref();`,
     `    }`,
     `  }`,
-    `  // Foreground commands are awaited synchronously.`,
-    `  for (const cmd of cfg.commands) {`,
-    `    execFileSync(shell, [flag, interpolateSecrets(cmd)], {`,
-    `      stdio: "pipe",`,
-    `      maxBuffer: 10 * 1024 * 1024,`,
-    `      ...(cfg.cwd !== undefined ? { cwd: cfg.cwd } : {}),`,
-    `      env: childEnv,`,
-    `    });`,
+    `  // Foreground commands are awaited synchronously with retry support.`,
+    `  const maxAttempts = opts?.retry?.maximumAttempts ?? 1;`,
+    `  for (let attempt = 0; attempt < maxAttempts; attempt++) {`,
+    `    try {`,
+    `      for (const cmd of cfg.commands) {`,
+    `        execFileSync(shell, [flag, interpolateSecrets(cmd)], {`,
+    `          stdio: "pipe",`,
+    `          maxBuffer: 10 * 1024 * 1024,`,
+    `          ...(cfg.cwd !== undefined ? { cwd: cfg.cwd } : {}),`,
+    `          env: childEnv,`,
+    `        });`,
+    `      }`,
+    `      return;`,
+    `    } catch (e) {`,
+    `      if (attempt < maxAttempts - 1) continue;`,
+    `      throw e;`,
+    `    }`,
     `  }`,
     `}`,
     ``,

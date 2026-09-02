@@ -41,7 +41,7 @@ function emitFunctions(graph: InngestTargetGraph): string {
     `import { Inngest } from "inngest";`,
     `import { execSync } from "node:child_process";`,
     ``,
-    `const inngest = new Inngest({ id: "${graph.appId}" });`,
+    `const inngest = new Inngest({ id: ${JSON.stringify(graph.appId)} });`,
     ``,
   ];
 
@@ -64,12 +64,12 @@ function emitFunction(fn: InngestFunction, appId: string): string[] {
     : 3;
 
   const trigger = fn.triggerKind === "schedule" && fn.cron
-    ? `{ cron: "${fn.cron}" }`
-    : `{ event: "sverka/${fn.entryId}" }`;
+    ? `{ cron: ${JSON.stringify(fn.cron)} }`
+    : `{ event: ${JSON.stringify("sverka/" + fn.entryId)} }`;
 
   lines.push(...[
     `export const ${ident} = inngest.createFunction(`,
-    `  { id: "${fn.entryId}", name: "${appId}", retries: ${retries} },`,
+    `  { id: ${JSON.stringify(fn.entryId)}, name: ${JSON.stringify(appId)}, retries: ${retries} },`,
     `  ${trigger},`,
     `  async ({ step }) => {`,
     `    let _failed = false;`,
@@ -104,6 +104,9 @@ function emitStepRun(step: InngestStep): string[] {
   if (guard.open) {
     lines.push(guard.open);
   }
+
+  // Skip downstream steps after a failure (fail-fast)
+  lines.push(`    if (_failed) return;`);
 
   if (step.matrix !== undefined) {
     lines.push(...emitMatrixStep(step, shortName));

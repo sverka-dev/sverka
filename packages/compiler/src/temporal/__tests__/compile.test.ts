@@ -74,6 +74,9 @@ describe("compileTemporal — activity sequencing", () => {
     const lintIdx = wf.indexOf('await runStep("ci/lint")');
     const testIdx = wf.indexOf('await runStep("ci/test")');
     const buildIdx = wf.indexOf('await runStep("ci/build")');
+    expect(lintIdx).toBeGreaterThan(-1);
+    expect(testIdx).toBeGreaterThan(-1);
+    expect(buildIdx).toBeGreaterThan(-1);
     expect(lintIdx).toBeLessThan(buildIdx);
     expect(testIdx).toBeLessThan(buildIdx);
   });
