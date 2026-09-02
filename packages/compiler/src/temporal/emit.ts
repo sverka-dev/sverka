@@ -254,9 +254,9 @@ function emitStepConfigEntry(activity: TemporalActivity): string[] {
 }
 
 /**
- * Emit the closing brace, runStep function, and secret interpolation helper.
+ * Emit the secret interpolation and shell-flag helper functions.
  */
-function emitRunStepFunction(): string[] {
+function emitHelpers(): string[] {
   return [
     `};`,
     ``,
@@ -281,6 +281,14 @@ function emitRunStepFunction(): string[] {
     `  return "-c";`,
     `}`,
     ``,
+  ];
+}
+
+/**
+ * Emit the runStep function that executes foreground and background commands.
+ */
+function emitRunStepBody(): string[] {
+  return [
     `export async function runStep(stepId: string): Promise<void> {`,
     `  const cfg = stepConfig[stepId];`,
     `  if (!cfg) throw new Error(\`unknown step: \${stepId}\`);`,
@@ -320,4 +328,11 @@ function emitRunStepFunction(): string[] {
     `}`,
     ``,
   ];
+}
+
+/**
+ * Emit the closing brace, runStep function, and secret interpolation helper.
+ */
+function emitRunStepFunction(): string[] {
+  return [...emitHelpers(), ...emitRunStepBody()];
 }
