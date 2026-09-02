@@ -100,27 +100,62 @@ function mapTriggerKind(kind: string): TemporalWorkflow["triggerKind"] {
  * Lower a step to a Temporal activity.
  */
 function lowerActivity(step: StepDefinition): TemporalActivity {
+  const { commands, warnings } = lowerCommands(step.operations);
   return {
     stepId: step.id,
-    commands: lowerCommands(step.operations),
+    commands,
+    ...(step.runtime.env ? { env: step.runtime.env } : {}),
+    ...(step.runtime.workingDir ? { workingDir: step.runtime.workingDir } : {}),
+    ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
+    ...(step.runtime.secrets ? { secrets: step.runtime.secrets } : {}),
     ...(step.retry !== undefined ? { retry: { max: step.retry.max } } : {}),
     ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
     ...(step.condition !== undefined ? { condition: step.condition } : {}),
+    ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
 
 /**
  * Extract shell commands from a step's operations.
  * Non-shell operations are ignored (Temporal has no native scalar/artifact output).
+ *
+ * Surfaces lowering warnings for unsupported constructs:
+ * - background shell execution (not supported by Temporal; command is skipped)
+ * - non-shell operations (release, pages, diagnostic, agent, etc.) that are dropped
+ * - shell commands containing `secrets.X` references (visible in generated code)
  */
-function lowerCommands(operations: readonly OperationDefinition[]): readonly string[] {
+function lowerCommands(
+  operations: readonly OperationDefinition[],
+): { commands: readonly string[]; warnings: readonly string[] } {
   const commands: string[] = [];
+  const warnings: string[] = [];
   for (const op of operations) {
     if (op.kind === "shell") {
+      if (op.background) {
+        // Background execution is not supported by the Temporal target: the
+        // generated activity awaits the process synchronously. Skip the
+        // command and emit a warning so it is not silently miscompiled.
+        warnings.push(
+          `background shell execution is not supported by the Temporal target; command skipped: ${op.command}`,
+        );
+        continue;
+      }
+      if (/secrets\.[A-Za-z_][A-Za-z0-9_]*/.test(op.command)) {
+        warnings.push(
+          `shell command contains a secrets.* reference; secret material will be visible in generated activity code: ${op.command}`,
+        );
+      }
       commands.push(op.command);
+    } else {
+      // Release, deployPages, diagnostic, report, agent, exportOutput,
+      // exportArtifact, and importArtifact operations have no native Temporal
+      // activity representation and are silently dropped — warn explicitly.
+      warnings.push(
+        `non-shell operation of kind '${op.kind}' is not supported by the Temporal target and is dropped from generated activities`,
+      );
     }
   }
-  return commands;
+  return { commands, warnings };
 }
 
 /**

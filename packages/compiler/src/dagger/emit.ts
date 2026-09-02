@@ -35,7 +35,7 @@ function emitModule(graph: DaggerTargetGraph): string {
     `export class SverkaPipeline {`,
     `  @func()`,
     `  async ${toIdentifier(graph.entryId)}(): Promise<string> {`,
-    `    let ctx = dag.container().from("${defaultImage}").withMountedDirectory("/src", dag.git(".").tree()).withWorkdir("/src");`,
+    `    let ctx = dag.container().from(${JSON.stringify(defaultImage)}).withMountedDirectory("/src", dag.git(".").tree()).withWorkdir("/src");`,
     `    let _failed = false;`,
   ];
 
@@ -68,9 +68,11 @@ function emitStep(step: DaggerStep): string[] {
     lines.push(`    // Host runtime is unsupported by Dagger; using container context.`);
   }
 
-  // Switch to a different container image when the step declares one
+  // Switch to a different container image when the step declares one.
+  // JSON.stringify escapes quotes, backslashes, and newlines so a malicious
+  // or malformed image name cannot break out of the TypeScript string literal.
   if (step.runtime.mode === "container" && step.runtime.image) {
-    lines.push(`    ctx = dag.container().from("${step.runtime.image}").withMountedDirectory("/src", dag.git(".").tree()).withWorkdir("/src");`);
+    lines.push(`    ctx = dag.container().from(${JSON.stringify(step.runtime.image)}).withMountedDirectory("/src", dag.git(".").tree()).withWorkdir("/src");`);
   }
 
   const guard = conditionGuard(step.condition);

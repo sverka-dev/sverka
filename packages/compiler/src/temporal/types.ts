@@ -20,6 +20,16 @@ export interface TemporalActivity {
   readonly retry?: { readonly max: number };
   readonly timeoutMs?: number;
   readonly condition?: Condition;
+  /** Runtime environment variables to apply to the generated activity. */
+  readonly env?: Readonly<Record<string, string>>;
+  /** Working directory to apply to the generated activity (cwd option). */
+  readonly workingDir?: string;
+  /** Custom shell to use when invoking commands (default "sh"). */
+  readonly shell?: string;
+  /** Names of secrets referenced by the step (values are not embedded). */
+  readonly secrets?: readonly string[];
+  /** Lowering warnings surfaced as comments in generated code. */
+  readonly warnings?: readonly string[];
 }
 
 /** A lowered Temporal workflow entry. */
