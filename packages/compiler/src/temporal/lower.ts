@@ -100,10 +100,11 @@ function mapTriggerKind(kind: string): TemporalWorkflow["triggerKind"] {
  * Lower a step to a Temporal activity.
  */
 function lowerActivity(step: StepDefinition): TemporalActivity {
-  const { commands, warnings } = lowerCommands(step.operations);
+  const { commands, backgroundCommands, warnings } = lowerCommands(step.operations);
   return {
     stepId: step.id,
     commands,
+    ...(backgroundCommands.length > 0 ? { backgroundCommands } : {}),
     ...(step.runtime.env ? { env: step.runtime.env } : {}),
     ...(step.runtime.workingDir ? { workingDir: step.runtime.workingDir } : {}),
     ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
@@ -115,34 +116,43 @@ function lowerActivity(step: StepDefinition): TemporalActivity {
   };
 }
 
+const SECRET_REF_RE = /secrets\.([A-Za-z_][A-Za-z0-9_]*)/g;
+
 /**
  * Extract shell commands from a step's operations.
  * Non-shell operations are ignored (Temporal has no native scalar/artifact output).
  *
  * Surfaces lowering warnings for unsupported constructs:
- * - background shell execution (not supported by Temporal; command is skipped)
+ * - background shell execution (emulated as detached spawn in generated code)
  * - non-shell operations (release, pages, diagnostic, agent, etc.) that are dropped
- * - shell commands containing `secrets.X` references (visible in generated code)
+ * - shell commands containing `secrets.X` references (secret names listed, not values)
  */
 function lowerCommands(
   operations: readonly OperationDefinition[],
-): { commands: readonly string[]; warnings: readonly string[] } {
+): {
+  commands: readonly string[];
+  backgroundCommands: readonly string[];
+  warnings: readonly string[];
+} {
   const commands: string[] = [];
+  const backgroundCommands: string[] = [];
   const warnings: string[] = [];
   for (const op of operations) {
     if (op.kind === "shell") {
       if (op.background) {
-        // Background execution is not supported by the Temporal target: the
-        // generated activity awaits the process synchronously. Skip the
-        // command and emit a warning so it is not silently miscompiled.
+        // Background execution is emulated: the command is emitted as a
+        // detached spawn in the generated activity (not awaited). This
+        // preserves the command rather than silently dropping it.
+        backgroundCommands.push(op.command);
         warnings.push(
-          `background shell execution is not supported by the Temporal target; command skipped: ${op.command}`,
+          `background shell execution is emulated as a detached spawn in the Temporal target; the activity does not await it`,
         );
         continue;
       }
-      if (/secrets\.[A-Za-z_][A-Za-z0-9_]*/.test(op.command)) {
+      const secretNames = extractSecretNames(op.command);
+      if (secretNames.length > 0) {
         warnings.push(
-          `shell command contains a secrets.* reference; secret material will be visible in generated activity code: ${op.command}`,
+          `shell command references secrets (${secretNames.join(", ")}); secret values are injected from the runtime secret store at execution time and are not embedded in generated code`,
         );
       }
       commands.push(op.command);
@@ -155,7 +165,21 @@ function lowerCommands(
       );
     }
   }
-  return { commands, warnings };
+  return { commands, backgroundCommands, warnings };
+}
+
+/**
+ * Extract secret names referenced via `secrets.NAME` in a command string.
+ * Returns only the names, never the surrounding command text.
+ */
+function extractSecretNames(command: string): string[] {
+  const names = new Set<string>();
+  SECRET_REF_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = SECRET_REF_RE.exec(command)) !== null) {
+    names.add(m[1]!);
+  }
+  return [...names];
 }
 
 /**

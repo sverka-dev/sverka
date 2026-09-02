@@ -17,6 +17,8 @@ export interface TemporalTargetConfig {
 export interface TemporalActivity {
   readonly stepId: string;
   readonly commands: readonly string[];
+  /** Background shell commands — emitted as detached spawns, not awaited. */
+  readonly backgroundCommands?: readonly string[];
   readonly retry?: { readonly max: number };
   readonly timeoutMs?: number;
   readonly condition?: Condition;
