@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { createFileSnapshotStore } from "../file-store.js";
 import { StorageError } from "../errors.js";
 import { makeSnapshot, makeTempDir, cleanupTempDir } from "./helpers/fixtures.js";
@@ -140,13 +140,15 @@ describe("FileSnapshotStore", () => {
     await expect(store.delete("../escape")).rejects.toThrow(StorageError);
   });
 
-  it("save writes atomically — no .tmp file left after success", async () => {
+  it("save writes atomically — no .snapshot.*.tmp file left after success", async () => {
     const store = createFileSnapshotStore({ root: dir });
     const snap = makeSnapshot("run-atomic");
     await store.save(snap);
-    const tmpPath = join(dir, ".sverka", "runs", "run-atomic", "snapshot.json.tmp");
-    expect(existsSync(tmpPath)).toBe(false);
-    const finalPath = join(dir, ".sverka", "runs", "run-atomic", "snapshot.json");
+    const runDir = join(dir, ".sverka", "runs", "run-atomic");
+    const entries = readdirSync(runDir);
+    const tmpFiles = entries.filter((f) => f.startsWith(".snapshot.") && f.endsWith(".tmp"));
+    expect(tmpFiles).toEqual([]);
+    const finalPath = join(runDir, "snapshot.json");
     expect(existsSync(finalPath)).toBe(true);
   });
 

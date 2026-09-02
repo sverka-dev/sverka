@@ -168,10 +168,10 @@ class NativeEngine implements Engine {
     start: number,
     abort: AbortController,
   ): AsyncGenerator<RunEvent, void, void> {
-    yield { type: "run-started", runId, planId: request.plan.id };
-
-    // Set currentRun early so query() works during prepareRun
+    // Set currentRun before run-started so query() works during that event
     this.setCurrentRun({ runId, planId: request.plan.id, startedAt: start, ctx: null, status: "running" });
+
+    yield { type: "run-started", runId, planId: request.plan.id };
 
     const setup = yield* this.prepareRun(request, runId, start, abort);
     if (setup === null) {

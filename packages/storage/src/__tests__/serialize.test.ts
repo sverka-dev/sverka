@@ -4,20 +4,34 @@ import { serialize, deserialize } from "../internal/serialize.js";
 import { StorageError } from "../errors.js";
 import { makeSnapshot } from "./helpers/fixtures.js";
 
-/** Serialize a snapshot, apply a mutation to the JSON, then expect deserialization to throw. */
+/** Serialize a snapshot, apply a mutation to the JSON, then expect deserialization to throw CORRUPT_SNAPSHOT. */
 function expectCorruptSnapshot(mutate: (obj: Record<string, unknown>) => void, runId = "run-1"): void {
   const snap = makeSnapshot();
-  const obj = JSON.parse(serialize(snap)) as Record<string, unknown>;
+  const parsed: unknown = JSON.parse(serialize(snap));
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("serialized snapshot must be a JSON object");
+  }
+  const obj = parsed as Record<string, unknown>;
   mutate(obj);
   const text = JSON.stringify(obj);
   expect(() => deserialize(text, runId)).toThrow(StorageError);
+  try {
+    deserialize(text, runId);
+  } catch (e) {
+    expect((e as StorageError).code).toBe("CORRUPT_SNAPSHOT");
+  }
 }
 
-/** Serialize a snapshot, rename a field in the JSON string, then expect deserialization to throw. */
+/** Serialize a snapshot, rename a field in the JSON string, then expect deserialization to throw CORRUPT_SNAPSHOT. */
 function expectCorruptByFieldRename(field: string): void {
   const snap = makeSnapshot();
   const text = serialize(snap).replace(`"${field}"`, `"x${field}"`);
   expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+  try {
+    deserialize(text, "run-1");
+  } catch (e) {
+    expect((e as StorageError).code).toBe("CORRUPT_SNAPSHOT");
+  }
 }
 
 describe("serialize / deserialize", () => {
@@ -99,7 +113,11 @@ describe("serialize / deserialize", () => {
 
   it("deserialize accepts snapshot without resumeSchema", () => {
     const snap = makeSnapshot();
-    const obj = JSON.parse(serialize(snap));
+    const parsed: unknown = JSON.parse(serialize(snap));
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      throw new Error("serialized snapshot must be a JSON object");
+    }
+    const obj = parsed as Record<string, unknown>;
     delete obj.resumeSchema;
     const text = JSON.stringify(obj);
     const restored = deserialize(text, "run-1");

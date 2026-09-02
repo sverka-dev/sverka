@@ -73,7 +73,7 @@ export function createSqliteSnapshotStore(
 
   return {
     async save(snapshot: RunSnapshot): Promise<void> {
-      await wrapIO(`save snapshot ${snapshot.runId}`, () => {
+      await wrapIO(`save snapshot ${snapshot.runId}`, async () => {
         saveStmt.run(
           snapshot.runId,
           snapshot.planId,
