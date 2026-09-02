@@ -78,7 +78,6 @@ describe("Engine.query() — Spec 32", () => {
       const plan = makeSimpleLinearPlan();
       const captured = await captureAtEvent(engine, plan, dir,
         (e) => e.type === "step-succeeded" && e.stepId === "ci/build");
-      await new Promise((r) => setTimeout(r, 10));
 
       expect(captured).toBeDefined();
       expect(captured!.status).toBe("running");
@@ -142,7 +141,6 @@ describe("Engine.query() — Spec 32", () => {
       const engine = createEngine({ drivers: [createMockDriver({ delayMs: 50 })] });
       const captured = await captureAtEvent(engine, makeSimpleLinearPlan(), dir,
         (e) => e.type === "step-succeeded" && e.stepId === "ci/build");
-      await new Promise((r) => setTimeout(r, 10));
 
       expect(captured).toBeDefined();
       const states = new Map(captured!.steps.map((s) => [s.stepId, s.state]));
