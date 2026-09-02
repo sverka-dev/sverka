@@ -286,9 +286,9 @@ function emitHelpers(): string[] {
 }
 
 /**
- * Emit the runStep function that executes foreground and background commands.
+ * Emit the RunStepOptions interface and runStep function signature.
  */
-function emitRunStepBody(): string[] {
+function emitRunStepSignature(): string[] {
   return [
     `interface RunStepOptions {`,
     `  retry?: { maximumAttempts: number };`,
@@ -311,6 +311,14 @@ function emitRunStepBody(): string[] {
     `      }`,
     `    }`,
     `  }`,
+  ];
+}
+
+/**
+ * Emit the background and foreground command execution body of runStep.
+ */
+function emitRunStepExecution(): string[] {
+  return [
     `  // Background commands are spawned detached (fire-and-forget) and not awaited.`,
     `  if (cfg.backgroundCommands !== undefined) {`,
     `    for (const cmd of cfg.backgroundCommands) {`,
@@ -343,6 +351,13 @@ function emitRunStepBody(): string[] {
     `}`,
     ``,
   ];
+}
+
+/**
+ * Emit the runStep function that executes foreground and background commands.
+ */
+function emitRunStepBody(): string[] {
+  return [...emitRunStepSignature(), ...emitRunStepExecution()];
 }
 
 /**
