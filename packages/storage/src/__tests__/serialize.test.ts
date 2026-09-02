@@ -14,24 +14,14 @@ function expectCorruptSnapshot(mutate: (obj: Record<string, unknown>) => void, r
   const obj = parsed as Record<string, unknown>;
   mutate(obj);
   const text = JSON.stringify(obj);
-  expect(() => deserialize(text, runId)).toThrow(StorageError);
-  try {
-    deserialize(text, runId);
-  } catch (e) {
-    expect((e as StorageError).code).toBe("CORRUPT_SNAPSHOT");
-  }
+  expect(() => deserialize(text, runId)).toThrowError(expect.objectContaining({ code: "CORRUPT_SNAPSHOT" }));
 }
 
 /** Serialize a snapshot, rename a field in the JSON string, then expect deserialization to throw CORRUPT_SNAPSHOT. */
 function expectCorruptByFieldRename(field: string): void {
   const snap = makeSnapshot();
   const text = serialize(snap).replace(`"${field}"`, `"x${field}"`);
-  expect(() => deserialize(text, "run-1")).toThrow(StorageError);
-  try {
-    deserialize(text, "run-1");
-  } catch (e) {
-    expect((e as StorageError).code).toBe("CORRUPT_SNAPSHOT");
-  }
+  expect(() => deserialize(text, "run-1")).toThrowError(expect.objectContaining({ code: "CORRUPT_SNAPSHOT" }));
 }
 
 describe("serialize / deserialize", () => {
