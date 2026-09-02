@@ -62,18 +62,7 @@ function emitModule(graph: DaggerTargetGraph): string {
  * Emit a single step as Dagger withExec chain calls.
  */
 function emitStep(step: DaggerStep): string[] {
-  const lines: string[] = [];
-
-  if (step.runtime.mode === "host") {
-    lines.push(`    // Host runtime is unsupported by Dagger; using container context.`);
-  }
-
-  // Switch to a different container image when the step declares one.
-  // JSON.stringify escapes quotes, backslashes, and newlines so a malicious
-  // or malformed image name cannot break out of the TypeScript string literal.
-  if (step.runtime.mode === "container" && step.runtime.image) {
-    lines.push(`    ctx = dag.container().from(${JSON.stringify(step.runtime.image)}).withMountedDirectory("/src", dag.git(".").tree()).withWorkdir("/src");`);
-  }
+  const lines: string[] = [...emitRuntimeModeLines(step)];
 
   const guard = conditionGuard(step.condition);
 
@@ -94,8 +83,7 @@ function emitStep(step: DaggerStep): string[] {
   }
 
   // Track failure for condition guards
-  const hasCatch = step.condition !== undefined || guard.alwaysWrap;
-  if (hasCatch && step.condition?.kind === "status" && step.condition.status === "always") {
+  if (step.condition?.kind === "status" && step.condition.status === "always") {
     lines.push(`    try { /* always: swallow errors */ } catch { /* no-op */ }`);
   }
 
@@ -103,6 +91,23 @@ function emitStep(step: DaggerStep): string[] {
     lines.push(guard.close);
   }
 
+  return lines;
+}
+
+/**
+ * Emit runtime mode lines (host warning, container image switch).
+ */
+function emitRuntimeModeLines(step: DaggerStep): string[] {
+  const lines: string[] = [];
+  if (step.runtime.mode === "host") {
+    lines.push(`    // Host runtime is unsupported by Dagger; using container context.`);
+  }
+  // Switch to a different container image when the step declares one.
+  // JSON.stringify escapes quotes, backslashes, and newlines so a malicious
+  // or malformed image name cannot break out of the TypeScript string literal.
+  if (step.runtime.mode === "container" && step.runtime.image) {
+    lines.push(`    ctx = dag.container().from(${JSON.stringify(step.runtime.image)}).withMountedDirectory("/src", dag.git(".").tree()).withWorkdir("/src");`);
+  }
   return lines;
 }
 

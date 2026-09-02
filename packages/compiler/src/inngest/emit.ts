@@ -96,49 +96,65 @@ function emitStepRun(step: InngestStep): string[] {
   }
 
   if (step.matrix !== undefined) {
-    lines.push(`    // Matrix: emulated via Promise.all`);
-    const matrixKeys = Object.keys(step.matrix.dimensions);
-    if (matrixKeys.length > 0) {
-      const key = matrixKeys[0]!;
-      const values = step.matrix.dimensions[key] ?? [];
-      const serializedValues = values.map((v) => JSON.stringify(String(v))).join(", ");
-      lines.push(...[
-        `    await Promise.all([${serializedValues}].map(async (${key}) => {`,
-        `      try {`,
-        `        await step.run("${shortName}", async () => {`,
-        `          // sverka run --step ${step.stepId}`,
-      ]);
-      for (const cmd of step.commands) {
-        lines.push(`          execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
-      }
-      lines.push(...[
-        `        });`,
-        `      } catch { _failed = true; }`,
-        `    }));`,
-      ]);
-    }
+    lines.push(...emitMatrixStep(step, shortName));
   } else {
-    if (step.timeout !== undefined) {
-      lines.push(`    // timeout: ${Math.ceil(step.timeout / 1000)}s (Inngest step.run has no per-step timeout; use function-level timeouts.finish)`);
-    }
-    lines.push(...[
-      `    try {`,
-      `      await step.run("${shortName}", async () => {`,
-      `        // sverka run --step ${step.stepId}`,
-    ]);
-    for (const cmd of step.commands) {
-      lines.push(`        execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
-    }
-    lines.push(...[
-      `      });`,
-      `    } catch { _failed = true; }`,
-    ]);
+    lines.push(...emitSimpleStep(step, shortName));
   }
 
   if (guard.close) {
     lines.push(guard.close);
   }
 
+  return lines;
+}
+
+/**
+ * Emit a matrix-iterated step.run call via Promise.all.
+ */
+function emitMatrixStep(step: InngestStep, shortName: string): string[] {
+  const lines: string[] = [`    // Matrix: emulated via Promise.all`];
+  const matrixKeys = Object.keys(step.matrix!.dimensions);
+  if (matrixKeys.length === 0) return lines;
+  const key = matrixKeys[0]!;
+  const values = step.matrix!.dimensions[key] ?? [];
+  const serializedValues = values.map((v) => JSON.stringify(String(v))).join(", ");
+  lines.push(...[
+    `    await Promise.all([${serializedValues}].map(async (${key}) => {`,
+    `      try {`,
+    `        await step.run("${shortName}", async () => {`,
+    `          // sverka run --step ${step.stepId}`,
+  ]);
+  for (const cmd of step.commands) {
+    lines.push(`          execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
+  }
+  lines.push(...[
+    `        });`,
+    `      } catch { _failed = true; }`,
+    `    }));`,
+  ]);
+  return lines;
+}
+
+/**
+ * Emit a simple (non-matrix) step.run call.
+ */
+function emitSimpleStep(step: InngestStep, shortName: string): string[] {
+  const lines: string[] = [];
+  if (step.timeout !== undefined) {
+    lines.push(`    // timeout: ${Math.ceil(step.timeout / 1000)}s (Inngest step.run has no per-step timeout; use function-level timeouts.finish)`);
+  }
+  lines.push(...[
+    `    try {`,
+    `      await step.run("${shortName}", async () => {`,
+    `        // sverka run --step ${step.stepId}`,
+  ]);
+  for (const cmd of step.commands) {
+    lines.push(`        execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
+  }
+  lines.push(...[
+    `      });`,
+    `    } catch { _failed = true; }`,
+  ]);
   return lines;
 }
 
