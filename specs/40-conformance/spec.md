@@ -20,7 +20,7 @@ every v1 feature gets conformance tests.
 - Conformance seed: build → test → deploy pipeline authored via all 4
   surfaces (Construct, SDK, Decorator, Markdown).
 - v1 feature coverage: caching, retries, suspend/resume, saga, MCP
-  plugins, agent steps, safe-outputs, network allowlist, run queries,
+  server, agent steps, safe-outputs, network allowlist, run queries,
   all 6 targets (GitHub/GitLab/Drone + Temporal/Dagger/Inngest).
 - Cross-surface equivalence: all 4 surfaces produce equivalent graphs.
 - Cross-target compilation: seed compiles to all 6 targets without

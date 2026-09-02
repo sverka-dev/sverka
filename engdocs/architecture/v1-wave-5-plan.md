@@ -11,7 +11,7 @@
 ## Design decisions
 
 1. **Markdown** = frontmatter + step list subset, `extends` escape hatch.
-   Lives in `@sverka/sdk` (markdown sub-module). Uses `yaml` (existing dep).
+   Lives in `@sverka/sdk` (markdown sub-module). Uses `yaml` (to be added as dependency).
 2. **Observability** = RunReport JSON + `sverka audit` command. No OTel.
    Lives in `@sverka/runtime` (report collection) + `@sverka/cli` (audit).
 3. **Visualization** = `--format mermaid` on `sverka graph`. No TUI library.

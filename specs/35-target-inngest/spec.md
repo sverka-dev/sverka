@@ -63,9 +63,11 @@ No new types exported beyond `InngestTargetConfig`.
 
 ```typescript
 // <name>.ts
-import { createFunction } from "@inngest/agent-kit";
+import { Inngest } from "@inngest/agent-kit";
 
-export const <entryId> = createFunction(
+const inngest = new Inngest({ id: "sverka" });
+
+export const <entryId> = inngest.createFunction(
   { id: "<entryId>", name: "<pipeline-id>", retries: 3 },
   { event: "sverka/<entryId>" },  // or { cron: "0 * * * *" } for schedule
   async ({ step }) => {

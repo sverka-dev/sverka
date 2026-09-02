@@ -20,7 +20,7 @@ caching and hermeticity from Dagger.
   no network, deterministic output.
 - Emit one file: `<name>.ts` (Dagger module with `@object`/`@func`
   decorators, one function per entry).
-- Map shell operations → `Container.withExec([command])`.
+- Map shell operations → `Container.withExec(["sh", "-c", command])` (shell semantics preserved).
 - Map step dependencies → `Directory` piping (build output → test input).
 - Map artifacts → `Directory.export()`.
 - Map scalar outputs → `container.stdout()`.
@@ -68,7 +68,7 @@ import { dag, object, func } from "@dagger.io/dagger";
 @object()
 export class SverkaPipeline {
   @func()
-  async <entryId>(): Promise<string> {
+  async entrypoint(entryId: string): Promise<string> {
     let ctx = dag.git(".").tree();
     // Step: build
     ctx = ctx.withExec(["bun", "run", "build"]);
@@ -83,9 +83,9 @@ export class SverkaPipeline {
 
 | Sverka | Dagger |
 |---|---|
-| Shell operation | `Container.withExec([cmd, ...args])` |
+| Shell operation | `Container.withExec(["sh", "-c", command])` |
 | Dependency (control) | Chain on same `Directory` |
-| Dependency (artifact) | `Directory` pipe: `step1.dir().pipe(step2.dir)` |
+| Dependency (artifact) | Chain on same `Directory` (build output → test input) |
 | Condition | `if`/`else` in generated function |
 | Matrix | `for` loop with parallel `withExec` calls |
 | RetryPolicy | TypeScript retry wrapper around `withExec` |
