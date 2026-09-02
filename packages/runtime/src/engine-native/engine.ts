@@ -587,6 +587,7 @@ class NativeEngine implements Engine {
           message: `compensation interpolation failed: ${e instanceof Error ? e.message : String(e)}`,
           severity: "warn",
         });
+        ctx.emit({ type: "step-compensated", stepId, status: "failed" });
         yield* this.drainEvents(ctx);
         continue;
       }
