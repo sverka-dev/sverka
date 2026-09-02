@@ -34,7 +34,7 @@ function emitModule(graph: DaggerTargetGraph): string {
     `@object()`,
     `export class SverkaPipeline {`,
     `  @func()`,
-    `  async ${toIdentifier(graph.entryId)}(): Promise<string> {`, // nosemgrep: missing-template-string-indicator
+    `  async ${toIdentifier(graph.entryId)}(): Promise<string> {`, // nosemgrep: missing-template-string-indicator, html-in-template-string
     `    let ctx = dag.container().from(${JSON.stringify(defaultImage)}).withMountedDirectory("/src", dag.git(".").tree()).withWorkdir("/src");`,
     `    let _failed = false;`,
   ];
