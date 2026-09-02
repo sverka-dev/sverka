@@ -1,14 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline } from "@sverka/workflow";
-import { synthesize } from "@sverka/workflow";
+import { Project, Pipeline, synthesize } from "@sverka/workflow";
 import { compileInngest, InngestTarget, InngestTargetError } from "../index.js";
-import {
-  makeGraph,
-  makeSimpleGraph,
-  makeGraphWithDeps,
-  makeDiamondGraph,
-  expectDiagnostic,
-} from "../../__tests__/helpers/graphs.js";
+import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic } from "../../__tests__/helpers/graphs.js";
+import type { GraphOptions } from "../../__tests__/helpers/graphs.js";
+
+/** Compile the default simple graph and return the first artifact's content. */
+function compileContent(opts: GraphOptions = {}): string {
+  return compileInngest(opts.steps ? makeGraph(opts) : makeSimpleGraph()).artifacts[0]!.content;
+}
 
 describe("compileInngest — basic", () => {
   it("produces one TypeScript artifact", () => {
@@ -18,36 +17,27 @@ describe("compileInngest — basic", () => {
   });
 
   it("imports Inngest from inngest core", () => {
-    const result = compileInngest(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain('import { Inngest } from "inngest"');
+    expect(compileContent()).toContain('import { Inngest } from "inngest"');
   });
 
   it("uses inngest.createFunction", () => {
-    const result = compileInngest(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain("inngest.createFunction(");
+    expect(compileContent()).toContain("inngest.createFunction(");
   });
 });
 
 describe("compileInngest — step.run", () => {
   it("single-step graph → one step.run call", () => {
-    const result = compileInngest(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain('step.run("build"');
+    expect(compileContent()).toContain('step.run("build"');
   });
 
   it("step.run invokes sverka run --step", () => {
-    const result = compileInngest(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain("sverka run --step ci/build");
+    expect(compileContent()).toContain("sverka run --step ci/build");
   });
 });
 
 describe("compileInngest — dependencies", () => {
   it("two-step graph with dependency → sequential step.run calls", () => {
-    const result = compileInngest(makeGraphWithDeps());
-    const content = result.artifacts[0]!.content;
+    const content = compileInngest(makeGraphWithDeps()).artifacts[0]!.content;
     const lintIdx = content.indexOf('step.run("lint"');
     const buildIdx = content.indexOf('step.run("build"');
     expect(lintIdx).toBeGreaterThan(-1);
@@ -56,8 +46,7 @@ describe("compileInngest — dependencies", () => {
   });
 
   it("diamond dependency → producers before consumer", () => {
-    const result = compileInngest(makeDiamondGraph());
-    const content = result.artifacts[0]!.content;
+    const content = compileInngest(makeDiamondGraph()).artifacts[0]!.content;
     const lintIdx = content.indexOf('step.run("lint"');
     const testIdx = content.indexOf('step.run("test"');
     const buildIdx = content.indexOf('step.run("build"');
@@ -68,17 +57,12 @@ describe("compileInngest — dependencies", () => {
 
 describe("compileInngest — triggers", () => {
   it("manual trigger → event trigger", () => {
-    const result = compileInngest(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain('event: "sverka/ci/on-manual"');
+    expect(compileContent()).toContain('event: "sverka/ci/on-manual"');
   });
 
   it("schedule trigger → cron trigger", () => {
-    const result = compileInngest(
-      makeGraph({ trigger: { kind: "schedule", cron: "0 * * * *" }, steps: [{ id: "build", command: "echo hi" }] }),
-    );
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain('cron: "0 * * * *"');
+    expect(compileContent({ trigger: { kind: "schedule", cron: "0 * * * *" }, steps: [{ id: "build", command: "echo hi" }] }))
+      .toContain('cron: "0 * * * *"');
   });
 
   it("push trigger → unsupported diagnostic", () => {
@@ -89,73 +73,47 @@ describe("compileInngest — triggers", () => {
 
 describe("compileInngest — retry and timeout", () => {
   it("retry → retries in createFunction config", () => {
-    const result = compileInngest(makeGraph({ steps: [{ id: "build", command: "echo hi", retry: { max: 5 } }] }));
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain("retries: 5");
+    expect(compileContent({ steps: [{ id: "build", command: "echo hi", retry: { max: 5 } }] })).toContain("retries: 5");
   });
 
   it("timeout → timeout option in step.run", () => {
-    const result = compileInngest(makeGraph({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] }));
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain("timeout: 30");
+    expect(compileContent({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] })).toContain("timeout: 30");
   });
 });
 
 describe("compileInngest — conditions and matrix", () => {
   it("condition status:failure → if (_failed) guard in generated code", () => {
-    const result = compileInngest(
-      makeGraph({
-        steps: [
-          { id: "build", command: "echo hi" },
-          {
-            id: "notify",
-            command: "echo failed",
-            condition: { kind: "status", status: "failure" },
-            dependsOn: ["build"],
-          },
-        ],
-        roots: ["notify"],
-      }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({
+      steps: [
+        { id: "build", command: "echo hi" },
+        { id: "notify", command: "echo failed", condition: { kind: "status", status: "failure" }, dependsOn: ["build"] },
+      ],
+      roots: ["notify"],
+    });
     expect(content).toContain("if (_failed)");
     expect(content).not.toContain("if (true)");
   });
 
   it("condition status:never → if (false) guard", () => {
-    const result = compileInngest(
-      makeGraph({ steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }] }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }] });
     expect(content).toContain("if (false)");
     expect(content).not.toContain("if (true)");
   });
 
   it("condition status:success → if (!_failed) guard", () => {
-    const result = compileInngest(
-      makeGraph({
-        steps: [
-          { id: "build", command: "echo hi" },
-          {
-            id: "test",
-            command: "echo test",
-            condition: { kind: "status", status: "success" },
-            dependsOn: ["build"],
-          },
-        ],
-        roots: ["test"],
-      }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({
+      steps: [
+        { id: "build", command: "echo hi" },
+        { id: "test", command: "echo test", condition: { kind: "status", status: "success" }, dependsOn: ["build"] },
+      ],
+      roots: ["test"],
+    });
     expect(content).toContain("if (!_failed)");
     expect(content).not.toContain("if (true)");
   });
 
   it("matrix → Promise.all in generated code", () => {
-    const result = compileInngest(
-      makeGraph({ steps: [{ id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } }] }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ steps: [{ id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } }] });
     expect(content).toContain("Promise.all");
     expect(content).toContain('"18"');
     expect(content).toContain('"20"');
@@ -164,9 +122,7 @@ describe("compileInngest — conditions and matrix", () => {
 
 describe("compileInngest — identifier validation", () => {
   it("entry ID starting with digit → prefixed with underscore", () => {
-    const result = compileInngest(makeGraph({ entryId: "1on-manual", steps: [{ id: "build", command: "echo hi" }] }));
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain("_1on_manual");
+    expect(compileContent({ entryId: "1on-manual", steps: [{ id: "build", command: "echo hi" }] })).toContain("_1on_manual");
   });
 });
 

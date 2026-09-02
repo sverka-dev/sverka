@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, synthesize } from "@sverka/workflow";
 import { compileDagger, DaggerTarget, DaggerTargetError } from "../index.js";
-import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph } from "../../__tests__/helpers/graphs.js";
+import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic } from "../../__tests__/helpers/graphs.js";
+import type { GraphOptions } from "../../__tests__/helpers/graphs.js";
+
+/** Compile the default simple graph and return the first artifact's content. */
+function compileContent(opts: GraphOptions = {}): string {
+  return compileDagger(opts.steps ? makeGraph(opts) : makeSimpleGraph()).artifacts[0]!.content;
+}
 
 describe("compileDagger — basic", () => {
   it("produces one TypeScript artifact", () => {
@@ -11,37 +17,29 @@ describe("compileDagger — basic", () => {
   });
 
   it("imports @dagger.io/dagger", () => {
-    const result = compileDagger(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain('import { dag, object, func } from "@dagger.io/dagger"');
+    expect(compileContent()).toContain('import { dag, object, func } from "@dagger.io/dagger"');
   });
 
   it("uses @object and @func decorators", () => {
-    const result = compileDagger(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
+    const content = compileContent();
     expect(content).toContain("@object()");
     expect(content).toContain("@func()");
   });
 
   it("exports SverkaPipeline class", () => {
-    const result = compileDagger(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain("export class SverkaPipeline");
+    expect(compileContent()).toContain("export class SverkaPipeline");
   });
 });
 
 describe("compileDagger — shell operations", () => {
   it("maps shell command to withExec via sh -c", () => {
-    const result = compileDagger(makeSimpleGraph());
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain('ctx.withExec(["sh", "-c", "bun run build"])');
+    expect(compileContent()).toContain('ctx.withExec(["sh", "-c", "bun run build"])');
   });
 });
 
 describe("compileDagger — dependencies", () => {
   it("chains steps in dependency order", () => {
-    const result = compileDagger(makeGraphWithDeps());
-    const content = result.artifacts[0]!.content;
+    const content = compileDagger(makeGraphWithDeps()).artifacts[0]!.content;
     const lintIdx = content.indexOf('bun run lint');
     const buildIdx = content.indexOf('bun run build');
     expect(lintIdx).toBeGreaterThan(-1);
@@ -50,8 +48,7 @@ describe("compileDagger — dependencies", () => {
   });
 
   it("diamond dependency → producers before consumer", () => {
-    const result = compileDagger(makeDiamondGraph());
-    const content = result.artifacts[0]!.content;
+    const content = compileDagger(makeDiamondGraph()).artifacts[0]!.content;
     const lintIdx = content.indexOf('bun run lint');
     const testIdx = content.indexOf('bun run test');
     const buildIdx = content.indexOf('bun run build');
@@ -62,114 +59,67 @@ describe("compileDagger — dependencies", () => {
 
 describe("compileDagger — runtime", () => {
   it("container runtime → native (no warning)", () => {
-    const result = compileDagger(
-      makeGraph({
-        steps: [{ id: "build", command: "echo hi", runtime: { mode: "container", image: "node:24" } }],
-      }),
-    );
-    const content = result.artifacts[0]!.content;
-    expect(content).not.toContain("Host runtime is unsupported");
+    expect(compileContent({ steps: [{ id: "build", command: "echo hi", runtime: { mode: "container", image: "node:24" } }] }))
+      .not.toContain("Host runtime is unsupported");
   });
 
   it("host runtime → unsupported diagnostic", () => {
-    const result = compileDagger(
-      makeGraph({ steps: [{ id: "build", command: "echo hi", runtime: { mode: "host" } }] }),
-    );
-    expect(result.diagnostics.some((d) => d.capability === "runtime.host")).toBe(true);
+    const result = compileDagger(makeGraph({ steps: [{ id: "build", command: "echo hi", runtime: { mode: "host" } }] }));
+    expectDiagnostic(result.diagnostics, "runtime.host");
   });
 });
 
 describe("compileDagger — retry and timeout", () => {
   it("retry → wrapper loop in generated code", () => {
-    const result = compileDagger(
-      makeGraph({ steps: [{ id: "build", command: "echo hi", retry: { max: 3 } }] }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ steps: [{ id: "build", command: "echo hi", retry: { max: 3 } }] });
     expect(content).toContain("attempt < 3");
     expect(content).toContain("Retry wrapper");
   });
 
   it("timeout → documented in generated code (Dagger has no withTimeout)", () => {
-    const result = compileDagger(
-      makeGraph({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] }),
-    );
-    const content = result.artifacts[0]!.content;
-    expect(content).toContain("timeout: 30s");
+    expect(compileContent({ steps: [{ id: "build", command: "echo hi", timeout: 30000 }] })).toContain("timeout: 30s");
   });
 });
 
 describe("compileDagger — conditions and matrix", () => {
   it("condition status:failure → if (_failed) guard in code", () => {
-    const result = compileDagger(
-      makeGraph({
-        steps: [
-          { id: "build", command: "echo hi" },
-          {
-            id: "notify",
-            command: "echo failed",
-            condition: { kind: "status", status: "failure" },
-            dependsOn: ["build"],
-          },
-        ],
-        roots: ["notify"],
-      }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({
+      steps: [
+        { id: "build", command: "echo hi" },
+        { id: "notify", command: "echo failed", condition: { kind: "status", status: "failure" }, dependsOn: ["build"] },
+      ],
+      roots: ["notify"],
+    });
     expect(content).toContain("if (_failed)");
     expect(content).not.toContain("if (true)");
   });
 
   it("condition status:never → if (false) guard", () => {
-    const result = compileDagger(
-      makeGraph({
-        steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }],
-      }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }] });
     expect(content).toContain("if (false)");
     expect(content).not.toContain("if (true)");
   });
 
   it("condition status:always → no if guard", () => {
-    const result = compileDagger(
-      makeGraph({
-        steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "always" } }],
-      }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "always" } }] });
     expect(content).not.toContain("if (true)");
     expect(content).not.toContain("if (false)");
   });
 
   it("condition status:success → if (!_failed) guard", () => {
-    const result = compileDagger(
-      makeGraph({
-        steps: [
-          { id: "build", command: "echo hi" },
-          {
-            id: "test",
-            command: "echo test",
-            condition: { kind: "status", status: "success" },
-            dependsOn: ["build"],
-          },
-        ],
-        roots: ["test"],
-      }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({
+      steps: [
+        { id: "build", command: "echo hi" },
+        { id: "test", command: "echo test", condition: { kind: "status", status: "success" }, dependsOn: ["build"] },
+      ],
+      roots: ["test"],
+    });
     expect(content).toContain("if (!_failed)");
     expect(content).not.toContain("if (true)");
   });
 
   it("matrix → loop in generated code", () => {
-    const result = compileDagger(
-      makeGraph({
-        steps: [
-          { id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } },
-        ],
-      }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ steps: [{ id: "build", command: "echo hi", matrix: { dimensions: { node: ["18", "20"] } } }] });
     expect(content).toContain("Matrix: emulated");
     expect(content).toContain('"18"');
     expect(content).toContain('"20"');
@@ -178,24 +128,17 @@ describe("compileDagger — conditions and matrix", () => {
 
 describe("compileDagger — command quoting", () => {
   it("preserves quoted arguments via sh -c", () => {
-    const result = compileDagger(
-      makeGraph({ steps: [{ id: "build", command: 'echo "hello world"' }] }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ steps: [{ id: "build", command: 'echo "hello world"' }] });
     expect(content).toContain('"sh"');
     expect(content).toContain('"-c"');
     expect(content).toContain('echo \\"hello world\\"');
-    // Should NOT split on whitespace
     expect(content).not.toContain('"echo"');
   });
 });
 
 describe("compileDagger — retry off-by-one", () => {
   it("retry max:3 → loop runs exactly 3 attempts (0..2)", () => {
-    const result = compileDagger(
-      makeGraph({ steps: [{ id: "build", command: "echo hi", retry: { max: 3 } }] }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ steps: [{ id: "build", command: "echo hi", retry: { max: 3 } }] });
     expect(content).toContain("attempt < 3");
     expect(content).not.toContain("attempt <= 3");
   });
@@ -203,10 +146,7 @@ describe("compileDagger — retry off-by-one", () => {
 
 describe("compileDagger — identifier validation", () => {
   it("entry ID starting with digit → prefixed with underscore", () => {
-    const result = compileDagger(
-      makeGraph({ entryId: "1on-manual", steps: [{ id: "build", command: "echo hi" }] }),
-    );
-    const content = result.artifacts[0]!.content;
+    const content = compileContent({ entryId: "1on-manual", steps: [{ id: "build", command: "echo hi" }] });
     expect(content).toContain("_1on_manual");
     expect(content).not.toContain(" 1on_manual");
   });
