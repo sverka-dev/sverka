@@ -15,7 +15,7 @@ import type {
   InngestTargetConfig,
 } from "./types.js";
 import { InngestTargetError } from "./errors.js";
-import { reachableStepIds, topoSort } from "../internal/graph-utils.js";
+import { reachableStepIds, topoSortWithCycleDetection } from "../internal/graph-utils.js";
 
 /**
  * Lower a Definition Graph to an InngestTargetGraph.
@@ -64,7 +64,7 @@ function lowerFunction(entry: EntryDefinition, pipeline: PipelineDefinition): In
   const createError = (msg: string, code: string): Error => new InngestTargetError(msg, code);
   const reachableIds = reachableStepIds(entry.roots, pipeline.steps, createError);
   const reachableSteps = pipeline.steps.filter((step) => reachableIds.has(step.id));
-  const sequence = topoSort(reachableSteps);
+  const sequence = topoSortWithCycleDetection(reachableSteps, createError);
   const steps = reachableSteps.map(lowerStep);
 
   const triggerKind = mapTriggerKind(entry.trigger.kind);

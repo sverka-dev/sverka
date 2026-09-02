@@ -75,7 +75,7 @@ function emitStep(step: DaggerStep): string[] {
   } else {
     lines.push(...emitCommands(step));
     // Non-retry path: force execution and catch errors to set _failed
-    lines.push(`    try { ctx.stdout(); } catch { _failed = true; }`); // nosemgrep: missing-template-string-indicator
+    lines.push(`    try { await ctx.stdout(); } catch { _failed = true; }`); // nosemgrep: missing-template-string-indicator
   }
 
   if (step.matrix !== undefined) {
@@ -198,12 +198,20 @@ function conditionGuard(condition: Condition | undefined): { open: string; close
 
 /**
  * Convert an entry ID to a valid TypeScript identifier.
- * Prefixes with underscore if the first character is a digit.
+ * Prefixes with underscore if the first character is a digit or if the
+ * result is a reserved word.
  */
+const RESERVED_WORDS = new Set([
+  "break", "case", "catch", "class", "const", "continue", "debugger", "default",
+  "delete", "do", "else", "enum", "export", "extends", "false", "finally", "for",
+  "function", "if", "import", "in", "instanceof", "new", "null", "return", "super",
+  "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with",
+  "as", "async", "await", "yield", "let", "static", "implements", "interface", "package",
+  "private", "protected", "public", "type", "from", "of", "get", "set",
+]);
+
 function toIdentifier(entryId: string): string {
   const sanitized = entryId.replace(/[^a-zA-Z0-9_$]/g, "_");
-  if (/^\d/.test(sanitized)) {
-    return `_${sanitized}`;
-  }
-  return sanitized;
+  const base = /^\d/.test(sanitized) ? `_${sanitized}` : sanitized;
+  return RESERVED_WORDS.has(base) ? `_${base}` : base;
 }

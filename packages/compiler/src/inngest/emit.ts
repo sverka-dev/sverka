@@ -129,7 +129,7 @@ function emitMatrixStep(step: InngestStep, shortName: string): string[] {
   const values = step.matrix!.dimensions[key] ?? [];
   const serializedValues = values.map((v) => JSON.stringify(String(v))).join(", ");
   lines.push(...[
-    `    await Promise.all([${serializedValues}].map(async (${key}) => {`,
+    `    await Promise.all([${serializedValues}].map(async () => {`,
     `      try {`,
     `        await step.run(${JSON.stringify(shortName)}, async () => {`,
     `          // sverka run --step ${sanitizeForComment(step.stepId)}`,
@@ -173,11 +173,19 @@ function emitSimpleStep(step: InngestStep, shortName: string): string[] {
 /**
  * Convert an entry ID to a valid TypeScript identifier.
  * Prefixes with underscore if the first character is a digit.
+ * Prefixes with underscore if the result is a reserved word.
  */
+const RESERVED_WORDS = new Set([
+  "break", "case", "catch", "class", "const", "continue", "debugger", "default",
+  "delete", "do", "else", "enum", "export", "extends", "false", "finally", "for",
+  "function", "if", "import", "in", "instanceof", "new", "null", "return", "super",
+  "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with",
+  "as", "async", "await", "yield", "let", "static", "implements", "interface", "package",
+  "private", "protected", "public", "type", "from", "of", "get", "set",
+]);
+
 function toIdentifier(entryId: string): string {
   const sanitized = entryId.replace(/[^a-zA-Z0-9_$]/g, "_");
-  if (/^\d/.test(sanitized)) {
-    return `_${sanitized}`;
-  }
-  return sanitized;
+  const base = /^\d/.test(sanitized) ? `_${sanitized}` : sanitized;
+  return RESERVED_WORDS.has(base) ? `_${base}` : base;
 }
