@@ -55,7 +55,7 @@ function emitWorkflow(graph: TemporalTargetGraph): string {
  */
 function toIdentifier(entryId: string): string {
   const sanitized = entryId.replace(/[^a-zA-Z0-9_$]/g, "_");
-  if (/^[0-9]/.test(sanitized)) {
+  if (/^\d/.test(sanitized)) {
     return `_${sanitized}`;
   }
   return sanitized;
@@ -71,8 +71,10 @@ function emitWorkflowHandler(wf: TemporalWorkflow): string[] {
     ? ` // Trigger: schedule (${wf.cron})`
     : ` // Trigger: ${wf.triggerKind}`;
 
-  lines.push(`export const ${ident} = async (): Promise<void> => {${triggerComment}`);
-  lines.push(`  let _failed = false;`);
+  lines.push(...[
+    `export const ${ident} = async (): Promise<void> => {${triggerComment}`,
+    `  let _failed = false;`,
+  ]);
 
   const activityById = new Map(wf.activities.map((a) => [a.stepId, a]));
 
@@ -82,8 +84,10 @@ function emitWorkflowHandler(wf: TemporalWorkflow): string[] {
     lines.push(...emitActivityCall(activity));
   }
 
-  lines.push(`  if (_failed) throw new Error("workflow failed");`);
-  lines.push(`});`);
+  lines.push(...[
+    `  if (_failed) throw new Error("workflow failed");`,
+    `});`,
+  ]);
   return lines;
 }
 
@@ -162,16 +166,18 @@ function emitActivities(graph: TemporalTargetGraph): string {
     }
   }
 
-  lines.push(`};`);
-  lines.push(``);
-  lines.push(`export async function runStep(stepId: string): Promise<void> {`);
-  lines.push(`  const commands = stepCommands[stepId];`);
-  lines.push(`  if (!commands) throw new Error(\`unknown step: \${stepId}\`);`);
-  lines.push(`  for (const cmd of commands) {`);
-  lines.push(`    execFileSync("sh", ["-c", cmd], { stdio: "inherit" });`);
-  lines.push(`  }`);
-  lines.push(`}`);
-  lines.push(``);
+  lines.push(...[
+    `};`,
+    ``,
+    `export async function runStep(stepId: string): Promise<void> {`,
+    `  const commands = stepCommands[stepId];`,
+    `  if (!commands) throw new Error(\`unknown step: \${stepId}\`);`,
+    `  for (const cmd of commands) {`,
+    `    execFileSync("sh", ["-c", cmd], { stdio: "inherit" });`,
+    `  }`,
+    `}`,
+    ``,
+  ]);
 
   return lines.join("\n");
 }

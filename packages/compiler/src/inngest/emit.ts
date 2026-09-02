@@ -57,11 +57,13 @@ function emitFunction(fn: InngestFunction, appId: string): string[] {
     ? `{ cron: "${fn.cron}" }`
     : `{ event: "sverka/${fn.entryId}" }`;
 
-  lines.push(`export const ${ident} = inngest.createFunction(`);
-  lines.push(`  { id: "${fn.entryId}", name: "${appId}", retries: ${retries} },`);
-  lines.push(`  ${trigger},`);
-  lines.push(`  async ({ step }) => {`);
-  lines.push(`    let _failed = false;`);
+  lines.push(...[
+    `export const ${ident} = inngest.createFunction(`,
+    `  { id: "${fn.entryId}", name: "${appId}", retries: ${retries} },`,
+    `  ${trigger},`,
+    `  async ({ step }) => {`,
+    `    let _failed = false;`,
+  ]);
 
   const stepById = new Map(fn.steps.map((s) => [s.stepId, s]));
 
@@ -71,10 +73,12 @@ function emitFunction(fn: InngestFunction, appId: string): string[] {
     lines.push(...emitStepRun(step));
   }
 
-  lines.push(`    if (_failed) throw new Error("function failed");`);
-  lines.push(`    return { status: "complete" };`);
-  lines.push(`  },`);
-  lines.push(`);`);
+  lines.push(...[
+    `    if (_failed) throw new Error("function failed");`,
+    `    return { status: "complete" };`,
+    `  },`,
+    `);`,
+  ]);
   return lines;
 }
 
@@ -98,29 +102,37 @@ function emitStepRun(step: InngestStep): string[] {
       const key = matrixKeys[0]!;
       const values = step.matrix.dimensions[key] ?? [];
       const serializedValues = values.map((v) => JSON.stringify(String(v))).join(", ");
-      lines.push(`    await Promise.all([${serializedValues}].map(async (${key}) => {`);
-      lines.push(`      try {`);
-      lines.push(`        await step.run("${shortName}", async () => {`);
-      lines.push(`          // sverka run --step ${step.stepId}`);
+      lines.push(...[
+        `    await Promise.all([${serializedValues}].map(async (${key}) => {`,
+        `      try {`,
+        `        await step.run("${shortName}", async () => {`,
+        `          // sverka run --step ${step.stepId}`,
+      ]);
       for (const cmd of step.commands) {
         lines.push(`          execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
       }
-      lines.push(`        });`);
-      lines.push(`      } catch { _failed = true; }`);
-      lines.push(`    }));`);
+      lines.push(...[
+        `        });`,
+        `      } catch { _failed = true; }`,
+        `    }));`,
+      ]);
     }
   } else {
     if (step.timeout !== undefined) {
       lines.push(`    // timeout: ${Math.ceil(step.timeout / 1000)}s (Inngest step.run has no per-step timeout; use function-level timeouts.finish)`);
     }
-    lines.push(`    try {`);
-    lines.push(`      await step.run("${shortName}", async () => {`);
-    lines.push(`        // sverka run --step ${step.stepId}`);
+    lines.push(...[
+      `    try {`,
+      `      await step.run("${shortName}", async () => {`,
+      `        // sverka run --step ${step.stepId}`,
+    ]);
     for (const cmd of step.commands) {
       lines.push(`        execSync(${JSON.stringify(cmd)}, { stdio: "inherit" });`);
     }
-    lines.push(`      });`);
-    lines.push(`    } catch { _failed = true; }`);
+    lines.push(...[
+      `      });`,
+      `    } catch { _failed = true; }`,
+    ]);
   }
 
   if (guard.close) {
@@ -161,7 +173,7 @@ function conditionGuard(condition: Condition | undefined): { open: string; close
  */
 function toIdentifier(entryId: string): string {
   const sanitized = entryId.replace(/[^a-zA-Z0-9_$]/g, "_");
-  if (/^[0-9]/.test(sanitized)) {
+  if (/^\d/.test(sanitized)) {
     return `_${sanitized}`;
   }
   return sanitized;

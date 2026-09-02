@@ -47,11 +47,13 @@ function emitModule(graph: DaggerTargetGraph): string {
     lines.push(...emitStep(step));
   }
 
-  lines.push(`    if (_failed) throw new Error("pipeline failed");`);
-  lines.push(`    return ctx.stdout();`);
-  lines.push(`  }`);
-  lines.push(`}`);
-  lines.push("");
+  lines.push(...[
+    `    if (_failed) throw new Error("pipeline failed");`,
+    `    return ctx.stdout();`,
+    `  }`,
+    `}`,
+    "",
+  ]);
 
   return lines.join("\n");
 }
@@ -78,48 +80,15 @@ function emitStep(step: DaggerStep): string[] {
   }
 
   if (step.retry !== undefined) {
-    lines.push(`    // Retry wrapper (max ${step.retry.max} attempts)`);
-    lines.push(`    for (let attempt = 0; attempt < ${step.retry.max}; attempt++) {`);
-    lines.push(`      try {`);
-    lines.push(`        let retryCtx = ctx;`);
-  }
-
-  for (const command of step.commands) {
-    const cmdStr = JSON.stringify(command);
-    if (step.timeout !== undefined) {
-      lines.push(`    // timeout: ${Math.ceil(step.timeout / 1000)}s (Dagger has no withTimeout; enforced by runner)`);
-    }
-    if (step.retry !== undefined) {
-      lines.push(`        retryCtx = retryCtx.withExec(["sh", "-c", ${cmdStr}]);`);
-    } else {
-      lines.push(`    ctx = ctx.withExec(["sh", "-c", ${cmdStr}]);`);
-    }
-  }
-
-  if (step.retry !== undefined) {
-    lines.push(`        retryCtx.stdout(); // execute graph to surface errors`);
-    lines.push(`        ctx = retryCtx;`);
+    lines.push(...emitRetryBlock(step));
+  } else {
+    lines.push(...emitCommands(step));
+    // Non-retry path: force execution and catch errors to set _failed
+    lines.push(`    try { ctx.stdout(); } catch { _failed = true; }`);
   }
 
   if (step.matrix !== undefined) {
-    lines.push(`    // Matrix: emulated via loop`);
-    for (const [key, values] of Object.entries(step.matrix.dimensions)) {
-      const serializedValues = values.map((v) => JSON.stringify(String(v))).join(", ");
-      lines.push(`    for (const ${key} of [${serializedValues}]) {`);
-      lines.push(`      // matrix iteration: ${key}`);
-      lines.push(`    }`);
-    }
-  }
-
-  if (step.retry !== undefined) {
-    lines.push(`        break;`);
-    lines.push(`      } catch (err) {`);
-    lines.push(`        if (attempt === ${step.retry.max - 1}) { _failed = true; }`);
-    lines.push(`      }`);
-    lines.push(`    }`);
-  } else {
-    // Non-retry path: force execution and catch errors to set _failed
-    lines.push(`    try { ctx.stdout(); } catch { _failed = true; }`);
+    lines.push(...emitMatrix(step.matrix));
   }
 
   // Track failure for condition guards
@@ -132,6 +101,66 @@ function emitStep(step: DaggerStep): string[] {
     lines.push(guard.close);
   }
 
+  return lines;
+}
+
+/**
+ * Emit the retry wrapper block for a step.
+ */
+function emitRetryBlock(step: DaggerStep): string[] {
+  const lines: string[] = [];
+  lines.push(...[
+    `    // Retry wrapper (max ${step.retry!.max} attempts)`,
+    `    for (let attempt = 0; attempt < ${step.retry!.max}; attempt++) {`,
+    `      try {`,
+    `        let retryCtx = ctx;`,
+  ]);
+  for (const command of step.commands) {
+    const cmdStr = JSON.stringify(command);
+    if (step.timeout !== undefined) {
+      lines.push(`    // timeout: ${Math.ceil(step.timeout / 1000)}s (Dagger has no withTimeout; enforced by runner)`);
+    }
+    lines.push(`        retryCtx = retryCtx.withExec(["sh", "-c", ${cmdStr}]);`);
+  }
+  lines.push(...[
+    `        retryCtx.stdout(); // execute graph to surface errors`,
+    `        ctx = retryCtx;`,
+    `        break;`,
+    `      } catch (err) {`,
+    `        if (attempt === ${step.retry!.max - 1}) { _failed = true; }`,
+    `      }`,
+    `    }`,
+  ]);
+  return lines;
+}
+
+/**
+ * Emit non-retry command lines for a step.
+ */
+function emitCommands(step: DaggerStep): string[] {
+  const lines: string[] = [];
+  for (const command of step.commands) {
+    const cmdStr = JSON.stringify(command);
+    if (step.timeout !== undefined) {
+      lines.push(`    // timeout: ${Math.ceil(step.timeout / 1000)}s (Dagger has no withTimeout; enforced by runner)`);
+    }
+    lines.push(`    ctx = ctx.withExec(["sh", "-c", ${cmdStr}]);`);
+  }
+  return lines;
+}
+
+/**
+ * Emit matrix iteration lines.
+ */
+function emitMatrix(matrix: DaggerStep["matrix"]): string[] {
+  if (matrix === undefined) return [];
+  const lines: string[] = [`    // Matrix: emulated via loop`];
+  for (const [key, values] of Object.entries(matrix.dimensions)) {
+    const serializedValues = values.map((v) => JSON.stringify(String(v))).join(", ");
+    lines.push(`    for (const ${key} of [${serializedValues}]) {`);
+    lines.push(`      // matrix iteration: ${key}`);
+    lines.push(`    }`);
+  }
   return lines;
 }
 
@@ -166,7 +195,7 @@ function conditionGuard(condition: Condition | undefined): { open: string; close
  */
 function toIdentifier(entryId: string): string {
   const sanitized = entryId.replace(/[^a-zA-Z0-9_$]/g, "_");
-  if (/^[0-9]/.test(sanitized)) {
+  if (/^\d/.test(sanitized)) {
     return `_${sanitized}`;
   }
   return sanitized;

@@ -155,20 +155,33 @@ function filterReachableSteps(
     if (!step) continue;
 
     for (const producer of producerIds(step)) {
-      if (!byId.has(producer)) {
-        throw new TemporalTargetError(
-          `step '${step.id}' references unknown producer '${producer}'`,
-          "INVALID_GRAPH",
-        );
-      }
-      if (!reachable.has(producer)) {
-        reachable.add(producer);
-        queue.push(producer);
-      }
+      enqueueProducer(producer, step.id, byId, reachable, queue);
     }
   }
 
   return pipeline.steps.filter((step) => reachable.has(step.id));
+}
+
+/**
+ * Validate and enqueue a producer step if not already reachable.
+ */
+function enqueueProducer(
+  producer: string,
+  stepId: string,
+  byId: Map<string, StepDefinition>,
+  reachable: Set<string>,
+  queue: string[],
+): void {
+  if (!byId.has(producer)) {
+    throw new TemporalTargetError(
+      `step '${stepId}' references unknown producer '${producer}'`,
+      "INVALID_GRAPH",
+    );
+  }
+  if (!reachable.has(producer)) {
+    reachable.add(producer);
+    queue.push(producer);
+  }
 }
 
 /**
