@@ -10,9 +10,10 @@
 
 Compile a DefinitionGraph to a Dagger Module TypeScript file. Each step
 becomes a `Container.withExec()` call. Step dependencies become
-`Directory` chaining (output of one step feeds the next). The user runs
-the generated module with `dagger call`. Gets free content-addressed
-caching and hermeticity from Dagger.
+`Container` chaining (steps share a mounted `/src` directory, so build
+output persists for the next step). The user runs the generated module
+with `dagger call`. Gets free content-addressed caching and hermeticity
+from Dagger.
 
 ## Goals
 
@@ -21,7 +22,7 @@ caching and hermeticity from Dagger.
 - Emit one file: `<name>.ts` (Dagger module with `@object`/`@func`
   decorators, one function per entry).
 - Map shell operations → `Container.withExec(["sh", "-c", command])` (shell semantics preserved).
-- Map step dependencies → `Directory` piping (build output → test input).
+- Map step dependencies → `Container` chaining (shared `/src` mount).
 - Map artifacts → `Directory.export()`.
 - Map scalar outputs → `container.stdout()`.
 - Capability manifest declaring native/lowered/emulated/unsupported.
@@ -68,12 +69,14 @@ import { dag, object, func } from "@dagger.io/dagger";
 @object()
 export class SverkaPipeline {
   @func()
-  async entrypoint(entryId: string): Promise<string> {
-    let ctx = dag.git(".").tree();
+  async entrypoint(): Promise<string> {
+    let ctx = dag.container().from("node:24")
+      .withMountedDirectory("/src", dag.git(".").tree())
+      .withWorkdir("/src");
     // Step: build
-    ctx = ctx.withExec(["bun", "run", "build"]);
-    // Step: test (depends on build — chains on same Directory)
-    ctx = ctx.withExec(["bun", "test"]);
+    ctx = ctx.withExec(["sh", "-c", "bun run build"]);
+    // Step: test (depends on build — chains on same Container)
+    ctx = ctx.withExec(["sh", "-c", "bun test"]);
     return ctx.stdout();
   }
 }
@@ -84,8 +87,8 @@ export class SverkaPipeline {
 | Sverka | Dagger |
 |---|---|
 | Shell operation | `Container.withExec(["sh", "-c", command])` |
-| Dependency (control) | Chain on same `Directory` |
-| Dependency (artifact) | Chain on same `Directory` (build output → test input) |
+| Dependency (control) | Chain on same `Container` |
+| Dependency (artifact) | Shared mount on same `Container` (build output persists in `/src`) |
 | Condition | `if`/`else` in generated function |
 | Matrix | `for` loop with parallel `withExec` calls |
 | RetryPolicy | TypeScript retry wrapper around `withExec` |
