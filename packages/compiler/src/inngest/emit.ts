@@ -35,8 +35,9 @@ function emitFunctions(graph: InngestTargetGraph): string {
     ``,
   ];
 
+  const usedIdents = new Set<string>(["inngest"]);
   for (const fn of graph.functions) {
-    lines.push(...emitFunction(fn, graph.appId));
+    lines.push(...emitFunction(fn, graph.appId, usedIdents));
     lines.push("");
   }
 
@@ -46,9 +47,9 @@ function emitFunctions(graph: InngestTargetGraph): string {
 /**
  * Emit a single Inngest function.
  */
-function emitFunction(fn: InngestFunction, appId: string): string[] {
+function emitFunction(fn: InngestFunction, appId: string, usedIdents: Set<string>): string[] {
   const lines: string[] = [];
-  const ident = toIdentifier(fn.entryId);
+  const ident = allocateIdentifier(fn.entryId, usedIdents);
   const retries = fn.steps.some((s) => s.retry !== undefined)
     ? fn.steps.find((s) => s.retry !== undefined)?.retry?.max ?? 3
     : 3;
@@ -182,10 +183,26 @@ const RESERVED_WORDS = new Set([
   "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with",
   "as", "async", "await", "yield", "let", "static", "implements", "interface", "package",
   "private", "protected", "public", "type", "from", "of", "get", "set",
+  "eval", "arguments",
 ]);
 
 function toIdentifier(entryId: string): string {
   const sanitized = entryId.replace(/[^a-zA-Z0-9_$]/g, "_");
   const base = /^\d/.test(sanitized) ? `_${sanitized}` : sanitized;
   return RESERVED_WORDS.has(base) ? `_${base}` : base;
+}
+
+/**
+ * Allocate a unique identifier for an entry ID, avoiding collisions
+ * with previously allocated identifiers and reserved module bindings.
+ */
+function allocateIdentifier(entryId: string, used: Set<string>): string {
+  let ident = toIdentifier(entryId);
+  if (used.has(ident)) {
+    let suffix = 2;
+    while (used.has(`${ident}_${suffix}`)) suffix++;
+    ident = `${ident}_${suffix}`;
+  }
+  used.add(ident);
+  return ident;
 }

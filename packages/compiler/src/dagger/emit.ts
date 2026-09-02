@@ -130,7 +130,7 @@ function emitRetryBlock(step: DaggerStep): string[] {
     lines.push(`        retryCtx = retryCtx.withExec(["sh", "-c", ${cmdStr}]);`);
   }
   lines.push(...[
-    `        retryCtx.stdout(); // execute graph to surface errors`,
+    `        await retryCtx.stdout(); // execute graph to surface errors`,
     `        ctx = retryCtx;`,
     `        break;`,
     `      } catch (err) {`,
@@ -208,6 +208,7 @@ const RESERVED_WORDS = new Set([
   "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with",
   "as", "async", "await", "yield", "let", "static", "implements", "interface", "package",
   "private", "protected", "public", "type", "from", "of", "get", "set",
+  "eval", "arguments",
 ]);
 
 function toIdentifier(entryId: string): string {

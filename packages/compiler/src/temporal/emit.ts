@@ -61,6 +61,7 @@ const RESERVED_WORDS = new Set([
   "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with",
   "as", "async", "await", "yield", "let", "static", "implements", "interface", "package",
   "private", "protected", "public", "type", "from", "of", "get", "set",
+  "eval", "arguments",
 ]);
 
 function toIdentifier(entryId: string): string {
