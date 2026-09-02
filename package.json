@@ -12,13 +12,13 @@
     "clean": "nx reset"
   },
   "devDependencies": {
-    "@types/node": "26.2.0",
-    "eslint": "10.9.0",
-    "nx": "^23.1.1",
+    "@types/node": "26.4.0",
+    "eslint": "10.9.1",
+    "nx": "^23.1.2",
     "prettier": "3.9.6",
     "tsdown": "0.22.14",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.67.0",
+    "typescript-eslint": "8.68.0",
     "vitest": "4.1.11"
   },
   "workspaces": [
