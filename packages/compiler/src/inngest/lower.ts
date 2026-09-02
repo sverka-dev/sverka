@@ -15,6 +15,7 @@ import type {
   InngestTargetConfig,
 } from "./types.js";
 import { InngestTargetError } from "./errors.js";
+import { reachableStepIds, topoSort } from "../internal/graph-utils.js";
 
 /**
  * Lower a Definition Graph to an InngestTargetGraph.
@@ -60,7 +61,9 @@ function lowerFunctions(pipeline: PipelineDefinition): readonly InngestFunction[
  * Lower a single entry to an Inngest function.
  */
 function lowerFunction(entry: EntryDefinition, pipeline: PipelineDefinition): InngestFunction {
-  const reachableSteps = filterReachableSteps(entry.roots, pipeline);
+  const createError = (msg: string, code: string): Error => new InngestTargetError(msg, code);
+  const reachableIds = reachableStepIds(entry.roots, pipeline.steps, createError);
+  const reachableSteps = pipeline.steps.filter((step) => reachableIds.has(step.id));
   const sequence = topoSort(reachableSteps);
   const steps = reachableSteps.map(lowerStep);
 
@@ -164,108 +167,4 @@ function detectOutputs(step: StepDefinition): { hasScalarOutput: boolean; hasArt
     }
   }
   return { hasScalarOutput, hasArtifactOutput };
-}
-
-/**
- * Return the steps reachable from the given roots.
- */
-function filterReachableSteps(
-  roots: readonly string[],
-  pipeline: PipelineDefinition,
-): readonly StepDefinition[] {
-  const byId = new Map(pipeline.steps.map((step) => [step.id, step]));
-  const reachable = new Set<string>();
-  const queue: string[] = [];
-
-  enqueueRoots(roots, byId, reachable, queue);
-
-  let head = 0;
-  while (head < queue.length) {
-    const id = queue[head]!;
-    head++;
-    const step = byId.get(id);
-    if (!step) continue;
-
-    for (const producer of producerIds(step)) {
-      if (!byId.has(producer)) {
-        throw new InngestTargetError(
-          `step '${step.id}' references unknown producer '${producer}'`,
-          "INVALID_GRAPH",
-        );
-      }
-      if (!reachable.has(producer)) {
-        reachable.add(producer);
-        queue.push(producer);
-      }
-    }
-  }
-
-  return pipeline.steps.filter((step) => reachable.has(step.id));
-}
-
-/**
- * Validate and enqueue root step IDs.
- */
-function enqueueRoots(
-  roots: readonly string[],
-  byId: Map<string, StepDefinition>,
-  reachable: Set<string>,
-  queue: string[],
-): void {
-  for (const root of roots) {
-    if (!byId.has(root)) {
-      throw new InngestTargetError(
-        `entry references unknown root step '${root}'`,
-        "INVALID_GRAPH",
-      );
-    }
-    if (!reachable.has(root)) {
-      reachable.add(root);
-      queue.push(root);
-    }
-  }
-}
-
-/**
- * Return the ids of all producer steps referenced by a step.
- */
-function producerIds(step: StepDefinition): readonly string[] {
-  const ids: string[] = [];
-  for (const dep of step.dependencies) {
-    ids.push(dep.producer);
-  }
-  for (const op of step.operations) {
-    if (op.kind === "importArtifact") {
-      ids.push(op.from);
-    }
-  }
-  return ids;
-}
-
-/**
- * Topologically sort steps by dependency order.
- */
-function topoSort(steps: readonly StepDefinition[]): readonly string[] {
-  const byId = new Map(steps.map((s) => [s.id, s]));
-  const visited = new Set<string>();
-  const result: string[] = [];
-
-  function visit(id: string): void {
-    if (visited.has(id)) return;
-    visited.add(id);
-    const step = byId.get(id);
-    if (!step) return;
-    for (const producer of producerIds(step)) {
-      if (byId.has(producer)) {
-        visit(producer);
-      }
-    }
-    result.push(id);
-  }
-
-  for (const step of steps) {
-    visit(step.id);
-  }
-
-  return result;
 }
