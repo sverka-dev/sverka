@@ -2,6 +2,7 @@
 // Eliminates duplicated Project/Pipeline/ShellStep/Entry setup across
 // drone, temporal, dagger, and inngest compile test suites.
 
+import { expect } from "vitest";
 import { Project, Pipeline, ShellStep, Entry, type DefinitionGraph } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import type { Condition, RetryPolicy, MatrixSpec, Runtime, OutputDeclaration, Trigger } from "@sverka/workflow";
@@ -92,4 +93,25 @@ export function expectDiagnostic(
   if (!diagnostics.some((d) => d.capability === capability)) {
     throw new Error(`expected diagnostic for capability "${capability}"`);
   }
+}
+
+/** Step spec for a condition test: build + conditional step. */
+export function conditionSteps(status: "failure" | "never" | "success" | "always"): StepSpec[] {
+  if (status === "never" || status === "always") {
+    return [{ id: "build", command: "echo hi", condition: { kind: "status", status } }];
+  }
+  return [
+    { id: "build", command: "echo hi" },
+    { id: "notify", command: "echo failed", condition: { kind: "status", status }, dependsOn: ["build"] },
+  ];
+}
+
+/** Run condition test assertions on generated content. */
+export function expectCondition(
+  content: string,
+  expectGuard: string,
+  excludeGuard = "if (true)",
+): void {
+  expect(content).toContain(expectGuard);
+  if (excludeGuard) expect(content).not.toContain(excludeGuard);
 }

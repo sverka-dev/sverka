@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, synthesize } from "@sverka/workflow";
 import { compileInngest, InngestTarget, InngestTargetError } from "../index.js";
-import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic } from "../../__tests__/helpers/graphs.js";
+import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic, conditionSteps, expectCondition } from "../../__tests__/helpers/graphs.js";
 import type { GraphOptions } from "../../__tests__/helpers/graphs.js";
 
 /** Compile the default simple graph and return the first artifact's content. */
@@ -83,33 +83,15 @@ describe("compileInngest — retry and timeout", () => {
 
 describe("compileInngest — conditions and matrix", () => {
   it("condition status:failure → if (_failed) guard in generated code", () => {
-    const content = compileContent({
-      steps: [
-        { id: "build", command: "echo hi" },
-        { id: "notify", command: "echo failed", condition: { kind: "status", status: "failure" }, dependsOn: ["build"] },
-      ],
-      roots: ["notify"],
-    });
-    expect(content).toContain("if (_failed)");
-    expect(content).not.toContain("if (true)");
+    expectCondition(compileContent({ steps: conditionSteps("failure"), roots: ["notify"] }), "if (_failed)");
   });
 
   it("condition status:never → if (false) guard", () => {
-    const content = compileContent({ steps: [{ id: "build", command: "echo hi", condition: { kind: "status", status: "never" } }] });
-    expect(content).toContain("if (false)");
-    expect(content).not.toContain("if (true)");
+    expectCondition(compileContent({ steps: conditionSteps("never") }), "if (false)");
   });
 
   it("condition status:success → if (!_failed) guard", () => {
-    const content = compileContent({
-      steps: [
-        { id: "build", command: "echo hi" },
-        { id: "test", command: "echo test", condition: { kind: "status", status: "success" }, dependsOn: ["build"] },
-      ],
-      roots: ["test"],
-    });
-    expect(content).toContain("if (!_failed)");
-    expect(content).not.toContain("if (true)");
+    expectCondition(compileContent({ steps: conditionSteps("success"), roots: ["notify"] }), "if (!_failed)");
   });
 
   it("matrix → Promise.all in generated code", () => {
