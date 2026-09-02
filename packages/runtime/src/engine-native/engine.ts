@@ -608,38 +608,13 @@ class NativeEngine implements Engine {
     ctx.emit({ type: "step-compensating", stepId, command });
     yield* this.drainEvents(ctx);
 
-    const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
-    const request: ShellExecuteRequest = {
-      command,
-      workspace: stepWorkspace,
-      env: buildCompensationEnv(step, scopeSecretsForStep(step, ctx.secrets)),
-      ...(step.runtime.workingDir !== undefined
-        ? { cwd: resolveUnder(stepWorkspace, step.runtime.workingDir) }
-        : {}),
-      ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
-      ...(step.runtime.image ? { image: step.runtime.image } : {}),
-      ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
-      ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
-      ...(step.runtime.network ? { network: step.runtime.network } : {}),
-      ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
-        ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
-        : {}),
-      ...(ctx.abort.signal !== undefined ? { signal: ctx.abort.signal } : {}),
-    };
-
+    const request = buildCompensationRequest(ctx, stepId, step, command);
     const compStart = Date.now();
     let result: ShellResult;
     try {
       result = await driver.executeShell(request);
     } catch (e) {
-      const durationMs = Date.now() - compStart;
-      ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
-      ctx.emit({
-        type: "diagnostic",
-        stepId,
-        message: `compensation failed: ${e instanceof Error ? e.message : String(e)}`,
-        severity: "warn",
-      });
+      this.emitCompensationFailure(ctx, stepId, Date.now() - compStart, `compensation failed: ${e instanceof Error ? e.message : String(e)}`);
       yield* this.drainEvents(ctx);
       return;
     }
@@ -647,15 +622,17 @@ class NativeEngine implements Engine {
     if (result.exitCode === 0) {
       ctx.emit({ type: "step-compensated", stepId, status: "succeeded", durationMs });
     } else {
-      ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
-      ctx.emit({
-        type: "diagnostic",
-        stepId,
-        message: `compensation for step '${stepId}' failed with exit code ${result.exitCode}`,
-        severity: "warn",
-      });
+      this.emitCompensationFailure(ctx, stepId, durationMs, `compensation for step '${stepId}' failed with exit code ${result.exitCode}`);
     }
     yield* this.drainEvents(ctx);
+  }
+
+  /**
+   * Emit a failed compensation event + diagnostic.
+   */
+  private emitCompensationFailure(ctx: RunContext, stepId: string, durationMs: number, message: string): void {
+    ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
+    ctx.emit({ type: "diagnostic", stepId, message, severity: "warn" });
   }
 
   private buildStepExecOptions(
@@ -1133,4 +1110,34 @@ function buildCompensationEnv(
     }
   }
   return env;
+}
+
+/**
+ * Build a ShellExecuteRequest for a compensation command.
+ * Mirrors normal step execution options (workingDir, timeout, runtime, etc).
+ */
+function buildCompensationRequest(
+  ctx: RunContext,
+  stepId: string,
+  step: StepDefinition,
+  command: string,
+): ShellExecuteRequest {
+  const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
+  return {
+    command,
+    workspace: stepWorkspace,
+    env: buildCompensationEnv(step, scopeSecretsForStep(step, ctx.secrets)),
+    ...(step.runtime.workingDir !== undefined
+      ? { cwd: resolveUnder(stepWorkspace, step.runtime.workingDir) }
+      : {}),
+    ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
+    ...(step.runtime.image ? { image: step.runtime.image } : {}),
+    ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),
+    ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
+    ...(step.runtime.network ? { network: step.runtime.network } : {}),
+    ...((step.runtime as { imageDigest?: string }).imageDigest !== undefined
+      ? { imageDigest: (step.runtime as { imageDigest?: string }).imageDigest }
+      : {}),
+    ...(ctx.abort.signal !== undefined ? { signal: ctx.abort.signal } : {}),
+  };
 }
