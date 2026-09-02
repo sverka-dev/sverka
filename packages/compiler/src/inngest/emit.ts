@@ -97,7 +97,13 @@ function emitStepRun(step: InngestStep): string[] {
 
   // Skip downstream steps after a failure (fail-fast) — throw to ensure
   // the function reports failure rather than returning success.
-  lines.push(`    if (_failed) throw new Error("function failed");`);
+  // But allow `failure` and `always` condition steps to run so cleanup
+  // and notification steps can still execute.
+  const isFailureOrAlways = step.condition?.kind === "status" &&
+    (step.condition.status === "failure" || step.condition.status === "always");
+  if (!isFailureOrAlways) {
+    lines.push(`    if (_failed) throw new Error("function failed");`);
+  }
 
   if (step.matrix !== undefined) {
     lines.push(...emitMatrixStep(step, shortName));

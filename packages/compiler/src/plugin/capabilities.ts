@@ -180,6 +180,7 @@ function detectScriptCapabilities(
     afterScript?: readonly unknown[];
     continueOnError?: unknown;
     retry?: { max?: number };
+    timeout?: unknown;
   },
   caps: Set<string>,
 ): void {
@@ -187,6 +188,7 @@ function detectScriptCapabilities(
   if (step.afterScript && step.afterScript.length > 0) caps.add("step.afterScript");
   if (step.continueOnError !== undefined) caps.add("step.continueOnError");
   if (step.retry !== undefined) caps.add("policy.retry");
+  if (step.timeout !== undefined) caps.add("policy.timeout");
 }
 
 function detectRuntimeCapabilities(step: CapabilityStep, caps: Set<string>): void {

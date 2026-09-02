@@ -52,9 +52,24 @@ export function makeGraph(opts: GraphOptions = {}): DefinitionGraph {
       outputs: step.outputs,
     });
   }
-  const rootSteps = roots ?? steps.map((s) => s.id).slice(-1);
+  const rootSteps = roots ?? terminalStepIds(steps);
   new Entry(p, entryId, { trigger, roots: rootSteps });
   return synthesize(proj);
+}
+
+/**
+ * Return the IDs of terminal steps — those not depended on by any other step.
+ * Falls back to the last step if all steps are depended on (e.g. single-step graph).
+ */
+function terminalStepIds(steps: readonly StepSpec[]): string[] {
+  const dependedOn = new Set<string>();
+  for (const step of steps) {
+    for (const dep of step.dependsOn ?? []) {
+      dependedOn.add(dep);
+    }
+  }
+  const terminals = steps.filter((s) => !dependedOn.has(s.id)).map((s) => s.id);
+  return terminals.length > 0 ? terminals : [steps[steps.length - 1]!.id];
 }
 
 /** Single-step graph with a manual trigger (default). */

@@ -76,8 +76,10 @@ describe("compileInngest — retry and timeout", () => {
     expect(compileContent({ steps: [{ id: "build", command: "echo hi", retry: { max: 5 } }] })).toContain("retries: 5");
   });
 
-  it("timeout → timeout option in step.run", () => {
-    expect(compileContent({ steps: [timeoutStep()] })).toContain("timeout: 30");
+  it("timeout → unsupported diagnostic and comment in generated code", () => {
+    const result = compileInngest(makeGraph({ steps: [timeoutStep()] }));
+    expectDiagnostic(result.diagnostics, "policy.timeout");
+    expect(result.artifacts[0]!.content).toContain("timeout: 30");
   });
 });
 

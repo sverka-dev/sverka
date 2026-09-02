@@ -8,6 +8,7 @@ import {
   makeSimpleGraph,
   makeGraphWithDeps,
   makeDiamondGraph,
+  expectDiagnostic,
 } from "../../__tests__/helpers/graphs.js";
 
 interface DroneYamlStep {
@@ -113,13 +114,16 @@ describe("compileDrone — trigger mapping", () => {
     expect(yaml.trigger.event).toContain("custom");
   });
 
-  it("maps schedule trigger to cron", () => {
+  it("maps schedule trigger to cron (with unsupported diagnostic)", () => {
     const result = compileDrone(
       makeGraph({
         trigger: { kind: "schedule", cron: "0 * * * *" },
         steps: [{ id: "build", command: "echo hi" }],
       }),
     );
+    // Schedule is marked unsupported in capabilities, so a diagnostic should be emitted
+    expectDiagnostic(result.diagnostics, "trigger.schedule");
+    // The lowering still maps it to a cron event for best-effort compatibility
     const yaml = parseDroneYaml(result.artifacts[0]!.content);
     expect(yaml.trigger.event).toContain("cron");
     expect(yaml.trigger.cron).toContain("0 * * * *");
