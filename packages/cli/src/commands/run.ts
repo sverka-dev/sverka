@@ -177,6 +177,8 @@ const EVENT_LABELS: Readonly<Record<string, string>> = {
   "step-failed": "  ✗ {step} failed",
   "step-skipped": "  ⊘ {step} skipped",
   "step-cancelled": "  ⊘ {step} cancelled",
+  "step-compensating": "  ↺ {step} compensating",
+  "step-compensated": "  ↺ {step} compensated: {status}",
   "run-completed": "■ run completed: {status}",
   "diagnostic": "  ! diagnostic",
 };

@@ -410,8 +410,15 @@ export function validateWriteDeclarations(step: StepDefinition): void {
  * compensation kind is not "shell".
  */
 export function validateCompensation(step: StepDefinition): void {
-  const compensation: OperationDefinition | undefined = step.compensation;
-  if (!compensation) return;
+  const compensation = step.compensation;
+  if (compensation === undefined || compensation === null) return;
+  if (typeof compensation !== "object") {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' must be an object, got ${typeof compensation}`,
+      step.id,
+    );
+  }
   if (compensation.kind !== "shell") {
     throw new SynthesisError(
       "INVALID_COMPENSATION",

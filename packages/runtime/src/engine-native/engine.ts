@@ -570,16 +570,29 @@ class NativeEngine implements Engine {
 
       // Interpolate ${...} references in the compensation command, same as
       // normal step execution. Uses the step's value store and inputs.
-      const command = interpolateCommand(
-        rawCommand,
-        step,
-        ctx.valueStore,
-        ctx.request.plan.inputs,
-        ctx.secrets,
-        ctx.request.workspace,
-      );
+      let command: string;
+      try {
+        command = interpolateCommand(
+          rawCommand,
+          step,
+          ctx.valueStore,
+          ctx.request.plan.inputs,
+          ctx.secrets,
+          ctx.request.workspace,
+        );
+      } catch (e) {
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          message: `compensation interpolation failed: ${e instanceof Error ? e.message : String(e)}`,
+          severity: "warn",
+        });
+        yield* this.drainEvents(ctx);
+        continue;
+      }
 
       ctx.emit({ type: "step-compensating", stepId, command });
+      yield* this.drainEvents(ctx);
 
       const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
       const request: ShellExecuteRequest = {
