@@ -86,6 +86,48 @@ async function collectEvents(
   return events;
 }
 
+/** Run a plan with standard workspace/artifactDir under the given testDir. */
+async function runPlan(
+  engine: ReturnType<typeof createEngine>,
+  plan: RunPlan,
+  testDir: string,
+  extra?: Parameters<ReturnType<typeof createEngine>["run"]>[0],
+): Promise<ReturnType<typeof collectEvents>> {
+  return collectEvents(engine, {
+    plan,
+    workspace: join(testDir, "ws"),
+    artifactDir: join(testDir, "art"),
+    ...extra,
+  });
+}
+
+/** Create a tracking driver that records commands and fails on "exit 1". */
+function makeTrackingDriver(
+  onCommand?: (req: ShellExecuteRequest) => void,
+): RuntimeDriver {
+  return {
+    name: "tracking",
+    canExecute: () => true,
+    executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
+      onCommand?.(req);
+      if (req.command.trim().startsWith("exit 1")) {
+        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+      }
+      return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+    },
+  };
+}
+
+/** Extract stepIds from events of a given type. */
+function stepIdsByType(events: { type: string; stepId?: string }[], type: string): string[] {
+  return events.filter((e) => e.type === type).map((e) => e.stepId!);
+}
+
+/** Find the run-completed event and return its status. */
+function runStatus(events: { type: string; status?: string }[]): string {
+  return (events.find((e) => e.type === "run-completed") as never as { status: string }).status;
+}
+
 // ── Tests ─────────────────────────────────────────────────────────
 
 describe("Engine — saga compensations (Spec 30)", () => {
@@ -101,63 +143,35 @@ describe("Engine — saga compensations (Spec 30)", () => {
 
   it("item 4: succeeded upstream steps with compensation run in reverse completion order", async () => {
     const calls: string[] = [];
-    const driver: RuntimeDriver = {
-      name: "tracking",
-      canExecute: () => true,
-      executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
-        calls.push(req.command);
-        if (req.command.trim().startsWith("exit 1")) {
-          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
-        }
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
-      },
-    };
+    const driver = makeTrackingDriver((req) => calls.push(req.command));
     const engine = createEngine({ drivers: [driver] });
-    const events = await collectEvents(engine, {
-      plan: makeLinearFailPlan({ a: "rollback-a.sh", b: "rollback-b.sh" }),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
+    const events = await runPlan(engine, makeLinearFailPlan({ a: "rollback-a.sh", b: "rollback-b.sh" }), testDir);
 
     // A and B succeeded, C failed. Compensations should run B then A (reverse).
-    const compensating = events.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
-    expect(compensating).toEqual(["ci/b", "ci/a"]);
+    expect(stepIdsByType(events, "step-compensating")).toEqual(["ci/b", "ci/a"]);
 
     // The driver should have been called with rollback-b.sh then rollback-a.sh
-    // (after the 3 step commands echo a, echo b, exit 1).
     const rollbackCalls = calls.filter((c) => c.startsWith("rollback"));
     expect(rollbackCalls).toEqual(["rollback-b.sh", "rollback-a.sh"]);
 
-    const completed = events.find((e) => e.type === "run-completed") as never as { status: string };
-    expect(completed.status).toBe("failure");
+    expect(runStatus(events)).toBe("failure");
   });
 
   it("item 5: step with no compensation is skipped during compensation phase", async () => {
-    // Only A has a compensation; B has none. C fails.
     const driver = createMockDriver();
     const engine = createEngine({ drivers: [driver] });
-    const events = await collectEvents(engine, {
-      plan: makeLinearFailPlan({ a: "rollback-a.sh" }),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
+    const events = await runPlan(engine, makeLinearFailPlan({ a: "rollback-a.sh" }), testDir);
 
-    const compensating = events.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
     // Only ci/a should be compensated; ci/b has no compensation.
-    expect(compensating).toEqual(["ci/a"]);
+    expect(stepIdsByType(events, "step-compensating")).toEqual(["ci/a"]);
   });
 
   it("item 6: a failed step with compensation does NOT have its compensation run", async () => {
-    // C fails and has a compensation — it should NOT run (it didn't succeed).
     const driver = createMockDriver();
     const engine = createEngine({ drivers: [driver] });
-    const events = await collectEvents(engine, {
-      plan: makeLinearFailPlan({ a: "rollback-a.sh", c: "rollback-c.sh" }),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
+    const events = await runPlan(engine, makeLinearFailPlan({ a: "rollback-a.sh", c: "rollback-c.sh" }), testDir);
 
-    const compensating = events.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
+    const compensating = stepIdsByType(events, "step-compensating");
     expect(compensating).not.toContain("ci/c");
     expect(compensating).toContain("ci/a");
   });
@@ -165,38 +179,21 @@ describe("Engine — saga compensations (Spec 30)", () => {
   it("item 7: a skipped step with compensation does NOT have its compensation run", async () => {
     const driver = createMockDriver();
     const engine = createEngine({ drivers: [driver] });
-    const events = await collectEvents(engine, {
-      plan: makeSkippedPlan("rollback-skip.sh"),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
+    const events = await runPlan(engine, makeSkippedPlan("rollback-skip.sh"), testDir);
 
-    const compensating = events.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
-    expect(compensating).not.toContain("ci/skip");
     // build succeeded but has no compensation → no compensating events at all
-    expect(compensating).toEqual([]);
-
-    // Run should succeed (build succeeded, skip was skipped)
-    const completed = events.find((e) => e.type === "run-completed") as never as { status: string };
-    expect(completed.status).toBe("success");
+    expect(stepIdsByType(events, "step-compensating")).toEqual([]);
+    expect(runStatus(events)).toBe("success");
   });
 
   it("item 8: run that ends success — no compensation events emitted", async () => {
     const driver = createMockDriver();
     const engine = createEngine({ drivers: [driver] });
-    const events = await collectEvents(engine, {
-      plan: makeLinearSuccessPlan({ a: "rollback-a.sh", b: "rollback-b.sh", c: "rollback-c.sh" }),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
+    const events = await runPlan(engine, makeLinearSuccessPlan({ a: "rollback-a.sh", b: "rollback-b.sh", c: "rollback-c.sh" }), testDir);
 
-    const compensating = events.filter((e) => e.type === "step-compensating");
-    const compensated = events.filter((e) => e.type === "step-compensated");
-    expect(compensating).toHaveLength(0);
-    expect(compensated).toHaveLength(0);
-
-    const completed = events.find((e) => e.type === "run-completed") as never as { status: string };
-    expect(completed.status).toBe("success");
+    expect(events.filter((e) => e.type === "step-compensating")).toHaveLength(0);
+    expect(events.filter((e) => e.type === "step-compensated")).toHaveLength(0);
+    expect(runStatus(events)).toBe("success");
   });
 
   it("item 9: run that ends cancelled — no compensation events emitted", async () => {
@@ -229,7 +226,6 @@ describe("Engine — saga compensations (Spec 30)", () => {
 
   it("item 10: compensation command that fails (exit 1) → warn diagnostic + step-compensated failed; subsequent compensations still run", async () => {
     // A's compensation fails (exit 1), B's compensation should still run.
-    // Plan: A succeeds (rollback-a-fail.sh exits 1), B succeeds (rollback-b.sh exits 0), C fails.
     const driver: RuntimeDriver = {
       name: "mixed",
       canExecute: () => true,
@@ -237,7 +233,6 @@ describe("Engine — saga compensations (Spec 30)", () => {
         if (req.command.trim().startsWith("exit 1")) {
           return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
         }
-        // rollback-a-fail.sh → simulate failure
         if (req.command === "rollback-a-fail.sh") {
           return { exitCode: 1, stdout: "", stderr: "rollback failed", durationMs: 1, timedOut: false };
         }
@@ -245,38 +240,21 @@ describe("Engine — saga compensations (Spec 30)", () => {
       },
     };
     const engine = createEngine({ drivers: [driver] });
-    const events = await collectEvents(engine, {
-      plan: makeLinearFailPlan({ a: "rollback-a-fail.sh", b: "rollback-b.sh" }),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
+    const events = await runPlan(engine, makeLinearFailPlan({ a: "rollback-a-fail.sh", b: "rollback-b.sh" }), testDir);
 
-    // Compensations run B then A (reverse order).
     const compensated = events.filter((e) => e.type === "step-compensated");
-    // B's compensation succeeded
-    const bComp = compensated.find((e) => e.stepId === "ci/b");
-    expect(bComp?.status).toBe("succeeded");
-    // A's compensation failed
-    const aComp = compensated.find((e) => e.stepId === "ci/a");
-    expect(aComp?.status).toBe("failed");
+    expect(compensated.find((e) => e.stepId === "ci/b")?.status).toBe("succeeded");
+    expect(compensated.find((e) => e.stepId === "ci/a")?.status).toBe("failed");
 
-    // Warn diagnostic emitted for A's failed compensation
     const warnings = events.filter((e) => e.type === "diagnostic" && e.severity === "warn" && e.stepId === "ci/a");
     expect(warnings.length).toBeGreaterThanOrEqual(1);
-
-    // Both compensations ran (B's despite A's failure — but order is B then A,
-    // so A is last. Verify both ran.)
     expect(compensated).toHaveLength(2);
   });
 
   it("item 11: step-compensating carries command; step-compensated carries status and durationMs", async () => {
     const driver = createMockDriver();
     const engine = createEngine({ drivers: [driver] });
-    const events = await collectEvents(engine, {
-      plan: makeLinearFailPlan({ a: "rollback-a.sh" }),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
+    const events = await runPlan(engine, makeLinearFailPlan({ a: "rollback-a.sh" }), testDir);
 
     const compensating = events.find((e) => e.type === "step-compensating" && e.stepId === "ci/a");
     expect(compensating?.command).toBe("rollback-a.sh");
@@ -288,116 +266,54 @@ describe("Engine — saga compensations (Spec 30)", () => {
 
   it("item 12: compensation runs in the step's workspace with the step's runtime env", async () => {
     const seenRequests: ShellExecuteRequest[] = [];
-    const driver: RuntimeDriver = {
-      name: "env-tracking",
-      canExecute: () => true,
-      executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
-        seenRequests.push(req);
-        if (req.command.trim().startsWith("exit 1")) {
-          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
-        }
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
-      },
-    };
+    const driver = makeTrackingDriver((req) => seenRequests.push(req));
     const engine = createEngine({ drivers: [driver] });
 
-    // Custom plan: A has runtime env + compensation, B fails.
     const a: StepDefinition = {
       ...mkStep("ci/a", "echo a", "rollback.sh"),
       runtime: { env: { DEPLOY_ENV: "staging" } },
     };
-    const plan = wrapPlan("rp-saga-env", "graph-saga-env", [
-      a,
-      mkStep("ci/b", "exit 1", undefined, "ci/a"),
-    ]);
+    const plan = wrapPlan("rp-saga-env", "graph-saga-env", [a, mkStep("ci/b", "exit 1", undefined, "ci/a")]);
 
-    await collectEvents(engine, {
-      plan,
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
+    await runPlan(engine, plan, testDir);
 
-    // The compensation request for ci/a
     const compReq = seenRequests.find((r) => r.command === "rollback.sh");
     expect(compReq).toBeDefined();
-    // The compensation should run in the step's workspace (under .sverka/workspace/ci/a)
     expect(compReq!.workspace).toContain("ci/a");
-    // The compensation should receive the step's runtime env
     expect(compReq!.env.DEPLOY_ENV).toBe("staging");
   });
 
   it("cache-restored steps are excluded from compensation phase", async () => {
-    // This requires a cache store. Use the file cache store.
     const { createFileCacheStore } = await import("../cache-store.js");
     const cache = createFileCacheStore({ cacheDir: join(testDir, "cache") });
 
     const calls: string[] = [];
-    const driver: RuntimeDriver = {
-      name: "cache-test",
-      canExecute: () => true,
-      executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
-        calls.push(req.command);
-        if (req.command.trim().startsWith("exit 1")) {
-          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
-        }
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
-      },
-    };
+    const driver = makeTrackingDriver((req) => calls.push(req.command));
 
-    // First run: A succeeds (and caches), B fails.
     const a: StepDefinition = {
       ...mkStep("ci/a", "echo a", "rollback-a.sh"),
       cache: { key: "a-key", paths: ["."] },
     };
-    const plan = wrapPlan("rp-saga-cache", "graph-saga-cache", [
-      a,
-      mkStep("ci/b", "exit 1", undefined, "ci/a"),
-    ]);
+    const plan = wrapPlan("rp-saga-cache", "graph-saga-cache", [a, mkStep("ci/b", "exit 1", undefined, "ci/a")]);
 
-    const engine1 = createEngine({ drivers: [driver], cache });
     // First run: A executes (caches), B fails → compensation runs for A.
-    const events1 = await collectEvents(engine1, {
-      plan,
-      workspace: join(testDir, "ws1"),
-      artifactDir: join(testDir, "art1"),
-    });
-    // A succeeded via execution, compensation should run.
-    const compensating1 = events1.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
-    expect(compensating1).toContain("ci/a");
+    const engine1 = createEngine({ drivers: [driver], cache });
+    const events1 = await collectEvents(engine1, { plan, workspace: join(testDir, "ws1"), artifactDir: join(testDir, "art1") });
+    expect(stepIdsByType(events1, "step-compensating")).toContain("ci/a");
 
-    // Second run: A should be a cache hit, B fails → compensation should
-    // NOT run for A because cache-restored steps did not execute.
+    // Second run: A should be a cache hit, B fails → compensation should NOT run.
     calls.length = 0;
     const engine2 = createEngine({ drivers: [driver], cache });
-    const events2 = await collectEvents(engine2, {
-      plan,
-      workspace: join(testDir, "ws2"),
-      artifactDir: join(testDir, "art2"),
-    });
-    // A should have been a cache hit
+    const events2 = await collectEvents(engine2, { plan, workspace: join(testDir, "ws2"), artifactDir: join(testDir, "art2") });
     const cacheHit = events2.find((e) => e.type === "step-cache-hit");
     expect(cacheHit).toBeDefined();
     expect(cacheHit!.stepId).toBe("ci/a");
-
-    // Cache-restored steps did not execute, so compensation should NOT run.
-    const compensating2 = events2.filter((e) => e.type === "step-compensating").map((e) => e.stepId);
-    expect(compensating2).not.toContain("ci/a");
+    expect(stepIdsByType(events2, "step-compensating")).not.toContain("ci/a");
   });
 
   it("compensation command is interpolated — ${...} references resolved", async () => {
     const seenCommands: string[] = [];
-    const driver: RuntimeDriver = {
-      name: "tracking",
-      canExecute: () => true,
-      executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
-        seenCommands.push(req.command);
-        if (req.command.trim().startsWith("exit 1")) {
-          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
-        }
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
-      },
-    };
-    // Plan: A succeeds with a compensation that references a plan input, B fails
+    const driver = makeTrackingDriver((req) => seenCommands.push(req.command));
     const plan: RunPlan = {
       ...wrapPlan("rp-interp", "graph-interp", [
         mkStep("ci/a", "echo a", "rollback --env=${env}"),
@@ -406,12 +322,7 @@ describe("Engine — saga compensations (Spec 30)", () => {
       inputs: { env: "production" },
     };
     const engine = createEngine({ drivers: [driver] });
-    await collectEvents(engine, {
-      plan,
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    });
-    // The compensation command should have ${env} interpolated to "production"
+    await runPlan(engine, plan, testDir);
     const compCmd = seenCommands.find((c) => c.startsWith("rollback"));
     expect(compCmd).toBeDefined();
     expect(compCmd).toContain("production");
@@ -430,23 +341,14 @@ describe("Engine — saga compensations (Spec 30)", () => {
         return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
       },
     };
-    // Step A declares a secret but has NO permissions.write (read-only)
-    // Its compensation should NOT receive the secret
     const plan = wrapPlan("rp-safe", "graph-safe", [
       { ...mkStep("ci/a", "echo a", "rollback.sh"), runtime: { secrets: ["MY_SECRET"] } },
       mkStep("ci/b", "exit 1", undefined, "ci/a"),
     ]);
     const engine = createEngine({ drivers: [driver] });
-    await collectEvents(engine, {
-      plan,
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-      secrets: { resolve: async (name: string) => (name === "MY_SECRET" ? "secret-value" : undefined) },
-    });
-    // Find the compensation request (rollback.sh)
+    await runPlan(engine, plan, testDir, { secrets: { resolve: async (name: string) => (name === "MY_SECRET" ? "secret-value" : undefined) } });
     const compReq = seenRequests.find((r) => r.command.includes("rollback.sh"));
     expect(compReq).toBeDefined();
-    // Read-only step: secret should NOT be in compensation env
     expect(compReq!.env["MY_SECRET"]).toBeUndefined();
   });
 });
