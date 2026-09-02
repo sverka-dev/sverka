@@ -404,7 +404,7 @@ describe("Engine — saga compensations (Spec 30)", () => {
     expect(compReq!.env.DEPLOY_ENV).toBe("staging");
   });
 
-  it("item 13: cache-hit success is included in compensation phase", async () => {
+  it("cache-restored steps are excluded from compensation phase", async () => {
     // This requires a cache store. Use the file cache store.
     const { createFileCacheStore } = await import("../cache-store.js");
     const cache = createFileCacheStore({ cacheDir: join(testDir, "cache") });
