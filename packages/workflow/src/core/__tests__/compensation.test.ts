@@ -6,17 +6,31 @@ import { Project, Pipeline, ShellStep, Entry, push } from "../../cdk/index.js";
 import { synthesize } from "../synthesize.js";
 import { SynthesisError } from "../errors.js";
 
+/** Build a single-step pipeline with the given compensation for testing. */
+function makeSingleStepPipeline(
+  projectId: string,
+  compensation: unknown,
+): ReturnType<typeof synthesize> | never {
+  const project = new Project(projectId);
+  const pipeline = new Pipeline(project, "ci");
+  new ShellStep(pipeline, "deploy", {
+    command: "deploy.sh",
+    compensation: compensation as never,
+  });
+  new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
+  return synthesize(project);
+}
+
+/** Expect synthesize to throw with the given error code. */
+function expectSynthesisError(projectId: string, compensation: unknown): void {
+  expect(() => makeSingleStepPipeline(projectId, compensation)).toThrowError(
+    expect.objectContaining({ code: "INVALID_COMPENSATION" }),
+  );
+}
+
 describe("Spec 30 — compensation in synthesis", () => {
   it("item 1: Step with compensation synthesizes to StepDefinition with compensation", () => {
-    const project = new Project("saga-synth");
-    const pipeline = new Pipeline(project, "ci");
-    new ShellStep(pipeline, "deploy", {
-      command: "deploy.sh",
-      compensation: { kind: "shell", command: "cleanup.sh" },
-    });
-    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
-
-    const graph = synthesize(project);
+    const graph = makeSingleStepPipeline("saga-synth", { kind: "shell", command: "cleanup.sh" });
     const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/deploy");
     expect(step?.compensation).toEqual({ kind: "shell", command: "cleanup.sh" });
   });
@@ -26,7 +40,6 @@ describe("Spec 30 — compensation in synthesis", () => {
     const pipeline = new Pipeline(project, "ci");
     new ShellStep(pipeline, "build", { command: "make build" });
     new Entry(pipeline, "push", { trigger: push(), roots: ["build"] });
-
     const graph = synthesize(project);
     const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/build");
     expect(step?.compensation).toBeUndefined();
@@ -34,33 +47,13 @@ describe("Spec 30 — compensation in synthesis", () => {
   });
 
   it("item 3: non-shell compensation.kind raises INVALID_COMPENSATION", () => {
-    const project = new Project("saga-invalid");
-    const pipeline = new Pipeline(project, "ci");
-    // Cast to bypass the TS type (compensation is OperationDefinition; we test
-    // runtime validation). exportOutput is not a valid compensation kind.
-    new ShellStep(pipeline, "deploy", {
-      command: "deploy.sh",
-      compensation: { kind: "exportOutput", name: "x", type: "string" } as never,
-    });
-    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
-
-    expect(() => synthesize(project)).toThrowError(
-      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
-    );
+    expectSynthesisError("saga-invalid", { kind: "exportOutput", name: "x", type: "string" });
   });
 
   it("item 3: SynthesisError is thrown (not a plain Error)", () => {
-    const project = new Project("saga-invalid-type");
-    const pipeline = new Pipeline(project, "ci");
-    new ShellStep(pipeline, "deploy", {
-      command: "deploy.sh",
-      compensation: { kind: "diagnostic", message: "x", severity: "info" } as never,
-    });
-    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
-
     let caught: unknown;
     try {
-      synthesize(project);
+      makeSingleStepPipeline("saga-invalid-type", { kind: "diagnostic", message: "x", severity: "info" });
     } catch (e) {
       caught = e;
     }
@@ -68,72 +61,22 @@ describe("Spec 30 — compensation in synthesis", () => {
   });
 
   it("empty compensation command raises INVALID_COMPENSATION", () => {
-    const project = new Project("saga-empty");
-    const pipeline = new Pipeline(project, "ci");
-    new ShellStep(pipeline, "deploy", {
-      command: "deploy.sh",
-      compensation: { kind: "shell", command: "" },
-    });
-    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
-
-    expect(() => synthesize(project)).toThrowError(
-      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
-    );
+    expectSynthesisError("saga-empty", { kind: "shell", command: "" });
   });
 
   it("whitespace-only compensation command raises INVALID_COMPENSATION", () => {
-    const project = new Project("saga-ws");
-    const pipeline = new Pipeline(project, "ci");
-    new ShellStep(pipeline, "deploy", {
-      command: "deploy.sh",
-      compensation: { kind: "shell", command: "   " },
-    });
-    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
-
-    expect(() => synthesize(project)).toThrowError(
-      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
-    );
+    expectSynthesisError("saga-ws", { kind: "shell", command: "   " });
   });
 
   it("null compensation raises INVALID_COMPENSATION", () => {
-    const project = new Project("saga-null");
-    const pipeline = new Pipeline(project, "ci");
-    new ShellStep(pipeline, "deploy", {
-      command: "deploy.sh",
-      compensation: null as never,
-    });
-    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
-
-    expect(() => synthesize(project)).toThrowError(
-      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
-    );
+    expectSynthesisError("saga-null", null);
   });
 
   it("non-object compensation (string) raises INVALID_COMPENSATION", () => {
-    const project = new Project("saga-str");
-    const pipeline = new Pipeline(project, "ci");
-    new ShellStep(pipeline, "deploy", {
-      command: "deploy.sh",
-      compensation: "rollback.sh" as never,
-    });
-    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
-
-    expect(() => synthesize(project)).toThrowError(
-      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
-    );
+    expectSynthesisError("saga-str", "rollback.sh");
   });
 
   it("non-string compensation command (number) raises INVALID_COMPENSATION", () => {
-    const project = new Project("saga-numcmd");
-    const pipeline = new Pipeline(project, "ci");
-    new ShellStep(pipeline, "deploy", {
-      command: "deploy.sh",
-      compensation: { kind: "shell", command: 1 } as never,
-    });
-    new Entry(pipeline, "push", { trigger: push(), roots: ["deploy"] });
-
-    expect(() => synthesize(project)).toThrowError(
-      expect.objectContaining({ code: "INVALID_COMPENSATION" }),
-    );
+    expectSynthesisError("saga-numcmd", { kind: "shell", command: 1 });
   });
 });

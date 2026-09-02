@@ -12,53 +12,9 @@ import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "../types.j
 
 // ── Fixtures ──────────────────────────────────────────────────────
 
-/** A 3-step linear plan A→B→C where C fails. A and B have compensations. */
-function makeLinearFailPlan(
-  compensations: { a?: string; b?: string; c?: string } = {},
-): RunPlan {
-  const a: StepDefinition = {
-    id: "ci/a",
-    runtime: {},
-    operations: [{ kind: "shell", command: "echo a" }],
-    inputs: [],
-    outputs: [],
-    dependencies: [],
-    ...(compensations.a ? { compensation: { kind: "shell", command: compensations.a } } : {}),
-  };
-  const b: StepDefinition = {
-    id: "ci/b",
-    runtime: {},
-    operations: [{ kind: "shell", command: "echo b" }],
-    inputs: [],
-    outputs: [],
-    dependencies: [{ kind: "control", producer: "ci/a" }],
-    ...(compensations.b ? { compensation: { kind: "shell", command: compensations.b } } : {}),
-  };
-  const c: StepDefinition = {
-    id: "ci/c",
-    runtime: {},
-    operations: [{ kind: "shell", command: "exit 1" }],
-    inputs: [],
-    outputs: [],
-    dependencies: [{ kind: "control", producer: "ci/b" }],
-    ...(compensations.c ? { compensation: { kind: "shell", command: compensations.c } } : {}),
-  };
+/** Build a step definition with optional compensation and dependency. */
+function mkStep(id: string, cmd: string, comp?: string, dep?: string): StepDefinition {
   return {
-    apiVersion: "sverka.dev/v1run",
-    id: "rp-saga",
-    graphId: "graph-saga",
-    entry: { id: "ci/on-push", trigger: { kind: "push" } },
-    inputs: {},
-    steps: [a, b, c],
-    createdAt: "2026-08-31T00:00:00.000Z",
-  };
-}
-
-/** A 3-step linear plan A→B→C where all succeed. */
-function makeLinearSuccessPlan(
-  compensations: { a?: string; b?: string; c?: string } = {},
-): RunPlan {
-  const mk = (id: string, cmd: string, comp?: string, dep?: string): StepDefinition => ({
     id,
     runtime: {},
     operations: [{ kind: "shell", command: cmd }],
@@ -66,73 +22,57 @@ function makeLinearSuccessPlan(
     outputs: [],
     dependencies: dep ? [{ kind: "control", producer: dep }] : [],
     ...(comp ? { compensation: { kind: "shell", command: comp } } : {}),
-  });
+  };
+}
+
+/** Build a RunPlan wrapping the given steps. */
+function wrapPlan(id: string, graphId: string, steps: StepDefinition[]): RunPlan {
   return {
     apiVersion: "sverka.dev/v1run",
-    id: "rp-saga-ok",
-    graphId: "graph-saga-ok",
+    id,
+    graphId,
     entry: { id: "ci/on-push", trigger: { kind: "push" } },
     inputs: {},
-    steps: [
-      mk("ci/a", "echo a", compensations.a),
-      mk("ci/b", "echo b", compensations.b, "ci/a"),
-      mk("ci/c", "echo c", compensations.c, "ci/b"),
-    ],
+    steps,
     createdAt: "2026-08-31T00:00:00.000Z",
   };
+}
+
+/** A 3-step linear plan A→B→C where C fails. A and B have compensations. */
+function makeLinearFailPlan(
+  compensations: { a?: string; b?: string; c?: string } = {},
+): RunPlan {
+  return wrapPlan("rp-saga", "graph-saga", [
+    mkStep("ci/a", "echo a", compensations.a),
+    mkStep("ci/b", "echo b", compensations.b, "ci/a"),
+    mkStep("ci/c", "exit 1", compensations.c, "ci/b"),
+  ]);
+}
+
+/** A 3-step linear plan A→B→C where all succeed. */
+function makeLinearSuccessPlan(
+  compensations: { a?: string; b?: string; c?: string } = {},
+): RunPlan {
+  return wrapPlan("rp-saga-ok", "graph-saga-ok", [
+    mkStep("ci/a", "echo a", compensations.a),
+    mkStep("ci/b", "echo b", compensations.b, "ci/a"),
+    mkStep("ci/c", "echo c", compensations.c, "ci/b"),
+  ]);
 }
 
 /** A single-step plan where the step has a compensation but fails. */
 function makeSingleFailPlan(compensation?: string): RunPlan {
-  const step: StepDefinition = {
-    id: "ci/only",
-    runtime: {},
-    operations: [{ kind: "shell", command: "exit 1" }],
-    inputs: [],
-    outputs: [],
-    dependencies: [],
-    ...(compensation ? { compensation: { kind: "shell", command: compensation } } : {}),
-  };
-  return {
-    apiVersion: "sverka.dev/v1run",
-    id: "rp-saga-single",
-    graphId: "graph-saga-single",
-    entry: { id: "ci/on-push", trigger: { kind: "push" } },
-    inputs: {},
-    steps: [step],
-    createdAt: "2026-08-31T00:00:00.000Z",
-  };
+  return wrapPlan("rp-saga-single", "graph-saga-single", [
+    mkStep("ci/only", "exit 1", compensation),
+  ]);
 }
 
 /** A plan where a step is skipped (condition: never) and has a compensation. */
 function makeSkippedPlan(compensation?: string): RunPlan {
-  const build: StepDefinition = {
-    id: "ci/build",
-    runtime: {},
-    operations: [{ kind: "shell", command: "echo build" }],
-    inputs: [],
-    outputs: [],
-    dependencies: [],
-  };
-  const skip: StepDefinition = {
-    id: "ci/skip",
-    runtime: {},
-    operations: [{ kind: "shell", command: "echo skip" }],
-    inputs: [],
-    outputs: [],
-    dependencies: [{ kind: "control", producer: "ci/build" }],
-    condition: { kind: "status", status: "never" },
-    ...(compensation ? { compensation: { kind: "shell", command: compensation } } : {}),
-  };
-  return {
-    apiVersion: "sverka.dev/v1run",
-    id: "rp-saga-skip",
-    graphId: "graph-saga-skip",
-    entry: { id: "ci/on-push", trigger: { kind: "push" } },
-    inputs: {},
-    steps: [build, skip],
-    createdAt: "2026-08-31T00:00:00.000Z",
-  };
+  return wrapPlan("rp-saga-skip", "graph-saga-skip", [
+    mkStep("ci/build", "echo build"),
+    { ...mkStep("ci/skip", "echo skip", compensation, "ci/build"), condition: { kind: "status", status: "never" } },
+  ]);
 }
 
 async function collectEvents(
@@ -363,31 +303,13 @@ describe("Engine — saga compensations (Spec 30)", () => {
 
     // Custom plan: A has runtime env + compensation, B fails.
     const a: StepDefinition = {
-      id: "ci/a",
+      ...mkStep("ci/a", "echo a", "rollback.sh"),
       runtime: { env: { DEPLOY_ENV: "staging" } },
-      operations: [{ kind: "shell", command: "echo a" }],
-      inputs: [],
-      outputs: [],
-      dependencies: [],
-      compensation: { kind: "shell", command: "rollback.sh" },
     };
-    const b: StepDefinition = {
-      id: "ci/b",
-      runtime: {},
-      operations: [{ kind: "shell", command: "exit 1" }],
-      inputs: [],
-      outputs: [],
-      dependencies: [{ kind: "control", producer: "ci/a" }],
-    };
-    const plan: RunPlan = {
-      apiVersion: "sverka.dev/v1run",
-      id: "rp-saga-env",
-      graphId: "graph-saga-env",
-      entry: { id: "ci/on-push", trigger: { kind: "push" } },
-      inputs: {},
-      steps: [a, b],
-      createdAt: "2026-08-31T00:00:00.000Z",
-    };
+    const plan = wrapPlan("rp-saga-env", "graph-saga-env", [
+      a,
+      mkStep("ci/b", "exit 1", undefined, "ci/a"),
+    ]);
 
     await collectEvents(engine, {
       plan,
@@ -424,32 +346,13 @@ describe("Engine — saga compensations (Spec 30)", () => {
 
     // First run: A succeeds (and caches), B fails.
     const a: StepDefinition = {
-      id: "ci/a",
-      runtime: {},
-      operations: [{ kind: "shell", command: "echo a" }],
-      inputs: [],
-      outputs: [],
-      dependencies: [],
+      ...mkStep("ci/a", "echo a", "rollback-a.sh"),
       cache: { key: "a-key", paths: ["."] },
-      compensation: { kind: "shell", command: "rollback-a.sh" },
     };
-    const b: StepDefinition = {
-      id: "ci/b",
-      runtime: {},
-      operations: [{ kind: "shell", command: "exit 1" }],
-      inputs: [],
-      outputs: [],
-      dependencies: [{ kind: "control", producer: "ci/a" }],
-    };
-    const plan: RunPlan = {
-      apiVersion: "sverka.dev/v1run",
-      id: "rp-saga-cache",
-      graphId: "graph-saga-cache",
-      entry: { id: "ci/on-push", trigger: { kind: "push" } },
-      inputs: {},
-      steps: [a, b],
-      createdAt: "2026-08-31T00:00:00.000Z",
-    };
+    const plan = wrapPlan("rp-saga-cache", "graph-saga-cache", [
+      a,
+      mkStep("ci/b", "exit 1", undefined, "ci/a"),
+    ]);
 
     const engine1 = createEngine({ drivers: [driver], cache });
     // First run: A executes (caches), B fails → compensation runs for A.
@@ -496,31 +399,11 @@ describe("Engine — saga compensations (Spec 30)", () => {
     };
     // Plan: A succeeds with a compensation that references a plan input, B fails
     const plan: RunPlan = {
-      apiVersion: "sverka.dev/v1run",
-      id: "rp-interp",
-      graphId: "graph-interp",
-      entry: { id: "ci/on-push", trigger: { kind: "push" } },
+      ...wrapPlan("rp-interp", "graph-interp", [
+        mkStep("ci/a", "echo a", "rollback --env=${env}"),
+        mkStep("ci/b", "exit 1", undefined, "ci/a"),
+      ]),
       inputs: { env: "production" },
-      steps: [
-        {
-          id: "ci/a",
-          runtime: {},
-          operations: [{ kind: "shell", command: "echo a" }],
-          inputs: [],
-          outputs: [],
-          dependencies: [],
-          compensation: { kind: "shell", command: "rollback --env=${env}" },
-        },
-        {
-          id: "ci/b",
-          runtime: {},
-          operations: [{ kind: "shell", command: "exit 1" }],
-          inputs: [],
-          outputs: [],
-          dependencies: [{ kind: "control", producer: "ci/a" }],
-        },
-      ],
-      createdAt: "2026-08-31T00:00:00.000Z",
     };
     const engine = createEngine({ drivers: [driver] });
     await collectEvents(engine, {
@@ -549,33 +432,10 @@ describe("Engine — saga compensations (Spec 30)", () => {
     };
     // Step A declares a secret but has NO permissions.write (read-only)
     // Its compensation should NOT receive the secret
-    const plan: RunPlan = {
-      apiVersion: "sverka.dev/v1run",
-      id: "rp-safe",
-      graphId: "graph-safe",
-      entry: { id: "ci/on-push", trigger: { kind: "push" } },
-      inputs: {},
-      steps: [
-        {
-          id: "ci/a",
-          runtime: { secrets: ["MY_SECRET"] },
-          operations: [{ kind: "shell", command: "echo a" }],
-          inputs: [],
-          outputs: [],
-          dependencies: [],
-          compensation: { kind: "shell", command: "rollback.sh" },
-        },
-        {
-          id: "ci/b",
-          runtime: {},
-          operations: [{ kind: "shell", command: "exit 1" }],
-          inputs: [],
-          outputs: [],
-          dependencies: [{ kind: "control", producer: "ci/a" }],
-        },
-      ],
-      createdAt: "2026-08-31T00:00:00.000Z",
-    };
+    const plan = wrapPlan("rp-safe", "graph-safe", [
+      { ...mkStep("ci/a", "echo a", "rollback.sh"), runtime: { secrets: ["MY_SECRET"] } },
+      mkStep("ci/b", "exit 1", undefined, "ci/a"),
+    ]);
     const engine = createEngine({ drivers: [driver] });
     await collectEvents(engine, {
       plan,
