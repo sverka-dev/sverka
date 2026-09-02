@@ -70,13 +70,15 @@ import { dag, object, func } from "@dagger.io/dagger";
 export class SverkaPipeline {
   @func()
   async entrypoint(): Promise<string> {
+    // Base image defaults to the first step's runtime.image, or "node:24".
+    // Use a Bun-capable image (e.g. "oven/bun:1") if steps invoke bun.
     let ctx = dag.container().from("node:24")
       .withMountedDirectory("/src", dag.git(".").tree())
       .withWorkdir("/src");
     // Step: build
-    ctx = ctx.withExec(["sh", "-c", "bun run build"]);
+    ctx = ctx.withExec(["sh", "-c", "npm run build"]);
     // Step: test (depends on build — chains on same Container)
-    ctx = ctx.withExec(["sh", "-c", "bun test"]);
+    ctx = ctx.withExec(["sh", "-c", "npm test"]);
     return ctx.stdout();
   }
 }
@@ -133,8 +135,8 @@ const daggerCapabilities: CapabilityManifest = {
 
 1. Empty graph → `INVALID_GRAPH` error.
 2. Single-step graph → module with one `withExec` call.
-3. Two-step graph with dependency → chained `withExec` on same Directory.
-4. Diamond dependency → correct Directory piping.
+3. Two-step graph with dependency → chained `withExec` on same Container (shared `/src` mount).
+4. Diamond dependency → correct Container chaining (shared `/src` mount persists).
 5. Artifact output → `Directory.export()` in generated code.
 6. Scalar output → `container.stdout()` in generated code.
 7. Host runtime → unsupported diagnostic.
