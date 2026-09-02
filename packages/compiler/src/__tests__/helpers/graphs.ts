@@ -62,6 +62,7 @@ export function makeGraph(opts: GraphOptions = {}): DefinitionGraph {
  * Falls back to the last step if all steps are depended on (e.g. single-step graph).
  */
 function terminalStepIds(steps: readonly StepSpec[]): string[] {
+  if (steps.length === 0) return [];
   const dependedOn = new Set<string>();
   for (const step of steps) {
     for (const dep of step.dependsOn ?? []) {

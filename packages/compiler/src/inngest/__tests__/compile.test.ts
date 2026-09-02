@@ -4,9 +4,13 @@ import { compileInngest, InngestTarget, InngestTargetError } from "../index.js";
 import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic, conditionSteps, expectCondition, matrixStep, timeoutStep } from "../../__tests__/helpers/graphs.js";
 import type { GraphOptions } from "../../__tests__/helpers/graphs.js";
 
-/** Compile the default simple graph and return the first artifact's content. */
+/** Compile a graph and return the first artifact's content.
+ * Preserves all supplied options; defaults to the simple graph's step + manual trigger. */
 function compileContent(opts: GraphOptions = {}): string {
-  return compileInngest(opts.steps ? makeGraph(opts) : makeSimpleGraph()).artifacts[0]!.content;
+  return compileInngest(makeGraph({
+    steps: [{ id: "build", command: "bun run build" }],
+    ...opts,
+  })).artifacts[0]!.content;
 }
 
 describe("compileInngest — basic", () => {
@@ -79,7 +83,9 @@ describe("compileInngest — retry and timeout", () => {
   it("timeout → unsupported diagnostic and comment in generated code", () => {
     const result = compileInngest(makeGraph({ steps: [timeoutStep()] }));
     expectDiagnostic(result.diagnostics, "policy.timeout");
-    expect(result.artifacts[0]!.content).toContain("timeout: 30");
+    expect(result.artifacts[0]!.content).toContain(
+      "// timeout: 30s (Inngest step.run has no per-step timeout; use function-level timeouts.finish)",
+    );
   });
 });
 

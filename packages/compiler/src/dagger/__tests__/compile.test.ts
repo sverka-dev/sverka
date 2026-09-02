@@ -4,9 +4,13 @@ import { compileDagger, DaggerTarget, DaggerTargetError } from "../index.js";
 import { makeGraph, makeSimpleGraph, makeGraphWithDeps, makeDiamondGraph, expectDiagnostic, conditionSteps, expectCondition, matrixStep, timeoutStep } from "../../__tests__/helpers/graphs.js";
 import type { GraphOptions } from "../../__tests__/helpers/graphs.js";
 
-/** Compile the default simple graph and return the first artifact's content. */
+/** Compile a graph and return the first artifact's content.
+ * Preserves all supplied options; defaults to the simple graph's step + manual trigger. */
 function compileContent(opts: GraphOptions = {}): string {
-  return compileDagger(opts.steps ? makeGraph(opts) : makeSimpleGraph()).artifacts[0]!.content;
+  return compileDagger(makeGraph({
+    steps: [{ id: "build", command: "bun run build" }],
+    ...opts,
+  })).artifacts[0]!.content;
 }
 
 describe("compileDagger — basic", () => {
