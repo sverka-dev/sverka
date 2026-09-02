@@ -34,32 +34,36 @@ function parseJson(text: string): unknown {
 }
 
 function validateScalarFields(obj: Record<string, unknown>, runId: string): void {
-  if (typeof obj["runId"] !== "string") {
-    throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: runId");
-  }
+  validateStringField(obj, "runId");
   if (obj["runId"] !== runId) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
       `snapshot runId "${obj["runId"]}" does not match requested runId "${runId}"`,
     );
   }
-  if (typeof obj["planId"] !== "string") {
-    throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: planId");
-  }
-  if (typeof obj["plan"] !== "object" || obj["plan"] === null || Array.isArray(obj["plan"])) {
-    throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: plan");
-  }
+  validateStringField(obj, "planId");
+  validatePlanField(obj);
   if (!Array.isArray(obj["completedSteps"])) {
     throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: completedSteps");
   }
-  if (typeof obj["suspendedStepId"] !== "string") {
-    throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: suspendedStepId");
-  }
+  validateStringField(obj, "suspendedStepId");
   if (obj["status"] !== "suspended") {
     throw new StorageError("CORRUPT_SNAPSHOT", `expected status "suspended", got "${String(obj["status"])}"`);
   }
   if (typeof obj["suspendedAt"] !== "number") {
     throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: suspendedAt");
+  }
+}
+
+function validateStringField(obj: Record<string, unknown>, field: string): void {
+  if (typeof obj[field] !== "string") {
+    throw new StorageError("CORRUPT_SNAPSHOT", `missing or invalid field: ${field}`);
+  }
+}
+
+function validatePlanField(obj: Record<string, unknown>): void {
+  if (typeof obj["plan"] !== "object" || obj["plan"] === null || Array.isArray(obj["plan"])) {
+    throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: plan");
   }
 }
 
