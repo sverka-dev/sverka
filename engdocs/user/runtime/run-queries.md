@@ -35,7 +35,7 @@ const engine = createEngine({ drivers: [driver] });
 
 // `plan` is a RunPlan — obtain it by binding a DefinitionGraph:
 //   const graph = synthesize(project);
-//   const plan = bindRunPlan({ graph, entryId: "on-push" });
+//   const plan = bindRunPlan({ graph, entryId: "ci/on-push" });
 // See the Workflow API docs for full details.
 const plan = /* your RunPlan here */ {} as never;
 
