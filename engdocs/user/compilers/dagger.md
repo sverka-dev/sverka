@@ -12,13 +12,16 @@ content-addressed caching and hermeticity from Dagger.
 ## Usage
 
 ```ts
-import { compileDagger } from "@sverka/compiler";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 import { synthesize } from "@sverka/workflow";
-import { createSverka } from "@sverka/sdk";
+import { compileDagger } from "@sverka/compiler";
 
-const sverka = createSverka({ root: process.cwd() });
-const plan = await sverka.toPlan();
-const graph = synthesize(plan);
+const proj = new Project("myproj");
+const p = new Pipeline(proj, "ci");
+new ShellStep(p, "lint", { command: "npm run lint" });
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["lint"] });
+
+const graph = synthesize(proj);
 
 const result = compileDagger(graph, {
   moduleName: "my-pipeline",
@@ -31,8 +34,8 @@ const result = compileDagger(graph, {
 
 - **`<name>.ts`** — Dagger module with `@object`/`@func` decorators, one
   function per entry. Shell operations map to
-  `Container.withExec(["sh", "-c", command])`. Artifacts map to
-  `Directory.export()`. Scalar outputs map to `container.stdout()`.
+  `Container.withExec(["sh", "-c", command])`. Artifacts and scalar
+  outputs are unsupported and emit diagnostics.
 
 ## Capability mapping
 

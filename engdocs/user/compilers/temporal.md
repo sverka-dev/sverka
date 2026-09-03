@@ -11,13 +11,16 @@ workflow handlers.
 ## Usage
 
 ```ts
-import { compileTemporal } from "@sverka/compiler";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 import { synthesize } from "@sverka/workflow";
-import { createSverka } from "@sverka/sdk";
+import { compileTemporal } from "@sverka/compiler";
 
-const sverka = createSverka({ root: process.cwd() });
-const plan = await sverka.toPlan();
-const graph = synthesize(plan);
+const proj = new Project("myproj");
+const p = new Pipeline(proj, "ci");
+new ShellStep(p, "lint", { command: "npm run lint" });
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["lint"] });
+
+const graph = synthesize(proj);
 
 const result = compileTemporal(graph, {
   namespace: "default",

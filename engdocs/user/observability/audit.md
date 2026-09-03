@@ -37,7 +37,7 @@ Steps:
   ci/lint      1.2s   cache: hit
   ci/test      8.4s   cache: miss
   ci/build    12.1s   cache: hit
-  ai/review   18.3s   cache: n/a (non-cacheable)
+  ai/review   18.3s   cache: - (non-cacheable)
                        tokens: 12,400 in / 3,200 out
                        model: gpt-4o
                        estimated cost: $0.063
@@ -48,6 +48,10 @@ Aggregate:
   AI token usage: 15,600 tokens
   Estimated AI cost: $0.063
 ```
+
+> **Note:** Steps without `cacheHit` in the report are non-cacheable (the
+> field is optional). Cacheable steps show `hit` or `miss`; non-cacheable
+> steps show `-`.
 
 ## RunReport model
 

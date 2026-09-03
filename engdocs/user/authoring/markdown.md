@@ -59,7 +59,7 @@ inputs:
 | Field | Type | Description |
 |-------|------|-------------|
 | `pipeline` | `string` | Pipeline ID (required) |
-| `triggers` | `Array<{ kind: string; branches?: string[]; schedule?: string }>` | Trigger objects with `kind`: `push`, `changeRequest`, `manual`, `schedule` plus optional `branches`, `schedule`, etc. |
+| `triggers` | `Array<{ kind: string; branches?: string[]; cron?: string }>` | Trigger objects with `kind`: `push`, `changeRequest`, `manual`, `schedule` plus optional `branches`, `cron`, etc. |
 | `extends` | `string` | Path to a `.ts` config file (escape hatch) |
 | `inputs` | `Record<string, InputSpec>` | Pipeline inputs with type and default |
 

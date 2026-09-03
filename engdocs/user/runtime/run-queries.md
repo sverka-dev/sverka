@@ -17,12 +17,21 @@ consuming the `RunEvent` stream.
 ## Querying a run
 
 ```ts
-import { createEngine, createMockDriver } from "@sverka/runtime";
+import { createEngine } from "@sverka/runtime";
+import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "@sverka/runtime";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 const testDir = join(tmpdir(), "sverka-test");
-const engine = createEngine({ drivers: [createMockDriver()] });
+
+const driver: RuntimeDriver = {
+  name: "shell",
+  canExecute: () => true,
+  executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => ({
+    exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false,
+  }),
+};
+const engine = createEngine({ drivers: [driver] });
 
 const iter = engine.run({ plan, workspace: "./ws", artifactDir: join(testDir, "art") });
 for await (const event of iter) {
