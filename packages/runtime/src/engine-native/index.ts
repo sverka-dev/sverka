@@ -1,15 +1,18 @@
-// @sverka/engine-native — public API. Spec 10.
+// @sverka/engine-native — public API. Spec 10. Spec 29 (snapshot types). Spec 32 (RunState).
 
 export { createEngine } from "./engine.js";
 export { createValueStore } from "./value-store.js";
 export { createArtifactStore } from "./artifact-store.js";
 export { createFileCacheStore } from "./cache-store.js";
 export { createStubAgentDriver } from "./agent-driver.js";
+export { createInMemorySnapshotStore } from "./snapshot-store.js";
 
 export type {
-  Engine, RunRequest, RunEvent, RunStatus, RuntimeDriver,
+  Engine, RunRequest, ResumeRequest, RunEvent, RunStatus, RuntimeDriver,
   ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore,
   SecretProvider, EngineConfig,
+  RunSnapshot, SnapshotStore, ResumeSchema,
+  RunState,
 } from "./types.js";
 export type {
   CacheStore,

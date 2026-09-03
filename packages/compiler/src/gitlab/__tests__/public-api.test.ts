@@ -20,6 +20,7 @@ describe("public API — exports", () => {
     expect(typeof compileGitlab).toBe("function");
     expect(gitlabCapabilities).toBeDefined();
     expect(gitlabCapabilities["trigger.push"]).toBe("native");
+    expect(gitlabCapabilities["run.query"]).toBe("emulated"); // Spec 32 item 11
   });
 
   it("exports GitlabTargetError class", () => {

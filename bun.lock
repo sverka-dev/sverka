@@ -91,6 +91,18 @@
         "vitest": "^4.1.11",
       },
     },
+    "packages/storage": {
+      "name": "@sverka/storage",
+      "version": "0.0.0",
+      "dependencies": {
+        "@sverka/runtime": "workspace:*",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^4.1.11",
+      },
+    },
     "packages/verification": {
       "name": "@sverka/verification",
       "version": "0.0.0",
@@ -326,6 +338,8 @@
     "@sverka/runtime": ["@sverka/runtime@workspace:packages/runtime"],
 
     "@sverka/sdk": ["@sverka/sdk@workspace:packages/sdk"],
+
+    "@sverka/storage": ["@sverka/storage@workspace:packages/storage"],
 
     "@sverka/verification": ["@sverka/verification@workspace:packages/verification"],
 

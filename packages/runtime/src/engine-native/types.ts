@@ -1,9 +1,40 @@
 // Type definitions for @sverka/engine-native. Spec 10 — Interfaces.
+// Spec 29 — Suspend/Resume snapshot types.
+// Spec 32 — Run Queries (RunState).
 
 import type { RunPlan, InputValue, NetworkAllowlist } from "@sverka/workflow";
 import type { StepDefinition } from "@sverka/workflow";
 import type { CacheStore } from "./cache-store.js";
 import type { AgentDriver } from "./agent-driver.js";
+import type { StepState } from "./scheduler.js";
+
+// --- Resume schema (Spec 29) ---
+
+export interface ResumeSchema {
+  readonly required?: readonly string[];
+}
+
+// --- Run snapshot (Spec 29) ---
+
+export interface RunSnapshot {
+  readonly runId: string;
+  readonly planId: string;
+  readonly plan: RunPlan;
+  readonly completedSteps: readonly {
+    readonly stepId: string;
+    readonly outputs: Readonly<Record<string, InputValue>>;
+  }[];
+  readonly suspendedStepId: string;
+  readonly resumeSchema?: ResumeSchema;
+  readonly suspendedAt: number;
+  readonly status: "suspended";
+}
+
+export interface SnapshotStore {
+  save(snapshot: RunSnapshot): Promise<void>;
+  load(runId: string): Promise<RunSnapshot | undefined>;
+  delete(runId: string): Promise<void>;
+}
 
 // --- Engine ---
 
@@ -16,11 +47,41 @@ export interface RunRequest {
   readonly agentDrivers?: readonly AgentDriver[];
   readonly maxConcurrent?: number;
   readonly cache?: CacheStore;
+  readonly snapshotStore?: SnapshotStore;
+}
+
+// --- Run query (Spec 32) ---
+
+export interface RunState {
+  readonly runId: string;
+  readonly planId: string;
+  readonly status: "running" | RunStatus;
+  readonly startedAt: number;
+  readonly steps: readonly {
+    readonly stepId: string;
+    readonly state: StepState;
+    readonly durationMs?: number;
+  }[];
 }
 
 export interface Engine {
   run(request: RunRequest): AsyncIterable<RunEvent>;
+  resume(request: ResumeRequest): AsyncIterable<RunEvent>;
   cancel(): Promise<void>;
+  query(runId?: string): RunState | undefined;
+}
+
+export interface ResumeRequest {
+  readonly runId: string;
+  readonly data: string;
+  readonly snapshotStore: SnapshotStore;
+  readonly workspace: string;
+  readonly artifactDir: string;
+  readonly secrets?: SecretProvider;
+  readonly drivers?: readonly RuntimeDriver[];
+  readonly agentDrivers?: readonly AgentDriver[];
+  readonly maxConcurrent?: number;
+  readonly cache?: CacheStore;
 }
 
 // --- Run events (§22.2 step states) ---
@@ -36,10 +97,13 @@ export type RunEvent =
   | { readonly type: "step-cancelled"; readonly stepId: string }
   | { readonly type: "step-cache-hit"; readonly stepId: string; readonly key: string }
   | { readonly type: "step-retry"; readonly stepId: string; readonly attempt: number; readonly nextAttemptMs: number }
+  | { readonly type: "step-suspended"; readonly stepId: string; readonly resumeSchema?: ResumeSchema }
+  | { readonly type: "run-suspended"; readonly runId: string; readonly suspendedStepId: string; readonly durationMs: number }
+  | { readonly type: "run-resumed"; readonly runId: string; readonly planId: string }
   | { readonly type: "run-completed"; readonly runId: string; readonly status: RunStatus; readonly durationMs: number }
   | { readonly type: "diagnostic"; readonly stepId: string; readonly message: string; readonly severity: "info" | "warn" | "error" };
 
-export type RunStatus = "success" | "failure" | "cancelled";
+export type RunStatus = "success" | "failure" | "cancelled" | "suspended";
 
 // --- Runtime driver ---
 

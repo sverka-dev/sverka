@@ -20,6 +20,7 @@ describe("public API — exports", () => {
     expect(typeof compileGithub).toBe("function");
     expect(githubCapabilities).toBeDefined();
     expect(githubCapabilities["trigger.push"]).toBe("native");
+    expect(githubCapabilities["run.query"]).toBe("emulated"); // Spec 32 item 11
   });
 
   it("exports GithubTargetError class", () => {
