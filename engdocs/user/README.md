@@ -38,8 +38,8 @@ native runtime, compilation targets, CLI, checks, findings, and policy.
 
 ## Observability
 
-- [Run reports and audit](./observability/audit.md) — `sverka audit`, per-step timings, AI cost estimation
-- [Graph visualization](./observability/graph.md) — `sverka graph --format mermaid`, Mermaid flowchart output
+- [Run reports and audit](./observability/audit.md) *(planned)* — `sverka audit`, per-step timings, AI cost estimation
+- [Graph visualization](./observability/graph.md) *(planned)* — `sverka graph --format mermaid`, Mermaid flowchart output
 
 ## Checks
 

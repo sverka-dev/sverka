@@ -20,7 +20,7 @@ writes.
 import { createFileSnapshotStore } from "@sverka/storage";
 
 const store = createFileSnapshotStore({
-  root: "./.sverka",
+  root: ".",  // snapshots written to ./.sverka/runs/<runId>/snapshot.json
 });
 ```
 

@@ -61,6 +61,7 @@ interface RunReport {
   steps: Array<{
     stepId: string;
     durationMs: number;
+    cacheable: boolean;
     cacheHit: boolean;
     agentUsage?: {
       model: string;
@@ -72,6 +73,8 @@ interface RunReport {
   aggregate: {
     totalDurationMs: number;
     cacheHitRate: number;
+    cacheableSteps: number;
+    cacheHits: number;
     totalTokensIn: number;
     totalTokensOut: number;
     totalEstimatedCostUsd: number;
