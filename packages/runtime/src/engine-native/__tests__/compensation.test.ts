@@ -351,4 +351,56 @@ describe("Engine — saga compensations (Spec 30)", () => {
     expect(compReq).toBeDefined();
     expect(compReq!.env["MY_SECRET"]).toBeUndefined();
   });
+
+  it("item 12: cancel during compensation stops subsequent compensations", async () => {
+    // Two succeeded steps (A, B) with compensations, C fails.
+    // The first compensation (B) is slow and gets cancelled mid-flight.
+    // The second compensation (A) must NOT be scheduled because the abort
+    // signal is already aborted.
+    const { createCancellableMockDriver } = await import("./helpers/mock-driver.js");
+    const slowDriver = createCancellableMockDriver(500);
+    // Override: only compensation commands use the slow path; step execution
+    // is instant so the run reaches the compensation phase quickly.
+    const driver: RuntimeDriver = {
+      name: "mixed-cancel",
+      canExecute: () => true,
+      executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
+        if (req.command.trim().startsWith("exit 1")) {
+          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        }
+        if (req.command.startsWith("rollback")) {
+          // Use the slow, cancellable path for compensations.
+          return slowDriver.executeShell(req);
+        }
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    };
+    const engine = createEngine({ drivers: [driver] });
+    const iter = engine.run({
+      plan: makeLinearFailPlan({ a: "rollback-a.sh", b: "rollback-b.sh" }),
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+    });
+    const events: { type: string; stepId?: string; status?: string }[] = [];
+    const collectPromise = (async () => {
+      for await (const event of iter) {
+        events.push(event as { type: string; stepId?: string; status?: string });
+      }
+    })();
+    // Cancel shortly after the run starts — the compensation phase begins
+    // after C fails, and the first compensation (B) is slow (500ms).
+    // The 50ms cancel fires while B's compensation awaits executeShell.
+    setTimeout(() => engine.cancel(), 50);
+    await collectPromise;
+
+    const compensating = events.filter((e) => e.type === "step-compensating");
+    const compensated = events.filter((e) => e.type === "step-compensated");
+
+    // B's compensation started (step-compensating emitted) but was cancelled.
+    expect(compensating.map((e) => e.stepId)).toContain("ci/b");
+    // A's compensation must NOT have been scheduled — the abort signal fired
+    // while B's compensation was in-flight, so the loop exits before reaching A.
+    expect(compensating.map((e) => e.stepId)).not.toContain("ci/a");
+    expect(compensated.map((e) => e.stepId)).not.toContain("ci/a");
+  });
 });

@@ -550,6 +550,10 @@ class NativeEngine implements Engine {
     ctx: RunContext,
   ): AsyncGenerator<RunEvent, void, void> {
     for (let i = ctx.completionOrder.length - 1; i >= 0; i--) {
+      // Stop scheduling compensations after cancellation. If cancel() fires
+      // while one compensation awaits executeShell, subsequent iterations
+      // must not invoke more driver calls with an already-aborted signal.
+      if (ctx.abort.signal.aborted) return;
       const stepId = ctx.completionOrder[i]!;
       if (ctx.states.get(stepId) !== "succeeded") continue;
       const step = ctx.stepMap.get(stepId);
