@@ -1,58 +1,45 @@
 # Sverka — User Documentation
 
-User-facing docs for Sverka v1. These cover the authoring surfaces,
-native runtime, compilation targets, CLI, checks, findings, and policy.
+Sverka is a portable workflow runtime. Define workflows in TypeScript,
+run locally, compile anywhere. No external infrastructure required.
 
 ## Getting started
 
 - [Install](./getting-started/install.md) — prerequisites, `bun install`, `sverka init`
-- [First plan](./getting-started/first-plan.md) — define a workflow, plan, execute, compile
+- [First workflow](./getting-started/first-plan.md) — define, plan, execute, compile
 
-## Workflow API
+## Workflows
 
-- [Overview](./workflow-api/overview.md) — Construct, SDK, and Decorator authoring surfaces
+- [Overview](./workflows/overview.md) — Construct API authoring surface
 
-## Authoring surfaces
+## Running
 
-- [Markdown authoring](./authoring/markdown.md) *(planned)* — `.sverka.md` files with YAML frontmatter and step lists
+- [CLI](./running/cli.md) — all commands, global flags, exit codes
+- [Saga compensations](./running/saga.md) — automatic rollback of succeeded steps on failure
+- [Suspend and resume](./running/suspend-resume.md) — pause runs for external input, resume with data
+- [Run queries](./running/run-queries.md) — read-only snapshot of run state
+- [Snapshot storage](./running/storage.md) — persistent storage for suspend/resume snapshots
 
-## CLI
+## Agent integration
 
-- [Overview](./cli/overview.md) — all 10 commands, global flags, exit codes
+- [Skill + CLI](./agent-integration/skill-cli.md) — AI agent integration via skill and CLI
+- [MCP server](./agent-integration/mcp.md) — Sverka as an MCP server and MCP plugin client
 
-## Runtime
+## Compiling
 
-- [Saga compensations](./runtime/saga.md) — automatic rollback of succeeded steps on failure
-- [Suspend and resume](./runtime/suspend-resume.md) — pause runs for external input, resume with data
-- [Run queries](./runtime/run-queries.md) — read-only snapshot of run state
-- [Snapshot storage](./runtime/storage.md) — persistent storage for suspend/resume snapshots
+- [GitHub Actions](./compiling/github.md) — compile to GitHub Actions YAML
+- [GitLab CI](./compiling/gitlab.md) — compile to GitLab CI YAML
+- [Temporal](./compiling/temporal.md) — compile to Temporal workflow + activity stubs
+- [Dagger](./compiling/dagger.md) — compile to Dagger module
+- [Inngest](./compiling/inngest.md) — compile to Inngest step function
+- [Drone / Gitness](./compiling/drone.md) — compile to `.drone.yml` pipeline
 
-## Compilation targets
+## Reference
 
-- [GitHub Actions](./compilers/github.md) — `@sverka/compiler`, native lowering
-- [GitLab CI](./compilers/gitlab.md) — `@sverka/compiler`, native lowering
-- [Temporal](./compilers/temporal.md) — `@sverka/compiler`, workflow + activity stubs
-- [Dagger](./compilers/dagger.md) — `@sverka/compiler`, Dagger module with Container chaining
-- [Inngest](./compilers/inngest.md) — `@sverka/compiler`, step function with `createFunction`
-- [Drone / Gitness](./compilers/drone.md) — `@sverka/compiler`, `.drone.yml` pipeline
-
-## Observability
-
-- [Run reports and audit](./observability/audit.md) *(planned)* — `sverka audit`, per-step timings, AI cost estimation
-- [Graph visualization](./observability/graph.md) *(planned)* — `sverka graph --format mermaid`, Mermaid flowchart output
-
-## Checks
-
-- [Built-in checks](./checks/builtin.md) — check IDs, resolver behavior, SARIF extraction
-
-## Findings
-
-- [Normalization](./findings/normalization.md) — SARIF normalization, fingerprints, baselines
-
-## Policy
-
-- [Policy enforcement](./policy/evaluation.md) — rules, severities, enforcement
-
-## Feature matrix
-
-- [All features](../../specs/features/overview.md) — F-01 to F-49: every GitHub Actions and GitLab CI capability mapped to Sverka's portable model, with provider matrices and lowering rules
+- [Built-in checks](./reference/checks.md) — check IDs, resolver behavior, SARIF extraction
+- [Findings normalization](./reference/findings.md) — SARIF normalization, fingerprints, baselines
+- [Policy enforcement](./reference/policy.md) — rules, severities, enforcement
+- [Run audit](./reference/audit.md) *(planned)* — per-step timings, AI cost estimation
+- [Graph visualization](./reference/graph.md) *(planned)* — Mermaid flowchart output
+- [Markdown authoring](./reference/markdown-authoring.md) *(planned)* — `.sverka.md` files
+- [Roadmap](./reference/roadmap.md) — planned features and future targets

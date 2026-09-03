@@ -133,8 +133,8 @@ The Plan is then either:
 - **Executed locally** via `sverka run` (or `sverka.execute()`)
 - **Compiled to CI YAML** via `sverka compile --target github|gitlab`
 
-See [GitHub Actions compiler](../compilers/github/) and
-[GitLab CI compiler](../compilers/gitlab/) for the compiler APIs.
+See [GitHub Actions compiler](../compiling/github/) and
+[GitLab CI compiler](../compiling/gitlab/) for the compiler APIs.
 
 ## Runtime
 

@@ -54,12 +54,20 @@ describe("sync-docs", () => {
     const sidebar = fs.readFileSync(path.join(websiteDir, "sidebar.generated.mjs"), "utf-8");
     expect(sidebar).toContain('"label": "User documentation"');
     expect(sidebar).toContain('"label": "Getting Started"');
-    expect(sidebar).toContain('"label": "Workflow API"');
-    expect(sidebar).toContain('"label": "CLI"');
+    expect(sidebar).toContain('"label": "Workflows"');
+    expect(sidebar).toContain('"label": "Running"');
+    expect(sidebar).toContain('"label": "Agent Integration"');
+    expect(sidebar).toContain('"label": "Compiling"');
+    expect(sidebar).toContain('"label": "Reference"');
     expect(sidebar).toContain('"directory": "user/getting-started"');
-    expect(sidebar.indexOf('"label": "Getting Started"')).toBeLessThan(sidebar.indexOf('"label": "Workflow API"'));
-    expect(sidebar.indexOf('"label": "Workflow API"')).toBeLessThan(sidebar.indexOf('"label": "CLI"'));
-    expect(sidebar.indexOf('"label": "CLI"')).toBeLessThan(sidebar.indexOf('"label": "Checks"'));
+    expect(sidebar.indexOf('"label": "Getting Started"')).toBeLessThan(sidebar.indexOf('"label": "Workflows"'));
+    expect(sidebar.indexOf('"label": "Workflows"')).toBeLessThan(sidebar.indexOf('"label": "Running"'));
+    expect(sidebar.indexOf('"label": "Running"')).toBeLessThan(sidebar.indexOf('"label": "Agent Integration"'));
+    expect(sidebar.indexOf('"label": "Agent Integration"')).toBeLessThan(sidebar.indexOf('"label": "Compiling"'));
+    expect(sidebar.indexOf('"label": "Compiling"')).toBeLessThan(sidebar.indexOf('"label": "Reference"'));
+    // CI compatibility matrix is nested under Reference, not a top-level section
+    expect(sidebar).toContain('"label": "CI Compatibility Matrix"');
+    expect(sidebar).not.toContain('"label": "Feature matrix"');
   });
 
   it("does not duplicate the generated index heading", () => {
