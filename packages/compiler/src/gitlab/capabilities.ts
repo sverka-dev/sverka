@@ -12,6 +12,7 @@ export const gitlabCapabilities: CapabilityManifest = {
   "output.scalar": "lowered",
   "output.artifact": "native",
   "graph.dependencies": "native",
+  "graph.conditions": "partial",
   "graph.matrix": "native",
   "matrix.include": "lowered",
   "matrix.exclude": "emulated",

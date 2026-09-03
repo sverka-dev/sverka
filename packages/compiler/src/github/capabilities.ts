@@ -12,6 +12,7 @@ export const githubCapabilities: CapabilityManifest = {
   "output.scalar": "lowered",
   "output.artifact": "native",
   "graph.dependencies": "native",
+  "graph.conditions": "native",
   "graph.matrix": "native",
   "matrix.include": "native",
   "matrix.exclude": "native",
