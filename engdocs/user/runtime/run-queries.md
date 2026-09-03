@@ -33,6 +33,10 @@ const driver: RuntimeDriver = {
 };
 const engine = createEngine({ drivers: [driver] });
 
+// `plan` is a RunPlan from synthesize() or sverka.toPlan()
+// See the Workflow API docs for how to construct one.
+const plan = /* your RunPlan here */ {} as never;
+
 const iter = engine.run({ plan, workspace: "./ws", artifactDir: join(testDir, "art") });
 for await (const event of iter) {
   if (event.type === "run-started") {
