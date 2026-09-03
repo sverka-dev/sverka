@@ -36,7 +36,8 @@ const engine = createEngine({ drivers: [driver] });
 //   const graph = synthesize(project);
 //   const plan = bindRunPlan({ graph, entryId: "ci/on-push" });
 // See the Workflow API docs for full details.
-const plan = /* your RunPlan here */ {} as never;
+// (Snippet is illustrative — replace `plan` with a real RunPlan before running.)
+const plan = {} as never; // placeholder — not a valid RunPlan
 
 const iter = engine.run({ plan, workspace: "./ws", artifactDir: join(testDir, "art") });
 for await (const event of iter) {

@@ -7,7 +7,7 @@ The `@sverka/compiler` Dagger sub-module compiles a DefinitionGraph to a
 Dagger Module TypeScript file. Each step becomes a `Container.withExec()`
 call. Step dependencies become `Container` chaining — steps share a mounted
 `/src` directory, so build output persists for the next step. You get free
-content-addressed caching and hermeticity from Dagger.
+content-addressed caching and container isolation from Dagger.
 
 ## Usage
 

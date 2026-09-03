@@ -92,7 +92,7 @@ for await (const event of iter) {
 // Later: resume with external data
 const resumeIter = engine.resume({
   runId: "run-123",
-  data: { approved: "true", approver: "alice" },
+  data: JSON.stringify({ approved: "true", approver: "alice" }),
   snapshotStore: store,
 });
 for await (const event of resumeIter) {
