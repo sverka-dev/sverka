@@ -17,10 +17,10 @@ atomically (temp file + rename) to prevent corruption from interrupted
 writes.
 
 ```ts
-import { FileSnapshotStore } from "@sverka/storage";
+import { createFileSnapshotStore } from "@sverka/storage";
 
-const store = new FileSnapshotStore({
-  dir: "./.sverka/snapshots",
+const store = createFileSnapshotStore({
+  root: "./.sverka",
 });
 ```
 
@@ -30,9 +30,9 @@ Stores snapshots in a SQLite database. Suitable for local persistent runs
 that survive process restarts.
 
 ```ts
-import { SqliteSnapshotStore } from "@sverka/storage";
+import { createSqliteSnapshotStore } from "@sverka/storage";
 
-const store = new SqliteSnapshotStore({
+const store = createSqliteSnapshotStore({
   path: "./.sverka/snapshots.db",
 });
 ```
@@ -42,16 +42,16 @@ const store = new SqliteSnapshotStore({
 For tests and ephemeral runs. Not persistent across process restarts.
 
 ```ts
-import { InMemorySnapshotStore } from "@sverka/runtime";
+import { createInMemorySnapshotStore } from "@sverka/runtime";
 
-const store = new InMemorySnapshotStore();
+const store = createInMemorySnapshotStore();
 ```
 
 ## API
 
 ```ts
 interface SnapshotStore {
-  save(runId: string, snapshot: RunSnapshot): Promise<void>;
+  save(snapshot: RunSnapshot): Promise<void>;
   load(runId: string): Promise<RunSnapshot | undefined>;
   delete(runId: string): Promise<void>;
 }
@@ -76,7 +76,9 @@ interface RunSnapshot {
 
 ## Corruption handling
 
-The storage layer validates snapshot integrity on load. Corrupt snapshots
-raise a `StorageError` with code `CORRUPT_SNAPSHOT`, including the run ID
-and the validation failure reason. The file store uses atomic writes
-(temp file + rename) to prevent partial-write corruption.
+Persistent adapters (file, SQLite) validate snapshot integrity on load.
+Corrupt snapshots raise a `StorageError` with code `CORRUPT_SNAPSHOT`,
+including the run ID and the validation failure reason. The file store
+uses atomic writes (temp file + rename) to prevent partial-write
+corruption. The in-memory store does not perform validation — it returns
+objects as stored.

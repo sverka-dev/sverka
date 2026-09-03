@@ -22,7 +22,7 @@ const result = compileDrone(graph, {
   image: "node:24",
 });
 
-// result.files: { ".drone.yml": "..." }
+// result.artifacts: [{ path: ".drone.yml", content: "..." }]
 ```
 
 ## What gets generated

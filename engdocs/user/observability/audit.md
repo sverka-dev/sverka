@@ -37,13 +37,14 @@ Steps:
   ci/lint      1.2s   cache: hit
   ci/test      8.4s   cache: miss
   ci/build    12.1s   cache: hit
-  ai/review   18.3s   tokens: 12,400 in / 3,200 out
+  ai/review   18.3s   cache: n/a (non-cacheable)
+                       tokens: 12,400 in / 3,200 out
                        model: gpt-4o
                        estimated cost: $0.19
 
 Aggregate:
   Total duration: 45.2s
-  Cache hit rate: 66%
+  Cache hit rate: 67% (2 of 3 cacheable steps; non-cacheable steps excluded)
   AI token usage: 15,600 tokens
   Estimated AI cost: $0.19
 ```

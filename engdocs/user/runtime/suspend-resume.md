@@ -1,8 +1,9 @@
 # Suspend and resume
 
-> **Work in progress.** Suspend/resume is implemented in the native engine.
-> Snapshot persistence adapters (SQLite, Postgres) are planned. APIs may
-> change.
+> **Work in progress.** Suspend is implemented in the native engine.
+> `Engine.resume()` is specified but **not yet implemented** — the engine
+> throws `RESUME_NOT_IMPLEMENTED`. Snapshot persistence adapters (file,
+> SQLite) are implemented. APIs may change.
 
 A step can **suspend** a run: pause execution, persist a snapshot, and wait
 for external input. A later **resume** call reloads the snapshot, injects
@@ -70,11 +71,13 @@ sverka.step("deploy")
 
 ## Resuming a run
 
-```ts
-import { createEngine } from "@sverka/runtime";
-import { InMemorySnapshotStore } from "@sverka/runtime";
+> **Not yet implemented.** `Engine.resume()` currently throws
+> `RESUME_NOT_IMPLEMENTED`. The interface below shows the planned API.
 
-const store = new InMemorySnapshotStore();
+```ts
+import { createEngine, createInMemorySnapshotStore } from "@sverka/runtime";
+
+const store = createInMemorySnapshotStore();
 const engine = createEngine({ snapshotStore: store });
 
 // Start the run — it will suspend at the await-approval step
@@ -108,8 +111,9 @@ for await (const event of resumeIter) {
 
 | Store | Status | Use case |
 |-------|--------|----------|
-| `InMemorySnapshotStore` | Implemented | Tests, ephemeral runs |
-| SQLite adapter | Planned | Local persistent runs |
+| `createInMemorySnapshotStore` | Implemented | Tests, ephemeral runs |
+| `createFileSnapshotStore` | Implemented | Local persistent runs |
+| `createSqliteSnapshotStore` | Implemented | Local persistent runs (SQLite) |
 | Postgres adapter | Planned | Distributed runs |
 
 ## Limitations (v1)

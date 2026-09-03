@@ -23,7 +23,7 @@ const result = compileDagger(graph, {
   baseImage: "node:24",
 });
 
-// result.files: { "my-pipeline.ts": "..." }
+// result.artifacts: [{ path: "my-pipeline.ts", content: "..." }]
 ```
 
 ## What gets generated

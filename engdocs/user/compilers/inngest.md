@@ -22,7 +22,7 @@ const result = compileInngest(graph, {
   eventId: "pipeline/requested",
 });
 
-// result.files: { "my-pipeline.ts": "..." }
+// result.artifacts: [{ path: "my-pipeline.ts", content: "..." }]
 ```
 
 ## What gets generated

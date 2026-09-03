@@ -50,7 +50,7 @@ inputs:
 
 - command: kubectl apply -f deploy.yaml
 - depends_on: build
-- image: google/cloud-sdk:latest
+- image: google/cloud-sdk:512.0.0
 - timeout: 300
 ```
 

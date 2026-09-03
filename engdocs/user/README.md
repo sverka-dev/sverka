@@ -14,7 +14,7 @@ native runtime, compilation targets, CLI, checks, findings, and policy.
 
 ## Authoring surfaces
 
-- [Markdown authoring](./authoring/markdown.md) — `.sverka.md` files with YAML frontmatter and step lists
+- [Markdown authoring](./authoring/markdown.md) *(planned)* — `.sverka.md` files with YAML frontmatter and step lists
 
 ## CLI
 

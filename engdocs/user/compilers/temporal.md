@@ -23,7 +23,7 @@ const result = compileTemporal(graph, {
   taskQueue: "sverka",
 });
 
-// result.files: { "my-pipeline.workflow.ts": "...", "my-pipeline.activities.ts": "..." }
+// result.artifacts: [{ path: "my-pipeline.workflow.ts", content: "..." }, { path: "my-pipeline.activities.ts", content: "..." }]
 ```
 
 ## What gets generated
