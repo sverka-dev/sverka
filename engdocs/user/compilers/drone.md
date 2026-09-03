@@ -11,13 +11,14 @@ steps → commands. Gitness (Harness OSS) uses the same Drone YAML format.
 
 ```ts
 import { compileDrone } from "@sverka/compiler";
+import { synthesize } from "@sverka/workflow";
 import { createSverka } from "@sverka/sdk";
 
 const sverka = createSverka({ root: process.cwd() });
-const graph = await sverka.toGraph();
+const plan = await sverka.toPlan();
+const graph = synthesize(plan);
 
 const result = compileDrone(graph, {
-  name: "my-pipeline",
   type: "docker",
   image: "node:24",
 });

@@ -12,13 +12,14 @@ workflow handlers.
 
 ```ts
 import { compileTemporal } from "@sverka/compiler";
+import { synthesize } from "@sverka/workflow";
 import { createSverka } from "@sverka/sdk";
 
 const sverka = createSverka({ root: process.cwd() });
-const graph = await sverka.toGraph();
+const plan = await sverka.toPlan();
+const graph = synthesize(plan);
 
 const result = compileTemporal(graph, {
-  name: "my-pipeline",
   namespace: "default",
   taskQueue: "sverka",
 });
@@ -29,20 +30,19 @@ const result = compileTemporal(graph, {
 ## What gets generated
 
 - **`<name>.workflow.ts`** — Temporal workflow definition. Step DAG becomes
-  `await activity()` sequencing. `manual` trigger → signal handler;
-  `schedule` trigger → timer. `push`/`changeRequest` → unsupported
-  diagnostic.
-- **`<name>.activities.ts`** — Activity stubs that call `sverka run --step
-  <id>`. You implement the activities by installing the Sverka CLI on your
-  Temporal worker.
+  `await activity()` sequencing. `manual` and `schedule` triggers currently
+  produce only trigger comments in the generated code (not actual signal
+  handlers or timers). `push`/`changeRequest` → unsupported diagnostic.
+- **`<name>.activities.ts`** — Activity stubs that execute lowered shell
+  commands directly via `runStep` (no Sverka CLI required).
 
 ## Capability mapping
 
 | Sverka feature | Temporal mapping |
 |----------------|-----------------|
 | Step DAG | `await activity()` sequencing |
-| `manual` trigger | Signal handler |
-| `schedule` trigger | Timer |
+| `manual` trigger | Trigger comment (signal handler not yet generated) |
+| `schedule` trigger | Trigger comment (timer not yet generated) |
 | `push` / `changeRequest` trigger | Unsupported (diagnostic) |
 | `policy.retry` | Temporal retry policy on activities |
 | `policy.timeout` | Temporal activity timeouts |
@@ -53,6 +53,4 @@ const result = compileTemporal(graph, {
 ## What you need to provide
 
 - A Temporal worker running the generated workflow + activities.
-- The Sverka CLI installed on the worker (activities call `sverka run
-  --step`).
 - Worker configuration (queues, identity, etc.).

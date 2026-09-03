@@ -30,9 +30,9 @@ sverka graph --format json
 - **Subgraph per pipeline** — each pipeline is a Mermaid subgraph.
 - **Nodes for steps** — each step is a node labeled with its ID.
 - **Color-coded edges:**
-  - **Solid** — control dependency (ordering)
-  - **Dashed** — value dependency (output → input)
-  - **Dotted** — artifact dependency (artifact output → input)
+  - **Solid (`--->`)** — control dependency (ordering)
+  - **Dashed (`-.->`)** — value dependency (output → input)
+  - **Thick (`==>`)** — artifact dependency (artifact output → input)
 - **Edge legend** in a diagram comment.
 
 ## Example output

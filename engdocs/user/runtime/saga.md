@@ -14,24 +14,6 @@ just ordered rollback of completed work.
 
 ## Declaring a compensation
 
-### SDK builder
-
-```ts
-import { sverka } from "@sverka/sdk";
-
-const p = sverka.pipeline("ci");
-
-sverka.step("deploy")
-  .sh("kubectl apply -f deploy.yaml")
-  .compensate("kubectl rollout undo deployment/my-app");
-
-sverka.step("notify")
-  .sh("curl -X POST $WEBHOOK_URL")
-  .dependsOn("deploy");
-```
-
-### Construct API
-
 ```ts
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
@@ -41,6 +23,11 @@ const p = new Pipeline(proj, "ci");
 new ShellStep(p, "deploy", {
   command: "kubectl apply -f deploy.yaml",
   compensation: { kind: "shell", command: "kubectl rollout undo deployment/my-app" },
+});
+
+new ShellStep(p, "notify", {
+  command: "curl -X POST $WEBHOOK_URL",
+  dependsOn: ["deploy"],
 });
 
 new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });

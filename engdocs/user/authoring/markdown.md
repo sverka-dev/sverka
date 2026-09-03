@@ -25,7 +25,7 @@ TypeScript.
 ---
 pipeline: ci
 triggers:
-  - push
+  - kind: push
 extends: ./sverka.config.ts
 inputs:
   nodeVersion:
@@ -51,7 +51,7 @@ inputs:
 - command: kubectl apply -f deploy.yaml
 - depends_on: build
 - image: google/cloud-sdk:512.0.0
-- timeout: 300
+- timeout: 300000
 ```
 
 ## Frontmatter fields
@@ -59,7 +59,7 @@ inputs:
 | Field | Type | Description |
 |-------|------|-------------|
 | `pipeline` | `string` | Pipeline ID (required) |
-| `triggers` | `string[]` | Trigger kinds: `push`, `changeRequest`, `manual`, `schedule` |
+| `triggers` | `Array<{ kind: string; branches?: string[]; schedule?: string }>` | Trigger objects with `kind`: `push`, `changeRequest`, `manual`, `schedule` plus optional `branches`, `schedule`, etc. |
 | `extends` | `string` | Path to a `.ts` config file (escape hatch) |
 | `inputs` | `Record<string, InputSpec>` | Pipeline inputs with type and default |
 
@@ -72,7 +72,7 @@ Each `## step-id` heading defines a step. Supported fields:
 | `command` | Shell command (required) |
 | `depends_on` | Step ID or list of IDs |
 | `image` | Container image for this step |
-| `timeout` | Timeout in seconds |
+| `timeout` | Timeout in milliseconds |
 | `outputs` | Output declarations (artifact or scalar) |
 
 ## CLI auto-discovery

@@ -17,11 +17,14 @@ consuming the `RunEvent` stream.
 ## Querying a run
 
 ```ts
-import { createEngine } from "@sverka/runtime";
+import { createEngine, createMockDriver } from "@sverka/runtime";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
-const engine = createEngine();
+const testDir = join(tmpdir(), "sverka-test");
+const engine = createEngine({ drivers: [createMockDriver()] });
 
-const iter = engine.run({ plan, workspace: "./ws" });
+const iter = engine.run({ plan, workspace: "./ws", artifactDir: join(testDir, "art") });
 for await (const event of iter) {
   if (event.type === "run-started") {
     // Query is available immediately after run-started
@@ -56,7 +59,7 @@ interface RunState {
   startedAt: number;
   steps: Array<{
     stepId: string;
-    state: "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "skipped" | "suspended";
+    state: "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "skipped";
     durationMs?: number;
   }>;
 }

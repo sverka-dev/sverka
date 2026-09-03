@@ -12,14 +12,15 @@ step sequencing. Triggers become Inngest event triggers.
 
 ```ts
 import { compileInngest } from "@sverka/compiler";
+import { synthesize } from "@sverka/workflow";
 import { createSverka } from "@sverka/sdk";
 
 const sverka = createSverka({ root: process.cwd() });
-const graph = await sverka.toGraph();
+const plan = await sverka.toPlan();
+const graph = synthesize(plan);
 
 const result = compileInngest(graph, {
-  name: "my-pipeline",
-  eventId: "pipeline/requested",
+  appId: "my-pipeline",
 });
 
 // result.artifacts: [{ path: "my-pipeline.ts", content: "..." }]
@@ -30,8 +31,8 @@ const result = compileInngest(graph, {
 - **`<name>.ts`** — Inngest step function using `inngest.createFunction()`.
   Step DAG becomes `step.run()` sequencing with `await`. `manual` trigger
   → event trigger; `schedule` trigger → cron trigger.
-  `push`/`changeRequest` → unsupported diagnostic. Step stubs call
-  `sverka run --step <id>`.
+  `push`/`changeRequest` → unsupported diagnostic. Generated steps execute
+  lowered commands directly via `execSync` (no Sverka CLI required).
 
 ## Capability mapping
 
@@ -42,13 +43,11 @@ const result = compileInngest(graph, {
 | `schedule` trigger | Cron trigger |
 | `push` / `changeRequest` trigger | Unsupported (diagnostic) |
 | `policy.retry` | Inngest retry config (native auto-retry) |
-| `policy.timeout` | Inngest step timeout |
+| `policy.timeout` | Unsupported (diagnostic) |
 | Suspend/resume | Follow-up (Inngest has `step.waitFor`) |
 | Matrix | Parallel `step.run` calls (no Inngest-native matrix) |
 
 ## What you need to provide
 
 - An Inngest app to deploy the generated function.
-- The Sverka CLI available where the function executes (step stubs call
-  `sverka run --step`).
 - Queue configuration (Inngest queues, rate limiting, throttling).

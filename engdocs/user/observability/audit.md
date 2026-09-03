@@ -40,45 +40,58 @@ Steps:
   ai/review   18.3s   cache: n/a (non-cacheable)
                        tokens: 12,400 in / 3,200 out
                        model: gpt-4o
-                       estimated cost: $0.19
+                       estimated cost: $0.063
 
 Aggregate:
   Total duration: 45.2s
   Cache hit rate: 67% (2 of 3 cacheable steps; non-cacheable steps excluded)
   AI token usage: 15,600 tokens
-  Estimated AI cost: $0.19
+  Estimated AI cost: $0.063
 ```
 
 ## RunReport model
 
 ```ts
 interface RunReport {
-  runId: string;
-  planId: string;
-  status: RunStatus;
-  startedAt: number;
-  completedAt: number;
-  steps: Array<{
-    stepId: string;
-    durationMs: number;
-    cacheable: boolean;
-    cacheHit: boolean;
-    agentUsage?: {
-      model: string;
-      tokensIn: number;
-      tokensOut: number;
-      estimatedCostUsd: number;
-    };
-  }>;
-  aggregate: {
-    totalDurationMs: number;
-    cacheHitRate: number;
-    cacheableSteps: number;
-    cacheHits: number;
-    totalTokensIn: number;
-    totalTokensOut: number;
-    totalEstimatedCostUsd: number;
-  };
+  readonly runId: string;
+  readonly planId: string;
+  readonly status: RunStatus;
+  readonly startedAt: number;
+  readonly completedAt: number;
+  readonly durationMs: number;
+  readonly steps: readonly StepReport[];
+  readonly summary: RunSummary;
+}
+
+interface StepReport {
+  readonly stepId: string;
+  readonly status: "succeeded" | "failed" | "skipped" | "cancelled" | "cache-hit";
+  readonly durationMs: number;
+  readonly cacheHit?: boolean;
+  readonly cacheKey?: string;
+  readonly retries?: number;
+  readonly agent?: AgentReport;
+}
+
+interface AgentReport {
+  readonly engine: string;
+  readonly model?: string;
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly totalTokens?: number;
+  readonly estimatedCostUsd?: number;
+}
+
+interface RunSummary {
+  readonly totalSteps: number;
+  readonly succeeded: number;
+  readonly failed: number;
+  readonly skipped: number;
+  readonly cacheHits: number;
+  readonly cacheMisses: number;
+  readonly totalDurationMs: number;
+  readonly totalTokens?: number;
+  readonly estimatedCostUsd?: number;
 }
 ```
 

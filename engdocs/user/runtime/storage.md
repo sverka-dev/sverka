@@ -61,16 +61,17 @@ interface SnapshotStore {
 
 ```ts
 interface RunSnapshot {
-  runId: string;
-  planId: string;
-  startedAt: number;
-  suspendedStepId: string;
-  resumeSchema?: { required?: readonly string[] };
-  completedSteps: Array<{
-    stepId: string;
-    outputs: Record<string, string>;
-    durationMs: number;
-  }>;
+  readonly runId: string;
+  readonly planId: string;
+  readonly plan: RunPlan;
+  readonly completedSteps: readonly {
+    readonly stepId: string;
+    readonly outputs: Readonly<Record<string, InputValue>>;
+  }[];
+  readonly suspendedStepId: string;
+  readonly resumeSchema?: ResumeSchema;
+  readonly suspendedAt: number;
+  readonly status: "suspended";
 }
 ```
 

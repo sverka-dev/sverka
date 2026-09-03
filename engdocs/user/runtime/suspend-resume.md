@@ -33,6 +33,9 @@ downstream steps.
 
 ## Declaring a suspend step
 
+> **Planned API.** The examples below show the planned API. `SuspendStep`
+> and `Engine.resume()` are not yet implemented.
+
 ### Construct API
 
 ```ts
@@ -60,9 +63,7 @@ import { sverka } from "@sverka/sdk";
 
 const p = sverka.pipeline("deploy-with-approval");
 
-sverka.suspend("await-approval", {
-  resumeSchema: { required: ["approved", "approver"] },
-});
+sverka.suspend("await-approval");
 
 sverka.step("deploy")
   .sh("kubectl apply -f deploy.yaml")

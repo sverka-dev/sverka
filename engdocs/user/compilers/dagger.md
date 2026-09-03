@@ -13,14 +13,15 @@ content-addressed caching and hermeticity from Dagger.
 
 ```ts
 import { compileDagger } from "@sverka/compiler";
+import { synthesize } from "@sverka/workflow";
 import { createSverka } from "@sverka/sdk";
 
 const sverka = createSverka({ root: process.cwd() });
-const graph = await sverka.toGraph();
+const plan = await sverka.toPlan();
+const graph = synthesize(plan);
 
 const result = compileDagger(graph, {
-  name: "my-pipeline",
-  baseImage: "node:24",
+  moduleName: "my-pipeline",
 });
 
 // result.artifacts: [{ path: "my-pipeline.ts", content: "..." }]
@@ -39,8 +40,8 @@ const result = compileDagger(graph, {
 |----------------|---------------|
 | Shell operations | `Container.withExec(["sh", "-c", cmd])` |
 | Step dependencies | `Container` chaining (shared `/src` mount) |
-| Artifacts | `Directory.export()` |
-| Scalar outputs | `container.stdout()` |
+| Artifacts | Unsupported (diagnostic) |
+| Scalar outputs | Unsupported (diagnostic) |
 | Runtime container | Base image selection |
 | Triggers | None (Dagger has no triggers — stay Sverka-side) |
 | Matrix | Parallel calls (no Dagger-native matrix) |
