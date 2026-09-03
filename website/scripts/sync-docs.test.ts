@@ -68,6 +68,8 @@ describe("sync-docs", () => {
     // CI compatibility matrix is nested under Reference, not a top-level section
     expect(sidebar).toContain('"label": "CI Compatibility Matrix"');
     expect(sidebar).not.toContain('"label": "Feature matrix"');
+    // No duplicate: features overview comes from autogenerate only
+    expect(sidebar.match(/"slug": "features"/g)).toBeNull();
   });
 
   it("does not duplicate the generated index heading", () => {

@@ -412,9 +412,10 @@ async function writeSidebarConfig(entries: FileEntry[]) {
   const hasFeatures = entries.some((e) => e.route.startsWith("features/"));
   const featureItems: unknown[] = [];
   if (hasFeatures) {
-    featureItems.push({ slug: "features", label: "CI Compatibility Matrix" });
+    // autogenerate includes features/index.md (the overview) — no need to
+    // add it separately, that would duplicate the page in the sidebar.
     featureItems.push({
-      label: "All features",
+      label: "CI Compatibility Matrix",
       items: [{ autogenerate: { directory: "features", collapsed: true } }],
     });
   }

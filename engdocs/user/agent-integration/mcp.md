@@ -70,7 +70,7 @@ const githubMcp = createMCPPlugin({
       transport: "stdio",
       command: "npx",
       args: ["-y", "@modelcontextprotocol/server-github"],
-      env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN },
+      env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN! }, // Never hardcode tokens — use secret management
     },
   ],
 });
