@@ -275,6 +275,7 @@ export function validateGraph(graph: DefinitionGraph): void {
       validateRetryPolicy(step);
       validateNetworkAllowlist(step);
       validateWriteDeclarations(step);
+      validateCompensation(step);
     }
     for (const entry of pipeline.entries) {
       if (entry.roots.length === 0) {
@@ -400,5 +401,50 @@ export function validateWriteDeclarations(step: StepDefinition): void {
         step.id,
       );
     }
+  }
+}
+
+/**
+ * Validate a step's compensation. Spec 30 — v1 constrains compensation to
+ * kind: "shell". Throws SynthesisError(INVALID_COMPENSATION) when the
+ * compensation kind is not "shell".
+ */
+export function validateCompensation(step: StepDefinition): void {
+  const compensation = step.compensation;
+  if (compensation === undefined) return;
+  if (compensation === null) {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' must be an object, got null`,
+      step.id,
+    );
+  }
+  if (typeof compensation !== "object") {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' must be an object, got ${typeof compensation}`,
+      step.id,
+    );
+  }
+  if (compensation.kind !== "shell") {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' must be kind 'shell', got '${compensation.kind}'`,
+      step.id,
+    );
+  }
+  if (typeof compensation.command !== "string") {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' has a non-string command (got ${typeof compensation.command})`,
+      step.id,
+    );
+  }
+  if (compensation.command.trim() === "") {
+    throw new SynthesisError(
+      "INVALID_COMPENSATION",
+      `Compensation in step '${step.id}' has an empty command`,
+      step.id,
+    );
   }
 }

@@ -18,7 +18,8 @@ export type SynthesisErrorCode =
   | "CACHE_KEY_STEP_REF"
   | "INVALID_RETRY_POLICY"
   | "INVALID_NETWORK_ALLOWLIST"
-  | "INVALID_WRITE_DECLARATION";
+  | "INVALID_WRITE_DECLARATION"
+  | "INVALID_COMPENSATION";
 
 export class SynthesisError extends Error {
   override readonly cause: unknown;

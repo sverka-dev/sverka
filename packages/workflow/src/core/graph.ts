@@ -84,6 +84,7 @@ export interface StepDefinition {
   readonly childPipeline?: ChildPipelineTrigger;
   readonly downstream?: DownstreamTrigger;
   readonly permissions?: StepPermissions;
+  readonly compensation?: OperationDefinition;
 }
 
 export type OperationDefinition =

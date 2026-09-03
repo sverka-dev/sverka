@@ -2,7 +2,7 @@
 // Spec 03 — §9.2, §15. Architecture spec §9.2.
 
 import { ShellStep, Pipeline } from "@sverka/workflow";
-import type { Reference, Runtime, OutputDeclaration, MatrixSpec, Condition } from "@sverka/workflow";
+import type { Reference, Runtime, OutputDeclaration, MatrixSpec, Condition, OperationDefinition } from "@sverka/workflow";
 import { SdkError } from "./errors.js";
 import { isReference } from "./internal/is-reference.js";
 
@@ -15,6 +15,7 @@ export interface StepBuilder {
   condition(ref: Condition): StepBuilder;
   matrix(spec: MatrixSpec): StepBuilder;
   interruptible(value?: boolean): StepBuilder;
+  compensate(command: string): StepBuilder;
   build(pipeline: Pipeline, id: string): ShellStep;
 }
 
@@ -29,6 +30,7 @@ interface StepBuilderState {
   condition?: Condition;
   matrix?: MatrixSpec;
   interruptible?: boolean;
+  compensation?: OperationDefinition;
 }
 
 function createBuilder(state: StepBuilderState): StepBuilder {
@@ -65,6 +67,10 @@ function createBuilder(state: StepBuilderState): StepBuilder {
       state.interruptible = value ?? true;
       return builder;
     },
+    compensate(command: string): StepBuilder {
+      state.compensation = { kind: "shell", command };
+      return builder;
+    },
     build(pipeline: Pipeline, id: string): ShellStep {
       // Merge collected inputs (from interpolation) with explicit inputs.
       const explicitInputs = state.inputs ? [...state.inputs] : [];
@@ -79,6 +85,7 @@ function createBuilder(state: StepBuilderState): StepBuilder {
         ...(state.condition !== undefined ? { condition: state.condition } : {}),
         ...(state.matrix !== undefined ? { matrix: state.matrix } : {}),
         ...(state.interruptible !== undefined ? { interruptible: state.interruptible } : {}),
+        ...(state.compensation !== undefined ? { compensation: state.compensation } : {}),
       });
     },
   };

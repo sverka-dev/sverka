@@ -22,6 +22,7 @@ export const githubCapabilities: CapabilityManifest = {
   "step.afterScript": "native",
   "step.continueOnError": "native",
   "policy.retry": "emulated",
+  "policy.compensation": "emulated",
   "execution.workdir": "native",
   "execution.shell": "native",
   "environment.variables": "native",
