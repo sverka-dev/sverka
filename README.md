@@ -16,7 +16,7 @@ tools for any MCP-compatible client.
 
 > **⚠️ Work in progress — pre-alpha.** Sverka is under active development.
 > Not ready for production use. APIs may change without notice. The SDK
-> builder API (`sh`, `agent`, `suspend` tagged templates) is designed but
+> builder API (`$`, `shell`, `agent` tagged templates) is designed but
 > not yet shipped. Native one-job-per-step CI lowering is planned.
 
 [Website](https://sverka.dev) &middot; [Documentation](https://sverka.dev/docs) &middot; [Agent Integration](https://sverka.dev/docs/user/agent-integration/skill-cli/)
@@ -73,7 +73,7 @@ new ShellStep(p, "build", { command: "npm run build" });
 new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
-> **Planned:** an SDK builder API (`sh`, `artifact`, `when`, `images`) is
+> **Planned:** an SDK builder API (`$`, `shell`, `artifact`, `when`) is
 > designed but not yet shipped.
 
 ## Features
@@ -81,7 +81,7 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 - **Construct API** — author workflows in TypeScript (SDK builder API planned)
 - **Provider-neutral Definition Graph** — no target-specific terms in your workflow
 - **Local-first execution** — run the same graph on host or container, no external infra
-- **Multi-target compilation** — compile to GitHub Actions, GitLab CI, Temporal, Dagger, Inngest, or Drone
+- **Multi-target compilation** — compile to GitHub Actions or GitLab CI via CLI; Temporal, Dagger, Inngest, and Drone via @sverka/compiler library
 - **Agent-friendly** — skill + CLI with `--format json` on every command
 - **MCP server** — expose Sverka as MCP tools for any MCP-compatible client
 - **MCP plugin** — workflows can call external MCP servers as tools
@@ -112,14 +112,15 @@ sverka graph
 sverka run
 
 # Compile to GitHub Actions
-sverka compile --target github --output .github/workflows/sverka.yml
+sverka synth --target github --output .github/workflows/sverka.yml
 
 # Compile to GitLab CI
-sverka compile --target gitlab --output .gitlab-ci.yml
+sverka synth --target gitlab --output .gitlab-ci.yml
 ```
 
-> **Note:** `sverka synth` exists as a stub but is not implemented. Use
-> `sverka compile` instead.
+> **Note:** `sverka synth` is currently a stub — target compilation is
+> not yet implemented. The `@sverka/compiler` library exposes
+> `compileGithub` and `compileGitlab` for programmatic use.
 
 ## Architecture
 

@@ -11,7 +11,6 @@ consuming the `RunEvent` stream.
 ## When to use queries
 
 - **MCP server `run.status` tool** — report run progress to an AI agent.
-- **`sverka status` CLI command** — show what's happening in a long run.
 - **Dashboards** — poll run state without subscribing to the event stream.
 
 ## Querying a run

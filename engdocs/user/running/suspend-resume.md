@@ -39,7 +39,7 @@ downstream steps.
 ### Construct API
 
 ```ts
-import { Project, Pipeline, SuspendStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, SuspendStep, Entry } from "@sverka/workflow";
 
 const proj = new Project("approval");
 const p = new Pipeline(proj, "deploy-with-approval");
@@ -79,7 +79,7 @@ sverka.step("deploy")
 import { createEngine, createInMemorySnapshotStore } from "@sverka/runtime";
 
 const store = createInMemorySnapshotStore();
-const engine = createEngine({ snapshotStore: store });
+const engine = createEngine({});
 
 // Start the run — it will suspend at the await-approval step
 const iter = engine.run({ plan, snapshotStore: store, workspace: "./ws" });

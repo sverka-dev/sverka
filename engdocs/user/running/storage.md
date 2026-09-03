@@ -79,7 +79,7 @@ interface RunSnapshot {
 
 Persistent adapters (file, SQLite) validate snapshot integrity on load.
 Corrupt snapshots raise a `StorageError` with code `CORRUPT_SNAPSHOT`,
-including the run ID and the validation failure reason. The file store
+including the snapshot path and the validation failure reason. The file store
 uses atomic writes (temp file + rename) to prevent partial-write
 corruption. The in-memory store does not perform validation — it returns
 objects as stored.

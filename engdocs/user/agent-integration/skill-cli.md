@@ -52,7 +52,7 @@ This is the flagship use case. The agent declares the pipeline once in
 
 | Aspect | Without Sverka | With Sverka |
 |--------|----------------|-------------|
-| Agent action | Write YAML by hand: jobs, needs, runs-on, checkout, cache, artifact upload, matrix, triggers — 100+ lines of YAML | `sverka compile --target github` |
+| Agent action | Write YAML by hand: jobs, needs, runs-on, checkout, cache, artifact upload, matrix, triggers — 100+ lines of YAML | `sverka synth --target github` |
 | Tokens (target) | ~8000 (YAML generation + syntax verification) | ~30 (one command + YAML output) |
 
 ### 5. "Validate my workflow before committing"
@@ -66,7 +66,7 @@ This is the flagship use case. The agent declares the pipeline once in
 
 | Aspect | Without Sverka | With Sverka |
 |--------|----------------|-------------|
-| Agent action | Run build, run test, run lint, check exit codes, decide pass/fail, report | `sverka run --format json && sverka policy --format json` |
+| Agent action | Run build, run test, run lint, check exit codes, decide pass/fail, report | `sverka run --format json && sverka policy --findings findings.json --format json` |
 | Tokens (target) | ~2000 (3 tool calls + decision logic + reporting) | ~50 (run + policy evaluation) |
 
 ## CLI command reference (AI agent perspective)
@@ -81,7 +81,7 @@ This is the flagship use case. The agent declares the pipeline once in
 | `sverka discover` | Detect project context + propose checks |
 | `sverka check` | Resolve + run checks → findings |
 | `sverka policy` | Evaluate findings against policy |
-| `sverka compile` | Lower to GitHub/GitLab CI YAML |
+| `sverka synth` | Lower to GitHub/GitLab CI YAML (stub — not yet implemented) |
 | `sverka doctor` | Diagnose environment |
 | `sverka mcp-server` | Start MCP server (see [MCP](./mcp.md)) |
 

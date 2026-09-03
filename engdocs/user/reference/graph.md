@@ -39,6 +39,10 @@ sverka graph --format json
 
 ```mermaid
 flowchart TD
+    %% Edge legend:
+    %%   --->  solid  = control dependency (ordering)
+    %%   -.->  dashed = value dependency (output → input)
+    %%   ==>   thick  = artifact dependency (artifact output → input)
     subgraph ci["Pipeline: ci"]
         lint["ci/lint"]
         build["ci/build"]
@@ -47,6 +51,7 @@ flowchart TD
     end
     lint --> build
     build --> test
+    build -.-> test
     test --> deploy
 ```
 

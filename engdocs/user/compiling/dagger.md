@@ -32,8 +32,8 @@ const result = compileDagger(graph, {
 
 ## What gets generated
 
-- **`<name>.ts`** — Dagger module with `@object`/`@func` decorators, one
-  function per entry. Shell operations map to
+- **`<name>.ts`** — Dagger module with `@object`/`@func` decorators,
+  a single function for the first entry. Shell operations map to
   `Container.withExec(["sh", "-c", command])`. Artifacts and scalar
   outputs are unsupported and emit diagnostics.
 
@@ -47,7 +47,7 @@ const result = compileDagger(graph, {
 | Scalar outputs | Unsupported (diagnostic) |
 | Runtime container | Base image selection |
 | Triggers | None (Dagger has no triggers — stay Sverka-side) |
-| Matrix | Parallel calls (no Dagger-native matrix) |
+| Matrix | Sequential calls (matrix is emulated, not parallelized) |
 | Retry | Manual retry in generated code |
 
 ## What you need to provide

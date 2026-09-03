@@ -18,7 +18,6 @@ what is deferred.
 - **MCP plugin** — `@sverka/plugin-mcp` loads external MCP servers as
   Sverka plugins
 - **AgentStep** — `AgentStep` in cdk, `AgentDriver` interface, stub driver
-- **Suspend/resume** — snapshot-based pause and resume (Spec 29)
 - **Saga compensations** — automatic rollback on failure (Spec 30)
 - **CacheStore** — step-level caching (Spec 19)
 - **RetryPolicy** — step-level retry (Spec 20)
@@ -30,6 +29,7 @@ what is deferred.
 
 ## Planned
 
+- **Suspend/resume** — snapshot-based pause and resume (Spec 29; suspend implemented, resume planned)
 - **SDK builder API** — `sh`, `agent`, `suspend` tagged templates
   (token-efficient authoring surface, Spec 03)
 - **Agent drivers** — `@sverka/agent-openai`, `@sverka/agent-anthropic`

@@ -25,10 +25,10 @@ Starts an MCP server over stdio. The server exposes 5 tools:
 
 | Tool | Input | Output |
 |------|-------|--------|
-| `sverka.validate` | `{ root?: string }` | `{ valid: boolean, errors: string[] }` |
-| `sverka.plan` | `{ root?: string, entryId?: string }` | `{ planId: string, steps: number }` |
-| `sverka.graph` | `{ root?: string }` | `{ pipelines: string[], steps: number, edges: number }` |
-| `sverka.run` | `{ root?: string, entryId?: string, executor?: "host"\|"docker" }` | `{ status: "success"\|"failure"\|"cancelled", durationMs: number }` |
+| `sverka.validate` | `{ root?: string }` | `{ path: string, valid: boolean, pipelines: string[] }` |
+| `sverka.plan` | `{ root?: string, entryId?: string }` | `{ id: string, graphId: string, entry: string, steps: string[], inputs: unknown }` |
+| `sverka.graph` | `{ root?: string }` | Full DefinitionGraph object (pipelines, entries, steps, edges) |
+| `sverka.run` | `{ root?: string, entryId?: string, executor?: "host"\|"docker" }` | `{ planId: string, status: "success"\|"failure"\|"cancelled"\|"suspended", events: unknown[] }` |
 | `sverka.synth` | `{ root?: string, target: "github"\|"gitlab" }` | `{ artifacts: { path: string }[] }` |
 
 The server runs until stdin closes or SIGTERM is received. stdout is
@@ -70,7 +70,7 @@ const githubMcp = createMCPPlugin({
       transport: "stdio",
       command: "npx",
       args: ["-y", "@modelcontextprotocol/server-github"],
-      env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN! }, // Never hardcode tokens — use secret management
+      env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN ?? "" }, // Never hardcode tokens — use secret management (env vars, vault)
     },
   ],
 });
@@ -86,6 +86,10 @@ new AgentStep(pipeline, "review-pr", {
 
 Tool names are namespaced `<server>.<tool>` to avoid collisions across
 servers. Both stdio and HTTP transports are supported.
+
+> **Security:** For HTTP transport, prefer HTTPS URLs to prevent cleartext
+> credential exposure. The `http://` transport should only be used for
+> local development (e.g. `http://localhost:PORT`).
 
 ## When to use MCP vs CLI
 
