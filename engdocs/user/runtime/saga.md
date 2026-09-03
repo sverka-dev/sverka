@@ -15,7 +15,7 @@ just ordered rollback of completed work.
 ## Declaring a compensation
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");

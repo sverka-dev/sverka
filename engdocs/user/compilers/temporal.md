@@ -11,7 +11,7 @@ workflow handlers.
 ## Usage
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import { compileTemporal } from "@sverka/compiler";
 

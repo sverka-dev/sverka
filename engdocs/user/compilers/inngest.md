@@ -11,14 +11,14 @@ step sequencing. Triggers become Inngest event triggers.
 ## Usage
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import { compileInngest } from "@sverka/compiler";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");
 new ShellStep(p, "lint", { command: "npm run lint" });
-new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["lint"] });
+new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["lint"] });
 
 const graph = synthesize(proj);
 

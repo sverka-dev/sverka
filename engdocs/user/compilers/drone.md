@@ -10,7 +10,7 @@ steps → commands. Gitness (Harness OSS) uses the same Drone YAML format.
 ## Usage
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import { compileDrone } from "@sverka/compiler";
 
