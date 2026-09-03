@@ -171,8 +171,33 @@ class NativeEngine implements Engine {
     start: number,
     abort: AbortController,
   ): AsyncGenerator<RunEvent, void, void> {
-    // Set currentRun before run-started so query() works during that event
-    this.setCurrentRun({ runId, planId: request.plan.id, startedAt: start, ctx: null, status: "running" });
+    // Initialize currentRun before run-started so query() is available
+    // to consumers as soon as they receive the event.
+    const preliminaryCtx: RunContext = {
+      request,
+      runId,
+      start,
+      abort,
+      plan: request.plan,
+      drivers: request.drivers ?? this.config.drivers,
+      agentDrivers: request.agentDrivers ?? this.config.agentDrivers ?? [],
+      maxConcurrent: request.maxConcurrent ?? this.config.maxConcurrent ?? 4,
+      order: [],
+      stepMap: new Map(),
+      dependents: new Map(),
+      indegree: new Map(),
+      states: new Map(),
+      valueStore: createValueStore(),
+      artifactStore: createArtifactStore(request.artifactDir),
+      secrets: {},
+      cache: request.cache ?? this.config.cache,
+      eventQueue: [],
+      readyQueue: [],
+      hasFailure: false,
+      stepDurations: new Map(),
+      emit: () => undefined,
+    };
+    this.currentRun = { runId, planId: request.plan.id, startedAt: start, ctx: preliminaryCtx, status: "running" };
 
     yield { type: "run-started", runId, planId: request.plan.id };
 

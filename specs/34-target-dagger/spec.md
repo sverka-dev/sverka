@@ -10,9 +10,10 @@
 
 Compile a DefinitionGraph to a Dagger Module TypeScript file. Each step
 becomes a `Container.withExec()` call. Step dependencies become
-`Directory` chaining (output of one step feeds the next). The user runs
-the generated module with `dagger call`. Gets free content-addressed
-caching and hermeticity from Dagger.
+`Container` chaining (steps share a mounted `/src` directory, so build
+output persists for the next step). The user runs the generated module
+with `dagger call`. Gets free content-addressed caching and hermeticity
+from Dagger.
 
 ## Goals
 
@@ -20,8 +21,8 @@ caching and hermeticity from Dagger.
   no network, deterministic output.
 - Emit one file: `<name>.ts` (Dagger module with `@object`/`@func`
   decorators, one function per entry).
-- Map shell operations → `Container.withExec([command])`.
-- Map step dependencies → `Directory` piping (build output → test input).
+- Map shell operations → `Container.withExec(["sh", "-c", command])` (shell semantics preserved).
+- Map step dependencies → `Container` chaining (shared `/src` mount).
 - Map artifacts → `Directory.export()`.
 - Map scalar outputs → `container.stdout()`.
 - Capability manifest declaring native/lowered/emulated/unsupported.
@@ -68,12 +69,16 @@ import { dag, object, func } from "@dagger.io/dagger";
 @object()
 export class SverkaPipeline {
   @func()
-  async <entryId>(): Promise<string> {
-    let ctx = dag.git(".").tree();
+  async entrypoint(): Promise<string> {
+    // Base image defaults to the first step's runtime.image, or "node:24".
+    // Use a Bun-capable image (e.g. "oven/bun:1") if steps invoke bun.
+    let ctx = dag.container().from("node:24")
+      .withMountedDirectory("/src", dag.git(".").tree())
+      .withWorkdir("/src");
     // Step: build
-    ctx = ctx.withExec(["bun", "run", "build"]);
-    // Step: test (depends on build — chains on same Directory)
-    ctx = ctx.withExec(["bun", "test"]);
+    ctx = ctx.withExec(["sh", "-c", "npm run build"]);
+    // Step: test (depends on build — chains on same Container)
+    ctx = ctx.withExec(["sh", "-c", "npm test"]);
     return ctx.stdout();
   }
 }
@@ -83,9 +88,9 @@ export class SverkaPipeline {
 
 | Sverka | Dagger |
 |---|---|
-| Shell operation | `Container.withExec([cmd, ...args])` |
-| Dependency (control) | Chain on same `Directory` |
-| Dependency (artifact) | `Directory` pipe: `step1.dir().pipe(step2.dir)` |
+| Shell operation | `Container.withExec(["sh", "-c", command])` |
+| Dependency (control) | Chain on same `Container` |
+| Dependency (artifact) | Shared mount on same `Container` (build output persists in `/src`) |
 | Condition | `if`/`else` in generated function |
 | Matrix | `for` loop with parallel `withExec` calls |
 | RetryPolicy | TypeScript retry wrapper around `withExec` |
@@ -130,8 +135,8 @@ const daggerCapabilities: CapabilityManifest = {
 
 1. Empty graph → `INVALID_GRAPH` error.
 2. Single-step graph → module with one `withExec` call.
-3. Two-step graph with dependency → chained `withExec` on same Directory.
-4. Diamond dependency → correct Directory piping.
+3. Two-step graph with dependency → chained `withExec` on same Container (shared `/src` mount).
+4. Diamond dependency → correct Container chaining (shared `/src` mount persists).
 5. Artifact output → `Directory.export()` in generated code.
 6. Scalar output → `container.stdout()` in generated code.
 7. Host runtime → unsupported diagnostic.

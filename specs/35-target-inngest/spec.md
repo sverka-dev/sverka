@@ -27,7 +27,7 @@ triggers. The user deploys the generated function to their Inngest app.
 
 ## Non-goals
 
-- Executing the function (no `@inngest/agent-kit` dep — ADR-016).
+- Executing the function (no `inngest` dep — ADR-016).
 - Step implementation (step.run stubs call `sverka run --step`).
 - Queue configuration (user configures their own Inngest queues).
 - Matrix expansion (generate parallel `step.run` calls; no Inngest-native
@@ -63,9 +63,11 @@ No new types exported beyond `InngestTargetConfig`.
 
 ```typescript
 // <name>.ts
-import { createFunction } from "@inngest/agent-kit";
+import { Inngest } from "inngest";
 
-export const <entryId> = createFunction(
+const inngest = new Inngest({ id: "<app-id>" });
+
+export const <entryId> = inngest.createFunction(
   { id: "<entryId>", name: "<pipeline-id>", retries: 3 },
   { event: "sverka/<entryId>" },  // or { cron: "0 * * * *" } for schedule
   async ({ step }) => {
