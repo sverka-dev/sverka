@@ -79,7 +79,7 @@ sverka.step("deploy")
 import { createEngine, createInMemorySnapshotStore } from "@sverka/runtime";
 
 const store = createInMemorySnapshotStore();
-const engine = createEngine({});
+const engine = createEngine({ drivers: [] });
 
 // Start the run — it will suspend at the await-approval step
 const iter = engine.run({ plan, snapshotStore: store, workspace: "./ws" });

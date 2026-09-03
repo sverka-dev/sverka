@@ -25,10 +25,10 @@ Starts an MCP server over stdio. The server exposes 5 tools:
 
 | Tool | Input | Output |
 |------|-------|--------|
-| `sverka.validate` | `{ root?: string }` | `{ path: string, valid: boolean, pipelines: string[] }` |
-| `sverka.plan` | `{ root?: string, entryId?: string }` | `{ id: string, graphId: string, entry: string, steps: string[], inputs: unknown }` |
+| `sverka.validate` | `{ root?: string }` | `{ path: string, valid: boolean, pipelines: number }` |
+| `sverka.plan` | `{ root?: string, entryId?: string }` | `{ id: string, graphId: string, entry: { id: string, trigger: object }, steps: string[], inputs: unknown }` |
 | `sverka.graph` | `{ root?: string }` | Full DefinitionGraph object (pipelines, entries, steps, edges) |
-| `sverka.run` | `{ root?: string, entryId?: string, executor?: "host"\|"docker" }` | `{ planId: string, status: "success"\|"failure"\|"cancelled"\|"suspended", events: unknown[] }` |
+| `sverka.run` | `{ root?: string, entryId?: string, executor?: "host"\|"docker" }` | `{ planId: string, status: "success"\|"failure"\|"cancelled"\|"suspended", events: number }` |
 | `sverka.synth` | `{ root?: string, target: "github"\|"gitlab" }` | `{ artifacts: { path: string }[] }` |
 
 The server runs until stdin closes or SIGTERM is received. stdout is

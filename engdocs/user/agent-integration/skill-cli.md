@@ -52,7 +52,7 @@ This is the flagship use case. The agent declares the pipeline once in
 
 | Aspect | Without Sverka | With Sverka |
 |--------|----------------|-------------|
-| Agent action | Write YAML by hand: jobs, needs, runs-on, checkout, cache, artifact upload, matrix, triggers — 100+ lines of YAML | `sverka synth --target github` |
+| Agent action | Write YAML by hand: jobs, needs, runs-on, checkout, cache, artifact upload, matrix, triggers — 100+ lines of YAML | `sverka synth --target github` (stub — not yet implemented; use `@sverka/compiler` library for programmatic compilation) |
 | Tokens (target) | ~8000 (YAML generation + syntax verification) | ~30 (one command + YAML output) |
 
 ### 5. "Validate my workflow before committing"
@@ -66,7 +66,7 @@ This is the flagship use case. The agent declares the pipeline once in
 
 | Aspect | Without Sverka | With Sverka |
 |--------|----------------|-------------|
-| Agent action | Run build, run test, run lint, check exit codes, decide pass/fail, report | `sverka run --format json && sverka policy --findings findings.json --format json` |
+| Agent action | Run build, run test, run lint, check exit codes, decide pass/fail, report | `sverka run --format json` (exit code + status); `sverka check --format json` then `sverka policy --findings findings.json --format json` for policy gates |
 | Tokens (target) | ~2000 (3 tool calls + decision logic + reporting) | ~50 (run + policy evaluation) |
 
 ## CLI command reference (AI agent perspective)

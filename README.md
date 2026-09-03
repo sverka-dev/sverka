@@ -73,7 +73,7 @@ new ShellStep(p, "build", { command: "npm run build" });
 new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
-> **Planned:** an SDK builder API (`$`, `shell`, `artifact`, `when`) is
+> **Planned:** an SDK builder API (`$`, `shell`, `agent`, `artifact`, `when`) is
 > designed but not yet shipped.
 
 ## Features
