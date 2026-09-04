@@ -1,0 +1,60 @@
+name: Publish
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+
+      - run: bun install --frozen-lockfile --ignore-scripts
+
+      - run: bun run build
+
+      - run: bun run test
+        env:
+          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
+
+      # Replace workspace:* with actual version ranges for npm publish
+      - run: node scripts/prepare-publish.mjs
+
+      - uses: actions/setup-node@1d0ff4e366a57e1b1a0d624fe80a78b0b246e58c # v4.1.0
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish packages
+        run: |
+          for pkg in packages/*/package.json; do
+            dir=$(dirname "$pkg")
+            if [ -f "$dir/dist/index.mjs" ]; then
+              echo "Publishing $(jq -r .name "$pkg")@$(jq -r .version "$pkg")"
+              npm publish "$dir" --access public --provenance
+            fi
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Restore workspace:* protocol for local development
+      - run: git checkout -- packages/*/package.json
+        if: always()
