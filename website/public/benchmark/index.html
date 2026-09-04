@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sverka Benchmark — Raw Shell vs Sverka CLI</title>
+  <meta name="description" content="Two-agent benchmark: raw shell vs Sverka CLI+skill comparison dashboard." />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --green: #3fb950;
+      --green-bg: rgba(63, 185, 80, 0.1);
+      --red: #f85149;
+      --red-bg: rgba(248, 81, 73, 0.1);
+      --accent: #58a6ff;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem; }
+    .header-meta {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .header-meta span { display: flex; gap: 0.4rem; }
+    .header-meta strong { color: var(--text); }
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .summary-card h3 {
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .summary-card.sverka h3 { color: var(--green); }
+    .summary-card.raw-shell h3 { color: var(--text-muted); }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    .summary-grid .label { color: var(--text-muted); }
+    .summary-grid .value { text-align: right; }
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      padding: 0.6rem 0.75rem;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+    }
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+    }
+    th.task, td.task { text-align: left; font-family: var(--font-sans); }
+    th.section-header {
+      text-align: center;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.3rem;
+    }
+    th.section-header.raw { color: var(--text-muted); }
+    th.section-header.sverka { color: var(--green); }
+    th.section-header.delta { color: var(--accent); }
+    .delta-good { color: var(--green); background: var(--green-bg); }
+    .delta-bad { color: var(--red); background: var(--red-bg); }
+    .success-yes { color: var(--green); }
+    .success-no { color: var(--red); }
+    .loading { color: var(--text-muted); text-align: center; padding: 3rem; }
+    .error {
+      color: var(--red);
+      background: var(--red-bg);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    @media (max-width: 768px) {
+      .summary { grid-template-columns: 1fr; }
+      body { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Sverka Benchmark</h1>
+  <p class="subtitle">Raw Shell Agent vs Sverka CLI Agent — two-agent comparison</p>
+
+  <div class="header-meta" id="header-meta">
+    <span>Loading...</span>
+  </div>
+
+  <div id="error"></div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="table-wrap">
+    <table id="results-table">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <p>Sverka Benchmark Arena — <a href="https://github.com/sverka-dev/sverka">GitHub</a></p>
+  </footer>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /** Format milliseconds as seconds with 1 decimal. */
+      function fmtTime(ms) {
+        return (ms / 1000).toFixed(1) + "s";
+      }
+
+      /** Format a number with thousands separators. */
+      function fmtNum(n) {
+        return typeof n === "number" ? n.toLocaleString() : String(n);
+      }
+
+      /** Compute delta (sverka - raw) and determine if sverka is better.
+       *  For tokens/tools/time: lower is better. For success: higher is better.
+       */
+      function delta(rawVal, sverkaVal, lowerIsBetter) {
+        var d = sverkaVal - rawVal;
+        var sverkaBetter = lowerIsBetter ? d < 0 : d > 0;
+        return { value: d, better: sverkaBetter };
+      }
+
+      /** Render the header meta (model + timestamp). */
+      function renderHeader(result) {
+        var el = document.getElementById("header-meta");
+        el.innerHTML = "";
+        var modelSpan = document.createElement("span");
+        modelSpan.innerHTML = "Model: <strong>" + escapeHtml(result.model) + "</strong>";
+        var timeSpan = document.createElement("span");
+        timeSpan.innerHTML = "Run: <strong>" + escapeHtml(result.timestamp) + "</strong>";
+        el.appendChild(modelSpan);
+        el.appendChild(timeSpan);
+      }
+
+      /** Render the summary cards. */
+      function renderSummary(result) {
+        var container = document.getElementById("summary");
+        container.innerHTML = "";
+
+        var raw = result.summary["raw-shell"];
+        var sverka = result.summary.sverka;
+
+        var rawCard = createSummaryCard("raw-shell", "Raw Shell Agent", raw);
+        var sverkaCard = createSummaryCard("sverka", "Sverka CLI Agent", sverka);
+        container.appendChild(rawCard);
+        container.appendChild(sverkaCard);
+      }
+
+      function createSummaryCard(type, title, agg) {
+        var card = document.createElement("div");
+        card.className = "summary-card " + type;
+        var h3 = document.createElement("h3");
+        h3.textContent = title;
+        card.appendChild(h3);
+
+        var grid = document.createElement("div");
+        grid.className = "summary-grid";
+        var rows = [
+          ["Success", agg.successCount + "/" + agg.totalTasks],
+          ["Avg tokens", fmtNum(agg.avgTotalTokens)],
+          ["Avg input", fmtNum(agg.avgInputTokens)],
+          ["Avg output", fmtNum(agg.avgOutputTokens)],
+          ["Avg tool calls", fmtNum(agg.avgToolCalls)],
+          ["Avg time", fmtTime(agg.avgExecutionTimeMs)],
+        ];
+        for (var _i = 0; _i < rows.length; _i++) {
+          var label = document.createElement("div");
+          label.className = "label";
+          label.textContent = rows[_i][0];
+          var value = document.createElement("div");
+          value.className = "value";
+          value.textContent = rows[_i][1];
+          grid.appendChild(label);
+          grid.appendChild(value);
+        }
+        card.appendChild(grid);
+        return card;
+      }
+
+      /** Render the comparison table. */
+      function renderTable(result) {
+        var thead = document.querySelector("#results-table thead");
+        var tbody = document.querySelector("#results-table tbody");
+        thead.innerHTML = "";
+        tbody.innerHTML = "";
+
+        // Header
+        var headerRow = document.createElement("tr");
+        headerRow.appendChild(makeTh("Task", "task"));
+        headerRow.appendChild(makeTh("Raw Shell", "section-header raw"));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("Sverka CLI", "section-header sverka"));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("Delta", "section-header delta"));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("", ""));
+        thead.appendChild(headerRow);
+
+        var subRow = document.createElement("tr");
+        subRow.appendChild(makeTh("", ""));
+        var subHeaders = ["Tokens", "Tools", "Time", "OK"];
+        for (var i = 0; i < subHeaders.length; i++) {
+          subRow.appendChild(makeTh(subHeaders[i], ""));
+        }
+        subRow.appendChild(makeTh("", ""));
+        for (var j = 0; j < subHeaders.length; j++) {
+          subRow.appendChild(makeTh(subHeaders[j], ""));
+        }
+        for (var k = 0; k < subHeaders.length; k++) {
+          subRow.appendChild(makeTh(k === 0 ? "Tokens" : k === 1 ? "Tools" : k === 2 ? "Time" : "OK", ""));
+        }
+        thead.appendChild(subRow);
+
+        // Group results by task
+        var taskIds = [];
+        var byTask = {};
+        for (var _i2 = 0; _i2 < result.results.length; _i2++) {
+          var r = result.results[_i2];
+          if (!byTask[r.taskId]) {
+            byTask[r.taskId] = {};
+            taskIds.push(r.taskId);
+          }
+          byTask[r.taskId][r.agentType] = r;
+        }
+
+        for (var _i3 = 0; _i3 < taskIds.length; _i3++) {
+          var taskId = taskIds[_i3];
+          var taskData = byTask[taskId];
+          var rawR = taskData["raw-shell"];
+          var sverkaR = taskData.sverka;
+          var row = document.createElement("tr");
+
+          row.appendChild(makeTd(taskId, "task"));
+
+          // Raw shell columns
+          if (rawR) {
+            row.appendChild(makeTd(fmtNum(rawR.metrics.totalTokens)));
+            row.appendChild(makeTd(fmtNum(rawR.metrics.toolCallCount)));
+            row.appendChild(makeTd(fmtTime(rawR.metrics.executionTimeMs)));
+            row.appendChild(makeTd(rawR.success ? "✓" : "✗", rawR.success ? "success-yes" : "success-no"));
+          } else {
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+          }
+
+          // Sverka columns
+          if (sverkaR) {
+            row.appendChild(makeTd(fmtNum(sverkaR.metrics.totalTokens)));
+            row.appendChild(makeTd(fmtNum(sverkaR.metrics.toolCallCount)));
+            row.appendChild(makeTd(fmtTime(sverkaR.metrics.executionTimeMs)));
+            row.appendChild(makeTd(sverkaR.success ? "✓" : "✗", sverkaR.success ? "success-yes" : "success-no"));
+          } else {
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+          }
+
+          // Delta columns
+          if (rawR && sverkaR) {
+            var dTokens = delta(rawR.metrics.totalTokens, sverkaR.metrics.totalTokens, true);
+            var dTools = delta(rawR.metrics.toolCallCount, sverkaR.metrics.toolCallCount, true);
+            var dTime = delta(rawR.metrics.executionTimeMs, sverkaR.metrics.executionTimeMs, true);
+            var dSuccess = delta(rawR.success ? 1 : 0, sverkaR.success ? 1 : 0, false);
+
+            row.appendChild(makeDeltaTd(dTokens));
+            row.appendChild(makeDeltaTd(dTools));
+            row.appendChild(makeDeltaTd(dTime));
+            row.appendChild(makeDeltaTd(dSuccess));
+          } else {
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+            row.appendChild(makeTd("—"));
+          }
+
+          tbody.appendChild(row);
+        }
+      }
+
+      function makeTd(text, className) {
+        var td = document.createElement("td");
+        td.textContent = text;
+        if (className) td.className = className;
+        return td;
+      }
+
+      function makeTh(text, className) {
+        var th = document.createElement("th");
+        th.textContent = text;
+        if (className) th.className = className;
+        return th;
+      }
+
+      function makeDeltaTd(d) {
+        var td = document.createElement("td");
+        var sign = d.value > 0 ? "+" : "";
+        td.textContent = sign + fmtNum(d.value);
+        td.className = d.better ? "delta-good" : "delta-bad";
+        return td;
+      }
+
+      function escapeHtml(str) {
+        var div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function showError(msg) {
+        var el = document.getElementById("error");
+        el.innerHTML = '<div class="error">' + escapeHtml(msg) + "</div>";
+      }
+
+      /** Main: load data and render. */
+      async function main() {
+        var params = new URLSearchParams(window.location.search);
+        var dataUrl = params.get("data") || "sample-result.json";
+
+        try {
+          var resp = await fetch(dataUrl);
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          var result = await resp.json();
+
+          renderHeader(result);
+          renderSummary(result);
+          renderTable(result);
+        } catch (err) {
+          showError("Failed to load benchmark data: " + (err.message || err));
+        }
+      }
+
+      main();
+    })();
+  </script>
+</body>
+</html>

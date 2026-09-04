@@ -1,6 +1,6 @@
 ---
 name: sverka
-description: Use when the user wants to run sverka CLI commands or author Sverka workflows. Trigger on "sverka", "sverka plan", "sverka run", "sverka validate", "sverka graph", "sverka discover", "sverka check", "sverka policy", "sverka synth", "sverka doctor", "sverka config", "define workflow", "pipeline", "shell proxy", "fromClass", "compile to GitHub Actions", "compile to GitLab CI", "build lint test", "run checks", "verify project".
+description: Use when the user wants to run sverka CLI commands or author Sverka workflows. Trigger on "sverka", "sverka plan", "sverka run", "sverka validate", "sverka graph", "sverka discover", "sverka check", "sverka policy", "sverka synth", "sverka compile", "sverka doctor", "sverka config", "define workflow", "pipeline", "shell proxy", "fromClass", "compile to GitHub Actions", "compile to GitLab CI", "build lint test", "run checks", "verify project".
 ---
 
 # Sverka
@@ -167,7 +167,8 @@ shell("bash").git`push origin main`  // forces bash interpreter
 | `sverka discover` | Detect project context |
 | `sverka check` | Resolve checks to commands |
 | `sverka policy --findings <file>` | Evaluate policy against findings |
-| `sverka synth --target github\|gitlab` | Compile to CI YAML |
+| `sverka compile --target github\|gitlab` | Compile to CI YAML |
+| `sverka synth --target github\|gitlab` | Alias for `compile` |
 | `sverka doctor` | Diagnose environment |
 
 Global flags: `--config/-c`, `--root/-r`, `--format/-f` (human\|json), `--quiet/-q`, `--verbose/-v`
