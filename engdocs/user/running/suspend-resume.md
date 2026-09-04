@@ -81,8 +81,12 @@ import { createEngine, createInMemorySnapshotStore } from "@sverka/runtime";
 const store = createInMemorySnapshotStore();
 const engine = createEngine({ drivers: [] });
 
+// `plan` is a RunPlan — obtain it by binding a DefinitionGraph.
+// See the Workflow API docs for full details.
+// const plan = bindRunPlan({ graph, entryId: "deploy/on-push" });
+
 // Start the run — it will suspend at the await-approval step
-const iter = engine.run({ plan, snapshotStore: store, workspace: "./ws" });
+const iter = engine.run({ plan, snapshotStore: store, workspace: "./ws", artifactDir: "./art" });
 for await (const event of iter) {
   if (event.type === "run-suspended") {
     console.log("Run suspended, waiting for resume...");
@@ -94,6 +98,8 @@ const resumeIter = engine.resume({
   runId: "run-123",
   data: JSON.stringify({ approved: "true", approver: "alice" }),
   snapshotStore: store,
+  workspace: "./ws",
+  artifactDir: "./art",
 });
 for await (const event of resumeIter) {
   console.log(event.type);

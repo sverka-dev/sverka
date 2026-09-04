@@ -85,7 +85,8 @@ This is the flagship use case. The agent declares the pipeline once in
 | `sverka doctor` | Diagnose environment |
 | `sverka mcp-server` | Start MCP server (see [MCP](./mcp.md)) |
 
-All commands accept `--format json` for structured output. All commands
+All commands accept `--format json` for structured output (except
+`mcp-server`, which uses MCP JSON-RPC over stdio). All commands
 accept `--verbose` for debug output to stderr.
 
 ## Integration surfaces

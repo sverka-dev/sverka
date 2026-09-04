@@ -2,7 +2,7 @@
 
 # Sverka
 
-### AI-friendly workflow runtime. Define in TypeScript. Run locally. Compile anywhere.
+## AI-friendly workflow runtime. Define in TypeScript. Run locally. Compile anywhere.
 
 A portable workflow runtime — code-defined workflows with local execution
 and optional multi-target compilation. Author workflows in TypeScript, run

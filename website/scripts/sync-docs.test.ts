@@ -68,6 +68,17 @@ describe("sync-docs", () => {
     // CI compatibility matrix is nested under Reference, not a top-level section
     expect(sidebar).toContain('"label": "CI Compatibility Matrix"');
     expect(sidebar.indexOf('"label": "Reference"')).toBeLessThan(sidebar.indexOf('"label": "CI Compatibility Matrix"'));
+    // Parse the sidebar and assert CI Compatibility Matrix is inside Reference's items
+    const sidebarContent = sidebar.replace(/^export const sidebar =\s*/, "").trim().replace(/;$/, "");
+    const parsed = JSON.parse(sidebarContent);
+    const userDocGroup = parsed.find((entry: { label?: string }) => entry.label === "User documentation");
+    expect(userDocGroup).toBeDefined();
+    const userDocItems = userDocGroup.items ?? [];
+    const refGroup = userDocItems.find((entry: { label?: string }) => entry.label === "Reference");
+    expect(refGroup).toBeDefined();
+    const refItems = refGroup.items ?? [];
+    const ciMatrix = refItems.find((entry: { label?: string }) => entry.label === "CI Compatibility Matrix");
+    expect(ciMatrix).toBeDefined();
     expect(sidebar).not.toContain('"label": "Feature matrix"');
     // No duplicate: features overview comes from autogenerate only
     expect(sidebar.match(/"slug": "features"/g)).toBeNull();
