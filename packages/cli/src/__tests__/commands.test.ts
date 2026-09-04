@@ -65,7 +65,7 @@ describe("graph command", () => {
   });
 });
 
-describe("synth command (stub)", () => {
+describe("compile command", () => {
   let dir: string;
 
   beforeEach(async () => {
@@ -76,25 +76,83 @@ describe("synth command (stub)", () => {
     await cleanupTempDir(dir);
   });
 
-  it("exits 2 with stub message for github", async () => {
+  it("compiles to github YAML", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(["compile", "--target", "github", "--root", dir], { output: out });
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("on:");
+    expect(out.stdoutText).toContain("jobs:");
+  });
+
+  it("compiles to gitlab YAML", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(["compile", "--target", "gitlab", "--root", dir], { output: out });
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("stages:");
+  });
+
+  it("prints JSON format", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(["compile", "--target", "github", "--root", dir, "--format", "json"], { output: out });
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out.stdoutText.trim());
+    expect(parsed.command).toBe("compile");
+    expect(parsed.data.target).toBe("github");
+    expect(typeof parsed.data.yaml).toBe("string");
+  });
+
+  it("writes to --output file", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(["compile", "--target", "github", "--root", dir, "--output", "workflow.yml"], { output: out });
+    expect(code).toBe(0);
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(`${dir}/workflow.yml`, "utf8");
+    expect(content).toContain("on:");
+    expect(content).toContain("jobs:");
+  });
+
+  it("exits 2 when no config found", async () => {
+    const out = new CaptureWriter();
+    const code = await main(["compile", "--target", "github", "--root", dir], { output: out });
+    expect(code).toBe(2);
+  });
+
+  it("exits 2 for invalid target", async () => {
+    const out = new CaptureWriter();
+    const code = await main(["compile", "--target", "bad", "--root", dir], { output: out });
+    expect(code).toBe(2);
+  });
+});
+
+describe("synth command (delegates to compile)", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await makeTempDir();
+  });
+
+  afterEach(async () => {
+    await cleanupTempDir(dir);
+  });
+
+  it("delegates to compile for github", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
     const code = await main(["synth", "--target", "github", "--root", dir], { output: out });
-    expect(code).toBe(2);
-    expect(out.stderrText).toContain("not yet implemented");
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("on:");
   });
 
-  it("exits 2 with stub message for gitlab", async () => {
+  it("delegates to compile for gitlab", async () => {
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
     const code = await main(["synth", "--target", "gitlab", "--root", dir], { output: out });
-    expect(code).toBe(2);
-  });
-
-  it("prints JSON format before erroring", async () => {
-    const out = new CaptureWriter();
-    const code = await main(["synth", "--target", "github", "--root", dir, "--format", "json"], { output: out });
-    expect(code).toBe(2);
-    const parsed = JSON.parse(out.stdoutText.trim());
-    expect(parsed.data.implemented).toBe(false);
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("stages:");
   });
 });
 
