@@ -1,6 +1,6 @@
 ---
 title: Sverka
-description: Code-first TypeScript pipeline engine. Run locally. Compile to CI.
+description: AI-friendly workflow runtime. Define workflows in TypeScript, run locally, compile anywhere.
 editUrl: https://github.com/sverka-dev/sverka/edit/main/website/src/content/docs/index.mdx
 sidebar:
   label: Home
@@ -9,14 +9,14 @@ banner:
   content: "⚠️ Work in progress — pre-alpha. APIs may change. Not ready for production use."
 hero:
   title: Sverka
-  tagline: Code-first TypeScript pipeline engine. Run locally. Compile to CI.
+  tagline: AI-friendly workflow runtime. Define in TypeScript. Run locally. Compile anywhere.
   actions:
     - text: Get started
       link: user/getting-started/install/
       icon: right-arrow
       variant: primary
-    - text: AI use cases
-      link: user/ai-use-cases/
+    - text: Agent integration
+      link: user/agent-integration/skill-cli/
       icon: list-format
       variant: secondary
     - text: View on GitHub
@@ -28,73 +28,69 @@ hero:
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
 > **⚠️ Work in progress — pre-alpha.** Sverka is under active development and
-> not ready for production use. APIs may change without notice. The compiler
-> packages currently emit thin-wrapper CI YAML; native lowering is planned.
+> not ready for production use. APIs may change without notice.
 
-Sverka is a code-first TypeScript pipeline engine. Author workflows in
-code — not YAML, not config files, not prompts. Execute them locally
-through a native engine. Compile the same Plan to GitHub Actions
-or GitLab CI YAML.
+Sverka is a portable workflow runtime. Define workflows as TypeScript code,
+execute them locally through a native engine, and compile the same definition
+to GitHub Actions, GitLab CI, Temporal, Dagger, or Inngest. No external
+infrastructure required — the runtime is a single process.
 
-AI agents leverage Sverka through skills and CLI. An agent says `sverka run
---entry ci --format json` — Sverka builds the pipeline, runs everything
-locally, and returns structured findings. The agent spends ~50 tokens, not
-~5000 (estimates vary by repo, tool count, and model).
+AI agents use Sverka through a skill or the CLI. One command replaces
+dozens of tool-call round-trips: `sverka run --entry ci --format json`
+builds the pipeline, runs everything, returns structured findings. The
+agent delegates orchestration; Sverka handles execution.
 
 ## What you get
 
 <CardGrid stagger>
-  <Card title="Code-first" icon="seti:typescript">
-    Author pipelines in TypeScript. Construct, SDK, and Decorator APIs all
-    produce the same Definition Graph. Not YAML, not config files, not
-    prompts.
+  <Card title="Run locally" icon="rocket">
+    Native engine with topological scheduling, parallel steps, artifact
+    transfer, suspend/resume, and saga compensations. Host or Docker
+    runtime. No cloud, no remote API calls, no Temporal server.
   </Card>
-  <Card title="Pipeline engine" icon="rocket">
-    Executes pipelines locally with topological scheduling, parallel steps,
-    artifact and scalar transfer. Host or Docker runtime. No cloud, no
-    remote API calls.
+  <Card title="Agent-friendly" icon="seti:settings">
+    Skill + CLI with structured JSON on every command. Agents delegate
+    workflow orchestration to Sverka instead of running tools one by one.
+    Optional MCP server exposes Sverka as tools for any MCP-compatible
+    client.
   </Card>
-  <Card title="AI-friendly" icon="seti:settings">
-    Localhost + CLI + structured JSON. Agents delegate orchestration to
-    Sverka, saving tokens. `--format json` on every command. One command
-    replaces 6+ tool-call round-trips.
-  </Card>
-  <Card title="Two authoring surfaces" icon="approve-check">
-    Construct API (CDK-style) and Decorator syntax (`@step`, `@pipeline`,
-    `@entry`). Both produce the same graph. SDK builder API planned.
-  </Card>
-  <Card title="CLI" icon="forward-slash">
-    `sverka plan`, `run`, `check`, `compile`, `validate`, `discover`,
-    `policy`, `graph`, `doctor`. One tool, full pipeline.
-  </Card>
-  <Card title="Compile to CI" icon="seti:yaml">
-    Same Plan compiles to GitHub Actions or GitLab CI YAML. Thin-wrapper
-    mode today (runs `sverka execute`); native one-job-per-step lowering
-    planned.
+  <Card title="Compile anywhere" icon="seti:yaml">
+    Same workflow definition compiles to GitHub Actions, GitLab CI,
+    Temporal, Dagger, Inngest, or Drone. Interoperability without lock-in
+    — you define once, the compiler lowers to each target.
   </Card>
 </CardGrid>
 
 ## How it works
 
+```ts
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+
+const proj = new Project("ci");
+const p = new Pipeline(proj, "ci");
+
+new ShellStep(p, "lint", { command: "bun run lint" });
+new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint"] });
+new ShellStep(p, "test", { command: "bun run test", dependsOn: ["build"] });
+
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+
+export default proj;
+```
+
 ```text
 author → plan → run → compile
 ```
 
-1. **Author** — Define your pipeline in `sverka.config.ts` using the Construct
-   or Decorator API. Steps, dependencies, artifacts, triggers.
-2. **Plan** — `sverka plan` binds the Definition Graph to a Run Plan. Resolves
-   reachable steps from entry roots.
-3. **Run** — `sverka run` executes the Run Plan through the native engine.
-   Local, parallel, with artifact and scalar transfer between steps.
-4. **Compile** — `sverka compile --target github` compiles the Plan to
-   GitHub Actions YAML. Or `--target gitlab` for GitLab CI.
+1. **Author** — Define your workflow in TypeScript using the Construct API.
+2. **Plan** — `sverka plan` binds the Definition Graph to a Run Plan.
+3. **Run** — `sverka run` executes locally through the native engine.
+4. **Compile** — `sverka compile --target github` lowers to CI YAML.
 
 ## Start here
 
-- [Install Sverka](user/getting-started/install/) and set up your first workflow.
-- [Define your first plan](user/getting-started/first-plan/) — author, plan, run, compile.
-- [AI use case matrix](user/ai-use-cases/) — every command from an agent's perspective.
-- [Explore the Workflow API](user/workflow-api/overview/) — Construct and Decorator surfaces.
-- [Read the CLI reference](user/cli/overview/) for all commands and flags.
-- [Feature matrix](features/) — all 49 GitHub Actions and GitLab CI capabilities mapped to Sverka.
-- [Browse the full user guide](user/) for all topics.
+- [Install Sverka](user/getting-started/install/) — prerequisites and setup.
+- [First workflow](user/getting-started/first-plan/) — author, plan, run, compile.
+- [Agent integration](user/agent-integration/skill-cli/) — skill + CLI for AI agents.
+- [Workflow API](user/workflows/overview/) — Construct API reference.
+- [CLI reference](user/running/cli/) — all commands and flags.

@@ -409,32 +409,34 @@ async function writeSidebarConfig(entries: FileEntry[]) {
     return a.localeCompare(b);
   });
 
+  const hasFeatures = entries.some((e) => e.route.startsWith("features/"));
+  const featureItems: unknown[] = [];
+  if (hasFeatures) {
+    // autogenerate includes features/index.md (the overview) — no need to
+    // add it separately, that would duplicate the page in the sidebar.
+    featureItems.push({
+      label: "CI Compatibility Matrix",
+      items: [{ autogenerate: { directory: "features", collapsed: true } }],
+    });
+  }
+
   const userItems: unknown[] = [{ slug: "user" }];
   for (const dir of sortedDirs) {
-    userItems.push({
-      label: formatLabel(dir),
-      items: [{ autogenerate: { directory: `user/${dir}`, collapsed: false } }],
-    });
+    const items: unknown[] = [{ autogenerate: { directory: `user/${dir}`, collapsed: false } }];
+    // Inject CI compatibility matrix under Reference.
+    if (dir === "reference" && hasFeatures) {
+      items.push(...featureItems);
+    }
+    userItems.push({ label: formatLabel(dir), items });
   }
   standalone.sort((a, b) => fileNameToTitle(a.srcPath).localeCompare(fileNameToTitle(b.srcPath)));
   for (const page of standalone) {
     userItems.push({ label: fileNameToTitle(page.srcPath), slug: page.slug });
   }
 
-  // Feature matrix section: auto-generate from specs/features.
-  const hasFeatures = entries.some((e) => e.route.startsWith("features/"));
-  const featureItems: unknown[] = [{ slug: "features" }];
-  if (hasFeatures) {
-    featureItems.push({
-      label: "All features",
-      items: [{ autogenerate: { directory: "features", collapsed: true } }],
-    });
-  }
-
   const sidebar = [
     { slug: "index" },
     { label: "User documentation", collapsed: false, items: userItems },
-    ...(hasFeatures ? [{ label: "Feature matrix", collapsed: true, items: featureItems }] : []),
   ];
 
   try {

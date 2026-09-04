@@ -18,7 +18,7 @@ import { compileTemporal } from "@sverka/compiler";
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");
 new ShellStep(p, "lint", { command: "npm run lint" });
-new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["lint"] });
+new Entry(p, "on-push", { trigger: { kind: "manual" }, roots: ["lint"] });
 
 const graph = synthesize(proj);
 
@@ -27,7 +27,7 @@ const result = compileTemporal(graph, {
   taskQueue: "sverka",
 });
 
-// result.artifacts: [{ path: "my-pipeline.workflow.ts", content: "..." }, { path: "my-pipeline.activities.ts", content: "..." }]
+// result.artifacts: [{ path: "ci.workflow.ts", content: "..." }, { path: "ci.activities.ts", content: "..." }]
 ```
 
 ## What gets generated

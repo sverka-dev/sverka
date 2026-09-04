@@ -30,7 +30,7 @@ new ShellStep(p, "notify", {
   dependsOn: ["deploy"],
 });
 
-new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["notify"] });
 ```
 
 ## How it works

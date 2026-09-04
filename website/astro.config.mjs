@@ -44,7 +44,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Sverka",
-      description: "Code-first TypeScript pipeline engine. Run locally. Compile to CI.",
+      description: "AI-friendly workflow runtime. Define in TypeScript. Run locally. Compile anywhere.",
       sidebar,
       favicon: "/favicon.svg",
       social: [

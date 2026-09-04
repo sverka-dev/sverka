@@ -2,19 +2,24 @@
 
 # Sverka
 
-### Code-defined workflows. Run locally. Compile to any CI.
+## AI-friendly workflow runtime. Define in TypeScript. Run locally. Compile anywhere.
 
-A portable workflow runtime — code-defined workflows with CI semantics.
-Author workflows in TypeScript, run them locally, and compile the same
-definition to GitHub Actions or GitLab CI.
+A portable workflow runtime — code-defined workflows with local execution
+and optional multi-target compilation. Author workflows in TypeScript, run
+them locally through a native engine, and compile the same definition to
+GitHub Actions, GitLab CI, Temporal, Dagger, or Inngest. No external
+infrastructure required — the runtime is a single process.
+
+AI agents use Sverka through a skill or the CLI. One command replaces
+dozens of tool-call round-trips. Optional MCP server exposes Sverka as
+tools for any MCP-compatible client.
 
 > **⚠️ Work in progress — pre-alpha.** Sverka is under active development.
-> Not ready for production use. APIs may change without notice. The compiler
-> packages currently emit thin-wrapper CI YAML (a single job that runs
-> `sverka execute`); native one-job-per-step lowering is planned. The SDK
-> builder composables (`sh`, `artifact`, `images`) are not yet shipped.
+> Not ready for production use. APIs may change without notice. The SDK
+> builder API (`$`, `shell`, `agent` tagged templates) is designed but
+> not yet shipped. Native one-job-per-step CI lowering is planned.
 
-[Website](https://sverka.dev) &middot; [Documentation](https://sverka.dev/docs) &middot; [CLI Reference](https://sverka.dev/docs/cli)
+[Website](https://sverka.dev) &middot; [Documentation](https://sverka.dev/docs) &middot; [Agent Integration](https://sverka.dev/docs/user/agent-integration/skill-cli/)
 
 </div>
 
@@ -22,13 +27,13 @@ definition to GitHub Actions or GitLab CI.
 
 ## What is Sverka?
 
-Sverka lets you define verification workflows as TypeScript code through
-the Construct API, execute them locally through a native
-engine, and compile the same Definition Graph to GitHub Actions or GitLab CI.
+Sverka lets you define workflows as TypeScript code through the Construct
+API, execute them locally through a native engine, and compile the same
+Definition Graph to GitHub Actions, GitLab CI, Temporal, Dagger, or Inngest.
 
 The canonical source of truth is the **Definition Graph** — a provider-neutral
 intermediate representation. Not GitHub Actions YAML. Not GitLab CI YAML.
-Your workflow, defined once, lowered everywhere.
+Not Temporal workflow code. Your workflow, defined once, lowered everywhere.
 
 ```ts
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
@@ -68,15 +73,21 @@ new ShellStep(p, "build", { command: "npm run build" });
 new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
-> **Planned:** an SDK builder API (`sh`, `artifact`, `when`, `images`) is
+> **Planned:** an SDK builder API (`$`, `shell`, `agent`, `artifact`, `when`) is
 > designed but not yet shipped.
 
 ## Features
 
-- **Single authoring surface** — the Construct API (SDK builder API planned)
-- **Provider-neutral Definition Graph** — no GitHub or GitLab terms in your workflow
-- **Local-first execution** — run the same graph on host or container
-- **CI compilation** — compile the Plan to GitHub Actions or GitLab CI YAML (thin-wrapper mode today; native lowering planned)
+- **Construct API** — author workflows in TypeScript (SDK builder API planned)
+- **Provider-neutral Definition Graph** — no target-specific terms in your workflow
+- **Local-first execution** — run the same graph on host or container, no external infra
+- **Multi-target compilation** — compile to GitHub Actions or GitLab CI via CLI; Temporal, Dagger, Inngest, and Drone via @sverka/compiler library
+- **Agent-friendly** — skill + CLI with `--format json` on every command
+- **MCP server** — expose Sverka as MCP tools for any MCP-compatible client
+- **MCP plugin** — workflows can call external MCP servers as tools
+- **AgentStep** — AI agent as a step type (stub driver shipped, real drivers planned)
+- **Suspend/resume** — pause runs for external input, resume with data
+- **Saga compensations** — automatic rollback of succeeded steps on failure
 - **Automatic discovery** — zero-config project detection
 - **Run Plan binding** — select entries, provide inputs, get a bound plan
 - **Serialization** — serialize and deserialize graphs for distribution
@@ -101,21 +112,22 @@ sverka graph
 sverka run
 
 # Compile to GitHub Actions
-sverka compile --target github --output .github/workflows/sverka.yml
+sverka synth --target github --output .github/workflows/sverka.yml
 
 # Compile to GitLab CI
-sverka compile --target gitlab --output .gitlab-ci.yml
+sverka synth --target gitlab --output .gitlab-ci.yml
 ```
 
-> **Note:** `sverka synth` exists as a stub but is not implemented. Use
-> `sverka compile` instead.
+> **Note:** `sverka synth` is currently a stub — target compilation is
+> not yet implemented. The `@sverka/compiler` library exposes
+> `compileGithub` and `compileGitlab` for programmatic use.
 
 ## Architecture
 
 ```text
   ┌──────────────────────────────────────────────┐
   │           Authoring Surfaces                 │
-  │  Constructs  │  SDK                         │
+  │  Constructs  │  SDK (planned)                │
   └──────────────────┬───────────────────────────┘
                      │ synthesize
   ┌──────────────────▼───────────────────────────┐
@@ -127,22 +139,29 @@ sverka compile --target gitlab --output .gitlab-ci.yml
   ┌──────▼──────────┐    ┌──────────▼──────────┐
   │   Run Plan      │    │   Target Compilers  │
   │   (local)       │    │  GitHub │ GitLab    │
-  └──────┬──────────┘    └──────────┬──────────┘
-         │ execute                  │ emit
-  ┌──────▼──────────┐    ┌──────────▼──────────┐
-  │  Native Engine  │    │   YAML Artifacts    │
-  │  Host/Container │    │  .github/workflows  │
-  └──────┬──────────┘    │  .gitlab-ci.yml     │
-         │               └─────────────────────┘
-  ┌──────▼──────────┐
-  │  Run Events     │
-  └─────────────────┘
+  └──────┬──────────┘    │  Temporal │ Dagger   │
+         │ execute       │  Inngest │ Drone    │
+  ┌──────▼──────────┐    └──────────┬──────────┘
+  │  Native Engine  │               │ emit
+  │  Host/Container │    ┌──────────▼──────────┐
+  └──────┬──────────┘    │   Target Artifacts   │
+         │               │  .github/workflows   │
+  ┌──────▼──────────┐    │  .gitlab-ci.yml      │
+  │  Run Events     │    │  *.workflow.ts       │
+  └─────────────────┘    └─────────────────────┘
          │
          │ (optional)
   ┌──────▼──────────┐
   │  Findings /     │
   │  Policy         │
   └─────────────────┘
+
+  Agent Integration:
+  ┌──────────────────────────────────────────────┐
+  │  Skill + CLI (--format json)  ←  AI agents   │
+  │  MCP server (sverka mcp-server)              │
+  │  MCP plugin (load external MCP servers)      │
+  └──────────────────────────────────────────────┘
 ```
 
 ## Packages
@@ -151,10 +170,11 @@ sverka compile --target gitlab --output .gitlab-ci.yml
 |---------|-------------|
 | `@sverka/workflow` | Workflow definition: Construct API, Definition Graph, Plan IR, validation |
 | `@sverka/runtime` | Execution runtime: scheduler, native engine, host & Docker drivers |
-| `@sverka/compiler` | Target compilation: GitHub Actions, GitLab CI, plugin system |
+| `@sverka/compiler` | Target compilation: GitHub Actions, GitLab CI, Temporal, Dagger, Inngest, Drone |
 | `@sverka/sdk` | Public TypeScript API (createSverka), planner, builder API planned |
 | `@sverka/verification` | Optional profile: findings, policy, built-in checks |
-| `@sverka/cli` | Command-line interface |
+| `@sverka/cli` | Command-line interface (includes `sverka mcp-server`) |
+| `@sverka/plugin-mcp` | MCP plugin: load external MCP servers as Sverka plugins |
 
 ## Development
 
