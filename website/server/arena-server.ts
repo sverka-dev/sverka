@@ -279,7 +279,7 @@ async function startRun(req: Request): Promise<Response> {
     args.push("--cases", caseIds.join(","));
   }
 
-  const proc = spawn("bun", ["run", "packages/arena/src/bin.ts", ...args], {
+  const proc = spawn("bun", ["run", "packages/arena/src/bin.ts", ...args], { // NOSONAR — PATH needed for bun
     cwd: process.cwd(),
     stdio: "pipe",
     env: { ...process.env },

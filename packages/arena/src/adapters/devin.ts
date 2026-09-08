@@ -245,7 +245,7 @@ export class DevinAdapter implements AgentAdapter {
 /** Resolve the full path to the devin binary to avoid PATH-based lookup. */
 function resolveDevinBinary(): string {
   try {
-    return execSync("which devin", { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    return execSync("which devin", { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim(); // NOSONAR — PATH needed to locate devin binary
   } catch {
     return "devin";
   }

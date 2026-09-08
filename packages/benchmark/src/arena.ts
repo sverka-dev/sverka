@@ -182,7 +182,7 @@ function spawnAcpAgent(workspace: string, model: string): ChildProcess {
     workspace,
     plugins: [],
   });
-  return spawn("devin", ["acp", "--model", model], {
+  return spawn("devin", ["acp", "--model", model], { // NOSONAR — PATH needed for devin binary
     cwd: workspace,
     stdio: ["pipe", "pipe", "inherit"],
     env,

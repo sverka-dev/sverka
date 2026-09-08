@@ -293,7 +293,7 @@ async function runChecks(
   for (const check of checks) {
     try {
       const { output, exitCode } = await new Promise<{ output: string; exitCode: number }>((resolve, reject) => {
-        const proc = spawn("bash", ["-c", check.command], {
+        const proc = spawn("bash", ["-c", check.command], { // NOSONAR — PATH needed for check commands
           cwd: workspace,
           stdio: ["pipe", "pipe", "pipe"],
           env: { ...process.env, CI: "true" },
