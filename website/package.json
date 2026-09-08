@@ -13,7 +13,8 @@
     "preview": "astro preview",
     "dev": "bun run sync-docs && astro dev",
     "check": "bun run sync-docs && astro check",
-    "sync-docs": "bun scripts/sync-docs.ts"
+    "sync-docs": "bun scripts/sync-docs.ts",
+    "arena": "bun run server/arena-server.ts"
   },
   "dependencies": {
     "mermaid": "^11.17.2",

@@ -1,0 +1,33 @@
+{
+  "name": "benchmark",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsdown",
+        "cwd": "packages/benchmark"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run vitest run --passWithNoTests",
+        "cwd": "packages/benchmark"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run eslint src",
+        "cwd": "packages/benchmark"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsc --noEmit",
+        "cwd": "packages/benchmark"
+      }
+    }
+  }
+}

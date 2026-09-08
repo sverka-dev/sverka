@@ -1,0 +1,204 @@
+formula = "sverka-delivery"
+version = 1
+contract = "graph.v2"
+extends = ["build-from-plan-base"]
+target_required = false
+
+description = """
+Sverka delivery wave: deliver committed functionality including the two-agent
+benchmark arena. Architect designs from the megaplan, builder implements (TDD),
+reviewer gates, mayor finalizes as stacked PR.
+
+Extends sverka-wave methodology with delivery-specific task decomposition.
+The megaplan at .agents/plans/benchmark-delivery.md defines 5 phases;
+the mayor dispatches each phase as a separate wave using this formula.
+"""
+
+[catalog]
+name = "sverka-delivery"
+description = "Execute one Sverka delivery phase: plan -> implement -> review -> finalize (stacked PR)."
+
+[metadata.gc.methodology]
+allowed_drain_policies = ["separate", "same-session"]
+implementation_strategy = "drain"
+interaction_modes = ["interactive", "autonomous", "headless"]
+review_modes = ["report", "agent", "interactive"]
+
+[vars]
+[vars.artifact_root]
+description = "Build artifact root (defaults to .gc/build)."
+default = ".gc/build"
+
+[vars.megaplan_path]
+description = "Path to the delivery megaplan."
+default = ".agents/plans/benchmark-delivery.md"
+
+[vars.phase_num]
+description = "Delivery phase number (1-5)."
+default = "1"
+
+[vars.phase_name]
+description = "Delivery phase name (cli-fixes, publishing, benchmark-arena, dashboard, docs)."
+default = "cli-fixes"
+
+[vars.branch_prefix]
+description = "Branch prefix for this phase."
+default = "feat"
+
+[vars.prev_phase_branch]
+description = "Previous phase's branch for stacked PR base. Empty means base on main."
+default = ""
+
+[vars.drain_policy]
+description = "Implementation drain policy: separate (one session per task) or same-session (shared session)."
+default = "separate"
+
+[vars.review_mode]
+description = "Review authority: report, agent, or interactive."
+default = "agent"
+
+[vars.push]
+description = "Set true to allow final publish push after all checks pass."
+default = "false"
+
+[vars.open_pr]
+description = "Set true to allow final PR creation after all checks pass."
+default = "false"
+
+# --- Step overrides ---
+
+# prepare-plan: override base gc.run-operator with mayor (validation no-op).
+[[steps]]
+id = "prepare-plan"
+title = "Mayor: validate plan inputs"
+metadata = { "gc.run_target" = "mayor" }
+description = "Validate that requirements_path and megaplan exist. No-op acknowledgment."
+
+# Plan: architect produces implementation plan from megaplan phase.
+[[steps]]
+id = "plan"
+title = "Architect: design implementation plan for delivery phase"
+needs = ["prepare-plan"]
+metadata = { "gc.run_target" = "architect" }
+description_file = "../assets/workflows/sverka-delivery/plan.md"
+
+# Plan-review: mayor acknowledges (architect is trusted in Sverka).
+[[steps]]
+id = "plan-review"
+title = "Plan review (architect self-review)"
+needs = ["plan"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Architect's plan is trusted. Mayor acknowledges and proceeds to decomposition."
+
+# Decompose: mayor creates task beads for the phase.
+[[steps]]
+id = "decompose"
+title = "Mayor: create delivery phase task beads"
+needs = ["plan-review"]
+metadata = { "gc.run_target" = "mayor" }
+description = """
+Create beads for each task in this delivery phase. Read the megaplan at
+.agents/plans/benchmark-delivery.md, find the current phase ({{phase_num}}:
+{{phase_name}}), and create one bead per task in that phase's task table.
+Use `bd create --parent=<phase-epic-id>` for each task. Set dependencies
+matching the phase's dependency graph.
+"""
+
+# prepare-decompose: override base gc.run-operator with mayor.
+[[steps]]
+id = "prepare-decompose"
+title = "Mayor: validate decompose inputs"
+needs = ["plan-review"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Validate plan artifact exists. No-op acknowledgment before decomposition."
+
+# prepare-convoy: override base gc.run-operator with mayor.
+[[steps]]
+id = "prepare-convoy"
+title = "Mayor: prepare implementation convoy"
+needs = ["decompose"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Validate decomposition artifacts. No-op acknowledgment before implementation."
+
+# Implement: builder implements via TDD, drained into separate sessions.
+[[steps]]
+id = "implement"
+title = "Builder: implement delivery phase (TDD)"
+needs = ["prepare-convoy"]
+condition = "{{drain_policy}} == separate"
+metadata = { "gc.run_target" = "builder" }
+description_file = "../assets/workflows/sverka-delivery/implement.md"
+
+[steps.drain]
+context = "separate"
+formula = "do-work"
+member_access = "exclusive"
+
+[[steps]]
+id = "implement-same-session"
+title = "Builder: implement in shared session"
+needs = ["prepare-convoy"]
+condition = "{{drain_policy}} == same-session"
+metadata = { "gc.run_target" = "builder" }
+description_file = "../assets/workflows/sverka-delivery/implement.md"
+
+[steps.drain]
+context = "shared"
+formula = "do-work-item"
+on_item_failure = "skip_remaining"
+member_access = "exclusive"
+
+[steps.drain.item]
+single_lane = true
+
+# prepare-review: override base gc.run-operator with mayor.
+[[steps]]
+id = "prepare-review"
+title = "Mayor: validate review inputs"
+needs = ["implement", "implement-same-session"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Validate implementation artifacts exist. No-op acknowledgment before review."
+
+# Review: reviewer gates quality with real exec checks.
+[[steps]]
+id = "review"
+title = "Reviewer: gate quality"
+needs = ["prepare-review"]
+metadata = { "gc.run_target" = "reviewer" }
+description_file = "../assets/workflows/sverka-delivery/review.md"
+
+[steps.check]
+max_attempts = 3
+
+[steps.check.check]
+mode = "exec"
+path = "assets/scripts/checks/sverka-gates.sh"
+timeout = "10m"
+
+# repair-review: override base gc.run-operator with mayor.
+[[steps]]
+id = "repair-review"
+title = "Mayor: handle review repair"
+needs = ["review"]
+metadata = { "gc.run_target" = "mayor" }
+description = "If review fails, dispatch repair work to builder. If review passes, acknowledge and proceed to finalize."
+
+# Finalize: mayor commits, creates stacked PR, dispatches next phase.
+[[steps]]
+id = "finalize"
+title = "Mayor: finalize delivery phase and prepare stacked PR"
+needs = ["repair-review"]
+metadata = { "gc.run_target" = "mayor" }
+description_file = "../assets/workflows/sverka-delivery/finalize.md"
+
+# Publish: push and create PR (only when authorized).
+[[steps]]
+id = "publish"
+title = "Publish: push branch and create stacked PR"
+needs = ["finalize"]
+condition = "{{push}} == true and {{open_pr}} == true"
+metadata = { "gc.run_target" = "mayor" }
+description = """
+Push the phase's branch and create a stacked PR targeting the previous
+phase's branch (or main for the first phase). Only execute when push=true.
+"""

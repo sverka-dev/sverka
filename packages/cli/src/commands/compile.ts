@@ -1,11 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { createSverka } from "@sverka/sdk";
-import { compileGithubWorkflow } from "@sverka/compiler";
-import { compileGitlabCi } from "@sverka/compiler";
+import { compileGithub, compileGitlab } from "@sverka/compiler";
+import type { CompilationResult } from "@sverka/compiler";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
-import { resolveUnderRoot } from "../internal/paths.js";
+import { loadProjectGraph } from "../internal/config.js";
 
 /** Args parsed for the compile command. */
 export interface CompileArgs {
@@ -13,7 +12,7 @@ export interface CompileArgs {
   output?: string | undefined;
 }
 
-/** Compile the canonical Plan to a target CI YAML. */
+/** Compile the Definition Graph to a target CI YAML. */
 export async function compileCommand(
   args: CompileArgs,
   global: GlobalFlags,
@@ -33,19 +32,12 @@ export async function compileCommand(
     `compile: root=${global.root} target=${target} output=${args.output ?? "stdout"}`,
   );
 
-  const sverka = createSverka({
-    root: global.root,
-    ...(global.config
-      ? { configPath: resolveUnderRoot(global.root, global.config) }
-      : {}),
-  });
+  const { graph } = await loadProjectGraph(global);
 
-  const plan = await sverka.toPlan();
+  const result: CompilationResult =
+    target === "github" ? compileGithub(graph) : compileGitlab(graph);
 
-  const yaml =
-    target === "github"
-      ? compileGithubWorkflow(plan)
-      : compileGitlabCi(plan);
+  const yaml = result.artifacts.map((a) => a.content).join("\n---\n");
 
   if (args.output) {
     const outPath = resolve(global.root, args.output);

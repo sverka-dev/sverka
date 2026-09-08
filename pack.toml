@@ -1,32 +1,34 @@
 [pack]
-name = "sverka"
-schema = 2
+  name = "sverka"
+  version = ""
+  schema = 2
 
 [imports]
-[imports.bd]
-source = "https://github.com/gastownhall/gascity/tree/main/examples/bd"
-version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
-[imports.gascity]
-source = "https://github.com/gastownhall/gascity-packs/tree/main/gascity"
-version = "sha:db4bd054af468dce715293544d3a55d94f029a05"
-[imports.gc-roles]
-source = "https://github.com/gastownhall/gascity-packs/tree/main/gascity/roles"
-version = "sha:db4bd054af468dce715293544d3a55d94f029a05"
-[[named_session]]
-template = "mayor"
-mode = "always"
+  [imports.bd]
+    source = "https://github.com/gastownhall/gascity/tree/main/examples/bd"
+    version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
+  [imports.core]
+    source = "https://github.com/gastownhall/gascity/tree/main/internal/bootstrap/packs/core"
+    version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
+  [imports.gascity]
+    source = "https://github.com/gastownhall/gascity-packs/tree/main/gascity"
+    version = "sha:db4bd054af468dce715293544d3a55d94f029a05"
+  [imports.gc-roles]
+    source = "https://github.com/gastownhall/gascity-packs/tree/main/gascity/roles"
+    version = "sha:db4bd054af468dce715293544d3a55d94f029a05"
 
-# Architect — designs specs, plans waves, reviews structural decisions
 [[named_session]]
-template = "architect"
-mode = "on_demand"
+  template = "mayor"
+  mode = "always"
 
-# Builder — implements code from specs, TDD style
 [[named_session]]
-template = "builder"
-mode = "on_demand"
+  template = "architect"
+  mode = "on_demand"
 
-# Reviewer — reviews PRs, runs checks, gates quality
 [[named_session]]
-template = "reviewer"
-mode = "on_demand"
+  template = "builder"
+  mode = "on_demand"
+
+[[named_session]]
+  template = "reviewer"
+  mode = "on_demand"

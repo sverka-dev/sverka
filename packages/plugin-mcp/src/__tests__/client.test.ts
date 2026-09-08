@@ -44,7 +44,7 @@ vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
 vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
   StdioClientTransport: vi.fn(function (opts: unknown) {
     const t = { kind: "stdio", opts };
-    transportInstances.stdio.push(t);
+    transportInstances.stdio!.push(t);
     return t;
   }),
 }));
@@ -52,7 +52,7 @@ vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
 vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
   StreamableHTTPClientTransport: vi.fn(function (url: unknown) {
     const t = { kind: "streamableHttp", url, shouldFailConnect: false };
-    transportInstances.streamableHttp.push(t);
+    transportInstances.streamableHttp!.push(t);
     return t;
   }),
 }));
@@ -60,7 +60,7 @@ vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
 vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
   SSEClientTransport: vi.fn(function (url: unknown) {
     const t = { kind: "sse", url };
-    transportInstances.sse.push(t);
+    transportInstances.sse!.push(t);
     return t;
   }),
 }));
@@ -81,9 +81,9 @@ function httpServer(name: string, url = "http://localhost:9000"): MCPServerConfi
 
 beforeEach(() => {
   clientInstances.length = 0;
-  transportInstances.stdio.length = 0;
-  transportInstances.streamableHttp.length = 0;
-  transportInstances.sse.length = 0;
+  transportInstances.stdio!.length = 0;
+  transportInstances.streamableHttp!.length = 0;
+  transportInstances.sse!.length = 0;
 });
 
 describe("MCPClientPool — Spec 23", () => {

@@ -14,7 +14,7 @@ import type {
   TemporalActivity,
   TemporalTargetConfig,
 } from "./types.js";
-import { TemporalTargetError } from "./errors.js";
+import { TemporalTargetError, type TemporalTargetErrorCode } from "./errors.js";
 import { reachableStepIds, topoSortWithCycleDetection } from "../internal/graph-utils.js";
 
 /**
@@ -63,7 +63,8 @@ function lowerWorkflows(pipeline: PipelineDefinition): readonly TemporalWorkflow
  * Lower a single entry to a Temporal workflow.
  */
 function lowerWorkflow(entry: EntryDefinition, pipeline: PipelineDefinition): TemporalWorkflow {
-  const createError = (msg: string, code: string) => new TemporalTargetError(msg, code);
+  const createError = (msg: string, code: string): Error =>
+    new TemporalTargetError(msg, code as TemporalTargetErrorCode);
   const reachable = reachableStepIds(entry.roots, pipeline.steps, createError);
   const reachableSteps = pipeline.steps.filter((step) => reachable.has(step.id));
   const sequence = topoSortWithCycleDetection(reachableSteps, createError);

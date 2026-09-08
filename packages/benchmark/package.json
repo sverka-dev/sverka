@@ -1,0 +1,52 @@
+{
+  "name": "@sverka/benchmark",
+  "version": "0.1.0",
+  "description": "Sverka benchmark arena — two-agent comparison harness",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sverka-dev/sverka",
+    "directory": "packages/benchmark"
+  },
+  "homepage": "https://sverka.dev",
+  "bugs": {
+    "url": "https://github.com/sverka-dev/sverka/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "sverka-benchmark": "./dist/bin.mjs"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.4.0",
+    "@sverka/arena": "workspace:*"
+  },
+  "devDependencies": {
+    "tsdown": "^0.22.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.11"
+  }
+}

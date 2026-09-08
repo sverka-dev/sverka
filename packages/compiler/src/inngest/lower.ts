@@ -14,7 +14,7 @@ import type {
   InngestStep,
   InngestTargetConfig,
 } from "./types.js";
-import { InngestTargetError } from "./errors.js";
+import { InngestTargetError, type InngestTargetErrorCode } from "./errors.js";
 import { reachableStepIds, topoSortWithCycleDetection } from "../internal/graph-utils.js";
 
 /**
@@ -61,7 +61,8 @@ function lowerFunctions(pipeline: PipelineDefinition): readonly InngestFunction[
  * Lower a single entry to an Inngest function.
  */
 function lowerFunction(entry: EntryDefinition, pipeline: PipelineDefinition): InngestFunction {
-  const createError = (msg: string, code: string): Error => new InngestTargetError(msg, code);
+  const createError = (msg: string, code: string): Error =>
+    new InngestTargetError(msg, code as InngestTargetErrorCode);
   const reachableIds = reachableStepIds(entry.roots, pipeline.steps, createError);
   const reachableSteps = pipeline.steps.filter((step) => reachableIds.has(step.id));
   const sequence = topoSortWithCycleDetection(reachableSteps, createError);

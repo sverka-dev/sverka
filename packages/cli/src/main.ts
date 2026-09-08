@@ -13,6 +13,7 @@ import { discoverCommand } from "./commands/discover.js";
 import { checkCommand } from "./commands/check.js";
 import { policyCommand, type PolicyArgs } from "./commands/policy.js";
 import { synthCommand, type SynthArgs } from "./commands/synth.js";
+import { compileCommand, type CompileArgs } from "./commands/compile.js";
 import { mcpServerCommand } from "./commands/mcp-server.js";
 import { doctorCommand } from "./commands/doctor.js";
 
@@ -88,6 +89,20 @@ function addSynthCommand(y: Argv): Argv {
   });
 }
 
+/** Configure the compile subcommand options. */
+function addCompileCommand(y: Argv): Argv {
+  return y
+    .option("target", {
+      type: "string",
+      demandOption: true,
+      choices: ["github", "gitlab"],
+    })
+    .option("output", {
+      type: "string",
+      describe: "Write YAML to a file instead of stdout",
+    });
+}
+
 function buildParser(): Argv {
   return yargs([])
     .scriptName("sverka")
@@ -109,7 +124,8 @@ function buildParser(): Argv {
     .command("discover", "Discover and display project context")
     .command("check", "Resolve proposed checks → StepDefinitions")
     .command("policy", "Evaluate findings against policy", addPolicyCommand)
-    .command("synth", "Compile to a target (stub — requires Waves H/I)", addSynthCommand)
+    .command("synth", "Alias for compile — compile to a target CI YAML", addSynthCommand)
+    .command("compile", "Compile to a target CI YAML", addCompileCommand)
     .command("mcp-server", "Expose Sverka as an MCP server (stdio)")
     .command("doctor", "Diagnose environment and dependencies")
     .demandCommand(1, "No command given")
@@ -147,6 +163,8 @@ async function dispatch(
       return dispatchPolicy(parsed, global, output, start);
     case "synth":
       return dispatchSynth(parsed, global, output, start);
+    case "compile":
+      return dispatchCompile(parsed, global, output, start);
     case "mcp-server":
       return mcpServerCommand({}, global, output, start);
     case "doctor":
@@ -221,6 +239,18 @@ function dispatchSynth(
   const target = parsed.target === "gitlab" ? "gitlab" : "github";
   const args: SynthArgs = { target };
   return synthCommand(args, global, output, start);
+}
+
+function dispatchCompile(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const target = parsed.target === "gitlab" ? "gitlab" : "github";
+  const args: CompileArgs = { target };
+  if (typeof parsed.output === "string") args.output = parsed.output;
+  return compileCommand(args, global, output, start);
 }
 
 /**

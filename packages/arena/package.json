@@ -1,0 +1,21 @@
+{
+  "name": "@sverka/arena",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "bin": { "arena": "./dist/bin.mjs" },
+  "scripts": {
+    "build": "nx build",
+    "test": "nx test",
+    "lint": "nx lint",
+    "typecheck": "nx typecheck"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "*"
+  },
+  "devDependencies": {
+    "vitest": "*",
+    "typescript": "*"
+  }
+}

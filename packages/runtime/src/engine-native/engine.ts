@@ -85,14 +85,15 @@ class NativeEngine implements Engine {
         steps: [],
       };
     }
+    const ctx = cr.ctx;
     return {
       runId: cr.runId,
       planId: cr.planId,
       status: cr.status,
       startedAt: cr.startedAt,
-      steps: cr.ctx.order.map((stepId) => {
-        const state = cr.ctx.states.get(stepId) ?? "pending";
-        const durationMs = cr.ctx.stepDurations.get(stepId);
+      steps: ctx.order.map((stepId) => {
+        const state = ctx.states.get(stepId) ?? "pending";
+        const durationMs = ctx.stepDurations.get(stepId);
         return durationMs !== undefined ? { stepId, state, durationMs } : { stepId, state };
       }),
     };
@@ -193,6 +194,7 @@ class NativeEngine implements Engine {
       cache: request.cache ?? this.config.cache,
       eventQueue: [],
       readyQueue: [],
+      completionOrder: [],
       hasFailure: false,
       stepDurations: new Map(),
       emit: () => undefined,

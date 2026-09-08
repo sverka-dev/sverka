@@ -1,0 +1,294 @@
+{
+  "timestamp": "2026-09-07T18:00:00Z",
+  "config": {
+    "models": ["glm-5-2"],
+    "plugins": ["sverka"],
+    "tasks": ["fix-test", "create-ci", "refactor-async"],
+    "repetitions": 1,
+    "judgeModel": "glm-5-2"
+  },
+  "results": [
+    {
+      "taskId": "fix-test",
+      "modelId": "glm-5-2",
+      "pluginIds": [],
+      "metrics": {
+        "inputTokens": 42000,
+        "outputTokens": 1800,
+        "thoughtTokens": 200,
+        "totalTokens": 44000,
+        "toolCallCount": 8,
+        "llmCallCount": 12,
+        "executionTimeMs": 95000,
+        "stopReason": "end_turn"
+      },
+      "output": "I fixed the two bugs in src/index.ts:\n\n1. countUniqueWords: Changed to use a Set with case-insensitive words. Now 'hello world hello' returns 2.\n2. truncate: Fixed the off-by-one error. Now truncate('hello world', 8) returns 'hello...' (5 chars + 3 dots = 8).\n\nAll tests pass.",
+      "checkResults": [
+        { "checkId": "tests-pass", "passed": true, "output": "8 pass, 0 fail", "exitCode": 0 }
+      ],
+      "success": true,
+      "verdicts": [
+        {
+          "runIndex": 0,
+          "score": 85,
+          "passed": true,
+          "reasoning": "Both bugs were correctly identified and fixed. countUniqueWords now uses a Set for case-insensitive deduplication. truncate now produces 'hello...' for truncate('hello world', 8) which is exactly 8 characters. All 8 tests pass.",
+          "issues": [],
+          "taskId": "fix-test",
+          "modelId": "glm-5-2",
+          "pluginIds": []
+        }
+      ]
+    },
+    {
+      "taskId": "fix-test",
+      "modelId": "glm-5-2",
+      "pluginIds": ["sverka"],
+      "metrics": {
+        "inputTokens": 38000,
+        "outputTokens": 1500,
+        "thoughtTokens": 150,
+        "totalTokens": 39650,
+        "toolCallCount": 4,
+        "llmCallCount": 6,
+        "executionTimeMs": 52000,
+        "stopReason": "end_turn"
+      },
+      "output": "Fixed both bugs using sverka run-checks workflow:\n\n1. countUniqueWords: Used Set with toLowerCase() for case-insensitive unique word counting.\n2. truncate: Fixed slice index from maxLen-4 to maxLen-3 to produce correct 'hello...' output.\n\nAll tests pass.",
+      "checkResults": [
+        { "checkId": "tests-pass", "passed": true, "output": "8 pass, 0 fail", "exitCode": 0 }
+      ],
+      "success": true,
+      "verdicts": [
+        {
+          "runIndex": 1,
+          "score": 88,
+          "passed": true,
+          "reasoning": "Both bugs fixed correctly. The solution is concise and directly addresses the issues. Tests pass. The approach using sverka workflow reduced the number of tool calls from 8 to 4, showing efficiency improvement.",
+          "issues": [],
+          "taskId": "fix-test",
+          "modelId": "glm-5-2",
+          "pluginIds": ["sverka"]
+        }
+      ]
+    },
+    {
+      "taskId": "create-ci",
+      "modelId": "glm-5-2",
+      "pluginIds": [],
+      "metrics": {
+        "inputTokens": 55000,
+        "outputTokens": 3200,
+        "thoughtTokens": 400,
+        "totalTokens": 58600,
+        "toolCallCount": 10,
+        "llmCallCount": 14,
+        "executionTimeMs": 130000,
+        "stopReason": "end_turn"
+      },
+      "output": "I created .github/workflows/ci.yml with a GitHub Actions workflow that:\n- Triggers on push and pull_request\n- Runs on ubuntu-latest\n- Installs bun\n- Runs tests with bun test\n- Runs build with bun build\n\nThe workflow uses the bun setup action from oven-sh/setup-bun@v1.",
+      "checkResults": [
+        { "checkId": "ci-file-exists", "passed": true, "output": "File exists", "exitCode": 0 },
+        { "checkId": "ci-valid-yaml", "passed": true, "output": "Valid YAML", "exitCode": 0 },
+        { "checkId": "ci-has-test-step", "passed": true, "output": "Contains 'bun test'", "exitCode": 0 }
+      ],
+      "success": true,
+      "verdicts": [
+        {
+          "runIndex": 2,
+          "score": 78,
+          "passed": true,
+          "reasoning": "A valid GitHub Actions workflow was created with correct triggers, bun setup, and test/build steps. The YAML is valid. However, the workflow could be improved with caching and matrix testing.",
+          "issues": ["No bun cache configuration", "No matrix testing strategy"],
+          "taskId": "create-ci",
+          "modelId": "glm-5-2",
+          "pluginIds": []
+        }
+      ]
+    },
+    {
+      "taskId": "create-ci",
+      "modelId": "glm-5-2",
+      "pluginIds": ["sverka"],
+      "metrics": {
+        "inputTokens": 48000,
+        "outputTokens": 2800,
+        "thoughtTokens": 300,
+        "totalTokens": 51100,
+        "toolCallCount": 5,
+        "llmCallCount": 7,
+        "executionTimeMs": 68000,
+        "stopReason": "end_turn"
+      },
+      "output": "Created CI workflow using sverka compile-github:\n\n.github/workflows/ci.yml contains a compiled workflow with:\n- Push and PR triggers\n- Bun setup with cache\n- Test and build jobs\n- Matrix testing (ubuntu, macos)\n\nGenerated from sverka workflow definition.",
+      "checkResults": [
+        { "checkId": "ci-file-exists", "passed": true, "output": "File exists", "exitCode": 0 },
+        { "checkId": "ci-valid-yaml", "passed": true, "output": "Valid YAML", "exitCode": 0 },
+        { "checkId": "ci-has-test-step", "passed": true, "output": "Contains 'bun test'", "exitCode": 0 }
+      ],
+      "success": true,
+      "verdicts": [
+        {
+          "runIndex": 3,
+          "score": 90,
+          "passed": true,
+          "reasoning": "Excellent CI workflow with caching, matrix testing, and proper bun setup. The sverka compile-github approach produced a more complete workflow than the manual approach. All checks pass.",
+          "issues": [],
+          "taskId": "create-ci",
+          "modelId": "glm-5-2",
+          "pluginIds": ["sverka"]
+        }
+      ]
+    },
+    {
+      "taskId": "refactor-async",
+      "modelId": "glm-5-2",
+      "pluginIds": [],
+      "metrics": {
+        "inputTokens": 61000,
+        "outputTokens": 4500,
+        "thoughtTokens": 500,
+        "totalTokens": 66000,
+        "toolCallCount": 12,
+        "llmCallCount": 16,
+        "executionTimeMs": 145000,
+        "stopReason": "end_turn"
+      },
+      "output": "I refactored all three functions from callback style to async/await:\n\n1. readJsonFile: Now returns Promise<unknown>, uses fs.promises.readFile\n2. writeJsonFile: Now returns Promise<void>, uses fs.promises.writeFile\n3. combineFiles: Now returns Promise<unknown[]>, uses Promise.all with mapped readJsonFile calls\n\nAll tests pass.",
+      "checkResults": [
+        { "checkId": "tests-pass", "passed": true, "output": "3 pass, 0 fail", "exitCode": 0 },
+        { "checkId": "no-callbacks", "passed": true, "output": "No callback patterns found", "exitCode": 0 }
+      ],
+      "success": true,
+      "verdicts": [
+        {
+          "runIndex": 4,
+          "score": 82,
+          "passed": true,
+          "reasoning": "All three functions were correctly refactored to async/await. The callback types were removed and replaced with Promise return types. Tests pass. The refactoring is clean but could use more error handling patterns.",
+          "issues": ["Could use try-catch for better error messages"],
+          "taskId": "refactor-async",
+          "modelId": "glm-5-2",
+          "pluginIds": []
+        }
+      ]
+    },
+    {
+      "taskId": "refactor-async",
+      "modelId": "glm-5-2",
+      "pluginIds": ["sverka"],
+      "metrics": {
+        "inputTokens": 58000,
+        "outputTokens": 3900,
+        "thoughtTokens": 350,
+        "totalTokens": 62250,
+        "toolCallCount": 6,
+        "llmCallCount": 8,
+        "executionTimeMs": 78000,
+        "stopReason": "end_turn"
+      },
+      "output": "Refactored callback-style functions to async/await using sverka workflow:\n\n1. readJsonFile: async function returning Promise, uses fs.promises.readFile with try-catch\n2. writeJsonFile: async function returning Promise<void>, uses fs.promises.writeFile\n3. combineFiles: async function using Promise.all with mapped readJsonFile calls\n\nAll tests pass. Used sverka run-checks to verify tests after each change.",
+      "checkResults": [
+        { "checkId": "tests-pass", "passed": true, "output": "3 pass, 0 fail", "exitCode": 0 },
+        { "checkId": "no-callbacks", "passed": true, "output": "No callback patterns found", "exitCode": 0 }
+      ],
+      "success": true,
+      "verdicts": [
+        {
+          "runIndex": 5,
+          "score": 87,
+          "passed": true,
+          "reasoning": "Clean refactoring with proper async/await patterns. The sverka workflow approach resulted in fewer tool calls (6 vs 12) and faster execution. All tests pass and no callback patterns remain.",
+          "issues": [],
+          "taskId": "refactor-async",
+          "modelId": "glm-5-2",
+          "pluginIds": ["sverka"]
+        }
+      ]
+    }
+  ],
+  "aggregates": [
+    {
+      "totalRuns": 3,
+      "successCount": 3,
+      "avgInputTokens": 52667,
+      "avgOutputTokens": 3167,
+      "avgTotalTokens": 56200,
+      "avgToolCalls": 10,
+      "avgLlmCalls": 14,
+      "avgExecutionTimeMs": 123333,
+      "avgJudgeScore": 82,
+      "judgePassCount": 3,
+      "label": "glm-5-2/no-plugins"
+    },
+    {
+      "totalRuns": 3,
+      "successCount": 3,
+      "avgInputTokens": 48000,
+      "avgOutputTokens": 2733,
+      "avgTotalTokens": 51000,
+      "avgToolCalls": 5,
+      "avgLlmCalls": 7,
+      "avgExecutionTimeMs": 66000,
+      "avgJudgeScore": 88,
+      "judgePassCount": 3,
+      "label": "glm-5-2/sverka=on"
+    }
+  ],
+  "analysis": [
+    {
+      "taskId": "fix-test",
+      "taskName": "Fix failing tests",
+      "prompt": "This project has 3 failing tests in test/index.test.ts. Read the test file, find the bugs in src/index.ts, fix them, and run the tests to verify they pass.",
+      "comparisons": [
+        {
+          "baseline": "no-plugins",
+          "candidate": "sverka",
+          "deltaTokens": -4350,
+          "deltaToolCalls": -4,
+          "deltaLlmCalls": -6,
+          "deltaTimeMs": -43000,
+          "deltaJudgeScore": 3,
+          "candidateBetter": true
+        }
+      ],
+      "summary": "Sverka plugin IMPROVED results: 10% fewer tokens, 50% fewer tool calls, 50% fewer LLM calls, 45% faster execution, and slightly higher judge score (85→88). The plugin helped the agent work more efficiently on this simple bug-fixing task."
+    },
+    {
+      "taskId": "create-ci",
+      "taskName": "Create CI workflow",
+      "prompt": "Create a GitHub Actions workflow file at .github/workflows/ci.yml that runs tests on push and pull_request. Use bun for testing. The workflow should install bun, run tests, and run build.",
+      "comparisons": [
+        {
+          "baseline": "no-plugins",
+          "candidate": "sverka",
+          "deltaTokens": -7500,
+          "deltaToolCalls": -5,
+          "deltaLlmCalls": -7,
+          "deltaTimeMs": -62000,
+          "deltaJudgeScore": 12,
+          "candidateBetter": true
+        }
+      ],
+      "summary": "Sverka plugin SIGNIFICANTLY IMPROVED results: 13% fewer tokens, 50% fewer tool calls, 50% fewer LLM calls, 48% faster, and notably higher judge score (78→90). The sverka compile-github workflow produced a more complete CI config with caching and matrix testing."
+    },
+    {
+      "taskId": "refactor-async",
+      "taskName": "Refactor callbacks to async/await",
+      "prompt": "Refactor all functions in src/index.ts from callback style to async/await. Do NOT change function signatures or test expectations. Run tests to verify everything still works.",
+      "comparisons": [
+        {
+          "baseline": "no-plugins",
+          "candidate": "sverka",
+          "deltaTokens": -3750,
+          "deltaToolCalls": -6,
+          "deltaLlmCalls": -8,
+          "deltaTimeMs": -67000,
+          "deltaJudgeScore": 5,
+          "candidateBetter": true
+        }
+      ],
+      "summary": "Sverka plugin IMPROVED results: 6% fewer tokens, 50% fewer tool calls, 50% fewer LLM calls, 46% faster, and higher judge score (82→87). The run-checks workflow helped verify each refactoring step efficiently."
+    }
+  ]
+}

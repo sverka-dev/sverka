@@ -1,0 +1,45 @@
+{
+  "taskId": "create-ci",
+  "prompt": "Create a GitHub Actions workflow file at .github/workflows/ci.yml that runs tests on push and pull_request. Use bun for testing. The workflow should install bun, run tests, and run build.",
+  "configs": {
+    "raw": {
+      "sessionId": "create-ci-raw-001",
+      "model": "GLM-5.2 High",
+      "llmCallCount": 14,
+      "finalMetrics": {
+        "totalPromptTokens": 50000,
+        "totalCompletionTokens": 3200,
+        "totalCachedTokens": 45000,
+        "totalSteps": 14
+      },
+      "steps": [
+        { "stepId": 1, "source": "system", "timestamp": "2026-09-07T18:03:00Z", "message": "Session started", "isLlmCall": false },
+        { "stepId": 2, "source": "agent", "timestamp": "2026-09-07T18:03:05Z", "message": "Let me check the project structure first.", "isLlmCall": true, "toolCalls": [{ "functionName": "exec", "arguments": { "command": "ls -la" }, "toolCallId": "tc-c1" }] },
+        { "stepId": 3, "source": "agent", "timestamp": "2026-09-07T18:03:10Z", "message": "Checking package.json for scripts.", "isLlmCall": true, "toolCalls": [{ "functionName": "read", "arguments": { "file_path": "package.json" }, "toolCallId": "tc-c2" }] },
+        { "stepId": 4, "source": "agent", "timestamp": "2026-09-07T18:03:15Z", "message": "I need to create the .github/workflows directory.", "isLlmCall": true, "toolCalls": [{ "functionName": "exec", "arguments": { "command": "mkdir -p .github/workflows" }, "toolCallId": "tc-c3" }] },
+        { "stepId": 5, "source": "agent", "timestamp": "2026-09-07T18:03:20Z", "message": "Now I'll write the CI workflow.", "isLlmCall": true, "toolCalls": [{ "functionName": "write", "arguments": { "file_path": ".github/workflows/ci.yml", "content": "name: CI\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v1\n      - run: bun test\n      - run: bun build src/index.ts --outdir dist" }, "toolCallId": "tc-c4" }] },
+        { "stepId": 6, "source": "agent", "timestamp": "2026-09-07T18:03:30Z", "message": "Let me verify the YAML is valid.", "isLlmCall": true, "toolCalls": [{ "functionName": "exec", "arguments": { "command": "cat .github/workflows/ci.yml" }, "toolCallId": "tc-c5" }] },
+        { "stepId": 7, "source": "agent", "timestamp": "2026-09-07T18:03:35Z", "message": "The workflow looks good. Let me also verify tests pass.", "isLlmCall": true, "toolCalls": [{ "functionName": "exec", "arguments": { "command": "bun test" }, "toolCallId": "tc-c6" }] },
+        { "stepId": 8, "source": "agent", "timestamp": "2026-09-07T18:04:10Z", "message": "All tests pass. CI workflow created successfully.", "isLlmCall": true }
+      ]
+    },
+    "sverka": {
+      "sessionId": "create-ci-sverka-001",
+      "model": "GLM-5.2 High",
+      "llmCallCount": 7,
+      "finalMetrics": {
+        "totalPromptTokens": 44000,
+        "totalCompletionTokens": 2800,
+        "totalCachedTokens": 40000,
+        "totalSteps": 7
+      },
+      "steps": [
+        { "stepId": 1, "source": "system", "timestamp": "2026-09-07T18:05:00Z", "message": "Session started with sverka skill", "isLlmCall": false },
+        { "stepId": 2, "source": "agent", "timestamp": "2026-09-07T18:05:05Z", "message": "I'll use sverka compile-github to generate the CI workflow.", "isLlmCall": true, "toolCalls": [{ "functionName": "exec", "arguments": { "command": "sverka compile github --output .github/workflows/ci.yml" }, "toolCallId": "tc-cs1" }] },
+        { "stepId": 3, "source": "agent", "timestamp": "2026-09-07T18:05:15Z", "message": "Workflow generated with caching and matrix testing.", "isLlmCall": true, "toolCalls": [{ "functionName": "read", "arguments": { "file_path": ".github/workflows/ci.yml" }, "toolCallId": "tc-cs2" }] },
+        { "stepId": 4, "source": "agent", "timestamp": "2026-09-07T18:05:20Z", "message": "Verifying with sverka run-checks.", "isLlmCall": true, "toolCalls": [{ "functionName": "exec", "arguments": { "command": "bun test" }, "toolCallId": "tc-cs3" }] },
+        { "stepId": 5, "source": "agent", "timestamp": "2026-09-07T18:05:40Z", "message": "All tests pass. CI workflow created with sverka compile-github.", "isLlmCall": true }
+      ]
+    }
+  }
+}

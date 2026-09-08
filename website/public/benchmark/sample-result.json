@@ -1,0 +1,176 @@
+{
+  "timestamp": "2026-09-04T10:00:00Z",
+  "model": "glm-5-2",
+  "results": [
+    {
+      "taskId": "run-checks",
+      "agentId": "raw-shell",
+      "agentType": "raw-shell",
+      "metrics": {
+        "inputTokens": 4200,
+        "outputTokens": 1800,
+        "thoughtTokens": 500,
+        "totalTokens": 6500,
+        "toolCallCount": 14,
+        "executionTimeMs": 45000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "run-checks",
+      "agentId": "sverka",
+      "agentType": "sverka",
+      "metrics": {
+        "inputTokens": 2100,
+        "outputTokens": 900,
+        "thoughtTokens": 200,
+        "totalTokens": 3200,
+        "toolCallCount": 5,
+        "executionTimeMs": 18000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "discover",
+      "agentId": "raw-shell",
+      "agentType": "raw-shell",
+      "metrics": {
+        "inputTokens": 3100,
+        "outputTokens": 1200,
+        "thoughtTokens": 300,
+        "totalTokens": 4600,
+        "toolCallCount": 9,
+        "executionTimeMs": 28000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "discover",
+      "agentId": "sverka",
+      "agentType": "sverka",
+      "metrics": {
+        "inputTokens": 1500,
+        "outputTokens": 600,
+        "thoughtTokens": 100,
+        "totalTokens": 2200,
+        "toolCallCount": 3,
+        "executionTimeMs": 12000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "create-config",
+      "agentId": "raw-shell",
+      "agentType": "raw-shell",
+      "metrics": {
+        "inputTokens": 5800,
+        "outputTokens": 2400,
+        "thoughtTokens": 700,
+        "totalTokens": 8900,
+        "toolCallCount": 18,
+        "executionTimeMs": 62000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "create-config",
+      "agentId": "sverka",
+      "agentType": "sverka",
+      "metrics": {
+        "inputTokens": 2800,
+        "outputTokens": 1100,
+        "thoughtTokens": 250,
+        "totalTokens": 4150,
+        "toolCallCount": 6,
+        "executionTimeMs": 22000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "compile-github",
+      "agentId": "raw-shell",
+      "agentType": "raw-shell",
+      "metrics": {
+        "inputTokens": 6200,
+        "outputTokens": 2800,
+        "thoughtTokens": 800,
+        "totalTokens": 9800,
+        "toolCallCount": 21,
+        "executionTimeMs": 70000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "compile-github",
+      "agentId": "sverka",
+      "agentType": "sverka",
+      "metrics": {
+        "inputTokens": 3100,
+        "outputTokens": 1300,
+        "thoughtTokens": 300,
+        "totalTokens": 4700,
+        "toolCallCount": 7,
+        "executionTimeMs": 25000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "multi-step",
+      "agentId": "raw-shell",
+      "agentType": "raw-shell",
+      "metrics": {
+        "inputTokens": 7200,
+        "outputTokens": 3200,
+        "thoughtTokens": 900,
+        "totalTokens": 11300,
+        "toolCallCount": 24,
+        "executionTimeMs": 85000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    },
+    {
+      "taskId": "multi-step",
+      "agentId": "sverka",
+      "agentType": "sverka",
+      "metrics": {
+        "inputTokens": 3600,
+        "outputTokens": 1500,
+        "thoughtTokens": 350,
+        "totalTokens": 5450,
+        "toolCallCount": 8,
+        "executionTimeMs": 30000,
+        "stopReason": "end_turn"
+      },
+      "success": true
+    }
+  ],
+  "summary": {
+    "raw-shell": {
+      "totalTasks": 5,
+      "successCount": 5,
+      "avgInputTokens": 5300,
+      "avgOutputTokens": 2280,
+      "avgTotalTokens": 8220,
+      "avgToolCalls": 17.2,
+      "avgExecutionTimeMs": 58000
+    },
+    "sverka": {
+      "totalTasks": 5,
+      "successCount": 5,
+      "avgInputTokens": 2620,
+      "avgOutputTokens": 1080,
+      "avgTotalTokens": 3940,
+      "avgToolCalls": 5.8,
+      "avgExecutionTimeMs": 21400
+    }
+  }
+}

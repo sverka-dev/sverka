@@ -9,7 +9,7 @@ import type {
   EntryDefinition,
 } from "@sverka/workflow";
 import type { DroneTargetGraph, DroneStep, DroneTrigger, DroneTargetConfig } from "./types.js";
-import { DroneTargetError } from "./errors.js";
+import { DroneTargetError, type DroneTargetErrorCode } from "./errors.js";
 import { reachableStepIds } from "../internal/graph-utils.js";
 
 const DEFAULT_IMAGE = "node:24";
@@ -73,7 +73,7 @@ function filterReachableSteps(pipeline: PipelineDefinition): readonly StepDefini
   const reachable = reachableStepIds(
     allRoots,
     pipeline.steps,
-    (msg, code) => new DroneTargetError(msg, code),
+    (msg, code) => new DroneTargetError(msg, code as DroneTargetErrorCode),
   );
   return pipeline.steps.filter((step) => reachable.has(step.id));
 }

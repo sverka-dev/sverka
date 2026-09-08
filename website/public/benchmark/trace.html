@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sverka Benchmark — Arena Trace Viewer</title>
+  <meta name="description" content="Per-task, per-config trace viewer showing step-by-step LLM calls, tool call inspection, and token usage across agent configurations." />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-hover: #1c2330;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --green: #3fb950;
+      --green-bg: rgba(63, 185, 80, 0.1);
+      --red: #f85149;
+      --red-bg: rgba(248, 81, 73, 0.1);
+      --accent: #58a6ff;
+      --accent-bg: rgba(88, 166, 255, 0.1);
+      --yellow: #d29922;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem; }
+    .back-link { color: var(--accent); text-decoration: none; font-size: 0.85rem; margin-bottom: 1rem; display: inline-block; }
+    .back-link:hover { text-decoration: underline; }
+    .prompt-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+    .prompt-box .label { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+
+    /* Summary bar */
+    .summary-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    .summary-card.raw-shell { border-left: 3px solid var(--text-muted); }
+    .summary-card.sverka { border-left: 3px solid var(--green); }
+    .summary-card h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .summary-card.raw-shell h3 { color: var(--text-muted); }
+    .summary-card.sverka h3 { color: var(--green); }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+    .stat-grid .label { color: var(--text-muted); }
+    .stat-grid .value { text-align: right; }
+    .stat-grid .value.highlight { color: var(--green); font-weight: 600; }
+
+    /* Trace columns */
+    .trace-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .trace-column {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .trace-column.raw-shell { border-top: 3px solid var(--text-muted); }
+    .trace-column.sverka { border-top: 3px solid var(--green); }
+    .column-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .column-header .agent-name { font-weight: 600; }
+    .column-header .step-count { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.75rem; }
+    .trace-list {
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    /* Step entry */
+    .step {
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .step:hover { background: var(--surface-hover); }
+    .step.expanded { background: var(--surface-hover); }
+    .step-header {
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.8rem;
+    }
+    .step-badge {
+      flex-shrink: 0;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .step-badge.llm { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent); }
+    .step-badge.sys { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+    .step-badge.usr { background: var(--yellow); color: var(--bg); }
+    .step-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .step-preview {
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .step-time {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      margin-top: 0.15rem;
+    }
+    .step-body {
+      display: none;
+      padding: 0.75rem 1rem 1rem 3.1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+      max-height: 400px;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+    }
+    .step.expanded .step-body { display: block; }
+
+    /* Loading / error */
+    .loading { color: var(--text-muted); text-align: center; padding: 3rem; }
+    .error {
+      color: var(--red);
+      background: var(--red-bg);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Task nav */
+    .task-nav {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .task-nav a {
+      padding: 0.3rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: all 0.1s;
+    }
+    .task-nav a:hover { border-color: var(--accent); color: var(--accent); }
+    .task-nav a.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* Tool call details inside expanded step */
+    .tool-call {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .tool-call-header {
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+    .tool-call-args, .tool-call-result {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 0.2rem;
+    }
+    .tool-call-args .label, .tool-call-result .label {
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+    }
+    /* Running token total badge */
+    .step-token-badge {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1rem 0.3rem;
+      white-space: nowrap;
+    }
+    .step-token-badge.llm-step { color: var(--accent); border-color: var(--accent); }
+    /* Config selector for arena mode */
+    .config-selector {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .config-selector .label { color: var(--text-muted); font-size: 0.8rem; font-family: var(--font-mono); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+    .config-selector select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+
+    /* Agent output section */
+    .agent-output-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .agent-output-section .section-label {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+    }
+    .agent-output-text {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    /* Judge verdict section */
+    .judge-verdict-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .judge-verdict-section .section-label {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+    }
+    .judge-verdict-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+    .judge-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .judge-badge.pass { color: var(--green); background: var(--green-bg); border: 1px solid var(--green); }
+    .judge-badge.fail { color: var(--red); background: var(--red-bg); border: 1px solid var(--red); }
+    .judge-verdict-reasoning {
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      line-height: 1.6;
+    }
+    .judge-verdict-issues {
+      list-style: none;
+      padding-left: 0;
+    }
+    .judge-verdict-issues li {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 0.2rem 0 0.2rem 1rem;
+      position: relative;
+    }
+    .judge-verdict-issues li::before {
+      content: "\26a0";
+      position: absolute;
+      left: 0;
+      color: var(--yellow);
+    }
+
+    @media (max-width: 900px) {
+      .trace-columns { grid-template-columns: 1fr; }
+      .summary-bar { grid-template-columns: 1fr; }
+      body { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="./index.html">&larr; Back to Dashboard</a>
+  <h1>Trace Viewer</h1>
+  <p class="subtitle" id="subtitle">Step-by-step LLM call comparison — each agent step is one inference call</p>
+
+  <div class="config-selector" id="config-selector" style="display:none;">
+    <label for="config-a-select" class="label">Compare:</label>
+    <select id="config-a-select"></select>
+    <span class="label">vs</span>
+    <label for="config-b-select" class="label sr-only">Configuration B</label>
+    <select id="config-b-select"></select>
+  </div>
+
+  <div class="task-nav" id="task-nav"></div>
+  <div id="error"></div>
+  <div id="prompt-container"></div>
+  <div id="agent-output-container"></div>
+  <div id="judge-verdict-container"></div>
+  <div id="content"><div class="loading">Loading trace data...</div></div>
+
+  <footer>
+    <p>Sverka Benchmark Arena — <a href="https://github.com/sverka-dev/sverka">GitHub</a></p>
+  </footer>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var TASK_IDS = ["run-checks", "discover", "create-config", "compile-github", "multi-step"];
+
+      /** Escape HTML. */
+      function esc(str) {
+        var d = document.createElement("div");
+        d.textContent = str;
+        return d.innerHTML;
+      }
+
+      /** Format number with thousands separators. */
+      function fmtNum(n) {
+        return typeof n === "number" ? n.toLocaleString() : String(n);
+      }
+
+      /** Format timestamp to short time. */
+      function fmtTime(ts) {
+        if (!ts) return "";
+        try {
+          var d = new Date(ts);
+          return d.toLocaleTimeString("en-US", { hour12: false });
+        } catch { return ts; }
+      }
+
+      /** Format milliseconds as seconds. */
+      function fmtMs(ms) {
+        return (ms / 1000).toFixed(1) + "s";
+      }
+
+      /** Validate that a path component only contains safe characters. */
+      function safePathComponent(s) {
+        return /^[a-zA-Z0-9._-]+$/.test(s);
+      }
+
+      /** Parse URL params: ?task=<id>&model=<id>&plugins=<comma-separated>.
+       *  Falls back to hash route #/trace/<task-id> for backward compat.
+       */
+      function parseParams() {
+        var search = window.location.search;
+        if (search) {
+          var params = new URLSearchParams(search);
+          var task = params.get("task");
+          var model = params.get("model");
+          var plugins = params.get("plugins");
+          var run = params.get("run");
+          if (task) {
+            return {
+              taskId: task,
+              modelId: model || "",
+              pluginIds: plugins ? plugins.split(",").filter(function (p) { return p; }) : [],
+              runIndex: run ? parseInt(run, 10) : 0,
+              arena: true,
+            };
+          }
+        }
+        // Backward compat: hash route
+        var hash = window.location.hash.slice(1);
+        var parts = hash.split("/");
+        if (parts.length >= 3 && parts[1] === "trace") {
+          return { taskId: parts[2], modelId: "", pluginIds: [], arena: false };
+        }
+        return null;
+      }
+
+      /** Hash a plugin combo for trace file path. */
+      function comboHash(pluginIds) {
+        if (!pluginIds || pluginIds.length === 0) return "no-plugins";
+        return pluginIds.join("--");
+      }
+
+      /** Render task navigation bar. */
+      function renderTaskNav(activeTask, arena) {
+        var nav = document.getElementById("task-nav");
+        nav.innerHTML = "";
+        for (var i = 0; i < TASK_IDS.length; i++) {
+          var a = document.createElement("a");
+          if (arena) {
+            a.href = "?task=" + encodeURIComponent(TASK_IDS[i]);
+          } else {
+            a.href = "#/trace/" + TASK_IDS[i];
+          }
+          a.textContent = TASK_IDS[i];
+          if (TASK_IDS[i] === activeTask) a.className = "active";
+          nav.appendChild(a);
+        }
+      }
+
+      /** Render summary card for one agent config. */
+      function renderSummaryCard(type, title, data) {
+        var card = document.createElement("div");
+        card.className = "summary-card " + type;
+        var h3 = document.createElement("h3");
+        h3.textContent = title;
+        card.appendChild(h3);
+
+        var grid = document.createElement("div");
+        grid.className = "stat-grid";
+        var fm = data.finalMetrics || {};
+        var rows = [
+          ["LLM calls", fmtNum(data.llmCallCount), data.llmCallCount < 50],
+          ["Total steps", fmtNum(fm.totalSteps || data.steps.length), false],
+          ["Prompt tokens", fmtNum(fm.totalPromptTokens || 0), false],
+          ["Completion tokens", fmtNum(fm.totalCompletionTokens || 0), false],
+          ["Cached tokens", fmtNum(fm.totalCachedTokens || 0), false],
+          ["Model", esc(data.model || ""), false],
+        ];
+        for (var _i = 0; _i < rows.length; _i++) {
+          var label = document.createElement("div");
+          label.className = "label";
+          label.textContent = rows[_i][0];
+          var value = document.createElement("div");
+          value.className = "value" + (rows[_i][2] ? " highlight" : "");
+          value.textContent = String(rows[_i][1]);
+          grid.appendChild(label);
+          grid.appendChild(value);
+        }
+        card.appendChild(grid);
+        return card;
+      }
+
+      /** Render tool call details inside an expanded step. */
+      function renderToolCalls(toolCalls, observations) {
+        if (!toolCalls || toolCalls.length === 0) return null;
+        var container = document.createElement("div");
+        for (var i = 0; i < toolCalls.length; i++) {
+          var tc = toolCalls[i];
+          var div = document.createElement("div");
+          div.className = "tool-call";
+
+          var header = document.createElement("div");
+          header.className = "tool-call-header";
+          header.textContent = "🔧 " + (tc.functionName || "unknown");
+          div.appendChild(header);
+
+          if (tc.arguments) {
+            var argsDiv = document.createElement("div");
+            argsDiv.className = "tool-call-args";
+            var argsLabel = document.createElement("span");
+            argsLabel.className = "label";
+            argsLabel.textContent = "Arguments: ";
+            argsDiv.appendChild(argsLabel);
+            argsDiv.appendChild(document.createTextNode(JSON.stringify(tc.arguments, null, 2)));
+            div.appendChild(argsDiv);
+          }
+
+          // Find matching observation
+          if (observations) {
+            for (var j = 0; j < observations.length; j++) {
+              if (observations[j].sourceCallId === tc.toolCallId) {
+                var resDiv = document.createElement("div");
+                resDiv.className = "tool-call-result";
+                var resLabel = document.createElement("span");
+                resLabel.className = "label";
+                resLabel.textContent = "Result: ";
+                resDiv.appendChild(resLabel);
+                resDiv.appendChild(document.createTextNode(observations[j].content));
+                div.appendChild(resDiv);
+                break;
+              }
+            }
+          }
+          container.appendChild(div);
+        }
+        return container;
+      }
+
+      /** Render a single step in the trace list with running token total. */
+      function renderStep(step, runningTokens) {
+        var div = document.createElement("div");
+        div.className = "step";
+
+        var header = document.createElement("div");
+        header.className = "step-header";
+
+        var badge = document.createElement("div");
+        if (step.isLlmCall) {
+          badge.className = "step-badge llm";
+          badge.textContent = "LLM";
+        } else if (step.source === "system") {
+          badge.className = "step-badge sys";
+          badge.textContent = "SYS";
+        } else if (step.source === "user") {
+          badge.className = "step-badge usr";
+          badge.textContent = "USR";
+        } else {
+          badge.className = "step-badge sys";
+          badge.textContent = "—";
+        }
+        header.appendChild(badge);
+
+        var meta = document.createElement("div");
+        meta.className = "step-meta";
+        var preview = document.createElement("div");
+        preview.className = "step-preview";
+        preview.textContent = step.message || "(no message)";
+        meta.appendChild(preview);
+        var time = document.createElement("div");
+        time.className = "step-time";
+        time.textContent = "#" + step.stepId + " · " + fmtTime(step.timestamp);
+        meta.appendChild(time);
+        header.appendChild(meta);
+
+        // Running token badge
+        if (runningTokens > 0) {
+          var tokenBadge = document.createElement("div");
+          tokenBadge.className = "step-token-badge" + (step.isLlmCall ? " llm-step" : "");
+          tokenBadge.textContent = fmtNum(runningTokens) + " tok";
+          header.appendChild(tokenBadge);
+        }
+
+        div.appendChild(header);
+
+        if (step.message || (step.toolCalls && step.toolCalls.length > 0)) {
+          var body = document.createElement("div");
+          body.className = "step-body";
+          if (step.message) {
+            body.textContent = step.message;
+          }
+          // Add tool call details
+          var toolCallSection = renderToolCalls(step.toolCalls, step.observations);
+          if (toolCallSection) {
+            body.appendChild(document.createElement("br"));
+            body.appendChild(toolCallSection);
+          }
+          div.appendChild(body);
+        }
+
+        div.addEventListener("click", function () {
+          div.classList.toggle("expanded");
+        });
+
+        return div;
+      }
+
+      /** Render a trace column for one agent config. */
+      function renderTraceColumn(type, title, data) {
+        var col = document.createElement("div");
+        col.className = "trace-column " + type;
+
+        var header = document.createElement("div");
+        header.className = "column-header";
+        var name = document.createElement("span");
+        name.className = "agent-name";
+        name.textContent = title;
+        var count = document.createElement("span");
+        count.className = "step-count";
+        count.textContent = data.steps.length + " steps · " + data.llmCallCount + " LLM calls";
+        header.appendChild(name);
+        header.appendChild(count);
+        col.appendChild(header);
+
+        var list = document.createElement("div");
+        list.className = "trace-list";
+
+        // Compute running token totals per step
+        var fm = data.finalMetrics || {};
+        var totalPrompt = fm.totalPromptTokens || 0;
+        var totalSteps = data.steps.length;
+        var perStepTokens = totalSteps > 0 ? Math.round(totalPrompt / totalSteps) : 0;
+        var running = 0;
+
+        for (var i = 0; i < data.steps.length; i++) {
+          running += perStepTokens;
+          list.appendChild(renderStep(data.steps[i], running));
+        }
+        col.appendChild(list);
+
+        return col;
+      }
+
+      /** Render the prompt box at the top. */
+      function renderPrompt(prompt) {
+        var container = document.getElementById("prompt-container");
+        container.innerHTML = "";
+        if (!prompt) return;
+        var promptBox = document.createElement("div");
+        promptBox.className = "prompt-box";
+        var label = document.createElement("div");
+        label.className = "label";
+        label.textContent = "Task Prompt";
+        promptBox.appendChild(label);
+        promptBox.appendChild(document.createTextNode(prompt));
+        container.appendChild(promptBox);
+      }
+
+      /** Render the agent output section. */
+      function renderAgentOutput(output, comboLabel) {
+        var container = document.getElementById("agent-output-container");
+        container.innerHTML = "";
+        if (!output) return;
+        var section = document.createElement("div");
+        section.className = "agent-output-section";
+        var label = document.createElement("div");
+        label.className = "section-label";
+        label.textContent = "Agent Output" + (comboLabel ? " — " + comboLabel : "");
+        section.appendChild(label);
+        var text = document.createElement("div");
+        text.className = "agent-output-text";
+        text.textContent = output;
+        section.appendChild(text);
+        container.appendChild(section);
+      }
+
+      /** Create a judge badge element. */
+      function judgeBadge(score, passed) {
+        var span = document.createElement("span");
+        span.className = "judge-badge " + (passed ? "pass" : "fail");
+        span.textContent = (passed ? "\u2713 " : "\u2717 ") + score + "/100";
+        return span;
+      }
+
+      /** Render the judge verdict section. */
+      function renderJudgeVerdict(verdict, comboLabel) {
+        var container = document.getElementById("judge-verdict-container");
+        container.innerHTML = "";
+        if (!verdict) return;
+        var section = document.createElement("div");
+        section.className = "judge-verdict-section";
+        var label = document.createElement("div");
+        label.className = "section-label";
+        label.textContent = "Judge Verdict" + (comboLabel ? " — " + comboLabel : "");
+        section.appendChild(label);
+
+        var header = document.createElement("div");
+        header.className = "judge-verdict-header";
+        header.appendChild(judgeBadge(verdict.score, verdict.passed));
+        section.appendChild(header);
+
+        if (verdict.reasoning) {
+          var reasoning = document.createElement("div");
+          reasoning.className = "judge-verdict-reasoning";
+          reasoning.textContent = verdict.reasoning;
+          section.appendChild(reasoning);
+        }
+
+        if (verdict.issues && verdict.issues.length > 0) {
+          var issuesList = document.createElement("ul");
+          issuesList.className = "judge-verdict-issues";
+          for (var i = 0; i < verdict.issues.length; i++) {
+            var li = document.createElement("li");
+            li.textContent = verdict.issues[i];
+            issuesList.appendChild(li);
+          }
+          section.appendChild(issuesList);
+        }
+
+        container.appendChild(section);
+      }
+
+      /** Find a result in arena data matching task/model/plugins. */
+      function findArenaResult(arenaData, taskId, modelId, pluginIds) {
+        if (!arenaData || !arenaData.results) return null;
+        for (var i = 0; i < arenaData.results.length; i++) {
+          var r = arenaData.results[i];
+          if (r.taskId !== taskId) continue;
+          if (modelId && r.modelId !== modelId) continue;
+          var rPlugins = r.pluginIds || [];
+          if (rPlugins.length !== pluginIds.length) continue;
+          var match = true;
+          for (var j = 0; j < pluginIds.length; j++) {
+            if (rPlugins[j] !== pluginIds[j]) { match = false; break; }
+          }
+          if (match) return r;
+        }
+        return null;
+      }
+
+      /** Fetch arena-sample.json and extract verdict/output for this run. */
+      async function fetchArenaVerdictAndOutput(taskId, modelId, pluginIds) {
+        try {
+          var resp = await fetch("arena-sample.json");
+          if (!resp.ok) return null;
+          var data = await resp.json();
+          var result = findArenaResult(data, taskId, modelId, pluginIds);
+          if (!result) return null;
+          var verdict = (result.verdicts && result.verdicts.length > 0) ? result.verdicts[0] : null;
+          return { output: result.output || null, verdict: verdict };
+        } catch (e) {
+          return null;
+        }
+      }
+
+      /** Render the full trace page for a task (classic format). */
+      function renderTraceClassic(trace) {
+        var content = document.getElementById("content");
+        content.innerHTML = "";
+
+        renderPrompt(trace.prompt);
+
+        var raw = trace.agents["raw-shell"];
+        var sverka = trace.agents.sverka;
+        if (raw || sverka) {
+          var summaryBar = document.createElement("div");
+          summaryBar.className = "summary-bar";
+          if (raw) summaryBar.appendChild(renderSummaryCard("raw-shell", "Raw Shell Agent", raw));
+          if (sverka) summaryBar.appendChild(renderSummaryCard("sverka", "Sverka CLI Agent", sverka));
+          content.appendChild(summaryBar);
+        }
+
+        if (raw || sverka) {
+          var columns = document.createElement("div");
+          columns.className = "trace-columns";
+          if (raw) columns.appendChild(renderTraceColumn("raw-shell", "Raw Shell Agent", raw));
+          if (sverka) columns.appendChild(renderTraceColumn("sverka", "Sverka CLI Agent", sverka));
+          content.appendChild(columns);
+        }
+      }
+
+      /** Render arena trace: side-by-side comparison of two configs.
+       *  traceData is an object with keys = config labels, values = trace agent data.
+       */
+      function renderTraceArena(traceData, configA, configB) {
+        var content = document.getElementById("content");
+        content.innerHTML = "";
+
+        renderPrompt(traceData.prompt);
+
+        var dataA = traceData.configs ? traceData.configs[configA] : null;
+        var dataB = traceData.configs ? traceData.configs[configB] : null;
+
+        if (dataA || dataB) {
+          var summaryBar = document.createElement("div");
+          summaryBar.className = "summary-bar";
+          if (dataA) summaryBar.appendChild(renderSummaryCard("raw-shell", configA, dataA));
+          if (dataB) summaryBar.appendChild(renderSummaryCard("sverka", configB, dataB));
+          content.appendChild(summaryBar);
+        }
+
+        if (dataA || dataB) {
+          var columns = document.createElement("div");
+          columns.className = "trace-columns";
+          if (dataA) columns.appendChild(renderTraceColumn("raw-shell", configA, dataA));
+          if (dataB) columns.appendChild(renderTraceColumn("sverka", configB, dataB));
+          content.appendChild(columns);
+        }
+      }
+
+      function showError(msg) {
+        var el = document.getElementById("error");
+        el.innerHTML = '<div class="error">' + esc(msg) + "</div>";
+      }
+
+      /** Load and render trace data for a task (classic format). */
+      async function loadTraceClassic(taskId) {
+        var content = document.getElementById("content");
+        content.innerHTML = '<div class="loading">Loading trace for ' + esc(taskId) + "...</div>";
+        document.getElementById("error").innerHTML = "";
+        document.getElementById("prompt-container").innerHTML = "";
+        document.getElementById("agent-output-container").innerHTML = "";
+        document.getElementById("judge-verdict-container").innerHTML = "";
+        document.getElementById("config-selector").style.display = "none";
+
+        if (!safePathComponent(taskId)) {
+          content.innerHTML = "";
+          showError("Invalid task ID: " + esc(taskId));
+          return;
+        }
+        try {
+          var resp = await fetch("traces/" + encodeURIComponent(taskId) + "/trace.json");
+          if (!resp.ok) throw new Error("HTTP " + resp.status + " — no trace data for task '" + taskId + "'");
+          var trace = await resp.json();
+          renderTraceClassic(trace);
+        } catch (err) {
+          content.innerHTML = "";
+          showError("Failed to load trace: " + (err.message || err));
+        }
+      }
+
+      /** Load and render trace data for a task (arena format).
+       *  Fetches traces/<task-id>/<combo-hash>.json for the selected combo,
+       *  and also fetches the comparison combo for side-by-side view.
+       */
+      async function loadTraceArena(taskId, modelId, pluginIds) {
+        var content = document.getElementById("content");
+        var comboLabelA = pluginIds.length === 0 ? "raw" : pluginIds.join("+");
+        content.innerHTML = '<div class="loading">Loading trace for ' + esc(taskId) + " / " + esc(comboLabelA) + "...</div>";
+        document.getElementById("error").innerHTML = "";
+        document.getElementById("prompt-container").innerHTML = "";
+        document.getElementById("agent-output-container").innerHTML = "";
+        document.getElementById("judge-verdict-container").innerHTML = "";
+
+        if (!safePathComponent(taskId)) {
+          content.innerHTML = "";
+          showError("Invalid task ID: " + esc(taskId));
+          return;
+        }
+
+        var hashA = comboHash(pluginIds);
+
+        // Fetch verdict and output from arena data (async, non-blocking)
+        fetchArenaVerdictAndOutput(taskId, modelId, pluginIds).then(function (info) {
+          if (info) {
+            renderAgentOutput(info.output, comboLabelA);
+            renderJudgeVerdict(info.verdict, comboLabelA);
+          }
+        });
+
+        try {
+          // Fetch the primary trace
+          var respA = await fetch("traces/" + encodeURIComponent(taskId) + "/" + encodeURIComponent(hashA) + ".json");
+          var traceA;
+          if (respA.ok) {
+            traceA = await respA.json();
+          } else {
+            // Fallback to classic trace.json
+            var respFallback = await fetch("traces/" + encodeURIComponent(taskId) + "/trace.json");
+            if (respFallback.ok) {
+              traceA = await respFallback.json();
+              // Adapt classic format to arena: use agents map as configs
+              if (traceA.agents && !traceA.configs) {
+                traceA.configs = traceA.agents;
+              }
+            } else {
+              throw new Error("No trace data found for task '" + taskId + "' combo '" + hashA + "'");
+            }
+          }
+
+          // Ensure configs structure
+          if (!traceA.configs && traceA.agents) {
+            traceA.configs = traceA.agents;
+          }
+
+          // Determine available configs
+          var configKeys = traceA.configs ? Object.keys(traceA.configs) : [];
+          var configB;
+          if (configKeys.length >= 2) {
+            // Pick the other config for comparison
+            configB = configKeys[0] === comboLabelA ? configKeys[1] : configKeys[0];
+          } else if (configKeys.length === 1) {
+            configB = configKeys[0];
+          }
+
+          // Show config selector if multiple configs available
+          if (configKeys.length > 1) {
+            var selector = document.getElementById("config-selector");
+            selector.style.display = "flex";
+            var selA = document.getElementById("config-a-select");
+            var selB = document.getElementById("config-b-select");
+            selA.innerHTML = "";
+            selB.innerHTML = "";
+            for (var i = 0; i < configKeys.length; i++) {
+              var optA = document.createElement("option");
+              optA.value = configKeys[i];
+              optA.textContent = configKeys[i];
+              if (configKeys[i] === comboLabelA) optA.selected = true;
+              selA.appendChild(optA);
+
+              var optB = document.createElement("option");
+              optB.value = configKeys[i];
+              optB.textContent = configKeys[i];
+              if (configKeys[i] === configB) optB.selected = true;
+              selB.appendChild(optB);
+            }
+            selA.onchange = function () {
+              renderTraceArena(traceA, selA.value, selB.value);
+            };
+            selB.onchange = function () {
+              renderTraceArena(traceA, selA.value, selB.value);
+            };
+          } else {
+            document.getElementById("config-selector").style.display = "none";
+          }
+
+          renderTraceArena(traceA, comboLabelA, configB || comboLabelA);
+        } catch (err) {
+          content.innerHTML = "";
+          showError("Failed to load trace: " + (err.message || err));
+        }
+      }
+
+      /** Handle route/param changes. */
+      function handleRoute() {
+        var parsed = parseParams();
+        if (parsed) {
+          renderTaskNav(parsed.taskId, parsed.arena);
+          if (parsed.arena) {
+            loadTraceArena(parsed.taskId, parsed.modelId, parsed.pluginIds);
+          } else {
+            loadTraceClassic(parsed.taskId);
+          }
+        } else {
+          // Default to first task (classic mode)
+          renderTaskNav(null, false);
+          window.location.hash = "#/trace/" + TASK_IDS[0];
+        }
+      }
+
+      window.addEventListener("hashchange", handleRoute);
+      handleRoute();
+    })();
+  </script>
+</body>
+</html>

@@ -26,21 +26,50 @@ new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 export default proj;
 `;
 
-describe("graph command", () => {
-  let dir: string;
-
+/** Creates a temp dir before each test and cleans it up after. */
+function useTempDir() {
+  let dir = "";
   beforeEach(async () => {
     dir = await makeTempDir();
   });
-
   afterEach(async () => {
     await cleanupTempDir(dir);
   });
+  return () => dir;
+}
+
+/** Writes a file to the dir, runs main, and returns the exit code and captured output. */
+async function runWithFile(
+  args: string[],
+  dir: string,
+  filename: string,
+  content: string,
+) {
+  await writefile(dir, filename, content);
+  const out = new CaptureWriter();
+  const code = await main(args, { output: out });
+  return { code, out };
+}
+
+/** Runs main with the given args and asserts the exit code is 2. */
+async function runExpectingExit2(args: string[]) {
+  const out = new CaptureWriter();
+  const code = await main(args, { output: out });
+  expect(code).toBe(2);
+  return out;
+}
+
+describe("graph command", () => {
+  const getDir = useTempDir();
 
   it("prints the graph in human format", async () => {
-    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    const out = new CaptureWriter();
-    const code = await main(["graph", "--root", dir], { output: out });
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["graph", "--root", dir],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("Definition Graph");
     expect(out.stdoutText).toContain("myproj");
@@ -49,9 +78,13 @@ describe("graph command", () => {
   });
 
   it("prints JSON format", async () => {
-    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    const out = new CaptureWriter();
-    const code = await main(["graph", "--root", dir, "--format", "json"], { output: out });
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["graph", "--root", dir, "--format", "json"],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("graph");
@@ -59,60 +92,116 @@ describe("graph command", () => {
   });
 
   it("exits 2 when no config found", async () => {
-    const out = new CaptureWriter();
-    const code = await main(["graph", "--root", dir], { output: out });
-    expect(code).toBe(2);
+    await runExpectingExit2(["graph", "--root", getDir()]);
   });
 });
 
-describe("synth command (stub)", () => {
-  let dir: string;
+describe("compile command", () => {
+  const getDir = useTempDir();
 
-  beforeEach(async () => {
-    dir = await makeTempDir();
+  it("compiles to github YAML", async () => {
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["compile", "--target", "github", "--root", dir],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("on:");
+    expect(out.stdoutText).toContain("jobs:");
   });
 
-  afterEach(async () => {
-    await cleanupTempDir(dir);
+  it("compiles to gitlab YAML", async () => {
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["compile", "--target", "gitlab", "--root", dir],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("stages:");
   });
 
-  it("exits 2 with stub message for github", async () => {
-    const out = new CaptureWriter();
-    const code = await main(["synth", "--target", "github", "--root", dir], { output: out });
-    expect(code).toBe(2);
-    expect(out.stderrText).toContain("not yet implemented");
-  });
-
-  it("exits 2 with stub message for gitlab", async () => {
-    const out = new CaptureWriter();
-    const code = await main(["synth", "--target", "gitlab", "--root", dir], { output: out });
-    expect(code).toBe(2);
-  });
-
-  it("prints JSON format before erroring", async () => {
-    const out = new CaptureWriter();
-    const code = await main(["synth", "--target", "github", "--root", dir, "--format", "json"], { output: out });
-    expect(code).toBe(2);
+  it("prints JSON format", async () => {
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["compile", "--target", "github", "--root", dir, "--format", "json"],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
+    expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
-    expect(parsed.data.implemented).toBe(false);
+    expect(parsed.command).toBe("compile");
+    expect(parsed.data.target).toBe("github");
+    expect(typeof parsed.data.yaml).toBe("string");
+  });
+
+  it("writes to --output file", async () => {
+    const dir = getDir();
+    const { code } = await runWithFile(
+      ["compile", "--target", "github", "--root", dir, "--output", "workflow.yml"],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
+    expect(code).toBe(0);
+    const { readFileSync } = await import("node:fs");
+    const content = readFileSync(`${dir}/workflow.yml`, "utf8");
+    expect(content).toContain("on:");
+    expect(content).toContain("jobs:");
+  });
+
+  it("exits 2 when no config found", async () => {
+    await runExpectingExit2(["compile", "--target", "github", "--root", getDir()]);
+  });
+
+  it("exits 2 for invalid target", async () => {
+    await runExpectingExit2(["compile", "--target", "bad", "--root", getDir()]);
+  });
+});
+
+describe("synth command (delegates to compile)", () => {
+  const getDir = useTempDir();
+
+  it("delegates to compile for github", async () => {
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["synth", "--target", "github", "--root", dir],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("on:");
+  });
+
+  it("delegates to compile for gitlab", async () => {
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["synth", "--target", "gitlab", "--root", dir],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("stages:");
   });
 });
 
 describe("run command", () => {
-  let dir: string;
-
-  beforeEach(async () => {
-    dir = await makeTempDir();
-  });
-
-  afterEach(async () => {
-    await cleanupTempDir(dir);
-  });
+  const getDir = useTempDir();
 
   it("executes a valid config and reports success", async () => {
-    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    const out = new CaptureWriter();
-    const code = await main(["run", "--root", dir], { output: out });
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["run", "--root", dir],
+      dir,
+      "sverka.config.ts",
+      VALID_CONFIG,
+    );
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("Run completed: success");
   });
@@ -120,39 +209,31 @@ describe("run command", () => {
 });
 
 describe("policy command", () => {
-  let dir: string;
-
-  beforeEach(async () => {
-    dir = await makeTempDir();
-  });
-
-  afterEach(async () => {
-    await cleanupTempDir(dir);
-  });
+  const getDir = useTempDir();
 
   it("requires --findings", async () => {
-    const out = new CaptureWriter();
-    const code = await main(["policy", "--root", dir], { output: out });
-    expect(code).toBe(2);
+    await runExpectingExit2(["policy", "--root", getDir()]);
   });
 
   it("passes with empty findings", async () => {
-    await writefile(dir, "findings.sarif", EMPTY_SARIF);
-    const out = new CaptureWriter();
-    const code = await main(
+    const dir = getDir();
+    const { code, out } = await runWithFile(
       ["policy", "--root", dir, "--findings", "findings.sarif"],
-      { output: out },
+      dir,
+      "findings.sarif",
+      EMPTY_SARIF,
     );
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("pass");
   });
 
   it("prints JSON format", async () => {
-    await writefile(dir, "findings.sarif", EMPTY_SARIF);
-    const out = new CaptureWriter();
-    const code = await main(
+    const dir = getDir();
+    const { code, out } = await runWithFile(
       ["policy", "--root", dir, "--findings", "findings.sarif", "--format", "json"],
-      { output: out },
+      dir,
+      "findings.sarif",
+      EMPTY_SARIF,
     );
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
