@@ -19,6 +19,7 @@ import type {
   RunResult,
   AggregateMetrics,
   PluginConfig,
+  ModelConfig,
   Task,
   CaseAnalysis,
   ComboComparison,
@@ -80,58 +81,19 @@ export function pluginCombinations(plugins: PluginConfig[]): PluginConfig[][] {
 export async function runArena(config: ArenaConfig): Promise<ArenaResult> {
   const repetitions = config.repetitions ?? 1;
   const combos = pluginCombinations(config.plugins);
-  const results: RunResult[] = [];
-
-  for (const task of config.tasks) {
-    for (const model of config.models) {
-      for (const combo of combos) {
-        for (let rep = 0; rep < repetitions; rep++) {
-          const cellLabel = formatCell(task.id, model.id, combo, rep);
-          process.stderr.write(`[arena] ${cellLabel} running...\n`);
-
-          const result = await runCell(config.agent, task, model, combo, rep);
-          results.push(result);
-
-          process.stderr.write(
-            `[arena] ${cellLabel} ${result.success ? "PASS" : "FAIL"} — ` +
-              `${result.metrics.totalTokens} tokens, ${result.metrics.toolCallCount} tools, ` +
-              `${result.metrics.llmCallCount} llm calls, ${result.metrics.executionTimeMs}ms\n`,
-          );
-        }
-      }
-    }
-  }
-
-  // Aggregate per (model × plugin combo) cell.
-  const aggregates: AggregateMetrics[] = [];
-  for (const model of config.models) {
-    for (const combo of combos) {
-      const pluginIds = combo.filter((p) => p.enabled).map((p) => p.id);
-      const label = formatAggregateLabel(model.id, pluginIds);
-      aggregates.push(
-        aggregateResults(
-          results,
-          (r) => r.modelId === model.id && samePluginIds(r.pluginIds, pluginIds),
-          label,
-        ),
-      );
-    }
-  }
+  const results = await runMatrix(config, combos);
+  const aggregates = buildAggregates(results, config.models, combos);
 
   // Run the judge on all results if configured.
   if (config.judge) {
     const verdicts = await judgeAllRuns(results, config.tasks, config.judge);
     for (const verdict of verdicts) {
       const run = results[verdict.runIndex];
-      if (run) {
-        run.verdicts.push(verdict);
-      }
+      if (run) run.verdicts.push(verdict);
     }
   }
 
-  // Compute per-task analysis comparing baseline vs candidate plugin combos.
   const analysis = computeAnalysis(results, config.tasks);
-
   const arenaResult: ArenaResult = {
     timestamp: new Date().toISOString(),
     config: {
@@ -146,15 +108,68 @@ export async function runArena(config: ArenaConfig): Promise<ArenaResult> {
     analysis,
   };
 
-  // Persist results to the output directory.
   await mkdir(config.outputDir, { recursive: true });
   await writeFile(
     join(config.outputDir, "results.json"),
     JSON.stringify(arenaResult, null, 2),
     "utf-8",
   );
-
   return arenaResult;
+}
+
+/**
+ * Run every cell of the task × model × combo × repetition matrix, collecting
+ * results and logging per-cell progress to stderr.
+ */
+async function runMatrix(
+  config: ArenaConfig,
+  combos: PluginConfig[][],
+): Promise<RunResult[]> {
+  const repetitions = config.repetitions ?? 1;
+  const results: RunResult[] = [];
+  for (const task of config.tasks) {
+    for (const model of config.models) {
+      for (const combo of combos) {
+        for (let rep = 0; rep < repetitions; rep++) {
+          const cellLabel = formatCell(task.id, model.id, combo, rep);
+          process.stderr.write(`[arena] ${cellLabel} running...\n`);
+          const result = await runCell(config.agent, task, model, combo, rep);
+          results.push(result);
+          process.stderr.write(
+            `[arena] ${cellLabel} ${result.success ? "PASS" : "FAIL"} — ` +
+              `${result.metrics.totalTokens} tokens, ${result.metrics.toolCallCount} tools, ` +
+              `${result.metrics.llmCallCount} llm calls, ${result.metrics.executionTimeMs}ms\n`,
+          );
+        }
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Aggregate metrics per (model × plugin combo) cell.
+ */
+function buildAggregates(
+  results: RunResult[],
+  models: ModelConfig[],
+  combos: PluginConfig[][],
+): AggregateMetrics[] {
+  const aggregates: AggregateMetrics[] = [];
+  for (const model of models) {
+    for (const combo of combos) {
+      const pluginIds = combo.filter((p) => p.enabled).map((p) => p.id);
+      const label = formatAggregateLabel(model.id, pluginIds);
+      aggregates.push(
+        aggregateResults(
+          results,
+          (r) => r.modelId === model.id && samePluginIds(r.pluginIds, pluginIds),
+          label,
+        ),
+      );
+    }
+  }
+  return aggregates;
 }
 
 /** Run a single matrix cell in an ISOLATED temp workspace. */
@@ -165,83 +180,107 @@ async function runCell(
   combo: PluginConfig[],
   rep: number,
 ): Promise<RunResult> {
-  // ── Create an isolated temp workspace ─────────────────────────────
-  // Each run gets a FRESH copy of the fixture (if any) in a temp dir.
-  // This prevents skill contamination from the host repo.
+  const tempWorkspace = await createTempWorkspace(task, model, combo, rep);
+  await installPlugins(tempWorkspace, combo);
+  const result = await executeRun(agent, task, model, combo, tempWorkspace);
+  await rm(tempWorkspace, { recursive: true, force: true });
+  return result;
+}
+
+/**
+ * Create an isolated temp workspace with a fresh copy of the fixture (if any).
+ * Each run gets its own copy to prevent skill contamination from the host repo.
+ */
+async function createTempWorkspace(
+  task: ArenaConfig["tasks"][number],
+  model: ArenaConfig["models"][number],
+  combo: PluginConfig[],
+  rep: number,
+): Promise<string> {
   const tempWorkspace = join(
     tmpdir(),
     `arena-${task.id}-${model.id}-${combo.map((p) => p.id + (p.enabled ? "on" : "off")).join(",")}-r${rep}-${Date.now()}`,
   );
   await mkdir(tempWorkspace, { recursive: true });
-
-  // Copy fixture project into temp workspace if configured.
   if (task.fixture) {
     const fixturePath = resolve(PKG_ROOT, task.fixture);
     await cp(fixturePath, tempWorkspace, { recursive: true });
   }
+  return tempWorkspace;
+}
 
-  // Install ONLY the configured plugins (this also nukes any existing .agents/skills).
-  await installPlugins(tempWorkspace, combo);
-
+/**
+ * Spawn the agent, run the prompt, run deterministic checks, and return the
+ * result. On error returns a zeroed {@link RunResult} via {@link errorResult}.
+ */
+async function executeRun(
+  agent: ArenaConfig["agent"],
+  task: ArenaConfig["tasks"][number],
+  model: ArenaConfig["models"][number],
+  combo: PluginConfig[],
+  tempWorkspace: string,
+): Promise<RunResult> {
   const proc = agent.spawn({
     model,
     workspace: tempWorkspace,
     plugins: combo,
     permissionMode: "dangerous",
   });
-
   try {
     const result = await proc.run(task.prompt, task.timeoutMs ?? 120_000);
     result.taskId = task.id;
     if (!result.verdicts) result.verdicts = [];
     if (!result.checkResults) result.checkResults = [];
-
-    // Run deterministic checks if configured.
     if (task.checks && task.checks.length > 0) {
       result.checkResults = await runChecks(tempWorkspace, task.checks);
-      // Update success: all checks must pass.
-      const allChecksPass = result.checkResults.every((c) => c.passed);
-      result.success = result.success && allChecksPass;
+      result.success = result.success && result.checkResults.every((c) => c.passed);
     }
-
     return result;
   } catch (error) {
-    return {
-      taskId: task.id,
-      modelId: model.id,
-      pluginIds: combo.filter((p) => p.enabled).map((p) => p.id),
-      metrics: {
-        inputTokens: 0,
-        outputTokens: 0,
-        thoughtTokens: 0,
-        totalTokens: 0,
-        toolCallCount: 0,
-        llmCallCount: 0,
-        executionTimeMs: 0,
-        stopReason: "cancelled",
-      },
-      trace: {
-        sessionId: "",
-        model: model.id,
-        steps: [],
-        finalMetrics: {
-          totalPromptTokens: 0,
-          totalCompletionTokens: 0,
-          totalCachedTokens: 0,
-          totalSteps: 0,
-        },
-      },
-      output: "",
-      checkResults: [],
-      verdicts: [],
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return errorResult(task, model, combo, error);
   } finally {
     proc.kill();
-    // Clean up temp workspace.
-    await rm(tempWorkspace, { recursive: true, force: true });
   }
+}
+
+/** Build a zeroed {@link RunResult} for a failed run. */
+function errorResult(
+  task: ArenaConfig["tasks"][number],
+  model: ArenaConfig["models"][number],
+  combo: PluginConfig[],
+  error: unknown,
+): RunResult {
+  return {
+    taskId: task.id,
+    modelId: model.id,
+    pluginIds: combo.filter((p) => p.enabled).map((p) => p.id),
+    metrics: {
+      inputTokens: 0,
+      outputTokens: 0,
+      thoughtTokens: 0,
+      totalTokens: 0,
+      toolCallCount: 0,
+      llmCallCount: 0,
+      executionTimeMs: 0,
+      stopReason: "cancelled",
+    },
+    trace: {
+      sessionId: "",
+      model: model.id,
+      steps: [],
+      finalMetrics: {
+        totalPromptTokens: 0,
+        totalCompletionTokens: 0,
+        totalCachedTokens: 0,
+        totalSteps: 0,
+      },
+    },
+    output: "",
+    checkResults: [],
+    verdicts: [],
+    success: false,
+    error: error instanceof Error ? error.message : String(error),
+  };
 }
 
 /** Run deterministic checks in the workspace. */

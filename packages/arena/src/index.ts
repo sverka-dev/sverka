@@ -25,6 +25,9 @@ export type {
 export { DevinAdapter } from "./adapters/devin.js";
 export { installPlugins, transcriptDir, countLlmCalls } from "./adapters/devin.js";
 
+export { sanitizeEnv, runAcpSession, createPermissionHandler } from "./acp.js";
+export type { ToolCallMessage, ToolCallUpdateMessage } from "./acp.js";
+
 export { pluginCombinations, runArena, aggregateResults, computeAnalysis } from "./runner.js";
 
 export {

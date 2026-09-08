@@ -41,7 +41,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.4.0"
+    "@agentclientprotocol/sdk": "^1.4.0",
+    "@sverka/arena": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",

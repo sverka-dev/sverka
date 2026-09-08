@@ -1,18 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { Writable, Readable } from "node:stream";
 import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-import * as acp from "@agentclientprotocol/sdk";
-import type {
-  PromptResponse,
-  Usage,
-  SessionUpdate,
-  RequestPermissionRequest,
-  RequestPermissionResponse,
-} from "@agentclientprotocol/sdk";
+import type { Usage } from "@agentclientprotocol/sdk";
+
+import { sanitizeEnv, runAcpSession } from "@sverka/arena";
 
 import type {
   Task,
@@ -115,11 +109,15 @@ async function runTask(
 
   try {
     proc = spawnAcpAgent(workspace, model);
-    const { promptResult, toolCallCount } = await runAcpSession(
+    let toolCallCount = 0;
+    const promptResult = await runAcpSession(
       proc,
       workspace,
       task.prompt,
       task.timeoutMs ?? 120000,
+      () => {
+        toolCallCount++;
+      },
     );
     const metrics = extractMetrics(promptResult, toolCallCount, startTime);
     return {
@@ -183,78 +181,16 @@ async function setupWorkspace(agent: AgentConfig): Promise<string> {
 
 /** Spawn `devin acp` as a subprocess in the given workspace. */
 function spawnAcpAgent(workspace: string, model: string): ChildProcess {
+  const env = sanitizeEnv({
+    model: { id: model, name: model },
+    workspace,
+    plugins: [],
+  });
   return spawn("devin", ["acp", "--model", model], {
     cwd: workspace,
     stdio: ["pipe", "pipe", "inherit"],
-    env: {
-      ...process.env,
-      DEVIN_PERMISSION_MODE: "dangerous",
-      DEVIN_MODEL: model,
-    },
+    env,
   });
-}
-
-/** Run an ACP session: initialize, create session, prompt, collect events. */
-async function runAcpSession(
-  proc: ChildProcess,
-  workspace: string,
-  prompt: string,
-  timeoutMs: number,
-): Promise<{ promptResult: PromptResponse; toolCallCount: number }> {
-  if (!proc.stdin || !proc.stdout) {
-    throw new Error("Agent process missing stdin/stdout");
-  }
-
-  const input = Writable.toWeb(proc.stdin);
-  const output = Readable.toWeb(proc.stdout);
-  const stream = acp.ndJsonStream(input, output);
-
-  let toolCallCount = 0;
-
-  const promptResult = await acp
-    .client({ name: "sverka-benchmark" })
-    .onRequest(
-      acp.methods.client.session.requestPermission,
-      (ctx): RequestPermissionResponse => {
-        const options = ctx.params.options;
-        const allow = options.find((o) => o.kind === "allow_once" || o.kind === "allow_always");
-        return {
-          outcome: {
-            outcome: "selected",
-            optionId: allow?.optionId ?? options[0]?.optionId ?? "",
-          },
-        };
-      },
-    )
-    .connectWith(stream, async (ctx) => {
-      await ctx.request(acp.methods.agent.initialize, {
-        protocolVersion: acp.PROTOCOL_VERSION,
-        clientCapabilities: {},
-      });
-
-      return ctx.buildSession(workspace).withSession(async (session) => {
-        const promptPromise = session.prompt(prompt);
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Agent timed out after ${timeoutMs}ms`)), timeoutMs),
-        );
-
-        // Collect updates until stop or timeout
-        const collectPromise = (async () => {
-          for (;;) {
-            const message = await session.nextUpdate();
-            if (message.kind === "stop") return message.response;
-            const update = message.update;
-            if (update.sessionUpdate === "tool_call") {
-              toolCallCount++;
-            }
-          }
-        })();
-
-        return Promise.race([promptPromise, collectPromise, timeoutPromise]);
-      });
-    });
-
-  return { promptResult, toolCallCount };
 }
 
 /** Write benchmark results to a JSON file. */

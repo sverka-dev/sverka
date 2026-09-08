@@ -280,35 +280,47 @@ function extractJson(response: string): string | null {
   const trimmed = response.trim();
   if (trimmed === "") return null;
 
-  // Try fenced block first: ```json ... ``` or ``` ... ```
-  // Use string search instead of regex to avoid ReDoS on pathological input.
-  const fenceStart = trimmed.indexOf("```");
-  if (fenceStart !== -1) {
-    const afterFence = trimmed.slice(fenceStart + 3);
-    // Skip optional "json" label
-    let contentStart = 0;
-    if (afterFence.startsWith("json")) {
-      contentStart = 4;
-    }
-    // Skip whitespace after label
-    while (contentStart < afterFence.length && /\s/.test(afterFence[contentStart]!)) {
-      contentStart++;
-    }
-    const fenceEnd = afterFence.indexOf("```", contentStart);
-    if (fenceEnd !== -1) {
-      const inner = afterFence.slice(contentStart, fenceEnd).trim();
-      if (looksLikeJson(inner)) return inner;
-    }
-  }
+  const fenced = extractFromFence(trimmed);
+  if (fenced !== null) return fenced;
 
-  // Try to locate the first {...} block in the raw text.
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    return trimmed.slice(start, end + 1);
-  }
+  const braced = extractFromBraces(trimmed);
+  if (braced !== null) return braced;
 
   return null;
+}
+
+/** Extract JSON from inside a markdown code fence (```...```). */
+function extractFromFence(text: string): string | null {
+  // Use string search instead of regex to avoid ReDoS on pathological input.
+  const fenceStart = text.indexOf("```");
+  if (fenceStart === -1) return null;
+
+  const afterFence = text.slice(fenceStart + 3);
+  // Skip optional "json" label
+  let contentStart = 0;
+  if (afterFence.startsWith("json")) {
+    contentStart = 4;
+  }
+  // Skip whitespace after label
+  while (contentStart < afterFence.length && /\s/.test(afterFence[contentStart]!)) {
+    contentStart++;
+  }
+  const fenceEnd = afterFence.indexOf("```", contentStart);
+  if (fenceEnd === -1) return null;
+
+  const inner = afterFence.slice(contentStart, fenceEnd).trim();
+  if (!looksLikeJson(inner)) return null;
+
+  return inner;
+}
+
+/** Extract JSON by finding the first `{` and last `}` in the text. */
+function extractFromBraces(text: string): string | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return null;
+
+  return text.slice(start, end + 1);
 }
 
 /** Quick check that a string starts with `{` (a JSON object). */
