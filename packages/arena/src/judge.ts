@@ -43,18 +43,16 @@ export function buildJudgePrompt(
   config: JudgeConfig,
 ): string {
   const systemPrompt = config.systemPrompt ?? DEFAULT_JUDGE_PROMPT;
-  const lines: string[] = [];
-
-  lines.push(systemPrompt);
-  lines.push("");
-  lines.push("## Task Prompt");
-  lines.push(task.prompt);
-  lines.push("");
+  const lines: string[] = [
+    systemPrompt,
+    "",
+    "## Task Prompt",
+    task.prompt,
+    "",
+  ];
 
   if (task.successCriteria) {
-    lines.push("## Success Criteria");
-    lines.push(task.successCriteria);
-    lines.push("");
+    lines.push("## Success Criteria", task.successCriteria, "");
   }
 
   if (config.revealPlugins && task.id) {

@@ -2613,16 +2613,7 @@
 
       // ── Main ───────────────────────────────────────────────────────
 
-      async function main() {
-        var params = new URLSearchParams(window.location.search);
-        var dataParam = params.get("data");
-        // Only allow specific safe data files — prevent client-side request forgery
-        var ALLOWED_DATA_FILES = ["arena-sample.json"];
-        var dataUrl = (dataParam && ALLOWED_DATA_FILES.includes(dataParam))
-          ? dataParam
-          : "arena-sample.json";
-
-        // Sidebar toggle (mobile)
+      function setupNavigation() {
         document.getElementById("sidebar-toggle").addEventListener("click", function () {
           document.getElementById("sidebar").classList.toggle("open");
         });
@@ -2635,8 +2626,9 @@
           e.preventDefault();
           window.location.hash = "#/";
         });
+      }
 
-        // CRUD toolbar buttons
+      function setupCrudToolbar() {
         document.getElementById("btn-new-case").addEventListener("click", function () {
           showCaseForm(null);
         });
@@ -2662,6 +2654,65 @@
         document.getElementById("btn-refresh").addEventListener("click", function () {
           window.location.reload();
         });
+      }
+
+      function setupArenaView(result) {
+        // Render workbench — use API cases if available, otherwise use results data
+        if (caseDefinitions && caseDefinitions.length > 0) {
+          renderOverviewWithCases();
+        } else {
+          renderSidebar(result);
+          renderOverview(result);
+        }
+        renderArenaMatrix(result);
+        renderHeader({ model: (result.config.models || []).join(", "), timestamp: result.timestamp });
+
+        // Wire up metric radios
+        var radios = document.querySelectorAll('input[name="metric"]');
+        for (var i = 0; i < radios.length; i++) {
+          radios[i].addEventListener("change", function (e) {
+            selectedMetric = e.target.value;
+            renderArenaMatrix(result);
+          });
+        }
+
+        // Wire up view toggle (legacy)
+        document.getElementById("toggle-matrix").addEventListener("click", function () {
+          showArenaView();
+          document.getElementById("matrix-summary").style.display = "block";
+        });
+        document.getElementById("toggle-classic").addEventListener("click", function () {
+          showClassicView();
+        });
+
+        // Route
+        window.addEventListener("hashchange", handleRoute);
+        handleRoute();
+      }
+
+      function setupClassicView(result) {
+        document.getElementById("workbench-overview").style.display = "none";
+        document.getElementById("workbench-case").style.display = "none";
+        document.getElementById("legacy-view").style.display = "block";
+        document.getElementById("sidebar").style.display = "none";
+        document.getElementById("subtitle").textContent = "Legacy benchmark format — agent comparison";
+        document.getElementById("view-toggle").style.display = "none";
+        renderHeader(result);
+        renderSummary(result);
+        renderTable(result);
+      }
+
+      async function main() {
+        var params = new URLSearchParams(window.location.search);
+        var dataParam = params.get("data");
+        // Only allow specific safe data files — prevent client-side request forgery
+        var ALLOWED_DATA_FILES = ["arena-sample.json"];
+        var dataUrl = (dataParam && ALLOWED_DATA_FILES.includes(dataParam))
+          ? dataParam
+          : "arena-sample.json";
+
+        setupNavigation();
+        setupCrudToolbar();
 
         // Try to load case definitions and config from API (non-blocking)
         var hasApi = await apiAvailable();
@@ -2680,51 +2731,9 @@
 
           if (isArenaResult(result)) {
             arenaData = result;
-
-            // Render workbench — use API cases if available, otherwise use results data
-            if (caseDefinitions && caseDefinitions.length > 0) {
-              renderOverviewWithCases();
-            } else {
-              renderSidebar(result);
-              renderOverview(result);
-            }
-
-            // Also render legacy views (hidden) for toggle
-            renderArenaMatrix(result);
-            renderHeader({ model: (result.config.models || []).join(", "), timestamp: result.timestamp });
-
-            // Wire up metric radios
-            var radios = document.querySelectorAll('input[name="metric"]');
-            for (var i = 0; i < radios.length; i++) {
-              radios[i].addEventListener("change", function (e) {
-                selectedMetric = e.target.value;
-                renderArenaMatrix(result);
-              });
-            }
-
-            // Wire up view toggle (legacy)
-            document.getElementById("toggle-matrix").addEventListener("click", function () {
-              showArenaView();
-              document.getElementById("matrix-summary").style.display = "block";
-            });
-            document.getElementById("toggle-classic").addEventListener("click", function () {
-              showClassicView();
-            });
-
-            // Route
-            window.addEventListener("hashchange", handleRoute);
-            handleRoute();
+            setupArenaView(result);
           } else {
-            // Classic format (backward compat) — show legacy view
-            document.getElementById("workbench-overview").style.display = "none";
-            document.getElementById("workbench-case").style.display = "none";
-            document.getElementById("legacy-view").style.display = "block";
-            document.getElementById("sidebar").style.display = "none";
-            document.getElementById("subtitle").textContent = "Legacy benchmark format — agent comparison";
-            document.getElementById("view-toggle").style.display = "none";
-            renderHeader(result);
-            renderSummary(result);
-            renderTable(result);
+            setupClassicView(result);
           }
         } catch (err) {
           showError("Failed to load benchmark data: " + (err.message || err));

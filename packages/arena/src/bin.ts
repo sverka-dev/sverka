@@ -5,4 +5,6 @@ async function main(): Promise<number> {
   process.stderr.write("arena CLI — not yet implemented\n");
   return 1;
 }
-main().then(process.exit);
+
+const code = await main();
+process.exit(code);

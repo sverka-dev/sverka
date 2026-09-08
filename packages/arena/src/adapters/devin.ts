@@ -170,7 +170,7 @@ function extractAgentOutput(
   // Fall back to the last agent message in the trace.
   for (let i = trace.steps.length - 1; i >= 0; i--) {
     const step = trace.steps[i];
-    if (step && step.source === "agent" && step.message.length > 0) {
+    if (step?.source === "agent" && step.message.length > 0) {
       return step.message;
     }
   }
@@ -245,7 +245,9 @@ export class DevinAdapter implements AgentAdapter {
 /** Spawn `devin acp --model <model.id>` as a subprocess in the workspace. */
 function spawnDevin(config: AgentSpawnConfig): ChildProcess {
   const env = sanitizeEnv(config);
-  return spawn("devin", ["acp", "--model", config.model.id], {
+  // PATH is required for the agent to find the devin binary; sanitized env
+  // already strips host-contaminating vars (GC_, BEADS_, MCP_, etc.)
+  return spawn("devin", ["acp", "--model", config.model.id], { // NOSONAR — PATH intentionally inherited
     cwd: config.workspace,
     stdio: ["pipe", "pipe", "inherit"],
     env,
