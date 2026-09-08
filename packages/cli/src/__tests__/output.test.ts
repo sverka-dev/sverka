@@ -79,11 +79,11 @@ describe("ConsoleOutputWriter", () => {
 });
 
 describe("createOutputWriter", () => {
-  it("suppresses stdout when quiet (human format)", () => {
+  it("suppresses stdout when quiet (text format)", () => {
     const out: string[] = [];
     const err: string[] = [];
     const w = createOutputWriter(
-      { format: "human", config: null, root: ".", quiet: true, verbose: false },
+      { format: "text", config: null, root: ".", quiet: true, verbose: false },
       (s) => out.push(s),
       (s) => err.push(s),
     );
@@ -109,7 +109,7 @@ describe("createOutputWriter", () => {
     const out: string[] = [];
     const err: string[] = [];
     const w = createOutputWriter(
-      { format: "human", config: null, root: ".", quiet: false, verbose: true },
+      { format: "text", config: null, root: ".", quiet: false, verbose: true },
       (s) => out.push(s),
       (s) => err.push(s),
     );
@@ -120,7 +120,7 @@ describe("createOutputWriter", () => {
   it("does not write debug when not verbose", () => {
     const err: string[] = [];
     const w = createOutputWriter(
-      { format: "human", config: null, root: ".", quiet: false, verbose: false },
+      { format: "text", config: null, root: ".", quiet: false, verbose: false },
       () => {},
       (s) => err.push(s),
     );
@@ -132,14 +132,14 @@ describe("createOutputWriter", () => {
 describe("types (compile-time check)", () => {
   it("GlobalFlags and OutputWriter are importable", () => {
     const _g: GlobalFlags = {
-      format: "human",
+      format: "text",
       config: null,
       root: ".",
       quiet: false,
       verbose: false,
     };
     const _w: OutputWriter = new CaptureWriter();
-    expect(_g.format).toBe("human");
+    expect(_g.format).toBe("text");
     expect(_w).toBeDefined();
   });
 });

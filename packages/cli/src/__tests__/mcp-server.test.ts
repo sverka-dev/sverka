@@ -86,7 +86,7 @@ function lastServer(): MockMcpServer {
 }
 
 function makeGlobal(root: string) {
-  return { format: "human" as const, config: null, root, quiet: false, verbose: false };
+  return { format: "text" as const, config: null, root, quiet: false, verbose: false };
 }
 
 describe("sverka mcp-server", () => {

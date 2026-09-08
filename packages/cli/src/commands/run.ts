@@ -10,6 +10,9 @@ import { createHostDriver } from "@sverka/runtime";
 import type { CommandAllowlist } from "@sverka/runtime";
 import { createDockerDriver } from "@sverka/runtime";
 import { bindRunPlan } from "@sverka/sdk";
+import { createTextRenderer, collectFindings, evaluateGate } from "@sverka/reporter";
+import type { Renderer } from "@sverka/reporter";
+import type { Finding } from "@sverka/verification";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";
@@ -19,6 +22,7 @@ import { isBinaryAvailable } from "../internal/runtime-check.js";
 export interface RunArgs {
   entryId?: string;
   executor?: "host" | "docker";
+  evaluate?: boolean;
 }
 
 /**
@@ -51,10 +55,27 @@ export async function runCommand(
     maxConcurrent: 4,
   });
 
-  const { events, runStatus } = await consumeEvents(engine, plan, workspace, artifactDir, global, output);
+  const { events, runStatus, renderer } = await consumeEvents(
+    engine, plan, workspace, artifactDir, global, output,
+  );
 
   const durationMs = Date.now() - start;
-  writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output);
+
+  // If --evaluate, collect findings and run policy gate
+  let policyExitCode = 0;
+  let evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null = null;
+  if (args.evaluate) {
+    const result = await runEvaluation(artifactDir, global, output, events, renderer);
+    policyExitCode = result.exitCode;
+    evalResult = result.summary;
+  }
+
+  writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output, evalResult);
+
+  // When --evaluate is set, policy exit code takes precedence
+  if (args.evaluate && policyExitCode !== 0) {
+    return policyExitCode;
+  }
 
   return exitCodeForStatus(runStatus);
 }
@@ -124,21 +145,49 @@ async function consumeEvents(
   artifactDir: string,
   global: GlobalFlags,
   output: OutputWriter,
-): Promise<{ events: RunEvent[]; runStatus: string }> {
+): Promise<{ events: RunEvent[]; runStatus: string; renderer: Renderer | null }> {
   const events: RunEvent[] = [];
   let runStatus = "failure";
 
+  // Use TextRenderer for text format
+  const renderer = global.format === "text"
+    ? createTextRenderer({ writer: output })
+    : null;
+
   for await (const event of engine.run({ plan, workspace, artifactDir })) {
     events.push(event);
-    if (global.format === "human") {
-      printEvent(event, output);
-    }
+    renderer?.onEvent(event);
     if ((event as { type: string }).type === "run-completed") {
       runStatus = (event as { status: string }).status;
     }
   }
 
-  return { events, runStatus };
+  return { events, runStatus, renderer };
+}
+
+async function runEvaluation(
+  artifactDir: string,
+  _global: GlobalFlags,
+  _output: OutputWriter,
+  _events: readonly RunEvent[],
+  renderer: Renderer | null,
+): Promise<{ exitCode: number; summary: { findings: readonly Finding[]; verdict: string; summary: string } | null }> {
+  const rows = await collectFindings({ artifactDir });
+  const findings = rows.map((r) => r.finding);
+
+  const { result, exitCode } = evaluateGate({ findings });
+
+  // Pass findings and verdict to the existing renderer (no replay)
+  if (renderer) {
+    renderer.onFindings(findings);
+    renderer.onVerdict(result);
+    renderer.flush();
+  }
+
+  return {
+    exitCode,
+    summary: { findings, verdict: result.verdict, summary: result.summary },
+  };
 }
 
 function writeRunOutput(
@@ -148,50 +197,32 @@ function writeRunOutput(
   durationMs: number,
   global: GlobalFlags,
   output: OutputWriter,
+  evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null,
 ): void {
   if (global.format === "json") {
     output.writeLine(
       JSON.stringify({
         command: "run",
-        data: { planId, status: runStatus, events: eventCount },
+        data: {
+          planId,
+          status: runStatus,
+          events: eventCount,
+          ...(evalResult ? {
+            findings: evalResult.findings.length,
+            verdict: evalResult.verdict,
+            summary: evalResult.summary,
+          } : {}),
+        },
         durationMs,
       }),
     );
-  } else {
-    output.writeLine(`Run completed: ${runStatus} (${eventCount} events, ${durationMs}ms)`);
   }
+  // Text format: renderer already printed all output including run-completed line.
+  // No additional summary needed.
 }
 
 function exitCodeForStatus(runStatus: string): ExitCode {
   if (runStatus === "success") return ExitCode.Success;
   if (runStatus === "failure") return ExitCode.PolicyFail;
   return ExitCode.RuntimeError;
-}
-
-const EVENT_LABELS: Readonly<Record<string, string>> = {
-  "run-started": "▶ run started",
-  "step-pending": "  ○ {step} pending",
-  "step-ready": "  ◇ {step} ready",
-  "step-started": "  ▶ {step} started",
-  "step-succeeded": "  ✓ {step} succeeded",
-  "step-failed": "  ✗ {step} failed",
-  "step-skipped": "  ⊘ {step} skipped",
-  "step-cancelled": "  ⊘ {step} cancelled",
-  "step-compensating": "  ↺ {step} compensating",
-  "step-compensated": "  ↺ {step} compensated: {status}",
-  "run-completed": "■ run completed: {status}",
-  "diagnostic": "  ! diagnostic",
-};
-
-function printEvent(event: RunEvent, output: OutputWriter): void {
-  const e = event as { type: string; stepId?: string; status?: string };
-  const template = EVENT_LABELS[e.type];
-  if (template === undefined) {
-    output.writeLine(`  ? ${e.type}`);
-    return;
-  }
-  const line = template
-    .replace("{step}", e.stepId ?? "")
-    .replace("{status}", e.status ?? "");
-  output.writeLine(line);
 }

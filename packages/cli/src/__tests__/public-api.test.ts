@@ -41,7 +41,7 @@ describe("public API — exports", () => {
 
   it("createOutputWriter returns a writer", () => {
     const w = createOutputWriter(
-      { format: "human", config: null, root: ".", quiet: false, verbose: false },
+      { format: "text", config: null, root: ".", quiet: false, verbose: false },
       () => {},
       () => {},
     );
@@ -50,7 +50,7 @@ describe("public API — exports", () => {
 
   it("all types are importable (compile-time check)", () => {
     const _g: GlobalFlags = {
-      format: "human",
+      format: "text",
       config: null,
       root: ".",
       quiet: false,
@@ -60,7 +60,7 @@ describe("public API — exports", () => {
     const _c: CliErrorCode = "UNKNOWN_COMMAND";
     const _d: MainDeps = {};
     const _s: WriteSink = () => {};
-    expect(_g.format).toBe("human");
+    expect(_g.format).toBe("text");
     expect(_w).toBeDefined();
     expect(_c).toBe("UNKNOWN_COMMAND");
     expect(_d).toBeDefined();

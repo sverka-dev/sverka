@@ -25,7 +25,7 @@ export interface MainDeps {
 /** Build GlobalFlags from parsed yargs options. */
 function buildGlobalFlags(parsed: Arguments): GlobalFlags {
   return {
-    format: parsed.format === "json" ? "json" : "human",
+    format: parsed.format === "json" ? "json" : "text",
     config: typeof parsed.config === "string" ? parsed.config : null,
     root: typeof parsed.root === "string" ? parsed.root : process.cwd(),
     quiet: Boolean(parsed.quiet),
@@ -65,7 +65,8 @@ function addRunCommand(y: Argv): Argv {
       type: "string",
       default: "host",
       choices: ["host", "docker"],
-    });
+    })
+    .option("evaluate", { type: "boolean", default: false });
 }
 
 /** Configure the plan subcommand options. */
@@ -108,9 +109,9 @@ function buildParser(): Argv {
     .scriptName("sverka")
     .option("format", {
       type: "string",
-      default: "human",
+      default: "text",
       alias: "f",
-      choices: ["human", "json"],
+      choices: ["text", "json"],
     })
     .option("config", { type: "string", alias: "c" })
     .option("root", { type: "string", alias: "r", default: process.cwd() })
@@ -214,6 +215,7 @@ function dispatchRun(
 ): Promise<number> {
   const args: RunArgs = {
     executor: parsed.executor === "docker" ? "docker" : "host",
+    evaluate: Boolean(parsed.evaluate),
   };
   if (typeof parsed.entry === "string") args.entryId = parsed.entry;
   return runCommand(args, global, output, start);
@@ -267,7 +269,7 @@ export async function main(
   const output =
     deps?.output ??
     createOutputWriter(
-      { format: "human", config: null, root: process.cwd(), quiet: false, verbose: false },
+      { format: "text", config: null, root: process.cwd(), quiet: false, verbose: false },
       (s) => process.stdout.write(s),
       (s) => process.stderr.write(s),
     );

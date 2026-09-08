@@ -54,6 +54,7 @@
       "dependencies": {
         "@modelcontextprotocol/sdk": "1.30.0",
         "@sverka/compiler": "workspace:*",
+        "@sverka/reporter": "workspace:*",
         "@sverka/runtime": "workspace:*",
         "@sverka/sdk": "workspace:*",
         "@sverka/verification": "workspace:*",
@@ -87,6 +88,19 @@
       "dependencies": {
         "@modelcontextprotocol/sdk": "1.30.0",
         "@sverka/compiler": "workspace:*",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^4.1.11",
+      },
+    },
+    "packages/reporter": {
+      "name": "@sverka/reporter",
+      "version": "0.1.0",
+      "dependencies": {
+        "@sverka/runtime": "workspace:*",
+        "@sverka/verification": "workspace:*",
       },
       "devDependencies": {
         "tsdown": "^0.22.0",
@@ -370,6 +384,8 @@
     "@sverka/compiler": ["@sverka/compiler@workspace:packages/compiler"],
 
     "@sverka/plugin-mcp": ["@sverka/plugin-mcp@workspace:packages/plugin-mcp"],
+
+    "@sverka/reporter": ["@sverka/reporter@workspace:packages/reporter"],
 
     "@sverka/runtime": ["@sverka/runtime@workspace:packages/runtime"],
 
