@@ -126,7 +126,7 @@ function extractTextContent(
 }
 
 /** Extract token counts from a Usage object, defaulting to 0. */
-function extractUsageTokens(usage: Usage | null | undefined): {
+export function extractUsageTokens(usage: Usage | null | undefined): {
   inputTokens: number;
   outputTokens: number;
   thoughtTokens: number;
