@@ -2,7 +2,8 @@
 // Spec 43 — test plan items 27-30.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { main } from "../index.js";
 import {
@@ -136,5 +137,61 @@ describe("run command — format and evaluate", () => {
     const json = JSON.parse(out.stdoutText);
     expect(json.command).toBe("run");
     expect(json.data.status).toBe("success");
+  });
+});
+
+describe("run command — --format html", () => {
+  const getDir = useTempDir();
+
+  it("21. --format html --output produces an HTML file", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+
+    const out = new CaptureWriter();
+    const outputPath = join(dir, "report.html");
+    const code = await main(
+      ["run", "--root", dir, "--format", "html", "--output", outputPath],
+      { output: out },
+    );
+
+    expect(code).toBe(0);
+    expect(existsSync(outputPath)).toBe(true);
+    const html = await readFile(outputPath, "utf-8");
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("ci/build");
+  });
+
+  it("22. --format html implies --evaluate (findings collected)", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    await placeSarif(dir);
+
+    const out = new CaptureWriter();
+    const outputPath = join(dir, "report.html");
+    const code = await main(
+      ["run", "--root", dir, "--format", "html", "--output", outputPath],
+      { output: out },
+    );
+
+    // High finding -> policy fail -> exit 1
+    expect(code).toBe(1);
+    expect(existsSync(outputPath)).toBe(true);
+    const html = await readFile(outputPath, "utf-8");
+    expect(html).toContain("fail");
+  });
+
+  it("23. --format html default output is .sverka/report.html", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+
+    const out = new CaptureWriter();
+    const code = await main(
+      ["run", "--root", dir, "--format", "html"],
+      { output: out },
+    );
+
+    expect(code).toBe(0);
+    const defaultPath = join(dir, ".sverka", "report.html");
+    expect(existsSync(defaultPath)).toBe(true);
   });
 });

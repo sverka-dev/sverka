@@ -24,8 +24,9 @@ export interface MainDeps {
 
 /** Build GlobalFlags from parsed yargs options. */
 function buildGlobalFlags(parsed: Arguments): GlobalFlags {
+  const format = parsed.format === "json" ? "json" : parsed.format === "html" ? "html" : "text";
   return {
-    format: parsed.format === "json" ? "json" : "text",
+    format,
     config: typeof parsed.config === "string" ? parsed.config : null,
     root: typeof parsed.root === "string" ? parsed.root : process.cwd(),
     quiet: Boolean(parsed.quiet),
@@ -66,7 +67,11 @@ function addRunCommand(y: Argv): Argv {
       default: "host",
       choices: ["host", "docker"],
     })
-    .option("evaluate", { type: "boolean", default: false });
+    .option("evaluate", { type: "boolean", default: false })
+    .option("output", {
+      type: "string",
+      describe: "Output file path for HTML report (implies --format html)",
+    });
 }
 
 /** Configure the plan subcommand options. */
@@ -111,7 +116,7 @@ function buildParser(): Argv {
       type: "string",
       default: "text",
       alias: "f",
-      choices: ["text", "json"],
+      choices: ["text", "json", "html"],
     })
     .option("config", { type: "string", alias: "c" })
     .option("root", { type: "string", alias: "r", default: process.cwd() })
@@ -218,6 +223,7 @@ function dispatchRun(
     evaluate: Boolean(parsed.evaluate),
   };
   if (typeof parsed.entry === "string") args.entryId = parsed.entry;
+  if (typeof parsed.output === "string") args.output = parsed.output;
   return runCommand(args, global, output, start);
 }
 

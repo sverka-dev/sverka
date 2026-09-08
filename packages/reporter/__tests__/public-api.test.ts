@@ -9,6 +9,8 @@ describe("public API", () => {
     expect(typeof api.collectFindings).toBe("function");
     expect(typeof api.evaluateGate).toBe("function");
     expect(typeof api.createTextRenderer).toBe("function");
+    expect(typeof api.layoutDag).toBe("function");
+    expect(typeof api.createHtmlRenderer).toBe("function");
     // Error class
     expect(typeof api.ReporterError).toBe("function");
   });

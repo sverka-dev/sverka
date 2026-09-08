@@ -10,7 +10,7 @@ import { createHostDriver } from "@sverka/runtime";
 import type { CommandAllowlist } from "@sverka/runtime";
 import { createDockerDriver } from "@sverka/runtime";
 import { bindRunPlan } from "@sverka/sdk";
-import { createTextRenderer, collectFindings, evaluateGate } from "@sverka/reporter";
+import { createTextRenderer, createHtmlRenderer, collectFindings, evaluateGate } from "@sverka/reporter";
 import type { Renderer } from "@sverka/reporter";
 import type { Finding } from "@sverka/verification";
 import type { GlobalFlags, OutputWriter } from "../types.js";
@@ -23,6 +23,7 @@ export interface RunArgs {
   entryId?: string;
   executor?: "host" | "docker";
   evaluate?: boolean;
+  output?: string;
 }
 
 /**
@@ -35,7 +36,10 @@ export async function runCommand(
   start: number,
 ): Promise<number> {
   const executor = args.executor ?? "host";
-  output.debug(`run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"}`);
+  // --format html or --output implies --evaluate
+  const isHtml = global.format === "html" || args.output !== undefined;
+  const evaluate = args.evaluate || isHtml;
+  output.debug(`run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"} format=${global.format}`);
 
   assertExecutorAvailable(executor);
 
@@ -56,24 +60,27 @@ export async function runCommand(
   });
 
   const { events, runStatus, renderer } = await consumeEvents(
-    engine, plan, workspace, artifactDir, global, output,
+    engine, plan, workspace, artifactDir, global, output, graph, args.output,
   );
 
   const durationMs = Date.now() - start;
 
-  // If --evaluate, collect findings and run policy gate
+  // If --evaluate (or --format html), collect findings and run policy gate
   let policyExitCode = 0;
   let evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null = null;
-  if (args.evaluate) {
+  if (evaluate) {
     const result = await runEvaluation(artifactDir, global, output, events, renderer);
     policyExitCode = result.exitCode;
     evalResult = result.summary;
   }
 
+  // Flush the renderer (HtmlRenderer writes the file on flush)
+  renderer?.flush();
+
   writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output, evalResult);
 
   // When --evaluate is set, policy exit code takes precedence
-  if (args.evaluate && policyExitCode !== 0) {
+  if (evaluate && policyExitCode !== 0) {
     return policyExitCode;
   }
 
@@ -145,14 +152,23 @@ async function consumeEvents(
   artifactDir: string,
   global: GlobalFlags,
   output: OutputWriter,
+  graph: DefinitionGraph,
+  outputFlag?: string,
 ): Promise<{ events: RunEvent[]; runStatus: string; renderer: Renderer | null }> {
   const events: RunEvent[] = [];
   let runStatus = "failure";
 
-  // Use TextRenderer for text format
-  const renderer = global.format === "text"
-    ? createTextRenderer({ writer: output })
-    : null;
+  let renderer: Renderer | null = null;
+
+  // --output flag implies HTML format
+  const isHtml = global.format === "html" || outputFlag !== undefined;
+
+  if (global.format === "text" && !isHtml) {
+    renderer = createTextRenderer({ writer: output });
+  } else if (isHtml) {
+    const outputPath = outputFlag ?? join(global.root, ".sverka", "report.html");
+    renderer = createHtmlRenderer({ outputPath, graph });
+  }
 
   for await (const event of engine.run({ plan, workspace, artifactDir })) {
     events.push(event);
