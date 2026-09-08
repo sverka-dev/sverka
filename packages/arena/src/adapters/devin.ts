@@ -204,6 +204,10 @@ export async function installPlugins(
 
   await mkdir(skillsDir, { recursive: true });
   for (const plugin of enabledPlugins) {
+    // Reject path-like plugin ids to prevent directory traversal
+    if (plugin.id.includes("/") || plugin.id.includes("\\") || plugin.id.includes("..")) {
+      throw new Error(`Invalid plugin id: ${plugin.id}`);
+    }
     const dest = join(skillsDir, plugin.id);
     await mkdir(dest, { recursive: true });
     await cp(plugin.path, dest, { recursive: true });

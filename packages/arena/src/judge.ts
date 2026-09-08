@@ -41,6 +41,7 @@ export function buildJudgePrompt(
   task: Task,
   runOutput: string,
   config: JudgeConfig,
+  pluginIds: string[] = [],
 ): string {
   const systemPrompt = config.systemPrompt ?? DEFAULT_JUDGE_PROMPT;
   const lines: string[] = [
@@ -56,10 +57,13 @@ export function buildJudgePrompt(
   }
 
   if (config.revealPlugins && task.id) {
-    // Only reveal plugin info when explicitly requested. The run itself
-    // carries the plugin ids; we surface them here for transparency.
+    // Only reveal plugin info when explicitly requested.
     lines.push("## Plugins Active During Run");
-    lines.push("(revealed by configuration)");
+    if (pluginIds.length > 0) {
+      lines.push(pluginIds.join(", "));
+    } else {
+      lines.push("(no plugins)");
+    }
     lines.push("");
   }
 
@@ -149,7 +153,7 @@ export async function judgeRun(
   config: JudgeConfig,
   runIndex: number,
 ): Promise<JudgeVerdict> {
-  const prompt = buildJudgePrompt(task, run.output, config);
+  const prompt = buildJudgePrompt(task, run.output, config, run.pluginIds);
 
   const proc = config.agent.spawn({
     model: config.model,

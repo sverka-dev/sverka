@@ -463,7 +463,7 @@
 
       /** Hash a plugin combo for trace file path. */
       function comboHash(pluginIds) {
-        if (!pluginIds || pluginIds.length === 0) return "raw";
+        if (!pluginIds || pluginIds.length === 0) return "no-plugins";
         return pluginIds.join("--");
       }
 
@@ -509,7 +509,7 @@
           label.textContent = rows[_i][0];
           var value = document.createElement("div");
           value.className = "value" + (rows[_i][2] ? " highlight" : "");
-          value.innerHTML = rows[_i][1];
+          value.textContent = String(rows[_i][1]);
           grid.appendChild(label);
           grid.appendChild(value);
         }

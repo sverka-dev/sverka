@@ -165,6 +165,10 @@ export async function writeTraceData(
   trace: TraceData,
   outputDir: string,
 ): Promise<string> {
+  // Reject path traversal in taskId to prevent writing outside outputDir
+  if (trace.taskId.includes("..") || trace.taskId.includes("/") || trace.taskId.includes("\\")) {
+    throw new Error(`Invalid taskId for trace output: ${trace.taskId}`);
+  }
   const taskDir = join(outputDir, trace.taskId);
   await mkdir(taskDir, { recursive: true });
   const path = join(taskDir, "trace.json");

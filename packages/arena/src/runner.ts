@@ -8,7 +8,7 @@
  */
 
 import { writeFile, mkdir, cp, rm } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -82,7 +82,6 @@ export async function runArena(config: ArenaConfig): Promise<ArenaResult> {
   const repetitions = config.repetitions ?? 1;
   const combos = pluginCombinations(config.plugins);
   const results = await runMatrix(config, combos);
-  const aggregates = buildAggregates(results, config.models, combos);
 
   // Run the judge on all results if configured.
   if (config.judge) {
@@ -93,6 +92,8 @@ export async function runArena(config: ArenaConfig): Promise<ArenaResult> {
     }
   }
 
+  // Build aggregates AFTER judging so judge metrics are included.
+  const aggregates = buildAggregates(results, config.models, combos);
   const analysis = computeAnalysis(results, config.tasks);
   const arenaResult: ArenaResult = {
     timestamp: new Date().toISOString(),
@@ -204,6 +205,10 @@ async function createTempWorkspace(
   await mkdir(tempWorkspace, { recursive: true });
   if (task.fixture) {
     const fixturePath = resolve(PKG_ROOT, task.fixture);
+    // Prevent path traversal: fixture must stay under PKG_ROOT
+    if (!fixturePath.startsWith(PKG_ROOT + sep) && fixturePath !== PKG_ROOT) {
+      throw new Error(`Fixture path escapes package root: ${task.fixture}`);
+    }
     await cp(fixturePath, tempWorkspace, { recursive: true });
   }
   return tempWorkspace;
