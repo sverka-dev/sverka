@@ -18,7 +18,7 @@
 
 import { serve, type Server } from "bun";
 import { readFile, writeFile, mkdir, exists } from "node:fs/promises";
-import { join, extname, normalize } from "node:path";
+import { join, extname, resolve, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
@@ -99,7 +99,11 @@ function error(status: number, message: string): Response {
 
 async function readBody(req: Request): Promise<Record<string, unknown>> {
   const text = await req.text();
-  return JSON.parse(text) as Record<string, unknown>;
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error("Invalid JSON in request body");
+  }
 }
 
 // ─── Static file serving ─────────────────────────────────────────────
@@ -116,12 +120,9 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 async function serveStatic(path: string): Promise<Response> {
-  // Prevent path traversal
-  const safePath = normalize(path).replace(/^(\.\.[/\\])+/, "");
-  const filePath = join(PUBLIC_DIR, safePath);
-
-  // Don't allow access outside public dir
-  if (!filePath.startsWith(PUBLIC_DIR)) {
+  // Prevent path traversal: resolve to absolute and verify it stays under PUBLIC_DIR
+  const filePath = resolve(PUBLIC_DIR, path.replace(/^[/\\]+/, ""));
+  if (!filePath.startsWith(PUBLIC_DIR + sep) && filePath !== PUBLIC_DIR) {
     return error(403, "Forbidden");
   }
 

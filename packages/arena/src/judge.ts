@@ -281,10 +281,24 @@ function extractJson(response: string): string | null {
   if (trimmed === "") return null;
 
   // Try fenced block first: ```json ... ``` or ``` ... ```
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch?.[1]) {
-    const inner = fenceMatch[1].trim();
-    if (looksLikeJson(inner)) return inner;
+  // Use string search instead of regex to avoid ReDoS on pathological input.
+  const fenceStart = trimmed.indexOf("```");
+  if (fenceStart !== -1) {
+    const afterFence = trimmed.slice(fenceStart + 3);
+    // Skip optional "json" label
+    let contentStart = 0;
+    if (afterFence.startsWith("json")) {
+      contentStart = 4;
+    }
+    // Skip whitespace after label
+    while (contentStart < afterFence.length && /\s/.test(afterFence[contentStart]!)) {
+      contentStart++;
+    }
+    const fenceEnd = afterFence.indexOf("```", contentStart);
+    if (fenceEnd !== -1) {
+      const inner = afterFence.slice(contentStart, fenceEnd).trim();
+      if (looksLikeJson(inner)) return inner;
+    }
   }
 
   // Try to locate the first {...} block in the raw text.

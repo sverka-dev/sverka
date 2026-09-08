@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { serve, type Server } from "bun";
-import { readFile, writeFile, rm, mkdir } from "node:fs/promises";
+import { readFile, writeFile, rm, mkdir, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -13,14 +13,16 @@ const BASE = `http://localhost:${TEST_PORT}`;
 
 // Create a minimal test server that mirrors the arena-server API
 // using a temp data directory.
-const TEST_DIR = join(tmpdir(), `arena-server-test-${Date.now()}`);
-const CASES_FILE = join(TEST_DIR, "cases.json");
-const CONFIG_FILE = join(TEST_DIR, "config.json");
+let TEST_DIR: string;
+let CASES_FILE: string;
+let CONFIG_FILE: string;
 
 let server: Server;
 
 beforeAll(async () => {
-  await mkdir(TEST_DIR, { recursive: true });
+  TEST_DIR = await mkdtemp(join(tmpdir(), "arena-server-test-"));
+  CASES_FILE = join(TEST_DIR, "cases.json");
+  CONFIG_FILE = join(TEST_DIR, "config.json");
 
   // Seed initial data
   await writeFile(CASES_FILE, JSON.stringify([

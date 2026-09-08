@@ -253,7 +253,7 @@ async function runChecks(
   const results: CheckResult[] = [];
   for (const check of checks) {
     try {
-      const output = await new Promise<string>((resolve, reject) => {
+      const { output, exitCode } = await new Promise<{ output: string; exitCode: number }>((resolve, reject) => {
         const proc = spawn("bash", ["-c", check.command], {
           cwd: workspace,
           stdio: ["pipe", "pipe", "pipe"],
@@ -263,19 +263,9 @@ async function runChecks(
         proc.stdout?.on("data", (d: Buffer) => { stdout += d.toString(); });
         proc.stderr?.on("data", (d: Buffer) => { stdout += d.toString(); });
         proc.on("close", (code: number) => {
-          if (code === 0) resolve(stdout);
-          else resolve(stdout); // resolve with output, check exitCode below
+          resolve({ output: stdout, exitCode: code });
         });
         proc.on("error", reject);
-      });
-      const exitCode = await new Promise<number>((resolve) => {
-        const proc = spawn("bash", ["-c", check.command], {
-          cwd: workspace,
-          stdio: ["pipe", "pipe", "pipe"],
-          env: { ...process.env, CI: "true" },
-        });
-        proc.on("close", resolve);
-        proc.on("error", () => resolve(1));
       });
       results.push({
         checkId: check.id,

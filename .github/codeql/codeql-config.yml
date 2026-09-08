@@ -5,6 +5,7 @@ paths:
   - packages
 paths-ignore:
   - packages/*/dist/**
+  - packages/*/fixtures/**
   - "**/node_modules/**"
   - "**/__tests__/**"
   - "**/*.test.ts"

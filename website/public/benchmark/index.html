@@ -2616,6 +2616,10 @@
       async function main() {
         var params = new URLSearchParams(window.location.search);
         var dataUrl = params.get("data") || "arena-sample.json";
+        // Validate dataUrl: only allow relative paths with safe characters
+        if (!/^[a-zA-Z0-9._/-]+\.json$/.test(dataUrl) || dataUrl.includes("..")) {
+          dataUrl = "arena-sample.json";
+        }
 
         // Sidebar toggle (mobile)
         document.getElementById("sidebar-toggle").addEventListener("click", function () {

@@ -424,6 +424,11 @@
         return (ms / 1000).toFixed(1) + "s";
       }
 
+      /** Validate that a path component only contains safe characters. */
+      function safePathComponent(s) {
+        return /^[a-zA-Z0-9._-]+$/.test(s);
+      }
+
       /** Parse URL params: ?task=<id>&model=<id>&plugins=<comma-separated>.
        *  Falls back to hash route #/trace/<task-id> for backward compat.
        */
@@ -842,8 +847,13 @@
         document.getElementById("judge-verdict-container").innerHTML = "";
         document.getElementById("config-selector").style.display = "none";
 
+        if (!safePathComponent(taskId)) {
+          content.innerHTML = "";
+          showError("Invalid task ID: " + esc(taskId));
+          return;
+        }
         try {
-          var resp = await fetch("traces/" + taskId + "/trace.json");
+          var resp = await fetch("traces/" + encodeURIComponent(taskId) + "/trace.json");
           if (!resp.ok) throw new Error("HTTP " + resp.status + " — no trace data for task '" + taskId + "'");
           var trace = await resp.json();
           renderTraceClassic(trace);
@@ -866,6 +876,12 @@
         document.getElementById("agent-output-container").innerHTML = "";
         document.getElementById("judge-verdict-container").innerHTML = "";
 
+        if (!safePathComponent(taskId)) {
+          content.innerHTML = "";
+          showError("Invalid task ID: " + esc(taskId));
+          return;
+        }
+
         var hashA = comboHash(pluginIds);
 
         // Fetch verdict and output from arena data (async, non-blocking)
@@ -878,13 +894,13 @@
 
         try {
           // Fetch the primary trace
-          var respA = await fetch("traces/" + taskId + "/" + hashA + ".json");
+          var respA = await fetch("traces/" + encodeURIComponent(taskId) + "/" + encodeURIComponent(hashA) + ".json");
           var traceA;
           if (respA.ok) {
             traceA = await respA.json();
           } else {
             // Fallback to classic trace.json
-            var respFallback = await fetch("traces/" + taskId + "/trace.json");
+            var respFallback = await fetch("traces/" + encodeURIComponent(taskId) + "/trace.json");
             if (respFallback.ok) {
               traceA = await respFallback.json();
               // Adapt classic format to arena: use agents map as configs

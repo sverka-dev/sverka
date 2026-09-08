@@ -1,11 +1,10 @@
 import { describe, it, expect } from "bun:test";
 import { readJsonFile, writeJsonFile, combineFiles } from "../src/index";
-import { writeFileSync, unlinkSync, existsSync, mkdirSync } from "node:fs";
+import { writeFileSync, unlinkSync, existsSync, mkdirSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-const tmp = join(tmpdir(), "refactor-async-test-" + process.pid);
-mkdirSync(tmp, { recursive: true });
+const tmp = mkdtempSync(join(tmpdir(), "refactor-async-test-"));
 
 describe("readJsonFile", () => {
   it("reads and parses JSON", async () => {
