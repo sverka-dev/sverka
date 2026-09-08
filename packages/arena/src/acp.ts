@@ -52,6 +52,41 @@ const SANITIZE_EXACT = new Set([
   "CLAUDE_PROJECT_MD",
 ]);
 
+/** Check if an env var name should be stripped from the agent environment. */
+function shouldSanitize(key: string): boolean {
+  if (SANITIZE_EXACT.has(key)) return true;
+  return SANITIZE_PREFIXES.some((p) => key.startsWith(p));
+}
+
+/** Copy process.env into a clean record, dropping sanitized entries. */
+function copyCleanEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined) continue;
+    if (shouldSanitize(key)) continue;
+    env[key] = value;
+  }
+  return env;
+}
+
+/** Apply model and permission settings to the env record. */
+function applyModelEnv(env: Record<string, string>, config: AgentSpawnConfig): void {
+  const model = config.model;
+  env.DEVIN_PERMISSION_MODE = config.permissionMode ?? "dangerous";
+  env.DEVIN_MODEL = model.envVar ? (env[model.envVar] ?? model.id) : model.id;
+  if (model.envVar) {
+    env[model.envVar] = env[model.envVar] ?? model.id;
+  }
+}
+
+/** Merge explicit env overrides from config (these win). */
+function mergeEnvOverrides(env: Record<string, string>, overrides?: Record<string, string>): void {
+  if (!overrides) return;
+  for (const [key, value] of Object.entries(overrides)) {
+    env[key] = value;
+  }
+}
+
 /**
  * Build a sanitized environment for an agent subprocess.
  *
@@ -63,31 +98,9 @@ const SANITIZE_EXACT = new Set([
  * then merges any explicit `config.env` overrides (which win).
  */
 export function sanitizeEnv(config: AgentSpawnConfig): Record<string, string> {
-  const model = config.model;
-  const permissionMode = config.permissionMode ?? "dangerous";
-
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value === undefined) continue;
-    if (SANITIZE_EXACT.has(key)) continue;
-    if (SANITIZE_PREFIXES.some((p) => key.startsWith(p))) continue;
-    env[key] = value;
-  }
-
-  // Set only what the agent needs.
-  env.DEVIN_PERMISSION_MODE = permissionMode;
-  env.DEVIN_MODEL = model.envVar ? (env[model.envVar] ?? model.id) : model.id;
-  if (model.envVar) {
-    env[model.envVar] = env[model.envVar] ?? model.id;
-  }
-
-  // Merge any explicit env overrides from config (these win).
-  if (config.env) {
-    for (const [key, value] of Object.entries(config.env)) {
-      env[key] = value;
-    }
-  }
-
+  const env = copyCleanEnv();
+  applyModelEnv(env, config);
+  mergeEnvOverrides(env, config.env);
   return env;
 }
 

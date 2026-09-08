@@ -18,18 +18,29 @@ import type {
   BenchmarkConfig,
 } from "./types.js";
 
+/** Extract token counts from a Usage object, defaulting to 0. */
+function extractUsageTokens(usage: Usage | null | undefined): {
+  inputTokens: number;
+  outputTokens: number;
+  thoughtTokens: number;
+  totalTokens: number;
+} {
+  return {
+    inputTokens: usage?.inputTokens ?? 0,
+    outputTokens: usage?.outputTokens ?? 0,
+    thoughtTokens: usage?.thoughtTokens ?? 0,
+    totalTokens: usage?.totalTokens ?? 0,
+  };
+}
+
 /** Extract RunMetrics from a PromptResponse + collected event data. */
 export function extractMetrics(
   promptResult: { stopReason: string; usage?: Usage | null },
   toolCallCount: number,
   startTime: number,
 ): RunMetrics {
-  const usage = promptResult.usage ?? null;
   return {
-    inputTokens: usage?.inputTokens ?? 0,
-    outputTokens: usage?.outputTokens ?? 0,
-    thoughtTokens: usage?.thoughtTokens ?? 0,
-    totalTokens: usage?.totalTokens ?? 0,
+    ...extractUsageTokens(promptResult.usage),
     toolCallCount,
     executionTimeMs: Date.now() - startTime,
     stopReason: promptResult.stopReason,
