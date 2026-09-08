@@ -405,31 +405,7 @@ async function buildTraceFromTranscript(
   try {
     const transcript = await readTranscript(sessionId);
     const steps = transcript.steps.map(buildTraceStep);
-
-    // Attach ACP-collected tool calls / observations to agent steps in order.
-    let toolIdx = 0;
-    for (const step of steps) {
-      if (step.source !== "agent") continue;
-      const attachedCalls: ToolCall[] = [];
-      const attachedObs: Observation[] = [];
-      // Attach the next available tool call to this agent step.
-      if (toolIdx < collectedToolCalls.length) {
-        const tc = collectedToolCalls[toolIdx];
-        if (tc) {
-          attachedCalls.push(tc);
-          const obs = observationsByCallId.get(tc.toolCallId);
-          if (obs) attachedObs.push(obs);
-          toolIdx++;
-        }
-      }
-      if (attachedCalls.length > 0) {
-        step.toolCalls = attachedCalls;
-      }
-      if (attachedObs.length > 0) {
-        step.observations = attachedObs;
-      }
-    }
-
+    attachToolCallsToSteps(steps, collectedToolCalls, observationsByCallId);
     return {
       sessionId: transcript.session_id,
       model: transcript.agent.model_name,
@@ -444,6 +420,35 @@ async function buildTraceFromTranscript(
   } catch {
     // Transcript not available — fall through to ACP-only trace.
     return undefined;
+  }
+}
+
+/** Attach ACP-collected tool calls/observations to agent steps in order. */
+function attachToolCallsToSteps(
+  steps: TraceStep[],
+  collectedToolCalls: ToolCall[],
+  observationsByCallId: Map<string, Observation>,
+): void {
+  let toolIdx = 0;
+  for (const step of steps) {
+    if (step.source !== "agent") continue;
+    const attachedCalls: ToolCall[] = [];
+    const attachedObs: Observation[] = [];
+    if (toolIdx < collectedToolCalls.length) {
+      const tc = collectedToolCalls[toolIdx];
+      if (tc) {
+        attachedCalls.push(tc);
+        const obs = observationsByCallId.get(tc.toolCallId);
+        if (obs) attachedObs.push(obs);
+        toolIdx++;
+      }
+    }
+    if (attachedCalls.length > 0) {
+      step.toolCalls = attachedCalls;
+    }
+    if (attachedObs.length > 0) {
+      step.observations = attachedObs;
+    }
   }
 }
 

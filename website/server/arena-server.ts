@@ -18,7 +18,7 @@
 
 import { serve, type Server } from "bun";
 import { readFile, writeFile, mkdir, exists } from "node:fs/promises";
-import { join, extname, resolve, normalize, sep } from "node:path";
+import { join, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
