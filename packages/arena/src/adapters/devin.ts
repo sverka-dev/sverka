@@ -9,7 +9,7 @@
  * transcript file to build full {@link TraceData}.
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { mkdir, cp, rm, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -242,12 +242,20 @@ export class DevinAdapter implements AgentAdapter {
   }
 }
 
+/** Resolve the full path to the devin binary to avoid PATH-based lookup. */
+function resolveDevinBinary(): string {
+  try {
+    return execSync("which devin", { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+  } catch {
+    return "devin";
+  }
+}
+
 /** Spawn `devin acp --model <model.id>` as a subprocess in the workspace. */
 function spawnDevin(config: AgentSpawnConfig): ChildProcess {
   const env = sanitizeEnv(config);
-  // PATH is required for the agent to find the devin binary; sanitized env
-  // already strips host-contaminating vars (GC_, BEADS_, MCP_, etc.)
-  return spawn("devin", ["acp", "--model", config.model.id], { // NOSONAR — PATH intentionally inherited
+  const devinBin = resolveDevinBinary();
+  return spawn(devinBin, ["acp", "--model", config.model.id], {
     cwd: config.workspace,
     stdio: ["pipe", "pipe", "inherit"],
     env,

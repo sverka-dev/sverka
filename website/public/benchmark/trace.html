@@ -268,6 +268,7 @@
       align-items: center;
     }
     .config-selector .label { color: var(--text-muted); font-size: 0.8rem; font-family: var(--font-mono); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
     .config-selector select {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -375,9 +376,10 @@
   <p class="subtitle" id="subtitle">Step-by-step LLM call comparison — each agent step is one inference call</p>
 
   <div class="config-selector" id="config-selector" style="display:none;">
-    <span class="label">Compare:</span>
+    <label for="config-a-select" class="label">Compare:</label>
     <select id="config-a-select"></select>
     <span class="label">vs</span>
+    <label for="config-b-select" class="label sr-only">Configuration B</label>
     <select id="config-b-select"></select>
   </div>
 
