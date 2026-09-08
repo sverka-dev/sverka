@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { writeReport } from "../src/index.js";
 import type { BenchmarkResult } from "../src/index.js";
-import { writeFile, rm } from "node:fs/promises";
+import { writeFile, rm, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -49,7 +49,8 @@ describe("writeReport", () => {
       },
     };
 
-    const outputPath = join(tmpdir(), `benchmark-test-${Date.now()}.json`);
+    const tmpDir = await mkdtemp(join(tmpdir(), "sverka-reporter-"));
+    const outputPath = join(tmpDir, "benchmark-test.json");
     try {
       await writeReport(result, outputPath);
       const content = await readFile(outputPath);
@@ -60,7 +61,7 @@ describe("writeReport", () => {
       expect(parsed.results[0].metrics.totalTokens).toBe(150);
       expect(parsed.summary["raw-shell"].successCount).toBe(1);
     } finally {
-      await rm(outputPath, { force: true });
+      await rm(tmpDir, { recursive: true, force: true });
     }
   });
 });
