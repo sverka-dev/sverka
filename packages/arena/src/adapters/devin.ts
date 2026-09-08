@@ -423,6 +423,24 @@ async function buildTraceFromTranscript(
   }
 }
 
+/** Attach the next tool call + observation to an agent step. Returns true if attached. */
+function attachNextToolCall(
+  step: TraceStep,
+  collectedToolCalls: ToolCall[],
+  observationsByCallId: Map<string, Observation>,
+  toolIdx: number,
+): { attached: boolean; nextIdx: number } {
+  if (toolIdx >= collectedToolCalls.length) return { attached: false, nextIdx: toolIdx };
+  const tc = collectedToolCalls[toolIdx];
+  if (!tc) return { attached: false, nextIdx: toolIdx };
+  const calls: ToolCall[] = [tc];
+  const obs = observationsByCallId.get(tc.toolCallId);
+  const observations: Observation[] = obs ? [obs] : [];
+  step.toolCalls = calls;
+  if (observations.length > 0) step.observations = observations;
+  return { attached: true, nextIdx: toolIdx + 1 };
+}
+
 /** Attach ACP-collected tool calls/observations to agent steps in order. */
 function attachToolCallsToSteps(
   steps: TraceStep[],
@@ -432,23 +450,8 @@ function attachToolCallsToSteps(
   let toolIdx = 0;
   for (const step of steps) {
     if (step.source !== "agent") continue;
-    const attachedCalls: ToolCall[] = [];
-    const attachedObs: Observation[] = [];
-    if (toolIdx < collectedToolCalls.length) {
-      const tc = collectedToolCalls[toolIdx];
-      if (tc) {
-        attachedCalls.push(tc);
-        const obs = observationsByCallId.get(tc.toolCallId);
-        if (obs) attachedObs.push(obs);
-        toolIdx++;
-      }
-    }
-    if (attachedCalls.length > 0) {
-      step.toolCalls = attachedCalls;
-    }
-    if (attachedObs.length > 0) {
-      step.observations = attachedObs;
-    }
+    const result = attachNextToolCall(step, collectedToolCalls, observationsByCallId, toolIdx);
+    if (result.attached) toolIdx = result.nextIdx;
   }
 }
 
