@@ -29,6 +29,7 @@ exclude_paths:
   - "specs/**"
   - "skills/**"
   - "template-fragments/**"
+  - "packages/*/fixtures/**"
   - "dist/**"
   - "node_modules/**"
   - "scripts/**"
