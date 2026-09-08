@@ -4,6 +4,20 @@ import { join } from "node:path";
 
 const benchDir = join(import.meta.dirname, "..", "public", "benchmark");
 
+function readHtml(filename: string): string {
+  return readFileSync(join(benchDir, filename), "utf-8");
+}
+
+function readJson(filename: string): any {
+  return JSON.parse(readFileSync(join(benchDir, filename), "utf-8"));
+}
+
+function expectContains(html: string, ...substrings: string[]): void {
+  for (const s of substrings) {
+    expect(html).toContain(s);
+  }
+}
+
 describe("benchmark dashboard files", () => {
   it("index.html exists", () => {
     expect(existsSync(join(benchDir, "index.html"))).toBe(true);
@@ -22,51 +36,40 @@ describe("benchmark dashboard files", () => {
   });
 
   it("index.html is valid HTML with title and script", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("<title>");
-    expect(html).toContain("</html>");
-    expect(html).toContain("<script>");
+    const html = readHtml("index.html");
+    expectContains(html, "<!DOCTYPE html>", "<title>", "</html>", "<script>");
   });
 
   it("index.html contains comparison table structure", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('id="results-table"');
-    expect(html).toContain('id="summary"');
-    expect(html).toContain('id="header-meta"');
+    const html = readHtml("index.html");
+    expectContains(html, 'id="results-table"', 'id="summary"', 'id="header-meta"');
   });
 
   it("index.html links to trace viewer", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("trace.html");
-    expect(html).toContain("trace-link");
+    const html = readHtml("index.html");
+    expectContains(html, "trace.html", "trace-link");
   });
 
   it("trace.html exists and is valid HTML", () => {
     const path = join(benchDir, "trace.html");
     expect(existsSync(path)).toBe(true);
-    const html = readFileSync(path, "utf-8");
-    expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("<title>");
-    expect(html).toContain("</html>");
-    expect(html).toContain("<script>");
+    const html = readHtml("trace.html");
+    expectContains(html, "<!DOCTYPE html>", "<title>", "</html>", "<script>");
   });
 
   it("trace.html has hash-based routing", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("hashchange");
-    expect(html).toContain("parseParams");
-    expect(html).toContain("#/trace/");
+    const html = readHtml("trace.html");
+    expectContains(html, "hashchange", "parseParams", "#/trace/");
   });
 
   it("trace.html has no external CSS/JS dependencies", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
+    const html = readHtml("trace.html");
     expect(html).not.toMatch(/<link[^>]*rel=["']stylesheet["']/);
     expect(html).not.toMatch(/<script[^>]*src=["']https?:/);
   });
 
   it("trace.html uses dark theme", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
+    const html = readHtml("trace.html");
     expect(html).toContain('data-theme="dark"');
     expect(html).toMatch(/--bg:\s*#0d1117/);
   });
@@ -112,22 +115,20 @@ describe("benchmark dashboard files", () => {
   });
 
   it("index.html has no external CSS/JS dependencies", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
+    const html = readHtml("index.html");
     // No <link> to external stylesheets, no <script src="http...">
     expect(html).not.toMatch(/<link[^>]*rel=["']stylesheet["']/);
     expect(html).not.toMatch(/<script[^>]*src=["']https?:/);
   });
 
   it("index.html uses dark theme", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
+    const html = readHtml("index.html");
     expect(html).toContain("data-theme=\"dark\"");
     expect(html).toMatch(/--bg:\s*#0d1117/);
   });
 
   it("sample-result.json has paired results for each task", () => {
-    const data = JSON.parse(
-      readFileSync(join(benchDir, "sample-result.json"), "utf-8"),
-    );
+    const data = readJson("sample-result.json");
     const taskIds = new Set(data.results.map((r: any) => r.taskId));
     for (const taskId of taskIds) {
       const runs = data.results.filter((r: any) => r.taskId === taskId);
@@ -138,9 +139,7 @@ describe("benchmark dashboard files", () => {
   });
 
   it("sample-result.json summary averages match results", () => {
-    const data = JSON.parse(
-      readFileSync(join(benchDir, "sample-result.json"), "utf-8"),
-    );
+    const data = readJson("sample-result.json");
     const rawResults = data.results.filter((r: any) => r.agentType === "raw-shell");
     const rawSummary = data.summary["raw-shell"];
     expect(rawSummary.totalTasks).toBe(rawResults.length);
@@ -155,16 +154,14 @@ describe("benchmark dashboard files", () => {
 });
 
 describe("arena sample result", () => {
-  const arenaPath = join(benchDir, "arena-sample.json");
-
   it("arena-sample.json exists and is valid JSON", () => {
-    expect(existsSync(arenaPath)).toBe(true);
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    expect(existsSync(join(benchDir, "arena-sample.json"))).toBe(true);
+    const data = readJson("arena-sample.json");
     expect(data.timestamp).toBeTruthy();
   });
 
   it("arena-sample.json has correct ArenaResult structure", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     expect(data.config).toBeDefined();
     expect(Array.isArray(data.config.models)).toBe(true);
     expect(data.config.models.length).toBeGreaterThan(0);
@@ -175,7 +172,7 @@ describe("arena sample result", () => {
   });
 
   it("arena-sample.json has results array with pluginIds field", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     expect(Array.isArray(data.results)).toBe(true);
     expect(data.results.length).toBeGreaterThan(0);
     for (const r of data.results) {
@@ -192,7 +189,7 @@ describe("arena sample result", () => {
   });
 
   it("arena-sample.json has results for all task × plugin combinations", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     const tasks = data.config.tasks;
     const plugins = data.config.plugins;
     // 2 combos: empty (raw) and all plugins (sverka)
@@ -211,7 +208,7 @@ describe("arena sample result", () => {
   });
 
   it("arena-sample.json has aggregates array", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     expect(Array.isArray(data.aggregates)).toBe(true);
     expect(data.aggregates.length).toBe(2);
     for (const agg of data.aggregates) {
@@ -225,7 +222,7 @@ describe("arena sample result", () => {
   });
 
   it("arena-sample.json uses realistic numbers matching real benchmark data", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     const fixTestRaw = data.results.find(
       (r: any) => r.taskId === "fix-test" && r.pluginIds.length === 0,
     );
@@ -245,228 +242,202 @@ describe("arena sample result", () => {
 
 describe("arena dashboard matrix view", () => {
   it("index.html contains matrix view elements for arena format", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('id="matrix-table"');
-    expect(html).toContain('id="matrix-container"');
-    expect(html).toContain("matrix-table");
-    expect(html).toContain("isArenaResult");
-    expect(html).toContain("renderArenaMatrix");
-    expect(html).toContain("pluginCombinations");
+    const html = readHtml("index.html");
+    expectContains(
+      html,
+      'id="matrix-table"',
+      'id="matrix-container"',
+      "matrix-table",
+      "isArenaResult",
+      "renderArenaMatrix",
+      "pluginCombinations",
+    );
   });
 
   it("index.html has metric selector for matrix cells", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('name="metric"');
-    expect(html).toContain("totalTokens");
-    expect(html).toContain("toolCallCount");
-    expect(html).toContain("llmCallCount");
-    expect(html).toContain("executionTimeMs");
+    const html = readHtml("index.html");
+    expectContains(
+      html,
+      'name="metric"',
+      "totalTokens",
+      "toolCallCount",
+      "llmCallCount",
+      "executionTimeMs",
+    );
   });
 
   it("index.html has view toggle between matrix and classic", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('id="view-toggle"');
-    expect(html).toContain("toggle-matrix");
-    expect(html).toContain("toggle-classic");
+    const html = readHtml("index.html");
+    expectContains(html, 'id="view-toggle"', "toggle-matrix", "toggle-classic");
   });
 
   it("index.html matrix cells link to trace.html with URL params", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("trace.html?");
-    expect(html).toContain("task=");
-    expect(html).toContain("model=");
-    expect(html).toContain("plugins=");
+    const html = readHtml("index.html");
+    expectContains(html, "trace.html?", "task=", "model=", "plugins=");
   });
 
   it("index.html maintains backward compatibility with classic format", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
+    const html = readHtml("index.html");
     // Classic view elements still present
-    expect(html).toContain('id="results-table"');
-    expect(html).toContain("renderTable");
-    expect(html).toContain("renderSummary");
-    expect(html).toContain("renderHeader");
+    expectContains(html, 'id="results-table"', "renderTable", "renderSummary", "renderHeader");
   });
 });
 
 describe("arena trace viewer", () => {
   it("trace.html accepts URL params for task/model/plugins", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("parseParams");
-    expect(html).toContain('params.get("task")');
-    expect(html).toContain('params.get("model")');
-    expect(html).toContain('params.get("plugins")');
-    expect(html).toContain("URLSearchParams");
+    const html = readHtml("trace.html");
+    expectContains(
+      html,
+      "parseParams",
+      'params.get("task")',
+      'params.get("model")',
+      'params.get("plugins")',
+      "URLSearchParams",
+    );
   });
 
   it("trace.html fetches trace by combo hash for arena format", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("comboHash");
-    expect(html).toContain("loadTraceArena");
+    const html = readHtml("trace.html");
+    expectContains(html, "comboHash", "loadTraceArena");
   });
 
   it("trace.html falls back to classic trace.json for backward compat", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("loadTraceClassic");
-    expect(html).toContain("trace.json");
-    expect(html).toContain("#/trace/");
+    const html = readHtml("trace.html");
+    expectContains(html, "loadTraceClassic", "trace.json", "#/trace/");
   });
 
   it("trace.html has expandable tool call details", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("renderToolCalls");
-    expect(html).toContain("tool-call");
-    expect(html).toContain("functionName");
-    expect(html).toContain("arguments");
+    const html = readHtml("trace.html");
+    expectContains(html, "renderToolCalls", "tool-call", "functionName", "arguments");
   });
 
   it("trace.html has running token counter per step", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("runningTokens");
-    expect(html).toContain("step-token-badge");
+    const html = readHtml("trace.html");
+    expectContains(html, "runningTokens", "step-token-badge");
   });
 
   it("trace.html shows prompt at top", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("renderPrompt");
-    expect(html).toContain("prompt-container");
-    expect(html).toContain("Task Prompt");
+    const html = readHtml("trace.html");
+    expectContains(html, "renderPrompt", "prompt-container", "Task Prompt");
   });
 
   it("trace.html has config selector for side-by-side comparison", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("config-selector");
-    expect(html).toContain("config-a-select");
-    expect(html).toContain("config-b-select");
-    expect(html).toContain("renderTraceArena");
+    const html = readHtml("trace.html");
+    expectContains(
+      html,
+      "config-selector",
+      "config-a-select",
+      "config-b-select",
+      "renderTraceArena",
+    );
   });
 
   it("trace.html maintains backward compat with hash routing", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("hashchange");
-    expect(html).toContain("#/trace/");
-    expect(html).toContain("renderTraceClassic");
+    const html = readHtml("trace.html");
+    expectContains(html, "hashchange", "#/trace/", "renderTraceClassic");
   });
 });
 
 describe("workbench case navigation", () => {
   it("index.html has sidebar for case list navigation", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('id="sidebar"');
-    expect(html).toContain('id="case-list"');
-    expect(html).toContain("case-item");
-    expect(html).toContain("renderSidebar");
+    const html = readHtml("index.html");
+    expectContains(html, 'id="sidebar"', 'id="case-list"', "case-item", "renderSidebar");
   });
 
   it("index.html has case detail view container", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('id="workbench-case"');
-    expect(html).toContain('id="case-detail"');
-    expect(html).toContain("renderCaseDetail");
+    const html = readHtml("index.html");
+    expectContains(html, 'id="workbench-case"', 'id="case-detail"', "renderCaseDetail");
   });
 
   it("index.html has overview view container", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('id="workbench-overview"');
-    expect(html).toContain('id="case-cards"');
-    expect(html).toContain("renderOverview");
+    const html = readHtml("index.html");
+    expectContains(html, 'id="workbench-overview"', 'id="case-cards"', "renderOverview");
   });
 
   it("index.html uses hash-based routing for case navigation", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("#/case/");
-    expect(html).toContain("handleRoute");
-    expect(html).toContain("hashchange");
-    expect(html).toContain("showCase");
-    expect(html).toContain("showOverview");
+    const html = readHtml("index.html");
+    expectContains(
+      html,
+      "#/case/",
+      "handleRoute",
+      "hashchange",
+      "showCase",
+      "showOverview",
+    );
   });
 
   it("index.html has config summary bar", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('id="config-summary"');
-    expect(html).toContain("Agent Benchmark Workbench");
+    const html = readHtml("index.html");
+    expectContains(html, 'id="config-summary"', "Agent Benchmark Workbench");
   });
 
   it("index.html has aggregate summary section", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain('id="aggregate-summary"');
-    expect(html).toContain("renderAggregateSummary");
+    const html = readHtml("index.html");
+    expectContains(html, 'id="aggregate-summary"', "renderAggregateSummary");
   });
 
   it("index.html case cards link to case detail via hash route", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("#/case/");
-    expect(html).toContain("case-card");
+    const html = readHtml("index.html");
+    expectContains(html, "#/case/", "case-card");
   });
 
   it("index.html has status indicators for cases", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("status-dot");
-    expect(html).toContain("judgePassRate");
+    const html = readHtml("index.html");
+    expectContains(html, "status-dot", "judgePassRate");
   });
 });
 
 describe("workbench AI report elements", () => {
   it("index.html has AI report section with judge verdicts", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("ai-report");
-    expect(html).toContain("renderAIReport");
-    expect(html).toContain("Judge Verdict");
-    expect(html).toContain("judge-badge");
+    const html = readHtml("index.html");
+    expectContains(html, "ai-report", "renderAIReport", "Judge Verdict", "judge-badge");
   });
 
   it("index.html has comparison table for AI report", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("comparison-table");
-    expect(html).toContain("Comparison Table");
-    expect(html).toContain("deltaJudgeScore");
-    expect(html).toContain("candidateBetter");
+    const html = readHtml("index.html");
+    expectContains(
+      html,
+      "comparison-table",
+      "Comparison Table",
+      "deltaJudgeScore",
+      "candidateBetter",
+    );
   });
 
   it("index.html displays AI summary from analysis", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("ai-summary");
-    expect(html).toContain("analysis.summary");
-    expect(html).toContain("findAnalysis");
+    const html = readHtml("index.html");
+    expectContains(html, "ai-summary", "analysis.summary", "findAnalysis");
   });
 
   it("index.html has collapsible run result cards", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("run-card");
-    expect(html).toContain("renderRunCard");
-    expect(html).toContain("expanded");
+    const html = readHtml("index.html");
+    expectContains(html, "run-card", "renderRunCard", "expanded");
   });
 
   it("index.html run cards show agent output", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("Agent Output");
-    expect(html).toContain("run-output");
+    const html = readHtml("index.html");
+    expectContains(html, "Agent Output", "run-output");
   });
 
   it("index.html run cards show judge verdict with reasoning and issues", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("Judge Verdict");
-    expect(html).toContain("run-verdict-reasoning");
-    expect(html).toContain("run-verdict-issues");
+    const html = readHtml("index.html");
+    expectContains(html, "Judge Verdict", "run-verdict-reasoning", "run-verdict-issues");
   });
 
   it("index.html run cards link to trace viewer with run param", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("trace.html?");
-    expect(html).toContain("run=");
+    const html = readHtml("index.html");
+    expectContains(html, "trace.html?", "run=");
   });
 
   it("index.html displays original prompt in case detail", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("prompt-box");
-    expect(html).toContain("Original Prompt");
+    const html = readHtml("index.html");
+    expectContains(html, "prompt-box", "Original Prompt");
   });
 });
 
 describe("arena-sample.json verdicts, output, analysis", () => {
-  const arenaPath = join(benchDir, "arena-sample.json");
-
   it("arena-sample.json results have verdicts array with JudgeVerdict fields", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     expect(data.results.length).toBeGreaterThan(0);
     for (const r of data.results) {
       expect(Array.isArray(r.verdicts)).toBe(true);
@@ -485,7 +456,7 @@ describe("arena-sample.json verdicts, output, analysis", () => {
   });
 
   it("arena-sample.json results have output field with agent text response", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     for (const r of data.results) {
       expect(typeof r.output).toBe("string");
       expect(r.output.length).toBeGreaterThan(20);
@@ -493,7 +464,7 @@ describe("arena-sample.json verdicts, output, analysis", () => {
   });
 
   it("arena-sample.json has analysis array with CaseAnalysis per task", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     expect(Array.isArray(data.analysis)).toBe(true);
     expect(data.analysis.length).toBe(data.config.tasks.length);
     for (const a of data.analysis) {
@@ -518,7 +489,7 @@ describe("arena-sample.json verdicts, output, analysis", () => {
   });
 
   it("arena-sample.json aggregates have avgJudgeScore, judgePassCount, label", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     expect(data.aggregates.length).toBe(2);
     for (const agg of data.aggregates) {
       expect(typeof agg.avgJudgeScore).toBe("number");
@@ -531,13 +502,13 @@ describe("arena-sample.json verdicts, output, analysis", () => {
   });
 
   it("arena-sample.json config has judgeModel", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     expect(data.config.judgeModel).toBeDefined();
     expect(typeof data.config.judgeModel).toBe("string");
   });
 
   it("arena-sample.json has realistic judge scores", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     for (const r of data.results) {
       const v = r.verdicts[0];
       expect(v.score).toBeGreaterThanOrEqual(60);
@@ -546,7 +517,7 @@ describe("arena-sample.json verdicts, output, analysis", () => {
   });
 
   it("arena-sample.json includes comparison data in analysis", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     expect(data.analysis.length).toBeGreaterThan(0);
     for (const a of data.analysis) {
       expect(a.comparisons.length).toBeGreaterThan(0);
@@ -559,7 +530,7 @@ describe("arena-sample.json verdicts, output, analysis", () => {
   });
 
   it("arena-sample.json verdict pass/fail is consistent with score threshold", () => {
-    const data = JSON.parse(readFileSync(arenaPath, "utf-8"));
+    const data = readJson("arena-sample.json");
     // Threshold is 70: passed = score >= 70
     for (const r of data.results) {
       const v = r.verdicts[0];
@@ -574,10 +545,9 @@ describe("arena-sample.json verdicts, output, analysis", () => {
 
 describe("generic plugin names (not hardcoded to sverka)", () => {
   it("index.html does not hardcode raw-shell vs sverka in workbench views", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
+    const html = readHtml("index.html");
     // Workbench functions should be data-driven
-    expect(html).toContain("pluginCombinations");
-    expect(html).toContain("comboLabel");
+    expectContains(html, "pluginCombinations", "comboLabel");
     // Should not hardcode "raw-shell" in the workbench rendering functions
     // (only in legacy backward-compat section)
     const workbenchSection = html.substring(
@@ -589,37 +559,40 @@ describe("generic plugin names (not hardcoded to sverka)", () => {
   });
 
   it("index.html uses plugin names from config, not hardcoded", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
+    const html = readHtml("index.html");
     // The combo label function should work with any plugin names
-    expect(html).toContain("combo.length === 0");
-    expect(html).toContain("combo.join");
+    expectContains(html, "combo.length === 0", "combo.join");
   });
 
   it("index.html aggregate summary works with any plugin combo", () => {
-    const html = readFileSync(join(benchDir, "index.html"), "utf-8");
-    expect(html).toContain("findAggregate");
-    expect(html).toContain("pluginCombinations");
+    const html = readHtml("index.html");
+    expectContains(html, "findAggregate", "pluginCombinations");
   });
 
   it("trace.html judge verdict display works with any plugin names", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain("renderJudgeVerdict");
-    expect(html).toContain("renderAgentOutput");
-    expect(html).toContain("fetchArenaVerdictAndOutput");
-    expect(html).toContain("findArenaResult");
+    const html = readHtml("trace.html");
+    expectContains(
+      html,
+      "renderJudgeVerdict",
+      "renderAgentOutput",
+      "fetchArenaVerdictAndOutput",
+      "findArenaResult",
+    );
   });
 
   it("trace.html has agent output container and judge verdict container", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain('id="agent-output-container"');
-    expect(html).toContain('id="judge-verdict-container"');
-    expect(html).toContain("agent-output-section");
-    expect(html).toContain("judge-verdict-section");
+    const html = readHtml("trace.html");
+    expectContains(
+      html,
+      'id="agent-output-container"',
+      'id="judge-verdict-container"',
+      "agent-output-section",
+      "judge-verdict-section",
+    );
   });
 
   it("trace.html accepts run URL param", () => {
-    const html = readFileSync(join(benchDir, "trace.html"), "utf-8");
-    expect(html).toContain('params.get("run")');
-    expect(html).toContain("runIndex");
+    const html = readHtml("trace.html");
+    expectContains(html, 'params.get("run")', "runIndex");
   });
 });
