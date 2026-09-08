@@ -11,6 +11,12 @@ describe("public API", () => {
     expect(typeof api.createTextRenderer).toBe("function");
     expect(typeof api.layoutDag).toBe("function");
     expect(typeof api.createHtmlRenderer).toBe("function");
+    // Spec 45
+    expect(typeof api.createInkRenderer).toBe("function");
+    expect(typeof api.stepGlyph).toBe("function");
+    expect(typeof api.buildStepTree).toBe("function");
+    expect(typeof api.filterFindings).toBe("function");
+    expect(api.FINDING_FILTERS).toEqual(["all", "high", "medium", "low", "new", "error"]);
     // Error class
     expect(typeof api.ReporterError).toBe("function");
   });

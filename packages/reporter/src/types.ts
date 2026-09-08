@@ -122,3 +122,61 @@ export interface HtmlRendererOptions {
   readonly outputPath: string;
   readonly graph?: DefinitionGraph;
 }
+
+// --- Spec 45: Ink TUI ---
+
+/** Findings list filter selected via the filter bar. */
+export type FindingFilter =
+  | "all"
+  | "high"
+  | "medium"
+  | "low"
+  | "new"
+  | "error";
+
+/** Visual presentation of a step state in the tree. */
+export interface StepGlyph {
+  readonly glyph: string;
+  readonly color: "green" | "red" | "yellow" | "gray" | "cyan";
+}
+
+/** One rendered row of the step tree. */
+export interface StepTreeRow {
+  /** Step id. */
+  readonly stepId: string;
+  /** Tree prefix, e.g. "├─ ", "└─ ", "│  ". */
+  readonly prefix: string;
+  /** Depth in the tree (0 = root). */
+  readonly depth: number;
+}
+
+/** Options for creating the interactive terminal renderer. */
+export interface InkRendererOptions {
+  /** Optional: the DefinitionGraph for the DAG tree view. */
+  readonly graph?: DefinitionGraph;
+  /** Baseline fingerprints for the [new] filter. */
+  readonly baselineFingerprints?: readonly string[];
+  /** Injectable stdout (defaults to process.stdout). */
+  readonly stdout?: NodeJS.WriteStream;
+  /** Injectable stdin (defaults to process.stdin). */
+  readonly stdin?: NodeJS.ReadStream;
+  /**
+   * Override ink's interactive-mode detection (CI/TTY auto-detect).
+   * Testability seam — normally left unset.
+   */
+  readonly interactive?: boolean;
+  /**
+   * Ink debug mode: write plain full frames instead of interactive
+   * erase/redraw sequences. Testability seam — normally left unset.
+   */
+  readonly debug?: boolean;
+}
+
+/** A Renderer backed by an interactive ink application. */
+export interface InkRenderer extends Renderer {
+  /**
+   * Resolves when the user quits (q / Ctrl+C) or — when stdin is not a
+   * TTY — immediately after flush(). The CLI awaits this before exiting.
+   */
+  waitUntilExit(): Promise<void>;
+}

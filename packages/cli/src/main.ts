@@ -71,6 +71,11 @@ function addRunCommand(y: Argv): Argv {
     .option("output", {
       type: "string",
       describe: "Output file path for HTML report (implies --format html)",
+    })
+    .option("tui", {
+      type: "boolean",
+      describe:
+        "Interactive terminal UI (default: on when stdout is a TTY and no --format)",
     });
 }
 
@@ -114,7 +119,6 @@ function buildParser(): Argv {
     .scriptName("sverka")
     .option("format", {
       type: "string",
-      default: "text",
       alias: "f",
       choices: ["text", "json", "html"],
     })
@@ -224,6 +228,9 @@ function dispatchRun(
   };
   if (typeof parsed.entry === "string") args.entryId = parsed.entry;
   if (typeof parsed.output === "string") args.output = parsed.output;
+  if (parsed.tui === true) args.tui = true;
+  if (parsed.tui === false) args.tui = false;
+  args.formatExplicit = parsed.format !== undefined;
   return runCommand(args, global, output, start);
 }
 

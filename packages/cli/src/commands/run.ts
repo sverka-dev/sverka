@@ -1,6 +1,7 @@
 // run command — execute Run Plan through native engine.
 // Spec 17 — §30.
 
+import process from "node:process";
 import { join } from "node:path";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { RuntimeDriver } from "@sverka/runtime";
@@ -10,7 +11,7 @@ import { createHostDriver } from "@sverka/runtime";
 import type { CommandAllowlist } from "@sverka/runtime";
 import { createDockerDriver } from "@sverka/runtime";
 import { bindRunPlan } from "@sverka/sdk";
-import { createTextRenderer, createHtmlRenderer, collectFindings, evaluateGate } from "@sverka/reporter";
+import { createTextRenderer, createHtmlRenderer, createInkRenderer, collectFindings, evaluateGate } from "@sverka/reporter";
 import type { Renderer } from "@sverka/reporter";
 import type { Finding } from "@sverka/verification";
 import type { GlobalFlags, OutputWriter } from "../types.js";
@@ -24,6 +25,10 @@ export interface RunArgs {
   executor?: "host" | "docker";
   evaluate?: boolean;
   output?: string;
+  /** Force TUI on (true) or off (false); undefined = auto-detect TTY. */
+  tui?: boolean;
+  /** Whether --format was passed explicitly (disables TUI auto-detect). */
+  formatExplicit?: boolean;
 }
 
 /**
@@ -60,7 +65,7 @@ export async function runCommand(
   });
 
   const { events, runStatus, renderer } = await consumeEvents(
-    engine, plan, workspace, artifactDir, global, output, graph, args.output,
+    engine, plan, workspace, artifactDir, global, output, graph, args,
   );
 
   const durationMs = Date.now() - start;
@@ -76,6 +81,11 @@ export async function runCommand(
 
   // Flush the renderer (HtmlRenderer writes the file on flush)
   renderer?.flush();
+
+  // Interactive renderers stay mounted until the user quits (q / Ctrl+C).
+  if (renderer && "waitUntilExit" in renderer) {
+    await (renderer as { waitUntilExit(): Promise<void> }).waitUntilExit();
+  }
 
   writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output, evalResult);
 
@@ -153,7 +163,7 @@ async function consumeEvents(
   global: GlobalFlags,
   output: OutputWriter,
   graph: DefinitionGraph,
-  outputFlag?: string,
+  args: RunArgs,
 ): Promise<{ events: RunEvent[]; runStatus: string; renderer: Renderer | null }> {
   const events: RunEvent[] = [];
   let runStatus = "failure";
@@ -161,12 +171,27 @@ async function consumeEvents(
   let renderer: Renderer | null = null;
 
   // --output flag implies HTML format
-  const isHtml = global.format === "html" || outputFlag !== undefined;
+  const isHtml = global.format === "html" || args.output !== undefined;
 
-  if (global.format === "text" && !isHtml) {
+  // TUI auto-detect: stdout TTY + no explicit --format, unless --no-tui.
+  // --tui forces it on; any explicit --format forces it off.
+  const tuiDenied = args.tui === false || args.formatExplicit === true;
+  const tuiWanted =
+    !isHtml &&
+    global.format === "text" &&
+    !tuiDenied &&
+    (args.tui === true || process.stdout.isTTY === true);
+
+  if (tuiWanted) {
+    try {
+      renderer = createInkRenderer({ graph });
+    } catch {
+      renderer = createTextRenderer({ writer: output });
+    }
+  } else if (global.format === "text" && !isHtml) {
     renderer = createTextRenderer({ writer: output });
   } else if (isHtml) {
-    const outputPath = outputFlag ?? join(global.root, ".sverka", "report.html");
+    const outputPath = args.output ?? join(global.root, ".sverka", "report.html");
     renderer = createHtmlRenderer({ outputPath, graph });
   }
 

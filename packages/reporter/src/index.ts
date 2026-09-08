@@ -18,6 +18,11 @@ export type {
   DagLayoutResult,
   DagLayoutOptions,
   HtmlRendererOptions,
+  FindingFilter,
+  StepGlyph,
+  StepTreeRow,
+  InkRenderer,
+  InkRendererOptions,
 } from "./types.js";
 
 // Errors
@@ -41,3 +46,9 @@ export { layoutDag } from "./dag-layout.js";
 
 // HtmlRenderer (I/O) — Spec 44
 export { createHtmlRenderer } from "./html-renderer.js";
+
+// TUI model (pure) — Spec 45
+export { stepGlyph, buildStepTree, filterFindings, searchFindings, FINDING_FILTERS } from "./tui-model.js";
+
+// InkRenderer (I/O) — Spec 45
+export { createInkRenderer } from "./ink-renderer.js";
