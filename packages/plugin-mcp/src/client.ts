@@ -78,7 +78,7 @@ export class MCPClientPool implements ToolProvider {
     }
     return {
       content: response.content as ToolResult["content"],
-      ...(response.isError !== undefined ? { isError: response.isError } : {}),
+      ...(response.isError !== undefined ? { isError: response.isError as boolean } : {}),
     };
   }
 
@@ -91,7 +91,7 @@ export class MCPClientPool implements ToolProvider {
           // best-effort: ignore per-client close errors (Spec 23).
         }
       }
-      entry.client = undefined;
+      delete entry.client;
       entry.connected = false;
     }
   }

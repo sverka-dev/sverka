@@ -18,6 +18,15 @@ describe("public API", () => {
     expect(Array.isArray(api.DEFAULT_AGENTS)).toBe(true);
   });
 
+  it("exports collector functions", () => {
+    expect(typeof api.readTranscript).toBe("function");
+    expect(typeof api.transformStep).toBe("function");
+    expect(typeof api.countLlmCalls).toBe("function");
+    expect(typeof api.transformTranscript).toBe("function");
+    expect(typeof api.buildTraceData).toBe("function");
+    expect(typeof api.writeTraceData).toBe("function");
+  });
+
   it("runtime exports are only functions and arrays (no classes)", () => {
     const runtimeKeys = Object.keys(api).filter(
       (k) => k !== "default" && !k.startsWith("_"),

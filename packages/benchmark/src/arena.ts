@@ -149,18 +149,33 @@ async function runTask(
   }
 }
 
-/** Create a temp workspace. For sverka agent, copy the sverka skill. */
+/** Set up workspace for an agent.
+ *
+ *  Both agents work in the actual Sverka repo so they have the real project
+ *  to operate on. The only difference is that the "sverka" agent gets the
+ *  Sverka skill installed in .agents/skills/sverka/.
+ *
+ *  We do NOT create a temp copy — copying node_modules + dist is too slow
+ *  and the agents need the real build artifacts to run `sverka` commands.
+ */
 async function setupWorkspace(agent: AgentConfig): Promise<string> {
-  const workspace = await mkdtemp(join(tmpdir(), `sverka-bench-${agent.id}-`));
+  const here = dirname(fileURLToPath(import.meta.url));
+  const repoRoot = resolve(here, "..", "..", "..");
+  const workspace = repoRoot;
 
   if (agent.type === "sverka") {
+    // Skill is already in the repo at .agents/skills/sverka/SKILL.md
+    // No need to copy — just ensure the directory exists
     const skillDir = join(workspace, ".agents", "skills", "sverka");
-    await mkdir(skillDir, { recursive: true });
-    const repoSkillPath = resolveRepoFile(
-      ".agents/skills/sverka/SKILL.md",
-    );
-    if (repoSkillPath) {
-      await cp(repoSkillPath, join(skillDir, "SKILL.md"), { recursive: true });
+    const skillFile = join(skillDir, "SKILL.md");
+    try {
+      await mkdir(skillDir, { recursive: true });
+      const repoSkillPath = resolveRepoFile(".agents/skills/sverka/SKILL.md");
+      if (repoSkillPath && resolve(repoSkillPath) !== resolve(skillFile)) {
+        await cp(repoSkillPath, skillFile, { recursive: true });
+      }
+    } catch {
+      // Skill already exists — that's fine
     }
   }
 

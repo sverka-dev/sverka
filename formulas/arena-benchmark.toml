@@ -1,0 +1,138 @@
+# Arena Benchmark Formula — @sverka/arena delivery
+#
+# Orchestrates the design, implementation, and validation of the abstract
+# agent benchmark framework. Five sequential phases, each drained into a
+# separate builder session.
+
+[formula]
+extends = "build-from-plan-base"
+description = "Deliver @sverka/arena: abstract agent benchmark framework with trace viewer"
+
+[variables]
+required = ["requirements_path", "megaplan_path"]
+optional = { phase_num = "1", phase_name = "arena", branch_prefix = "feat", prev_phase_branch = "", drain_policy = "separate", review_mode = "agent", push = "false", open_pr = "false" }
+
+# --- Step overrides (base formula uses gc.run-operator targets that don't exist) ---
+
+[[steps]]
+id = "prepare-plan"
+title = "Mayor: validate plan inputs"
+metadata = { "gc.run_target" = "mayor" }
+description = "Validate that requirements_path and megaplan exist. No-op acknowledgment."
+
+[[steps]]
+id = "plan"
+title = "Architect: design arena interfaces"
+needs = ["prepare-plan"]
+metadata = { "gc.run_target" = "architect" }
+description = """
+Read the megaplan at {{megaplan_path}} and requirements at {{requirements_path}}.
+Design the arena package interfaces per the plan:
+- AgentAdapter, ModelConfig, PluginConfig, Task, ArenaConfig
+- RunResult, TraceData, TraceStep, ToolCall, Observation
+- Matrix runner execution model
+- Devin ACP adapter design
+Write the spec to specs/42-arena/spec.md.
+Write the implementation plan to engdocs/architecture/arena.md.
+"""
+
+[[steps]]
+id = "plan-review"
+title = "Mayor: review architect plan"
+needs = ["plan"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Review the architect's spec and plan. Approve or request changes."
+
+[[steps]]
+id = "prepare-decompose"
+title = "Mayor: validate decompose inputs"
+needs = ["plan-review"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Validate plan artifact exists. No-op acknowledgment before decomposition."
+
+[[steps]]
+id = "decompose"
+title = "Mayor: decompose into builder tasks"
+needs = ["prepare-decompose"]
+metadata = { "gc.run_target" = "mayor" }
+description = """
+Decompose the arena implementation into phases:
+1. Core types (types.ts) + spec
+2. Devin adapter + matrix runner
+3. Trace collector + CLI
+4. Dashboard matrix view + trace viewer
+5. Real benchmark run
+Assign each phase to a builder session.
+"""
+
+[[steps]]
+id = "prepare-convoy"
+title = "Mayor: prepare implementation convoy"
+needs = ["decompose"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Validate decomposition artifacts. No-op acknowledgment before implementation."
+
+[[steps]]
+id = "implement"
+title = "Builder: implement arena phase (TDD)"
+needs = ["prepare-convoy"]
+condition = "{{drain_policy}} == separate"
+metadata = { "gc.run_target" = "builder" }
+description_file = "../assets/workflows/arena-benchmark/implement.md"
+
+[steps.drain]
+enabled = true
+item = { single_lane = true }
+
+[[steps]]
+id = "implement-same-session"
+title = "Builder: implement in shared session"
+needs = ["prepare-convoy"]
+condition = "{{drain_policy}} == same-session"
+metadata = { "gc.run_target" = "builder" }
+description_file = "../assets/workflows/arena-benchmark/implement.md"
+
+[[steps]]
+id = "prepare-review"
+title = "Mayor: validate review inputs"
+needs = ["implement", "implement-same-session"]
+metadata = { "gc.run_target" = "mayor" }
+description = "Validate implementation artifacts exist. No-op acknowledgment before review."
+
+[[steps]]
+id = "review"
+title = "Reviewer: quality gates"
+needs = ["prepare-review"]
+metadata = { "gc.run_target" = "reviewer" }
+description = "Run quality gates: bun run test, typecheck, lint, build. All must pass."
+
+[steps.review.checks]
+path = "assets/scripts/checks/sverka-gates.sh"
+timeout = "10m"
+
+[[steps]]
+id = "repair-review"
+title = "Mayor: handle review repair"
+needs = ["review"]
+metadata = { "gc.run_target" = "mayor" }
+description = "If review fails, dispatch repair work to builder. If review passes, acknowledge and proceed to finalize."
+
+[[steps]]
+id = "finalize"
+title = "Mayor: finalize arena phase"
+needs = ["repair-review"]
+metadata = { "gc.run_target" = "mayor" }
+description = """
+Commit changes to feat/arena-{{phase_name}} branch.
+Report phase completion.
+If push=true, push branch. If open_pr=true, create PR.
+Do NOT push or create PR unless explicitly authorized.
+"""
+
+[[steps]]
+id = "publish"
+title = "Mayor: publish results"
+needs = ["finalize"]
+condition = "{{push}} == true"
+metadata = { "gc.run_target" = "mayor" }
+description = "Push branch and create PR if authorized. Otherwise report status."

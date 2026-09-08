@@ -91,7 +91,7 @@ async function runPlan(
   engine: ReturnType<typeof createEngine>,
   plan: RunPlan,
   testDir: string,
-  extra?: Parameters<ReturnType<typeof createEngine>["run"]>[0],
+  extra?: Partial<Parameters<ReturnType<typeof createEngine>["run"]>[0]>,
 ): Promise<ReturnType<typeof collectEvents>> {
   return collectEvents(engine, {
     plan,

@@ -1,0 +1,47 @@
+{
+  "taskId": "refactor-async",
+  "prompt": "Refactor all functions in src/index.ts from callback style to async/await. Do NOT change function signatures or test expectations. Run tests to verify everything still works.",
+  "configs": {
+    "raw": {
+      "sessionId": "refactor-async-raw-001",
+      "model": "GLM-5.2 High",
+      "llmCallCount": 16,
+      "finalMetrics": {
+        "totalPromptTokens": 55000,
+        "totalCompletionTokens": 4500,
+        "totalCachedTokens": 48000,
+        "totalSteps": 16
+      },
+      "steps": [
+        { "stepId": 1, "source": "system", "timestamp": "2026-09-07T18:06:00Z", "message": "Session started", "isLlmCall": false },
+        { "stepId": 2, "source": "agent", "timestamp": "2026-09-07T18:06:05Z", "message": "Let me read the source file first.", "isLlmCall": true, "toolCalls": [{ "functionName": "read", "arguments": { "file_path": "src/index.ts" }, "toolCallId": "tc-r1" }] },
+        { "stepId": 3, "source": "agent", "timestamp": "2026-09-07T18:06:15Z", "message": "I see three callback-style functions. Let me refactor readJsonFile first.", "isLlmCall": true, "toolCalls": [{ "functionName": "edit", "arguments": { "file_path": "src/index.ts", "old_string": "export function readJsonFile(path: string, cb: Callback<unknown>): void {", "new_string": "export async function readJsonFile(path: string): Promise<unknown> {" }, "toolCallId": "tc-r2" }] },
+        { "stepId": 4, "source": "agent", "timestamp": "2026-09-07T18:06:25Z", "message": "Now refactoring writeJsonFile.", "isLlmCall": true, "toolCalls": [{ "functionName": "edit", "arguments": { "file_path": "src/index.ts", "old_string": "export function writeJsonFile(path: string, data: unknown, cb: Callback<void>): void {", "new_string": "export async function writeJsonFile(path: string, data: unknown): Promise<void> {" }, "toolCallId": "tc-r3" }] },
+        { "stepId": 5, "source": "agent", "timestamp": "2026-09-07T18:06:35Z", "message": "Now refactoring combineFiles.", "isLlmCall": true, "toolCalls": [{ "functionName": "edit", "arguments": { "file_path": "src/index.ts", "old_string": "export function combineFiles(paths: string[], cb: Callback<unknown[]>): void {", "new_string": "export async function combineFiles(paths: string[]): Promise<unknown[]> {" }, "toolCallId": "tc-r4" }] },
+        { "stepId": 6, "source": "agent", "timestamp": "2026-09-07T18:06:45Z", "message": "I need to update the implementations too. Let me fix readJsonFile body.", "isLlmCall": true, "toolCalls": [{ "functionName": "edit", "arguments": { "file_path": "src/index.ts", "old_string": "fs.readFile(path, \"utf-8\", (err, content) => {", "new_string": "const content = await fs.promises.readFile(path, \"utf-8\");" }, "toolCallId": "tc-r5" }] },
+        { "stepId": 7, "source": "agent", "timestamp": "2026-09-07T18:06:55Z", "message": "Fixing writeJsonFile body.", "isLlmCall": true, "toolCalls": [{ "functionName": "edit", "arguments": { "file_path": "src/index.ts", "old_string": "fs.writeFile(path, content, \"utf-8\", (err) => {", "new_string": "await fs.promises.writeFile(path, content, \"utf-8\");" }, "toolCallId": "tc-r6" }] },
+        { "stepId": 8, "source": "agent", "timestamp": "2026-09-07T18:07:05Z", "message": "Fixing combineFiles body to use Promise.all.", "isLlmCall": true, "toolCalls": [{ "functionName": "edit", "arguments": { "file_path": "src/index.ts", "old_string": "paths.forEach((path, i) => {", "new_string": "return Promise.all(paths.map(path => readJsonFile(path)));" }, "toolCallId": "tc-r7" }] },
+        { "stepId": 9, "source": "agent", "timestamp": "2026-09-07T18:07:15Z", "message": "Let me run the tests to check.", "isLlmCall": true, "toolCalls": [{ "functionName": "exec", "arguments": { "command": "bun test" }, "toolCallId": "tc-r8" }] },
+        { "stepId": 10, "source": "agent", "timestamp": "2026-09-07T18:07:45Z", "message": "Tests pass. All three functions refactored to async/await.", "isLlmCall": true }
+      ]
+    },
+    "sverka": {
+      "sessionId": "refactor-async-sverka-001",
+      "model": "GLM-5.2 High",
+      "llmCallCount": 8,
+      "finalMetrics": {
+        "totalPromptTokens": 52000,
+        "totalCompletionTokens": 3900,
+        "totalCachedTokens": 46000,
+        "totalSteps": 8
+      },
+      "steps": [
+        { "stepId": 1, "source": "system", "timestamp": "2026-09-07T18:08:00Z", "message": "Session started with sverka skill", "isLlmCall": false },
+        { "stepId": 2, "source": "agent", "timestamp": "2026-09-07T18:08:05Z", "message": "I'll read the source and refactor all functions in one pass.", "isLlmCall": true, "toolCalls": [{ "functionName": "read", "arguments": { "file_path": "src/index.ts" }, "toolCallId": "tc-rs1" }] },
+        { "stepId": 3, "source": "agent", "timestamp": "2026-09-07T18:08:15Z", "message": "Refactoring all three functions to async/await using sverka workflow.", "isLlmCall": true, "toolCalls": [{ "functionName": "write", "arguments": { "file_path": "src/index.ts", "content": "import fs from \"node:fs\";\n\nexport async function readJsonFile(path: string): Promise<unknown> {\n  const content = await fs.promises.readFile(path, \"utf-8\");\n  return JSON.parse(content);\n}\n\nexport async function writeJsonFile(path: string, data: unknown): Promise<void> {\n  const content = JSON.stringify(data, null, 2);\n  await fs.promises.writeFile(path, content, \"utf-8\");\n}\n\nexport async function combineFiles(paths: string[]): Promise<unknown[]> {\n  return Promise.all(paths.map(path => readJsonFile(path)));\n}" }, "toolCallId": "tc-rs2" }] },
+        { "stepId": 4, "source": "agent", "timestamp": "2026-09-07T18:08:25Z", "message": "Verifying with sverka run-checks.", "isLlmCall": true, "toolCalls": [{ "functionName": "exec", "arguments": { "command": "bun test" }, "toolCallId": "tc-rs3" }] },
+        { "stepId": 5, "source": "agent", "timestamp": "2026-09-07T18:08:45Z", "message": "All 3 tests pass. Refactoring complete using sverka workflow.", "isLlmCall": true }
+      ]
+    }
+  }
+}

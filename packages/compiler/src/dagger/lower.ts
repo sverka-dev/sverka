@@ -12,7 +12,7 @@ import type {
   DaggerStep,
   DaggerTargetConfig,
 } from "./types.js";
-import { DaggerTargetError } from "./errors.js";
+import { DaggerTargetError, type DaggerTargetErrorCode } from "./errors.js";
 import { reachableStepIds, topoSort as sharedTopoSort } from "../internal/graph-utils.js";
 
 /**
@@ -61,7 +61,7 @@ function filterReachableSteps(
   pipeline: PipelineDefinition,
 ): readonly StepDefinition[] {
   const reachable = reachableStepIds(roots, pipeline.steps, (msg, code) =>
-    new DaggerTargetError(msg, code),
+    new DaggerTargetError(msg, code as DaggerTargetErrorCode),
   );
   return pipeline.steps.filter((s) => reachable.has(s.id));
 }

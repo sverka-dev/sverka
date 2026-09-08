@@ -43,13 +43,13 @@ export function makeGraph(opts: GraphOptions = {}): DefinitionGraph {
   for (const step of steps) {
     new ShellStep(p, step.id, {
       command: step.command,
-      dependsOn: step.dependsOn,
-      condition: step.condition,
-      retry: step.retry,
-      timeout: step.timeout,
-      runtime: step.runtime,
-      matrix: step.matrix,
-      outputs: step.outputs,
+      ...(step.dependsOn !== undefined ? { dependsOn: step.dependsOn } : {}),
+      ...(step.condition !== undefined ? { condition: step.condition } : {}),
+      ...(step.retry !== undefined ? { retry: step.retry } : {}),
+      ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
+      ...(step.runtime !== undefined ? { runtime: step.runtime } : {}),
+      ...(step.matrix !== undefined ? { matrix: step.matrix } : {}),
+      ...(step.outputs !== undefined ? { outputs: step.outputs } : {}),
     });
   }
   const rootSteps = roots ?? terminalStepIds(steps);

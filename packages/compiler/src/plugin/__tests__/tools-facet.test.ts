@@ -65,8 +65,8 @@ describe("tools facet — Spec 23", () => {
     const registry = createPluginRegistry();
     registry.register(plugin);
     const [registered] = registry.plugins;
-    expect(registered.tools).toBe(provider);
-    const result = await registered.tools?.callTool("srv.echo", { x: 1 });
+    expect(registered!.tools).toBe(provider);
+    const result = await registered!.tools?.callTool("srv.echo", { x: 1 });
     expect(result?.content[0]).toEqual({ type: "text", text: "ok" });
   });
 

@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sverka Benchmark — Raw Shell vs Sverka CLI</title>
-  <meta name="description" content="Two-agent benchmark: raw shell vs Sverka CLI+skill comparison dashboard." />
+  <title>Sverka Arena — Agent Benchmark Workbench</title>
+  <meta name="description" content="Sverka Arena — Agent Benchmark Workbench: case-based navigation with AI judge reports, per-run metrics, and trace viewer." />
   <style>
     :root {
       --bg: #0d1117;
       --surface: #161b22;
+      --surface-hover: #1c2330;
       --border: #30363d;
       --text: #e6edf3;
       --text-muted: #8b949e;
@@ -17,6 +18,9 @@
       --red: #f85149;
       --red-bg: rgba(248, 81, 73, 0.1);
       --accent: #58a6ff;
+      --accent-bg: rgba(88, 166, 255, 0.1);
+      --yellow: #d29922;
+      --yellow-bg: rgba(210, 153, 34, 0.1);
       --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", monospace;
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     }
@@ -26,12 +30,502 @@
       color: var(--text);
       font-family: var(--font-sans);
       line-height: 1.6;
-      padding: 2rem 1rem;
-      max-width: 1200px;
-      margin: 0 auto;
+      display: flex;
+      min-height: 100vh;
     }
-    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
-    .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.25rem 0;
+      overflow-y: auto;
+      max-height: 100vh;
+      position: sticky;
+      top: 0;
+    }
+    .sidebar-header {
+      padding: 0 1.25rem 1rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0.75rem;
+    }
+    .sidebar-header h1 {
+      font-size: 1.1rem;
+      line-height: 1.3;
+    }
+    .sidebar-header .subtitle {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.2rem;
+    }
+    .sidebar-section-label {
+      padding: 0.5rem 1.25rem 0.3rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .case-list { list-style: none; }
+    .case-item {
+      padding: 0.6rem 1.25rem;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.1s, border-color 0.1s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .case-item:hover { background: var(--surface-hover); }
+    .case-item.active {
+      background: var(--accent-bg);
+      border-left-color: var(--accent);
+    }
+    .case-item-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .case-item-meta {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      display: flex;
+      gap: 0.6rem;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    .status-dot.pass { background: var(--green); }
+    .status-dot.fail { background: var(--red); }
+    .status-dot.mixed { background: var(--yellow); }
+    .sidebar-footer {
+      padding: 0.75rem 1.25rem 0;
+      margin-top: auto;
+      border-top: 1px solid var(--border);
+      margin-top: 0.75rem;
+    }
+    .sidebar-footer a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.75rem;
+    }
+    .sidebar-footer a:hover { text-decoration: underline; }
+
+    /* ── Main content ────────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      padding: 2rem 2.5rem;
+      max-width: 1100px;
+      overflow-x: auto;
+    }
+    .main h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+    .main h2 { font-size: 1.15rem; margin-bottom: 0.5rem; margin-top: 2rem; }
+    .main h3 { font-size: 0.95rem; margin-bottom: 0.4rem; }
+    .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+    /* Config summary bar */
+    .config-summary {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+    }
+    .config-summary span { display: flex; gap: 0.4rem; }
+    .config-summary strong { color: var(--text); }
+
+    /* Case cards (list view) */
+    .case-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .case-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .case-card:hover { border-color: var(--accent); background: var(--surface-hover); }
+    .case-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+    .case-card-title { font-size: 0.95rem; font-weight: 600; }
+    .case-card-prompt {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .case-card-stats {
+      display: flex;
+      gap: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+    }
+    .case-card-stat { display: flex; flex-direction: column; }
+    .case-card-stat .label { color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; }
+    .case-card-stat .value { color: var(--text); font-weight: 600; }
+
+    /* Judge score badge */
+    .judge-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .judge-badge.pass { color: var(--green); background: var(--green-bg); border: 1px solid var(--green); }
+    .judge-badge.fail { color: var(--red); background: var(--red-bg); border: 1px solid var(--red); }
+
+    /* Prompt box */
+    .prompt-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .prompt-box .label {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+    }
+    .prompt-box .prompt-text {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* AI Report section */
+    .ai-report {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .ai-report h2 {
+      margin-top: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .ai-report .ai-icon { color: var(--accent); }
+    .ai-summary {
+      font-size: 0.88rem;
+      color: var(--text);
+      padding: 0.75rem;
+      background: var(--bg);
+      border-radius: 6px;
+      margin-top: 0.75rem;
+      line-height: 1.7;
+    }
+    .ai-summary.worse {
+      border-left: 3px solid var(--red);
+    }
+    .ai-summary.better {
+      border-left: 3px solid var(--green);
+    }
+
+    /* Comparison table */
+    .comparison-table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+    table.comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    table.comparison-table th, table.comparison-table td {
+      padding: 0.5rem 0.7rem;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+    }
+    table.comparison-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: var(--bg);
+    }
+    table.comparison-table th:first-child, table.comparison-table td:first-child {
+      text-align: left;
+      font-family: var(--font-sans);
+    }
+    .delta-good { color: var(--green); }
+    .delta-bad { color: var(--red); }
+    .delta-arrow { font-size: 0.7rem; }
+
+    /* Side-by-side run comparison */
+    .runs-compare {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    /* Auto-expand columns based on number of runs */
+    .runs-compare.cols-2 { grid-template-columns: 1fr 1fr; }
+    .runs-compare.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .runs-compare.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .runs-compare.cols-5 { grid-template-columns: repeat(5, 1fr); }
+    @media (max-width: 900px) {
+      .runs-compare.cols-2,
+      .runs-compare.cols-3,
+      .runs-compare.cols-4,
+      .runs-compare.cols-5 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Run column — one per plugin combo, side-by-side */
+    .run-column {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .run-column-header {
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .run-column-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .run-column-badge {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .run-column-body {
+      padding: 0.75rem 1rem 1rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    /* Run card (kept for legacy, but now used inside columns) */
+    .run-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+    }
+    .run-card-header {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.1s;
+      user-select: none;
+    }
+    .run-card-header:hover { background: var(--surface-hover); }
+    .run-card-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .run-card-badge {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .run-card-toggle { color: var(--text-muted); font-size: 0.8rem; }
+    .run-card-body {
+      display: none;
+      padding: 0 1rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .run-card.expanded .run-card-body { display: block; }
+    .run-card.expanded .run-card-toggle { transform: rotate(90deg); }
+
+    .run-section { margin-top: 0; }
+    .run-section-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+    }
+    .run-output {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.6rem;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .run-verdict {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+    }
+    .run-verdict-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+    .run-verdict-reasoning {
+      font-size: 0.82rem;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      line-height: 1.6;
+    }
+    .run-verdict-issues {
+      list-style: none;
+      padding-left: 0;
+    }
+    .run-verdict-issues li {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      padding: 0.2rem 0 0.2rem 1rem;
+      position: relative;
+    }
+    .run-verdict-issues li::before {
+      content: "⚠";
+      position: absolute;
+      left: 0;
+      color: var(--yellow);
+    }
+    .run-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+    .run-metric {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.4rem 0.6rem;
+    }
+    .run-metric .label { color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; }
+    .run-metric .value { color: var(--text); font-weight: 600; }
+    .run-trace-link {
+      display: inline-block;
+      margin-top: 0.5rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+    .run-trace-link:hover { text-decoration: underline; }
+
+    /* Aggregate summary */
+    .aggregate-summary {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .agg-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .agg-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    .agg-card h3 {
+      font-size: 0.88rem;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .agg-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.3rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+    .agg-grid .label { color: var(--text-muted); }
+    .agg-grid .value { text-align: right; }
+
+    /* Back link */
+    .back-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.82rem;
+      margin-bottom: 1rem;
+      display: inline-block;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    /* Loading / error */
+    .loading { color: var(--text-muted); text-align: center; padding: 3rem; }
+    .error {
+      color: var(--red);
+      background: var(--red-bg);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Legacy styles (kept for backward compat) ─────────────────── */
     .header-meta {
       display: flex;
       gap: 1.5rem;
@@ -95,6 +589,10 @@
       background: var(--surface);
     }
     th.task, td.task { text-align: left; font-family: var(--font-sans); }
+    td.task a { color: var(--accent); text-decoration: none; }
+    td.task a:hover { text-decoration: underline; }
+    .trace-link { color: var(--accent); text-decoration: none; font-size: 0.75rem; }
+    .trace-link:hover { text-decoration: underline; }
     th.section-header {
       text-align: center;
       border-bottom: 2px solid var(--border);
@@ -107,15 +605,6 @@
     .delta-bad { color: var(--red); background: var(--red-bg); }
     .success-yes { color: var(--green); }
     .success-no { color: var(--red); }
-    .loading { color: var(--text-muted); text-align: center; padding: 3rem; }
-    .error {
-      color: var(--red);
-      background: var(--red-bg);
-      border: 1px solid var(--red);
-      border-radius: 8px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-    }
     footer {
       margin-top: 3rem;
       padding-top: 1rem;
@@ -124,59 +613,1183 @@
       font-size: 0.8rem;
     }
     footer a { color: var(--accent); text-decoration: none; }
-    @media (max-width: 768px) {
+    /* Matrix view styles */
+    .matrix-wrap { overflow-x: auto; margin-bottom: 2rem; }
+    .matrix-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .matrix-table th, .matrix-table td {
+      padding: 0.5rem 0.6rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      font-family: var(--font-mono);
+    }
+    .matrix-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+    }
+    .matrix-table th.task-col, .matrix-table td.task-col {
+      text-align: left;
+      font-family: var(--font-sans);
+      position: sticky;
+      left: 0;
+      background: var(--surface);
+      z-index: 1;
+    }
+    .matrix-table th.combo-header {
+      writing-mode: vertical-lr;
+      text-orientation: mixed;
+      min-width: 3rem;
+      max-width: 4rem;
+      height: 6rem;
+    }
+    .matrix-table td.cell {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .matrix-table td.cell:hover { background: var(--surface-hover); }
+    .matrix-table td.cell a { color: var(--text); text-decoration: none; display: block; }
+    .matrix-table td.cell:hover a { color: var(--accent); }
+    .matrix-table .cell-tokens { font-weight: 600; }
+    .matrix-table .cell-sub { font-size: 0.65rem; color: var(--text-muted); }
+    .matrix-table .cell-fail { color: var(--red); }
+    .matrix-table .cell-ok { color: var(--green); }
+    .metric-legend {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .metric-legend label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+    .metric-legend input { accent-color: var(--accent); }
+    .view-toggle {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .view-toggle button {
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .view-toggle button:hover { border-color: var(--accent); color: var(--accent); }
+    .view-toggle button.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+    /* Mobile sidebar toggle */
+    .sidebar-toggle {
+      display: none;
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 100;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.4rem 0.7rem;
+      font-size: 1.1rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+    @media (max-width: 900px) {
+      .sidebar {
+        position: fixed;
+        left: -280px;
+        z-index: 99;
+        transition: left 0.2s;
+        max-height: 100vh;
+      }
+      .sidebar.open { left: 0; }
+      .sidebar-toggle { display: block; }
+      .main { padding: 1rem; }
+      .case-cards { grid-template-columns: 1fr; }
       .summary { grid-template-columns: 1fr; }
-      body { padding: 1rem 0.5rem; }
+      .run-metrics { grid-template-columns: 1fr 1fr; }
+      /* Side-by-side columns stack vertically on mobile */
+      .runs-compare.cols-2,
+      .runs-compare.cols-3,
+      .runs-compare.cols-4,
+      .runs-compare.cols-5 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── CRUD UI ─────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn:hover { border-color: var(--accent); background: var(--surface-hover); }
+    .btn.primary { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+    .btn.primary:hover { background: rgba(88,166,255,0.2); }
+    .btn.danger { color: var(--red); border-color: var(--red); }
+    .btn.danger:hover { background: var(--red-bg); }
+    .btn.small { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .case-form-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 200;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+      overflow-y: auto;
+    }
+    .case-form {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      max-width: 640px;
+      width: 100%;
+      margin: auto;
+    }
+    .case-form h2 { margin-top: 0; }
+    .case-form .form-group { margin-bottom: 1rem; }
+    .case-form label {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+    }
+    .case-form input[type="text"],
+    .case-form input[type="number"],
+    .case-form textarea,
+    .case-form select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 0.7rem;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    .case-form textarea { min-height: 100px; resize: vertical; }
+    .case-form input:focus,
+    .case-form textarea:focus,
+    .case-form select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .case-form .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .case-form .form-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+    }
+    .case-form .checks-editor {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .case-form .check-row {
+      display: grid;
+      grid-template-columns: 120px 1fr auto;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .case-form .check-row input { font-size: 0.8rem; }
+    .case-form .check-remove {
+      background: none;
+      border: none;
+      color: var(--red);
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 0 0.3rem;
+    }
+
+    .case-card-actions {
+      display: flex;
+      gap: 0.3rem;
+      margin-top: 0.5rem;
+    }
+
+    .config-editor {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .config-editor h3 { margin-top: 0; }
+    .config-editor .config-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .config-editor input, .config-editor select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.3rem 0.5rem;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 600px) {
+      .case-form .form-row { grid-template-columns: 1fr; }
+      .case-form .check-row { grid-template-columns: 1fr; }
+      .config-editor .config-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <h1>Sverka Benchmark</h1>
-  <p class="subtitle">Raw Shell Agent vs Sverka CLI Agent — two-agent comparison</p>
+  <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">☰</button>
 
-  <div class="header-meta" id="header-meta">
-    <span>Loading...</span>
+  <!-- Sidebar: case list navigation -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h1>Sverka Arena</h1>
+      <div class="subtitle">Agent Benchmark Workbench</div>
+    </div>
+    <div class="sidebar-section-label">Cases</div>
+    <ul class="case-list" id="case-list">
+      <li class="loading">Loading...</li>
+    </ul>
+    <div class="sidebar-footer">
+      <a href="#/" id="nav-overview">← Overview</a>
+    </div>
+  </nav>
+
+  <!-- Main content area -->
+  <div class="main" id="main">
+    <div id="error"></div>
+
+    <!-- Workbench views -->
+    <div id="workbench-overview">
+      <h1>Sverka Arena — Agent Benchmark Workbench</h1>
+      <p class="subtitle" id="wb-subtitle">Configurable agent benchmark with AI judge reports</p>
+      <div class="config-summary" id="config-summary"></div>
+
+      <div class="toolbar">
+        <button class="btn primary" id="btn-new-case">+ New Case</button>
+        <button class="btn" id="btn-config">Config</button>
+        <button class="btn" id="btn-run">Run Benchmark</button>
+        <button class="btn" id="btn-refresh">Refresh</button>
+      </div>
+
+      <div id="config-editor-container" style="display:none;"></div>
+
+      <h2>Cases</h2>
+      <div class="case-cards" id="case-cards"></div>
+      <div class="aggregate-summary" id="aggregate-summary"></div>
+    </div>
+
+    <div id="workbench-case" style="display:none;">
+      <a class="back-link" href="#/" id="case-back">← All Cases</a>
+      <div id="case-detail"></div>
+    </div>
+
+    <!-- Case form modal -->
+    <div id="case-form-overlay" class="case-form-overlay" style="display:none;">
+      <div class="case-form" id="case-form-container"></div>
+    </div>
+
+    <!-- Legacy views (hidden by default, shown for classic format) -->
+    <div id="legacy-view" style="display:none;">
+      <h1>Sverka Benchmark Arena</h1>
+      <p class="subtitle" id="subtitle">Agent benchmark matrix — task × plugin combinations</p>
+      <div class="header-meta" id="header-meta"><span>Loading...</span></div>
+      <div class="view-toggle" id="view-toggle" style="display:none;">
+        <button id="toggle-matrix" class="active">Matrix View</button>
+        <button id="toggle-classic">Classic View</button>
+      </div>
+      <div class="metric-legend" id="metric-legend" style="display:none;">
+        <label><input type="radio" name="metric" value="totalTokens" checked /> Tokens</label>
+        <label><input type="radio" name="metric" value="toolCallCount" /> Tool Calls</label>
+        <label><input type="radio" name="metric" value="llmCallCount" /> LLM Calls</label>
+        <label><input type="radio" name="metric" value="executionTimeMs" /> Time</label>
+      </div>
+      <div id="matrix-summary"></div>
+      <div class="matrix-wrap" id="matrix-container" style="display:none;">
+        <table class="matrix-table" id="matrix-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer>
+      <p>Sverka Arena — <a href="https://github.com/sverka-dev/sverka">GitHub</a></p>
+    </footer>
   </div>
-
-  <div id="error"></div>
-
-  <div class="summary" id="summary"></div>
-
-  <div class="table-wrap">
-    <table id="results-table">
-      <thead></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <footer>
-    <p>Sverka Benchmark Arena — <a href="https://github.com/sverka-dev/sverka">GitHub</a></p>
-  </footer>
 
   <script>
     (function () {
       "use strict";
 
-      /** Format milliseconds as seconds with 1 decimal. */
-      function fmtTime(ms) {
-        return (ms / 1000).toFixed(1) + "s";
+      var arenaData = null; // cached arena result
+
+      // ── Utility functions ──────────────────────────────────────────
+
+      function fmtTime(ms) { return (ms / 1000).toFixed(1) + "s"; }
+      function fmtNum(n) { return typeof n === "number" ? n.toLocaleString() : String(n); }
+
+      function escapeHtml(str) {
+        var div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
       }
 
-      /** Format a number with thousands separators. */
-      function fmtNum(n) {
-        return typeof n === "number" ? n.toLocaleString() : String(n);
+      function showError(msg) {
+        var el = document.getElementById("error");
+        el.innerHTML = '<div class="error">' + escapeHtml(msg) + "</div>";
       }
 
-      /** Compute delta (sverka - raw) and determine if sverka is better.
-       *  For tokens/tools/time: lower is better. For success: higher is better.
+      /** Detect if a result is in ArenaResult format. */
+      function isArenaResult(result) {
+        return !!(result && result.config && Array.isArray(result.config.models) && Array.isArray(result.config.plugins));
+      }
+
+      /** Generate all plugin combinations from the plugins list. */
+      function pluginCombinations(plugins) {
+        var combos = [];
+        var n = plugins.length;
+        for (var mask = 0; mask < (1 << n); mask++) {
+          var combo = [];
+          for (var i = 0; i < n; i++) {
+            if (mask & (1 << i)) combo.push(plugins[i]);
+          }
+          combos.push(combo);
+        }
+        combos.sort(function (a, b) {
+          if (a.length !== b.length) return a.length - b.length;
+          return a.join(",").localeCompare(b.join(","));
+        });
+        return combos;
+      }
+
+      /** Format a plugin combo as a display label. */
+      function comboLabel(combo) {
+        if (combo.length === 0) return "no-plugins";
+        return combo.join("+");
+      }
+
+      /** Hash a plugin combo for trace URLs. */
+      function comboHash(combo) {
+        if (combo.length === 0) return "no-plugins";
+        return combo.join("--");
+      }
+
+      /** Find a result for a given task/model/combo. */
+      function findResult(results, taskId, modelId, pluginIds) {
+        for (var i = 0; i < results.length; i++) {
+          var r = results[i];
+          if (r.taskId !== taskId || r.modelId !== modelId) continue;
+          var rPlugins = r.pluginIds || [];
+          if (rPlugins.length !== pluginIds.length) continue;
+          var match = true;
+          for (var j = 0; j < pluginIds.length; j++) {
+            if (rPlugins[j] !== pluginIds[j]) { match = false; break; }
+          }
+          if (match) return r;
+        }
+        return null;
+      }
+
+      /** Find aggregate for a given combo. */
+      function findAggregate(aggregates, pluginIds) {
+        if (!aggregates) return null;
+        for (var i = 0; i < aggregates.length; i++) {
+          var a = aggregates[i];
+          var aPlugins = a.pluginIds || [];
+          if (aPlugins.length !== pluginIds.length) continue;
+          var match = true;
+          for (var j = 0; j < pluginIds.length; j++) {
+            if (aPlugins[j] !== pluginIds[j]) { match = false; break; }
+          }
+          if (match) return a;
+        }
+        return null;
+      }
+
+      /** Find analysis for a given task. */
+      function findAnalysis(analysis, taskId) {
+        if (!analysis) return null;
+        for (var i = 0; i < analysis.length; i++) {
+          if (analysis[i].taskId === taskId) return analysis[i];
+        }
+        return null;
+      }
+
+      /** Get the best verdict score from a result's verdicts. */
+      function bestVerdictScore(result) {
+        if (!result.verdicts || result.verdicts.length === 0) return null;
+        var best = result.verdicts[0];
+        for (var i = 1; i < result.verdicts.length; i++) {
+          if (result.verdicts[i].score > best.score) best = result.verdicts[i];
+        }
+        return best;
+      }
+
+      /** Get the first verdict from a result. */
+      function firstVerdict(result) {
+        if (!result.verdicts || result.verdicts.length === 0) return null;
+        return result.verdicts[0];
+      }
+
+      /** Count judge passes for a set of results. */
+      function judgePassRate(results) {
+        var pass = 0, total = 0;
+        for (var i = 0; i < results.length; i++) {
+          var v = firstVerdict(results[i]);
+          if (v) { total++; if (v.passed) pass++; }
+        }
+        return total > 0 ? { pass: pass, total: total, rate: Math.round(pass / total * 100) } : null;
+      }
+
+      /** Create a judge badge element. */
+      function judgeBadge(score, passed) {
+        var span = document.createElement("span");
+        span.className = "judge-badge " + (passed ? "pass" : "fail");
+        span.textContent = (passed ? "✓ " : "✗ ") + score + "/100";
+        return span;
+      }
+
+      /** Create a status dot. */
+      function statusDot(results) {
+        var rate = judgePassRate(results);
+        var dot = document.createElement("span");
+        if (!rate) { dot.className = "status-dot mixed"; return dot; }
+        if (rate.pass === rate.total) dot.className = "status-dot pass";
+        else if (rate.pass === 0) dot.className = "status-dot fail";
+        else dot.className = "status-dot mixed";
+        return dot;
+      }
+
+      /** Get task name from analysis or fallback to taskId. */
+      function taskName(data, taskId) {
+        var analysis = findAnalysis(data.analysis, taskId);
+        if (analysis && analysis.taskName) return analysis.taskName;
+        return taskId;
+      }
+
+      /** Get task prompt from analysis or null. */
+      function taskPrompt(data, taskId) {
+        var analysis = findAnalysis(data.analysis, taskId);
+        if (analysis && analysis.prompt) return analysis.prompt;
+        return null;
+      }
+
+      // ── Sidebar: case list ─────────────────────────────────────────
+
+      function renderSidebar(data) {
+        var list = document.getElementById("case-list");
+        list.innerHTML = "";
+        var tasks = data.config.tasks || [];
+        for (var i = 0; i < tasks.length; i++) {
+          var taskId = tasks[i];
+          var taskResults = data.results.filter(function (r) { return r.taskId === taskId; });
+          var rate = judgePassRate(taskResults);
+          var li = document.createElement("li");
+          li.className = "case-item";
+          li.setAttribute("data-task-id", taskId);
+          li.addEventListener("click", function () {
+            window.location.hash = "#/case/" + this.getAttribute("data-task-id");
+          });
+
+          var nameDiv = document.createElement("div");
+          nameDiv.className = "case-item-name";
+          nameDiv.appendChild(statusDot(taskResults));
+          nameDiv.appendChild(document.createTextNode(taskName(data, taskId)));
+
+          var metaDiv = document.createElement("div");
+          metaDiv.className = "case-item-meta";
+          var runsSpan = document.createElement("span");
+          runsSpan.textContent = taskResults.length + " runs";
+          metaDiv.appendChild(runsSpan);
+          if (rate) {
+            var rateSpan = document.createElement("span");
+            rateSpan.textContent = "judge " + rate.pass + "/" + rate.total;
+            metaDiv.appendChild(rateSpan);
+          }
+
+          li.appendChild(nameDiv);
+          li.appendChild(metaDiv);
+          list.appendChild(li);
+        }
+      }
+
+      function highlightSidebarCase(taskId) {
+        var items = document.querySelectorAll(".case-item");
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].getAttribute("data-task-id") === taskId) {
+            items[i].classList.add("active");
+          } else {
+            items[i].classList.remove("active");
+          }
+        }
+      }
+
+      // ── Overview: config summary + case cards + aggregates ─────────
+
+      function renderOverview(data) {
+        // Config summary
+        var configEl = document.getElementById("config-summary");
+        configEl.innerHTML = "";
+        var models = data.config.models || [];
+        var plugins = data.config.plugins || [];
+        var tasks = data.config.tasks || [];
+        var judgeModel = data.config.judgeModel || "—";
+        var spans = [
+          ["Models", models.join(", ") || "(none)"],
+          ["Plugins", plugins.length ? plugins.join(", ") : "(none)"],
+          ["Cases", String(tasks.length)],
+          ["Judge", judgeModel],
+          ["Run", data.timestamp || "—"],
+        ];
+        for (var i = 0; i < spans.length; i++) {
+          var span = document.createElement("span");
+          span.innerHTML = escapeHtml(spans[i][0]) + ": <strong>" + escapeHtml(spans[i][1]) + "</strong>";
+          configEl.appendChild(span);
+        }
+
+        // Case cards
+        var cardsEl = document.getElementById("case-cards");
+        cardsEl.innerHTML = "";
+        for (var t = 0; t < tasks.length; t++) {
+          var taskId = tasks[t];
+          var taskResults = data.results.filter(function (r) { return r.taskId === taskId; });
+          var rate = judgePassRate(taskResults);
+          var prompt = taskPrompt(data, taskId) || "";
+          var promptPreview = prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+
+          // Find best combo
+          var bestScore = -1, bestCombo = "—";
+          for (var r = 0; r < taskResults.length; r++) {
+            var v = firstVerdict(taskResults[r]);
+            if (v && v.score > bestScore) {
+              bestScore = v.score;
+              bestCombo = taskResults[r].pluginIds.length === 0 ? "no-plugins" : taskResults[r].pluginIds.join("+");
+            }
+          }
+
+          var card = document.createElement("div");
+          card.className = "case-card";
+          card.addEventListener("click", (function (id) {
+            return function () { window.location.hash = "#/case/" + id; };
+          })(taskId));
+
+          var header = document.createElement("div");
+          header.className = "case-card-header";
+          var title = document.createElement("div");
+          title.className = "case-card-title";
+          title.appendChild(statusDot(taskResults));
+          title.appendChild(document.createTextNode(" " + taskName(data, taskId)));
+          header.appendChild(title);
+          if (rate) {
+            header.appendChild(judgeBadge(Math.round(rate.rate), rate.pass === rate.total));
+          }
+          card.appendChild(header);
+
+          if (promptPreview) {
+            var promptEl = document.createElement("div");
+            promptEl.className = "case-card-prompt";
+            promptEl.textContent = promptPreview;
+            card.appendChild(promptEl);
+          }
+
+          var stats = document.createElement("div");
+          stats.className = "case-card-stats";
+          stats.appendChild(makeStat("Runs", String(taskResults.length)));
+          if (rate) stats.appendChild(makeStat("Judge Pass", rate.pass + "/" + rate.total));
+          stats.appendChild(makeStat("Best Combo", bestCombo));
+          if (bestScore >= 0) stats.appendChild(makeStat("Best Score", String(bestScore)));
+          card.appendChild(stats);
+
+          cardsEl.appendChild(card);
+        }
+
+        // Aggregate summary
+        renderAggregateSummary(data);
+      }
+
+      function makeStat(label, value) {
+        var stat = document.createElement("div");
+        stat.className = "case-card-stat";
+        var labelEl = document.createElement("div");
+        labelEl.className = "label";
+        labelEl.textContent = label;
+        var valueEl = document.createElement("div");
+        valueEl.className = "value";
+        valueEl.textContent = value;
+        stat.appendChild(labelEl);
+        stat.appendChild(valueEl);
+        return stat;
+      }
+
+      function renderAggregateSummary(data) {
+        var container = document.getElementById("aggregate-summary");
+        container.innerHTML = "";
+        var h2 = document.createElement("h2");
+        h2.textContent = "Aggregate Summary";
+        container.appendChild(h2);
+
+        var cards = document.createElement("div");
+        cards.className = "agg-cards";
+        var combos = pluginCombinations(data.config.plugins || []);
+        for (var i = 0; i < combos.length; i++) {
+          var combo = combos[i];
+          var agg = findAggregate(data.aggregates, combo);
+          if (!agg) continue;
+          var card = document.createElement("div");
+          card.className = "agg-card";
+          var h3 = document.createElement("h3");
+          h3.textContent = combo.length === 0 ? "no-plugins" : combo.join(" + ");
+          card.appendChild(h3);
+
+          var grid = document.createElement("div");
+          grid.className = "agg-grid";
+          var rows = [
+            ["Success", agg.successCount + "/" + agg.totalRuns],
+            ["Avg tokens", fmtNum(agg.avgTotalTokens)],
+            ["Avg tool calls", fmtNum(agg.avgToolCalls)],
+            ["Avg LLM calls", fmtNum(agg.avgLlmCalls)],
+            ["Avg time", fmtTime(agg.avgExecutionTimeMs)],
+          ];
+          if (agg.avgJudgeScore !== undefined) {
+            rows.push(["Avg judge score", String(agg.avgJudgeScore)]);
+          }
+          if (agg.judgePassCount !== undefined) {
+            rows.push(["Judge passes", agg.judgePassCount + "/" + agg.totalRuns]);
+          }
+          if (agg.label) {
+            rows.push(["Label", agg.label]);
+          }
+          for (var j = 0; j < rows.length; j++) {
+            var l = document.createElement("div");
+            l.className = "label";
+            l.textContent = rows[j][0];
+            var v = document.createElement("div");
+            v.className = "value";
+            v.textContent = rows[j][1];
+            grid.appendChild(l);
+            grid.appendChild(v);
+          }
+          card.appendChild(grid);
+          cards.appendChild(card);
+        }
+        container.appendChild(cards);
+      }
+
+      // ── Case detail page ───────────────────────────────────────────
+
+      function renderCaseDetail(data, taskId) {
+        var container = document.getElementById("case-detail");
+        container.innerHTML = "";
+
+        var taskResults = data.results.filter(function (r) { return r.taskId === taskId; });
+        if (taskResults.length === 0) {
+          container.innerHTML = '<div class="error">No results found for case "' + escapeHtml(taskId) + '"</div>';
+          return;
+        }
+
+        var analysis = findAnalysis(data.analysis, taskId);
+        var prompt = analysis ? analysis.prompt : null;
+
+        // Title
+        var h1 = document.createElement("h1");
+        h1.textContent = taskName(data, taskId);
+        container.appendChild(h1);
+
+        var sub = document.createElement("p");
+        sub.className = "subtitle";
+        sub.textContent = taskId + " · " + taskResults.length + " runs";
+        container.appendChild(sub);
+
+        // Original prompt
+        if (prompt) {
+          var promptBox = document.createElement("div");
+          promptBox.className = "prompt-box";
+          var promptLabel = document.createElement("div");
+          promptLabel.className = "label";
+          promptLabel.textContent = "Original Prompt";
+          promptBox.appendChild(promptLabel);
+          var promptText = document.createElement("div");
+          promptText.className = "prompt-text";
+          promptText.textContent = prompt;
+          promptBox.appendChild(promptText);
+          container.appendChild(promptBox);
+        }
+
+        // AI Report
+        renderAIReport(data, taskId, taskResults, analysis, container);
+
+        // Run results — side by side
+        var h2 = document.createElement("h2");
+        h2.textContent = "Run Results — Side by Side";
+        container.appendChild(h2);
+
+        var n = taskResults.length;
+        var colsClass = "cols-" + Math.min(n, 5);
+        var compareDiv = document.createElement("div");
+        compareDiv.className = "runs-compare " + colsClass;
+
+        for (var i = 0; i < n; i++) {
+          compareDiv.appendChild(renderRunColumn(data, taskResults[i], taskId, i));
+        }
+        container.appendChild(compareDiv);
+      }
+
+      function renderAIReport(data, taskId, taskResults, analysis, container) {
+        var report = document.createElement("div");
+        report.className = "ai-report";
+
+        var h2 = document.createElement("h2");
+        h2.innerHTML = '<span class="ai-icon">🤖</span> AI Report';
+        report.appendChild(h2);
+
+        var sub = document.createElement("p");
+        sub.className = "subtitle";
+        sub.textContent = "Judge analysis — blind LLM evaluation of agent outputs";
+        report.appendChild(sub);
+
+        // Comparison table
+        if (analysis && analysis.comparisons && analysis.comparisons.length > 0) {
+          var compH3 = document.createElement("h3");
+          compH3.textContent = "Comparison Table";
+          compH3.style.marginTop = "1rem";
+          report.appendChild(compH3);
+
+          var wrap = document.createElement("div");
+          wrap.className = "comparison-table-wrap";
+          var table = document.createElement("table");
+          table.className = "comparison-table";
+
+          var thead = document.createElement("thead");
+          var headerRow = document.createElement("tr");
+          var headers = ["Metric", "Baseline", "Candidate", "Delta", "Better?"];
+          for (var h = 0; h < headers.length; h++) {
+            var th = document.createElement("th");
+            th.textContent = headers[h];
+            headerRow.appendChild(th);
+          }
+          thead.appendChild(headerRow);
+          table.appendChild(thead);
+
+          var tbody = document.createElement("tbody");
+          for (var c = 0; c < analysis.comparisons.length; c++) {
+            var comp = analysis.comparisons[c];
+            var metricRows = [
+              ["Tokens", comp.deltaTokens, true],
+              ["Tool Calls", comp.deltaToolCalls, true],
+              ["LLM Calls", comp.deltaLlmCalls, true],
+              ["Time (ms)", comp.deltaTimeMs, true],
+              ["Judge Score", comp.deltaJudgeScore, false],
+            ];
+            // Baseline/candidate header row
+            var bcRow = document.createElement("tr");
+            var bcCell = document.createElement("td");
+            bcCell.innerHTML = "<strong>" + escapeHtml(comp.baseline) + " → " + escapeHtml(comp.candidate) + "</strong>";
+            bcCell.colSpan = 5;
+            bcCell.style.background = "var(--bg)";
+            bcRow.appendChild(bcCell);
+            tbody.appendChild(bcRow);
+
+            for (var m = 0; m < metricRows.length; m++) {
+              var row = document.createElement("tr");
+              var metricName = metricRows[m][0];
+              var deltaVal = metricRows[m][1];
+              var lowerIsBetter = metricRows[m][2];
+
+              var nameTd = document.createElement("td");
+              nameTd.textContent = metricName;
+              row.appendChild(nameTd);
+
+              // We don't have absolute baseline/candidate values in the comparison,
+              // but we can show the delta
+              var baseTd = document.createElement("td");
+              baseTd.textContent = "—";
+              row.appendChild(baseTd);
+              var candTd = document.createElement("td");
+              candTd.textContent = "—";
+              row.appendChild(candTd);
+
+              var deltaTd = document.createElement("td");
+              var sign = deltaVal > 0 ? "+" : "";
+              deltaTd.textContent = sign + fmtNum(deltaVal);
+              var isBetter = lowerIsBetter ? deltaVal < 0 : deltaVal > 0;
+              deltaTd.className = isBetter ? "delta-good" : "delta-bad";
+              row.appendChild(deltaTd);
+
+              var betterTd = document.createElement("td");
+              betterTd.className = isBetter ? "delta-good" : "delta-bad";
+              betterTd.textContent = (comp.candidateBetter ? "▲ " : "▼ ") + (isBetter ? "Yes" : "No");
+              row.appendChild(betterTd);
+
+              tbody.appendChild(row);
+            }
+          }
+          table.appendChild(tbody);
+          wrap.appendChild(table);
+          report.appendChild(wrap);
+        }
+
+        // Summary
+        if (analysis && analysis.summary) {
+          var sumH3 = document.createElement("h3");
+          sumH3.textContent = "Summary";
+          sumH3.style.marginTop = "1rem";
+          report.appendChild(sumH3);
+
+          var sumDiv = document.createElement("div");
+          sumDiv.className = "ai-summary";
+          // Check if summary mentions worsening
+          if (analysis.summary.indexOf("WORSENED") >= 0 || analysis.summary.indexOf("worsened") >= 0) {
+            sumDiv.classList.add("worse");
+          } else if (analysis.summary.indexOf("improved") >= 0) {
+            sumDiv.classList.add("better");
+          }
+          sumDiv.textContent = analysis.summary;
+          report.appendChild(sumDiv);
+        }
+
+        container.appendChild(report);
+      }
+
+      function renderRunCard(data, result, taskId) {
+        var card = document.createElement("div");
+        card.className = "run-card";
+
+        var comboLbl = result.pluginIds.length === 0 ? "no-plugins" : result.pluginIds.join(" + ");
+        var v = firstVerdict(result);
+
+        // Header
+        var header = document.createElement("div");
+        header.className = "run-card-header";
+        header.addEventListener("click", function () { card.classList.toggle("expanded"); });
+
+        var title = document.createElement("div");
+        title.className = "run-card-title";
+        var badge = document.createElement("span");
+        badge.className = "run-card-badge";
+        badge.textContent = result.modelId;
+        title.appendChild(badge);
+        title.appendChild(document.createTextNode(" " + comboLbl));
+        header.appendChild(title);
+
+        var rightSide = document.createElement("div");
+        rightSide.style.display = "flex";
+        rightSide.style.alignItems = "center";
+        rightSide.style.gap = "0.5rem";
+        if (v) rightSide.appendChild(judgeBadge(v.score, v.passed));
+        var toggle = document.createElement("span");
+        toggle.className = "run-card-toggle";
+        toggle.textContent = "▶";
+        rightSide.appendChild(toggle);
+        header.appendChild(rightSide);
+
+        card.appendChild(header);
+
+        // Body
+        var body = document.createElement("div");
+        body.className = "run-card-body";
+
+        // Agent output
+        if (result.output) {
+          var outputSection = document.createElement("div");
+          outputSection.className = "run-section";
+          var outputLabel = document.createElement("div");
+          outputLabel.className = "run-section-label";
+          outputLabel.textContent = "Agent Output";
+          outputSection.appendChild(outputLabel);
+          var outputPre = document.createElement("div");
+          outputPre.className = "run-output";
+          outputPre.textContent = result.output;
+          outputSection.appendChild(outputPre);
+          body.appendChild(outputSection);
+        }
+
+        // Judge verdict
+        if (v) {
+          var verdictSection = document.createElement("div");
+          verdictSection.className = "run-section";
+          var verdictLabel = document.createElement("div");
+          verdictLabel.className = "run-section-label";
+          verdictLabel.textContent = "Judge Verdict";
+          verdictSection.appendChild(verdictLabel);
+
+          var verdictDiv = document.createElement("div");
+          verdictDiv.className = "run-verdict";
+          var vh = document.createElement("div");
+          vh.className = "run-verdict-header";
+          vh.appendChild(judgeBadge(v.score, v.passed));
+          verdictDiv.appendChild(vh);
+
+          var reasoning = document.createElement("div");
+          reasoning.className = "run-verdict-reasoning";
+          reasoning.textContent = v.reasoning;
+          verdictDiv.appendChild(reasoning);
+
+          if (v.issues && v.issues.length > 0) {
+            var issuesList = document.createElement("ul");
+            issuesList.className = "run-verdict-issues";
+            for (var j = 0; j < v.issues.length; j++) {
+              var li = document.createElement("li");
+              li.textContent = v.issues[j];
+              issuesList.appendChild(li);
+            }
+            verdictDiv.appendChild(issuesList);
+          }
+          verdictSection.appendChild(verdictDiv);
+          body.appendChild(verdictSection);
+        }
+
+        // Metrics
+        var metricsSection = document.createElement("div");
+        metricsSection.className = "run-section";
+        var metricsLabel = document.createElement("div");
+        metricsLabel.className = "run-section-label";
+        metricsLabel.textContent = "Metrics";
+        metricsSection.appendChild(metricsLabel);
+
+        var metricsGrid = document.createElement("div");
+        metricsGrid.className = "run-metrics";
+        var m = result.metrics;
+        var metricItems = [
+          ["Tokens", fmtNum(m.totalTokens)],
+          ["Tool Calls", fmtNum(m.toolCallCount)],
+          ["LLM Calls", fmtNum(m.llmCallCount)],
+          ["Time", fmtTime(m.executionTimeMs)],
+        ];
+        for (var i = 0; i < metricItems.length; i++) {
+          var mDiv = document.createElement("div");
+          mDiv.className = "run-metric";
+          var mLabel = document.createElement("div");
+          mLabel.className = "label";
+          mLabel.textContent = metricItems[i][0];
+          var mValue = document.createElement("div");
+          mValue.className = "value";
+          mValue.textContent = metricItems[i][1];
+          mDiv.appendChild(mLabel);
+          mDiv.appendChild(mValue);
+          metricsGrid.appendChild(mDiv);
+        }
+        metricsSection.appendChild(metricsGrid);
+        body.appendChild(metricsSection);
+
+        // Trace link
+        var traceLink = document.createElement("a");
+        traceLink.className = "run-trace-link";
+        var params = "task=" + encodeURIComponent(taskId) +
+          "&model=" + encodeURIComponent(result.modelId) +
+          "&plugins=" + encodeURIComponent(result.pluginIds.join(",")) +
+          "&run=" + i;
+        traceLink.href = "trace.html?" + params;
+        traceLink.textContent = "View Full Trace →";
+        body.appendChild(traceLink);
+
+        card.appendChild(body);
+        return card;
+      }
+
+      /**
+       * Render a run as a side-by-side column (always expanded, no toggle).
+       * Shows: combo label + judge badge in header, then output, verdict,
+       * metrics, and trace link — all visible at once for comparison.
        */
-      function delta(rawVal, sverkaVal, lowerIsBetter) {
-        var d = sverkaVal - rawVal;
-        var sverkaBetter = lowerIsBetter ? d < 0 : d > 0;
-        return { value: d, better: sverkaBetter };
+      function renderRunColumn(data, result, taskId, runIndex) {
+        var col = document.createElement("div");
+        col.className = "run-column";
+
+        var comboLbl = result.pluginIds.length === 0 ? "no-plugins" : result.pluginIds.join(" + ");
+        var v = firstVerdict(result);
+
+        // Header — combo name + judge badge
+        var header = document.createElement("div");
+        header.className = "run-column-header";
+
+        var title = document.createElement("div");
+        title.className = "run-column-title";
+        var badge = document.createElement("span");
+        badge.className = "run-column-badge";
+        badge.textContent = result.modelId;
+        title.appendChild(badge);
+        title.appendChild(document.createTextNode(" " + comboLbl));
+        header.appendChild(title);
+
+        if (v) header.appendChild(judgeBadge(v.score, v.passed));
+        col.appendChild(header);
+
+        // Body — all sections visible (no collapse)
+        var body = document.createElement("div");
+        body.className = "run-column-body";
+
+        // Agent output
+        if (result.output) {
+          var outputSection = document.createElement("div");
+          outputSection.className = "run-section";
+          var outputLabel = document.createElement("div");
+          outputLabel.className = "run-section-label";
+          outputLabel.textContent = "Agent Output";
+          outputSection.appendChild(outputLabel);
+          var outputPre = document.createElement("div");
+          outputPre.className = "run-output";
+          outputPre.textContent = result.output;
+          outputSection.appendChild(outputPre);
+          body.appendChild(outputSection);
+        }
+
+        // Judge verdict
+        if (v) {
+          var verdictSection = document.createElement("div");
+          verdictSection.className = "run-section";
+          var verdictLabel = document.createElement("div");
+          verdictLabel.className = "run-section-label";
+          verdictLabel.textContent = "Judge Verdict";
+          verdictSection.appendChild(verdictLabel);
+
+          var verdictDiv = document.createElement("div");
+          verdictDiv.className = "run-verdict";
+          var reasoning = document.createElement("div");
+          reasoning.className = "run-verdict-reasoning";
+          reasoning.textContent = v.reasoning;
+          verdictDiv.appendChild(reasoning);
+
+          if (v.issues && v.issues.length > 0) {
+            var issuesList = document.createElement("ul");
+            issuesList.className = "run-verdict-issues";
+            for (var j = 0; j < v.issues.length; j++) {
+              var li = document.createElement("li");
+              li.textContent = v.issues[j];
+              issuesList.appendChild(li);
+            }
+            verdictDiv.appendChild(issuesList);
+          }
+          verdictSection.appendChild(verdictDiv);
+          body.appendChild(verdictSection);
+        }
+
+        // Metrics
+        var metricsSection = document.createElement("div");
+        metricsSection.className = "run-section";
+        var metricsLabel = document.createElement("div");
+        metricsLabel.className = "run-section-label";
+        metricsLabel.textContent = "Metrics";
+        metricsSection.appendChild(metricsLabel);
+
+        var metricsGrid = document.createElement("div");
+        metricsGrid.className = "run-metrics";
+        var m = result.metrics;
+        var metricItems = [
+          ["Tokens", fmtNum(m.totalTokens)],
+          ["Tool Calls", fmtNum(m.toolCallCount)],
+          ["LLM Calls", fmtNum(m.llmCallCount)],
+          ["Time", fmtTime(m.executionTimeMs)],
+        ];
+        for (var mi = 0; mi < metricItems.length; mi++) {
+          var mDiv = document.createElement("div");
+          mDiv.className = "run-metric";
+          var mLabel = document.createElement("div");
+          mLabel.className = "label";
+          mLabel.textContent = metricItems[mi][0];
+          var mValue = document.createElement("div");
+          mValue.className = "value";
+          mValue.textContent = metricItems[mi][1];
+          mDiv.appendChild(mLabel);
+          mDiv.appendChild(mValue);
+          metricsGrid.appendChild(mDiv);
+        }
+        metricsSection.appendChild(metricsGrid);
+        body.appendChild(metricsSection);
+
+        // Trace link
+        var traceLink = document.createElement("a");
+        traceLink.className = "run-trace-link";
+        var params = "task=" + encodeURIComponent(taskId) +
+          "&model=" + encodeURIComponent(result.modelId) +
+          "&plugins=" + encodeURIComponent(result.pluginIds.join(",")) +
+          "&run=" + runIndex;
+        traceLink.href = "trace.html?" + params;
+        traceLink.textContent = "View Full Trace →";
+        body.appendChild(traceLink);
+
+        col.appendChild(body);
+        return col;
       }
 
-      /** Render the header meta (model + timestamp). */
+      // ── Routing ────────────────────────────────────────────────────
+
+      function showOverview() {
+        document.getElementById("workbench-overview").style.display = "block";
+        document.getElementById("workbench-case").style.display = "none";
+        document.getElementById("legacy-view").style.display = "none";
+        highlightSidebarCase(null);
+      }
+
+      function showCase(taskId) {
+        document.getElementById("workbench-overview").style.display = "none";
+        document.getElementById("workbench-case").style.display = "block";
+        document.getElementById("legacy-view").style.display = "none";
+        highlightSidebarCase(taskId);
+        renderCaseDetail(arenaData, taskId);
+        // Close sidebar on mobile
+        document.getElementById("sidebar").classList.remove("open");
+      }
+
+      function handleRoute() {
+        var hash = window.location.hash.slice(1);
+        if (hash.indexOf("/case/") === 0) {
+          var taskId = hash.substring(6);
+          if (arenaData) showCase(taskId);
+        } else {
+          if (arenaData) showOverview();
+        }
+      }
+
+      // ── Legacy rendering (backward compat for classic format) ──────
+
       function renderHeader(result) {
         var el = document.getElementById("header-meta");
         el.innerHTML = "";
@@ -188,18 +1801,13 @@
         el.appendChild(timeSpan);
       }
 
-      /** Render the summary cards. */
       function renderSummary(result) {
         var container = document.getElementById("summary");
         container.innerHTML = "";
-
         var raw = result.summary["raw-shell"];
         var sverka = result.summary.sverka;
-
-        var rawCard = createSummaryCard("raw-shell", "Raw Shell Agent", raw);
-        var sverkaCard = createSummaryCard("sverka", "Sverka CLI Agent", sverka);
-        container.appendChild(rawCard);
-        container.appendChild(sverkaCard);
+        container.appendChild(createSummaryCard("raw-shell", "Raw Shell Agent", raw));
+        container.appendChild(createSummaryCard("sverka", "Sverka CLI Agent", sverka));
       }
 
       function createSummaryCard(type, title, agg) {
@@ -208,7 +1816,6 @@
         var h3 = document.createElement("h3");
         h3.textContent = title;
         card.appendChild(h3);
-
         var grid = document.createElement("div");
         grid.className = "summary-grid";
         var rows = [
@@ -233,58 +1840,36 @@
         return card;
       }
 
-      /** Render the comparison table. */
       function renderTable(result) {
         var thead = document.querySelector("#results-table thead");
         var tbody = document.querySelector("#results-table tbody");
         thead.innerHTML = "";
         tbody.innerHTML = "";
-
-        // Header
         var headerRow = document.createElement("tr");
         headerRow.appendChild(makeTh("Task", "task"));
         headerRow.appendChild(makeTh("Raw Shell", "section-header raw"));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
+        for (var i = 0; i < 4; i++) headerRow.appendChild(makeTh("", ""));
         headerRow.appendChild(makeTh("Sverka CLI", "section-header sverka"));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
+        for (var j = 0; j < 4; j++) headerRow.appendChild(makeTh("", ""));
         headerRow.appendChild(makeTh("Delta", "section-header delta"));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
-        headerRow.appendChild(makeTh("", ""));
+        for (var k = 0; k < 4; k++) headerRow.appendChild(makeTh("", ""));
+        headerRow.appendChild(makeTh("Trace", ""));
         thead.appendChild(headerRow);
 
         var subRow = document.createElement("tr");
         subRow.appendChild(makeTh("", ""));
         var subHeaders = ["Tokens", "Tools", "Time", "OK"];
-        for (var i = 0; i < subHeaders.length; i++) {
-          subRow.appendChild(makeTh(subHeaders[i], ""));
-        }
+        for (var si = 0; si < subHeaders.length; si++) subRow.appendChild(makeTh(subHeaders[si], ""));
+        for (var sj = 0; sj < subHeaders.length; sj++) subRow.appendChild(makeTh(subHeaders[sj], ""));
+        for (var sk = 0; sk < subHeaders.length; sk++) subRow.appendChild(makeTh(subHeaders[sk], ""));
         subRow.appendChild(makeTh("", ""));
-        for (var j = 0; j < subHeaders.length; j++) {
-          subRow.appendChild(makeTh(subHeaders[j], ""));
-        }
-        for (var k = 0; k < subHeaders.length; k++) {
-          subRow.appendChild(makeTh(k === 0 ? "Tokens" : k === 1 ? "Tools" : k === 2 ? "Time" : "OK", ""));
-        }
         thead.appendChild(subRow);
 
-        // Group results by task
         var taskIds = [];
         var byTask = {};
         for (var _i2 = 0; _i2 < result.results.length; _i2++) {
           var r = result.results[_i2];
-          if (!byTask[r.taskId]) {
-            byTask[r.taskId] = {};
-            taskIds.push(r.taskId);
-          }
+          if (!byTask[r.taskId]) { byTask[r.taskId] = {}; taskIds.push(r.taskId); }
           byTask[r.taskId][r.agentType] = r;
         }
 
@@ -294,55 +1879,46 @@
           var rawR = taskData["raw-shell"];
           var sverkaR = taskData.sverka;
           var row = document.createElement("tr");
-
-          row.appendChild(makeTd(taskId, "task"));
-
-          // Raw shell columns
+          var taskTd = document.createElement("td");
+          taskTd.className = "task";
+          var taskLink = document.createElement("a");
+          taskLink.href = "trace.html#/trace/" + encodeURIComponent(taskId);
+          taskLink.textContent = taskId;
+          taskTd.appendChild(taskLink);
+          row.appendChild(taskTd);
           if (rawR) {
             row.appendChild(makeTd(fmtNum(rawR.metrics.totalTokens)));
             row.appendChild(makeTd(fmtNum(rawR.metrics.toolCallCount)));
             row.appendChild(makeTd(fmtTime(rawR.metrics.executionTimeMs)));
             row.appendChild(makeTd(rawR.success ? "✓" : "✗", rawR.success ? "success-yes" : "success-no"));
-          } else {
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-          }
-
-          // Sverka columns
+          } else { for (var x = 0; x < 4; x++) row.appendChild(makeTd("—")); }
           if (sverkaR) {
             row.appendChild(makeTd(fmtNum(sverkaR.metrics.totalTokens)));
             row.appendChild(makeTd(fmtNum(sverkaR.metrics.toolCallCount)));
             row.appendChild(makeTd(fmtTime(sverkaR.metrics.executionTimeMs)));
             row.appendChild(makeTd(sverkaR.success ? "✓" : "✗", sverkaR.success ? "success-yes" : "success-no"));
-          } else {
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-          }
-
-          // Delta columns
+          } else { for (var y = 0; y < 4; y++) row.appendChild(makeTd("—")); }
           if (rawR && sverkaR) {
-            var dTokens = delta(rawR.metrics.totalTokens, sverkaR.metrics.totalTokens, true);
-            var dTools = delta(rawR.metrics.toolCallCount, sverkaR.metrics.toolCallCount, true);
-            var dTime = delta(rawR.metrics.executionTimeMs, sverkaR.metrics.executionTimeMs, true);
-            var dSuccess = delta(rawR.success ? 1 : 0, sverkaR.success ? 1 : 0, false);
-
-            row.appendChild(makeDeltaTd(dTokens));
-            row.appendChild(makeDeltaTd(dTools));
-            row.appendChild(makeDeltaTd(dTime));
-            row.appendChild(makeDeltaTd(dSuccess));
-          } else {
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-            row.appendChild(makeTd("—"));
-          }
-
+            row.appendChild(makeDeltaTd(delta(rawR.metrics.totalTokens, sverkaR.metrics.totalTokens, true)));
+            row.appendChild(makeDeltaTd(delta(rawR.metrics.toolCallCount, sverkaR.metrics.toolCallCount, true)));
+            row.appendChild(makeDeltaTd(delta(rawR.metrics.executionTimeMs, sverkaR.metrics.executionTimeMs, true)));
+            row.appendChild(makeDeltaTd(delta(rawR.success ? 1 : 0, sverkaR.success ? 1 : 0, false)));
+          } else { for (var z = 0; z < 4; z++) row.appendChild(makeTd("—")); }
+          var traceTd = document.createElement("td");
+          traceTd.style.textAlign = "center";
+          var traceLink = document.createElement("a");
+          traceLink.href = "trace.html#/trace/" + encodeURIComponent(taskId);
+          traceLink.className = "trace-link";
+          traceLink.textContent = "View →";
+          traceTd.appendChild(traceLink);
+          row.appendChild(traceTd);
           tbody.appendChild(row);
         }
+      }
+
+      function delta(rawVal, sverkaVal, lowerIsBetter) {
+        var d = sverkaVal - rawVal;
+        return { value: d, better: lowerIsBetter ? d < 0 : d > 0 };
       }
 
       function makeTd(text, className) {
@@ -367,30 +1943,784 @@
         return td;
       }
 
-      function escapeHtml(str) {
+      // ── Arena matrix view (legacy, kept for toggle) ────────────────
+
+      var selectedMetric = "totalTokens";
+
+      function renderArenaMatrix(result) {
+        var config = result.config;
+        var tasks = config.tasks || [];
+        var models = config.models || [];
+        var plugins = config.plugins || [];
+        var combos = pluginCombinations(plugins);
+        var metaEl = document.getElementById("header-meta");
+        metaEl.innerHTML = "";
+        var modelSpan = document.createElement("span");
+        modelSpan.innerHTML = "Models: <strong>" + escapeHtml(models.join(", ")) + "</strong>";
+        var pluginSpan = document.createElement("span");
+        pluginSpan.innerHTML = "Plugins: <strong>" + escapeHtml(plugins.length ? plugins.join(", ") : "(none)") + "</strong>";
+        var taskSpan = document.createElement("span");
+        taskSpan.innerHTML = "Tasks: <strong>" + tasks.length + "</strong>";
+        var comboSpan = document.createElement("span");
+        comboSpan.innerHTML = "Combos: <strong>" + combos.length + "</strong>";
+        var timeSpan = document.createElement("span");
+        timeSpan.innerHTML = "Run: <strong>" + escapeHtml(result.timestamp) + "</strong>";
+        metaEl.appendChild(modelSpan);
+        metaEl.appendChild(pluginSpan);
+        metaEl.appendChild(taskSpan);
+        metaEl.appendChild(comboSpan);
+        metaEl.appendChild(timeSpan);
+        renderArenaSummary(result, combos);
+        renderMatrixTable(result, tasks, models, combos);
+      }
+
+      function renderArenaSummary(result, combos) {
+        var container = document.getElementById("matrix-summary");
+        container.innerHTML = "";
+        var cardRow = document.createElement("div");
+        cardRow.className = "summary";
+        cardRow.style.gridTemplateColumns = "repeat(auto-fit, minmax(200px, 1fr))";
+        for (var i = 0; i < combos.length; i++) {
+          var combo = combos[i];
+          var agg = findAggregate(result.aggregates, combo);
+          if (!agg) continue;
+          var card = document.createElement("div");
+          card.className = "summary-card";
+          var h3 = document.createElement("h3");
+          h3.textContent = combo.length === 0 ? "no-plugins" : combo.join(" + ");
+          card.appendChild(h3);
+          var grid = document.createElement("div");
+          grid.className = "summary-grid";
+          var rows = [
+            ["Success", agg.successCount + "/" + agg.totalRuns],
+            ["Avg tokens", fmtNum(agg.avgTotalTokens)],
+            ["Avg tool calls", fmtNum(agg.avgToolCalls)],
+            ["Avg LLM calls", fmtNum(agg.avgLlmCalls)],
+            ["Avg time", fmtTime(agg.avgExecutionTimeMs)],
+          ];
+          for (var _i = 0; _i < rows.length; _i++) {
+            var label = document.createElement("div");
+            label.className = "label";
+            label.textContent = rows[_i][0];
+            var value = document.createElement("div");
+            value.className = "value";
+            value.textContent = rows[_i][1];
+            grid.appendChild(label);
+            grid.appendChild(value);
+          }
+          card.appendChild(grid);
+          cardRow.appendChild(card);
+        }
+        container.appendChild(cardRow);
+      }
+
+      function renderMatrixTable(result, tasks, models, combos) {
+        var thead = document.querySelector("#matrix-table thead");
+        var tbody = document.querySelector("#matrix-table tbody");
+        thead.innerHTML = "";
+        tbody.innerHTML = "";
+        var modelId = models[0] || "";
+        var headerRow = document.createElement("tr");
+        var taskTh = document.createElement("th");
+        taskTh.className = "task-col";
+        taskTh.textContent = "Task \\ Combo";
+        headerRow.appendChild(taskTh);
+        for (var i = 0; i < combos.length; i++) {
+          var th = document.createElement("th");
+          th.className = "combo-header";
+          th.textContent = comboLabel(combos[i]);
+          headerRow.appendChild(th);
+        }
+        thead.appendChild(headerRow);
+        for (var t = 0; t < tasks.length; t++) {
+          var taskId = tasks[t];
+          var row = document.createElement("tr");
+          var taskTd = document.createElement("td");
+          taskTd.className = "task-col";
+          taskTd.textContent = taskId;
+          row.appendChild(taskTd);
+          for (var c = 0; c < combos.length; c++) {
+            var combo = combos[c];
+            var r = findResult(result.results, taskId, modelId, combo);
+            var td = document.createElement("td");
+            td.className = "cell";
+            if (r) {
+              var link = document.createElement("a");
+              var params = "task=" + encodeURIComponent(taskId) + "&model=" + encodeURIComponent(modelId) + "&plugins=" + encodeURIComponent(combo.join(","));
+              link.href = "trace.html?" + params;
+              var mainVal = document.createElement("div");
+              mainVal.className = "cell-tokens";
+              var metricValue = r.metrics[selectedMetric] || 0;
+              mainVal.textContent = selectedMetric === "executionTimeMs" ? fmtTime(metricValue) : fmtNum(metricValue);
+              link.appendChild(mainVal);
+              var subVal = document.createElement("div");
+              subVal.className = "cell-sub";
+              subVal.textContent = r.metrics.toolCallCount + " tools · " + r.metrics.llmCallCount + " LLM";
+              link.appendChild(subVal);
+              var status = document.createElement("div");
+              status.className = r.success ? "cell-ok" : "cell-fail";
+              status.textContent = r.success ? "✓" : "✗";
+              status.style.fontSize = "0.7rem";
+              link.appendChild(status);
+              td.appendChild(link);
+            } else {
+              td.textContent = "—";
+              td.style.color = "var(--text-muted)";
+            }
+            row.appendChild(td);
+          }
+          tbody.appendChild(row);
+        }
+      }
+
+      function showArenaView() {
+        document.getElementById("matrix-container").style.display = "block";
+        document.getElementById("metric-legend").style.display = "flex";
+        document.getElementById("summary").style.display = "none";
+        document.querySelector(".table-wrap").style.display = "none";
+        document.getElementById("toggle-matrix").classList.add("active");
+        document.getElementById("toggle-classic").classList.remove("active");
+      }
+
+      function showClassicView() {
+        document.getElementById("matrix-container").style.display = "none";
+        document.getElementById("metric-legend").style.display = "none";
+        document.getElementById("matrix-summary").style.display = "none";
+        document.getElementById("summary").style.display = "grid";
+        document.querySelector(".table-wrap").style.display = "block";
+        document.getElementById("toggle-matrix").classList.remove("active");
+        document.getElementById("toggle-classic").classList.add("active");
+      }
+
+      // ── CRUD: Case management ──────────────────────────────────────
+
+      var caseDefinitions = null; // cached case definitions from API
+      var arenaConfig = null;     // cached arena config from API
+
+      /** Check if the API server is available. */
+      async function apiAvailable() {
+        try {
+          var resp = await fetch("/api/cases");
+          return resp.ok;
+        } catch (e) { return false; }
+      }
+
+      /** Load case definitions from the API. */
+      async function loadCaseDefinitions() {
+        try {
+          var resp = await fetch("/api/cases");
+          if (!resp.ok) return null;
+          caseDefinitions = await resp.json();
+          return caseDefinitions;
+        } catch (e) { return null; }
+      }
+
+      /** Load arena config from the API. */
+      async function loadArenaConfig() {
+        try {
+          var resp = await fetch("/api/config");
+          if (!resp.ok) return null;
+          arenaConfig = await resp.json();
+          return arenaConfig;
+        } catch (e) { return null; }
+      }
+
+      /** Create a new case via the API. */
+      async function apiCreateCase(caseDef) {
+        var resp = await fetch("/api/cases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(caseDef),
+        });
+        if (!resp.ok) {
+          var err = await resp.json().catch(function() { return { error: "HTTP " + resp.status }; });
+          throw new Error(err.error || "Failed to create case");
+        }
+        return resp.json();
+      }
+
+      /** Update a case via the API. */
+      async function apiUpdateCase(id, caseDef) {
+        var resp = await fetch("/api/cases/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(caseDef),
+        });
+        if (!resp.ok) {
+          var err = await resp.json().catch(function() { return { error: "HTTP " + resp.status }; });
+          throw new Error(err.error || "Failed to update case");
+        }
+        return resp.json();
+      }
+
+      /** Delete a case via the API. */
+      async function apiDeleteCase(id) {
+        var resp = await fetch("/api/cases/" + encodeURIComponent(id), { method: "DELETE" });
+        if (!resp.ok) {
+          var err = await resp.json().catch(function() { return { error: "HTTP " + resp.status }; });
+          throw new Error(err.error || "Failed to delete case");
+        }
+        return resp.json();
+      }
+
+      /** Update config via the API. */
+      async function apiUpdateConfig(config) {
+        var resp = await fetch("/api/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config),
+        });
+        if (!resp.ok) throw new Error("Failed to update config");
+        return resp.json();
+      }
+
+      /** Trigger a benchmark run via the API. */
+      async function apiStartRun(caseIds) {
+        var resp = await fetch("/api/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caseIds: caseIds }),
+        });
+        if (!resp.ok) throw new Error("Failed to start run");
+        return resp.json();
+      }
+
+      /** Show the case form modal (for create or edit). */
+      function showCaseForm(existing) {
+        var overlay = document.getElementById("case-form-overlay");
+        var container = document.getElementById("case-form-container");
+        var isEdit = !!existing;
+        var c = existing || { id: "", name: "", prompt: "", successCriteria: "", fixture: "", timeoutMs: 120000, checks: [] };
+
+        container.innerHTML = "";
+        var h2 = document.createElement("h2");
+        h2.textContent = isEdit ? "Edit Case" : "New Case";
+        container.appendChild(h2);
+
+        // ID field
+        var idGroup = document.createElement("div");
+        idGroup.className = "form-group";
+        var idLabel = document.createElement("label");
+        idLabel.textContent = "Case ID (kebab-case)";
+        idGroup.appendChild(idLabel);
+        var idInput = document.createElement("input");
+        idInput.type = "text";
+        idInput.value = c.id || "";
+        idInput.placeholder = "my-case";
+        if (isEdit) idInput.disabled = true;
+        idGroup.appendChild(idInput);
+        container.appendChild(idGroup);
+
+        // Name + fixture row
+        var row1 = document.createElement("div");
+        row1.className = "form-row";
+        var nameGroup = document.createElement("div");
+        nameGroup.className = "form-group";
+        var nameLabel = document.createElement("label");
+        nameLabel.textContent = "Name";
+        nameGroup.appendChild(nameLabel);
+        var nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.value = c.name || "";
+        nameInput.placeholder = "My Case";
+        nameGroup.appendChild(nameInput);
+        row1.appendChild(nameGroup);
+
+        var fixtureGroup = document.createElement("div");
+        fixtureGroup.className = "form-group";
+        var fixtureLabel = document.createElement("label");
+        fixtureLabel.textContent = "Fixture path (optional)";
+        fixtureGroup.appendChild(fixtureLabel);
+        var fixtureInput = document.createElement("input");
+        fixtureInput.type = "text";
+        fixtureInput.value = c.fixture || "";
+        fixtureInput.placeholder = "fixtures/my-project";
+        fixtureGroup.appendChild(fixtureInput);
+        row1.appendChild(fixtureGroup);
+        container.appendChild(row1);
+
+        // Prompt
+        var promptGroup = document.createElement("div");
+        promptGroup.className = "form-group";
+        var promptLabel = document.createElement("label");
+        promptLabel.textContent = "Prompt";
+        promptGroup.appendChild(promptLabel);
+        var promptTextarea = document.createElement("textarea");
+        promptTextarea.value = c.prompt || "";
+        promptTextarea.placeholder = "Instructions for the agent...";
+        promptGroup.appendChild(promptTextarea);
+        container.appendChild(promptGroup);
+
+        // Success criteria
+        var criteriaGroup = document.createElement("div");
+        criteriaGroup.className = "form-group";
+        var criteriaLabel = document.createElement("label");
+        criteriaLabel.textContent = "Success Criteria (optional)";
+        criteriaGroup.appendChild(criteriaLabel);
+        var criteriaTextarea = document.createElement("textarea");
+        criteriaTextarea.value = c.successCriteria || "";
+        criteriaTextarea.placeholder = "What does success look like?";
+        criteriaGroup.appendChild(criteriaTextarea);
+        container.appendChild(criteriaGroup);
+
+        // Timeout
+        var timeoutGroup = document.createElement("div");
+        timeoutGroup.className = "form-group";
+        var timeoutLabel = document.createElement("label");
+        timeoutLabel.textContent = "Timeout (ms)";
+        timeoutGroup.appendChild(timeoutLabel);
+        var timeoutInput = document.createElement("input");
+        timeoutInput.type = "number";
+        timeoutInput.value = c.timeoutMs || 120000;
+        timeoutGroup.appendChild(timeoutInput);
+        container.appendChild(timeoutGroup);
+
+        // Checks editor
+        var checksGroup = document.createElement("div");
+        checksGroup.className = "form-group";
+        var checksLabel = document.createElement("label");
+        checksLabel.textContent = "Deterministic Checks (shell commands, exit 0 = pass)";
+        checksGroup.appendChild(checksLabel);
+
+        var checksEditor = document.createElement("div");
+        checksEditor.className = "checks-editor";
+        var checks = (c.checks || []).slice();
+
+        function renderChecks() {
+          checksEditor.innerHTML = "";
+          for (var i = 0; i < checks.length; i++) {
+            (function(idx) {
+              var row = document.createElement("div");
+              row.className = "check-row";
+              var idInp = document.createElement("input");
+              idInp.type = "text";
+              idInp.value = checks[idx].id || "";
+              idInp.placeholder = "check-id";
+              idInp.addEventListener("change", function() { checks[idx].id = idInp.value; });
+              row.appendChild(idInp);
+
+              var cmdInp = document.createElement("input");
+              cmdInp.type = "text";
+              cmdInp.value = checks[idx].command || "";
+              cmdInp.placeholder = "bun test";
+              cmdInp.addEventListener("change", function() { checks[idx].command = cmdInp.value; });
+              row.appendChild(cmdInp);
+
+              var removeBtn = document.createElement("button");
+              removeBtn.className = "check-remove";
+              removeBtn.textContent = "×";
+              removeBtn.title = "Remove check";
+              removeBtn.addEventListener("click", function() { checks.splice(idx, 1); renderChecks(); });
+              row.appendChild(removeBtn);
+
+              checksEditor.appendChild(row);
+            })(i);
+          }
+        }
+        renderChecks();
+        checksGroup.appendChild(checksEditor);
+
+        var addCheckBtn = document.createElement("button");
+        addCheckBtn.className = "btn small";
+        addCheckBtn.textContent = "+ Add Check";
+        addCheckBtn.addEventListener("click", function() {
+          checks.push({ id: "", command: "", description: "" });
+          renderChecks();
+        });
+        checksGroup.appendChild(addCheckBtn);
+        container.appendChild(checksGroup);
+
+        // Actions
+        var actions = document.createElement("div");
+        actions.className = "form-actions";
+        var cancelBtn = document.createElement("button");
+        cancelBtn.className = "btn";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.addEventListener("click", function() { overlay.style.display = "none"; });
+        actions.appendChild(cancelBtn);
+
+        var saveBtn = document.createElement("button");
+        saveBtn.className = "btn primary";
+        saveBtn.textContent = isEdit ? "Update" : "Create";
+        saveBtn.addEventListener("click", async function() {
+          var caseDef = {
+            id: idInput.value.trim(),
+            name: nameInput.value.trim(),
+            prompt: promptTextarea.value,
+            successCriteria: criteriaTextarea.value.trim() || undefined,
+            fixture: fixtureInput.value.trim() || undefined,
+            timeoutMs: parseInt(timeoutInput.value, 10) || 120000,
+            checks: checks.filter(function(ch) { return ch.id && ch.command; }),
+          };
+          try {
+            if (isEdit) {
+              await apiUpdateCase(c.id, caseDef);
+            } else {
+              await apiCreateCase(caseDef);
+            }
+            overlay.style.display = "none";
+            await loadCaseDefinitions();
+            renderSidebarWithCases();
+            renderOverviewWithCases();
+          } catch (err) {
+            alert(err.message || err);
+          }
+        });
+        actions.appendChild(saveBtn);
+        container.appendChild(actions);
+
+        overlay.style.display = "flex";
+      }
+
+      /** Show the config editor. */
+      function showConfigEditor() {
+        var container = document.getElementById("config-editor-container");
+        container.innerHTML = "";
+
         var div = document.createElement("div");
-        div.textContent = str;
-        return div.innerHTML;
+        div.className = "config-editor";
+        var h3 = document.createElement("h3");
+        h3.textContent = "Arena Configuration";
+        div.appendChild(h3);
+
+        if (!arenaConfig) {
+          div.appendChild(document.createTextNode("Config not available (API server not running)"));
+          container.appendChild(div);
+          container.style.display = "block";
+          return;
+        }
+
+        // Models section
+        var modelsLabel = document.createElement("label");
+        modelsLabel.textContent = "Models";
+        modelsLabel.style.cssText = "display:block;font-size:0.78rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.3rem;";
+        div.appendChild(modelsLabel);
+
+        var modelsList = document.createElement("div");
+        modelsList.id = "models-list";
+        var models = (arenaConfig.models || []).slice();
+
+        function renderModels() {
+          modelsList.innerHTML = "";
+          for (var i = 0; i < models.length; i++) {
+            (function(idx) {
+              var row = document.createElement("div");
+              row.className = "config-row";
+              var idInp = document.createElement("input");
+              idInp.type = "text";
+              idInp.value = models[idx].id || "";
+              idInp.placeholder = "model-id";
+              idInp.addEventListener("change", function() { models[idx].id = idInp.value; });
+              row.appendChild(idInp);
+
+              var nameInp = document.createElement("input");
+              nameInp.type = "text";
+              nameInp.value = models[idx].name || "";
+              nameInp.placeholder = "Display name";
+              nameInp.addEventListener("change", function() { models[idx].name = nameInp.value; });
+              row.appendChild(nameInp);
+
+              var rmBtn = document.createElement("button");
+              rmBtn.className = "check-remove";
+              rmBtn.textContent = "×";
+              rmBtn.addEventListener("click", function() { models.splice(idx, 1); renderModels(); });
+              row.appendChild(rmBtn);
+              modelsList.appendChild(row);
+            })(i);
+          }
+        }
+        renderModels();
+        div.appendChild(modelsList);
+
+        var addModelBtn = document.createElement("button");
+        addModelBtn.className = "btn small";
+        addModelBtn.textContent = "+ Add Model";
+        addModelBtn.addEventListener("click", function() { models.push({ id: "", name: "" }); renderModels(); });
+        div.appendChild(addModelBtn);
+
+        // Plugins section
+        div.appendChild(document.createElement("hr"));
+        var pluginsLabel = document.createElement("label");
+        pluginsLabel.textContent = "Plugins";
+        pluginsLabel.style.cssText = "display:block;font-size:0.78rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.3rem;margin-top:0.75rem;";
+        div.appendChild(pluginsLabel);
+
+        var pluginsList = document.createElement("div");
+        pluginsList.id = "plugins-list";
+        var plugins = (arenaConfig.plugins || []).slice();
+
+        function renderPlugins() {
+          pluginsList.innerHTML = "";
+          for (var i = 0; i < plugins.length; i++) {
+            (function(idx) {
+              var row = document.createElement("div");
+              row.className = "config-row";
+              var idInp = document.createElement("input");
+              idInp.type = "text";
+              idInp.value = plugins[idx].id || "";
+              idInp.placeholder = "plugin-id";
+              idInp.addEventListener("change", function() { plugins[idx].id = idInp.value; });
+              row.appendChild(idInp);
+
+              var nameInp = document.createElement("input");
+              nameInp.type = "text";
+              nameInp.value = plugins[idx].name || "";
+              nameInp.placeholder = "Display name";
+              nameInp.addEventListener("change", function() { plugins[idx].name = nameInp.value; });
+              row.appendChild(nameInp);
+
+              var rmBtn = document.createElement("button");
+              rmBtn.className = "check-remove";
+              rmBtn.textContent = "×";
+              rmBtn.addEventListener("click", function() { plugins.splice(idx, 1); renderPlugins(); });
+              row.appendChild(rmBtn);
+              pluginsList.appendChild(row);
+            })(i);
+          }
+        }
+        renderPlugins();
+        div.appendChild(pluginsList);
+
+        var addPluginBtn = document.createElement("button");
+        addPluginBtn.className = "btn small";
+        addPluginBtn.textContent = "+ Add Plugin";
+        addPluginBtn.addEventListener("click", function() { plugins.push({ id: "", name: "", path: "" }); renderPlugins(); });
+        div.appendChild(addPluginBtn);
+
+        // Save button
+        var saveBtn = document.createElement("button");
+        saveBtn.className = "btn primary";
+        saveBtn.style.marginTop = "1rem";
+        saveBtn.textContent = "Save Config";
+        saveBtn.addEventListener("click", async function() {
+          try {
+            var config = {
+              ...arenaConfig,
+              models: models.filter(function(m) { return m.id; }),
+              plugins: plugins.filter(function(p) { return p.id; }),
+            };
+            await apiUpdateConfig(config);
+            arenaConfig = config;
+            container.style.display = "none";
+          } catch (err) {
+            alert(err.message || err);
+          }
+        });
+        div.appendChild(saveBtn);
+
+        container.appendChild(div);
+        container.style.display = container.style.display === "none" ? "block" : "none";
       }
 
-      function showError(msg) {
-        var el = document.getElementById("error");
-        el.innerHTML = '<div class="error">' + escapeHtml(msg) + "</div>";
+      /** Render sidebar with case definitions from API. */
+      function renderSidebarWithCases() {
+        if (!caseDefinitions) return;
+        var list = document.getElementById("case-list");
+        list.innerHTML = "";
+        for (var i = 0; i < caseDefinitions.length; i++) {
+          var c = caseDefinitions[i];
+          var li = document.createElement("li");
+          li.className = "case-item";
+          li.setAttribute("data-task-id", c.id);
+          li.addEventListener("click", function () {
+            window.location.hash = "#/case/" + this.getAttribute("data-task-id");
+          });
+          var nameDiv = document.createElement("div");
+          nameDiv.className = "case-item-name";
+          nameDiv.appendChild(document.createTextNode(c.name));
+          var metaDiv = document.createElement("div");
+          metaDiv.className = "case-item-meta";
+          metaDiv.textContent = c.id;
+          li.appendChild(nameDiv);
+          li.appendChild(metaDiv);
+          list.appendChild(li);
+        }
       }
 
-      /** Main: load data and render. */
+      /** Render overview with case definitions from API. */
+      function renderOverviewWithCases() {
+        if (!caseDefinitions) return;
+        var cardsEl = document.getElementById("case-cards");
+        cardsEl.innerHTML = "";
+        for (var i = 0; i < caseDefinitions.length; i++) {
+          var c = caseDefinitions[i];
+          var card = document.createElement("div");
+          card.className = "case-card";
+
+          var header = document.createElement("div");
+          header.className = "case-card-header";
+          var title = document.createElement("div");
+          title.className = "case-card-title";
+          title.textContent = c.name;
+          header.appendChild(title);
+          card.appendChild(header);
+
+          if (c.prompt) {
+            var promptEl = document.createElement("div");
+            promptEl.className = "case-card-prompt";
+            promptEl.textContent = c.prompt.length > 120 ? c.prompt.substring(0, 120) + "..." : c.prompt;
+            card.appendChild(promptEl);
+          }
+
+          var stats = document.createElement("div");
+          stats.className = "case-card-stats";
+          stats.appendChild(makeStat("ID", c.id));
+          stats.appendChild(makeStat("Fixture", c.fixture || "(none)"));
+          stats.appendChild(makeStat("Checks", String((c.checks || []).length)));
+          card.appendChild(stats);
+
+          // Action buttons
+          var actions = document.createElement("div");
+          actions.className = "case-card-actions";
+          var editBtn = document.createElement("button");
+          editBtn.className = "btn small";
+          editBtn.textContent = "Edit";
+          (function(caseData) {
+            editBtn.addEventListener("click", function(e) {
+              e.stopPropagation();
+              showCaseForm(caseData);
+            });
+          })(c);
+          actions.appendChild(editBtn);
+
+          var delBtn = document.createElement("button");
+          delBtn.className = "btn small danger";
+          delBtn.textContent = "Delete";
+          (function(caseId) {
+            delBtn.addEventListener("click", async function(e) {
+              e.stopPropagation();
+              if (confirm("Delete case '" + caseId + "'?")) {
+                try {
+                  await apiDeleteCase(caseId);
+                  await loadCaseDefinitions();
+                  renderSidebarWithCases();
+                  renderOverviewWithCases();
+                } catch (err) {
+                  alert(err.message || err);
+                }
+              }
+            });
+          })(c.id);
+          actions.appendChild(delBtn);
+          card.appendChild(actions);
+
+          card.addEventListener("click", (function (id) {
+            return function () { window.location.hash = "#/case/" + id; };
+          })(c.id));
+          cardsEl.appendChild(card);
+        }
+      }
+
+      // ── Main ───────────────────────────────────────────────────────
+
       async function main() {
         var params = new URLSearchParams(window.location.search);
-        var dataUrl = params.get("data") || "sample-result.json";
+        var dataUrl = params.get("data") || "arena-sample.json";
+
+        // Sidebar toggle (mobile)
+        document.getElementById("sidebar-toggle").addEventListener("click", function () {
+          document.getElementById("sidebar").classList.toggle("open");
+        });
+        document.getElementById("nav-overview").addEventListener("click", function (e) {
+          e.preventDefault();
+          window.location.hash = "#/";
+          document.getElementById("sidebar").classList.remove("open");
+        });
+        document.getElementById("case-back").addEventListener("click", function (e) {
+          e.preventDefault();
+          window.location.hash = "#/";
+        });
+
+        // CRUD toolbar buttons
+        document.getElementById("btn-new-case").addEventListener("click", function () {
+          showCaseForm(null);
+        });
+        document.getElementById("btn-config").addEventListener("click", function () {
+          showConfigEditor();
+        });
+        document.getElementById("btn-run").addEventListener("click", async function () {
+          try {
+            var btn = document.getElementById("btn-run");
+            btn.textContent = "Starting...";
+            btn.disabled = true;
+            var result = await apiStartRun([]);
+            alert("Run started: " + result.id + "\nStatus: " + result.status);
+            btn.textContent = "Run Benchmark";
+            btn.disabled = false;
+          } catch (err) {
+            alert("Failed to start run: " + (err.message || err));
+            var btn2 = document.getElementById("btn-run");
+            btn2.textContent = "Run Benchmark";
+            btn2.disabled = false;
+          }
+        });
+        document.getElementById("btn-refresh").addEventListener("click", function () {
+          window.location.reload();
+        });
+
+        // Try to load case definitions and config from API (non-blocking)
+        var hasApi = await apiAvailable();
+        if (hasApi) {
+          await loadCaseDefinitions();
+          await loadArenaConfig();
+          if (caseDefinitions && caseDefinitions.length > 0) {
+            renderSidebarWithCases();
+          }
+        }
 
         try {
           var resp = await fetch(dataUrl);
           if (!resp.ok) throw new Error("HTTP " + resp.status);
           var result = await resp.json();
 
-          renderHeader(result);
-          renderSummary(result);
-          renderTable(result);
+          if (isArenaResult(result)) {
+            arenaData = result;
+
+            // Render workbench — use API cases if available, otherwise use results data
+            if (caseDefinitions && caseDefinitions.length > 0) {
+              renderOverviewWithCases();
+            } else {
+              renderSidebar(result);
+              renderOverview(result);
+            }
+
+            // Also render legacy views (hidden) for toggle
+            renderArenaMatrix(result);
+            renderHeader({ model: (result.config.models || []).join(", "), timestamp: result.timestamp });
+
+            // Wire up metric radios
+            var radios = document.querySelectorAll('input[name="metric"]');
+            for (var i = 0; i < radios.length; i++) {
+              radios[i].addEventListener("change", function (e) {
+                selectedMetric = e.target.value;
+                renderArenaMatrix(result);
+              });
+            }
+
+            // Wire up view toggle (legacy)
+            document.getElementById("toggle-matrix").addEventListener("click", function () {
+              showArenaView();
+              document.getElementById("matrix-summary").style.display = "block";
+            });
+            document.getElementById("toggle-classic").addEventListener("click", function () {
+              showClassicView();
+            });
+
+            // Route
+            window.addEventListener("hashchange", handleRoute);
+            handleRoute();
+          } else {
+            // Classic format (backward compat) — show legacy view
+            document.getElementById("workbench-overview").style.display = "none";
+            document.getElementById("workbench-case").style.display = "none";
+            document.getElementById("legacy-view").style.display = "block";
+            document.getElementById("sidebar").style.display = "none";
+            document.getElementById("subtitle").textContent = "Legacy benchmark format — agent comparison";
+            document.getElementById("view-toggle").style.display = "none";
+            renderHeader(result);
+            renderSummary(result);
+            renderTable(result);
+          }
         } catch (err) {
           showError("Failed to load benchmark data: " + (err.message || err));
         }
