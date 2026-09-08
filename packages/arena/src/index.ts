@@ -27,6 +27,7 @@ export { installPlugins, transcriptDir, countLlmCalls } from "./adapters/devin.j
 
 export { sanitizeEnv, runAcpSession, createPermissionHandler } from "./acp.js";
 export type { ToolCallMessage, ToolCallUpdateMessage } from "./acp.js";
+export { extractUsageTokens } from "./adapters/devin.js";
 
 export { pluginCombinations, runArena, aggregateResults, computeAnalysis } from "./runner.js";
 

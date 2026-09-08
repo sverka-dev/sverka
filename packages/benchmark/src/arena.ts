@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 
 import type { Usage } from "@agentclientprotocol/sdk";
 
-import { sanitizeEnv, runAcpSession } from "@sverka/arena";
+import { sanitizeEnv, runAcpSession, extractUsageTokens } from "@sverka/arena";
 
 import type {
   Task,
@@ -17,21 +17,6 @@ import type {
   BenchmarkResult,
   BenchmarkConfig,
 } from "./types.js";
-
-/** Extract token counts from a Usage object, defaulting to 0. */
-function extractUsageTokens(usage: Usage | null | undefined): {
-  inputTokens: number;
-  outputTokens: number;
-  thoughtTokens: number;
-  totalTokens: number;
-} {
-  return {
-    inputTokens: usage?.inputTokens ?? 0,
-    outputTokens: usage?.outputTokens ?? 0,
-    thoughtTokens: usage?.thoughtTokens ?? 0,
-    totalTokens: usage?.totalTokens ?? 0,
-  };
-}
 
 /** Extract RunMetrics from a PromptResponse + collected event data. */
 export function extractMetrics(
