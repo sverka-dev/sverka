@@ -261,7 +261,7 @@ function renderVerdict(verdict: PolicyResult | null): string {
 }
 
 function escapeHtml(text: string): string {
-  return text // nosemgrep: replace-all
+  return text // nosemgrep
     .replaceAll("&", "\u0026amp;")
     .replaceAll("<", "\u0026lt;")
     .replaceAll(">", "\u0026gt;")
@@ -272,7 +272,7 @@ function escapeHtml(text: string): string {
 /** Escape JSON data for safe embedding in <script> tags.
  * Prevents </script> breakout XSS by replacing < with \u003c. */
 function escapeScriptData(json: string): string {
-  return json.replaceAll("<", "\\u003c"); // nosemgrep: replace-all
+  return json.replaceAll("<", "\\u003c"); // nosemgrep
 }
 
 const CSS = String.raw`
@@ -366,8 +366,7 @@ details summary { cursor: pointer; font-size: 0.875rem; }
 }
 `;
 
-// nosemgrep: html-in-template-string
-const JS = `
+/* nosemgrep: html-in-template-string */ const JS = `
 (function() {
   function esc(text) {
     var d = document.createElement("div");
