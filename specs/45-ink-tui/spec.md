@@ -40,12 +40,13 @@ a TTY and no `--format` is given; otherwise it falls back to text.
 ```typescript
 /** Findings list filter selected via the filter bar. */
 export type FindingFilter =
-  | "all"     // every finding
-  | "high"    // severity === "high"
-  | "medium"  // severity === "medium"
-  | "low"     // severity === "low"
-  | "new"     // fingerprint not in baselineFingerprints (all new if no baseline)
-  | "error";  // source.originalSeverity === "error" (SARIF level preserved)
+  | "all"       // every finding
+  | "critical"  // severity === "critical"
+  | "high"      // severity === "high"
+  | "medium"    // severity === "medium"
+  | "low"       // severity === "low"
+  | "new"       // fingerprint not in baselineFingerprints (all new if no baseline)
+  | "error";    // source.originalSeverity === "error" (SARIF level preserved)
 ```
 
 ### Step glyphs
@@ -175,7 +176,7 @@ caller, which falls back to `TextRenderer`.
 │  │  ├─ ○ ci/unit
 │  │  └─ ○ ci/integration
 │  └─ ○ ci/deploy
-│ Findings [all|high|medium|low|new|error]   (n shown)
+│ Findings [all|critical|high|medium|low|new|error]   (n shown)
 │  high    eslint   src/a.ts:12  message…
 │ <verdict footer>   q quit · j/k scroll · / search · f filter · d details
 └──────────────────────────────────────────
