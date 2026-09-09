@@ -46,6 +46,26 @@ const STEP_GLYPHS: Record<string, string> = {
   "step-compensating": "\u21BA compensating",
 };
 
+/** Print run-level events. */
+function printRunEvent(event: RunEvent, writer: TextWriter): boolean {
+  switch (event.type) {
+    case "run-started":
+      writer.writeLine(`\n\u25B6 run started (plan: ${event.planId})`);
+      return true;
+    case "run-completed":
+      writer.writeLine(`\n\u25A0 run completed: ${event.status} (${event.durationMs}ms)`);
+      return true;
+    case "run-suspended":
+      writer.writeLine(`\n\u25A0 run suspended (${event.durationMs}ms)`);
+      return true;
+    case "run-resumed":
+      writer.writeLine(`\n\u25B6 run resumed (plan: ${event.planId})`);
+      return true;
+    default:
+      return false;
+  }
+}
+
 /** Print a single run event as a text line. */
 function printEvent(event: RunEvent, writer: TextWriter): void {
   // Simple step events with glyph + label
@@ -56,11 +76,11 @@ function printEvent(event: RunEvent, writer: TextWriter): void {
     return;
   }
 
-  // Complex events with additional fields
+  // Run-level events
+  if (printRunEvent(event, writer)) return;
+
+  // Complex step events with additional fields
   switch (event.type) {
-    case "run-started":
-      writer.writeLine(`\n\u25B6 run started (plan: ${event.planId})`);
-      break;
     case "step-succeeded":
       writer.writeLine(`  \u2713 ${event.stepId}  succeeded (${event.durationMs}ms)`);
       break;
@@ -72,15 +92,6 @@ function printEvent(event: RunEvent, writer: TextWriter): void {
       break;
     case "step-compensated":
       writer.writeLine(`  \u21BA ${event.stepId}  compensated: ${event.status}`);
-      break;
-    case "run-completed":
-      writer.writeLine(`\n\u25A0 run completed: ${event.status} (${event.durationMs}ms)`);
-      break;
-    case "run-suspended":
-      writer.writeLine(`\n\u25A0 run suspended (${event.durationMs}ms)`);
-      break;
-    case "run-resumed":
-      writer.writeLine(`\n\u25B6 run resumed (plan: ${event.planId})`);
       break;
     case "diagnostic":
       writer.writeLine(`  ! ${event.stepId}: ${event.message}`);
