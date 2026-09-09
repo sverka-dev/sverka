@@ -16,6 +16,7 @@ import { synthCommand, type SynthArgs } from "./commands/synth.js";
 import { compileCommand, type CompileArgs } from "./commands/compile.js";
 import { mcpServerCommand } from "./commands/mcp-server.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { viewCommand, type ViewArgs } from "./commands/view.js";
 
 /** Optional dependencies for main (testability seam). */
 export interface MainDeps {
@@ -35,9 +36,11 @@ function buildGlobalFlags(parsed: Arguments): GlobalFlags {
 }
 
 /** Resolve the format string from parsed yargs. */
-function resolveFormat(format: unknown): "text" | "json" | "html" {
+function resolveFormat(format: unknown): "text" | "json" | "html" | "sarif" | "web" {
   if (format === "json") return "json";
   if (format === "html") return "html";
+  if (format === "sarif") return "sarif";
+  if (format === "web") return "web";
   return "text";
 }
 
@@ -121,13 +124,33 @@ function addCompileCommand(y: Argv): Argv {
     });
 }
 
+/** Configure the view subcommand options. */
+function addViewCommand(y: Argv): Argv {
+  return y
+    .positional("file", {
+      type: "string",
+      describe: "Path to a .sarif file (reads from stdin if omitted)",
+    })
+    .option("format", {
+      type: "string",
+      alias: "f",
+      choices: ["tui", "web"],
+      default: "tui",
+      describe: "View format: tui (terminal) or web (HTML report)",
+    })
+    .option("output", {
+      type: "string",
+      describe: "Output HTML file path (for --format web, default: sarif-report.html)",
+    });
+}
+
 function buildParser(): Argv {
   return yargs([])
     .scriptName("sverka")
     .option("format", {
       type: "string",
       alias: "f",
-      choices: ["text", "json", "html"],
+      choices: ["text", "json", "html", "sarif", "web"],
     })
     .option("config", { type: "string", alias: "c" })
     .option("root", { type: "string", alias: "r", default: process.cwd() })
@@ -145,6 +168,7 @@ function buildParser(): Argv {
     .command("compile", "Compile to a target CI YAML", addCompileCommand)
     .command("mcp-server", "Expose Sverka as an MCP server (stdio)")
     .command("doctor", "Diagnose environment and dependencies")
+    .command("view [file]", "View SARIF findings in TUI or generate HTML report", addViewCommand)
     .demandCommand(1, "No command given")
     .strict()
     .fail((msg, err) => {
@@ -186,6 +210,8 @@ async function dispatch(
       return mcpServerCommand({}, global, output, start);
     case "doctor":
       return doctorCommand(global, output, start);
+    case "view":
+      return dispatchView(parsed, global, output, start);
     default:
       throw new CliError(
         `unknown command: ${command}`,
@@ -273,6 +299,20 @@ function dispatchCompile(
   const args: CompileArgs = { target };
   if (typeof parsed.output === "string") args.output = parsed.output;
   return compileCommand(args, global, output, start);
+}
+
+function dispatchView(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const args: ViewArgs = {
+    format: parsed.format === "web" ? "web" : "tui",
+  };
+  if (typeof parsed.file === "string") args.file = parsed.file;
+  if (typeof parsed.output === "string") args.output = parsed.output;
+  return viewCommand(args, global, output, start);
 }
 
 /**

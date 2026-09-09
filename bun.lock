@@ -56,6 +56,8 @@
         "@sverka/compiler": "workspace:*",
         "@sverka/reporter": "workspace:*",
         "@sverka/runtime": "workspace:*",
+        "@sverka/sarif-viewer-tui": "workspace:*",
+        "@sverka/sarif-viewer-web": "workspace:*",
         "@sverka/sdk": "workspace:*",
         "@sverka/verification": "workspace:*",
         "@sverka/workflow": "workspace:*",

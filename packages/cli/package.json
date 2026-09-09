@@ -42,6 +42,8 @@
     "@sverka/verification": "workspace:*",
     "@sverka/compiler": "workspace:*",
     "@sverka/reporter": "workspace:*",
+    "@sverka/sarif-viewer-tui": "workspace:*",
+    "@sverka/sarif-viewer-web": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
     "yargs": "^18.1.0",
     "zod": "^4.0.0"

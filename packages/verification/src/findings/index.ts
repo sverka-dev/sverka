@@ -8,6 +8,7 @@ export { normalizeSarif } from "./normalize.js";
 export { resolveSarifInput, type ResolveSarifInputOptions,
          DEFAULT_NORMALIZE_CONTEXT } from "./resolve-input.js";
 export { searchFindings, filterBySeverity } from "./search.js";
+export { serializeSarif } from "./serialize.js";
 export { computeFingerprint } from "./fingerprint.js";
 export { createBaseline, updateBaseline, compareBaseline,
          loadBaseline, saveBaseline } from "./baseline.js";

@@ -2,7 +2,8 @@
 // Spec 17 — §30.
 
 import process from "node:process";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { writeFileSync, mkdirSync } from "node:fs";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { RuntimeDriver } from "@sverka/runtime";
 import { createEngine } from "@sverka/runtime";
@@ -14,6 +15,7 @@ import { bindRunPlan } from "@sverka/sdk";
 import { createTextRenderer, createHtmlRenderer, createInkRenderer, collectFindings, evaluateGate, ReporterError } from "@sverka/reporter";
 import type { Renderer, FindingRow } from "@sverka/reporter";
 import type { Finding } from "@sverka/verification";
+import { serializeSarif } from "@sverka/verification";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";
@@ -41,9 +43,11 @@ export async function runCommand(
   start: number,
 ): Promise<number> {
   const executor = args.executor ?? "host";
-  // --format html or --output implies --evaluate
+  // --format html/sarif/web or --output implies --evaluate
   const isHtml = global.format === "html" || args.output !== undefined;
-  const evaluate = args.evaluate || isHtml;
+  const isSarif = global.format === "sarif";
+  const isWeb = global.format === "web";
+  const evaluate = args.evaluate || isHtml || isSarif || isWeb;
   output.debug(`run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"} format=${global.format}`);
 
   assertExecutorAvailable(executor);
@@ -75,7 +79,7 @@ export async function runCommand(
   let evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null = null;
   let collectionFailed = false;
   if (evaluate) {
-    const result = await runEvaluation(artifactDir, global, output, events, renderer);
+    const result = await runEvaluation(artifactDir, global, output, events, renderer, args);
     policyExitCode = result.exitCode;
     evalResult = result.summary;
     collectionFailed = result.summary === null && result.exitCode === ExitCode.RuntimeError;
@@ -184,12 +188,16 @@ async function consumeEvents(
 
   // --output flag implies HTML format
   const isHtml = global.format === "html" || args.output !== undefined;
+  const isSarif = global.format === "sarif";
+  const isWeb = global.format === "web";
 
   // TUI auto-detect: stdout TTY + no explicit --format, unless --no-tui.
   // --tui forces it on; any explicit --format forces it off.
   const tuiDenied = args.tui === false || args.formatExplicit === true;
   const tuiWanted =
     !isHtml &&
+    !isSarif &&
+    !isWeb &&
     global.format === "text" &&
     !tuiDenied &&
     (args.tui === true || process.stdout.isTTY === true);
@@ -224,6 +232,7 @@ async function runEvaluation(
   output: OutputWriter,
   _events: readonly RunEvent[],
   renderer: Renderer | null,
+  args: RunArgs,
 ): Promise<{ exitCode: number; summary: { findings: readonly Finding[]; verdict: string; summary: string } | null }> {
   let rows: readonly FindingRow[];
   try {
@@ -255,6 +264,31 @@ async function runEvaluation(
     renderer.onFindings(findings);
     renderer.onVerdict(result);
     renderer.flush();
+  }
+
+  // --format sarif: serialize findings to SARIF and write to file
+  if (global.format === "sarif") {
+    const sarifPath = args.output ?? join(global.root, ".sverka", "findings.sarif");
+    const sarifLog = serializeSarif(findings);
+    mkdirSync(dirname(sarifPath), { recursive: true });
+    writeFileSync(sarifPath, JSON.stringify(sarifLog, null, 2), "utf-8");
+    output.writeLine(`Wrote SARIF to ${sarifPath}`);
+  }
+
+  // --format web: generate HTML report using @sverka/sarif-viewer-web
+  if (global.format === "web") {
+    const webPath = args.output ?? join(global.root, ".sverka", "report.html");
+    try {
+      const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
+      const html = generateSarifHtml(findings);
+      mkdirSync(dirname(webPath), { recursive: true });
+      writeFileSync(webPath, html, "utf-8");
+      output.writeLine(`Wrote HTML report to ${webPath}`);
+    } catch (e) {
+      output.errorLine(
+        `sverka run: failed to generate web report: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
   }
 
   return {
