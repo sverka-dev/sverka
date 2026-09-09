@@ -209,7 +209,7 @@ async function consumeEvents(
 
 async function runEvaluation(
   artifactDir: string,
-  _global: GlobalFlags,
+  global: GlobalFlags,
   output: OutputWriter,
   _events: readonly RunEvent[],
   renderer: Renderer | null,
@@ -219,7 +219,15 @@ async function runEvaluation(
     rows = await collectFindings({ artifactDir });
   } catch (e) {
     if (e instanceof ReporterError) {
-      output.writeLine(`Collection failed: ${e.message}`);
+      if (global.format === "json") {
+        output.writeLine(JSON.stringify({
+          command: "run",
+          error: "COLLECTION_FAILED",
+          message: e.message,
+        }));
+      } else {
+        output.writeLine(`Collection failed: ${e.message}`);
+      }
       return {
         exitCode: ExitCode.RuntimeError,
         summary: null,

@@ -15,8 +15,8 @@ a TTY and no `--format` is given; otherwise it falls back to text.
 - Step DAG rendered as an indented tree with live status glyphs:
   `✓` green (succeeded/cache-hit/compensated), `✗` red (failed),
   `●` yellow animated spinner (running/compensating),
-  `○` gray (pending/ready/skipped/cancelled/suspended).
-- Findings list with a filter bar: `[all][high][medium][low][new][error]`.
+  `○` gray (pending/ready/skipped/cancelled), `⏸` cyan (suspended).
+- Findings list with a filter bar: `[all][critical][high][medium][low][new][error]`.
 - Keybindings: `j`/`k` (or ↓/↑) scroll, `/` search, `f` cycle findings
   filter, `d` toggle step details, `q` quit.
 - Policy verdict footer (pass/fail) once `onVerdict` is called.

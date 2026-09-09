@@ -52,7 +52,7 @@ class TuiStore {
     this.graph = options.graph ?? null;
     this.baseline = options.baselineFingerprints;
     const stdin = options.stdin ?? process.stdin;
-    this.interactive = stdin.isTTY === true;
+    this.interactive = options.interactive ?? (stdin.isTTY === true);
   }
 
   subscribe = (listener: () => void): (() => void) => {

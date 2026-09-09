@@ -128,6 +128,7 @@ export interface HtmlRendererOptions {
 /** Findings list filter selected via the filter bar. */
 export type FindingFilter =
   | "all"
+  | "critical"
   | "high"
   | "medium"
   | "low"

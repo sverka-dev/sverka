@@ -93,13 +93,13 @@ const active: { renderer: InkRenderer | null; stdin: FakeStdin | null } = {
   stdin: null,
 };
 
-function mount(opts: { tty?: boolean } = {}) {
+function mount(opts: { tty?: boolean; interactive?: boolean } = {}) {
   const stdout = new FakeStdout();
   const stdin = new FakeStdin(opts.tty ?? true);
   const renderer = createInkRenderer({
     stdout: stdout as unknown as NodeJS.WriteStream,
     stdin: stdin as unknown as NodeJS.ReadStream,
-    interactive: true,
+    interactive: opts.interactive ?? (opts.tty ?? true),
     debug: true,
   });
   active.renderer = renderer;
@@ -223,7 +223,8 @@ describe("InkRenderer", () => {
     ]);
     await waitFor(stdout, "high-one");
 
-    // f: all -> high — low finding disappears
+    // f: all -> critical -> high — low finding disappears
+    stdin.write("f");
     stdin.write("f");
     await waitUntil(
       stdout,

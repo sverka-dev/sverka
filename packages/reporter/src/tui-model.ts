@@ -13,6 +13,7 @@ import type {
 /** Ordered list of filters cycled by the `f` key. */
 export const FINDING_FILTERS: readonly FindingFilter[] = [
   "all",
+  "critical",
   "high",
   "medium",
   "low",
@@ -129,6 +130,7 @@ export function filterFindings(
   switch (filter) {
     case "all":
       return findings;
+    case "critical":
     case "high":
     case "medium":
     case "low":

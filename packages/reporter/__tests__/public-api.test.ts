@@ -16,7 +16,7 @@ describe("public API", () => {
     expect(typeof api.stepGlyph).toBe("function");
     expect(typeof api.buildStepTree).toBe("function");
     expect(typeof api.filterFindings).toBe("function");
-    expect(api.FINDING_FILTERS).toEqual(["all", "high", "medium", "low", "new", "error"]);
+    expect(api.FINDING_FILTERS).toEqual(["all", "critical", "high", "medium", "low", "new", "error"]);
     // Error class
     expect(typeof api.ReporterError).toBe("function");
   });
