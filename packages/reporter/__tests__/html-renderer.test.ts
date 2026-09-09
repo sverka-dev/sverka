@@ -3,9 +3,8 @@ import { rm, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { createHtmlRenderer } from "../src/html-renderer.js";
-import { layoutDag } from "../src/dag-layout.js";
 import {
-  runStarted, stepPending, stepStarted, stepSucceeded, stepFailed,
+  runStarted, stepSucceeded, stepFailed,
   stepSkipped, runCompleted,
 } from "./helpers/fixtures.js";
 import type { Finding, PolicyResult } from "@sverka/verification";
@@ -76,17 +75,23 @@ afterEach(async () => {
   await rm(tmpDir, { recursive: true, force: true });
 });
 
+/** Create a renderer, emit events, flush, and return the generated HTML. */
+function renderHtml(events: Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][]): string {
+  const outputPath = join(tmpDir, "report.html");
+  const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
+  for (const event of events) renderer.onEvent(event);
+  renderer.flush();
+  return readFileSync(outputPath, "utf-8");
+}
+
+/** Common event sequence: run started + completed with optional extra events. */
+function withRun(...extra: Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][]): Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][] {
+  return [runStarted("run-1", "plan-abc"), ...extra, runCompleted("run-1", "success", 100)];
+}
+
 describe("HtmlRenderer", () => {
   it("9. flush produces HTML with DOCTYPE, title, header, sections", () => {
-    const outputPath = join(tmpDir, "report.html");
-    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
-    renderer.onEvent(runStarted("run-1", "plan-abc"));
-    renderer.onEvent(stepSucceeded("ci/build", 100));
-    renderer.onEvent(runCompleted("run-1", "success", 200));
-    renderer.flush();
-
-    const html = readFileSync(outputPath, "utf-8");
+    const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("<title>");
     expect(html).toContain("<header");
@@ -96,30 +101,19 @@ describe("HtmlRenderer", () => {
   });
 
   it("10. run summary contains planId, status, duration", () => {
-    const outputPath = join(tmpDir, "report.html");
-    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
-    renderer.onEvent(runStarted("run-1", "plan-abc"));
-    renderer.onEvent(runCompleted("run-1", "success", 560));
-    renderer.flush();
-
-    const html = readFileSync(outputPath, "utf-8");
+    const html = renderHtml([runStarted("run-1", "plan-abc"), runCompleted("run-1", "success", 560)]);
     expect(html).toContain("plan-abc");
     expect(html).toContain("success");
     expect(html).toContain("560");
   });
 
   it("11. step details — a <details> element per step with status and duration", () => {
-    const outputPath = join(tmpDir, "report.html");
-    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
-    renderer.onEvent(runStarted("run-1", "plan-abc"));
-    renderer.onEvent(stepSucceeded("ci/build", 120));
-    renderer.onEvent(stepFailed("ci/test", "exit code 1", 340));
-    renderer.onEvent(runCompleted("run-1", "failure", 500));
-    renderer.flush();
-
-    const html = readFileSync(outputPath, "utf-8");
+    const html = renderHtml([
+      runStarted("run-1", "plan-abc"),
+      stepSucceeded("ci/build", 120),
+      stepFailed("ci/test", "exit code 1", 340),
+      runCompleted("run-1", "failure", 500),
+    ]);
     expect(html).toContain("<details");
     expect(html).toContain("ci/build");
     expect(html).toContain("ci/test");
@@ -132,12 +126,10 @@ describe("HtmlRenderer", () => {
   it("12. findings table contains finding rows when onFindings is called", () => {
     const outputPath = join(tmpDir, "report.html");
     const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
     renderer.onEvent(runStarted("run-1", "plan-abc"));
     renderer.onEvent(runCompleted("run-1", "success", 100));
     renderer.onFindings([makeFinding("high", "ci/lint"), makeFinding("medium", "ci/test")]);
     renderer.flush();
-
     const html = readFileSync(outputPath, "utf-8");
     expect(html).toContain("<table");
     expect(html).toContain("ci/lint");
@@ -149,57 +141,30 @@ describe("HtmlRenderer", () => {
   it("13. verdict banner contains pass/fail text", () => {
     const outputPath = join(tmpDir, "report.html");
     const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
     renderer.onEvent(runStarted("run-1", "plan-abc"));
     renderer.onEvent(runCompleted("run-1", "success", 100));
     renderer.onFindings([makeFinding("high", "ci/lint")]);
     renderer.onVerdict(FAIL_RESULT);
     renderer.flush();
-
     const html = readFileSync(outputPath, "utf-8");
     expect(html).toContain("fail");
     expect(html).toContain('id="verdict"');
   });
 
   it("14. no findings — shows 'No findings' message", () => {
-    const outputPath = join(tmpDir, "report.html");
-    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
-    renderer.onEvent(runStarted("run-1", "plan-abc"));
-    renderer.onEvent(runCompleted("run-1", "success", 100));
-    renderer.flush();
-
-    const html = readFileSync(outputPath, "utf-8");
+    const html = renderHtml(withRun());
     expect(html).toContain("No findings");
   });
 
   it("15. DAG data — HTML contains inline JSON with DagLayout nodes and edges", () => {
-    const outputPath = join(tmpDir, "report.html");
-    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
-    renderer.onEvent(runStarted("run-1", "plan-abc"));
-    renderer.onEvent(runCompleted("run-1", "success", 100));
-    renderer.flush();
-
-    const html = readFileSync(outputPath, "utf-8");
-    // The DAG data should be embedded as JSON
+    const html = renderHtml(withRun());
     expect(html).toContain("ci/build");
     expect(html).toContain("ci/test");
-    // Should contain edge data
-    expect(html).toContain("ci/build");
   });
 
   it("16. dark theme — CSS contains dark color scheme", () => {
-    const outputPath = join(tmpDir, "report.html");
-    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
-    renderer.onEvent(runStarted("run-1", "plan-abc"));
-    renderer.onEvent(runCompleted("run-1", "success", 100));
-    renderer.flush();
-
-    const html = readFileSync(outputPath, "utf-8");
+    const html = renderHtml(withRun());
     expect(html).toContain("<style");
-    // Dark theme uses dark background colors
     expect(html).toMatch(/background[^;]*#[0-9a-f]{3,6}/i);
     expect(html).toMatch(/color-scheme:\s*dark/i);
   });
@@ -207,25 +172,16 @@ describe("HtmlRenderer", () => {
   it("17. writes file to outputPath on flush", () => {
     const outputPath = join(tmpDir, "report.html");
     const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
     renderer.onEvent(runStarted("run-1", "plan-abc"));
     renderer.onEvent(runCompleted("run-1", "success", 100));
     renderer.flush();
-
     expect(existsSync(outputPath)).toBe(true);
     const html = readFileSync(outputPath, "utf-8");
     expect(html.length).toBeGreaterThan(100);
   });
 
   it("18. ReactFlow CDN — HTML includes ReactFlow script tag", () => {
-    const outputPath = join(tmpDir, "report.html");
-    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
-    renderer.onEvent(runStarted("run-1", "plan-abc"));
-    renderer.onEvent(runCompleted("run-1", "success", 100));
-    renderer.flush();
-
-    const html = readFileSync(outputPath, "utf-8");
+    const html = renderHtml(withRun());
     expect(html).toContain("reactflow");
     expect(html).toContain("<script");
   });
@@ -233,44 +189,33 @@ describe("HtmlRenderer", () => {
   it("19. filter JS — HTML contains vanilla JS for findings filter/sort/search", () => {
     const outputPath = join(tmpDir, "report.html");
     const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
     renderer.onEvent(runStarted("run-1", "plan-abc"));
     renderer.onEvent(runCompleted("run-1", "success", 100));
     renderer.onFindings([makeFinding("high", "ci/lint"), makeFinding("medium", "ci/test")]);
     renderer.flush();
-
     const html = readFileSync(outputPath, "utf-8");
-    // Filter buttons
     expect(html).toContain("filter");
-    // Search input
     expect(html).toContain("search");
-    // Sort functionality
     expect(html).toContain("sort");
   });
 
   it("handles skipped steps in details", () => {
-    const outputPath = join(tmpDir, "report.html");
-    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
-    renderer.onEvent(runStarted("run-1", "plan-abc"));
-    renderer.onEvent(stepSkipped("ci/build"));
-    renderer.onEvent(runCompleted("run-1", "success", 100));
-    renderer.flush();
-
-    const html = readFileSync(outputPath, "utf-8");
+    const html = renderHtml([
+      runStarted("run-1", "plan-abc"),
+      stepSkipped("ci/build"),
+      runCompleted("run-1", "success", 100),
+    ]);
     expect(html).toContain("skipped");
   });
 
   it("pass verdict banner shows pass text", () => {
     const outputPath = join(tmpDir, "report.html");
     const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
-
     renderer.onEvent(runStarted("run-1", "plan-abc"));
     renderer.onEvent(runCompleted("run-1", "success", 100));
     renderer.onFindings([]);
     renderer.onVerdict(PASS_RESULT);
     renderer.flush();
-
     const html = readFileSync(outputPath, "utf-8");
     expect(html).toContain("pass");
   });
