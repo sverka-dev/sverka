@@ -73,10 +73,12 @@ export async function runCommand(
   // If --evaluate (or --format html), collect findings and run policy gate
   let policyExitCode = 0;
   let evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null = null;
+  let collectionFailed = false;
   if (evaluate) {
     const result = await runEvaluation(artifactDir, global, output, events, renderer);
     policyExitCode = result.exitCode;
     evalResult = result.summary;
+    collectionFailed = result.summary === null && result.exitCode === ExitCode.RuntimeError;
   }
 
   // Flush the renderer (HtmlRenderer writes the file on flush)
@@ -87,13 +89,18 @@ export async function runCommand(
     await (renderer as { waitUntilExit(): Promise<void> }).waitUntilExit();
   }
 
-  // When --evaluate fails (e.g. collection error), the error was already
+  // When --evaluate fails with a collection error, the error was already
   // written in the requested format — skip normal output and return.
-  if (evaluate && policyExitCode !== 0) {
+  if (collectionFailed) {
     return policyExitCode;
   }
 
   writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output, evalResult);
+
+  // When --evaluate is set, policy exit code takes precedence
+  if (evaluate && policyExitCode !== 0) {
+    return policyExitCode;
+  }
 
   return exitCodeForStatus(runStatus);
 }
