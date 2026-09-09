@@ -73,7 +73,7 @@ function buildChildrenMap(
       hasParent.add(step.id);
     }
   }
-  for (const list of children.values()) list.sort((a, b) => a.localeCompare(b));
+  for (const list of children.values()) list.sort((a, b) => a.localeCompare(b, "en"));
   return { children, hasParent };
 }
 
@@ -92,7 +92,7 @@ export function buildStepTree(
   const visited = new Set<string>();
 
   if (!graph) {
-    const ids = [...state.steps.keys()].sort((a, b) => a.localeCompare(b));
+    const ids = [...state.steps.keys()].sort((a, b) => a.localeCompare(b, "en"));
     for (const id of ids) {
       rows.push({ stepId: id, prefix: "", depth: 0 });
     }
@@ -106,7 +106,7 @@ export function buildStepTree(
   const roots = steps
     .map((s) => s.id)
     .filter((id) => !hasParent.has(id))
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => a.localeCompare(b, "en"));
 
   const visit = (id: string, prefix: string, depth: number, isLast: boolean, isRoot: boolean): void => {
     if (visited.has(id)) return;
@@ -124,7 +124,7 @@ export function buildStepTree(
   // Steps in state but not reachable from the graph (defensive).
   const remaining = [...state.steps.keys()]
     .filter((id) => !visited.has(id))
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => a.localeCompare(b, "en"));
   for (const id of remaining) {
     rows.push({ stepId: id, prefix: "", depth: 0 });
   }

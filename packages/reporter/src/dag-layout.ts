@@ -58,7 +58,7 @@ function processNeighbor(
   inDegree.set(neighbor, deg);
   if (deg === 0 && !processed.has(neighbor)) {
     queue.push(neighbor);
-    queue.sort((a, b) => a.localeCompare(b));
+    queue.sort((a, b) => a.localeCompare(b, "en"));
   }
 }
 
@@ -75,7 +75,7 @@ function computeLayers(
   for (const [id, deg] of inDegree) {
     if (deg === 0) queue.push(id);
   }
-  queue.sort((a, b) => a.localeCompare(b));
+  queue.sort((a, b) => a.localeCompare(b, "en"));
 
   const processed = new Set<string>();
   while (queue.length > 0) {
@@ -105,7 +105,7 @@ function groupByLayer(layer: Map<string, number>): Map<number, string[]> {
     group.push(id);
   }
   for (const group of byLayer.values()) {
-    group.sort((a, b) => a.localeCompare(b));
+    group.sort((a, b) => a.localeCompare(b, "en"));
   }
   return byLayer;
 }
@@ -122,7 +122,7 @@ function assignPositions(
       nodes.push({ id, label: id, x: l * spacingX, y: index * spacingY, layer: l });
     });
   }
-  nodes.sort((a, b) => a.layer - b.layer || a.y - b.y || a.id.localeCompare(b.id));
+  nodes.sort((a, b) => a.layer - b.layer || a.y - b.y || a.id.localeCompare(b.id, "en"));
   return nodes;
 }
 

@@ -87,12 +87,13 @@ export async function runCommand(
     await (renderer as { waitUntilExit(): Promise<void> }).waitUntilExit();
   }
 
-  writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output, evalResult);
-
-  // When --evaluate is set, policy exit code takes precedence
+  // When --evaluate fails (e.g. collection error), the error was already
+  // written in the requested format — skip normal output and return.
   if (evaluate && policyExitCode !== 0) {
     return policyExitCode;
   }
+
+  writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output, evalResult);
 
   return exitCodeForStatus(runStatus);
 }

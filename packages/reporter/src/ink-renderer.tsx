@@ -250,8 +250,8 @@ function TuiApp({ store }: Readonly<{ store: TuiStore }>) {
         );
       })}
 
-      {detailsLines.map((l, i) => (
-        <Text key={`d-${l.slice(0, 20)}`} color="gray" wrap="truncate">
+      {detailsLines.map((l) => (
+        <Text key={`d-${l}`} color="gray" wrap="truncate">
           {l.slice(0, maxWidth)}
         </Text>
       ))}
