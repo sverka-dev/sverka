@@ -148,6 +148,21 @@
         "react": ">=18",
       },
     },
+    "packages/sarif-viewer-web": {
+      "name": "@sverka/sarif-viewer-web",
+      "version": "0.1.0",
+      "bin": {
+        "sarif-viewer-web": "./dist/bin.mjs",
+      },
+      "dependencies": {
+        "@sverka/verification": "workspace:*",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^4.1.11",
+      },
+    },
     "packages/sdk": {
       "name": "@sverka/sdk",
       "version": "0.1.0",
@@ -420,6 +435,8 @@
     "@sverka/runtime": ["@sverka/runtime@workspace:packages/runtime"],
 
     "@sverka/sarif-viewer-tui": ["@sverka/sarif-viewer-tui@workspace:packages/sarif-viewer-tui"],
+
+    "@sverka/sarif-viewer-web": ["@sverka/sarif-viewer-web@workspace:packages/sarif-viewer-web"],
 
     "@sverka/sdk": ["@sverka/sdk@workspace:packages/sdk"],
 
