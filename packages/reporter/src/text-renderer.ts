@@ -1,8 +1,7 @@
 // @sverka/reporter — TextRenderer (I/O). Spec 43.
 
 import type { RunEvent } from "@sverka/runtime";
-import type { Finding } from "@sverka/verification";
-import type { PolicyResult } from "@sverka/verification";
+import type { Finding, PolicyResult } from "@sverka/verification";
 import type { Renderer, UIState, TextRendererOptions, TextWriter } from "./types.js";
 import { createInitialState, reduceEvent } from "./reducer.js";
 

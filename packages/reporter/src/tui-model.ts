@@ -75,7 +75,9 @@ export function buildStepTree(
         list = [];
         children.set(dep.producer, list);
       }
-      list.push(step.id);
+      if (!list.includes(step.id)) {
+        list.push(step.id);
+      }
       hasParent.add(step.id);
     }
   }

@@ -162,6 +162,7 @@ function generateHtml(
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/reactflow@11/dist/reactflow.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/reactflow@11/dist/style.css">
   <script>${JS}</script>
 </body>
 </html>`;
@@ -331,6 +332,11 @@ details summary { cursor: pointer; font-size: 0.875rem; }
 
 const JS = `
 (function() {
+  function esc(text) {
+    var d = document.createElement("div");
+    d.textContent = text == null ? "" : String(text);
+    return d.innerHTML;
+  }
   // Findings filter/sort/search
   var findingsData = window.__FINDINGS_DATA__ || [];
   var currentFilter = "all";
@@ -361,12 +367,12 @@ const JS = `
       return;
     }
     tbody.innerHTML = filtered.map(function(f) {
-      return '<tr data-severity="' + f.severity + '">' +
-        '<td class="severity-' + f.severity + '">' + f.severity + '</td>' +
-        '<td>' + f.checkId + '</td>' +
-        '<td>' + f.file + '</td>' +
-        '<td>' + f.startLine + '</td>' +
-        '<td>' + f.message + '</td>' +
+      return '<tr data-severity="' + esc(f.severity) + '">' +
+        '<td class="severity-' + esc(f.severity) + '">' + esc(f.severity) + '</td>' +
+        '<td>' + esc(f.checkId) + '</td>' +
+        '<td>' + esc(f.file) + '</td>' +
+        '<td>' + esc(f.startLine) + '</td>' +
+        '<td>' + esc(f.message) + '</td>' +
         '</tr>';
     }).join("");
   }
@@ -420,9 +426,9 @@ const JS = `
         data: { label: n.label }
       };
     });
-    var edges = dagData.edges.map(function(e) {
+    var edges = dagData.edges.map(function(e, i) {
       return {
-        id: e.source + "-" + e.target,
+        id: e.source + "-" + e.target + "-" + i,
         source: e.source,
         target: e.target,
         label: e.label || "",

@@ -1,7 +1,7 @@
 // @sverka/reporter — FindingsCollector (I/O). Spec 43.
 
-import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { readdir, readFile, lstat } from "node:fs/promises";
+import { join, relative, sep, resolve } from "node:path";
 import { normalizeSarif } from "@sverka/verification";
 import type { SarifLog } from "@sverka/verification";
 import type { FindingsCollectorOptions, FindingRow } from "./types.js";
@@ -12,9 +12,10 @@ export async function collectFindings(
   options: FindingsCollectorOptions,
 ): Promise<readonly FindingRow[]> {
   const { artifactDir } = options;
+  const root = resolve(artifactDir);
   let entries: readonly string[];
   try {
-    entries = await readdir(artifactDir);
+    entries = await readdir(root);
   } catch {
     return [];
   }
@@ -22,10 +23,10 @@ export async function collectFindings(
   const rows: FindingRow[] = [];
 
   for (const entry of entries) {
-    const entryPath = join(artifactDir, entry);
+    const entryPath = join(root, entry);
     let isDir: boolean;
     try {
-      isDir = (await stat(entryPath)).isDirectory();
+      isDir = (await lstat(entryPath)).isDirectory();
     } catch {
       continue;
     }
@@ -34,7 +35,7 @@ export async function collectFindings(
 
     // Recursively find .sarif files under this entry; stepId is the
     // relative path from artifactDir to the directory containing the file.
-    await scanDir(entryPath, artifactDir, rows);
+    await scanDir(entryPath, root, rows);
   }
 
   return rows;
@@ -56,8 +57,13 @@ async function scanDir(
     const entryPath = join(dir, entry);
     let isDir: boolean;
     try {
-      isDir = (await stat(entryPath)).isDirectory();
+      isDir = (await lstat(entryPath)).isDirectory();
     } catch {
+      continue;
+    }
+
+    // Prevent traversal outside artifactDir via symlink or ../
+    if (!entryPath.startsWith(artifactDir + sep) && entryPath !== artifactDir) {
       continue;
     }
 

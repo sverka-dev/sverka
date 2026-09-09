@@ -12,7 +12,8 @@ import type { CommandAllowlist } from "@sverka/runtime";
 import { createDockerDriver } from "@sverka/runtime";
 import { bindRunPlan } from "@sverka/sdk";
 import { createTextRenderer, createHtmlRenderer, createInkRenderer, collectFindings, evaluateGate } from "@sverka/reporter";
-import type { Renderer } from "@sverka/reporter";
+import { ReporterError } from "@sverka/reporter";
+import type { Renderer, FindingRow } from "@sverka/reporter";
 import type { Finding } from "@sverka/verification";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
@@ -209,11 +210,23 @@ async function consumeEvents(
 async function runEvaluation(
   artifactDir: string,
   _global: GlobalFlags,
-  _output: OutputWriter,
+  output: OutputWriter,
   _events: readonly RunEvent[],
   renderer: Renderer | null,
 ): Promise<{ exitCode: number; summary: { findings: readonly Finding[]; verdict: string; summary: string } | null }> {
-  const rows = await collectFindings({ artifactDir });
+  let rows: readonly FindingRow[];
+  try {
+    rows = await collectFindings({ artifactDir });
+  } catch (e) {
+    if (e instanceof ReporterError) {
+      output.writeLine(`Collection failed: ${e.message}`);
+      return {
+        exitCode: ExitCode.RuntimeError,
+        summary: null,
+      };
+    }
+    throw e;
+  }
   const findings = rows.map((r) => r.finding);
 
   const { result, exitCode } = evaluateGate({ findings });

@@ -81,7 +81,7 @@ export function reduceEvent(state: UIState, event: RunEvent): UIState {
       return { ...state, status: "suspended", durationMs: event.durationMs };
 
     case "run-resumed":
-      return { ...state, status: null };
+      return { ...state, status: null, durationMs: null };
 
     case "diagnostic": {
       const entry: DiagnosticEntry = {

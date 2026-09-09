@@ -127,7 +127,8 @@ class TuiStore {
     } else if (input === "d") {
       this.details = !this.details;
     } else if (input === "j" || key.downArrow) {
-      this.selected += 1;
+      const max = Math.max(0, buildStepTree(this.graph, this.state).length - 1);
+      this.selected = Math.min(max, this.selected + 1);
     } else if (input === "k" || key.upArrow) {
       this.selected = Math.max(0, this.selected - 1);
     } else {
