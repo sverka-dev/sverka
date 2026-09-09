@@ -11,8 +11,7 @@ import { createHostDriver } from "@sverka/runtime";
 import type { CommandAllowlist } from "@sverka/runtime";
 import { createDockerDriver } from "@sverka/runtime";
 import { bindRunPlan } from "@sverka/sdk";
-import { createTextRenderer, createHtmlRenderer, createInkRenderer, collectFindings, evaluateGate } from "@sverka/reporter";
-import { ReporterError } from "@sverka/reporter";
+import { createTextRenderer, createHtmlRenderer, createInkRenderer, collectFindings, evaluateGate, ReporterError } from "@sverka/reporter";
 import type { Renderer, FindingRow } from "@sverka/reporter";
 import type { Finding } from "@sverka/verification";
 import type { GlobalFlags, OutputWriter } from "../types.js";
@@ -66,7 +65,7 @@ export async function runCommand(
   });
 
   const { events, runStatus, renderer } = await consumeEvents(
-    engine, plan, workspace, artifactDir, global, output, graph, args,
+    engine, plan, { workspace, artifactDir }, global, output, graph, args,
   );
 
   const durationMs = Date.now() - start;
@@ -156,11 +155,15 @@ function buildDrivers(executor: "host" | "docker"): RuntimeDriver[] {
   return drivers;
 }
 
+interface RunContext {
+  workspace: string;
+  artifactDir: string;
+}
+
 async function consumeEvents(
   engine: ReturnType<typeof createEngine>,
   plan: ReturnType<typeof bindRunPlan>,
-  workspace: string,
-  artifactDir: string,
+  ctx: RunContext,
   global: GlobalFlags,
   output: OutputWriter,
   graph: DefinitionGraph,
@@ -196,7 +199,7 @@ async function consumeEvents(
     renderer = createHtmlRenderer({ outputPath, graph });
   }
 
-  for await (const event of engine.run({ plan, workspace, artifactDir })) {
+  for await (const event of engine.run({ plan, workspace: ctx.workspace, artifactDir: ctx.artifactDir })) {
     events.push(event);
     renderer?.onEvent(event);
     if ((event as { type: string }).type === "run-completed") {

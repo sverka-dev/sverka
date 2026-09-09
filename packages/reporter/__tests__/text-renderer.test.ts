@@ -136,7 +136,7 @@ describe("TextRenderer", () => {
     renderer.onEvent(stepSucceeded("ci/lint", 100));
     const beforeFlush = writer.lines.length;
     renderer.flush();
-    expect(writer.lines.length).toBe(beforeFlush);
+    expect(writer.lines).toHaveLength(beforeFlush);
   });
 
   it("onVerdict without onFindings is ignored", () => {

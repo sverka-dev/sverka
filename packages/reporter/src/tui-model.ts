@@ -55,7 +55,7 @@ export function buildStepTree(
   const visited = new Set<string>();
 
   if (!graph) {
-    const ids = [...state.steps.keys()].sort();
+    const ids = [...state.steps.keys()].sort((a, b) => a.localeCompare(b));
     for (const id of ids) {
       rows.push({ stepId: id, prefix: "", depth: 0 });
     }
@@ -82,21 +82,18 @@ export function buildStepTree(
       hasParent.add(step.id);
     }
   }
-  for (const list of children.values()) list.sort();
+  for (const list of children.values()) list.sort((a, b) => a.localeCompare(b));
 
   const roots = steps
     .map((s) => s.id)
     .filter((id) => !hasParent.has(id))
-    .sort();
+    .sort((a, b) => a.localeCompare(b));
 
   const visit = (id: string, prefix: string, depth: number, isLast: boolean, isRoot: boolean): void => {
     if (visited.has(id)) return;
     visited.add(id);
-    rows.push({
-      stepId: id,
-      prefix: isRoot ? "" : prefix + (isLast ? "└─ " : "├─ "),
-      depth,
-    });
+    const connector = isRoot ? "" : prefix + (isLast ? "└─ " : "├─ ");
+    rows.push({ stepId: id, prefix: connector, depth });
     const kids = children.get(id) ?? [];
     const childPrefix = isRoot ? "" : prefix + (isLast ? "   " : "│  ");
     kids.forEach((kid, i) => {
@@ -109,7 +106,7 @@ export function buildStepTree(
   // Steps in state but not reachable from the graph (defensive).
   const remaining = [...state.steps.keys()]
     .filter((id) => !visited.has(id))
-    .sort();
+    .sort((a, b) => a.localeCompare(b));
   for (const id of remaining) {
     rows.push({ stepId: id, prefix: "", depth: 0 });
   }

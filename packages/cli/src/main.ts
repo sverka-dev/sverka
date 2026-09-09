@@ -24,7 +24,7 @@ export interface MainDeps {
 
 /** Build GlobalFlags from parsed yargs options. */
 function buildGlobalFlags(parsed: Arguments): GlobalFlags {
-  const format = parsed.format === "json" ? "json" : parsed.format === "html" ? "html" : "text";
+  const format = resolveFormat(parsed.format);
   return {
     format,
     config: typeof parsed.config === "string" ? parsed.config : null,
@@ -32,6 +32,13 @@ function buildGlobalFlags(parsed: Arguments): GlobalFlags {
     quiet: Boolean(parsed.quiet),
     verbose: Boolean(parsed.verbose),
   };
+}
+
+/** Resolve the format string from parsed yargs. */
+function resolveFormat(format: unknown): "text" | "json" | "html" {
+  if (format === "json") return "json";
+  if (format === "html") return "html";
+  return "text";
 }
 
 /** Resolve the real output writer, wrapping injected writers with flag semantics. */

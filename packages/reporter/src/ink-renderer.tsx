@@ -150,7 +150,32 @@ function stepStatusText(step: { state: string; durationMs?: number; attempt?: nu
   return parts.join(" ");
 }
 
-function TuiApp({ store }: { store: TuiStore }) {
+/** Render the search indicator based on store state. */
+function renderSearchIndicator(store: TuiStore): string {
+  if (store.searching) return `  /${store.search}▏`;
+  if (store.search) return `  /${store.search}`;
+  return "";
+}
+
+/** Map a severity to a color prop object. */
+function severityColor(severity: string): { color?: string } {
+  if (severity === "high" || severity === "critical") return { color: "red" };
+  if (severity === "medium") return { color: "yellow" };
+  return {};
+}
+
+/** Render the footer status line based on store state. */
+function renderFooterStatus(store: TuiStore): string {
+  if (store.verdict) {
+    return `Policy: ${store.verdict.verdict.toUpperCase()} — ${store.verdict.summary}`;
+  }
+  if (store.done) {
+    return `run ${store.state.status ?? "finished"}`;
+  }
+  return "running…";
+}
+
+function TuiApp({ store }: Readonly<{ store: TuiStore }>) {
   useSyncExternalStore(store.subscribe, store.getVersion);
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -226,7 +251,7 @@ function TuiApp({ store }: { store: TuiStore }) {
       })}
 
       {detailsLines.map((l, i) => (
-        <Text key={`d${i}`} color="gray" wrap="truncate">
+        <Text key={`d-${l.slice(0, 20)}`} color="gray" wrap="truncate">
           {l.slice(0, maxWidth)}
         </Text>
       ))}
@@ -239,17 +264,13 @@ function TuiApp({ store }: { store: TuiStore }) {
           </Text>
         ))}
         {`  (${findings.length})`}
-        {store.searching ? `  /${store.search}▏` : store.search ? `  /${store.search}` : ""}
+        {renderSearchIndicator(store)}
       </Text>
 
       {findingRows.map((f) => (
         <Text
           key={f.id}
-          {...(f.severity === "high" || f.severity === "critical"
-            ? { color: "red" }
-            : f.severity === "medium"
-              ? { color: "yellow" }
-              : {})}
+          {...severityColor(f.severity)}
           wrap="truncate"
         >
           {`  ${f.severity.padEnd(8)} ${f.checkId}  ${f.file}:${f.startLine}  ${f.message}`.slice(0, maxWidth)}
@@ -257,11 +278,7 @@ function TuiApp({ store }: { store: TuiStore }) {
       ))}
 
       <Text>
-        {store.verdict
-          ? `Policy: ${store.verdict.verdict.toUpperCase()} — ${store.verdict.summary}`
-          : store.done
-            ? `run ${store.state.status ?? "finished"}`
-            : "running…"}
+        {renderFooterStatus(store)}
         {"   "}
         <Text color="gray">q quit · j/k scroll · / search · f filter · d details</Text>
       </Text>

@@ -172,8 +172,9 @@ describe("InkRenderer", () => {
     const { renderer, stdout, stdin } = mount();
     renderer.onEvent(runStarted("r1", "plan-1"));
     renderer.onEvent(stepPending("ci/lint"));
-    await waitFor(stdout, "ci/lint");
-    await waitFor(stdout, "plan-1");
+    const frame = await waitFor(stdout, "ci/lint");
+    expect(frame).toContain("ci/lint");
+    expect(frame).toContain("plan-1");
     await quit(stdin, renderer);
   });
 
@@ -183,8 +184,9 @@ describe("InkRenderer", () => {
     renderer.onFindings([
       makeFinding({ message: "unique-msg-xyz", file: "src/a.ts" }),
     ]);
-    await waitFor(stdout, "unique-msg-xyz");
-    await waitFor(stdout, "src/a.ts");
+    const frame = await waitFor(stdout, "unique-msg-xyz");
+    expect(frame).toContain("unique-msg-xyz");
+    expect(frame).toContain("src/a.ts");
     await quit(stdin, renderer);
   });
 
@@ -202,13 +204,15 @@ describe("InkRenderer", () => {
     const a = mount();
     a.renderer.onEvent(runStarted("r1", "p"));
     a.renderer.onVerdict(FAIL);
-    await waitFor(a.stdout, "Policy: FAIL");
+    const failFrame = await waitFor(a.stdout, "Policy: FAIL");
+    expect(failFrame).toContain("FAIL");
     await quit(a.stdin, a.renderer);
 
     const b = mount();
     b.renderer.onEvent(runStarted("r2", "p"));
     b.renderer.onVerdict(PASS);
-    await waitFor(b.stdout, "Policy: PASS");
+    const passFrame = await waitFor(b.stdout, "Policy: PASS");
+    expect(passFrame).toContain("PASS");
     await quit(b.stdin, b.renderer);
   });
 

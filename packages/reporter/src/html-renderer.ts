@@ -2,7 +2,6 @@
 
 import type { RunEvent } from "@sverka/runtime";
 import type { Finding, PolicyResult } from "@sverka/verification";
-import type { DefinitionGraph } from "@sverka/workflow";
 import type { Renderer, UIState, HtmlRendererOptions } from "./types.js";
 import { createInitialState, reduceEvent } from "./reducer.js";
 import { layoutDag } from "./dag-layout.js";
@@ -232,14 +231,14 @@ function renderVerdict(verdict: PolicyResult | null): string {
 
 function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, "\u0026amp;")
-    .replace(/</g, "\u0026lt;")
-    .replace(/>/g, "\u0026gt;")
-    .replace(/"/g, "\u0026quot;")
-    .replace(/'/g, "\u0026#39;");
+    .replaceAll("&", "\u0026amp;")
+    .replaceAll("<", "\u0026lt;")
+    .replaceAll(">", "\u0026gt;")
+    .replaceAll("\"", "\u0026quot;")
+    .replaceAll("'", "\u0026#39;");
 }
 
-const CSS = `
+const CSS = String.raw`
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
 body {
@@ -301,8 +300,8 @@ table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #21262d; }
 th { color: #8b949e; font-weight: 600; cursor: pointer; user-select: none; }
 th.sortable:hover { color: #f0f6fc; }
-th.sort-asc::after { content: " \\2191"; }
-th.sort-desc::after { content: " \\2193"; }
+th.sort-asc::after { content: " \2191"; }
+th.sort-desc::after { content: " \2193"; }
 .severity-critical { color: #f85149; font-weight: 600; }
 .severity-high { color: #f85149; }
 .severity-medium { color: #d29922; }
