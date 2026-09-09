@@ -82,7 +82,7 @@ describe("main — global flags", () => {
     expect(parsed.data.path).toBe(join(dir, "sverka.config.ts"));
   });
 
-  it("--format human produces human-readable output", async () => {
+  it("--format text produces text-readable output", async () => {
     const out = new CaptureWriter();
     await main(["init", "--root", dir], { output: out });
     expect(out.stdoutText).toContain("Created");
@@ -90,7 +90,7 @@ describe("main — global flags", () => {
     expect(() => JSON.parse(out.stdoutText.trim())).toThrow();
   });
 
-  it("--quiet suppresses non-error stdout (human format)", async () => {
+  it("--quiet suppresses non-error stdout (text format)", async () => {
     const out = new CaptureWriter();
     const code = await main(["init", "--quiet", "--root", dir], {
       output: out,

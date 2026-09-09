@@ -26,7 +26,7 @@ describe("plan command", () => {
     await cleanupTempDir(dir);
   });
 
-  it("prints the run plan in human format", async () => {
+  it("prints the run plan in text format", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
     const code = await main(["plan", "--root", dir], { output: out });

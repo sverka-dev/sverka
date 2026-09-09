@@ -2,8 +2,8 @@
 
 /** Global flags parsed from the command line. */
 export interface GlobalFlags {
-  /** Output format. Defaults to "human". */
-  format: "human" | "json";
+  /** Output format. Defaults to "text". */
+  format: "text" | "json" | "html";
   /** Path to sverka.config.ts. */
   config: string | null;
   /** Root directory. Defaults to process.cwd(). */

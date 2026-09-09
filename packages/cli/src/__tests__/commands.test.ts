@@ -62,7 +62,7 @@ async function runExpectingExit2(args: string[]) {
 describe("graph command", () => {
   const getDir = useTempDir();
 
-  it("prints the graph in human format", async () => {
+  it("prints the graph in text format", async () => {
     const dir = getDir();
     const { code, out } = await runWithFile(
       ["graph", "--root", dir],
@@ -203,7 +203,8 @@ describe("run command", () => {
       VALID_CONFIG,
     );
     expect(code).toBe(0);
-    expect(out.stdoutText).toContain("Run completed: success");
+    expect(out.stdoutText).toContain("run completed");
+    expect(out.stdoutText).toContain("success");
   });
 
 });

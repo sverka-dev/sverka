@@ -24,13 +24,21 @@ export interface MainDeps {
 
 /** Build GlobalFlags from parsed yargs options. */
 function buildGlobalFlags(parsed: Arguments): GlobalFlags {
+  const format = resolveFormat(parsed.format);
   return {
-    format: parsed.format === "json" ? "json" : "human",
+    format,
     config: typeof parsed.config === "string" ? parsed.config : null,
     root: typeof parsed.root === "string" ? parsed.root : process.cwd(),
     quiet: Boolean(parsed.quiet),
     verbose: Boolean(parsed.verbose),
   };
+}
+
+/** Resolve the format string from parsed yargs. */
+function resolveFormat(format: unknown): "text" | "json" | "html" {
+  if (format === "json") return "json";
+  if (format === "html") return "html";
+  return "text";
 }
 
 /** Resolve the real output writer, wrapping injected writers with flag semantics. */
@@ -65,6 +73,16 @@ function addRunCommand(y: Argv): Argv {
       type: "string",
       default: "host",
       choices: ["host", "docker"],
+    })
+    .option("evaluate", { type: "boolean", default: false })
+    .option("output", {
+      type: "string",
+      describe: "Output file path for HTML report (implies --format html)",
+    })
+    .option("tui", {
+      type: "boolean",
+      describe:
+        "Interactive terminal UI (default: on when stdout is a TTY and no --format)",
     });
 }
 
@@ -108,9 +126,8 @@ function buildParser(): Argv {
     .scriptName("sverka")
     .option("format", {
       type: "string",
-      default: "human",
       alias: "f",
-      choices: ["human", "json"],
+      choices: ["text", "json", "html"],
     })
     .option("config", { type: "string", alias: "c" })
     .option("root", { type: "string", alias: "r", default: process.cwd() })
@@ -214,8 +231,13 @@ function dispatchRun(
 ): Promise<number> {
   const args: RunArgs = {
     executor: parsed.executor === "docker" ? "docker" : "host",
+    evaluate: Boolean(parsed.evaluate),
   };
   if (typeof parsed.entry === "string") args.entryId = parsed.entry;
+  if (typeof parsed.output === "string") args.output = parsed.output;
+  if (parsed.tui === true) args.tui = true;
+  if (parsed.tui === false) args.tui = false;
+  args.formatExplicit = parsed.format !== undefined;
   return runCommand(args, global, output, start);
 }
 
@@ -267,7 +289,7 @@ export async function main(
   const output =
     deps?.output ??
     createOutputWriter(
-      { format: "human", config: null, root: process.cwd(), quiet: false, verbose: false },
+      { format: "text", config: null, root: process.cwd(), quiet: false, verbose: false },
       (s) => process.stdout.write(s),
       (s) => process.stderr.write(s),
     );

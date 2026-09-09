@@ -52,7 +52,7 @@ export class ConsoleOutputWriter implements OutputWriter {
  * underlying OutputWriter. Used to make injected test writers respect the
  * same suppression rules as the production writer.
  *
- * - `--quiet` (human format) suppresses stdout writes; JSON stdout is kept.
+ * - `--quiet` (text format) suppresses stdout writes; JSON stdout is kept.
  * - `--verbose` routes `debug()` to the underlying `errorLine()`.
  * - stderr is never suppressed.
  */
@@ -102,9 +102,9 @@ export function createOutputWriter(
   err: WriteSink,
 ): ConsoleOutputWriter {
   // In JSON format, quiet does not suppress the result stdout — only
-  // human-format non-essential output. We model this by disabling quiet
+  // text-format non-essential output. We model this by disabling quiet
   // suppression for json.
-  const effectiveQuiet = global.quiet && global.format === "human";
+  const effectiveQuiet = global.quiet && global.format === "text";
   return new ConsoleOutputWriter(out, err, effectiveQuiet, global.verbose);
 }
 
@@ -116,6 +116,6 @@ export function wrapOutputWriter(
   global: GlobalFlags,
   base: OutputWriter,
 ): OutputWriter {
-  const effectiveQuiet = global.quiet && global.format === "human";
+  const effectiveQuiet = global.quiet && global.format === "text";
   return new FlagAwareWriter(base, effectiveQuiet, global.verbose);
 }

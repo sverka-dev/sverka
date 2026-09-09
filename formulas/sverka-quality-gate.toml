@@ -1,0 +1,39 @@
+formula = "sverka-quality-gate"
+version = 1
+contract = "graph.v2"
+extends = ["sverka-wave"]
+target_required = false
+
+description = """
+Quality Gate UI wave: 3 stacked PRs building @sverka/reporter package with
+text, HTML, and ink TUI renderers for sverka run. Uses the standard
+sverka-wave formula with quality-gate-specific vars.
+"""
+
+[catalog]
+name = "sverka-quality-gate"
+description = "Build the Quality Gate UI: reporter core, HTML report, ink TUI (3 stacked PRs)."
+
+[vars.wave_prefix]
+default = "qg"
+
+[vars.wave_num]
+default = "1"
+
+[vars.wave_package]
+default = "reporter"
+
+[vars.spec_source]
+default = "engdocs/architecture/quality-gate-ui-plan.md"
+
+[vars.drain_policy]
+default = "separate"
+
+[vars.review_mode]
+default = "agent"
+
+[vars.push]
+default = "true"
+
+[vars.open_pr]
+default = "true"

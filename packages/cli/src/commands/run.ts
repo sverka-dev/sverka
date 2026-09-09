@@ -1,6 +1,7 @@
 // run command — execute Run Plan through native engine.
 // Spec 17 — §30.
 
+import process from "node:process";
 import { join } from "node:path";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { RuntimeDriver } from "@sverka/runtime";
@@ -10,6 +11,9 @@ import { createHostDriver } from "@sverka/runtime";
 import type { CommandAllowlist } from "@sverka/runtime";
 import { createDockerDriver } from "@sverka/runtime";
 import { bindRunPlan } from "@sverka/sdk";
+import { createTextRenderer, createHtmlRenderer, createInkRenderer, collectFindings, evaluateGate, ReporterError } from "@sverka/reporter";
+import type { Renderer, FindingRow } from "@sverka/reporter";
+import type { Finding } from "@sverka/verification";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";
@@ -19,6 +23,12 @@ import { isBinaryAvailable } from "../internal/runtime-check.js";
 export interface RunArgs {
   entryId?: string;
   executor?: "host" | "docker";
+  evaluate?: boolean;
+  output?: string;
+  /** Force TUI on (true) or off (false); undefined = auto-detect TTY. */
+  tui?: boolean;
+  /** Whether --format was passed explicitly (disables TUI auto-detect). */
+  formatExplicit?: boolean;
 }
 
 /**
@@ -31,7 +41,10 @@ export async function runCommand(
   start: number,
 ): Promise<number> {
   const executor = args.executor ?? "host";
-  output.debug(`run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"}`);
+  // --format html or --output implies --evaluate
+  const isHtml = global.format === "html" || args.output !== undefined;
+  const evaluate = args.evaluate || isHtml;
+  output.debug(`run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"} format=${global.format}`);
 
   assertExecutorAvailable(executor);
 
@@ -51,10 +64,43 @@ export async function runCommand(
     maxConcurrent: 4,
   });
 
-  const { events, runStatus } = await consumeEvents(engine, plan, workspace, artifactDir, global, output);
+  const { events, runStatus, renderer } = await consumeEvents(
+    engine, plan, { workspace, artifactDir }, global, output, graph, args,
+  );
 
   const durationMs = Date.now() - start;
-  writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output);
+
+  // If --evaluate (or --format html), collect findings and run policy gate
+  let policyExitCode = 0;
+  let evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null = null;
+  let collectionFailed = false;
+  if (evaluate) {
+    const result = await runEvaluation(artifactDir, global, output, events, renderer);
+    policyExitCode = result.exitCode;
+    evalResult = result.summary;
+    collectionFailed = result.summary === null && result.exitCode === ExitCode.RuntimeError;
+  }
+
+  // Flush the renderer (HtmlRenderer writes the file on flush)
+  renderer?.flush();
+
+  // Interactive renderers stay mounted until the user quits (q / Ctrl+C).
+  if (renderer && "waitUntilExit" in renderer) {
+    await (renderer as { waitUntilExit(): Promise<void> }).waitUntilExit();
+  }
+
+  // When --evaluate fails with a collection error, the error was already
+  // written in the requested format — skip normal output and return.
+  if (collectionFailed) {
+    return policyExitCode;
+  }
+
+  writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output, evalResult);
+
+  // When --evaluate is set, policy exit code takes precedence
+  if (evaluate && policyExitCode !== 0) {
+    return policyExitCode;
+  }
 
   return exitCodeForStatus(runStatus);
 }
@@ -117,28 +163,104 @@ function buildDrivers(executor: "host" | "docker"): RuntimeDriver[] {
   return drivers;
 }
 
+interface RunContext {
+  workspace: string;
+  artifactDir: string;
+}
+
 async function consumeEvents(
   engine: ReturnType<typeof createEngine>,
   plan: ReturnType<typeof bindRunPlan>,
-  workspace: string,
-  artifactDir: string,
+  ctx: RunContext,
   global: GlobalFlags,
   output: OutputWriter,
-): Promise<{ events: RunEvent[]; runStatus: string }> {
+  graph: DefinitionGraph,
+  args: RunArgs,
+): Promise<{ events: RunEvent[]; runStatus: string; renderer: Renderer | null }> {
   const events: RunEvent[] = [];
   let runStatus = "failure";
 
-  for await (const event of engine.run({ plan, workspace, artifactDir })) {
-    events.push(event);
-    if (global.format === "human") {
-      printEvent(event, output);
+  let renderer: Renderer | null = null;
+
+  // --output flag implies HTML format
+  const isHtml = global.format === "html" || args.output !== undefined;
+
+  // TUI auto-detect: stdout TTY + no explicit --format, unless --no-tui.
+  // --tui forces it on; any explicit --format forces it off.
+  const tuiDenied = args.tui === false || args.formatExplicit === true;
+  const tuiWanted =
+    !isHtml &&
+    global.format === "text" &&
+    !tuiDenied &&
+    (args.tui === true || process.stdout.isTTY === true);
+
+  if (tuiWanted) {
+    try {
+      renderer = createInkRenderer({ graph });
+    } catch {
+      renderer = createTextRenderer({ writer: output });
     }
+  } else if (global.format === "text" && !isHtml) {
+    renderer = createTextRenderer({ writer: output });
+  } else if (isHtml) {
+    const outputPath = args.output ?? join(global.root, ".sverka", "report.html");
+    renderer = createHtmlRenderer({ outputPath, graph });
+  }
+
+  for await (const event of engine.run({ plan, workspace: ctx.workspace, artifactDir: ctx.artifactDir })) {
+    events.push(event);
+    renderer?.onEvent(event);
     if ((event as { type: string }).type === "run-completed") {
       runStatus = (event as { status: string }).status;
     }
   }
 
-  return { events, runStatus };
+  return { events, runStatus, renderer };
+}
+
+async function runEvaluation(
+  artifactDir: string,
+  global: GlobalFlags,
+  output: OutputWriter,
+  _events: readonly RunEvent[],
+  renderer: Renderer | null,
+): Promise<{ exitCode: number; summary: { findings: readonly Finding[]; verdict: string; summary: string } | null }> {
+  let rows: readonly FindingRow[];
+  try {
+    rows = await collectFindings({ artifactDir });
+  } catch (e) {
+    if (e instanceof ReporterError) {
+      if (global.format === "json") {
+        output.writeLine(JSON.stringify({
+          command: "run",
+          error: "COLLECTION_FAILED",
+          message: e.message,
+        }));
+      } else {
+        output.writeLine(`Collection failed: ${e.message}`);
+      }
+      return {
+        exitCode: ExitCode.RuntimeError,
+        summary: null,
+      };
+    }
+    throw e;
+  }
+  const findings = rows.map((r) => r.finding);
+
+  const { result, exitCode } = evaluateGate({ findings });
+
+  // Pass findings and verdict to the existing renderer (no replay)
+  if (renderer) {
+    renderer.onFindings(findings);
+    renderer.onVerdict(result);
+    renderer.flush();
+  }
+
+  return {
+    exitCode,
+    summary: { findings, verdict: result.verdict, summary: result.summary },
+  };
 }
 
 function writeRunOutput(
@@ -148,50 +270,32 @@ function writeRunOutput(
   durationMs: number,
   global: GlobalFlags,
   output: OutputWriter,
+  evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null,
 ): void {
   if (global.format === "json") {
     output.writeLine(
       JSON.stringify({
         command: "run",
-        data: { planId, status: runStatus, events: eventCount },
+        data: {
+          planId,
+          status: runStatus,
+          events: eventCount,
+          ...(evalResult ? {
+            findings: evalResult.findings.length,
+            verdict: evalResult.verdict,
+            summary: evalResult.summary,
+          } : {}),
+        },
         durationMs,
       }),
     );
-  } else {
-    output.writeLine(`Run completed: ${runStatus} (${eventCount} events, ${durationMs}ms)`);
   }
+  // Text format: renderer already printed all output including run-completed line.
+  // No additional summary needed.
 }
 
 function exitCodeForStatus(runStatus: string): ExitCode {
   if (runStatus === "success") return ExitCode.Success;
   if (runStatus === "failure") return ExitCode.PolicyFail;
   return ExitCode.RuntimeError;
-}
-
-const EVENT_LABELS: Readonly<Record<string, string>> = {
-  "run-started": "▶ run started",
-  "step-pending": "  ○ {step} pending",
-  "step-ready": "  ◇ {step} ready",
-  "step-started": "  ▶ {step} started",
-  "step-succeeded": "  ✓ {step} succeeded",
-  "step-failed": "  ✗ {step} failed",
-  "step-skipped": "  ⊘ {step} skipped",
-  "step-cancelled": "  ⊘ {step} cancelled",
-  "step-compensating": "  ↺ {step} compensating",
-  "step-compensated": "  ↺ {step} compensated: {status}",
-  "run-completed": "■ run completed: {status}",
-  "diagnostic": "  ! diagnostic",
-};
-
-function printEvent(event: RunEvent, output: OutputWriter): void {
-  const e = event as { type: string; stepId?: string; status?: string };
-  const template = EVENT_LABELS[e.type];
-  if (template === undefined) {
-    output.writeLine(`  ? ${e.type}`);
-    return;
-  }
-  const line = template
-    .replace("{step}", e.stepId ?? "")
-    .replace("{status}", e.status ?? "");
-  output.writeLine(line);
 }
