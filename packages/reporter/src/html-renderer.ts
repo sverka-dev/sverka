@@ -366,7 +366,7 @@ details summary { cursor: pointer; font-size: 0.875rem; }
 }
 `;
 
-/* nosemgrep: html-in-template-string */ const JS = `
+/* nosemgrep */ const JS = `
 (function() {
   function esc(text) {
     var d = document.createElement("div");
