@@ -230,17 +230,20 @@ describe("InkRenderer", () => {
     // f: all -> critical -> high — low finding disappears
     stdin.write("f");
     stdin.write("f");
-    await waitUntil(
+    const filteredFrame = await waitUntil(
       stdout,
       (f) => f.includes("high-one") && !f.includes("low-one"),
       4000,
       "high filter applied",
     );
+    expect(filteredFrame).toContain("high-one");
+    expect(filteredFrame).not.toContain("low-one");
 
     // j then d: select ci/b? selection moves then details pane opens
     stdin.write("j");
     stdin.write("d");
-    await waitFor(stdout, "(no details)");
+    const detailsFrame = await waitFor(stdout, "(no details)");
+    expect(detailsFrame).toContain("(no details)");
 
     // k back up then d: details for failed step show the error
     stdin.write("k");
@@ -262,12 +265,14 @@ describe("InkRenderer", () => {
 
     stdin.write("/");
     stdin.write("beta");
-    await waitUntil(
+    const searchFrame = await waitUntil(
       stdout,
       (f) => f.includes("beta-finding") && !f.includes("alpha-finding"),
       4000,
       "search narrowed findings",
     );
+    expect(searchFrame).toContain("beta-finding");
+    expect(searchFrame).not.toContain("alpha-finding");
 
     await quit(stdin, renderer);
   });

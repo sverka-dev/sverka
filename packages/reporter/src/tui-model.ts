@@ -40,6 +40,43 @@ export function stepGlyph(state: StepState): StepGlyph {
   return GLYPHS[state];
 }
 
+/** Build the tree connector prefix for a node. */
+function buildConnector(isRoot: boolean, prefix: string, isLast: boolean): string {
+  if (isRoot) return "";
+  return prefix + (isLast ? "└─ " : "├─ ");
+}
+
+/** Build the child prefix for children of a node. */
+function buildChildPrefix(isRoot: boolean, prefix: string, isLast: boolean): string {
+  if (isRoot) return "";
+  return prefix + (isLast ? "   " : "│  ");
+}
+
+/** Build children map and hasParent set from graph steps. */
+function buildChildrenMap(
+  steps: readonly { id: string; dependencies: readonly { producer: string }[] }[],
+  stepIds: Set<string>,
+): { children: Map<string, string[]>; hasParent: Set<string> } {
+  const children = new Map<string, string[]>();
+  const hasParent = new Set<string>();
+  for (const step of steps) {
+    for (const dep of step.dependencies) {
+      if (!stepIds.has(dep.producer)) continue;
+      let list = children.get(dep.producer);
+      if (!list) {
+        list = [];
+        children.set(dep.producer, list);
+      }
+      if (!list.includes(step.id)) {
+        list.push(step.id);
+      }
+      hasParent.add(step.id);
+    }
+  }
+  for (const list of children.values()) list.sort((a, b) => a.localeCompare(b));
+  return { children, hasParent };
+}
+
 /**
  * Flatten a DefinitionGraph into tree rows, roots first.
  * Pure: deterministic ordering — siblings sorted by step id.
@@ -64,25 +101,7 @@ export function buildStepTree(
 
   const steps = graph.project.pipelines.flatMap((p) => p.steps);
   const stepIds = new Set(steps.map((s) => s.id));
-
-  // children[producer] = sorted list of dependent step ids.
-  const children = new Map<string, string[]>();
-  const hasParent = new Set<string>();
-  for (const step of steps) {
-    for (const dep of step.dependencies) {
-      if (!stepIds.has(dep.producer)) continue;
-      let list = children.get(dep.producer);
-      if (!list) {
-        list = [];
-        children.set(dep.producer, list);
-      }
-      if (!list.includes(step.id)) {
-        list.push(step.id);
-      }
-      hasParent.add(step.id);
-    }
-  }
-  for (const list of children.values()) list.sort((a, b) => a.localeCompare(b));
+  const { children, hasParent } = buildChildrenMap(steps, stepIds);
 
   const roots = steps
     .map((s) => s.id)
@@ -92,10 +111,9 @@ export function buildStepTree(
   const visit = (id: string, prefix: string, depth: number, isLast: boolean, isRoot: boolean): void => {
     if (visited.has(id)) return;
     visited.add(id);
-    const connector = isRoot ? "" : prefix + (isLast ? "└─ " : "├─ ");
-    rows.push({ stepId: id, prefix: connector, depth });
+    rows.push({ stepId: id, prefix: buildConnector(isRoot, prefix, isLast), depth });
     const kids = children.get(id) ?? [];
-    const childPrefix = isRoot ? "" : prefix + (isLast ? "   " : "│  ");
+    const childPrefix = buildChildPrefix(isRoot, prefix, isLast);
     kids.forEach((kid, i) => {
       visit(kid, childPrefix, depth + 1, i === kids.length - 1, false);
     });

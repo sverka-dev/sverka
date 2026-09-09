@@ -45,7 +45,7 @@ class TuiStore {
   spinnerFrame = 0;
 
   private version = 0;
-  private listeners = new Set<() => void>();
+  private readonly listeners = new Set<() => void>();
   private onQuit: (() => void) | null = null;
 
   constructor(options: InkRendererOptions) {

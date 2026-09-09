@@ -41,10 +41,30 @@ function buildAdjList(stepIds: Set<string>, edges: readonly DagEdge[]): Map<stri
   return adjList;
 }
 
+/** Process a single neighbor: update layer and in-degree, enqueue if ready. */
+function processNeighbor(
+  neighbor: string,
+  currentLayer: number,
+  layer: Map<string, number>,
+  inDegree: Map<string, number>,
+  processed: Set<string>,
+  queue: string[],
+): void {
+  const neighborLayer = layer.get(neighbor) ?? 0;
+  if (currentLayer + 1 > neighborLayer) {
+    layer.set(neighbor, currentLayer + 1);
+  }
+  const deg = (inDegree.get(neighbor) ?? 1) - 1;
+  inDegree.set(neighbor, deg);
+  if (deg === 0 && !processed.has(neighbor)) {
+    queue.push(neighbor);
+    queue.sort((a, b) => a.localeCompare(b));
+  }
+}
+
 /** Assign layers via longest path from roots using Kahn's algorithm. */
 function computeLayers(
   stepIds: Set<string>,
-  edges: readonly DagEdge[],
   inDegree: Map<string, number>,
   adjList: Map<string, string[]>,
 ): Map<string, number> {
@@ -63,16 +83,7 @@ function computeLayers(
     processed.add(node);
     const currentLayer = layer.get(node) ?? 0;
     for (const neighbor of adjList.get(node) ?? []) {
-      const neighborLayer = layer.get(neighbor) ?? 0;
-      if (currentLayer + 1 > neighborLayer) {
-        layer.set(neighbor, currentLayer + 1);
-      }
-      const deg = (inDegree.get(neighbor) ?? 1) - 1;
-      inDegree.set(neighbor, deg);
-      if (deg === 0 && !processed.has(neighbor)) {
-        queue.push(neighbor);
-        queue.sort((a, b) => a.localeCompare(b));
-      }
+      processNeighbor(neighbor, currentLayer, layer, inDegree, processed, queue);
     }
   }
 
@@ -129,7 +140,7 @@ export function layoutDag(
   const { stepIds, edges } = buildEdges(graph);
   const inDegree = computeInDegrees(stepIds, edges);
   const adjList = buildAdjList(stepIds, edges);
-  const layer = computeLayers(stepIds, edges, inDegree, adjList);
+  const layer = computeLayers(stepIds, inDegree, adjList);
   const byLayer = groupByLayer(layer);
   const nodes = assignPositions(byLayer, spacingX, spacingY);
 
