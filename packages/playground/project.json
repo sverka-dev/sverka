@@ -1,0 +1,47 @@
+{
+  "name": "playground",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsdown",
+        "cwd": "packages/playground"
+      }
+    },
+    "build:web": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run vite build",
+        "cwd": "packages/playground"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run vite",
+        "cwd": "packages/playground"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run vitest run",
+        "cwd": "packages/playground"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run eslint src",
+        "cwd": "packages/playground"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run tsc --noEmit",
+        "cwd": "packages/playground"
+      }
+    }
+  }
+}
