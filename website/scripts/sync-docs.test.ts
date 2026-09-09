@@ -53,16 +53,23 @@ describe("sync-docs", () => {
     runSync();
     const sidebar = fs.readFileSync(path.join(websiteDir, "sidebar.generated.mjs"), "utf-8");
     expect(sidebar).toContain('"label": "User documentation"');
+    expect(sidebar).toContain('"label": "Concepts"');
+    expect(sidebar).toContain('"label": "Use Cases"');
     expect(sidebar).toContain('"label": "Getting Started"');
-    expect(sidebar).toContain('"label": "Workflows"');
     expect(sidebar).toContain('"label": "Running"');
+    expect(sidebar).toContain('"label": "Findings"');
+    expect(sidebar).toContain('"label": "Workflows"');
     expect(sidebar).toContain('"label": "Agent Integration"');
     expect(sidebar).toContain('"label": "Compiling"');
     expect(sidebar).toContain('"label": "Reference"');
     expect(sidebar).toContain('"directory": "user/getting-started"');
-    expect(sidebar.indexOf('"label": "Getting Started"')).toBeLessThan(sidebar.indexOf('"label": "Workflows"'));
-    expect(sidebar.indexOf('"label": "Workflows"')).toBeLessThan(sidebar.indexOf('"label": "Running"'));
-    expect(sidebar.indexOf('"label": "Running"')).toBeLessThan(sidebar.indexOf('"label": "Agent Integration"'));
+    expect(sidebar).toContain('"directory": "user/findings"');
+    // Section order: Concepts → Getting Started → Running → Findings → Workflows → Agent Integration → Compiling → Reference
+    expect(sidebar.indexOf('"label": "Concepts"')).toBeLessThan(sidebar.indexOf('"label": "Getting Started"'));
+    expect(sidebar.indexOf('"label": "Getting Started"')).toBeLessThan(sidebar.indexOf('"label": "Running"'));
+    expect(sidebar.indexOf('"label": "Running"')).toBeLessThan(sidebar.indexOf('"label": "Findings"'));
+    expect(sidebar.indexOf('"label": "Findings"')).toBeLessThan(sidebar.indexOf('"label": "Workflows"'));
+    expect(sidebar.indexOf('"label": "Workflows"')).toBeLessThan(sidebar.indexOf('"label": "Agent Integration"'));
     expect(sidebar.indexOf('"label": "Agent Integration"')).toBeLessThan(sidebar.indexOf('"label": "Compiling"'));
     expect(sidebar.indexOf('"label": "Compiling"')).toBeLessThan(sidebar.indexOf('"label": "Reference"'));
     // CI compatibility matrix is nested under Reference, not a top-level section

@@ -1,18 +1,19 @@
 # Sverka — User Documentation
 
-Sverka is a portable workflow runtime. Define workflows in TypeScript,
-run locally, compile anywhere. No external infrastructure required.
+Sverka is a framework for running local checks. Define checks in TypeScript,
+run them locally, get structured findings. Compile to CI when you need to.
+
+## Concepts
+
+- [Why Sverka](./concepts/) — what it solves, how it fits, design principles
+- [Use cases](./use-cases/) — local checks, CI compilation, agent orchestration, SARIF tooling
 
 ## Getting started
 
 - [Install](./getting-started/install.md) — prerequisites, `bun install`, `sverka init`
-- [First workflow](./getting-started/first-plan.md) — define, plan, execute, compile
+- [First workflow](./getting-started/first-plan.md) — define, run, view, compile
 
-## Workflows
-
-- [Overview](./workflows/overview.md) — Construct API authoring surface
-
-## Running
+## Running checks
 
 - [CLI](./running/cli.md) — all commands, global flags, exit codes
 - [Saga compensations](./running/saga.md) — automatic rollback of succeeded steps on failure
@@ -20,12 +21,20 @@ run locally, compile anywhere. No external infrastructure required.
 - [Run queries](./running/run-queries.md) — read-only snapshot of run state
 - [Snapshot storage](./running/storage.md) — persistent storage for suspend/resume snapshots
 
+## Findings & SARIF
+
+- [SARIF pipeline](./findings/sarif-pipeline.md) — serialize findings, view in TUI, generate HTML, web dashboard
+
+## Workflows
+
+- [Overview](./workflows/overview.md) — Construct API authoring surface
+
 ## Agent integration
 
 - [Skill + CLI](./agent-integration/skill-cli.md) — AI agent integration via skill and CLI
 - [MCP server](./agent-integration/mcp.md) — Sverka as an MCP server and MCP plugin client
 
-## Compiling
+## Compiling to CI
 
 - [GitHub Actions](./compiling/github.md) — compile to GitHub Actions YAML
 - [GitLab CI](./compiling/gitlab.md) — compile to GitLab CI YAML

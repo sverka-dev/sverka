@@ -1,6 +1,6 @@
 ---
 title: Sverka
-description: AI-friendly workflow runtime. Define workflows in TypeScript, run locally, compile anywhere.
+description: Run local checks with code-defined workflows. Get structured findings. Compile to CI when you need to.
 editUrl: https://github.com/sverka-dev/sverka/edit/main/website/src/content/docs/index.mdx
 sidebar:
   label: Home
@@ -9,14 +9,14 @@ banner:
   content: "⚠️ Work in progress — pre-alpha. APIs may change. Not ready for production use."
 hero:
   title: Sverka
-  tagline: AI-friendly workflow runtime. Define in TypeScript. Run locally. Compile anywhere.
+  tagline: Run local checks with code-defined workflows. Get structured findings. Compile to CI when you need to.
   actions:
     - text: Get started
       link: user/getting-started/install/
       icon: right-arrow
       variant: primary
-    - text: Agent integration
-      link: user/agent-integration/skill-cli/
+    - text: Concepts
+      link: user/concepts/
       icon: list-format
       variant: secondary
     - text: View on GitHub
@@ -30,34 +30,37 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 > **⚠️ Work in progress — pre-alpha.** Sverka is under active development and
 > not ready for production use. APIs may change without notice.
 
-Sverka is a portable workflow runtime. Define workflows as TypeScript code,
-execute them locally through a native engine, and compile the same definition
-to GitHub Actions, GitLab CI, Temporal, Dagger, or Inngest. No external
-infrastructure required — the runtime is a single process.
+Sverka is a framework for running local checks. Define your checks — lint,
+typecheck, tests, security scans — as TypeScript code. Run them locally
+through a native engine. Get structured findings back. Compile the same
+definition to GitHub Actions or GitLab CI when you need to.
 
-AI agents use Sverka through a skill or the CLI. One command replaces
-dozens of tool-call round-trips: `sverka run --entry ci --format json`
-builds the pipeline, runs everything, returns structured findings. The
-agent delegates orchestration; Sverka handles execution.
+No external infrastructure. No cloud API calls. No Temporal server. The
+runtime is a single process that executes your workflow and returns
+findings in SARIF, JSON, or HTML.
 
 ## What you get
 
 <CardGrid stagger>
-  <Card title="Run locally" icon="rocket">
-    Native engine with topological scheduling, parallel steps, artifact
-    transfer, suspend/resume, and saga compensations. Host or Docker
-    runtime. No cloud, no remote API calls, no Temporal server.
+  <Card title="Run checks locally" icon="rocket">
+    Define checks in TypeScript. Run them with a single command.
+    Topological scheduling, parallel steps, artifact transfer, and
+    suspend/resume — all in a single process. No cloud, no remote API.
   </Card>
-  <Card title="Agent-friendly" icon="seti:settings">
+  <Card title="Structured findings" icon="seti:settings">
+    Every check produces normalized findings. SARIF in, SARIF out.
+    View findings in the terminal TUI, generate HTML reports, or start
+    a local web dashboard. Policy gates enforce severity rules.
+  </Card>
+  <Card title="Agent-friendly" icon="seti:python">
     Skill + CLI with structured JSON on every command. Agents delegate
-    workflow orchestration to Sverka instead of running tools one by one.
-    Optional MCP server exposes Sverka as tools for any MCP-compatible
-    client.
+    check orchestration to Sverka instead of running tools one by one.
+    Optional MCP server exposes Sverka as tools for any MCP client.
   </Card>
-  <Card title="Compile anywhere" icon="seti:yaml">
-    Same workflow definition compiles to GitHub Actions, GitLab CI,
-    Temporal, Dagger, Inngest, or Drone. Interoperability without lock-in
-    — you define once, the compiler lowers to each target.
+  <Card title="Compile to CI" icon="seti:yaml">
+    Same workflow definition compiles to GitHub Actions or GitLab CI.
+    CI is one use case — not the only one. You define once, the compiler
+    lowers to each target. No lock-in.
   </Card>
 </CardGrid>
 
@@ -66,32 +69,58 @@ agent delegates orchestration; Sverka handles execution.
 ```ts
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 
-const proj = new Project("ci");
-const p = new Pipeline(proj, "ci");
+const proj = new Project("my-project");
+const ci = new Pipeline(proj, "checks");
 
-new ShellStep(p, "lint", { command: "bun run lint" });
-new ShellStep(p, "build", { command: "bun run build", dependsOn: ["lint"] });
-new ShellStep(p, "test", { command: "bun run test", dependsOn: ["build"] });
+new ShellStep(ci, "typecheck", { command: "bun run typecheck" });
+new ShellStep(ci, "lint",      { command: "bun run lint", dependencies: [{ kind: "control", producer: "typecheck" }] });
+new ShellStep(ci, "test",      { command: "bun run test", dependencies: [{ kind: "control", producer: "lint" }] });
 
-new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
 
 export default proj;
 ```
 
 ```text
-author → plan → run → compile
+define → run → view → compile
 ```
 
-1. **Author** — Define your workflow in TypeScript using the Construct API.
-2. **Plan** — `sverka plan` binds the Definition Graph to a Run Plan.
-3. **Run** — `sverka run` executes locally through the native engine.
-4. **Compile** — `sverka compile --target github` lowers to CI YAML.
+1. **Define** — Write your checks as TypeScript code using the Construct API.
+2. **Run** — `sverka run` executes locally. Get findings in SARIF, JSON, or HTML.
+3. **View** — `sverka view` opens an interactive TUI. `sverka ui` starts a web dashboard.
+4. **Compile** — `sverka compile --target github` lowers to CI YAML when you need it.
+
+## Quick start
+
+```bash
+# Install
+bun add -g @sverka/cli
+
+# Initialize a project
+sverka init
+
+# Run checks locally
+sverka run --evaluate
+
+# Run with SARIF output
+sverka run --format sarif
+
+# View findings in terminal
+sverka view .sverka/findings.sarif
+
+# Start web dashboard
+sverka ui
+
+# Compile to GitHub Actions
+sverka compile --target github
+```
 
 ## Start here
 
 - [Install Sverka](user/getting-started/install/) — prerequisites and setup.
-- [First workflow](user/getting-started/first-plan/) — author, plan, run, compile.
+- [Concepts](user/concepts/) — why Sverka, what it solves, how it fits.
+- [First workflow](user/getting-started/first-plan/) — define, run, view, compile.
+- [SARIF pipeline](user/findings/sarif-pipeline/) — serialize, view, and dashboard.
+- [Use cases](user/use-cases/) — local checks, CI, agent orchestration, and more.
 - [Agent integration](user/agent-integration/skill-cli/) — skill + CLI for AI agents.
-- [Benchmark results](/benchmark/) — raw shell vs Sverka CLI: 52% fewer tokens, 66% fewer tool calls.
-- [Workflow API](user/workflows/overview/) — Construct API reference.
 - [CLI reference](user/running/cli/) — all commands and flags.
