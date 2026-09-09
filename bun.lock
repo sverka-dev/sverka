@@ -59,6 +59,7 @@
         "@sverka/sarif-viewer-tui": "workspace:*",
         "@sverka/sarif-viewer-web": "workspace:*",
         "@sverka/sdk": "workspace:*",
+        "@sverka/ui": "workspace:*",
         "@sverka/verification": "workspace:*",
         "@sverka/workflow": "workspace:*",
         "yargs": "^18.1.0",
@@ -185,6 +186,19 @@
       "version": "0.1.0",
       "dependencies": {
         "@sverka/runtime": "workspace:*",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^4.1.11",
+      },
+    },
+    "packages/ui": {
+      "name": "@sverka/ui",
+      "version": "0.1.0",
+      "dependencies": {
+        "@sverka/sarif-viewer-web": "workspace:*",
+        "@sverka/verification": "workspace:*",
       },
       "devDependencies": {
         "tsdown": "^0.22.0",
@@ -443,6 +457,8 @@
     "@sverka/sdk": ["@sverka/sdk@workspace:packages/sdk"],
 
     "@sverka/storage": ["@sverka/storage@workspace:packages/storage"],
+
+    "@sverka/ui": ["@sverka/ui@workspace:packages/ui"],
 
     "@sverka/verification": ["@sverka/verification@workspace:packages/verification"],
 

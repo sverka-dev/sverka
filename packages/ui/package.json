@@ -1,12 +1,12 @@
 {
-  "name": "@sverka/cli",
+  "name": "@sverka/ui",
   "version": "0.1.0",
-  "description": "Sverka CLI — validate, plan, run, and compile workflows",
+  "description": "Sverka UI — local web dashboard for viewing SARIF findings and run results",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/sverka-dev/sverka",
-    "directory": "packages/cli"
+    "directory": "packages/ui"
   },
   "homepage": "https://sverka.dev",
   "bugs": "https://github.com/sverka-dev/sverka/issues",
@@ -23,34 +23,20 @@
       "import": "./dist/index.mjs"
     }
   },
-  "bin": {
-    "sverka": "./dist/bin.mjs"
-  },
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "tsdown",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/workflow": "workspace:*",
-    "@sverka/sdk": "workspace:*",
-    "@sverka/runtime": "workspace:*",
     "@sverka/verification": "workspace:*",
-    "@sverka/compiler": "workspace:*",
-    "@sverka/reporter": "workspace:*",
-    "@sverka/sarif-viewer-tui": "workspace:*",
-    "@sverka/sarif-viewer-web": "workspace:*",
-    "@sverka/ui": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.30.0",
-    "yargs": "^18.1.0",
-    "zod": "^4.0.0"
+    "@sverka/sarif-viewer-web": "workspace:*"
   },
   "devDependencies": {
-    "@types/yargs": "^17.0.33",
     "tsdown": "^0.22.0",
     "typescript": "^5.8.0",
     "vitest": "^4.1.11"
