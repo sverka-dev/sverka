@@ -39,6 +39,18 @@ engines:
   # ESLint v9 — rely on the repository's native eslint.config.mjs for rules.
   eslint-9:
     enabled: true
+    exclude_paths:
+      # HTML renderer uses template literals with HTML by design —
+      # "template literal looks like HTML" and "replaceAll" warnings
+      # are false positives for an HTML generator on Node 24+.
+      - "packages/reporter/src/html-renderer.ts"
+  # Lizard — complexity metrics. Exclude html-renderer.ts since
+  # generateHtml is inherently long (assembles a full HTML document)
+  # and cannot be meaningfully split further without harming readability.
+  lizard:
+    enabled: true
+    exclude_paths:
+      - "packages/reporter/src/html-renderer.ts"
 
 # Disable analysis of markdown files (we only care about code)
 languages:
