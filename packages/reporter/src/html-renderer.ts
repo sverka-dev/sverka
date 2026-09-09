@@ -159,8 +159,8 @@ function generateHtml(
   const stepsHtml = renderSteps(state);
   const findingsHtml = renderFindings(findings);
   const verdictHtml = renderVerdict(verdict);
-  const dagData = JSON.stringify(dagLayout);
-  const findingsData = JSON.stringify(findings.map((f) => ({
+  const dagData = escapeScriptData(JSON.stringify(dagLayout));
+  const findingsData = escapeScriptData(JSON.stringify(findings.map((f) => ({
     severity: f.severity,
     checkId: f.checkId,
     file: f.file,
@@ -168,7 +168,7 @@ function generateHtml(
     endLine: f.endLine,
     message: f.message,
     rule: f.rule,
-  })));
+  }))));
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -261,6 +261,12 @@ function escapeHtml(text: string): string {
     .replaceAll(">", "\u0026gt;")
     .replaceAll("\"", "\u0026quot;")
     .replaceAll("'", "\u0026#39;");
+}
+
+/** Escape JSON data for safe embedding in <script> tags.
+ * Prevents </script> breakout XSS by replacing < with \u003c. */
+function escapeScriptData(json: string): string {
+  return json.replaceAll("<", "\\u003c");
 }
 
 const CSS = String.raw`

@@ -37,29 +37,18 @@ exclude_paths:
 # Configure tools
 engines:
   # ESLint v9 — rely on the repository's native eslint.config.mjs for rules.
+  # html-renderer.ts uses template literals with HTML by design; the
+  # "template literal looks like HTML" and "replaceAll" warnings are
+  # false positives for an HTML generator on Node 24+. The file is
+  # still scanned by OpenGrep for real security issues.
   eslint-9:
     enabled: true
     exclude_paths:
-      # HTML renderer uses template literals with HTML by design —
-      # "template literal looks like HTML" and "replaceAll" warnings
-      # are false positives for an HTML generator on Node 24+.
       - "packages/reporter/src/html-renderer.ts"
   # Lizard — complexity metrics. Exclude html-renderer.ts since
   # generateHtml is inherently long (assembles a full HTML document)
   # and cannot be meaningfully split further without harming readability.
   lizard:
-    enabled: true
-    exclude_paths:
-      - "packages/reporter/src/html-renderer.ts"
-  # OpenGrep (Semgrep) — security patterns. html-renderer.ts generates
-  # HTML by design; "html-in-template-string" and "replaceAll" rules
-  # are false positives for an HTML generator on Node 24+.
-  opengrep:
-    enabled: true
-    exclude_paths:
-      - "packages/reporter/src/html-renderer.ts"
-  # Legacy semgrep engine name (Codacy migrated to opengrep in Feb 2026)
-  semgrep:
     enabled: true
     exclude_paths:
       - "packages/reporter/src/html-renderer.ts"
