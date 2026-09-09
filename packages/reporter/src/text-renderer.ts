@@ -34,73 +34,54 @@ export function createTextRenderer(options: TextRendererOptions): Renderer {
   };
 }
 
+/** Glyph + label for simple step events. */
+const STEP_GLYPHS: Record<string, string> = {
+  "step-pending": "\u25CB pending",
+  "step-ready": "\u25C7 ready",
+  "step-started": "\u25B6 running",
+  "step-skipped": "\u2298 skipped",
+  "step-cancelled": "\u2298 cancelled",
+  "step-cache-hit": "\u25D2 cache-hit",
+  "step-suspended": "\u23F8 suspended",
+  "step-compensating": "\u21BA compensating",
+};
+
 /** Print a single run event as a text line. */
 function printEvent(event: RunEvent, writer: TextWriter): void {
+  // Simple step events with glyph + label
+  const simple = STEP_GLYPHS[event.type];
+  if (simple) {
+    const stepId = (event as { stepId: string }).stepId;
+    writer.writeLine(`  ${simple.split(" ")[0]} ${stepId}  ${simple.split(" ")[1]}`);
+    return;
+  }
+
+  // Complex events with additional fields
   switch (event.type) {
     case "run-started":
       writer.writeLine(`\n\u25B6 run started (plan: ${event.planId})`);
       break;
-
-    case "step-pending":
-      writer.writeLine(`  \u25CB ${event.stepId}  pending`);
-      break;
-
-    case "step-ready":
-      writer.writeLine(`  \u25C7 ${event.stepId}  ready`);
-      break;
-
-    case "step-started":
-      writer.writeLine(`  \u25B6 ${event.stepId}  running`);
-      break;
-
     case "step-succeeded":
       writer.writeLine(`  \u2713 ${event.stepId}  succeeded (${event.durationMs}ms)`);
       break;
-
     case "step-failed":
       writer.writeLine(`  \u2717 ${event.stepId}  failed (${event.durationMs}ms) \u2014 ${event.error}`);
       break;
-
-    case "step-skipped":
-      writer.writeLine(`  \u2298 ${event.stepId}  skipped`);
-      break;
-
-    case "step-cancelled":
-      writer.writeLine(`  \u2298 ${event.stepId}  cancelled`);
-      break;
-
-    case "step-cache-hit":
-      writer.writeLine(`  \u25D2 ${event.stepId}  cache-hit`);
-      break;
-
     case "step-retry":
       writer.writeLine(`  \u21BA ${event.stepId}  retry (attempt ${event.attempt})`);
       break;
-
-    case "step-suspended":
-      writer.writeLine(`  \u23F8 ${event.stepId}  suspended`);
-      break;
-
-    case "step-compensating":
-      writer.writeLine(`  \u21BA ${event.stepId}  compensating`);
-      break;
-
     case "step-compensated":
       writer.writeLine(`  \u21BA ${event.stepId}  compensated: ${event.status}`);
       break;
-
     case "run-completed":
       writer.writeLine(`\n\u25A0 run completed: ${event.status} (${event.durationMs}ms)`);
       break;
-
     case "run-suspended":
       writer.writeLine(`\n\u25A0 run suspended (${event.durationMs}ms)`);
       break;
-
     case "run-resumed":
       writer.writeLine(`\n\u25B6 run resumed (plan: ${event.planId})`);
       break;
-
     case "diagnostic":
       writer.writeLine(`  ! ${event.stepId}: ${event.message}`);
       break;

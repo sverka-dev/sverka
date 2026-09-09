@@ -65,51 +65,31 @@ const STATUS_ICONS: Record<string, string> = {
   compensated: "\u21BA",
 };
 
-function generateHtml(
-  state: UIState,
-  findings: readonly Finding[],
-  verdict: PolicyResult | null,
-  dagLayout: { nodes: readonly { id: string; label: string; x: number; y: number; layer: number }[]; edges: readonly { source: string; target: string; label?: string }[] },
-): string {
-  const planId = state.planId ?? "unknown";
-  const status = state.status ?? "unknown";
-  const duration = state.durationMs ?? 0;
-
-  const stepsHtml = renderSteps(state);
-  const findingsHtml = renderFindings(findings);
-  const verdictHtml = renderVerdict(verdict);
-  const dagData = JSON.stringify(dagLayout);
-  const findingsData = JSON.stringify(findings.map((f) => ({
-    severity: f.severity,
-    checkId: f.checkId,
-    file: f.file,
-    startLine: f.startLine,
-    endLine: f.endLine,
-    message: f.message,
-    rule: f.rule,
-  })));
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
+/** Render the HTML head section. */
+function renderHead(): string {
+  return `<head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sverka Run Report</title>
   <style>${CSS}</style>
-</head>
-<body>
-  <header>
+</head>`;
+}
+
+/** Render the header with run summary. */
+function renderHeader(planId: string, status: string, duration: number): string {
+  return `<header>
     <h1>Sverka Run Report</h1>
     <div class="run-summary">
       <span class="label">Plan:</span> <span class="value">${escapeHtml(planId)}</span>
       <span class="label">Status:</span> <span class="value status-${escapeHtml(status)}">${escapeHtml(status)}</span>
       <span class="label">Duration:</span> <span class="value">${duration}ms</span>
     </div>
-  </header>
+  </header>`;
+}
 
-  ${verdictHtml}
-
-  <section id="dag">
+/** Render the DAG section with ReactFlow container and noscript fallback. */
+function renderDagSection(dagLayout: { nodes: readonly { id: string; label: string; x: number; y: number; layer: number }[]; edges: readonly { source: string; target: string; label?: string }[] }): string {
+  return `<section id="dag">
     <h2>Workflow DAG</h2>
     <div id="reactflow-container" style="width:100%;height:400px;"></div>
     <noscript>
@@ -118,9 +98,12 @@ function generateHtml(
         ${dagLayout.nodes.map((n) => `<li>${escapeHtml(n.label)} (layer ${n.layer}, x=${n.x}, y=${n.y})</li>`).join("\n        ")}
       </ul>
     </noscript>
-  </section>
+  </section>`;
+}
 
-  <section id="findings">
+/** Render the findings section with filter controls and table. */
+function renderFindingsSection(findingsHtml: string): string {
+  return `<section id="findings">
     <h2>Findings</h2>
     <div class="findings-controls">
       <div class="filter-buttons">
@@ -147,14 +130,12 @@ function generateHtml(
         ${findingsHtml}
       </tbody>
     </table>
-  </section>
+  </section>`;
+}
 
-  <section id="steps">
-    <h2>Steps</h2>
-    ${stepsHtml}
-  </section>
-
-  <script>
+/** Render the script tags for React, ReactFlow, and inline data. */
+function renderScripts(dagData: string, findingsData: string): string {
+  return `<script>
     var __DAG_DATA__ = ${dagData};
     var __FINDINGS_DATA__ = ${findingsData};
   </script>
@@ -162,7 +143,51 @@ function generateHtml(
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/reactflow@11/dist/reactflow.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/reactflow@11/dist/style.css">
-  <script>${JS}</script>
+  <script>${JS}</script>`;
+}
+
+function generateHtml(
+  state: UIState,
+  findings: readonly Finding[],
+  verdict: PolicyResult | null,
+  dagLayout: { nodes: readonly { id: string; label: string; x: number; y: number; layer: number }[]; edges: readonly { source: string; target: string; label?: string }[] },
+): string {
+  const planId = state.planId ?? "unknown";
+  const status = state.status ?? "unknown";
+  const duration = state.durationMs ?? 0;
+
+  const stepsHtml = renderSteps(state);
+  const findingsHtml = renderFindings(findings);
+  const verdictHtml = renderVerdict(verdict);
+  const dagData = JSON.stringify(dagLayout);
+  const findingsData = JSON.stringify(findings.map((f) => ({
+    severity: f.severity,
+    checkId: f.checkId,
+    file: f.file,
+    startLine: f.startLine,
+    endLine: f.endLine,
+    message: f.message,
+    rule: f.rule,
+  })));
+
+  return `<!DOCTYPE html>
+<html lang="en">
+${renderHead()}
+<body>
+  ${renderHeader(planId, status, duration)}
+
+  ${verdictHtml}
+
+  ${renderDagSection(dagLayout)}
+
+  ${renderFindingsSection(findingsHtml)}
+
+  <section id="steps">
+    <h2>Steps</h2>
+    ${stepsHtml}
+  </section>
+
+  ${renderScripts(dagData, findingsData)}
 </body>
 </html>`;
 }

@@ -62,21 +62,28 @@ function processNeighbor(
   }
 }
 
+/** Initialize layer map and queue with root nodes. */
+function initLayerQueue(
+  stepIds: Set<string>,
+  inDegree: Map<string, number>,
+): { layer: Map<string, number>; queue: string[] } {
+  const layer = new Map<string, number>();
+  for (const id of stepIds) layer.set(id, 0);
+  const queue: string[] = [];
+  for (const [id, deg] of inDegree) {
+    if (deg === 0) queue.push(id);
+  }
+  queue.sort((a, b) => a.localeCompare(b, "en"));
+  return { layer, queue };
+}
+
 /** Assign layers via longest path from roots using Kahn's algorithm. */
 function computeLayers(
   stepIds: Set<string>,
   inDegree: Map<string, number>,
   adjList: Map<string, string[]>,
 ): Map<string, number> {
-  const layer = new Map<string, number>();
-  for (const id of stepIds) layer.set(id, 0);
-
-  const queue: string[] = [];
-  for (const [id, deg] of inDegree) {
-    if (deg === 0) queue.push(id);
-  }
-  queue.sort((a, b) => a.localeCompare(b, "en"));
-
+  const { layer, queue } = initLayerQueue(stepIds, inDegree);
   const processed = new Set<string>();
   while (queue.length > 0) {
     const node = queue.shift()!;
@@ -86,7 +93,6 @@ function computeLayers(
       processNeighbor(neighbor, currentLayer, layer, inDegree, processed, queue);
     }
   }
-
   for (const id of stepIds) {
     if (!layer.has(id)) layer.set(id, 0);
   }
