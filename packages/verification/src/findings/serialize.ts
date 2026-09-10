@@ -57,8 +57,8 @@ export function serializeSarif(findings: readonly Finding[]): SarifLog {
   }
 
   const runs: SarifRun[] = [];
-  for (const { tool, version, findings: toolFindings } of byTool) {
-    runs.push(buildRun(tool, version, toolFindings));
+  for (const [, group] of byTool) {
+    runs.push(buildRun(group.tool, group.version, group.findings));
   }
 
   return {
