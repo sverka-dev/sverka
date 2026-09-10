@@ -44,6 +44,8 @@ export interface SarifResult {
   locations: SarifLocation[];
   partialFingerprints?: Record<string, string>;
   fingerprints?: Record<string, string>;
+  /** Custom properties. Used by Sverka to preserve original severity. */
+  properties?: Record<string, unknown>;
 }
 
 export interface SarifLocation {
@@ -164,11 +166,20 @@ interface ResultContext {
 
 /**
  * Resolve the severity for a SARIF result from its level or rule default.
+ * If `properties.sverkaSeverity` is present (written by serializeSarif),
+ * use it directly to avoid the lossy SARIF level mapping.
  */
 function resolveSeverity(
   result: SarifResult,
   rule: SarifRule | undefined,
 ): Severity {
+  const sverkaSeverity = result.properties?.sverkaSeverity;
+  if (typeof sverkaSeverity === "string") {
+    const valid: Severity[] = ["critical", "high", "medium", "low", "info"];
+    if (valid.includes(sverkaSeverity as Severity)) {
+      return sverkaSeverity as Severity;
+    }
+  }
   const level = result.level ?? rule?.defaultConfiguration?.level;
   return level ? (LEVEL_TO_SEVERITY[level] ?? "info") : "info";
 }
