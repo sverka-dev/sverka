@@ -75,11 +75,14 @@ function preprocessCode(code: string): string {
  */
 function evaluateUserCode(code: string): Project {
   const processed = preprocessCode(code);
-  const fn = new Function(
+  // Dynamic code execution is intentional for the playground sandbox.
+  // SonarCloud S1523: safe — user code runs in the browser sandbox with the
+  // same trust model as a local REPL or `node -e` (see comment above).
+  const fn = new Function( // NOSONAR — intentional dynamic evaluation in sandbox
     "Project", "Pipeline", "FunctionStep", "Entry",
     processed,
   );
-  const result = fn(Project, Pipeline, FunctionStep, Entry);
+  const result = fn(Project, Pipeline, FunctionStep, Entry); // NOSONAR
   if (!(result instanceof Project)) {
     throw new Error("Code must export a Project instance");
   }
@@ -124,6 +127,7 @@ async function loadMonaco(): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.min.js";
+    script.crossOrigin = "anonymous";
     script.onload = () => {
       // Monaco loader is available as global require
       const monacoRequire = (window as unknown as { require: (cfg: unknown, cb: (m: unknown) => void) => void }).require;
