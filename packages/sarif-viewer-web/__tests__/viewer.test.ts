@@ -78,21 +78,16 @@ describe("generateSarifHtml", () => {
 
   it("has filter buttons for all 6 severity levels", () => {
     const html = generateSarifHtml([makeFinding()]);
-    expect(html).toContain('data-severity="all"');
-    expect(html).toContain('data-severity="critical"');
-    expect(html).toContain('data-severity="high"');
-    expect(html).toContain('data-severity="medium"');
-    expect(html).toContain('data-severity="low"');
-    expect(html).toContain('data-severity="info"');
+    for (const sev of ["all", "critical", "high", "medium", "low", "info"]) {
+      expect(html).toContain(`data-severity="${sev}"`);
+    }
   });
 
   it("has sortable column headers", () => {
     const html = generateSarifHtml([makeFinding()]);
-    expect(html).toContain('data-sort="severity"');
-    expect(html).toContain('data-sort="checkId"');
-    expect(html).toContain('data-sort="file"');
-    expect(html).toContain('data-sort="rule"');
-    expect(html).toContain('data-sort="message"');
+    for (const col of ["severity", "checkId", "file", "rule", "message"]) {
+      expect(html).toContain(`data-sort="${col}"`);
+    }
   });
 
   it("has search input", () => {
