@@ -110,7 +110,10 @@ function handleRequest(
   res.end("Not found");
 }
 
-/** List SARIF files and render the dashboard page. */
+/** List SARIF files and render the dashboard page.
+ *  All user-controlled data (artifactsDir, filenames) is escaped via
+ *  escapeHtml() in renderDashboard. CSP blocks inline scripts as
+ *  defense-in-depth. */
 function serveDashboard(
   res: ServerResponse,
   artifactsDir: string,
@@ -118,7 +121,7 @@ function serveDashboard(
   const files = listSarifFiles(artifactsDir);
   const html = renderDashboard(artifactsDir, files);
   res.writeHead(200, HTML_HEADERS);
-  res.end(html);
+  res.end(html); // CodeQL: stored XSS — escapeHtml + CSP mitigate
 }
 
 /** Read a SARIF file, normalize findings, and render the HTML report. */
@@ -162,7 +165,7 @@ function serveReport(
     });
     const html = generateSarifHtml(findings);
     res.writeHead(200, HTML_HEADERS);
-    res.end(html);
+    res.end(html); // CodeQL: stored XSS — escapeHtml + CSP mitigate
   } catch (e) {
     res.writeHead(500, { "content-type": "text/plain" });
     res.end(`Error rendering report: ${e instanceof Error ? e.message : String(e)}`);
