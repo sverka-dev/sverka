@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveFindings, DEFAULT_NORMALIZE_CONTEXT } from "../src/input.js";
+import { resolveFindings } from "../src/input.js";
+import { DEFAULT_NORMALIZE_CONTEXT } from "@sverka/verification";
 import { makeFinding, makeSarif } from "./helpers/fixtures.js";
 import type { Finding } from "@sverka/verification";
 
