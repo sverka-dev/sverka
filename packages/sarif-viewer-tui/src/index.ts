@@ -23,4 +23,5 @@ export {
 } from "./filter-model.js";
 
 // Input resolution
-export { resolveFindings, DEFAULT_NORMALIZE_CONTEXT } from "./input.js";
+export { resolveFindings } from "./input.js";
+export { DEFAULT_NORMALIZE_CONTEXT } from "@sverka/verification";
