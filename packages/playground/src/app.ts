@@ -128,6 +128,7 @@ async function loadMonaco(): Promise<void> {
     const script = document.createElement("script");
     script.src = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.min.js";
     script.crossOrigin = "anonymous";
+    script.integrity = "sha384-tVClT0hDec4bpcWvHS/0jUInFR35FJlNXnR9k8H+Vj98DpbnGT3z81pNCQOM4bWo";
     script.onload = () => {
       // Monaco loader is available as global require
       const monacoRequire = (window as unknown as { require: (cfg: unknown, cb: (m: unknown) => void) => void }).require;
