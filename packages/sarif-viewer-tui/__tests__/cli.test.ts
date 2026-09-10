@@ -3,34 +3,10 @@ import { existsSync, writeFileSync, mkdtempSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { VALID_SARIF_JSON } from "@sverka/verification";
 
 const BIN_PATH = join(import.meta.dirname, "..", "dist", "bin.mjs");
 const binBuilt = existsSync(BIN_PATH);
-
-/** Minimal valid SARIF 2.1.0 with one result. */
-const VALID_SARIF = JSON.stringify({
-  version: "2.1.0",
-  runs: [
-    {
-      tool: { driver: { name: "test-tool" } },
-      results: [
-        {
-          ruleId: "test-rule",
-          level: "error",
-          message: { text: "test message" },
-          locations: [
-            {
-              physicalLocation: {
-                artifactLocation: { uri: "test.ts" },
-                region: { startLine: 1 },
-              },
-            },
-          ],
-        },
-      ],
-    },
-  ],
-});
 
 describe("sarif-viewer-tui CLI", () => {
   let dir: string;
@@ -85,7 +61,7 @@ describe("sarif-viewer-tui CLI", () => {
 
   it.skipIf(!binBuilt)("reads valid SARIF from file argument (reaches render)", () => {
     const sarifPath = join(dir, "valid.sarif");
-    writeFileSync(sarifPath, VALID_SARIF);
+    writeFileSync(sarifPath, VALID_SARIF_JSON);
     const result = spawnSync("node", [BIN_PATH, sarifPath], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -98,7 +74,7 @@ describe("sarif-viewer-tui CLI", () => {
   it.skipIf(!binBuilt)("reads valid SARIF from stdin (reaches render)", () => {
     const result = spawnSync("node", [BIN_PATH], {
       encoding: "utf8",
-      input: VALID_SARIF,
+      input: VALID_SARIF_JSON,
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 5000,
     });

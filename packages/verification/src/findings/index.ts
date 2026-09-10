@@ -16,7 +16,7 @@ export { NormalizationError, type NormalizationErrorCode,
          BaselineError, type BaselineErrorCode } from "./errors.js";
 
 // Test helpers (for use by downstream packages' tests)
-export { makeFinding, makeSarif } from "./test-helpers.js";
+export { makeFinding, makeSarif, VALID_SARIF_JSON } from "./test-helpers.js";
 
 // TUI input helpers
 export { handleSearchInput, isQuitInput, type InputKey } from "./input-helpers.js";

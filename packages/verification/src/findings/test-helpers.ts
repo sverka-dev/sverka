@@ -73,3 +73,29 @@ export function makeSarif(
     ],
   };
 }
+
+/** Minimal valid SARIF 2.1.0 JSON string with one result.
+ *  Shared by CLI integration tests across sarif-viewer-tui and sarif-viewer-web. */
+export const VALID_SARIF_JSON = JSON.stringify({
+  version: "2.1.0",
+  runs: [
+    {
+      tool: { driver: { name: "test-tool" } },
+      results: [
+        {
+          ruleId: "test-rule",
+          level: "error",
+          message: { text: "test message" },
+          locations: [
+            {
+              physicalLocation: {
+                artifactLocation: { uri: "test.ts" },
+                region: { startLine: 1 },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+});
