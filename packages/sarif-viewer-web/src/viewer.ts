@@ -135,6 +135,8 @@ th { color: #8b949e; font-weight: 600; cursor: pointer; user-select: none; }
 th.sortable:hover { color: #f0f6fc; }
 th.sort-asc::after { content: " \2191"; }
 th.sort-desc::after { content: " \2193"; }
+th.sortable button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; text-align: left; width: 100%; }
+th.sortable button:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; border-radius: 3px; }
 .severity-critical { color: #f85149; font-weight: 600; }
 .severity-high { color: #f85149; }
 .severity-medium { color: #d29922; }
@@ -181,7 +183,7 @@ const JS = `
         var va = a[sortColumn], vb = b[sortColumn];
         if (sortColumn === "severity") {
           var rank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
-          return ((rank[vb] || 0) - (rank[va] || 0)) * sortDir;
+          return ((rank[va] || 0) - (rank[vb] || 0)) * sortDir;
         }
         if (typeof va === "number" && typeof vb === "number") return (va - vb) * sortDir;
         return String(va).localeCompare(String(vb)) * sortDir;
@@ -285,11 +287,11 @@ export function generateSarifHtml(findings: readonly Finding[]): string {
     <table id="findings-table">
       <thead>
         <tr>
-          <th data-sort="severity" class="sortable">Severity</th>
-          <th data-sort="checkId" class="sortable">Check</th>
-          <th data-sort="file" class="sortable">File</th>
-          <th data-sort="rule" class="sortable">Rule</th>
-          <th data-sort="message" class="sortable">Message</th>
+          <th data-sort="severity" class="sortable"><button type="button" data-sort="severity">Severity</button></th>
+          <th data-sort="checkId" class="sortable"><button type="button" data-sort="checkId">Check</button></th>
+          <th data-sort="file" class="sortable"><button type="button" data-sort="file">File</button></th>
+          <th data-sort="rule" class="sortable"><button type="button" data-sort="rule">Rule</button></th>
+          <th data-sort="message" class="sortable"><button type="button" data-sort="message">Message</button></th>
         </tr>
       </thead>
       <tbody>

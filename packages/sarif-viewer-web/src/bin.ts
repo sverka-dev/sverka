@@ -26,7 +26,14 @@ function parseArgs(argv: string[]): { inputPath: string | null; outputPath: stri
       );
       process.exit(0);
     } else if (!arg.startsWith("-")) {
+      if (inputPath !== null) {
+        process.stderr.write("sarif-viewer-web: only one input file may be provided.\n");
+        process.exit(1);
+      }
       inputPath = arg;
+    } else {
+      process.stderr.write(`sarif-viewer-web: unknown option: ${arg}\n`);
+      process.exit(1);
     }
   }
   return { inputPath, outputPath };
@@ -39,7 +46,7 @@ function main(): void {
   try {
     if (inputPath !== null) {
       const raw = readFileSync(inputPath, "utf8");
-      const parsed = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(raw);
       findings = resolveFindings({ sarif: parsed });
     } else if (!process.stdin.isTTY) {
       const raw = readFileSync(0, "utf8");
@@ -47,7 +54,7 @@ function main(): void {
         process.stderr.write("sarif-viewer-web: stdin is empty.\n");
         process.exit(1);
       }
-      const parsed = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(raw);
       findings = resolveFindings({ sarif: parsed });
     } else {
       process.stderr.write(
