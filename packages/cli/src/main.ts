@@ -17,6 +17,7 @@ import { compileCommand, type CompileArgs } from "./commands/compile.js";
 import { mcpServerCommand } from "./commands/mcp-server.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { viewCommand, type ViewArgs } from "./commands/view.js";
+import { uiCommand, type UiArgs } from "./commands/ui.js";
 
 /** Optional dependencies for main (testability seam). */
 export interface MainDeps {
@@ -144,6 +145,21 @@ function addViewCommand(y: Argv): Argv {
     });
 }
 
+/** Configure the ui subcommand options. */
+function addUiCommand(y: Argv): Argv {
+  return y
+    .option("port", {
+      type: "number",
+      default: 3000,
+      describe: "Port to listen on",
+    })
+    .option("host", {
+      type: "string",
+      default: "localhost",
+      describe: "Host to bind",
+    });
+}
+
 function buildParser(): Argv {
   return yargs([])
     .scriptName("sverka")
@@ -169,6 +185,7 @@ function buildParser(): Argv {
     .command("mcp-server", "Expose Sverka as an MCP server (stdio)")
     .command("doctor", "Diagnose environment and dependencies")
     .command("view [file]", "View SARIF findings in TUI or generate HTML report", addViewCommand)
+    .command("ui", "Start local web dashboard server", addUiCommand)
     .demandCommand(1, "No command given")
     .strict()
     .fail((msg, err) => {
@@ -212,6 +229,8 @@ async function dispatch(
       return doctorCommand(global, output, start);
     case "view":
       return dispatchView(parsed, global, output, start);
+    case "ui":
+      return dispatchUi(parsed, global, output, start);
     default:
       throw new CliError(
         `unknown command: ${command}`,
@@ -313,6 +332,18 @@ function dispatchView(
   if (typeof parsed.file === "string") args.file = parsed.file;
   if (typeof parsed.output === "string") args.output = parsed.output;
   return viewCommand(args, global, output, start);
+}
+
+function dispatchUi(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const args: UiArgs = {};
+  if (typeof parsed.port === "number") args.port = parsed.port;
+  if (typeof parsed.host === "string") args.host = parsed.host;
+  return uiCommand(args, global, output, start);
 }
 
 /**
