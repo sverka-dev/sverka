@@ -2,30 +2,38 @@
 
 import type { Finding } from "./types.js";
 
+/** Default values for makeFinding. */
+const FINDING_DEFAULTS = {
+  fingerprint: "fp1",
+  checkId: "ci/lint",
+  severity: "high" as const,
+  confidence: 0.5,
+  message: "test finding",
+  rule: "rule-1",
+  file: "src/index.ts",
+  startLine: 10,
+  endLine: 10,
+  source: {
+    tool: "test-tool",
+    version: null,
+    format: "sarif",
+    originalRuleId: "rule-1",
+    originalSeverity: null,
+  },
+};
+
 /** Build a Finding with sensible defaults and optional overrides. */
 export function makeFinding(overrides: Partial<Finding> = {}): Finding {
-  const fingerprint = overrides.fingerprint ?? "fp1";
-  const checkId = overrides.checkId ?? "ci/lint";
-  return {
+  const fingerprint = overrides.fingerprint ?? FINDING_DEFAULTS.fingerprint;
+  const checkId = overrides.checkId ?? FINDING_DEFAULTS.checkId;
+  const base: Finding = {
+    ...FINDING_DEFAULTS,
+    ...overrides,
     id: overrides.id ?? `${checkId}:${fingerprint}`,
     fingerprint,
     checkId,
-    severity: overrides.severity ?? "high",
-    confidence: overrides.confidence ?? 0.5,
-    message: overrides.message ?? "test finding",
-    rule: overrides.rule ?? "rule-1",
-    file: overrides.file ?? "src/index.ts",
-    startLine: overrides.startLine ?? 10,
-    endLine: overrides.endLine ?? 10,
-    source: overrides.source ?? {
-      tool: "test-tool",
-      version: null,
-      format: "sarif",
-      originalRuleId: "rule-1",
-      originalSeverity: null,
-    },
-    ...overrides,
-  };
+  } as Finding;
+  return base;
 }
 
 /** A minimal valid SARIF log with one run and the given results. */

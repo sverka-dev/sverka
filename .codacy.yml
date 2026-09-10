@@ -37,21 +37,30 @@ exclude_paths:
 # Configure tools
 engines:
   # ESLint v9 — rely on the repository's native eslint.config.mjs for rules.
-  # html-renderer.ts uses template literals with HTML by design; the
+  # HTML generator files use template literals with HTML by design; the
   # "template literal looks like HTML" and "replaceAll" warnings are
-  # false positives for an HTML generator on Node 24+. The file is
+  # false positives for HTML generators on Node 24+. The files are
   # still scanned by OpenGrep for real security issues.
   eslint-9:
     enabled: true
     exclude_paths:
       - "packages/reporter/src/html-renderer.ts"
-  # Lizard — complexity metrics. Exclude html-renderer.ts since
-  # generateHtml is inherently long (assembles a full HTML document)
-  # and cannot be meaningfully split further without harming readability.
+      - "packages/sarif-viewer-web/src/viewer.ts"
+      - "packages/sarif-viewer-web/src/html-generator.ts"
+      - "packages/ui/src/dashboard.ts"
+      - "packages/playground/src/app.ts"
+  # Lizard — complexity metrics. Exclude HTML generators since
+  # generateSarifHtml/generateHtml are inherently long (assembles a full
+  # HTML document) and cannot be meaningfully split further without
+  # harming readability.
   lizard:
     enabled: true
     exclude_paths:
       - "packages/reporter/src/html-renderer.ts"
+      - "packages/sarif-viewer-web/src/viewer.ts"
+      - "packages/sarif-viewer-web/src/html-generator.ts"
+      - "packages/ui/src/dashboard.ts"
+      - "packages/playground/src/app.ts"
 
 # Disable analysis of markdown files (we only care about code)
 languages:
