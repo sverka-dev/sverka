@@ -34,7 +34,9 @@ export async function uiCommand(
     output.writeLine("Press Ctrl+C to stop.");
 
     // Keep the process alive until interrupted.
-    process.on("SIGINT", () => {
+    // Use `once` to prevent handler accumulation if uiCommand is called
+    // multiple times in the same process.
+    process.once("SIGINT", () => {
       server.close();
       process.exit(ExitCode.Success);
     });

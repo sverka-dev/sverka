@@ -1,8 +1,8 @@
 // @sverka/ui — local web dashboard server.
 
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { join, extname } from "node:path";
+import { readdirSync, readFileSync, existsSync, realpathSync } from "node:fs";
+import { join, extname, resolve, sep } from "node:path";
 import { normalizeSarif, type Finding, type SarifLog } from "@sverka/verification";
 import { generateSarifHtml } from "@sverka/sarif-viewer-web";
 import { renderDashboard } from "./dashboard.js";
@@ -22,6 +22,13 @@ export interface UiServer {
   close(): void;
 }
 
+/** Security headers for all HTML responses — defense-in-depth against XSS. */
+const HTML_HEADERS = {
+  "content-type": "text/html; charset=utf-8",
+  "content-security-policy": "default-src 'self'; script-src 'none'; style-src 'unsafe-inline'",
+  "x-content-type-options": "nosniff",
+} as const;
+
 /**
  * Start a local web dashboard server that lists SARIF files and
  * renders individual findings reports. Returns when the server is
@@ -30,19 +37,37 @@ export interface UiServer {
 export function startUiServer(options: UiServerOptions): Promise<UiServer> {
   const port = options.port ?? 3000;
   const host = options.host ?? "localhost";
-  const artifactsDir = options.artifactsDir;
+  const artifactsDir = resolve(options.artifactsDir);
 
   const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
     handleRequest(req, res, artifactsDir);
   });
 
   return new Promise((resolve, reject) => {
-    server.on("error", reject);
+    const onError = (err: Error): void => reject(err);
+    server.on("error", onError);
+
     server.listen(port, host, () => {
+      // Get the actual port (supports port 0 = ephemeral).
+      const address = server.address();
+      const actualPort = typeof address === "object" && address ? address.port : port;
+
+      // Keep the error listener active for errors after listen (e.g. ECONNRESET).
+      server.removeListener("error", onError);
+      server.on("error", () => {
+        // Swallow post-listen errors — the server is already running.
+      });
+
       resolve({
-        port,
-        url: `http://${host}:${port}`,
-        close: () => server.close(),
+        port: actualPort,
+        url: `http://${host}:${actualPort}`,
+        close: () => {
+          server.close((err) => {
+            if (err && err.code !== "ERR_SERVER_NOT_RUNNING") {
+              // Ignore — server may already be closed.
+            }
+          });
+        },
       });
     });
   });
@@ -61,7 +86,14 @@ function handleRequest(
   }
 
   if (url.startsWith("/report/")) {
-    const filename = decodeURIComponent(url.slice("/report/".length));
+    let filename: string;
+    try {
+      filename = decodeURIComponent(url.slice("/report/".length));
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("Invalid URL encoding");
+      return;
+    }
     serveReport(res, artifactsDir, filename);
     return;
   }
@@ -83,7 +115,7 @@ function serveDashboard(
 ): void {
   const files = listSarifFiles(artifactsDir);
   const html = renderDashboard(artifactsDir, files);
-  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  res.writeHead(200, HTML_HEADERS);
   res.end(html);
 }
 
@@ -101,7 +133,18 @@ function serveReport(
   }
 
   const filePath = join(artifactsDir, filename);
-  if (!existsSync(filePath)) {
+
+  // Resolve real paths and verify the file is inside artifactsDir.
+  // This also prevents symlink-based escapes.
+  try {
+    const realArtifacts = realpathSync(artifactsDir);
+    const realFile = realpathSync(filePath);
+    if (!realFile.startsWith(realArtifacts + sep) && realFile !== realArtifacts) {
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("Invalid filename");
+      return;
+    }
+  } catch {
     res.writeHead(404, { "content-type": "text/plain" });
     res.end("File not found");
     return;
@@ -116,7 +159,7 @@ function serveReport(
       defaultConfidence: 0.5,
     });
     const html = generateSarifHtml(findings);
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.writeHead(200, HTML_HEADERS);
     res.end(html);
   } catch (e) {
     res.writeHead(500, { "content-type": "text/plain" });
@@ -127,10 +170,14 @@ function serveReport(
 /** List .sarif and .sarif.json files in the artifacts directory. */
 function listSarifFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((f) => {
-      const ext = extname(f);
-      return f.endsWith(".sarif") || f.endsWith(".sarif.json");
-    })
-    .sort();
+  try {
+    return readdirSync(dir)
+      .filter((f) => {
+        const ext = extname(f);
+        return f.endsWith(".sarif") || f.endsWith(".sarif.json");
+      })
+      .sort();
+  } catch {
+    return [];
+  }
 }
