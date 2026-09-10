@@ -3,34 +3,10 @@ import { existsSync, writeFileSync, mkdtempSync, rmSync, readFileSync } from "no
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { VALID_SARIF_JSON } from "@sverka/verification";
 
 const BIN_PATH = join(import.meta.dirname, "..", "dist", "bin.mjs");
 const binBuilt = existsSync(BIN_PATH);
-
-/** Minimal valid SARIF 2.1.0 with one result. */
-const VALID_SARIF = JSON.stringify({
-  version: "2.1.0",
-  runs: [
-    {
-      tool: { driver: { name: "test-tool" } },
-      results: [
-        {
-          ruleId: "test-rule",
-          level: "error",
-          message: { text: "test message" },
-          locations: [
-            {
-              physicalLocation: {
-                artifactLocation: { uri: "test.ts" },
-                region: { startLine: 1 },
-              },
-            },
-          ],
-        },
-      ],
-    },
-  ],
-});
 
 describe("sarif-viewer-web CLI", () => {
   let dir: string;
@@ -55,7 +31,7 @@ describe("sarif-viewer-web CLI", () => {
   it.skipIf(!binBuilt)("reads SARIF from file, writes HTML to -o path", () => {
     const sarifPath = join(dir, "input.sarif");
     const outPath = join(dir, "report.html");
-    writeFileSync(sarifPath, VALID_SARIF);
+    writeFileSync(sarifPath, VALID_SARIF_JSON);
     const result = spawnSync("node", [BIN_PATH, sarifPath, "-o", outPath], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -70,7 +46,7 @@ describe("sarif-viewer-web CLI", () => {
 
   it.skipIf(!binBuilt)("defaults output to sarif-report.html when no -o", () => {
     const sarifPath = join(dir, "input.sarif");
-    writeFileSync(sarifPath, VALID_SARIF);
+    writeFileSync(sarifPath, VALID_SARIF_JSON);
     const result = spawnSync("node", [BIN_PATH, sarifPath], {
       encoding: "utf8",
       cwd: dir,
@@ -102,7 +78,7 @@ describe("sarif-viewer-web CLI", () => {
     const outPath = join(dir, "stdin-report.html");
     const result = spawnSync("node", [BIN_PATH, "-o", outPath], {
       encoding: "utf8",
-      input: VALID_SARIF,
+      input: VALID_SARIF_JSON,
       stdio: ["pipe", "pipe", "pipe"],
     });
     expect(result.status).toBe(0);
