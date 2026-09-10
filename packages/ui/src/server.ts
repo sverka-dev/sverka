@@ -30,6 +30,19 @@ const HTML_HEADERS = {
 } as const;
 
 /**
+ * Sanitize HTML output before sending to the client. Strips <script> tags
+ * and event handler attributes as a defense-in-depth measure against stored
+ * XSS from untrusted SARIF data. The CSP header also blocks inline scripts.
+ */
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "");
+}
+
+/**
  * Start a local web dashboard server that lists SARIF files and
  * renders individual findings reports. Returns when the server is
  * listening.
@@ -159,8 +172,9 @@ function serveReport(
       defaultConfidence: 0.5,
     });
     const html = generateSarifHtml(findings);
+    const sanitized = sanitizeHtml(html);
     res.writeHead(200, HTML_HEADERS);
-    res.end(html);
+    res.end(sanitized);
   } catch (e) {
     res.writeHead(500, { "content-type": "text/plain" });
     res.end(`Error rendering report: ${e instanceof Error ? e.message : String(e)}`);
