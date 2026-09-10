@@ -1,0 +1,44 @@
+formula = "sarif-viewer-wave"
+version = 1
+contract = "graph.v2"
+extends = ["sverka-wave"]
+target_required = false
+
+description = """
+SARIF viewer extraction wave: extract reusable TUI and Web viewer packages
+from @sverka/reporter. Two stacked PRs:
+  PR1: @sverka/sarif-viewer-tui (extract from ink-renderer.tsx)
+  PR2: @sverka/sarif-viewer-web (extract from html-renderer.ts, stacked on PR1)
+
+Uses the standard sverka-wave formula with viewer-extraction-specific vars.
+Mega-plan at engdocs/architecture/sarif-viewer-extraction-plan.md.
+Specs: 46-sarif-viewer-tui, 47-sarif-viewer-web.
+"""
+
+[catalog]
+name = "sarif-viewer-wave"
+description = "Extract reusable SARIF viewer packages (TUI + Web) from @sverka/reporter."
+
+[vars.wave_prefix]
+default = "sv"
+
+[vars.wave_num]
+default = "1"
+
+[vars.wave_package]
+default = "sarif-viewer-tui"
+
+[vars.spec_source]
+default = "engdocs/architecture/sarif-viewer-extraction-plan.md"
+
+[vars.drain_policy]
+default = "separate"
+
+[vars.review_mode]
+default = "agent"
+
+[vars.push]
+default = "true"
+
+[vars.open_pr]
+default = "true"

@@ -125,6 +125,29 @@
         "vitest": "^4.1.11",
       },
     },
+    "packages/sarif-viewer-tui": {
+      "name": "@sverka/sarif-viewer-tui",
+      "version": "0.1.0",
+      "bin": {
+        "sarif-viewer-tui": "./dist/bin.mjs",
+      },
+      "dependencies": {
+        "@sverka/verification": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/react": "^19",
+        "ink": "7.1.1",
+        "ink-testing-library": "4.0.0",
+        "react": "19.2.8",
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vitest": "^4.1.11",
+      },
+      "peerDependencies": {
+        "ink": ">=5",
+        "react": ">=18",
+      },
+    },
     "packages/sdk": {
       "name": "@sverka/sdk",
       "version": "0.1.0",
@@ -395,6 +418,8 @@
     "@sverka/reporter": ["@sverka/reporter@workspace:packages/reporter"],
 
     "@sverka/runtime": ["@sverka/runtime@workspace:packages/runtime"],
+
+    "@sverka/sarif-viewer-tui": ["@sverka/sarif-viewer-tui@workspace:packages/sarif-viewer-tui"],
 
     "@sverka/sdk": ["@sverka/sdk@workspace:packages/sdk"],
 

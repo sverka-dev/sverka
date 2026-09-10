@@ -77,7 +77,7 @@ const LEVEL_TO_SEVERITY: Record<string, Severity> = {
  * @throws {NormalizationError} MISSING_LOCATION — a result has no location.
  */
 export function normalizeSarif(
-  sarif: SarifLog,
+  sarif: unknown,
   context: NormalizeContext,
 ): Finding[] {
   validateSarifLog(sarif);
@@ -91,17 +91,25 @@ export function normalizeSarif(
 
 /**
  * Validate the top-level SARIF log structure.
+ * Accepts `unknown` and narrows to `SarifLog` via assertion.
  * @throws {NormalizationError} INVALID_SARIF
  */
-function validateSarifLog(sarif: SarifLog): void {
-  if (sarif.version !== "2.1.0") {
+function validateSarifLog(sarif: unknown): asserts sarif is SarifLog {
+  if (sarif === null || typeof sarif !== "object") {
     throw new NormalizationError(
-      `expected SARIF version "2.1.0", got "${String(sarif.version)}"`,
+      `expected SARIF log object, got ${sarif === null ? "null" : typeof sarif}`,
       "INVALID_SARIF",
-      { version: sarif.version },
     );
   }
-  if (!Array.isArray(sarif.runs)) {
+  const log = sarif as Record<string, unknown>;
+  if (log.version !== "2.1.0") {
+    throw new NormalizationError(
+      `expected SARIF version "2.1.0", got "${String(log.version)}"`,
+      "INVALID_SARIF",
+      { version: log.version },
+    );
+  }
+  if (!Array.isArray(log.runs)) {
     throw new NormalizationError(
       "SARIF log must have a runs array",
       "INVALID_SARIF",

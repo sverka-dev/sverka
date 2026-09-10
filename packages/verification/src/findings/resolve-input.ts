@@ -1,0 +1,68 @@
+// @sverka/verification — shared SARIF input resolution.
+
+import { readFileSync } from "node:fs";
+import process from "node:process";
+import { normalizeSarif } from "./normalize.js";
+import type { Finding, NormalizeContext } from "./types.js";
+
+/** Default NormalizeContext for `normalizeSarif`. */
+export const DEFAULT_NORMALIZE_CONTEXT: NormalizeContext = {
+  root: process.cwd(),
+  checkIdPrefix: "",
+  defaultConfidence: 0.5,
+};
+
+/** Options for resolving SARIF input into findings. */
+export interface ResolveSarifInputOptions {
+  /** Pre-parsed SARIF log (validated by normalizeSarif). */
+  readonly sarif?: unknown;
+  /** Path to a SARIF file. */
+  readonly sarifPath?: string;
+  /** Pre-resolved findings. */
+  readonly findings?: readonly Finding[];
+  /** Normalization context (defaults to DEFAULT_NORMALIZE_CONTEXT). */
+  readonly context?: NormalizeContext;
+}
+
+/**
+ * Resolve SARIF input into a `Finding[]`. Exactly one of `sarif`, `sarifPath`,
+ * `findings` must be provided.
+ *
+ * @throws {Error} when zero or more than one input is provided.
+ * @throws {NormalizationError} when SARIF is invalid (propagated).
+ * @throws {Error} when the file cannot be read or parsed.
+ */
+export function resolveSarifInput(options: ResolveSarifInputOptions): Finding[] {
+  const { sarif, sarifPath, findings, context } = options;
+  const provided = [sarif, sarifPath, findings].filter((v) => v !== undefined);
+  if (provided.length === 0) {
+    throw new Error(
+      "resolveSarifInput: provide exactly one of sarif, sarifPath, or findings",
+    );
+  }
+  if (provided.length > 1) {
+    throw new Error(
+      "resolveSarifInput: provide only one of sarif, sarifPath, or findings",
+    );
+  }
+
+  if (findings !== undefined) {
+    return [...findings];
+  }
+
+  const ctx: NormalizeContext = context ?? DEFAULT_NORMALIZE_CONTEXT;
+
+  if (sarif !== undefined) {
+    return normalizeSarif(sarif, ctx);
+  }
+
+  // sarifPath is defined (only remaining option).
+  const raw = readFileSync(sarifPath as string, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`resolveSarifInput: failed to parse SARIF JSON from ${sarifPath as string}`);
+  }
+  return normalizeSarif(parsed, ctx);
+}
