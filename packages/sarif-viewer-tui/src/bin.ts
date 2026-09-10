@@ -17,24 +17,24 @@ async function main(): Promise<void> {
 
   // Resolve findings first (handles file reading, parsing, normalization).
   // This does NOT import ink — only the render step does.
-  const options =
-    arg !== undefined
-      ? { sarifPath: arg }
-      : process.stdin.isTTY
-        ? null
-        : (() => {
-            const raw = readFileSync(0, "utf8");
-            if (raw.trim() === "") {
-              process.stderr.write("sarif-viewer-tui: stdin is empty.\n");
-              process.exit(1);
-            }
-            try {
-              return { sarif: JSON.parse(raw) };
-            } catch {
-              process.stderr.write("sarif-viewer-tui: failed to parse SARIF JSON from stdin.\n");
-              process.exit(1);
-            }
-          })();
+  let options: { sarifPath: string } | { sarif: unknown } | null;
+  if (arg !== undefined) {
+    options = { sarifPath: arg };
+  } else if (process.stdin.isTTY) {
+    options = null;
+  } else {
+    const raw = readFileSync(0, "utf8");
+    if (raw.trim() === "") {
+      process.stderr.write("sarif-viewer-tui: stdin is empty.\n");
+      process.exit(1);
+    }
+    try {
+      options = { sarif: JSON.parse(raw) };
+    } catch {
+      process.stderr.write("sarif-viewer-tui: failed to parse SARIF JSON from stdin.\n");
+      process.exit(1);
+    }
+  }
 
   if (options === null) {
     process.stderr.write(
@@ -51,13 +51,12 @@ async function main(): Promise<void> {
   await renderSarifTui({ findings });
 }
 
-main()
-  .then(() => {
-    process.exit(0);
-  })
-  .catch((e: unknown) => {
-    process.stderr.write(
-      `sarif-viewer-tui: ${e instanceof Error ? e.message : String(e)}\n`,
-    );
-    process.exit(1);
-  });
+try {
+  await main();
+  process.exit(0);
+} catch (e: unknown) {
+  process.stderr.write(
+    `sarif-viewer-tui: ${e instanceof Error ? e.message : String(e)}\n`,
+  );
+  process.exit(1);
+}

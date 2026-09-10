@@ -121,13 +121,13 @@ function renderSearchIndicator(store: TuiStore): string {
 
 /** Detail lines for the selected finding. */
 function detailsForFinding(finding: Finding): string[] {
-  const lines: string[] = [];
-  lines.push(`    rule: ${finding.rule}`);
-  lines.push(`    file: ${finding.file}`);
-  lines.push(`    lines: ${finding.startLine}–${finding.endLine}`);
-  lines.push(`    message: ${finding.message}`);
-  if (finding.helpUrl) lines.push(`    help: ${finding.helpUrl}`);
-  return lines;
+  return [
+    `    rule: ${finding.rule}`,
+    `    file: ${finding.file}`,
+    `    lines: ${finding.startLine}–${finding.endLine}`,
+    `    message: ${finding.message}`,
+    ...(finding.helpUrl ? [`    help: ${finding.helpUrl}`] : []),
+  ];
 }
 
 /** The standalone SARIF viewer Ink component. */
