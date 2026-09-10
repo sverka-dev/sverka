@@ -24,7 +24,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "dist-web",
+    "index.html"
   ],
   "scripts": {
     "build": "tsdown",

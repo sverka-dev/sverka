@@ -107,6 +107,9 @@
       <iframe id="findings-frame" title="Findings"></iframe>
     </div>
   </div>
+  <!-- Monaco editor loaded from CDN at runtime (see app.ts).
+       This is an external network dependency. For offline use, bundle
+       monaco-editor locally via vite instead of the CDN loader. -->
   <script type="module" src="/src/app.ts"></script>
 </body>
 </html>

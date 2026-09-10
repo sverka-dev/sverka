@@ -35,7 +35,23 @@ new Entry(checks, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
 export default proj;
 `;
 
-/** Strip import/export statements from user code for eval. */
+/** Escape HTML special characters to prevent XSS. */
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+/**
+ * Strip import/export statements from user code for eval.
+ * Note: TypeScript-specific syntax (type annotations, interfaces, enums)
+ * is not stripped — the playground uses Monaco's TypeScript language mode
+ * for editing, but evaluation is plain JavaScript. Users should write
+ * JS-compatible code or use the `as any` escape hatch sparingly.
+ */
 function preprocessCode(code: string): string {
   return code
     // Remove import statements
@@ -46,7 +62,17 @@ function preprocessCode(code: string): string {
     .replace(/^\s*export\s+\{[^}]*\};?\s*$/gm, "");
 }
 
-/** Evaluate user code and return the Project. */
+/**
+ * Evaluate user code and return the Project.
+ *
+ * SECURITY: This uses `new Function()` to execute user-provided code.
+ * This is intentional — the playground is a local development tool where
+ * the user writes and runs their own pipeline code. The code runs in the
+ * browser's main page context (not a sandboxed iframe or worker) because
+ * the playground needs to support synchronous FunctionStep execution and
+ * direct access to the pipeline constructs. This is the same trust model
+ * as a local REPL or `node -e`.
+ */
 function evaluateUserCode(code: string): Project {
   const processed = preprocessCode(code);
   const fn = new Function(
@@ -62,7 +88,8 @@ function evaluateUserCode(code: string): Project {
 
 /** Show findings HTML in the iframe. */
 function showFindings(html: string): void {
-  const frame = document.getElementById("findings-frame") as HTMLIFrameElement;
+  const frame = document.getElementById("findings-frame") as HTMLIFrameElement | null;
+  if (!frame) return;
   const doc = frame.contentDocument;
   if (!doc) return;
   doc.open();
@@ -79,14 +106,15 @@ function showError(message: string): void {
   pre { color: #c9d1d9; white-space: pre-wrap; }
 </style></head><body>
   <h2>Error</h2>
-  <pre>${message.replace(/</g, "&lt;")}</pre>
+  <pre>${escapeHtml(message)}</pre>
 </body></html>`;
   showFindings(html);
 }
 
 /** Set the status indicator. */
 function setStatus(text: string, cls: string): void {
-  const status = document.getElementById("status") as HTMLElement;
+  const status = document.getElementById("status");
+  if (!status) return;
   status.textContent = text;
   status.className = `status ${cls}`;
 }
@@ -111,6 +139,18 @@ async function loadMonaco(): Promise<void> {
   });
 }
 
+/**
+ * Run a pipeline with a timeout. If a step returns a never-resolving
+ * promise, the timeout ensures the UI recovers instead of staying
+ * stuck in "Running" state forever.
+ */
+async function runPipelineWithTimeout(project: Project, timeoutMs: number): Promise<Awaited<ReturnType<typeof runPipeline>>> {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Pipeline timed out after ${timeoutMs}ms`)), timeoutMs),
+  );
+  return Promise.race([runPipeline(project), timeoutPromise]);
+}
+
 /** Main entry point. */
 async function main(): Promise<void> {
   // Load Monaco
@@ -125,7 +165,11 @@ async function main(): Promise<void> {
 
   let getCode: () => string;
 
-  const editorEl = document.getElementById("editor") as HTMLDivElement;
+  const editorEl = document.getElementById("editor") as HTMLDivElement | null;
+  if (!editorEl) {
+    console.error("Editor element not found");
+    return;
+  }
 
   if (monaco) {
     const editor = monaco.editor.create(editorEl, {
@@ -149,7 +193,11 @@ async function main(): Promise<void> {
   }
 
   // Run button
-  const runBtn = document.getElementById("run-btn") as HTMLButtonElement;
+  const runBtn = document.getElementById("run-btn") as HTMLButtonElement | null;
+  if (!runBtn) {
+    console.error("Run button not found");
+    return;
+  }
 
   runBtn.addEventListener("click", async () => {
     runBtn.disabled = true;
@@ -158,7 +206,7 @@ async function main(): Promise<void> {
     try {
       const code = getCode();
       const project = evaluateUserCode(code);
-      const result = await runPipeline(project);
+      const result = await runPipelineWithTimeout(project, 30_000);
 
       if (result.findings.length === 0) {
         showFindings(`<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#3fb950;font-family:monospace;padding:2rem;}</style></head><body><h2>No findings — all checks passed</h2><p>${result.steps.length} steps completed in ${result.totalDurationMs}ms</p></body></html>`);
@@ -181,29 +229,32 @@ async function main(): Promise<void> {
   });
 
   // Splitter drag
-  const splitter = document.getElementById("splitter") as HTMLDivElement;
-  const editorPanel = document.querySelector(".editor-panel") as HTMLElement;
-  const findingsPanel = document.querySelector(".findings-panel") as HTMLElement;
+  const splitter = document.getElementById("splitter") as HTMLDivElement | null;
+  const editorPanel = document.querySelector(".editor-panel") as HTMLElement | null;
+  const findingsPanel = document.querySelector(".findings-panel") as HTMLElement | null;
 
-  let dragging = false;
-  splitter.addEventListener("mousedown", (e) => {
-    dragging = true;
-    e.preventDefault();
-  });
-  document.addEventListener("mousemove", (e) => {
-    if (!dragging) return;
-    const container = document.querySelector(".main") as HTMLElement;
-    const rect = container.getBoundingClientRect();
-    const editorWidth = e.clientX - rect.left;
-    const findingsWidth = rect.width - editorWidth - 4;
-    if (editorWidth > 100 && findingsWidth > 100) {
-      editorPanel.style.flex = `${editorWidth}`;
-      findingsPanel.style.flex = `${findingsWidth}`;
-    }
-  });
-  document.addEventListener("mouseup", () => {
-    dragging = false;
-  });
+  if (splitter && editorPanel && findingsPanel) {
+    let dragging = false;
+    splitter.addEventListener("mousedown", (e) => {
+      dragging = true;
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const container = document.querySelector(".main") as HTMLElement | null;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const editorWidth = e.clientX - rect.left;
+      const findingsWidth = rect.width - editorWidth - 4;
+      if (editorWidth > 100 && findingsWidth > 100) {
+        editorPanel.style.flex = `${editorWidth}`;
+        findingsPanel.style.flex = `${findingsWidth}`;
+      }
+    });
+    document.addEventListener("mouseup", () => {
+      dragging = false;
+    });
+  }
 
   // Auto-run on load
   runBtn.click();

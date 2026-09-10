@@ -17,7 +17,9 @@ function simpleHash(input: string): string {
 
 /** Convert a PlaygroundFinding to a full Finding with fingerprint and id. */
 function toFinding(pf: PlaygroundFinding, stepId: string): Finding {
-  const fingerprintInput = `${pf.rule}:${pf.file}:${pf.line}`;
+  // Include checkId (stepId) in fingerprint so identical findings from
+  // different checks get distinct fingerprints.
+  const fingerprintInput = `${stepId}:${pf.rule}:${pf.file}:${pf.line}`;
   const fingerprint = simpleHash(fingerprintInput);
   const id = `${stepId}:${fingerprint}`;
   return {
@@ -68,6 +70,10 @@ async function executeStep(step: Step): Promise<StepResult> {
 /**
  * Run all FunctionSteps in a project's pipelines and collect findings.
  * Browser-safe — no Node.js APIs, no child_process, no fs.
+ *
+ * If a pipeline has entries with `roots`, only steps whose id matches a
+ * root are executed. If no entries exist or all entries have empty roots,
+ * all steps run.
  */
 export async function runPipeline(project: Project): Promise<PipelineResult> {
   const start = Date.now();
@@ -75,10 +81,21 @@ export async function runPipeline(project: Project): Promise<PipelineResult> {
   const allFindings: Finding[] = [];
 
   for (const pipeline of project.pipelines) {
-    // Execute all steps in parallel — dependencies are for ordering,
-    // not data flow in the playground.
+    // Determine which steps to run based on entry roots.
+    let stepsToRun = pipeline.steps;
+    const entriesWithRoots = pipeline.entries.filter((e) => e.roots.length > 0);
+    if (entriesWithRoots.length > 0) {
+      const rootSet = new Set<string>();
+      for (const entry of entriesWithRoots) {
+        for (const root of entry.roots) rootSet.add(root);
+      }
+      stepsToRun = pipeline.steps.filter((s) => rootSet.has(s.id));
+    }
+
+    // Execute all selected steps in parallel — dependencies are for
+    // ordering, not data flow in the playground.
     const results = await Promise.all(
-      pipeline.steps.map((step) => executeStep(step)),
+      stepsToRun.map((step) => executeStep(step)),
     );
 
     for (const result of results) {
