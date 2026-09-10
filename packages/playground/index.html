@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sverka Playground</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 1rem;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1rem; color: #f0f6fc; }
+    header .actions { display: flex; gap: 0.5rem; align-items: center; }
+    .status { font-size: 0.8rem; color: #8b949e; }
+    .status.success { color: #3fb950; }
+    .status.failure { color: #f85149; }
+    .status.running { color: #d29922; }
+    button {
+      padding: 0.4rem 1rem;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      background: #1f6feb;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    button:hover { background: #388bfd; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .editor-panel {
+      flex: 1;
+      border-right: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+    }
+    .panel-header {
+      padding: 0.4rem 0.75rem;
+      background: #161b22;
+      border-bottom: 1px solid #21262d;
+      font-size: 0.75rem;
+      color: #8b949e;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    #editor {
+      flex: 1;
+      width: 100%;
+    }
+    .findings-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    #findings-frame {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: #0d1117;
+    }
+    .splitter {
+      width: 4px;
+      background: #30363d;
+      cursor: col-resize;
+      flex-shrink: 0;
+    }
+    .splitter:hover { background: #58a6ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sverka Playground</h1>
+    <div class="actions">
+      <span class="status" id="status">Ready</span>
+      <button id="run-btn">Run</button>
+    </div>
+  </header>
+  <div class="main">
+    <div class="editor-panel">
+      <div class="panel-header">Pipeline Definition</div>
+      <div id="editor"></div>
+    </div>
+    <div class="splitter" id="splitter"></div>
+    <div class="findings-panel">
+      <div class="panel-header">Findings</div>
+      <iframe id="findings-frame" title="Findings"></iframe>
+    </div>
+  </div>
+  <!-- Monaco editor loaded from CDN at runtime (see app.ts).
+       This is an external network dependency. For offline use, bundle
+       monaco-editor locally via vite instead of the CDN loader. -->
+  <script type="module" src="/src/app.ts"></script>
+</body>
+</html>

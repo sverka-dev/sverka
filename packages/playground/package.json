@@ -1,12 +1,12 @@
 {
-  "name": "@sverka/sarif-viewer-web",
+  "name": "@sverka/playground",
   "version": "0.1.0",
-  "description": "Sverka SARIF viewer Web — standalone HTML report generator for SARIF files",
+  "description": "Sverka Playground — browser sandbox for building and running check pipelines",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/sverka-dev/sverka",
-    "directory": "packages/sarif-viewer-web"
+    "directory": "packages/playground"
   },
   "homepage": "https://sverka.dev",
   "bugs": "https://github.com/sverka-dev/sverka/issues",
@@ -21,30 +21,28 @@
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
-    },
-    "./html-generator": {
-      "types": "./dist/html-generator.d.mts",
-      "import": "./dist/html-generator.mjs"
     }
   },
-  "bin": {
-    "sarif-viewer-web": "./dist/bin.mjs"
-  },
   "files": [
-    "dist"
+    "dist",
+    "dist-web",
+    "index.html"
   ],
   "scripts": {
     "build": "tsdown",
-    "test": "vitest run --passWithNoTests",
+    "build:web": "vite build",
+    "dev": "vite",
+    "test": "vitest run",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/verification": "workspace:*"
+    "@sverka/sarif-viewer-web": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.22.0",
     "typescript": "^5.8.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "vite": "^7.1.0"
   }
 }

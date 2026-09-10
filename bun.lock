@@ -85,6 +85,19 @@
         "vitest": "^4.1.11",
       },
     },
+    "packages/playground": {
+      "name": "@sverka/playground",
+      "version": "0.1.0",
+      "dependencies": {
+        "@sverka/sarif-viewer-web": "workspace:*",
+      },
+      "devDependencies": {
+        "tsdown": "^0.22.0",
+        "typescript": "^5.8.0",
+        "vite": "^7.1.0",
+        "vitest": "^4.1.11",
+      },
+    },
     "packages/plugin-mcp": {
       "name": "@sverka/plugin-mcp",
       "version": "0.1.0",
@@ -443,6 +456,8 @@
     "@sverka/cli": ["@sverka/cli@workspace:packages/cli"],
 
     "@sverka/compiler": ["@sverka/compiler@workspace:packages/compiler"],
+
+    "@sverka/playground": ["@sverka/playground@workspace:packages/playground"],
 
     "@sverka/plugin-mcp": ["@sverka/plugin-mcp@workspace:packages/plugin-mcp"],
 
