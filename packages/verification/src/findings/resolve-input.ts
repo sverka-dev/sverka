@@ -2,7 +2,8 @@
 
 import { readFileSync } from "node:fs";
 import process from "node:process";
-import { normalizeSarif, type Finding, type NormalizeContext, type SarifLog } from "./normalize.js";
+import { normalizeSarif, type SarifLog } from "./normalize.js";
+import type { Finding, NormalizeContext } from "./types.js";
 
 /** Default NormalizeContext for `normalizeSarif`. */
 export const DEFAULT_NORMALIZE_CONTEXT: NormalizeContext = {
