@@ -5,6 +5,8 @@ export { type Baseline, type Suppression, type BaselineDiff } from "./baseline.j
 export { type SarifLog, type SarifRun, type SarifRule,
          type SarifResult, type SarifLocation } from "./normalize.js";
 export { normalizeSarif } from "./normalize.js";
+export { resolveSarifInput, type ResolveSarifInputOptions,
+         DEFAULT_NORMALIZE_CONTEXT } from "./resolve-input.js";
 export { computeFingerprint } from "./fingerprint.js";
 export { createBaseline, updateBaseline, compareBaseline,
          loadBaseline, saveBaseline } from "./baseline.js";
