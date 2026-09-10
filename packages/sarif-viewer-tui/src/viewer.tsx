@@ -180,7 +180,7 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
   const detailsLines =
     store.details && selectedFinding ? detailsForFinding(selectedFinding) : [];
 
-  const { items: viewportItems } = computeViewport(
+  const { start: viewportStart, items: viewportItems } = computeViewport(
     visible, selected, termRows, detailsLines.length,
   );
 
