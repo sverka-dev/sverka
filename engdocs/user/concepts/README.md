@@ -124,6 +124,6 @@ This gives you:
 
 ## Next steps
 
-- [Use cases](./use-cases.md) — concrete scenarios for local checks, CI, and agents.
-- [SARIF pipeline](./findings/sarif-pipeline.md) — serialize, view, and dashboard.
-- [First workflow](./getting-started/first-plan.md) — define, run, view, compile.
+- [Use cases](../use-cases/README.md) — concrete scenarios for local checks, CI, and agents.
+- [SARIF pipeline](../findings/sarif-pipeline.md) — serialize, view, and dashboard.
+- [First workflow](../getting-started/first-plan.md) — define, run, view, compile.

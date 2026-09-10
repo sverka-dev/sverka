@@ -13,9 +13,15 @@ sverka run --format sarif
        │
        ├──→ sverka view <file>           (terminal TUI)
        ├──→ sverka view <file> -f web    (HTML report)
-       ├──→ sverka ui                   (web dashboard)
+       ├──→ sverka ui                   (web dashboard, scans .sverka/artifacts/)
        └──@sverka/verification           (programmatic API)
 ```
+
+> **Note:** `sverka run --format sarif` writes to `.sverka/findings.sarif` by
+> default. The `sverka ui` dashboard scans `.sverka/artifacts/` for SARIF
+> files. To make findings visible in the dashboard, either copy the file:
+> `cp .sverka/findings.sarif .sverka/artifacts/` or write directly to the
+> artifacts directory: `sverka run --format sarif -o .sverka/artifacts/findings.sarif`.
 
 ## Serializing findings
 

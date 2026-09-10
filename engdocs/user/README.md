@@ -5,8 +5,8 @@ run them locally, get structured findings. Compile to CI when you need to.
 
 ## Concepts
 
-- [Why Sverka](./concepts/) — what it solves, how it fits, design principles
-- [Use cases](./use-cases/) — local checks, CI compilation, agent orchestration, SARIF tooling
+- [Why Sverka](./concepts/README.md) — what it solves, how it fits, design principles
+- [Use cases](./use-cases/README.md) — local checks, CI compilation, agent orchestration, SARIF tooling
 
 ## Getting started
 

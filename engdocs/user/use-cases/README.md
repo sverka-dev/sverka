@@ -88,11 +88,13 @@ Define severity policies and enforce them as a gate.
 import { createPolicy, evaluatePolicy } from "@sverka/verification";
 
 const policy = createPolicy({
-  failOn: ["critical", "high"],
-  maxFindings: { medium: 10, low: 50 },
+  failOn: [
+    { severity: "critical", onlyNew: false },
+    { severity: "high", onlyNew: false },
+  ],
 });
 
-const { verdict } = evaluatePolicy(policy, findings);
+const { verdict } = evaluatePolicy(findings, policy, []);
 // verdict: "pass" | "fail"
 ```
 
@@ -117,7 +119,7 @@ Switch CI providers without rewriting your checks.
 
 ## Next steps
 
-- [Concepts](./concepts.md) — design principles and architecture.
-- [SARIF pipeline](./findings/sarif-pipeline.md) — serialize, view, dashboard.
-- [First workflow](./getting-started/first-plan.md) — hands-on tutorial.
-- [Agent integration](./agent-integration/skill-cli.md) — skill + CLI for agents.
+- [Concepts](../concepts/README.md) — design principles and architecture.
+- [SARIF pipeline](../findings/sarif-pipeline.md) — serialize, view, dashboard.
+- [First workflow](../getting-started/first-plan.md) — hands-on tutorial.
+- [Agent integration](../agent-integration/skill-cli.md) — skill + CLI for agents.
