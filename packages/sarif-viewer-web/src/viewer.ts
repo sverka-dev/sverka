@@ -19,7 +19,7 @@ function escapeHtml(text: string): string {
 /** Escape JSON data for safe embedding in <script> tags.
  *  Prevents </script> breakout XSS by replacing < with \u003c. */
 function escapeScriptData(json: string): string {
-  return json.replaceAll("<", "\\u003c");
+  return json.replaceAll("<", String.raw`\u003c`);
 }
 
 /** Extract tool name from the first finding's source, or "unknown". */
@@ -151,7 +151,7 @@ th.sort-desc::after { content: " \2193"; }
 `;
 
 /** Inline vanilla JS for filter, sort, and search. No external dependencies. */
-const JS = String.raw`
+const JS = `
 (function() {
   var findingsData = window.__FINDINGS_DATA__ || [];
   var currentFilter = "all";
