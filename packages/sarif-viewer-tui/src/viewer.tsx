@@ -121,6 +121,23 @@ function detailsForFinding(finding: Finding): string[] {
   ];
 }
 
+/** Compute the viewport window for the visible findings list. */
+function computeViewport(
+  visible: readonly Finding[],
+  selected: number,
+  termRows: number,
+  detailsCount: number,
+): { start: number; end: number; items: readonly Finding[] } {
+  const reservedRows = 4 + detailsCount;
+  const maxVisibleRows = Math.max(1, termRows - reservedRows);
+  const start = Math.min(
+    Math.max(0, selected - Math.floor(maxVisibleRows / 2)),
+    Math.max(0, visible.length - maxVisibleRows),
+  );
+  const end = Math.min(visible.length, start + maxVisibleRows);
+  return { start, end, items: visible.slice(start, end) };
+}
+
 /** The standalone SARIF viewer Ink component. */
 export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
   const storeRef = useRef<TuiStore | null>(null);
@@ -163,16 +180,9 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
   const detailsLines =
     store.details && selectedFinding ? detailsForFinding(selectedFinding) : [];
 
-  // Viewport: reserve rows for header, footer, and details. Only render
-  // the visible window around the selected finding to avoid terminal overflow.
-  const reservedRows = 4 + detailsLines.length;
-  const maxVisibleRows = Math.max(1, termRows - reservedRows);
-  const viewportStart = Math.min(
-    Math.max(0, selected - Math.floor(maxVisibleRows / 2)),
-    Math.max(0, visible.length - maxVisibleRows),
+  const { items: viewportItems } = computeViewport(
+    visible, selected, termRows, detailsLines.length,
   );
-  const viewportEnd = Math.min(visible.length, viewportStart + maxVisibleRows);
-  const viewportItems = visible.slice(viewportStart, viewportEnd);
 
   return (
     <Box flexDirection="column">
