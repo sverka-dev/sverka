@@ -2,7 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import process from "node:process";
-import { normalizeSarif, type SarifLog } from "./normalize.js";
+import { normalizeSarif } from "./normalize.js";
 import type { Finding, NormalizeContext } from "./types.js";
 
 /** Default NormalizeContext for `normalizeSarif`. */
@@ -14,8 +14,8 @@ export const DEFAULT_NORMALIZE_CONTEXT: NormalizeContext = {
 
 /** Options for resolving SARIF input into findings. */
 export interface ResolveSarifInputOptions {
-  /** Pre-parsed SARIF log. */
-  readonly sarif?: SarifLog;
+  /** Pre-parsed SARIF log (validated by normalizeSarif). */
+  readonly sarif?: unknown;
   /** Path to a SARIF file. */
   readonly sarifPath?: string;
   /** Pre-resolved findings. */
@@ -58,9 +58,9 @@ export function resolveSarifInput(options: ResolveSarifInputOptions): Finding[] 
 
   // sarifPath is defined (only remaining option).
   const raw = readFileSync(sarifPath as string, "utf8");
-  let parsed: SarifLog;
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw) as SarifLog;
+    parsed = JSON.parse(raw);
   } catch {
     throw new Error(`resolveSarifInput: failed to parse SARIF JSON from ${sarifPath as string}`);
   }

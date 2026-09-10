@@ -77,10 +77,10 @@ const LEVEL_TO_SEVERITY: Record<string, Severity> = {
  * @throws {NormalizationError} MISSING_LOCATION — a result has no location.
  */
 export function normalizeSarif(
-  sarif: SarifLog,
+  sarif: unknown,
   context: NormalizeContext,
 ): Finding[] {
-  validateSarifLog(sarif);
+  validateSarifLog(sarif as SarifLog);
 
   const findings: Finding[] = [];
   for (const run of sarif.runs) {
