@@ -43,10 +43,10 @@ export async function runCommand(
   start: number,
 ): Promise<number> {
   const executor = args.executor ?? "host";
-  // --format html/sarif/web or --output implies --evaluate
-  const isHtml = global.format === "html" || args.output !== undefined;
+  // --format html or --output (without sarif/web) implies HTML format
   const isSarif = global.format === "sarif";
   const isWeb = global.format === "web";
+  const isHtml = global.format === "html" || (args.output !== undefined && !isSarif && !isWeb);
   const evaluate = args.evaluate || isHtml || isSarif || isWeb;
   output.debug(`run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"} format=${global.format}`);
 
@@ -186,10 +186,10 @@ async function consumeEvents(
 
   let renderer: Renderer | null = null;
 
-  // --output flag implies HTML format
-  const isHtml = global.format === "html" || args.output !== undefined;
+  // --output flag implies HTML format (unless sarif/web format is explicit)
   const isSarif = global.format === "sarif";
   const isWeb = global.format === "web";
+  const isHtml = global.format === "html" || (args.output !== undefined && !isSarif && !isWeb);
 
   // TUI auto-detect: stdout TTY + no explicit --format, unless --no-tui.
   // --tui forces it on; any explicit --format forces it off.

@@ -41,21 +41,24 @@ export function serializeSarif(findings: readonly Finding[]): SarifLog {
     };
   }
 
-  // Group findings by tool name.
-  const byTool = new Map<string, Finding[]>();
+  // Group findings by tool name + version (same tool with different
+  // versions produces separate SARIF runs).
+  const byTool = new Map<string, { tool: string; version: string | null; findings: Finding[] }>();
   for (const f of findings) {
     const tool = f.source.tool;
-    let group = byTool.get(tool);
+    const version = f.source.version ?? null;
+    const key = `${tool}\0${version ?? ""}`;
+    let group = byTool.get(key);
     if (!group) {
-      group = [];
-      byTool.set(tool, group);
+      group = { tool, version, findings: [] };
+      byTool.set(key, group);
     }
-    group.push(f);
+    group.findings.push(f);
   }
 
   const runs: SarifRun[] = [];
-  for (const [toolName, toolFindings] of byTool) {
-    runs.push(buildRun(toolName, toolFindings));
+  for (const { tool, version, findings: toolFindings } of byTool) {
+    runs.push(buildRun(tool, version, toolFindings));
   }
 
   return {
@@ -65,7 +68,7 @@ export function serializeSarif(findings: readonly Finding[]): SarifLog {
 }
 
 /** Build a single SARIF run for one tool's findings. */
-function buildRun(toolName: string, findings: readonly Finding[]): SarifRun {
+function buildRun(toolName: string, toolVersion: string | null, findings: readonly Finding[]): SarifRun {
   // Deduplicate rules by rule ID.
   const ruleMap = new Map<string, SarifRule>();
   for (const f of findings) {
@@ -84,7 +87,7 @@ function buildRun(toolName: string, findings: readonly Finding[]): SarifRun {
     tool: {
       driver: {
         name: toolName,
-        ...(findings[0]?.source.version ? { version: findings[0].source.version } : {}),
+        ...(toolVersion ? { version: toolVersion } : {}),
         rules,
       },
     },
