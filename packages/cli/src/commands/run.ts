@@ -288,6 +288,7 @@ async function runEvaluation(
       output.errorLine(
         `sverka run: failed to generate web report: ${e instanceof Error ? e.message : String(e)}`,
       );
+      return { exitCode: 1, summary: { findings, verdict: result.verdict, summary: result.summary } };
     }
   }
 

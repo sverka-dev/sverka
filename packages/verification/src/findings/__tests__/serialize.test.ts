@@ -36,10 +36,12 @@ describe("serializeSarif", () => {
     expect(Array.isArray(log.runs)).toBe(true);
   });
 
-  it("empty findings produce empty runs array", () => {
+  it("empty findings produce a valid SARIF run (2.1.0 requires at least one)", () => {
     const log = serializeSarif([]);
     expect(log.version).toBe("2.1.0");
-    expect(log.runs).toEqual([]);
+    expect(log.runs).toHaveLength(1);
+    expect(log.runs[0].tool.driver.name).toBe("sverka");
+    expect(log.runs[0].results).toEqual([]);
   });
 
   it("groups findings by tool into separate runs", () => {

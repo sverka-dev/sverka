@@ -23,9 +23,21 @@ const SEVERITY_TO_LEVEL: Record<Severity, "error" | "warning" | "note" | "none">
  */
 export function serializeSarif(findings: readonly Finding[]): SarifLog {
   if (findings.length === 0) {
+    // SARIF 2.1.0 requires at least one run. Emit an empty run for "sverka"
+    // so strict consumers don't reject the log.
     return {
       version: "2.1.0",
-      runs: [],
+      runs: [
+        {
+          tool: {
+            driver: {
+              name: "sverka",
+              rules: [],
+            },
+          },
+          results: [],
+        },
+      ],
     };
   }
 
@@ -101,5 +113,8 @@ function buildResult(f: Finding): SarifResult {
     message: { text: f.message },
     locations: [location],
     fingerprints: { primary: f.fingerprint },
+    // Preserve the original Sverka severity in properties, since SARIF
+    // levels are lossy (critical and high both map to "error").
+    properties: { sverkaSeverity: f.severity },
   };
 }
