@@ -14,3 +14,6 @@ export { createBaseline, updateBaseline, compareBaseline,
 export { isSuppressed, filterSuppressed, filterOnlyNew } from "./suppress.js";
 export { NormalizationError, type NormalizationErrorCode,
          BaselineError, type BaselineErrorCode } from "./errors.js";
+
+// Test helpers (for use by downstream packages' tests)
+export { makeFinding, makeSarif } from "./test-helpers.js";
