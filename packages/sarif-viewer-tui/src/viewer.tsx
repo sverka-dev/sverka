@@ -3,7 +3,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { Key } from "ink";
-import type { Finding } from "@sverka/verification";
+import { handleSearchInput, isQuitInput, type Finding } from "@sverka/verification";
 import type { SortMode, ViewerFilter } from "./types.js";
 import {
   SEVERITY_FILTERS,
@@ -59,25 +59,16 @@ export class TuiStore {
   }
 
   handleInput(input: string, key: Key): void {
-    if (this.searching) {
-      if (key.escape || key.return) {
-        this.searching = false;
-      } else if (key.backspace || key.delete) {
-        this.search = this.search.slice(0, -1);
-      } else if (input && !key.ctrl && !key.meta) {
-        this.search += input;
-      }
+    if (handleSearchInput(input, key, this)) {
       this.notify();
       return;
     }
 
-    if (input === "q" || (key.ctrl && input === "c")) {
+    if (isQuitInput(input, key)) {
       this.quit();
       return;
     }
-    if (input === "/") {
-      this.searching = true;
-    } else if (input === "f") {
+    if (input === "f") {
       const i = SEVERITY_FILTERS.indexOf(this.filter);
       this.filter = SEVERITY_FILTERS[(i + 1) % SEVERITY_FILTERS.length] ?? "all";
       this.selected = Math.min(this.selected, Math.max(0, this.visibleFindings().length - 1));

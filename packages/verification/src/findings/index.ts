@@ -17,3 +17,6 @@ export { NormalizationError, type NormalizationErrorCode,
 
 // Test helpers (for use by downstream packages' tests)
 export { makeFinding, makeSarif } from "./test-helpers.js";
+
+// TUI input helpers
+export { handleSearchInput, isQuitInput, type InputKey } from "./input-helpers.js";
