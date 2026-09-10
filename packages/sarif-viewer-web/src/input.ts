@@ -51,6 +51,11 @@ export function resolveFindings(options: Omit<SarifWebOptions, "outputPath">): F
 
   // sarifPath is defined (only remaining option).
   const raw = readFileSync(sarifPath as string, "utf8");
-  const parsed = JSON.parse(raw) as SarifLog;
+  let parsed: SarifLog;
+  try {
+    parsed = JSON.parse(raw) as SarifLog;
+  } catch {
+    throw new Error(`resolveFindings: failed to parse SARIF JSON from ${sarifPath as string}`);
+  }
   return normalizeSarif(parsed, ctx);
 }
