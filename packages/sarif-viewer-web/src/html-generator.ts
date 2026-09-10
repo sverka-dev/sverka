@@ -176,6 +176,10 @@ const JS = String.raw`
     if (sortColumn) {
       filtered.sort(function(a, b) {
         var va = a[sortColumn], vb = b[sortColumn];
+        if (sortColumn === "severity") {
+          var rank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+          return ((rank[vb] || 0) - (rank[va] || 0)) * sortDir;
+        }
         if (typeof va === "number" && typeof vb === "number") return (va - vb) * sortDir;
         return String(va).localeCompare(String(vb)) * sortDir;
       });
@@ -188,7 +192,7 @@ const JS = String.raw`
       return '<tr data-severity="' + esc(f.severity) + '">' +
         '<td class="severity-' + esc(f.severity) + '">' + esc(f.severity) + '</td>' +
         '<td>' + esc(f.checkId) + '</td>' +
-        '<td>' + esc(f.file) + '</td>' +
+        '<td>' + esc(f.file) + (f.startLine ? ':' + f.startLine : '') + '</td>' +
         '<td>' + esc(f.rule) + '</td>' +
         '<td>' + esc(f.message) + '</td>' +
         '</tr>';
