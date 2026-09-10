@@ -1,5 +1,6 @@
 // @sverka/sarif-viewer-tui — pure filter/search/sort helpers. Spec 46.
 
+import { filterBySeverity as sharedFilterBySeverity, searchFindings as sharedSearchFindings } from "@sverka/verification";
 import type { Finding, Severity } from "@sverka/verification";
 import type { SortMode, ViewerFilter } from "./types.js";
 
@@ -29,29 +30,22 @@ export function severityRank(severity: Severity): number {
   }
 }
 
-/** Filter findings by severity level. `all` returns everything. Pure. */
+/** Filter findings by severity level. `all` returns everything. Pure.
+ *  Delegates to the shared `@sverka/verification` implementation. */
 export function filterBySeverity(
   findings: readonly Finding[],
   filter: ViewerFilter,
 ): readonly Finding[] {
-  if (filter === "all") return findings;
-  return findings.filter((f) => f.severity === filter);
+  return sharedFilterBySeverity(findings, filter);
 }
 
-/** Substring match (case-insensitive) across message, checkId, file, rule. Pure. */
+/** Substring match (case-insensitive) across message, checkId, file, rule. Pure.
+ *  Delegates to the shared `@sverka/verification` implementation. */
 export function searchFindings(
   findings: readonly Finding[],
   query: string,
 ): readonly Finding[] {
-  if (query === "") return findings;
-  const q = query.toLowerCase();
-  return findings.filter(
-    (f) =>
-      f.message.toLowerCase().includes(q) ||
-      f.checkId.toLowerCase().includes(q) ||
-      f.file.toLowerCase().includes(q) ||
-      f.rule.toLowerCase().includes(q),
-  );
+  return sharedSearchFindings(findings, query);
 }
 
 /** Sort findings by mode. Sort is stable (preserves original order for equal

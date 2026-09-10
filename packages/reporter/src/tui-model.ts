@@ -1,5 +1,6 @@
 // @sverka/reporter — pure TUI view-model helpers. Spec 45.
 
+import { searchFindings as sharedSearchFindings } from "@sverka/verification";
 import type { Finding } from "@sverka/verification";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type {
@@ -162,18 +163,11 @@ export function filterFindings(
   }
 }
 
-/** Substring match across message, checkId, file, and rule. */
+/** Substring match across message, checkId, file, and rule.
+ *  Delegates to the shared `@sverka/verification` implementation. */
 export function searchFindings(
   findings: readonly Finding[],
   query: string,
 ): readonly Finding[] {
-  if (query === "") return findings;
-  const q = query.toLowerCase();
-  return findings.filter(
-    (f) =>
-      f.message.toLowerCase().includes(q) ||
-      f.checkId.toLowerCase().includes(q) ||
-      f.file.toLowerCase().includes(q) ||
-      f.rule.toLowerCase().includes(q),
-  );
+  return sharedSearchFindings(findings, query);
 }
