@@ -1,33 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { serializeSarif } from "../serialize.js";
 import { normalizeSarif } from "../normalize.js";
-import type { Finding } from "../types.js";
+import { makeFinding } from "../test-helpers.js";
 import type { SarifLog } from "../normalize.js";
-
-function makeFinding(overrides: Partial<Finding> = {}): Finding {
-  const fingerprint = overrides.fingerprint ?? "fp1";
-  const checkId = overrides.checkId ?? "ci/lint";
-  return {
-    id: overrides.id ?? `${checkId}:${fingerprint}`,
-    fingerprint,
-    checkId,
-    severity: overrides.severity ?? "high",
-    confidence: overrides.confidence ?? 0.5,
-    message: overrides.message ?? "test finding",
-    rule: overrides.rule ?? "rule-1",
-    file: overrides.file ?? "src/index.ts",
-    startLine: overrides.startLine ?? 10,
-    endLine: overrides.endLine ?? 10,
-    source: overrides.source ?? {
-      tool: "test-tool",
-      version: null,
-      format: "sarif",
-      originalRuleId: "rule-1",
-      originalSeverity: null,
-    },
-    ...overrides,
-  };
-}
 
 describe("serializeSarif", () => {
   it("produces valid SARIF 2.1.0 structure", () => {
