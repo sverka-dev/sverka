@@ -33,6 +33,13 @@ exclude_paths:
   - "dist/**"
   - "node_modules/**"
   - "scripts/**"
+  # HTML generator files — template literals and replaceAll are by design.
+  # Real security issues (XSS) are caught by CodeQL and SonarCloud.
+  - "packages/reporter/src/html-renderer.ts"
+  - "packages/sarif-viewer-web/src/viewer.ts"
+  - "packages/sarif-viewer-web/src/html-generator.ts"
+  - "packages/ui/src/dashboard.ts"
+  - "packages/playground/src/app.ts"
 
 # Configure tools
 engines:
