@@ -64,8 +64,9 @@ describe("sync-docs", () => {
     expect(sidebar).toContain('"label": "Reference"');
     expect(sidebar).toContain('"directory": "user/getting-started"');
     expect(sidebar).toContain('"directory": "user/findings"');
-    // Section order: Concepts → Getting Started → Running → Findings → Workflows → Agent Integration → Compiling → Reference
-    expect(sidebar.indexOf('"label": "Concepts"')).toBeLessThan(sidebar.indexOf('"label": "Getting Started"'));
+    // Section order: Concepts → Use Cases → Getting Started → Running → Findings → Workflows → Agent Integration → Compiling → Reference
+    expect(sidebar.indexOf('"label": "Concepts"')).toBeLessThan(sidebar.indexOf('"label": "Use Cases"'));
+    expect(sidebar.indexOf('"label": "Use Cases"')).toBeLessThan(sidebar.indexOf('"label": "Getting Started"'));
     expect(sidebar.indexOf('"label": "Getting Started"')).toBeLessThan(sidebar.indexOf('"label": "Running"'));
     expect(sidebar.indexOf('"label": "Running"')).toBeLessThan(sidebar.indexOf('"label": "Findings"'));
     expect(sidebar.indexOf('"label": "Findings"')).toBeLessThan(sidebar.indexOf('"label": "Workflows"'));

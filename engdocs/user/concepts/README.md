@@ -75,7 +75,7 @@ This gives you:
 
 ## How it fits
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │                  sverka.config.ts                │
 │         (your checks defined in code)            │

@@ -5,7 +5,7 @@ in a terminal TUI, generate HTML reports, and serve a local web dashboard.
 
 ## Overview
 
-```
+```text
 sverka run --format sarif
        │
        ▼
