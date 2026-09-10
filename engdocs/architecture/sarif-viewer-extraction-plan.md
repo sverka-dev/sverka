@@ -58,7 +58,7 @@ await renderSarifTui({ findings: findings });
 
 - `peerDependencies`: `ink >=5`, `react >=18`
 - `dependencies`: `@sverka/verification` (for `normalizeSarif`, `Finding` type)
-- No workflow runtime, no CLI, no planner
+- No workflow runtime, no planner
 
 ### Structure
 

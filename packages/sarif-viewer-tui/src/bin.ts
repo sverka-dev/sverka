@@ -28,7 +28,12 @@ async function main(): Promise<void> {
               process.stderr.write("sarif-viewer-tui: stdin is empty.\n");
               process.exit(1);
             }
-            return { sarif: JSON.parse(raw) };
+            try {
+              return { sarif: JSON.parse(raw) };
+            } catch {
+              process.stderr.write("sarif-viewer-tui: failed to parse SARIF JSON from stdin.\n");
+              process.exit(1);
+            }
           })();
 
   if (options === null) {

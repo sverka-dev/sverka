@@ -80,8 +80,10 @@ export class TuiStore {
     } else if (input === "f") {
       const i = SEVERITY_FILTERS.indexOf(this.filter);
       this.filter = SEVERITY_FILTERS[(i + 1) % SEVERITY_FILTERS.length] ?? "all";
+      this.selected = Math.min(this.selected, Math.max(0, this.visibleFindings().length - 1));
     } else if (input === "s") {
       this.sort = nextSortMode(this.sort);
+      this.selected = Math.min(this.selected, Math.max(0, this.visibleFindings().length - 1));
     } else if (input === "d") {
       this.details = !this.details;
     } else if (input === "j" || key.downArrow) {
@@ -143,6 +145,16 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
     store.setQuitHandler(exit);
   }, [store, exit]);
 
+  // Reconcile store when findings prop changes (e.g. hot-reload or re-render
+  // with different data). Updates the findings array and clamps selection.
+  useEffect(() => {
+    if (store.findings !== props.findings) {
+      (store as { findings: readonly Finding[] }).findings = props.findings;
+      store.selected = Math.min(store.selected, Math.max(0, store.visibleFindings().length - 1));
+      store.notify();
+    }
+  }, [props.findings, store]);
+
   useInput(
     (input, key) => {
       store.handleInput(input, key);
@@ -151,6 +163,7 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
   );
 
   const termCols = stdout.columns || 80;
+  const termRows = stdout.rows || 24;
   const maxWidth = Math.max(10, termCols - 2);
   const visible = store.visibleFindings();
   const selected = Math.min(store.selected, Math.max(0, visible.length - 1));
@@ -158,6 +171,17 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
 
   const detailsLines =
     store.details && selectedFinding ? detailsForFinding(selectedFinding) : [];
+
+  // Viewport: reserve rows for header, footer, and details. Only render
+  // the visible window around the selected finding to avoid terminal overflow.
+  const reservedRows = 4 + detailsLines.length;
+  const maxVisibleRows = Math.max(1, termRows - reservedRows);
+  const viewportStart = Math.min(
+    Math.max(0, selected - Math.floor(maxVisibleRows / 2)),
+    Math.max(0, visible.length - maxVisibleRows),
+  );
+  const viewportEnd = Math.min(visible.length, viewportStart + maxVisibleRows);
+  const viewportItems = visible.slice(viewportStart, viewportEnd);
 
   return (
     <Box flexDirection="column">
@@ -177,19 +201,22 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
       {visible.length === 0 ? (
         <Text>No findings</Text>
       ) : (
-        visible.map((f, i) => (
-          <Text
-            key={f.id}
-            {...(i === selected ? {} : severityColor(f.severity))}
-            inverse={i === selected}
-            wrap="truncate"
-          >
-            {`  ${f.severity.padEnd(8)} ${f.checkId}  ${f.file}:${f.startLine}  ${f.message}`.slice(
-              0,
-              maxWidth,
-            )}
-          </Text>
-        ))
+        viewportItems.map((f, i) => {
+          const actualIndex = viewportStart + i;
+          return (
+            <Text
+              key={f.id}
+              {...(actualIndex === selected ? {} : severityColor(f.severity))}
+              inverse={actualIndex === selected}
+              wrap="truncate"
+            >
+              {`  ${f.severity.padEnd(8)} ${f.checkId}  ${f.file}:${f.startLine}  ${f.message}`.slice(
+                0,
+                maxWidth,
+              )}
+            </Text>
+          );
+        })
       )}
 
       {detailsLines.map((l) => (

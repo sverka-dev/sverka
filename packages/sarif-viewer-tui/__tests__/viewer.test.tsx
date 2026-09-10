@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { EventEmitter } from "node:events";
 import { render } from "ink";
 import { createElement } from "react";
@@ -108,6 +108,10 @@ afterEach(async () => {
 });
 
 describe("SarifTuiApp", () => {
+  // Explicit timeout: Ink rendering + input round-trips can be slow in CI.
+  // 10s gives headroom over the default 5s without masking real hangs.
+  vi.setConfig({ testTimeout: 10_000 });
+
   it("renders findings list from Finding[]", async () => {
     const { stdout, stdin, instance } = mount([
       makeFinding({ fingerprint: "a", message: "alpha-msg" }),
@@ -254,7 +258,10 @@ describe("SarifTuiApp", () => {
   });
 
   it("q resolves waitUntilExit", async () => {
-    const { stdin, instance } = mount([makeFinding()]);
+    const { stdout, stdin, instance } = mount([makeFinding()]);
+    // Wait for the initial frame before sending q — Ink registers input
+    // handlers asynchronously after the first render.
+    await waitFor(stdout, "SARIF viewer");
     stdin.write("q");
     await expect(instance.waitUntilExit()).resolves.toBeUndefined();
     active.instance = null;
