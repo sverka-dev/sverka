@@ -44,7 +44,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Sverka",
-      description: "AI-friendly workflow runtime. Define in TypeScript. Run locally. Compile anywhere.",
+      description: "Run local checks with code-defined workflows. Get structured findings. Compile to CI when you need to.",
       sidebar,
       favicon: "/favicon.svg",
       social: [
