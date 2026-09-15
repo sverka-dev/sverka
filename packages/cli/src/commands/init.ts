@@ -66,14 +66,17 @@ async function buildDetectedTemplate(root: string): Promise<string | null> {
     const checkId = JSON.stringify(r.checkId);
     const sarifOut = r.outputs.find((o) => o.format === "sarif");
     if (sarifOut !== undefined) {
-      const outPath = JSON.stringify(sarifOut.path);
-      return `new ShellStep(ci, ${checkId}, { command: ${JSON.stringify(command)}, outputs: { ${outPath}: { type: "artifact", fromStdout: true } } });`;
+      const outputsDecl =
+        "{ " +
+        JSON.stringify(sarifOut.path) +
+        ': { type: "artifact", fromStdout: true } }';
+      return `new ShellStep(ci, ${checkId}, { command: ${JSON.stringify(command)}, outputs: ${outputsDecl} });`;
     }
     return `new ShellStep(ci, ${checkId}, { command: ${JSON.stringify(command)} });`;
   });
 
   const rootIds = resolved.map((r) => r.checkId);
-  const rootList = rootIds.map((id) => `"${id}"`).join(", ");
+  const rootList = rootIds.map((id) => JSON.stringify(id)).join(", ");
 
   return [
     'import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/workflow";',
