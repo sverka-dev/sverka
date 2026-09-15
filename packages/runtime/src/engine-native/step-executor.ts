@@ -1,6 +1,7 @@
 // StepExecutor — runs ordered Operations inside one Step.
 // Spec 10 — §22.1 component 3.
 
+import { Buffer } from "node:buffer";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, join, normalize, relative } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -43,12 +44,27 @@ export interface ShellOutput {
   readonly exitCode: number;
 }
 
-const MAX_OUTPUT_LENGTH = 10000;
+const MAX_OUTPUT_BYTES = 10000;
 
+/** Truncate to a UTF-8 byte budget — value.length counts UTF-16 units, so
+ * non-ASCII output can exceed the limit if measured in characters. */
 function truncateOutput(value: string): string {
-  if (value.length <= MAX_OUTPUT_LENGTH) return value;
-  const kept = value.slice(0, MAX_OUTPUT_LENGTH);
-  return `${kept}\n[... truncated ${value.length - MAX_OUTPUT_LENGTH} bytes]`;
+  const totalBytes = Buffer.byteLength(value, "utf8");
+  if (totalBytes <= MAX_OUTPUT_BYTES) return value;
+  // Binary search for the largest UTF-16 prefix within the byte budget.
+  let lo = 0;
+  let hi = value.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (Buffer.byteLength(value.slice(0, mid), "utf8") <= MAX_OUTPUT_BYTES) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  const kept = value.slice(0, lo);
+  const keptBytes = Buffer.byteLength(kept, "utf8");
+  return `${kept}\n[... truncated ${totalBytes - keptBytes} bytes]`;
 }
 
 /** Execute all operations in a step in order. */
@@ -267,7 +283,8 @@ async function writeStdoutArtifact(
     );
   }
   assertSafeFileName(name);
-  if (isAbsolute(stepId) || stepId.split("/").some((p) => p === "..")) {
+  // Split on both separators — on Windows ".." can hide behind backslashes.
+  if (isAbsolute(stepId) || stepId.split(/[\\/]/).includes("..")) {
     throw new StepExecError(`invalid step id for artifact store: '${stepId}'`, "ARTIFACT_ERROR");
   }
   const dir = join(artifactDir, stepId);

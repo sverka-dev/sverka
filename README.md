@@ -39,7 +39,7 @@ new ShellStep(p, "lint", { command: "npm run lint" });
 new ShellStep(p, "typecheck", { command: "npm run typecheck" });
 new ShellStep(p, "test", {
   command: "npm run test",
-  dependencies: [{ kind: "control", producer: "lint" }],
+  dependsOn: ["lint"],
 });
 
 new Entry(p, "on-push", { trigger: push(), roots: ["lint", "typecheck", "test"] });
@@ -69,7 +69,7 @@ The same workflow can be:
 - **Saga compensations** — automatic rollback of succeeded steps on failure
 - **Serialization** — serialize and deserialize graphs for distribution
 - **Optional verification profile** — built-in checks, normalized findings, and policy evaluation
-- **Optional CI compilation** — compile to GitHub Actions, GitLab CI, Temporal, Dagger, Inngest, or Drone
+- **Optional CI compilation** — compile to GitHub Actions or GitLab CI
 
 ## Quick start
 

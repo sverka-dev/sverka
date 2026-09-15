@@ -72,6 +72,7 @@ async function buildDetectedTemplate(root: string): Promise<string | null> {
   });
 
   const rootIds = resolved.map((r) => r.checkId);
+  const rootList = rootIds.map((id) => `"${id}"`).join(", ");
 
   return [
     'import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/workflow";',
@@ -79,7 +80,7 @@ async function buildDetectedTemplate(root: string): Promise<string | null> {
     'const proj = new Project("verify");',
     'const ci = new Pipeline(proj, "ci");',
     ...stepLines,
-    `new Entry(ci, "on-push", { trigger: push(), roots: [${rootIds.map((id) => `"${id}"`).join(", ")}] });`,
+    `new Entry(ci, "on-push", { trigger: push(), roots: [${rootList}] });`,
     "",
     "export default proj;",
     "",

@@ -124,7 +124,12 @@ function findEntry(
       id: `checks/${check.checkId}`,
       kind: "run",
       name: check.checkId,
-      command,
+      // The legacy Plan runtime spawns command+args directly (no shell), so
+      // emit binary + args. For stdout-SARIF checks wrap in `sh -c` so the
+      // report lands in the declared artifact file.
+      ...(entry.sarifStdout !== undefined
+        ? { command: "sh", args: ["-c", `${command} > ${entry.sarifStdout}`] }
+        : { command: entry.command, args: entry.args }),
     };
     return { checkId: check.checkId, step, operation, outputs };
   }

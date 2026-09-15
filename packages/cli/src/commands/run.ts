@@ -298,47 +298,50 @@ async function runEvaluation(
   };
 }
 
+const SIMPLE_STEP_STATUSES: Readonly<Record<string, StepSummary["status"]>> = {
+  "step-skipped": "skipped",
+  "step-cancelled": "cancelled",
+  "step-suspended": "suspended",
+};
+
 /** Extract per-step results from the event stream for JSON output. */
 function summarizeSteps(events: readonly RunEvent[]): readonly StepSummary[] {
   const steps: StepSummary[] = [];
   for (const event of events) {
-    switch (event.type) {
-      case "step-succeeded":
-        steps.push({
-          stepId: event.stepId,
-          status: "succeeded",
-          durationMs: event.durationMs,
-          ...(event.stdout !== undefined ? { stdout: event.stdout } : {}),
-          ...(event.stderr !== undefined ? { stderr: event.stderr } : {}),
-          ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
-        });
-        break;
-      case "step-failed":
-        steps.push({
-          stepId: event.stepId,
-          status: "failed",
-          error: event.error,
-          durationMs: event.durationMs,
-          ...(event.stdout !== undefined ? { stdout: event.stdout } : {}),
-          ...(event.stderr !== undefined ? { stderr: event.stderr } : {}),
-          ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
-        });
-        break;
-      case "step-skipped":
-        steps.push({ stepId: event.stepId, status: "skipped" });
-        break;
-      case "step-cancelled":
-        steps.push({ stepId: event.stepId, status: "cancelled" });
-        break;
-      case "step-suspended":
-        steps.push({ stepId: event.stepId, status: "suspended" });
-        break;
-      case "step-cache-hit":
-        steps.push({ stepId: event.stepId, status: "cache-hit", cacheKey: event.key });
-        break;
-    }
+    const step = summarizeStep(event);
+    if (step !== undefined) steps.push(step);
   }
   return steps;
+}
+
+function summarizeStep(event: RunEvent): StepSummary | undefined {
+  if (event.type === "step-succeeded" || event.type === "step-failed") {
+    return {
+      stepId: event.stepId,
+      status: event.type === "step-succeeded" ? "succeeded" : "failed",
+      durationMs: event.durationMs,
+      ...(event.type === "step-failed" ? { error: event.error } : {}),
+      ...capturedOutputFields(event),
+    };
+  }
+  if (event.type === "step-cache-hit") {
+    return { stepId: event.stepId, status: "cache-hit", cacheKey: event.key };
+  }
+  const status = SIMPLE_STEP_STATUSES[event.type];
+  if (status === undefined || !("stepId" in event)) return undefined;
+  return { stepId: event.stepId, status };
+}
+
+function capturedOutputFields(event: {
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+}): Pick<StepSummary, "stdout" | "stderr" | "exitCode"> {
+  return {
+    ...(event.stdout !== undefined ? { stdout: event.stdout } : {}),
+    ...(event.stderr !== undefined ? { stderr: event.stderr } : {}),
+    ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
+  };
 }
 
 interface StepSummary {

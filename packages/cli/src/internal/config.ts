@@ -284,11 +284,24 @@ function isLocalWorkspace(root: string): boolean {
 function getDefaultConstructsVersion(): string {
   try {
     // @sverka/workflow only exports "." in its exports map, so resolve the
-    // package entry point and read the sibling package.json.
-    const entryPath = require.resolve("@sverka/workflow");
-    const pkgPath = join(dirname(entryPath), "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: string };
-    return pkg.version ? `^${pkg.version}` : "*";
+    // entry point (typically dist/index.mjs) and walk up to the package
+    // root's package.json.
+    let dir = dirname(require.resolve("@sverka/workflow"));
+    while (true) {
+      const pkgPath = join(dir, "package.json");
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+          name?: string;
+          version?: string;
+        };
+        if (pkg.name === "@sverka/workflow") {
+          return pkg.version ? `^${pkg.version}` : "*";
+        }
+      }
+      const parent = dirname(dir);
+      if (parent === dir) return "*";
+      dir = parent;
+    }
   } catch {
     return "*";
   }

@@ -2,7 +2,7 @@
 // Spec 05 — §16, §11.3, §11.4. F-31: two-pass for pipeline calls.
 
 import { Pipeline, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, AgentStep, Entry, Project, Step } from "../cdk/index.js";
-import type { StepRef, Reference, InputLiteral } from "../cdk/index.js";
+import type { StepRef, Reference, InputLiteral, OutputDeclaration } from "../cdk/index.js";
 import type {
   DefinitionGraph,
   PipelineDefinition,
@@ -376,28 +376,35 @@ function collectExportOperations(
 ): void {
   for (const [name, decl] of step.outputs) {
     if (decl.type === "artifact") {
-      if (decl.fromStdout === true) {
-        operations.push({ kind: "exportStdout", name });
-        continue;
-      }
-      if (decl.path === undefined) {
-        throw new SynthesisError(
-          "INVALID_OUTPUT",
-          `Artifact output '${name}' on step '${stepId}' must have a path`,
-          stepId,
-        );
-      }
-      operations.push({
-        kind: "exportArtifact",
-        name,
-        path: decl.path,
-        ...(decl.retention !== undefined ? { retention: decl.retention } : {}),
-        ...(decl.access !== undefined ? { access: decl.access } : {}),
-      });
+      operations.push(artifactExportOperation(name, decl, stepId));
     } else {
       operations.push({ kind: "exportOutput", name, type: decl.type });
     }
   }
+}
+
+function artifactExportOperation(
+  name: string,
+  decl: OutputDeclaration,
+  stepId: string,
+): OperationDefinition {
+  if (decl.fromStdout === true) {
+    return { kind: "exportStdout", name };
+  }
+  if (decl.path === undefined) {
+    throw new SynthesisError(
+      "INVALID_OUTPUT",
+      `Artifact output '${name}' on step '${stepId}' must have a path`,
+      stepId,
+    );
+  }
+  return {
+    kind: "exportArtifact",
+    name,
+    path: decl.path,
+    ...(decl.retention !== undefined ? { retention: decl.retention } : {}),
+    ...(decl.access !== undefined ? { access: decl.access } : {}),
+  };
 }
 
 function collectImportOperations(
