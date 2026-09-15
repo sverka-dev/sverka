@@ -483,17 +483,27 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     return { id: "ci/build", runtime: {}, operations, inputs: [], outputs: [], dependencies: [] };
   }
 
+  function execOpts(
+    step: StepDefinition,
+    driver: ReturnType<typeof createMockDriver>,
+    artifactDir?: string,
+  ) {
+    return {
+      step, driver, workspace: testDir,
+      ...(artifactDir !== undefined ? { artifactDir } : {}),
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    };
+  }
+
   it("succeeding step returns stdout/stderr/exitCode in result", async () => {
     const driver = createMockDriver({
       executeFn: async () => ({ exitCode: 0, stdout: "build ok", stderr: "warn", durationMs: 5, timedOut: false }),
     });
-    const result = await executeStep({
-      step: makeStep([{ kind: "shell", command: "bun run build" }]),
-      driver, workspace: testDir,
-      artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
-    });
+    const result = await executeStep(
+      execOpts(makeStep([{ kind: "shell", command: "bun run build" }]), driver),
+    );
     expect(result.status).toBe("succeeded");
     expect(result.stdout).toBe("build ok");
     expect(result.stderr).toBe("warn");
@@ -504,13 +514,9 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     const driver = createMockDriver({
       executeFn: async () => ({ exitCode: 2, stdout: "partial out", stderr: "lint error", durationMs: 5, timedOut: false }),
     });
-    const result = await executeStep({
-      step: makeStep([{ kind: "shell", command: "ruff check" }]),
-      driver, workspace: testDir,
-      artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
-    });
+    const result = await executeStep(
+      execOpts(makeStep([{ kind: "shell", command: "ruff check" }]), driver),
+    );
     expect(result.status).toBe("failed");
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("partial out");
@@ -522,33 +528,27 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     const driver = createMockDriver({
       executeFn: async () => ({ exitCode: 0, stdout: big, stderr: "", durationMs: 5, timedOut: false }),
     });
-    const result = await executeStep({
-      step: makeStep([{ kind: "shell", command: "cat big" }]),
-      driver, workspace: testDir,
-      artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
-    });
+    const result = await executeStep(
+      execOpts(makeStep([{ kind: "shell", command: "cat big" }]), driver),
+    );
     expect(result.status).toBe("succeeded");
     expect(result.stdout).toContain("truncated 2000 bytes");
     expect(result.stdout!.length).toBeLessThan(big.length);
   });
+
+  const SARIF_STEP = [
+    { kind: "shell", command: "ruff check --output-format=sarif" },
+    { kind: "exportStdout", name: "results.sarif" },
+  ] as const;
 
   it("exportStdout writes captured stdout to artifact dir on success", async () => {
     const artifactDir = join(testDir, "artifacts");
     const driver = createMockDriver({
       executeFn: async () => ({ exitCode: 0, stdout: '{"version":"2.1.0"}', stderr: "", durationMs: 5, timedOut: false }),
     });
-    const result = await executeStep({
-      step: makeStep([
-        { kind: "shell", command: "ruff check --output-format=sarif" },
-        { kind: "exportStdout", name: "results.sarif" },
-      ]),
-      driver, workspace: testDir, artifactDir,
-      artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
-    });
+    const result = await executeStep(
+      execOpts(makeStep([...SARIF_STEP]), driver, artifactDir),
+    );
     expect(result.status).toBe("succeeded");
     const written = await readFile(join(artifactDir, "ci/build", "results.sarif"), "utf-8");
     expect(written).toBe('{"version":"2.1.0"}');
@@ -559,16 +559,9 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     const driver = createMockDriver({
       executeFn: async () => ({ exitCode: 1, stdout: '{"sarif":"with-findings"}', stderr: "", durationMs: 5, timedOut: false }),
     });
-    const result = await executeStep({
-      step: makeStep([
-        { kind: "shell", command: "ruff check --output-format=sarif" },
-        { kind: "exportStdout", name: "results.sarif" },
-      ]),
-      driver, workspace: testDir, artifactDir,
-      artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
-    });
+    const result = await executeStep(
+      execOpts(makeStep([...SARIF_STEP]), driver, artifactDir),
+    );
     expect(result.status).toBe("failed");
     const written = await readFile(join(artifactDir, "ci/build", "results.sarif"), "utf-8");
     expect(written).toBe('{"sarif":"with-findings"}');
@@ -576,13 +569,13 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
 
   it("exportStdout fails the step when no shell output was captured", async () => {
     const driver = createMockDriver();
-    const result = await executeStep({
-      step: makeStep([{ kind: "exportStdout", name: "results.sarif" }]),
-      driver, workspace: testDir, artifactDir: join(testDir, "artifacts"),
-      artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
-    });
+    const result = await executeStep(
+      execOpts(
+        makeStep([{ kind: "exportStdout", name: "results.sarif" }]),
+        driver,
+        join(testDir, "artifacts"),
+      ),
+    );
     expect(result.status).toBe("failed");
     expect(result.error).toContain("no shell output");
   });

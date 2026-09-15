@@ -63,30 +63,30 @@ function useTempDir() {
   return () => dir;
 }
 
-/** Config whose build step emits SARIF on stdout and exports it via
- * `fromStdout` — exercises the real artifact pipeline instead of a manually
- * placed fixture. */
-const SARIF_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+/** Config whose build step emits the given SARIF on stdout and exports it
+ * via `fromStdout` — exercises the real artifact pipeline instead of a
+ * manually placed fixture. */
+function sarifStdoutConfig(sarifJson: string): string {
+  const echo = JSON.stringify(`echo '${sarifJson}'`);
+  return `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 const proj = new Project("myproj");
 const pipeline = new Pipeline(proj, "ci");
-new ShellStep(pipeline, "build", { command: ${JSON.stringify(`echo '${SARIF_WITH_HIGH_FINDING}'`)}, runtime: { shell: "sh" }, outputs: { "results.sarif": { type: "artifact", fromStdout: true } } });
+new ShellStep(pipeline, "build", { command: ${echo}, runtime: { shell: "sh" }, outputs: { "results.sarif": { type: "artifact", fromStdout: true } } });
 new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 export default proj;
 `;
+}
+
+const SARIF_CONFIG = sarifStdoutConfig(SARIF_WITH_HIGH_FINDING);
 
 /** Same pipeline but the check emits an empty SARIF — artifacts exist, zero
  * findings, policy passes. */
-const SARIF_EMPTY = JSON.stringify({
-  version: "2.1.0",
-  runs: [{ tool: { driver: { name: "test" } }, results: [] }],
-});
-const SARIF_CLEAN_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
-const proj = new Project("myproj");
-const pipeline = new Pipeline(proj, "ci");
-new ShellStep(pipeline, "build", { command: ${JSON.stringify(`echo '${SARIF_EMPTY}'`)}, runtime: { shell: "sh" }, outputs: { "results.sarif": { type: "artifact", fromStdout: true } } });
-new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-export default proj;
-`;
+const SARIF_CLEAN_CONFIG = sarifStdoutConfig(
+  JSON.stringify({
+    version: "2.1.0",
+    runs: [{ tool: { driver: { name: "test" } }, results: [] }],
+  }),
+);
 
 describe("run command — format and evaluate", () => {
   const getDir = useTempDir();
