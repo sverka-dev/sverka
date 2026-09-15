@@ -63,12 +63,13 @@ async function buildDetectedTemplate(root: string): Promise<string | null> {
   const stepLines = resolved.map((r) => {
     const shellOp = r.step.operations.find((o) => o.kind === "shell");
     const command = shellOp?.kind === "shell" ? shellOp.command : "";
-    const checkId = r.checkId;
+    const checkId = JSON.stringify(r.checkId);
     const sarifOut = r.outputs.find((o) => o.format === "sarif");
     if (sarifOut !== undefined) {
-      return `new ShellStep(ci, "${checkId}", { command: "${command}", outputs: { "${sarifOut.path}": { type: "artifact", fromStdout: true } } });`;
+      const outPath = JSON.stringify(sarifOut.path);
+      return `new ShellStep(ci, ${checkId}, { command: ${JSON.stringify(command)}, outputs: { ${outPath}: { type: "artifact", fromStdout: true } } });`;
     }
-    return `new ShellStep(ci, "${checkId}", { command: "${command}" });`;
+    return `new ShellStep(ci, ${checkId}, { command: ${JSON.stringify(command)} });`;
   });
 
   const rootIds = resolved.map((r) => r.checkId);

@@ -19,7 +19,7 @@ export async function collectFindings(
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") {
       throw new ReporterError(
-        `artifact directory not found: ${root} — no step produced artifacts; declare SARIF outputs (e.g. outputs: { "results.sarif": { type: "artifact", fromStdout: true } }) to use --evaluate`,
+        `artifact directory not found: ${root} — no step produced artifacts; declare a SARIF artifact output with fromStdout: true to use --evaluate`,
         "COLLECTION_FAILED",
         e,
       );

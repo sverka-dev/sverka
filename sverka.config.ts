@@ -4,16 +4,19 @@ const proj = new Project("sverka");
 
 const ci = new Pipeline(proj, "ci");
 
-new ShellStep(ci, "typecheck", { command: "bun run typecheck" });
-new ShellStep(ci, "lint", {
+const typecheck = new ShellStep(ci, "typecheck", { command: "bun run typecheck" });
+const lint = new ShellStep(ci, "lint", {
   command: "bun run lint",
-  dependsOn: ["typecheck"],
+  dependsOn: [typecheck.node.id],
 });
-new ShellStep(ci, "test", {
+const test = new ShellStep(ci, "test", {
   command: "bun run test",
-  dependsOn: ["lint"],
+  dependsOn: [lint.node.id],
 });
 
-new Entry(ci, "on-push", { trigger: push(), roots: ["typecheck", "lint", "test"] });
+export const onPush = new Entry(ci, "on-push", {
+  trigger: push(),
+  roots: [typecheck.node.id, lint.node.id, test.node.id],
+});
 
 export default proj;
