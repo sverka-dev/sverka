@@ -1,0 +1,198 @@
+formula = "audit-fixes"
+version = 1
+contract = "graph.v2"
+extends = ["build-from-plan-base"]
+target_required = false
+
+description = """
+Sverka audit-fixes wave: fix critical audit findings from the 2026-02
+critical review. Architect designs from the megaplan, builder implements
+(TDD), reviewer gates, mayor finalizes as stacked PR.
+
+Extends sverka-wave methodology with audit-fixes-specific task decomposition.
+The megaplan at .agents/plans/audit-fixes.md defines 6 phases; the mayor
+dispatches each phase as a separate wave using this formula.
+"""
+
+[catalog]
+name = "audit-fixes"
+description = "Execute one Sverka audit-fix phase: plan -> implement -> review -> finalize (stacked PR)."
+
+[metadata.gc.methodology]
+allowed_drain_policies = ["separate", "same-session"]
+implementation_strategy = "drain"
+interaction_modes = ["interactive", "autonomous", "headless"]
+review_modes = ["report", "agent", "interactive"]
+
+[vars]
+[vars.artifact_root]
+description = "Build artifact root (defaults to .gc/build)."
+default = ".gc/build"
+
+[vars.requirements_path]
+description = "Approved requirements artifact path (the spec for this wave)."
+default = ""
+
+[vars.megaplan_path]
+description = "Path to the audit-fixes megaplan."
+default = ".agents/plans/audit-fixes.md"
+
+[vars.phase_num]
+description = "Audit-fix phase number (1-6)."
+default = "1"
+
+[vars.phase_name]
+description = "Audit-fix phase name (e.g. json-stdout-stderr, findings-pipeline)."
+default = "json-stdout-stderr"
+
+[vars.wave_prefix]
+description = "Branch prefix for this wave."
+default = "fix"
+
+[vars.spec_prefix]
+description = "Spec prefix for audit-fixes specs."
+default = "audit"
+
+[sources]
+megaplan = "{{.megaplan_path}}"
+
+[graph]
+# Phase 1: JSON stdout/stderr — CRITICAL, unblocks AI agent story
+[[graph.nodes]]
+id = "phase-1-architect"
+agent = "architect"
+formula = "build-from-plan-base"
+description = "Design Phase 1: stdout/stderr in JSON output"
+deps = []
+vars = { phase_num = "1", phase_name = "json-stdout-stderr" }
+
+[[graph.nodes]]
+id = "phase-1-builder"
+agent = "builder"
+formula = "build-from-plan-base"
+description = "Implement Phase 1: stdout/stderr in JSON output"
+deps = ["phase-1-architect"]
+vars = { phase_num = "1", phase_name = "json-stdout-stderr" }
+
+[[graph.nodes]]
+id = "phase-1-reviewer"
+agent = "reviewer"
+formula = "build-from-plan-base"
+description = "Review Phase 1: stdout/stderr in JSON output"
+deps = ["phase-1-builder"]
+vars = { phase_num = "1", phase_name = "json-stdout-stderr" }
+
+# Phase 2: Findings pipeline — CRITICAL, unblocks unique value prop
+[[graph.nodes]]
+id = "phase-2-architect"
+agent = "architect"
+formula = "build-from-plan-base"
+description = "Design Phase 2: connect findings pipeline"
+deps = []
+vars = { phase_num = "2", phase_name = "findings-pipeline" }
+
+[[graph.nodes]]
+id = "phase-2-builder"
+agent = "builder"
+formula = "build-from-plan-base"
+description = "Implement Phase 2: connect findings pipeline"
+deps = ["phase-2-architect"]
+vars = { phase_num = "2", phase_name = "findings-pipeline" }
+
+[[graph.nodes]]
+id = "phase-2-reviewer"
+agent = "reviewer"
+formula = "build-from-plan-base"
+description = "Review Phase 2: connect findings pipeline"
+deps = ["phase-2-builder"]
+vars = { phase_num = "2", phase_name = "findings-pipeline" }
+
+# Phase 3: Fix integration test bugs — HIGH, depends on 1+2
+[[graph.nodes]]
+id = "phase-3-architect"
+agent = "architect"
+formula = "build-from-plan-base"
+description = "Design Phase 3: fix integration test bugs"
+deps = ["phase-1-reviewer", "phase-2-reviewer"]
+vars = { phase_num = "3", phase_name = "fix-integration-tests" }
+
+[[graph.nodes]]
+id = "phase-3-builder"
+agent = "builder"
+formula = "build-from-plan-base"
+description = "Implement Phase 3: fix integration test bugs"
+deps = ["phase-3-architect"]
+vars = { phase_num = "3", phase_name = "fix-integration-tests" }
+
+[[graph.nodes]]
+id = "phase-3-reviewer"
+agent = "reviewer"
+formula = "build-from-plan-base"
+description = "Review Phase 3: fix integration test bugs"
+deps = ["phase-3-builder"]
+vars = { phase_num = "3", phase_name = "fix-integration-tests" }
+
+# Phase 4: Revert CDK-style dependsOn — MEDIUM, independent after 3
+[[graph.nodes]]
+id = "phase-4-builder"
+agent = "builder"
+formula = "build-from-plan-base"
+description = "Implement Phase 4: revert CDK-style dependsOn"
+deps = ["phase-3-reviewer"]
+vars = { phase_num = "4", phase_name = "revert-cdk-style" }
+
+[[graph.nodes]]
+id = "phase-4-reviewer"
+agent = "reviewer"
+formula = "build-from-plan-base"
+description = "Review Phase 4: revert CDK-style dependsOn"
+deps = ["phase-4-builder"]
+vars = { phase_num = "4", phase_name = "revert-cdk-style" }
+
+# Phase 5: Delete dead compilers — MEDIUM, independent
+[[graph.nodes]]
+id = "phase-5-builder"
+agent = "builder"
+formula = "build-from-plan-base"
+description = "Implement Phase 5: delete dead compilers"
+deps = []
+vars = { phase_num = "5", phase_name = "delete-dead-compilers" }
+
+[[graph.nodes]]
+id = "phase-5-reviewer"
+agent = "reviewer"
+formula = "build-from-plan-base"
+description = "Review Phase 5: delete dead compilers"
+deps = ["phase-5-builder"]
+vars = { phase_num = "5", phase_name = "delete-dead-compilers" }
+
+# Phase 6: Fix ensureConstructsDependency — LOW, independent
+[[graph.nodes]]
+id = "phase-6-builder"
+agent = "builder"
+formula = "build-from-plan-base"
+description = "Implement Phase 6: fix ensureConstructsDependency"
+deps = []
+vars = { phase_num = "6", phase_name = "fix-ensure-constructs" }
+
+[[graph.nodes]]
+id = "phase-6-reviewer"
+agent = "reviewer"
+formula = "build-from-plan-base"
+description = "Review Phase 6: fix ensureConstructsDependency"
+deps = ["phase-6-builder"]
+vars = { phase_num = "6", phase_name = "fix-ensure-constructs" }
+
+# Mayor finalizes
+[[graph.nodes]]
+id = "mayor-finalize"
+agent = "mayor"
+formula = "build-from-plan-base"
+description = "Finalize: stacked PR, merge coordination"
+deps = [
+  "phase-3-reviewer",
+  "phase-4-reviewer",
+  "phase-5-reviewer",
+  "phase-6-reviewer",
+]
+vars = {}

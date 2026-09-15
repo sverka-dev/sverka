@@ -17,9 +17,13 @@ describe("FindingsCollector", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it("returns empty array when artifact dir does not exist", async () => {
-    const rows = await collectFindings({ artifactDir: join(dir, "nonexistent") });
-    expect(rows).toHaveLength(0);
+  it("throws ReporterError COLLECTION_FAILED when artifact dir does not exist", async () => {
+    await expect(
+      collectFindings({ artifactDir: join(dir, "nonexistent") }),
+    ).rejects.toMatchObject({
+      name: "ReporterError",
+      code: "COLLECTION_FAILED",
+    });
   });
 
   it("returns empty array when artifact dir is empty", async () => {

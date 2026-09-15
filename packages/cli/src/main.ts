@@ -66,7 +66,12 @@ function addInitCommand(y: Argv): Argv {
     type: "string",
     default: "minimal",
     choices: ["minimal", "full"],
-  }).option("force", { type: "boolean", default: false });
+  }).option("force", { type: "boolean", default: false })
+   .option("detect", {
+     type: "boolean",
+     default: false,
+     describe: "Generate config from detected project checks (overrides --template)",
+   });
 }
 
 /** Configure the run subcommand options. */
@@ -250,6 +255,7 @@ function dispatchInit(
     {
       template: typeof parsed.template === "string" ? parsed.template : undefined,
       force: Boolean(parsed.force),
+      detect: Boolean(parsed.detect),
     },
     global,
     output,

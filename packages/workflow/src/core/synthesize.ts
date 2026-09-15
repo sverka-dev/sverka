@@ -376,6 +376,10 @@ function collectExportOperations(
 ): void {
   for (const [name, decl] of step.outputs) {
     if (decl.type === "artifact") {
+      if (decl.fromStdout === true) {
+        operations.push({ kind: "exportStdout", name });
+        continue;
+      }
       if (decl.path === undefined) {
         throw new SynthesisError(
           "INVALID_OUTPUT",

@@ -5,7 +5,7 @@ description: Use when the user wants to run sverka CLI commands or author Sverka
 
 # Sverka
 
-Define checks once. Plan locally. Run anywhere.
+Define checks once. Run locally. Compile anywhere.
 
 ## Pipeline Recipe
 
@@ -38,7 +38,7 @@ dependencies: lint/typecheck/biome/oxlint run first (parallel), then test,
 then build. One entry, roots at the final step:
 
 ```typescript
-import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/workflow";
 
 const proj = new Project("verify");
 const ci = new Pipeline(proj, "ci");
@@ -59,37 +59,62 @@ export default proj;
 ```
 
 Key rules:
-- `dependsOn` is string array: `["lint"]`, NOT objects
+- `dependsOn` accepts string IDs (`sverka validate` catches typos)
 - `roots` is the entry point — planner pulls transitive deps automatically
 - Only include steps for checks that actually exist
 - Use `npm run <script>` for package.json scripts, `npx <tool>` for standalone tools
+- Import from `@sverka/workflow`, NOT `@sverka/cdk` (that is an empty package)
 
 ### Step 3: Install dependency
 
 ```bash
-npm install --save-dev @sverka/cdk
+npm install --save-dev @sverka/workflow
 ```
-
-If `@sverka/cdk` is not resolvable (monorepo worktree, non-hoisted
-node_modules), symlink it: `ln -sfn ../path/to/constructs node_modules/@sverka/cdk`
 
 ### Step 4: Run everything
 
 ```bash
-npx @sverka/cli run
+npx sverka run
 ```
 
 One command. Sverka loads the config, creates the plan, runs all steps in
 topological order with parallelism. One entry → used automatically.
 
+For AI agent integration, use JSON format for structured per-step results:
+
+```bash
+npx sverka run --format json
+```
+
+Output: `{"command":"run","data":{"planId":"...","status":"success","steps":[{"stepId":"ci/lint","status":"succeeded","durationMs":4307},...]}}`
+
+On failure, steps include `stdout`, `stderr`, and `exitCode` so agents see
+WHY the command failed without rerunning it:
+`{"stepId":"ci/test","status":"failed","error":"step 'ci/test' shell command failed with exit code 1","exitCode":1,"stdout":"...","stderr":"...","durationMs":5176}`
+
 That's it. Don't run `validate` or `plan` separately — `run` does it all.
+
+## Auto-detect Config
+
+Instead of manually writing config, use `--detect` to generate from real
+project checks:
+
+```bash
+sverka init --detect
+```
+
+This uses the planner to discover project context (languages, package
+managers, config files) and the built-in resolver to map checks to
+commands. For a bun project: `bun run typecheck/lint/test`. For Rust:
+`cargo clippy/fmt-check/test`. For Python: `ruff check/pytest`. For Go:
+`go vet/test`. Falls back to minimal template if detection finds nothing.
 
 ## Config Reference
 
 ### Construct API
 
 ```typescript
-import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/workflow";
 
 const proj = new Project("verify");
 const ci = new Pipeline(proj, "ci");
@@ -100,70 +125,50 @@ new Entry(ci, "on-push", { trigger: push(), roots: ["test"] });
 export default proj;
 ```
 
-### SDK API
+### Dependencies
+
+Sverka infers dependencies from data flow:
+- Pass an output reference from one step as input to another → dependency auto-inferred
+- For control-only deps (ordering without data flow), use `dependsOn` with string IDs
+- `sverka validate` catches unknown step IDs — no need for object references
 
 ```typescript
-import { $, shell, pipeline, artifact, push } from "@sverka/sdk";
-import { Project, Entry } from "@sverka/cdk";
+new ShellStep(ci, "build", { command: "npm run build" });
+new ShellStep(ci, "test", { command: "npm run test", dependsOn: ["build"] });
+```
 
-const proj = new Project("verify");
+### Findings / SARIF artifacts
 
-pipeline(proj, "ci", {
-  steps: [
-    (p) => $`npm run build`.outputs({ dist: artifact("./dist") }).build(p, "build"),
-    (p) => shell.npm`run test`.dependsOn(["build"]).build(p, "test"),
-  ],
-  entries: [
-    (p) => new Entry(p, "on-push", { trigger: push(), roots: ["test"] }),
-  ],
+Steps can declare artifact outputs. For tools that emit SARIF on stdout,
+use `fromStdout` so the captured output is stored as the artifact —
+even when the check exits non-zero (findings present):
+
+```typescript
+new ShellStep(ci, "lint", {
+  command: "ruff check --output-format=sarif",
+  runtime: { shell: "sh" },
+  outputs: { "results.sarif": { type: "artifact", fromStdout: true } },
 });
-
-export default proj;
 ```
 
-### Decorator API
+`sverka run --evaluate` (or `--format sarif|web|html`) collects `*.sarif`
+files from the artifact dir and runs the policy gate. If no step produced
+artifacts, `--evaluate` fails with COLLECTION_FAILED instead of a false
+"pass" verdict.
 
-```typescript
-import { pipeline, step, entry, input, fromClass } from "@sverka/decorators";
-import { push } from "@sverka/cdk";
-
-@pipeline
-class CiPipeline {
-  @input buildDir = { type: "string", required: true }
-
-  @step
-  build = "npm run build"
-
-  @step({ dependsOn: ["build"] })
-  test = "npm run test"
-
-  @entry(push())
-  onPush = ["test"]
-}
-
-export default fromClass(CiPipeline, "ci");
-```
-
-## Shell Proxy
-
-```typescript
-import { $, shell } from "@sverka/sdk";
-
-$`make build`                        // bare command
-shell.git`push origin main`          // → "git push origin main"
-shell.npm`run test`                  // → "npm run test"
-shell("bash").git`push origin main`  // forces bash interpreter
-```
+- Do NOT use `dependencies: [{ kind: "control", producer: "..." }]` — that prop does not exist
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
 | `sverka init` | Create `sverka.config.ts` from template |
+| `sverka init --detect` | Generate config from detected project checks |
 | `sverka validate` | Check config without executing |
 | `sverka plan` | Show the run plan |
 | `sverka graph` | Print the definition graph |
 | `sverka run` | Execute the workflow (plan + run) |
+| `sverka run --format json` | Execute with structured per-step JSON output |
 | `sverka discover` | Detect project context |
 | `sverka check` | Resolve checks to commands |
 | `sverka policy --findings <file>` | Evaluate policy against findings |
@@ -171,7 +176,7 @@ shell("bash").git`push origin main`  // forces bash interpreter
 | `sverka synth --target github\|gitlab` | Alias for `compile` |
 | `sverka doctor` | Diagnose environment |
 
-Global flags: `--config/-c`, `--root/-r`, `--format/-f` (human\|json), `--quiet/-q`, `--verbose/-v`
+Global flags: `--config/-c`, `--root/-r`, `--format/-f` (text\|json\|html\|sarif\|web), `--quiet/-q`, `--verbose/-v`
 
 ## Troubleshooting
 

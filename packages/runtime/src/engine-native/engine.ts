@@ -544,6 +544,9 @@ class NativeEngine implements Engine {
         type: "step-succeeded",
         stepId: step.id,
         durationMs: result.durationMs,
+        ...(result.stdout !== undefined ? { stdout: result.stdout } : {}),
+        ...(result.stderr !== undefined ? { stderr: result.stderr } : {}),
+        ...(result.exitCode !== undefined ? { exitCode: result.exitCode } : {}),
       });
       ctx.completionOrder.push(step.id);
       this.onStepComplete(ctx, step.id);
@@ -555,6 +558,9 @@ class NativeEngine implements Engine {
         stepId: step.id,
         error: result.error ?? "unknown",
         durationMs: result.durationMs,
+        ...(result.stdout !== undefined ? { stdout: result.stdout } : {}),
+        ...(result.stderr !== undefined ? { stderr: result.stderr } : {}),
+        ...(result.exitCode !== undefined ? { exitCode: result.exitCode } : {}),
       });
       ctx.hasFailure = true;
       // Enqueue dependents so they can evaluate their conditions (e.g. failure/always).

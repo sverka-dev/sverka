@@ -70,9 +70,26 @@ bun run typecheck    # typecheck all packages
 
 ## Architecture Overview
 
-Sverka is a portable workflow runtime — code-defined workflows with CI
-semantics, local execution, and optional multi-target compilation. See
-`engdocs/architecture/overview.md` for the full architecture overview.
+Sverka is a local-first workflow runtime for code-defined checks. Define
+checks once in TypeScript. Run locally with one command. Compile to CI
+optionally. See `engdocs/architecture/overview.md` for the full
+architecture overview.
+
+## Current Product Focus
+
+Sverka is a **local-first check runner for AI agents**. Core value: one
+`sverka run --format json` replaces N tool-call round-trips. CI compilation
+is optional. SaaS/browser execution is deferred.
+
+## Known Issues
+
+- **`sverka validate` does not warn on unknown props.** Config used
+  `dependencies: [{ kind: "control", ... }]` (non-existent prop) instead of
+  `dependsOn: ["stepId"]` — silently lost dependencies.
+- **~20 empty package directories** in `packages/` (0 tracked files). Real
+  code lives as subdirs inside `workflow`/`runtime`/`compiler`.
+- **v0 compilers coexist with v1.** Both exported from barrel. v0 candidate
+  for deletion.
 
 ## Conventions & Patterns
 

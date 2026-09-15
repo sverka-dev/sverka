@@ -2,9 +2,10 @@
 
 ## Project
 
-Sverka is a portable workflow runtime — code-defined workflows with CI
-semantics, local execution, and optional multi-target compilation. Define
-workflows once. Plan locally. Run anywhere.
+Sverka is a local-first workflow runtime for code-defined checks. Define
+checks once in TypeScript. Run locally with one command. Compile to CI
+optionally. AI-agent friendly — one command replaces dozens of tool-call
+round-trips.
 
 ## Tech stack
 
@@ -22,11 +23,20 @@ workflows once. Plan locally. Run anywhere.
 ```
 packages/
   workflow/         # cdk + core + ir — constructs, graph model, canonical plan
-  runtime/          # scheduler, native engine, host + docker executors
-  compiler/         # github + gitlab importers + compilers + plugin framework
-  verification/     # findings + policy + checks
+  runtime/          # engine-native + runtime-host + runtime-docker — scheduler, executors
+  compiler/        # github + gitlab + temporal + dagger + inngest + drone targets + plugin framework
+  verification/     # findings + policy + checks + sarif pipeline
   sdk/              # public TypeScript API, including planner
-  cli/              # command-line interface
+  cli/              # command-line interface (includes mcp-server)
+  plugin-mcp/       # MCP plugin: load external MCP servers as tools
+  reporter/         # report generation
+  storage/          # persistence layer
+  ui/               # local web dashboard for SARIF findings
+  sarif-viewer-tui/ # terminal SARIF viewer
+  sarif-viewer-web/ # standalone HTML report generator for SARIF
+  playground/       # browser sandbox for building and running check pipelines
+  arena/            # conformance arena
+  benchmark/        # performance benchmarking
 website/            # sverka.dev minimalistic site
 specs/              # numbered spec tree (SDD)
 engdocs/            # engineering docs (document-first)
@@ -41,6 +51,57 @@ engdocs/            # engineering docs (document-first)
 - **No `any`:** Use `unknown` and narrow. Strict TypeScript.
 - **Public API:** Everything public is exported from `src/index.ts`.
 - **Error handling:** Custom error classes per package.
+
+## Current Product Focus
+
+Sverka is a **local-first check runner for AI agents**. The core value
+proposition: one `sverka run --format json` replaces N tool-call
+round-trips. CI compilation is optional, not the headline. SaaS/browser
+execution is deferred.
+
+Key features in active development:
+- `sverka run --format json` — per-step results (stepId, status, durationMs,
+  error, stdout, stderr, exitCode)
+- `sverka init --detect` — generate config from detected project checks
+- `sverka validate` — validate Definition Graph (needs: warn on unknown props)
+- `dependsOn` — string step IDs; validate catches typos
+- Dependency inference from data flow (output ref → auto-dep)
+- SARIF findings via `outputs: { "x.sarif": { type: "artifact", fromStdout: true } }`
+  + `sverka run --evaluate`
+
+## Known Issues
+
+- **`sverka validate` does not warn on unknown props.** Config used
+  `dependencies: [{ kind: "control", ... }]` (non-existent prop) instead of
+  `dependsOn: ["stepId"]` — TypeScript doesn't catch it because config is
+  loaded dynamically. Dependencies were silently lost.
+- **~20 empty package directories** in `packages/` (0 tracked files: `ir`,
+  `core`, `cdk`, `planner`, `engine-native`, `runtime-host`, `runtime-docker`,
+  `compiler-github`, `compiler-gitlab`, `findings`, `policy`, `checks`).
+  Real code lives as subdirs inside `workflow`/`runtime`/`compiler`.
+- **v0 compilers coexist with v1.** `compiler-github/compile.ts` (v0, works
+  with `Plan`) and `github/target.ts` (v1, works with `DefinitionGraph`).
+  Both exported from barrel. v0 is candidate for deletion.
+
+## Critical Audit Findings (2026-02 session) — RESOLVED
+
+- ~~**Findings/policy/SARIF pipeline disconnected.**~~ Fixed: `exportStdout`
+  op + `fromStdout` output declaration writes captured stdout into the
+  artifact dir (even on step failure). `collectFindings` now errors when the
+  artifact dir is missing instead of a false `verdict:pass`. `ruff check`
+  resolves with `--output-format=sarif` + SARIF output declaration.
+- ~~**AI agent JSON output too shallow.**~~ Fixed: step results include
+  `stdout`, `stderr`, `exitCode` (truncated at 10KB per stream).
+- ~~**CDK-style `dependsOn` Step objects.**~~ Reverted: `dependsOn` takes
+  string IDs only; `sverka validate` catches typos.
+- **11s startup overhead.** `sverka run` takes 11s before first command starts
+  (config load + tsx register). 10-line bash script does same parallelism in 1.4s.
+- ~~**Tests test structure not behavior.**~~ Integration test now exercises the
+  real SARIF pipeline (step emits SARIF on stdout → artifact → collectFindings
+  → policy gate) instead of a manually placed fixture + invalid `dependencies`
+  prop.
+- ~~**Dead compilers.**~~ Deleted: temporal/dagger/inngest/drone (36 files) +
+  orphaned `internal/` + `__tests__/helpers/`.
 
 ## Commands
 

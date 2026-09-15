@@ -53,10 +53,12 @@ describe("createBuiltinResolver — Node (npm/yarn/pnpm)", () => {
 });
 
 describe("createBuiltinResolver — Python", () => {
-  it("resolves lint to ruff check", () => {
+  it("resolves lint to ruff check with SARIF stdout output", () => {
     const r = resolver.resolve(makeCheck("lint"), makeContext(["poetry"]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("ruff check");
+    expect((r!.step.operations[0] as { command: string }).command).toBe("ruff check --output-format=sarif");
+    expect(r!.step.operations[1]).toEqual({ kind: "exportStdout", name: "results.sarif" });
+    expect(r!.outputs).toEqual([{ path: "results.sarif", format: "sarif" }]);
   });
 
   it("resolves test to pytest", () => {

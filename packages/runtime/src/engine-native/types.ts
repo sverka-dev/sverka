@@ -91,8 +91,8 @@ export type RunEvent =
   | { readonly type: "step-pending"; readonly stepId: string }
   | { readonly type: "step-ready"; readonly stepId: string }
   | { readonly type: "step-started"; readonly stepId: string }
-  | { readonly type: "step-succeeded"; readonly stepId: string; readonly durationMs: number }
-  | { readonly type: "step-failed"; readonly stepId: string; readonly error: string; readonly durationMs: number }
+  | { readonly type: "step-succeeded"; readonly stepId: string; readonly durationMs: number; readonly stdout?: string; readonly stderr?: string; readonly exitCode?: number }
+  | { readonly type: "step-failed"; readonly stepId: string; readonly error: string; readonly durationMs: number; readonly stdout?: string; readonly stderr?: string; readonly exitCode?: number }
   | { readonly type: "step-skipped"; readonly stepId: string }
   | { readonly type: "step-cancelled"; readonly stepId: string }
   | { readonly type: "step-cache-hit"; readonly stepId: string; readonly key: string }

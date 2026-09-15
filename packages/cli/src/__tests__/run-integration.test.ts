@@ -2,7 +2,7 @@
 // Spec 43 — test plan items 27-30.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { main } from "../index.js";
@@ -17,8 +17,8 @@ const VALID_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sver
 const proj = new Project("myproj");
 const pipeline = new Pipeline(proj, "ci");
 new ShellStep(pipeline, "build", { command: "echo build" });
-new ShellStep(pipeline, "test", { command: "echo test", dependencies: [{ kind: "control", producer: "build" }] });
-new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+new ShellStep(pipeline, "test", { command: "echo test", dependsOn: ["build"] });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build", "test"] });
 export default proj;
 `;
 
@@ -63,11 +63,30 @@ function useTempDir() {
   return () => dir;
 }
 
-async function placeSarif(dir: string): Promise<void> {
-  const artifactDir = join(dir, ".sverka", "artifacts", "ci", "build");
-  await mkdir(artifactDir, { recursive: true });
-  await writeFile(join(artifactDir, "results.sarif"), SARIF_WITH_HIGH_FINDING);
-}
+/** Config whose build step emits SARIF on stdout and exports it via
+ * `fromStdout` — exercises the real artifact pipeline instead of a manually
+ * placed fixture. */
+const SARIF_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "build", { command: ${JSON.stringify(`echo '${SARIF_WITH_HIGH_FINDING}'`)}, runtime: { shell: "sh" }, outputs: { "results.sarif": { type: "artifact", fromStdout: true } } });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+export default proj;
+`;
+
+/** Same pipeline but the check emits an empty SARIF — artifacts exist, zero
+ * findings, policy passes. */
+const SARIF_EMPTY = JSON.stringify({
+  version: "2.1.0",
+  runs: [{ tool: { driver: { name: "test" } }, results: [] }],
+});
+const SARIF_CLEAN_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "build", { command: ${JSON.stringify(`echo '${SARIF_EMPTY}'`)}, runtime: { shell: "sh" }, outputs: { "results.sarif": { type: "artifact", fromStdout: true } } });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+export default proj;
+`;
 
 describe("run command — format and evaluate", () => {
   const getDir = useTempDir();
@@ -90,8 +109,7 @@ describe("run command — format and evaluate", () => {
 
   it("28. --evaluate collects findings and evaluates policy after run", async () => {
     const dir = getDir();
-    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await placeSarif(dir);
+    await writefile(dir, "sverka.config.ts", SARIF_CONFIG);
 
     const out = new CaptureWriter();
     const code = await main(
@@ -109,8 +127,7 @@ describe("run command — format and evaluate", () => {
 
   it("29. --evaluate exits 1 when policy fails", async () => {
     const dir = getDir();
-    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await placeSarif(dir);
+    await writefile(dir, "sverka.config.ts", SARIF_CONFIG);
 
     const out = new CaptureWriter();
     const code = await main(
@@ -121,10 +138,52 @@ describe("run command — format and evaluate", () => {
     expect(code).toBe(1);
   });
 
-  it("30. --format json --evaluate includes findings and verdict in JSON output", async () => {
+  it("succeeding step JSON entry has stdout/stderr/exitCode", async () => {
     const dir = getDir();
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await placeSarif(dir);
+
+    const out = new CaptureWriter();
+    const code = await main(["run", "--root", dir, "--format", "json"], {
+      output: out,
+    });
+
+    expect(code).toBe(0);
+    const json = JSON.parse(out.stdoutText);
+    const build = json.data.steps.find((s: { stepId: string }) => s.stepId === "ci/build");
+    expect(build.status).toBe("succeeded");
+    expect(build.stdout).toContain("build");
+    expect(build.exitCode).toBe(0);
+    expect(typeof build.stderr).toBe("string");
+  });
+
+  it("failing step JSON entry has stdout/stderr/exitCode", async () => {
+    const dir = getDir();
+    const FAILING_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "test", { command: "echo partial-out; echo boom >&2; exit 3", runtime: { shell: "sh" } });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+export default proj;
+`;
+    await writefile(dir, "sverka.config.ts", FAILING_CONFIG);
+
+    const out = new CaptureWriter();
+    const code = await main(["run", "--root", dir, "--format", "json"], {
+      output: out,
+    });
+
+    expect(code).toBe(1);
+    const json = JSON.parse(out.stdoutText);
+    const step = json.data.steps.find((s: { stepId: string }) => s.stepId === "ci/test");
+    expect(step.status).toBe("failed");
+    expect(step.exitCode).toBe(3);
+    expect(step.stdout).toContain("partial-out");
+    expect(step.stderr).toContain("boom");
+  });
+
+  it("30. --format json --evaluate includes findings and verdict in JSON output", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", SARIF_CONFIG);
 
     const out = new CaptureWriter();
     const code = await main(
@@ -137,6 +196,13 @@ describe("run command — format and evaluate", () => {
     const json = JSON.parse(out.stdoutText);
     expect(json.command).toBe("run");
     expect(json.data.status).toBe("success");
+    // JSON output should include per-step results
+    expect(Array.isArray(json.data.steps)).toBe(true);
+    expect(json.data.steps.length).toBeGreaterThan(0);
+    for (const step of json.data.steps) {
+      expect(typeof step.stepId).toBe("string");
+      expect(typeof step.status).toBe("string");
+    }
   });
 });
 
@@ -145,7 +211,7 @@ describe("run command — --format html", () => {
 
   it("21. --format html --output produces an HTML file", async () => {
     const dir = getDir();
-    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    await writefile(dir, "sverka.config.ts", SARIF_CLEAN_CONFIG);
 
     const out = new CaptureWriter();
     const outputPath = join(dir, "report.html");
@@ -163,8 +229,7 @@ describe("run command — --format html", () => {
 
   it("22. --format html implies --evaluate (findings collected)", async () => {
     const dir = getDir();
-    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await placeSarif(dir);
+    await writefile(dir, "sverka.config.ts", SARIF_CONFIG);
 
     const out = new CaptureWriter();
     const outputPath = join(dir, "report.html");
@@ -182,7 +247,7 @@ describe("run command — --format html", () => {
 
   it("23. --format html default output is .sverka/report.html", async () => {
     const dir = getDir();
-    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    await writefile(dir, "sverka.config.ts", SARIF_CLEAN_CONFIG);
 
     const out = new CaptureWriter();
     const code = await main(

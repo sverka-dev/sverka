@@ -32,6 +32,23 @@ export interface StepExecResult {
   readonly durationMs: number;
   readonly exitCode?: number;
   readonly timedOut?: boolean;
+  readonly stdout?: string;
+  readonly stderr?: string;
+}
+
+/** Output captured from the last executed shell operation in a step. */
+export interface ShellOutput {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number;
+}
+
+const MAX_OUTPUT_LENGTH = 10000;
+
+function truncateOutput(value: string): string {
+  if (value.length <= MAX_OUTPUT_LENGTH) return value;
+  const kept = value.slice(0, MAX_OUTPUT_LENGTH);
+  return `${kept}\n[... truncated ${value.length - MAX_OUTPUT_LENGTH} bytes]`;
 }
 
 /** Execute all operations in a step in order. */
@@ -54,13 +71,18 @@ export async function executeStep(opts: StepExecOptions): Promise<StepExecResult
     };
   }
 
+  let lastOutput: ShellOutput | undefined;
+
   for (const op of step.operations) {
     if (isCancelled()) {
       return { status: "cancelled", durationMs: Date.now() - start };
     }
 
     try {
-      await executeOperation(op, opts, stepWorkspace, outputDir);
+      const out = await executeOperation(op, opts, stepWorkspace, outputDir, lastOutput);
+      if (out !== undefined) {
+        lastOutput = out;
+      }
     } catch (e) {
       if (isCancelled()) {
         return { status: "cancelled", durationMs: Date.now() - start };
@@ -68,14 +90,40 @@ export async function executeStep(opts: StepExecOptions): Promise<StepExecResult
       const error = e instanceof Error ? e.message : String(e);
       const exitCode = e instanceof StepExecError ? e.exitCode : undefined;
       const timedOut = e instanceof StepExecError ? e.timedOut : undefined;
-      return { status: "failed", error, durationMs: Date.now() - start, ...(exitCode !== undefined ? { exitCode } : {}), ...(timedOut ? { timedOut } : {}) };
+      const stdout = e instanceof StepExecError ? e.stdout : lastOutput?.stdout;
+      const stderr = e instanceof StepExecError ? e.stderr : lastOutput?.stderr;
+      // Persist declared stdout artifacts even on failure — tools like
+      // `ruff --output-format=sarif` exit non-zero when findings exist, and
+      // the SARIF report on stdout is exactly what --evaluate needs.
+      if (stdout !== undefined) {
+        await writeStdoutArtifacts(step, opts, stdout);
+      }
+      return {
+        status: "failed",
+        error,
+        durationMs: Date.now() - start,
+        ...(exitCode !== undefined ? { exitCode } : {}),
+        ...(timedOut ? { timedOut } : {}),
+        ...(stdout !== undefined ? { stdout: truncateOutput(stdout) } : {}),
+        ...(stderr !== undefined ? { stderr: truncateOutput(stderr) } : {}),
+      };
     }
     if (isCancelled()) {
       return { status: "cancelled", durationMs: Date.now() - start };
     }
   }
 
-  return { status: "succeeded", durationMs: Date.now() - start };
+  return {
+    status: "succeeded",
+    durationMs: Date.now() - start,
+    ...(lastOutput !== undefined
+      ? {
+          stdout: truncateOutput(lastOutput.stdout),
+          stderr: truncateOutput(lastOutput.stderr),
+          exitCode: lastOutput.exitCode,
+        }
+      : {}),
+  };
 }
 
 async function executeOperation(
@@ -83,26 +131,29 @@ async function executeOperation(
   opts: StepExecOptions,
   stepWorkspace: string,
   outputDir: string,
-): Promise<void> {
+  lastOutput: ShellOutput | undefined,
+): Promise<ShellOutput | undefined> {
   switch (op.kind) {
     case "shell":
-      await executeShellOperation(op, opts, stepWorkspace, outputDir);
-      break;
+      return executeShellOperation(op, opts, stepWorkspace, outputDir);
     case "exportOutput":
       await executeExportOutputOperation(op, opts, outputDir);
-      break;
+      return undefined;
     case "exportArtifact":
       await executeExportArtifactOperation(op, opts, stepWorkspace);
-      break;
+      return undefined;
+    case "exportStdout":
+      await executeExportStdoutOperation(op, opts, lastOutput);
+      return undefined;
     case "importArtifact":
       await executeImportArtifactOperation(op, opts, stepWorkspace);
-      break;
+      return undefined;
     case "diagnostic":
       executeDiagnosticOperation(op, opts);
-      break;
+      return undefined;
     case "agent":
       await executeAgentOperation(op, opts);
-      break;
+      return undefined;
   }
 }
 
@@ -111,7 +162,7 @@ async function executeShellOperation(
   opts: StepExecOptions,
   stepWorkspace: string,
   outputDir: string,
-): Promise<void> {
+): Promise<ShellOutput> {
   const { step, driver, secrets, valueStore, inputs, signal, workspace } = opts;
   const env = buildShellEnv(step, outputDir, stepScopedSecrets(opts));
   const cwd = step.runtime.workingDir
@@ -143,8 +194,11 @@ async function executeShellOperation(
       undefined,
       result.exitCode,
       result.timedOut,
+      result.stdout,
+      result.stderr,
     );
   }
+  return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 }
 
 async function executeExportOutputOperation(
@@ -178,6 +232,64 @@ async function executeExportArtifactOperation(
   assertSafeFileName(op.name);
   const sourcePath = resolveUnder(stepWorkspace, op.path);
   await artifactStore.store(step.id, op.name, sourcePath);
+}
+
+/**
+ * Write the last shell operation's stdout to the artifact store under the
+ * declared output name. Used by checks that emit reports (e.g. SARIF) on
+ * stdout instead of a file.
+ */
+async function executeExportStdoutOperation(
+  op: Extract<OperationDefinition, { kind: "exportStdout" }>,
+  opts: StepExecOptions,
+  lastOutput: ShellOutput | undefined,
+): Promise<void> {
+  const { step, artifactDir } = opts;
+  if (lastOutput === undefined) {
+    throw new StepExecError(
+      `step '${step.id}' declares stdout artifact '${op.name}' but no shell output was captured`,
+      "ARTIFACT_ERROR",
+    );
+  }
+  await writeStdoutArtifact(step.id, artifactDir, op.name, lastOutput.stdout);
+}
+
+async function writeStdoutArtifact(
+  stepId: string,
+  artifactDir: string | undefined,
+  name: string,
+  content: string,
+): Promise<void> {
+  if (artifactDir === undefined) {
+    throw new StepExecError(
+      `cannot store stdout artifact '${name}': no artifact directory configured`,
+      "ARTIFACT_ERROR",
+    );
+  }
+  assertSafeFileName(name);
+  if (isAbsolute(stepId) || stepId.split("/").some((p) => p === "..")) {
+    throw new StepExecError(`invalid step id for artifact store: '${stepId}'`, "ARTIFACT_ERROR");
+  }
+  const dir = join(artifactDir, stepId);
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, name), content, "utf-8");
+}
+
+/** Best-effort write of all declared exportStdout ops — used on step failure
+ * so reports emitted on stdout (SARIF etc.) are not lost. Never throws. */
+async function writeStdoutArtifacts(
+  step: StepDefinition,
+  opts: StepExecOptions,
+  stdout: string,
+): Promise<void> {
+  for (const op of step.operations) {
+    if (op.kind !== "exportStdout") continue;
+    try {
+      await writeStdoutArtifact(step.id, opts.artifactDir, op.name, stdout);
+    } catch {
+      // Best-effort: do not mask the original step failure.
+    }
+  }
 }
 
 async function executeImportArtifactOperation(

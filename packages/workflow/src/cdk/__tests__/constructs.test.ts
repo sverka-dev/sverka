@@ -64,6 +64,17 @@ describe("ShellStep", () => {
     expect(step.interruptible).toBe(true);
   });
 
+  it("accepts string IDs in dependsOn", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const test = new ShellStep(pipeline, "test", {
+      command: "npm run test",
+      dependsOn: ["build"],
+    });
+    expect(test.dependsOn).toEqual(["build"]);
+  });
+
   it("stores interruptible flag when set false", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci");

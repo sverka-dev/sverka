@@ -467,3 +467,123 @@ describe("StepExecutor — secret injection (F-21)", () => {
     expect(capturedEnv.UNRESOLVED_TOKEN).toBeUndefined();
   });
 });
+
+describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () => {
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = await mkdtemp(join(tmpdir(), "sverka-out-"));
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  function makeStep(operations: StepDefinition["operations"]): StepDefinition {
+    return { id: "ci/build", runtime: {}, operations, inputs: [], outputs: [], dependencies: [] };
+  }
+
+  it("succeeding step returns stdout/stderr/exitCode in result", async () => {
+    const driver = createMockDriver({
+      executeFn: async () => ({ exitCode: 0, stdout: "build ok", stderr: "warn", durationMs: 5, timedOut: false }),
+    });
+    const result = await executeStep({
+      step: makeStep([{ kind: "shell", command: "bun run build" }]),
+      driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(result.status).toBe("succeeded");
+    expect(result.stdout).toBe("build ok");
+    expect(result.stderr).toBe("warn");
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("failing step returns stdout/stderr/exitCode in result", async () => {
+    const driver = createMockDriver({
+      executeFn: async () => ({ exitCode: 2, stdout: "partial out", stderr: "lint error", durationMs: 5, timedOut: false }),
+    });
+    const result = await executeStep({
+      step: makeStep([{ kind: "shell", command: "ruff check" }]),
+      driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("partial out");
+    expect(result.stderr).toBe("lint error");
+  });
+
+  it("truncates stdout/stderr beyond 10KB", async () => {
+    const big = "x".repeat(12000);
+    const driver = createMockDriver({
+      executeFn: async () => ({ exitCode: 0, stdout: big, stderr: "", durationMs: 5, timedOut: false }),
+    });
+    const result = await executeStep({
+      step: makeStep([{ kind: "shell", command: "cat big" }]),
+      driver, workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(result.status).toBe("succeeded");
+    expect(result.stdout).toContain("truncated 2000 bytes");
+    expect(result.stdout!.length).toBeLessThan(big.length);
+  });
+
+  it("exportStdout writes captured stdout to artifact dir on success", async () => {
+    const artifactDir = join(testDir, "artifacts");
+    const driver = createMockDriver({
+      executeFn: async () => ({ exitCode: 0, stdout: '{"version":"2.1.0"}', stderr: "", durationMs: 5, timedOut: false }),
+    });
+    const result = await executeStep({
+      step: makeStep([
+        { kind: "shell", command: "ruff check --output-format=sarif" },
+        { kind: "exportStdout", name: "results.sarif" },
+      ]),
+      driver, workspace: testDir, artifactDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(result.status).toBe("succeeded");
+    const written = await readFile(join(artifactDir, "ci/build", "results.sarif"), "utf-8");
+    expect(written).toBe('{"version":"2.1.0"}');
+  });
+
+  it("exportStdout preserves stdout on step failure (findings present → non-zero exit)", async () => {
+    const artifactDir = join(testDir, "artifacts");
+    const driver = createMockDriver({
+      executeFn: async () => ({ exitCode: 1, stdout: '{"sarif":"with-findings"}', stderr: "", durationMs: 5, timedOut: false }),
+    });
+    const result = await executeStep({
+      step: makeStep([
+        { kind: "shell", command: "ruff check --output-format=sarif" },
+        { kind: "exportStdout", name: "results.sarif" },
+      ]),
+      driver, workspace: testDir, artifactDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(result.status).toBe("failed");
+    const written = await readFile(join(artifactDir, "ci/build", "results.sarif"), "utf-8");
+    expect(written).toBe('{"sarif":"with-findings"}');
+  });
+
+  it("exportStdout fails the step when no shell output was captured", async () => {
+    const driver = createMockDriver();
+    const result = await executeStep({
+      step: makeStep([{ kind: "exportStdout", name: "results.sarif" }]),
+      driver, workspace: testDir, artifactDir: join(testDir, "artifacts"),
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(), secrets: {},
+      emit: () => {}, isCancelled: () => false,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.error).toContain("no shell output");
+  });
+});
