@@ -4,7 +4,6 @@
 
 import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
 import { EngineError } from "./errors.js";
 import type { RunPlan } from "@sverka/workflow";
@@ -455,8 +454,6 @@ class NativeEngine implements Engine {
     step: StepDefinition,
     driver: RuntimeDriver,
   ): Promise<void> {
-    const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", step.id));
-
     // Spec 27: agent steps are non-deterministic and skip cache restore/store
     // entirely, even if a cache spec is present.
     const isAgentStep = step.operations.some((op) => op.kind === "agent");
@@ -474,7 +471,7 @@ class NativeEngine implements Engine {
             key,
             restoreKeys,
             paths: step.cache.paths,
-            targetDir: stepWorkspace,
+            targetDir: ctx.request.workspace,
           });
           if (hit) {
             ctx.states.set(step.id, "succeeded");
@@ -525,7 +522,7 @@ class NativeEngine implements Engine {
       if (policy === "push" || policy === "pull-push") {
         const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
         try {
-          await ctx.cache.store({ key, paths: step.cache.paths, sourceDir: stepWorkspace });
+          await ctx.cache.store({ key, paths: step.cache.paths, sourceDir: ctx.request.workspace });
         } catch (e) {
           ctx.emit({
             type: "diagnostic",
@@ -1160,14 +1157,13 @@ function buildCompensationRequest(
   step: StepDefinition,
   command: string,
 ): ShellExecuteRequest {
-  const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
   return {
     command,
-    workspace: stepWorkspace,
+    workspace: ctx.request.workspace,
     env: buildCompensationEnv(step, scopeSecretsForStep(step, ctx.secrets)),
-    ...(step.runtime.workingDir !== undefined
-      ? { cwd: resolveUnder(stepWorkspace, step.runtime.workingDir) }
-      : {}),
+    cwd: step.runtime.workingDir !== undefined
+      ? resolveUnder(ctx.request.workspace, step.runtime.workingDir)
+      : ctx.request.workspace,
     ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
     ...(step.runtime.image ? { image: step.runtime.image } : {}),
     ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),

@@ -12,6 +12,7 @@
     "clean": "nx reset"
   },
   "devDependencies": {
+    "@microsoft/eslint-formatter-sarif": "3.1.0",
     "@types/node": "26.4.0",
     "eslint": "10.9.1",
     "nx": "^23.1.2",

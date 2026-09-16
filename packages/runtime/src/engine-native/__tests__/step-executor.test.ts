@@ -50,8 +50,9 @@ describe("StepExecutor", () => {
     const valueStore = createValueStore();
     const artifactStore = createArtifactStore(join(testDir, "art"));
     const events: RunEvent[] = [];
-    // Create a file in the step workspace first.
-    const wsDir = join(testDir, "ws", ".sverka", "workspace", "ci/build");
+    // Create a file in the workspace root — artifact paths are
+    // project-relative, matching where shell commands run.
+    const wsDir = join(testDir, "ws");
     await mkdir(wsDir, { recursive: true });
     await writeFile(join(wsDir, "dist.txt"), "artifact data");
     const step: StepDefinition = {
@@ -101,8 +102,8 @@ describe("StepExecutor", () => {
       emit: (e) => events.push(e), isCancelled: () => false,
     });
     expect(result.status).toBe("succeeded");
-    // Verify artifact was imported into workspace.
-    const imported = await readFile(join(testDir, "ws", ".sverka", "workspace", "ci/test", "dist"), "utf-8");
+    // Verify artifact was imported into workspace root.
+    const imported = await readFile(join(testDir, "ws", "dist"), "utf-8");
     expect(imported).toBe("imported data");
   });
 
@@ -565,6 +566,34 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     expect(result.status).toBe("failed");
     const written = await readFile(join(artifactDir, "ci/build", "results.sarif"), "utf-8");
     expect(written).toBe('{"sarif":"with-findings"}');
+  });
+
+  it("shell commands run from the workspace (project root)", async () => {
+    let capturedCwd = "";
+    const driver = createMockDriver({
+      executeFn: async (req) => {
+        capturedCwd = req.cwd ?? "";
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    });
+    await executeStep(execOpts(makeStep([{ kind: "shell", command: "pwd" }]), driver));
+    expect(capturedCwd).toBe(testDir);
+  });
+
+  it("runtime.workingDir resolves relative to the workspace root", async () => {
+    let capturedCwd = "";
+    const driver = createMockDriver({
+      executeFn: async (req) => {
+        capturedCwd = req.cwd ?? "";
+        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      },
+    });
+    const step: StepDefinition = {
+      ...makeStep([{ kind: "shell", command: "pwd" }]),
+      runtime: { workingDir: "packages/cli" },
+    };
+    await executeStep(execOpts(step, driver));
+    expect(capturedCwd).toBe(join(testDir, "packages", "cli"));
   });
 
   it("exportStdout fails the step when no shell output was captured", async () => {

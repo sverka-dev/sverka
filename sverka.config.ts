@@ -14,9 +14,15 @@ const test = new ShellStep(ci, "test", {
   dependsOn: [lint.node.id],
 });
 
+const lintSarif = new ShellStep(ci, "lint-sarif", {
+  command: "bunx eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
+  runtime: { shell: "sh" },
+  outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
+});
+
 export const onPush = new Entry(ci, "on-push", {
   trigger: push(),
-  roots: [typecheck.node.id, lint.node.id, test.node.id],
+  roots: [typecheck.node.id, lint.node.id, test.node.id, lintSarif.node.id],
 });
 
 export default proj;

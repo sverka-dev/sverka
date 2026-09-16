@@ -279,7 +279,8 @@ describe("Engine — saga compensations (Spec 30)", () => {
 
     const compReq = seenRequests.find((r) => r.command === "rollback.sh");
     expect(compReq).toBeDefined();
-    expect(compReq!.workspace).toContain("ci/a");
+    // Compensation runs from the workspace root, same cwd as step commands.
+    expect(compReq!.cwd).toBe(join(testDir, "ws"));
     expect(compReq!.env.DEPLOY_ENV).toBe("staging");
   });
 
