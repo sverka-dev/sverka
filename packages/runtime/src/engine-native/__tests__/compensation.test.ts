@@ -322,8 +322,20 @@ describe("Engine — saga compensations (Spec 30)", () => {
       (e) => e.type === "diagnostic" && e.severity === "warn" && e.message?.includes("concurrently"),
     );
     expect(warns.length).toBe(1);
-    expect(warns[0].message).toContain("ci/a");
-    expect(warns[0].message).toContain("ci/b");
+    expect(warns[0]?.message).toContain("ci/a");
+    expect(warns[0]?.message).toContain("ci/b");
+  });
+
+  it("does not warn on cache path sharing in serial runs (maxConcurrent=1)", async () => {
+    const a = { ...mkStep("ci/a", "echo a"), cache: { key: "k1", paths: ["dist"] } };
+    const b = { ...mkStep("ci/b", "echo b"), cache: { key: "k2", paths: ["dist"] } };
+    const plan = wrapPlan("rp-cache-serial", "graph-cache-serial", [a, b]);
+    const engine = createEngine({ drivers: [makeTrackingDriver()] });
+    const events = await runPlan(engine, plan, testDir, { maxConcurrent: 1 });
+    const warns = events.filter(
+      (e) => e.type === "diagnostic" && e.severity === "warn" && e.message?.includes("concurrently"),
+    );
+    expect(warns.length).toBe(0);
   });
 
   it("does not warn when ordered steps share cache paths", async () => {

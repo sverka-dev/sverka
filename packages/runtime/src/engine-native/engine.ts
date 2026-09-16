@@ -672,6 +672,7 @@ class NativeEngine implements Engine {
    * are fine — sequential reuse is the intended cache pattern.
    */
   private warnOnConcurrentCachePaths(ctx: RunContext, plan: RunPlan): void {
+    if (ctx.maxConcurrent <= 1) return; // serial run — no concurrent stores possible
     const byId = new Map(plan.steps.map((s) => [s.id, s]));
     const ancestorCache = new Map<string, ReadonlySet<string>>();
     const ancestors = (id: string): ReadonlySet<string> => {
@@ -690,6 +691,7 @@ class NativeEngine implements Engine {
     for (let i = 0; i < cached.length; i++) {
       for (let j = i + 1; j < cached.length; j++) {
         const a = cached[i], b = cached[j];
+        if (a === undefined || b === undefined) continue;
         if (ancestors(a.id).has(b.id) || ancestors(b.id).has(a.id)) continue;
         const shared = (a.cache?.paths ?? []).filter((p) => b.cache?.paths.includes(p));
         if (shared.length === 0) continue;
