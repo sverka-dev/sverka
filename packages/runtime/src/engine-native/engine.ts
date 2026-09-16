@@ -240,6 +240,8 @@ class NativeEngine implements Engine {
       eventDeferred.current = new Deferred();
     };
 
+    this.warnOnConcurrentCachePaths(ctx, setup.plan);
+
     for (const s of setup.plan.steps) {
       ctx.emit({ type: "step-pending", stepId: s.id });
     }
@@ -643,10 +645,10 @@ class NativeEngine implements Engine {
     ctx.emit({ type: "step-compensating", stepId, command });
     yield* this.drainEvents(ctx);
 
-    const request = buildCompensationRequest(ctx, stepId, step, command);
     const compStart = Date.now();
     let result: ShellResult;
     try {
+      const request = buildCompensationRequest(ctx, stepId, step, command);
       result = await driver.executeShell(request);
     } catch (e) {
       this.emitCompensationFailure(ctx, stepId, Date.now() - compStart, `compensation failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -660,6 +662,45 @@ class NativeEngine implements Engine {
       this.emitCompensationFailure(ctx, stepId, durationMs, `compensation for step '${stepId}' failed with exit code ${result.exitCode}`);
     }
     yield* this.drainEvents(ctx);
+  }
+
+  /**
+   * Warn when steps that may run concurrently share cache paths. The
+   * workspace is shared across steps, so a concurrent store can capture
+   * another step's partial writes and a restore can overwrite files the
+   * other step is using. Ordered (dependency-linked) steps sharing paths
+   * are fine — sequential reuse is the intended cache pattern.
+   */
+  private warnOnConcurrentCachePaths(ctx: RunContext, plan: RunPlan): void {
+    const byId = new Map(plan.steps.map((s) => [s.id, s]));
+    const ancestorCache = new Map<string, ReadonlySet<string>>();
+    const ancestors = (id: string): ReadonlySet<string> => {
+      const hit = ancestorCache.get(id);
+      if (hit) return hit;
+      const acc = new Set<string>();
+      ancestorCache.set(id, acc); // set before recursion to break cycles
+      for (const d of byId.get(id)?.dependencies ?? []) {
+        acc.add(d.producer);
+        for (const a of ancestors(d.producer)) acc.add(a);
+      }
+      return acc;
+    };
+
+    const cached = plan.steps.filter((s) => (s.cache?.paths.length ?? 0) > 0);
+    for (let i = 0; i < cached.length; i++) {
+      for (let j = i + 1; j < cached.length; j++) {
+        const a = cached[i], b = cached[j];
+        if (ancestors(a.id).has(b.id) || ancestors(b.id).has(a.id)) continue;
+        const shared = (a.cache?.paths ?? []).filter((p) => b.cache?.paths.includes(p));
+        if (shared.length === 0) continue;
+        ctx.emit({
+          type: "diagnostic",
+          stepId: a.id,
+          message: `steps '${a.id}' and '${b.id}' may run concurrently and share cache paths [${shared.join(", ")}] — a cache store can capture partial writes; order them with dependsOn or use distinct paths`,
+          severity: "warn",
+        });
+      }
+    }
   }
 
   /**

@@ -284,6 +284,60 @@ describe("Engine — saga compensations (Spec 30)", () => {
     expect(compReq!.env.DEPLOY_ENV).toBe("staging");
   });
 
+  it("compensation request build errors fail the step, not the run", async () => {
+    // A step with only non-shell ops never resolves workingDir during
+    // execution — an absolute workingDir would then throw inside
+    // buildCompensationRequest, outside the driver try/catch. The failure
+    // must be contained: the compensation is marked failed and the run
+    // still completes.
+    const a: StepDefinition = {
+      id: "ci/a",
+      runtime: { workingDir: "/absolute/escape" },
+      operations: [{ kind: "diagnostic", message: "noop", severity: "info" }],
+      inputs: [],
+      outputs: [],
+      dependencies: [],
+      compensation: { kind: "shell", command: "rollback-a.sh" },
+    };
+    const b = mkStep("ci/b", "exit 1", "rollback-b.sh", "ci/a");
+    const plan = wrapPlan("rp-saga-builderr", "graph-saga-builderr", [a, b]);
+
+    const seenCommands: string[] = [];
+    const engine = createEngine({ drivers: [makeTrackingDriver((r) => seenCommands.push(r.command))] });
+    const events = await runPlan(engine, plan, testDir);
+
+    const compA = events.find((e) => e.type === "step-compensated" && e.stepId === "ci/a");
+    expect(compA?.status).toBe("failed");
+    // The throw must not abort the run — run-completed still fires.
+    expect(events.some((e) => e.type === "run-completed")).toBe(true);
+  });
+
+  it("warns when concurrent steps share cache paths", async () => {
+    const a = { ...mkStep("ci/a", "echo a"), cache: { key: "k1", paths: ["dist"] } };
+    const b = { ...mkStep("ci/b", "echo b"), cache: { key: "k2", paths: ["dist"] } };
+    const plan = wrapPlan("rp-cache-warn", "graph-cache-warn", [a, b]);
+    const engine = createEngine({ drivers: [makeTrackingDriver()] });
+    const events = await runPlan(engine, plan, testDir);
+    const warns = events.filter(
+      (e) => e.type === "diagnostic" && e.severity === "warn" && e.message?.includes("concurrently"),
+    );
+    expect(warns.length).toBe(1);
+    expect(warns[0].message).toContain("ci/a");
+    expect(warns[0].message).toContain("ci/b");
+  });
+
+  it("does not warn when ordered steps share cache paths", async () => {
+    const a = { ...mkStep("ci/a", "echo a"), cache: { key: "k1", paths: ["dist"] } };
+    const b = { ...mkStep("ci/b", "echo b", undefined, "ci/a"), cache: { key: "k2", paths: ["dist"] } };
+    const plan = wrapPlan("rp-cache-ok", "graph-cache-ok", [a, b]);
+    const engine = createEngine({ drivers: [makeTrackingDriver()] });
+    const events = await runPlan(engine, plan, testDir);
+    const warns = events.filter(
+      (e) => e.type === "diagnostic" && e.severity === "warn" && e.message?.includes("concurrently"),
+    );
+    expect(warns.length).toBe(0);
+  });
+
   it("cache-restored steps are excluded from compensation phase", async () => {
     const { createFileCacheStore } = await import("../cache-store.js");
     const cache = createFileCacheStore({ cacheDir: join(testDir, "cache") });
