@@ -46,5 +46,5 @@ export function handleSearchInput(
  * Check if the input is a quit command (q or Ctrl+C).
  */
 export function isQuitInput(input: string, key: InputKey): boolean {
-  return input === "q" || (key.ctrl && input === "c");
+  return input === "q" || (key.ctrl === true && input === "c");
 }

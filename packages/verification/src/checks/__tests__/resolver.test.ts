@@ -53,10 +53,26 @@ describe("createBuiltinResolver — Node (npm/yarn/pnpm)", () => {
 });
 
 describe("createBuiltinResolver — Python", () => {
-  it("resolves lint to ruff check", () => {
+  it("resolves lint to ruff check with SARIF stdout output", () => {
     const r = resolver.resolve(makeCheck("lint"), makeContext(["poetry"]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("ruff check");
+    expect((r!.step.operations[0] as { command: string }).command).toBe("ruff check --output-format=sarif");
+    expect(r!.step.operations[1]).toEqual({ kind: "exportStdout", name: "results.sarif" });
+    expect(r!.outputs).toEqual([{ path: "results.sarif", format: "sarif" }]);
+    // Legacy Plan path: stdout SARIF is redirected to the artifact file
+    // through `sh -c` because HostExecutor spawns without a shell.
+    expect(r!.operation.command).toBe("sh");
+    expect(r!.operation.args).toEqual([
+      "-c",
+      "ruff check --output-format=sarif > results.sarif",
+    ]);
+  });
+
+  it("resolves legacy operation with binary + args (spawn has no shell)", () => {
+    const r = resolver.resolve(makeCheck("typecheck"), makeContext(["bun"]));
+    expect(r).not.toBeNull();
+    expect(r!.operation.command).toBe("bun");
+    expect(r!.operation.args).toEqual(["run", "typecheck"]);
   });
 
   it("resolves test to pytest", () => {

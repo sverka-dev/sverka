@@ -91,6 +91,7 @@ export type OperationDefinition =
   | { readonly kind: "shell"; readonly command: string; readonly background?: boolean }
   | { readonly kind: "exportOutput"; readonly name: string; readonly type: OutputType }
   | { readonly kind: "exportArtifact"; readonly name: string; readonly path: string; readonly retention?: string; readonly access?: ArtifactAccess }
+  | { readonly kind: "exportStdout"; readonly name: string }
   | {
       readonly kind: "importArtifact";
       readonly name: string;

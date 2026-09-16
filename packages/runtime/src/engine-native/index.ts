@@ -34,3 +34,5 @@ export type { EngineErrorCode, AgentDriverErrorCode } from "./errors.js";
 
 export { buildStepExecutionGraph, topoSortSteps, transitiveDependents, isStepReady } from "./scheduler.js";
 export type { StepState, StepGraph } from "./scheduler.js";
+
+export type { StepExecResult, StepExecOptions, ShellOutput } from "./step-executor.js";

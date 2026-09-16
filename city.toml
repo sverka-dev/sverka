@@ -17,3 +17,8 @@ nudge_dispatcher = "supervisor"
 max_wakes_per_tick = 2
 probe_concurrency = 2
 tick_debounce = "500ms"
+
+[imports.core]
+source = "https://github.com/gastownhall/gascity/tree/main/internal/bootstrap/packs/core"
+version = "sha:f895c0ff47d6ee9334ed282a416387eb5b084d24"
+shadow = "silent"

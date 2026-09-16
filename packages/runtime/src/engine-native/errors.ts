@@ -39,8 +39,18 @@ export class SchedulerError extends EngineError {
 export class StepExecError extends EngineError {
   readonly exitCode?: number;
   readonly timedOut?: boolean;
+  readonly stdout?: string;
+  readonly stderr?: string;
 
-  constructor(message: string, code: EngineErrorCode, cause?: unknown, exitCode?: number, timedOut?: boolean) {
+  constructor(
+    message: string,
+    code: EngineErrorCode,
+    cause?: unknown,
+    exitCode?: number,
+    timedOut?: boolean,
+    stdout?: string,
+    stderr?: string,
+  ) {
     super(message, code, cause);
     this.name = "StepExecError";
     if (exitCode !== undefined) {
@@ -48,6 +58,12 @@ export class StepExecError extends EngineError {
     }
     if (timedOut !== undefined) {
       this.timedOut = timedOut;
+    }
+    if (stdout !== undefined) {
+      this.stdout = stdout;
+    }
+    if (stderr !== undefined) {
+      this.stderr = stderr;
     }
   }
 }

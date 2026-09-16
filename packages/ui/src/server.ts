@@ -65,7 +65,7 @@ export function startUiServer(options: UiServerOptions): Promise<UiServer> {
         url: `http://${host}:${actualPort}`,
         close: () => {
           server.close((err) => {
-            if (err && err.code !== "ERR_SERVER_NOT_RUNNING") {
+            if (err && (err as NodeJS.ErrnoException).code !== "ERR_SERVER_NOT_RUNNING") {
               // Ignore — server may already be closed.
             }
           });

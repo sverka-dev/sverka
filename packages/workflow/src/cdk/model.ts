@@ -105,6 +105,10 @@ export interface OutputDeclaration {
   readonly description?: string;
   readonly retention?: string;
   readonly access?: ArtifactAccess;
+  /** When true on an artifact output, the step's captured stdout is written
+   * to the artifact store under this output's name instead of copying a file
+   * from `path`. Used for tools that emit reports (e.g. SARIF) on stdout. */
+  readonly fromStdout?: boolean;
 }
 
 // ---------------------------------------------------------------------------

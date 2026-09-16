@@ -46,7 +46,7 @@ function validateArtifactOutputs(
 ): void {
   if (!outputs) return;
   for (const [name, decl] of Object.entries(outputs)) {
-    if (decl.type === "artifact" && !decl.path) {
+    if (decl.type === "artifact" && !decl.path && decl.fromStdout !== true) {
       throw new ConstructError(
         "INVALID_OUTPUT",
         `Artifact output '${name}' on step '${id}' must have a path`,
@@ -139,6 +139,7 @@ export interface StepProps {
   readonly runtime?: Runtime;
   readonly outputs?: Readonly<Record<string, OutputDeclaration>>;
   readonly inputs?: readonly Reference[];
+  /** Steps this step depends on, by node id. */
   readonly dependsOn?: readonly string[];
   readonly timeout?: number;
   readonly condition?: Condition;

@@ -15,8 +15,9 @@ describe("serializeSarif", () => {
     const log = serializeSarif([]);
     expect(log.version).toBe("2.1.0");
     expect(log.runs).toHaveLength(1);
-    expect(log.runs[0].tool.driver.name).toBe("sverka");
-    expect(log.runs[0].results).toEqual([]);
+    const run = log.runs[0]!;
+    expect(run.tool.driver.name).toBe("sverka");
+    expect(run.results).toEqual([]);
   });
 
   it("groups findings by tool into separate runs", () => {
@@ -26,8 +27,8 @@ describe("serializeSarif", () => {
     ];
     const log = serializeSarif(findings);
     expect(log.runs).toHaveLength(2);
-    expect(log.runs[0].tool.driver.name).toBe("eslint");
-    expect(log.runs[1].tool.driver.name).toBe("semgrep");
+    expect(log.runs[0]!.tool.driver.name).toBe("eslint");
+    expect(log.runs[1]!.tool.driver.name).toBe("semgrep");
   });
 
   it("deduplicates rules within a run", () => {
@@ -38,9 +39,10 @@ describe("serializeSarif", () => {
     ];
     const log = serializeSarif(findings);
     expect(log.runs).toHaveLength(1);
-    expect(log.runs[0].tool.driver.rules).toHaveLength(2);
-    expect(log.runs[0].tool.driver.rules?.[0].id).toBe("no-unused-vars");
-    expect(log.runs[0].tool.driver.rules?.[1].id).toBe("no-console");
+    const rules = log.runs[0]!.tool.driver.rules;
+    expect(rules).toHaveLength(2);
+    expect(rules?.[0]!.id).toBe("no-unused-vars");
+    expect(rules?.[1]!.id).toBe("no-console");
   });
 
   it("maps severity to SARIF level correctly", () => {
@@ -52,17 +54,17 @@ describe("serializeSarif", () => {
       makeFinding({ id: "i", severity: "info" }),
     ];
     const log = serializeSarif(findings);
-    const results = log.runs[0].results;
-    expect(results[0].level).toBe("error"); // critical
-    expect(results[1].level).toBe("error"); // high
-    expect(results[2].level).toBe("warning"); // medium
-    expect(results[3].level).toBe("note"); // low
-    expect(results[4].level).toBe("none"); // info
+    const results = log.runs[0]!.results;
+    expect(results[0]!.level).toBe("error"); // critical
+    expect(results[1]!.level).toBe("error"); // high
+    expect(results[2]!.level).toBe("warning"); // medium
+    expect(results[3]!.level).toBe("note"); // low
+    expect(results[4]!.level).toBe("none"); // info
   });
 
   it("includes location with file, startLine, endLine", () => {
     const log = serializeSarif([makeFinding({ file: "src/foo.ts", startLine: 5, endLine: 8 })]);
-    const loc = log.runs[0].results[0].locations[0];
+    const loc = log.runs[0]!.results[0]!.locations[0]!;
     expect(loc.physicalLocation.artifactLocation.uri).toBe("src/foo.ts");
     expect(loc.physicalLocation.region?.startLine).toBe(5);
     expect(loc.physicalLocation.region?.endLine).toBe(8);
@@ -72,7 +74,7 @@ describe("serializeSarif", () => {
     const log = serializeSarif([
       makeFinding({ startColumn: 3, endColumn: 10, snippet: "const x = 1;" }),
     ]);
-    const region = log.runs[0].results[0].locations[0].physicalLocation.region;
+    const region = log.runs[0]!.results[0]!.locations[0]!.physicalLocation.region;
     expect(region?.startColumn).toBe(3);
     expect(region?.endColumn).toBe(10);
     expect(region?.snippet?.text).toBe("const x = 1;");
@@ -80,19 +82,19 @@ describe("serializeSarif", () => {
 
   it("includes fingerprint in results", () => {
     const log = serializeSarif([makeFinding({ fingerprint: "abc123" })]);
-    expect(log.runs[0].results[0].fingerprints?.primary).toBe("abc123");
+    expect(log.runs[0]!.results[0]!.fingerprints?.primary).toBe("abc123");
   });
 
   it("includes helpUri in rules when helpUrl is present", () => {
     const log = serializeSarif([makeFinding({ helpUrl: "https://docs.example.com/rule" })]);
-    expect(log.runs[0].tool.driver.rules?.[0].helpUri).toBe("https://docs.example.com/rule");
+    expect(log.runs[0]!.tool.driver.rules?.[0]!.helpUri).toBe("https://docs.example.com/rule");
   });
 
   it("includes tool version when available", () => {
     const log = serializeSarif([
       makeFinding({ source: { tool: "eslint", version: "9.0.0", format: "sarif", originalRuleId: "r1", originalSeverity: null } }),
     ]);
-    expect(log.runs[0].tool.driver.version).toBe("9.0.0");
+    expect(log.runs[0]!.tool.driver.version).toBe("9.0.0");
   });
 
   it("round-trips: normalize → serialize → normalize produces same findings", () => {
@@ -111,12 +113,12 @@ describe("serializeSarif", () => {
       defaultConfidence: 0.5,
     });
     expect(reFindings).toHaveLength(2);
-    expect(reFindings[0].rule).toBe("test-rule");
-    expect(reFindings[0].file).toBe("src/a.ts");
-    expect(reFindings[0].startLine).toBe(1);
-    expect(reFindings[0].message).toBe("msg a");
-    expect(reFindings[1].file).toBe("src/b.ts");
-    expect(reFindings[1].startLine).toBe(5);
-    expect(reFindings[1].endLine).toBe(7);
+    expect(reFindings[0]!.rule).toBe("test-rule");
+    expect(reFindings[0]!.file).toBe("src/a.ts");
+    expect(reFindings[0]!.startLine).toBe(1);
+    expect(reFindings[0]!.message).toBe("msg a");
+    expect(reFindings[1]!.file).toBe("src/b.ts");
+    expect(reFindings[1]!.startLine).toBe(5);
+    expect(reFindings[1]!.endLine).toBe(7);
   });
 });

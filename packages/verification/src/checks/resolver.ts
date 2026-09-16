@@ -4,7 +4,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { StepDefinition, OperationSpec } from "@sverka/workflow";
+import type { StepDefinition, OperationSpec, OperationDefinition } from "@sverka/workflow";
 import type { ProposedCheck, ProjectContext, DetectedPackageManager } from "@sverka/workflow";
 
 /**
@@ -42,6 +42,9 @@ interface TableEntry {
   readonly packageManagers: readonly PmName[];
   readonly command: string;
   readonly args: readonly string[];
+  /** When set, the command emits SARIF on stdout which is exported as an
+   * artifact under this file name for findings collection. */
+  readonly sarifStdout?: string;
 }
 
 const NODE_REASON = "Node project defaults";
@@ -70,7 +73,7 @@ const TABLE: readonly TableEntry[] = [
   { checkId: "test", reason: NODE_REASON, packageManagers: ["npm"], command: "npm", args: ["run", "test"] },
   { checkId: "test", reason: NODE_REASON, packageManagers: ["yarn"], command: "yarn", args: ["run", "test"] },
   { checkId: "test", reason: NODE_REASON, packageManagers: ["pnpm"], command: "pnpm", args: ["run", "test"] },
-  { checkId: "lint", reason: PYTHON_REASON, packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "ruff", args: ["check"] },
+  { checkId: "lint", reason: PYTHON_REASON, packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "ruff", args: ["check", "--output-format=sarif"], sarifStdout: "results.sarif" },
   { checkId: "test", reason: PYTHON_REASON, packageManagers: ["pip", "poetry", "uv", "pipenv"], command: "pytest", args: [] },
   { checkId: "clippy", reason: RUST_REASON, packageManagers: ["cargo"], command: "cargo", args: ["clippy"] },
   { checkId: "fmt-check", reason: RUST_REASON, packageManagers: ["cargo"], command: "cargo", args: ["fmt", "--check"] },
@@ -103,10 +106,16 @@ function findEntry(
     if (!isEntryApplicable(entry, ctx.root, rootPkg)) continue;
 
     const command = [entry.command, ...entry.args.map(quoteShellArg)].join(" ");
+    const operations: OperationDefinition[] = [{ kind: "shell", command }];
+    const outputs: CheckOutput[] = [];
+    if (entry.sarifStdout !== undefined) {
+      operations.push({ kind: "exportStdout", name: entry.sarifStdout });
+      outputs.push({ path: entry.sarifStdout, format: "sarif" });
+    }
     const step: StepDefinition = {
       id: `checks/${check.checkId}`,
       runtime: { mode: "host", workingDir: ctx.root },
-      operations: [{ kind: "shell", command }],
+      operations,
       inputs: [],
       outputs: [],
       dependencies: [],
@@ -115,9 +124,14 @@ function findEntry(
       id: `checks/${check.checkId}`,
       kind: "run",
       name: check.checkId,
-      command,
+      // The legacy Plan runtime spawns command+args directly (no shell), so
+      // emit binary + args. For stdout-SARIF checks wrap in `sh -c` so the
+      // report lands in the declared artifact file.
+      ...(entry.sarifStdout !== undefined
+        ? { command: "sh", args: ["-c", `${command} > ${entry.sarifStdout}`] }
+        : { command: entry.command, args: entry.args }),
     };
-    return { checkId: check.checkId, step, operation, outputs: [] };
+    return { checkId: check.checkId, step, operation, outputs };
   }
   return null;
 }

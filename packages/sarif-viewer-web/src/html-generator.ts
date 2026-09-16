@@ -35,7 +35,7 @@ function severityBreakdown(findings: readonly Finding[]): Record<string, number>
   };
   for (const f of findings) {
     if (f.severity in counts) {
-      counts[f.severity] += 1;
+      counts[f.severity]! += 1;
     }
   }
   return counts;

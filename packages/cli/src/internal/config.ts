@@ -194,7 +194,7 @@ function pmFromPackageManagerField(packageManager: string): PmName | undefined {
 }
 
 /**
- * Ensure `@sverka/cdk` is declared as a devDependency of the target
+ * Ensure `@sverka/workflow` is declared as a devDependency of the target
  * project. Creates a minimal package.json when one does not exist.
  */
 export async function ensureConstructsDependency(root: string): Promise<void> {
@@ -244,15 +244,25 @@ function ensureConstructsDeclared(pkg: Record<string, unknown>, root: string): v
     pkg.devDependencies = devDeps;
   }
 
-  if (!("@sverka/cdk" in deps) && !("@sverka/cdk" in devDeps)) {
+  // Migration: remove the old @sverka/cdk package if present.
+  if ("@sverka/cdk" in deps) {
+    delete (deps as Record<string, unknown>)["@sverka/cdk"];
+    pkg.dependencies = deps;
+  }
+  if ("@sverka/cdk" in devDeps) {
+    delete (devDeps as Record<string, unknown>)["@sverka/cdk"];
+    pkg.devDependencies = devDeps;
+  }
+
+  if (!("@sverka/workflow" in deps) && !("@sverka/workflow" in devDeps)) {
     const version = isLocalWorkspace(root) ? "workspace:*" : getDefaultConstructsVersion();
-    pkg.devDependencies = { ...devDeps, "@sverka/cdk": version };
+    pkg.devDependencies = { ...devDeps, "@sverka/workflow": version };
   }
 }
 
 function isLocalWorkspace(root: string): boolean {
   const rootPkg = join(root, "package.json");
-  const constructsPkg = join(root, "packages", "cdk", "package.json");
+  const constructsPkg = join(root, "packages", "workflow", "package.json");
 
   try {
     const rootData = JSON.parse(readFileSync(rootPkg, "utf8")) as {
@@ -261,7 +271,7 @@ function isLocalWorkspace(root: string): boolean {
     const constructs = JSON.parse(readFileSync(constructsPkg, "utf8")) as {
       name?: string;
     };
-    if (constructs.name !== "@sverka/cdk") return false;
+    if (constructs.name !== "@sverka/workflow") return false;
     const patterns = Array.isArray(rootData.workspaces)
       ? rootData.workspaces
       : rootData.workspaces?.packages ?? [];
@@ -273,12 +283,25 @@ function isLocalWorkspace(root: string): boolean {
 
 function getDefaultConstructsVersion(): string {
   try {
-    // @sverka/cdk only exports "." in its exports map, so resolve the
-    // package entry point and read the sibling package.json.
-    const entryPath = require.resolve("@sverka/cdk");
-    const pkgPath = join(dirname(entryPath), "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: string };
-    return pkg.version ? `^${pkg.version}` : "*";
+    // @sverka/workflow only exports "." in its exports map, so resolve the
+    // entry point (typically dist/index.mjs) and walk up to the package
+    // root's package.json.
+    let dir = dirname(require.resolve("@sverka/workflow"));
+    while (true) {
+      const pkgPath = join(dir, "package.json");
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+          name?: string;
+          version?: string;
+        };
+        if (pkg.name === "@sverka/workflow") {
+          return pkg.version ? `^${pkg.version}` : "*";
+        }
+      }
+      const parent = dirname(dir);
+      if (parent === dir) return "*";
+      dir = parent;
+    }
   } catch {
     return "*";
   }

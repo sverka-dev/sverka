@@ -16,8 +16,19 @@ export async function collectFindings(
   let entries: readonly string[];
   try {
     entries = await readdir(root);
-  } catch {
-    return [];
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new ReporterError(
+        `artifact directory not found: ${root} — no step produced artifacts; declare a SARIF artifact output with fromStdout: true to use --evaluate`,
+        "COLLECTION_FAILED",
+        e,
+      );
+    }
+    throw new ReporterError(
+      `failed to read artifact directory ${root}: ${e instanceof Error ? e.message : String(e)}`,
+      "COLLECTION_FAILED",
+      e,
+    );
   }
 
   const rows: FindingRow[] = [];

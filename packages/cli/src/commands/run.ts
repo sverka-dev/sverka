@@ -99,7 +99,7 @@ export async function runCommand(
     return policyExitCode;
   }
 
-  writeRunOutput(plan.id, runStatus, events.length, durationMs, global, output, evalResult);
+  writeRunOutput(plan.id, runStatus, events, durationMs, global, output, evalResult);
 
   // When --evaluate is set, policy exit code takes precedence
   if (evaluate && policyExitCode !== 0) {
@@ -298,23 +298,81 @@ async function runEvaluation(
   };
 }
 
+const SIMPLE_STEP_STATUSES: Readonly<Record<string, StepSummary["status"]>> = {
+  "step-skipped": "skipped",
+  "step-cancelled": "cancelled",
+  "step-suspended": "suspended",
+};
+
+/** Extract per-step results from the event stream for JSON output. */
+function summarizeSteps(events: readonly RunEvent[]): readonly StepSummary[] {
+  const steps: StepSummary[] = [];
+  for (const event of events) {
+    const step = summarizeStep(event);
+    if (step !== undefined) steps.push(step);
+  }
+  return steps;
+}
+
+function summarizeStep(event: RunEvent): StepSummary | undefined {
+  if (event.type === "step-succeeded" || event.type === "step-failed") {
+    return {
+      stepId: event.stepId,
+      status: event.type === "step-succeeded" ? "succeeded" : "failed",
+      durationMs: event.durationMs,
+      ...(event.type === "step-failed" ? { error: event.error } : {}),
+      ...capturedOutputFields(event),
+    };
+  }
+  if (event.type === "step-cache-hit") {
+    return { stepId: event.stepId, status: "cache-hit", cacheKey: event.key };
+  }
+  const status = SIMPLE_STEP_STATUSES[event.type];
+  if (status === undefined || !("stepId" in event)) return undefined;
+  return { stepId: event.stepId, status };
+}
+
+function capturedOutputFields(event: {
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+}): Pick<StepSummary, "stdout" | "stderr" | "exitCode"> {
+  return {
+    ...(event.stdout !== undefined ? { stdout: event.stdout } : {}),
+    ...(event.stderr !== undefined ? { stderr: event.stderr } : {}),
+    ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
+  };
+}
+
+interface StepSummary {
+  readonly stepId: string;
+  readonly status: "succeeded" | "failed" | "skipped" | "cancelled" | "suspended" | "cache-hit";
+  readonly durationMs?: number;
+  readonly error?: string;
+  readonly cacheKey?: string;
+  readonly stdout?: string;
+  readonly stderr?: string;
+  readonly exitCode?: number;
+}
+
 function writeRunOutput(
   planId: string,
   runStatus: string,
-  eventCount: number,
+  events: readonly RunEvent[],
   durationMs: number,
   global: GlobalFlags,
   output: OutputWriter,
   evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null,
 ): void {
   if (global.format === "json") {
+    const steps = summarizeSteps(events);
     output.writeLine(
       JSON.stringify({
         command: "run",
         data: {
           planId,
           status: runStatus,
-          events: eventCount,
+          steps,
           ...(evalResult ? {
             findings: evalResult.findings.length,
             verdict: evalResult.verdict,

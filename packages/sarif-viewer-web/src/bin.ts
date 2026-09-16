@@ -12,6 +12,7 @@ function parseArgs(argv: string[]): { inputPath: string | null; outputPath: stri
   let outputPath = "sarif-report.html";
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (arg === undefined) continue;
     if (arg === "-o" || arg === "--output") {
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("-")) {
