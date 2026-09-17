@@ -197,7 +197,7 @@ function reportHeaders(html: string): Record<string, string> {
  *  <script> block in the HTML. Falls back to 'none' when there are none. */
 function inlineScriptHashes(html: string): string {
   const hashes: string[] = [];
-  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
+  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script[^>]*>/gi)) {
     const digest = createHash("sha256").update(match[1] ?? "").digest("base64");
     hashes.push(`'sha256-${digest}'`);
   }
