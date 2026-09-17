@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { join, resolve, isAbsolute, dirname } from "node:path";
 import type { Project } from "@sverka/workflow";
-import { synthesize } from "@sverka/workflow";
+import { synthesize, collectConstructWarnings } from "@sverka/workflow";
 import type { DefinitionGraph } from "@sverka/workflow";
 import { resolveUnderRoot } from "./paths.js";
 import { CliError, ExitCode } from "../types.js";
@@ -75,7 +75,8 @@ function assertProjectLike(value: unknown): asserts value is Project {
     typeof node !== "object" ||
     node === null ||
     typeof (node as { id?: unknown }).id !== "string" ||
-    !Array.isArray((node as { children?: unknown }).children)
+    !Array.isArray((node as { children?: unknown }).children) ||
+    typeof (node as { findAll?: unknown }).findAll !== "function"
   ) {
     throw new CliError(
       "config must export a Project instance (default or named 'project')",
@@ -132,11 +133,12 @@ export async function loadConfig(configPath: string): Promise<Project> {
 export async function loadProjectGraph(global: {
   root: string;
   config: string | null;
-}): Promise<{ configPath: string; project: Project; graph: DefinitionGraph }> {
+}): Promise<{ configPath: string; project: Project; graph: DefinitionGraph; warnings: string[] }> {
   const configPath = await resolveConfigPath(global);
   const project = await loadConfig(configPath);
+  const warnings = collectConstructWarnings(project);
   const graph = synthesize(project);
-  return { configPath, project, graph };
+  return { configPath, project, graph, warnings };
 }
 
 /**

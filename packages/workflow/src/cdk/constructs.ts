@@ -83,6 +83,17 @@ export interface PipelineProps {
   readonly includes?: readonly IncludeRef[];
 }
 
+const PIPELINE_PROPS: ReadonlySet<string> = new Set([
+  "inputs",
+  "name",
+  "runName",
+  "permissions",
+  "defaults",
+  "concurrency",
+  "rules",
+  "includes",
+]);
+
 export class Pipeline extends Construct {
   readonly inputs: ReadonlyMap<string, Input>;
   readonly name?: string;
@@ -128,6 +139,9 @@ export class Pipeline extends Construct {
     }
     this.rules = props?.rules ? [...props.rules] : [];
     this.includes = props?.includes ? [...props.includes] : [];
+    if (props) {
+      warnUnknownProps(this, props, PIPELINE_PROPS);
+    }
   }
 }
 
@@ -183,6 +197,52 @@ const OPTIONAL_STEP_PROPS = [
   "permissions",
   "compensation",
 ] as const;
+
+const KNOWN_STEP_PROPS: ReadonlySet<string> = new Set([
+  "runtime",
+  "outputs",
+  "inputs",
+  "dependsOn",
+  ...OPTIONAL_STEP_PROPS,
+]);
+
+function knownProps(...extra: string[]): ReadonlySet<string> {
+  return new Set([...KNOWN_STEP_PROPS, ...extra]);
+}
+
+/** Metadata type used to carry config warnings through the construct tree. */
+export const WARNING_METADATA_TYPE = "sverka:warning";
+
+/** Attach a warning for every prop key not in the known set. Unknown props
+ * are silently ignored otherwise — this is how `dependencies:` (a non-existent
+ * prop) once swallowed a config's entire dependency wiring. */
+function warnUnknownProps(
+  construct: Construct,
+  props: object,
+  knownKeys: ReadonlySet<string>,
+): void {
+  for (const key of Object.keys(props)) {
+    if (!knownKeys.has(key)) {
+      construct.node.addMetadata(
+        WARNING_METADATA_TYPE,
+        `unknown prop '${key}' on '${construct.node.id}' — will be ignored`,
+      );
+    }
+  }
+}
+
+/** Collect all config warnings attached to constructs under `root`. */
+export function collectConstructWarnings(root: Construct): string[] {
+  const out: string[] = [];
+  for (const c of root.node.findAll()) {
+    for (const entry of c.node.metadata) {
+      if (entry.type === WARNING_METADATA_TYPE && typeof entry.data === "string") {
+        out.push(`${c.node.path}: ${entry.data}`);
+      }
+    }
+  }
+  return out;
+}
 
 /** Copy optional `StepProps` fields onto the `Step` instance.
  * Array-valued properties are cloned to prevent caller mutation from
@@ -268,6 +328,7 @@ export class ShellStep extends Step {
     super(scope, id, props);
     this.command = props.command;
     this.background = props.background ?? false;
+    warnUnknownProps(this, props, knownProps("command", "background"));
   }
 }
 
@@ -290,6 +351,7 @@ export class PipelineCallStep extends Step {
     this.callInputs = props.callInputs
       ? new Map(Object.entries(props.callInputs))
       : new Map();
+    warnUnknownProps(this, props, knownProps("callee", "callInputs"));
   }
 }
 
@@ -307,6 +369,7 @@ export class ComponentStep extends Step {
   constructor(scope: Pipeline, id: string, props: ComponentStepProps) {
     super(scope, id, props);
     this.component = props.component;
+    warnUnknownProps(this, props, knownProps("component"));
   }
 }
 
@@ -324,6 +387,7 @@ export class ChildPipelineStep extends Step {
   constructor(scope: Pipeline, id: string, props: ChildPipelineStepProps) {
     super(scope, id, props);
     this.childPipeline = props.childPipeline;
+    warnUnknownProps(this, props, knownProps("childPipeline"));
   }
 }
 
@@ -341,6 +405,7 @@ export class DownstreamStep extends Step {
   constructor(scope: Pipeline, id: string, props: DownstreamStepProps) {
     super(scope, id, props);
     this.downstream = props.downstream;
+    warnUnknownProps(this, props, knownProps("downstream"));
   }
 }
 
@@ -358,6 +423,7 @@ export class ReleaseStep extends Step {
   constructor(scope: Pipeline, id: string, props: ReleaseStepProps) {
     super(scope, id, props);
     this.release = props.release;
+    warnUnknownProps(this, props, knownProps("release"));
   }
 }
 
@@ -375,6 +441,7 @@ export class PagesStep extends Step {
   constructor(scope: Pipeline, id: string, props: PagesStepProps) {
     super(scope, id, props);
     this.pages = props.pages;
+    warnUnknownProps(this, props, knownProps("pages"));
   }
 }
 
@@ -408,6 +475,7 @@ export class AgentStep extends Step {
     if (props.maxTokens !== undefined) {
       this.maxTokens = props.maxTokens;
     }
+    warnUnknownProps(this, props, knownProps("engine", "model", "prompt", "tools", "maxTokens"));
   }
 }
 
@@ -441,5 +509,6 @@ export class Entry extends Construct {
     }
     this.trigger = props.trigger;
     this.roots = [...props.roots];
+    warnUnknownProps(this, props, new Set(["trigger", "roots"]));
   }
 }
