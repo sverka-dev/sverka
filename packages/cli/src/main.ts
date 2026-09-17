@@ -86,6 +86,7 @@ function addRunCommand(y: Argv): Argv {
     .option("evaluate", { type: "boolean", default: false })
     .option("output", {
       type: "string",
+      alias: "o",
       describe: "Output file path for HTML report (implies --format html)",
     })
     .option("tui", {
@@ -126,6 +127,7 @@ function addCompileCommand(y: Argv): Argv {
     })
     .option("output", {
       type: "string",
+      alias: "o",
       describe: "Write YAML to a file instead of stdout",
     });
 }
@@ -146,6 +148,7 @@ function addViewCommand(y: Argv): Argv {
     })
     .option("output", {
       type: "string",
+      alias: "o",
       describe: "Output HTML file path (for --format web, default: sarif-report.html)",
     });
 }

@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { main } from "../index.js";
 import {
   makeTempDir,
@@ -240,5 +242,22 @@ describe("policy command", () => {
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("policy");
     expect(parsed.data.verdict).toBe("pass");
+  });
+});
+
+describe("view command", () => {
+  const getDir = useTempDir();
+
+  it("writes an HTML report with -o alias (documented flag)", async () => {
+    const dir = getDir();
+    await writefile(dir, "f.sarif", EMPTY_SARIF);
+    const out = new CaptureWriter();
+    const outPath = join(dir, "report.html");
+    const code = await main(
+      ["view", join(dir, "f.sarif"), "-f", "web", "-o", outPath, "--root", dir],
+      { output: out },
+    );
+    expect(code).toBe(0);
+    expect(existsSync(outPath)).toBe(true);
   });
 });

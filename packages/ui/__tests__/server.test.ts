@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startUiServer } from "../src/server.js";
@@ -91,6 +91,60 @@ describe("startUiServer", () => {
     server = await startUiServer({ artifactsDir: dir, port: 13461 });
     const res = await fetch(`${server.url}/report/..%2Fetc%2Fpasswd`);
     expect(res.status).toBe(400);
+  });
+
+  it("dashboard lists SARIF files nested under step directories", async () => {
+    // `sverka run` writes artifacts as <pipeline>/<step>/<file>.sarif —
+    // the dashboard must find them, not just top-level files.
+    mkdirSync(join(dir, "ci", "emit-sarif"), { recursive: true });
+    writeFileSync(join(dir, "ci", "emit-sarif", "results.sarif"), VALID_SARIF);
+    server = await startUiServer({ artifactsDir: dir, port: 13463 });
+    const res = await fetch(`${server.url}/`);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("ci/emit-sarif/results.sarif");
+    expect(html).not.toContain("No SARIF files found");
+  });
+
+  it("report endpoint serves SARIF files at nested relative paths", async () => {
+    mkdirSync(join(dir, "ci", "emit-sarif"), { recursive: true });
+    writeFileSync(join(dir, "ci", "emit-sarif", "results.sarif"), VALID_SARIF);
+    server = await startUiServer({ artifactsDir: dir, port: 13464 });
+    const res = await fetch(
+      `${server.url}/report/${encodeURIComponent("ci/emit-sarif/results.sarif")}`,
+    );
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("test-rule");
+    expect(html).toContain("test message");
+  });
+
+  it("report endpoint rejects nested path traversal", async () => {
+    mkdirSync(join(dir, "ci"), { recursive: true });
+    writeFileSync(join(dir, "root.sarif"), VALID_SARIF);
+    server = await startUiServer({ artifactsDir: dir, port: 13465 });
+    const res = await fetch(
+      `${server.url}/report/${encodeURIComponent("ci/../../outside.sarif")}`,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("report endpoint CSP allows the report's own inline scripts by hash", async () => {
+    writeFileSync(join(dir, "test.sarif"), VALID_SARIF);
+    server = await startUiServer({ artifactsDir: dir, port: 13466 });
+    const res = await fetch(`${server.url}/report/test.sarif`);
+    const csp = res.headers.get("content-security-policy") ?? "";
+    // The report's filter/search/sort JS is inline — allow it by hash
+    // instead of a blanket 'none' that silently disables it.
+    expect(csp).toContain("script-src 'sha256-");
+    expect(csp).not.toContain("script-src 'none'");
+  });
+
+  it("dashboard CSP keeps script-src 'none' (no inline scripts)", async () => {
+    server = await startUiServer({ artifactsDir: dir, port: 13467 });
+    const res = await fetch(`${server.url}/`);
+    const csp = res.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("script-src 'none'");
   });
 
   it("unknown path returns 404", async () => {
