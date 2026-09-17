@@ -1061,8 +1061,26 @@ function lowerOperations(
 
   let runLines: string[] = [];
   let runHasOutput = false;
+  // exportStdout ops bind to the most recent shell op's captured stdout.
+  // stdoutTargetIndex marks that op's line inside runLines; stdoutNames are
+  // the artifact names declared against it; stdoutUploadNames collects every
+  // name whose upload-artifact step follows the flushed run step.
+  let stdoutTargetIndex: number | undefined;
+  let stdoutNames: string[] = [];
+  let stdoutUploadNames: string[] = [];
+
+  function sealStdoutCapture(): void {
+    if (stdoutTargetIndex === undefined || stdoutNames.length === 0) return;
+    runLines[stdoutTargetIndex] = wrapStdoutCaptureLine(
+      runLines[stdoutTargetIndex]!,
+      stdoutNames,
+    );
+    stdoutUploadNames.push(...stdoutNames);
+    stdoutNames = [];
+  }
 
   function flushRun(): void {
+    sealStdoutCapture();
     if (runLines.length === 0) return;
     const combined = runLines.join("\n");
     const translated = translateCommand(combined, step.inputs, jobIdMap);
@@ -1073,13 +1091,45 @@ function lowerOperations(
       ...(step.runtime.workingDir ? { workingDirectory: step.runtime.workingDir } : {}),
       ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
     });
+    for (const name of stdoutUploadNames) {
+      // The runtime persists stdout artifacts even when the shell command
+      // fails, so the upload must run unconditionally.
+      steps.push({
+        name: `Upload ${name}`,
+        if: "always()",
+        uses: "actions/upload-artifact@v4",
+        with: { name: artifactName(shortStepId, name), path: name },
+      });
+    }
     runLines = [];
     runHasOutput = false;
+    stdoutTargetIndex = undefined;
+    stdoutUploadNames = [];
   }
 
   for (const op of step.operations) {
     if (op.kind === "exportOutput") runHasOutput = true;
-    lowerOperation(op, shortStepId, steps, runLines, flushRun);
+    switch (op.kind) {
+      case "shell":
+        // Seal any pending stdout capture before the new command becomes the
+        // most recent shell op.
+        sealStdoutCapture();
+        // F-49: background shell → append & for async execution.
+        runLines.push(op.background ? `${op.command} &` : op.command);
+        stdoutTargetIndex = runLines.length - 1;
+        break;
+      case "exportStdout":
+        if (stdoutTargetIndex === undefined) {
+          throw new GithubTargetError(
+            `step '${step.id}' declares stdout artifact '${op.name}' but no shell output was captured`,
+            "LOWER_FAILED",
+          );
+        }
+        stdoutNames.push(op.name);
+        break;
+      default:
+        lowerOperation(op, shortStepId, steps, runLines, flushRun);
+    }
   }
 
   flushRun();
@@ -1102,10 +1152,6 @@ function lowerOperation(
   flushRun: () => void,
 ): void {
   switch (op.kind) {
-    case "shell":
-      // F-49: background shell → append & for async execution.
-      runLines.push(op.background ? `${op.command} &` : op.command);
-      break;
     case "exportOutput":
       runLines.push(`echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`);
       break;
@@ -1224,6 +1270,35 @@ function lowerDiagnostic(op: Extract<OperationDefinition, { kind: "diagnostic" }
  */
 function artifactName(stepId: string, outputName: string): string {
   return `${stepId}-${outputName}`;
+}
+
+/**
+ * Quote a literal string using single quotes for a POSIX shell.
+ */
+function shellQuoteSingle(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Wrap a shell command line so its stdout is also written to the declared
+ * artifact file(s), matching the runtime's exportStdout semantics. The
+ * capture must work under POSIX sh (no pipefail), so the command's stdout is
+ * redirected to the file and replayed with cat; the original exit code is
+ * re-raised so a failing check still fails the step.
+ */
+function wrapStdoutCaptureLine(
+  command: string,
+  names: readonly string[],
+): string {
+  const [first, ...rest] = names.map(shellQuoteSingle);
+  const teeRest = rest.length > 0 ? ` | tee ${rest.join(" ")}` : "";
+  return [
+    "sverka_rc=0",
+    `{ ${command}`,
+    `} > ${first} || sverka_rc=$?`,
+    `cat ${first}${teeRest}`,
+    `if [ "$sverka_rc" -gt 0 ]; then exit "$sverka_rc"; fi`,
+  ].join("\n");
 }
 
 /**

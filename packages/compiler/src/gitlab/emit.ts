@@ -298,6 +298,7 @@ function artifactsToYaml(artifacts: NonNullable<GitlabJob["artifacts"]>): Record
   if (artifacts.reports !== undefined) result.reports = artifacts.reports;
   if (artifacts.expireIn !== undefined) result.expire_in = artifacts.expireIn;
   if (artifacts.access !== undefined) result.access = artifacts.access;
+  if (artifacts.when !== undefined) result.when = artifacts.when;
   return result;
 }
 
