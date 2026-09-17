@@ -284,6 +284,54 @@ describe("discover — monorepo detection", () => {
     }
   });
 
+  it("negative workspace globs exclude matching dirs", async () => {
+    const root = await makeFixtureDir({
+      "package.json": JSON.stringify({
+        workspaces: ["packages/*", "!packages/excluded"],
+      }),
+    });
+    installMockGit({
+      root,
+      trackedFiles: [
+        "package.json",
+        "packages/a/package.json",
+        "packages/excluded/package.json",
+      ],
+    });
+    try {
+      const ctx = await createPlanner().discover({ root });
+      expect(ctx.monorepo!.workspaces).toEqual(["packages/a"]);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("'**' matches zero or more intermediate segments", async () => {
+    const root = await makeFixtureDir({
+      "package.json": JSON.stringify({
+        workspaces: ["packages/**/tools/*"],
+      }),
+    });
+    installMockGit({
+      root,
+      trackedFiles: [
+        "package.json",
+        "packages/tools/x/package.json",
+        "packages/a/b/tools/y/package.json",
+        "packages/other/z/package.json",
+      ],
+    });
+    try {
+      const ctx = await createPlanner().discover({ root });
+      expect(ctx.monorepo!.workspaces).toEqual([
+        "packages/a/b/tools/y",
+        "packages/tools/x",
+      ]);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
   it("pnpm-workspace.yaml → pnpm-workspace", async () => {
     const root = await makeFixtureDir({ "pnpm-workspace.yaml": "packages: []" });
     installMockGit({ root, trackedFiles: ["pnpm-workspace.yaml"] });

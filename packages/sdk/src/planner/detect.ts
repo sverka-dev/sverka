@@ -318,11 +318,20 @@ function resolveWorkspaceDirs(
   signals: readonly LocalSignal[],
   globs: readonly string[],
 ): string[] {
+  const positive = globs.filter((g) => !g.startsWith("!"));
+  const negative = globs
+    .filter((g) => g.startsWith("!"))
+    .map((g) => g.slice(1));
   const dirs = new Set<string>();
   for (const sig of signals) {
     if (sig.type !== "manifest" || !sig.path.endsWith("/package.json")) continue;
     const dir = sig.path.slice(0, sig.path.length - "/package.json".length);
-    if (globs.some((g) => matchesWorkspaceGlob(dir, g))) dirs.add(dir);
+    if (
+      positive.some((g) => matchesWorkspaceGlob(dir, g)) &&
+      !negative.some((g) => matchesWorkspaceGlob(dir, g))
+    ) {
+      dirs.add(dir);
+    }
   }
   return [...dirs].sort();
 }
@@ -330,9 +339,12 @@ function resolveWorkspaceDirs(
 function matchesWorkspaceGlob(dir: string, glob: string): boolean {
   const pattern = glob
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, " ")
+    .replace(/\*\*/g, "§")
     .replace(/\*/g, "[^/]+")
-    .replace(/ /g, ".*");
+    .replace(/\/§\//g, "(?:/[^/]+)*/")
+    .replace(/\/§$/g, "(?:/[^/]+)*")
+    .replace(/^§\//g, "(?:[^/]+/)*")
+    .replace(/§/g, "[^/]*");
   return new RegExp(`^${pattern}$`).test(dir);
 }
 
