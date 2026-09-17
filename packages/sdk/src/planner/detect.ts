@@ -275,6 +275,11 @@ export function detectMonorepo(
   signals: readonly LocalSignal[],
   rootPkgJson: Record<string, unknown> | null,
 ): MonorepoMarker | null {
+  const globs = rootPkgJson
+    ? extractWorkspaceGlobs(rootPkgJson["workspaces"])
+    : [];
+  const workspaces = resolveWorkspaceDirs(signals, globs);
+
   // File-based markers first.
   for (const sig of signals) {
     if (sig.type !== "monorepo-marker") continue;
@@ -283,29 +288,52 @@ export function detectMonorepo(
     if (tool) {
       return {
         tool,
-        workspaces: [],
-        evidence: [sig.path],
+        workspaces,
+        evidence: globs.length > 0 ? [sig.path, "package.json#workspaces"] : [sig.path],
       };
     }
   }
 
   // Root package.json with workspaces field.
-  if (rootPkgJson) {
-    const ws = rootPkgJson["workspaces"];
-    if (Array.isArray(ws) || (typeof ws === "object" && ws !== null)) {
-      const globs = extractWorkspaceGlobs(ws);
-      const tool: MonorepoTool = isBunWorkspace(rootPkgJson)
-        ? "bun-workspace"
-        : "custom";
-      return {
-        tool,
-        workspaces: globs,
-        evidence: ["package.json#workspaces"],
-      };
-    }
+  if (globs.length > 0 && rootPkgJson) {
+    const tool: MonorepoTool = isBunWorkspace(rootPkgJson)
+      ? "bun-workspace"
+      : "custom";
+    return {
+      tool,
+      workspaces,
+      evidence: ["package.json#workspaces"],
+    };
   }
 
   return null;
+}
+
+/**
+ * Resolve workspace globs to concrete workspace dirs using manifest signals.
+ * A dir is a workspace when `<dir>/package.json` appears as a manifest and
+ * `<dir>` matches a workspace glob (`*` = one path segment, `**` = any depth).
+ */
+function resolveWorkspaceDirs(
+  signals: readonly LocalSignal[],
+  globs: readonly string[],
+): string[] {
+  const dirs = new Set<string>();
+  for (const sig of signals) {
+    if (sig.type !== "manifest" || !sig.path.endsWith("/package.json")) continue;
+    const dir = sig.path.slice(0, sig.path.length - "/package.json".length);
+    if (globs.some((g) => matchesWorkspaceGlob(dir, g))) dirs.add(dir);
+  }
+  return [...dirs].sort();
+}
+
+function matchesWorkspaceGlob(dir: string, glob: string): boolean {
+  const pattern = glob
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*\*/g, " ")
+    .replace(/\*/g, "[^/]+")
+    .replace(/ /g, ".*");
+  return new RegExp(`^${pattern}$`).test(dir);
 }
 
 function extractWorkspaceGlobs(ws: unknown): string[] {

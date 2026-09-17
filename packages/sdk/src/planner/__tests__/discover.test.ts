@@ -258,6 +258,32 @@ describe("discover — monorepo detection", () => {
     }
   });
 
+  it("nx.json + package.json workspaces → nx with resolved workspace dirs", async () => {
+    const root = await makeFixtureDir({
+      "nx.json": "{}",
+      "package.json": JSON.stringify({ workspaces: ["packages/*"] }),
+    });
+    installMockGit({
+      root,
+      trackedFiles: [
+        "nx.json",
+        "package.json",
+        "packages/cli/package.json",
+        "packages/runtime/package.json",
+      ],
+    });
+    try {
+      const ctx = await createPlanner().discover({ root });
+      expect(ctx.monorepo!.tool).toBe("nx");
+      expect(ctx.monorepo!.workspaces).toEqual([
+        "packages/cli",
+        "packages/runtime",
+      ]);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
   it("pnpm-workspace.yaml → pnpm-workspace", async () => {
     const root = await makeFixtureDir({ "pnpm-workspace.yaml": "packages: []" });
     installMockGit({ root, trackedFiles: ["pnpm-workspace.yaml"] });
@@ -273,11 +299,14 @@ describe("discover — monorepo detection", () => {
     const root = await makeFixtureDir({
       "package.json": JSON.stringify({ workspaces: ["packages/*"] }),
     });
-    installMockGit({ root, trackedFiles: ["package.json"] });
+    installMockGit({
+      root,
+      trackedFiles: ["package.json", "packages/a/package.json"],
+    });
     try {
       const ctx = await createPlanner().discover({ root });
       expect(ctx.monorepo!.tool).toBe("custom");
-      expect(ctx.monorepo!.workspaces).toEqual(["packages/*"]);
+      expect(ctx.monorepo!.workspaces).toEqual(["packages/a"]);
     } finally {
       await cleanup(root);
     }
