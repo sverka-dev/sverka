@@ -1134,7 +1134,7 @@ function lowerOperations(
         }
         if (
           step.runtime.shell !== undefined &&
-          !POSIX_SHELL_PATTERN.test(step.runtime.shell)
+          !isPosixShell(step.runtime.shell)
         ) {
           throw new GithubTargetError(
             `step '${step.id}' declares stdout artifact '${op.name}' but shell '${step.runtime.shell}' is not POSIX-compatible`,
@@ -1161,7 +1161,12 @@ function lowerOperations(
 }
 
 /** Shells whose run scripts understand POSIX syntax (brace groups, `||`, `[ ]`). */
-const POSIX_SHELL_PATTERN = /^(sh|bash|dash|ash|zsh|ksh)(\s|$)/;
+const POSIX_SHELLS = new Set(["sh", "bash", "dash", "ash", "zsh", "ksh"]);
+
+function isPosixShell(shell: string): boolean {
+  const space = shell.indexOf(" ");
+  return POSIX_SHELLS.has(space === -1 ? shell : shell.slice(0, space));
+}
 
 function lowerOperation(
   op: OperationDefinition,

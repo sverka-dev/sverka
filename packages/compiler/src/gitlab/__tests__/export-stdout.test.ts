@@ -5,46 +5,13 @@
 
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import {
-  Project,
-  Pipeline,
-  ShellStep,
-  Entry,
-  synthesize,
-} from "@sverka/workflow";
 import { compileGitlab } from "../index.js";
-
-function makeStdoutArtifactGraph(): ReturnType<typeof synthesize> {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint-sarif", {
-    command: "bunx eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
-    runtime: { shell: "sh" },
-    outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
-  });
-  new Entry(p, "on-push", {
-    trigger: { kind: "push" },
-    roots: ["lint-sarif"],
-  });
-  return synthesize(proj);
-}
-
-function makeDoubleStdoutArtifactGraph(): ReturnType<typeof synthesize> {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint-sarif", {
-    command: "bunx eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
-    outputs: {
-      "eslint.sarif": { type: "artifact", fromStdout: true },
-      "eslint-copy.sarif": { type: "artifact", fromStdout: true },
-    },
-  });
-  new Entry(p, "on-push", {
-    trigger: { kind: "push" },
-    roots: ["lint-sarif"],
-  });
-  return synthesize(proj);
-}
+import {
+  makeStdoutArtifactGraph,
+  makeDoubleStdoutArtifactGraph,
+  makeWorkingDirStdoutGraph,
+  makeBackgroundStdoutGraph,
+} from "../../__tests__/stdout-graph.js";
 
 describe("compileGitlab — exportStdout", () => {
   it("captures the shell command's stdout into the artifact file", () => {
@@ -95,19 +62,9 @@ describe("compileGitlab — exportStdout", () => {
   });
 
   it("resolves the artifact path inside the step working directory", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "lint-sarif", {
-      command: "bunx eslint . -f sarif",
-      runtime: { workingDir: "packages/app" },
-      outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
-    });
-    new Entry(p, "on-push", {
-      trigger: { kind: "push" },
-      roots: ["lint-sarif"],
-    });
-    const yaml = parse(compileGitlab(synthesize(proj)).artifacts[0]!
-      .content) as Record<
+    const yaml = parse(
+      compileGitlab(makeWorkingDirStdoutGraph()).artifacts[0]!.content,
+    ) as Record<
       string,
       { script?: string[]; artifacts?: { paths?: string[] } }
     >;
@@ -119,16 +76,9 @@ describe("compileGitlab — exportStdout", () => {
   });
 
   it("emits an empty artifact for a background shell (runtime records empty stdout)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "server", {
-      command: "npm start",
-      background: true,
-      outputs: { "server.log": { type: "artifact", fromStdout: true } },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["server"] });
-    const yaml = parse(compileGitlab(synthesize(proj)).artifacts[0]!
-      .content) as Record<string, { script?: string[] }>;
+    const yaml = parse(
+      compileGitlab(makeBackgroundStdoutGraph()).artifacts[0]!.content,
+    ) as Record<string, { script?: string[] }>;
     const script = yaml["server"]!.script!.join("\n");
     expect(script).toContain("npm start &");
     expect(script).toContain("touch 'server.log'");

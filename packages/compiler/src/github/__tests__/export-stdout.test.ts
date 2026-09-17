@@ -13,38 +13,12 @@ import {
   synthesize,
 } from "@sverka/workflow";
 import { compileGithub } from "../index.js";
-
-function makeStdoutArtifactGraph(): ReturnType<typeof synthesize> {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint-sarif", {
-    command: "bunx eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
-    runtime: { shell: "sh" },
-    outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
-  });
-  new Entry(p, "on-push", {
-    trigger: { kind: "push" },
-    roots: ["lint-sarif"],
-  });
-  return synthesize(proj);
-}
-
-function makeDoubleStdoutArtifactGraph(): ReturnType<typeof synthesize> {
-  const proj = new Project("test");
-  const p = new Pipeline(proj, "ci");
-  new ShellStep(p, "lint-sarif", {
-    command: "bunx eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
-    outputs: {
-      "eslint.sarif": { type: "artifact", fromStdout: true },
-      "eslint-copy.sarif": { type: "artifact", fromStdout: true },
-    },
-  });
-  new Entry(p, "on-push", {
-    trigger: { kind: "push" },
-    roots: ["lint-sarif"],
-  });
-  return synthesize(proj);
-}
+import {
+  makeStdoutArtifactGraph,
+  makeDoubleStdoutArtifactGraph,
+  makeWorkingDirStdoutGraph,
+  makeBackgroundStdoutGraph,
+} from "../../__tests__/stdout-graph.js";
 
 describe("compileGithub — exportStdout", () => {
   it("captures the shell command's stdout into the artifact file", () => {
@@ -111,19 +85,9 @@ describe("compileGithub — exportStdout", () => {
   });
 
   it("resolves the upload path inside the step working directory", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "lint-sarif", {
-      command: "bunx eslint . -f sarif",
-      runtime: { workingDir: "packages/app" },
-      outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
-    });
-    new Entry(p, "on-push", {
-      trigger: { kind: "push" },
-      roots: ["lint-sarif"],
-    });
-    const yaml = parse(compileGithub(synthesize(proj)).artifacts[0]!
-      .content) as {
+    const yaml = parse(
+      compileGithub(makeWorkingDirStdoutGraph()).artifacts[0]!.content,
+    ) as {
       jobs: Record<
         string,
         { steps: { uses?: string; with?: { path?: string } }[] }
@@ -138,16 +102,9 @@ describe("compileGithub — exportStdout", () => {
   });
 
   it("emits an empty artifact for a background shell (runtime records empty stdout)", () => {
-    const proj = new Project("test");
-    const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "server", {
-      command: "npm start",
-      background: true,
-      outputs: { "server.log": { type: "artifact", fromStdout: true } },
-    });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["server"] });
-    const yaml = parse(compileGithub(synthesize(proj)).artifacts[0]!
-      .content) as { jobs: Record<string, { steps: { run?: string }[] }> };
+    const yaml = parse(
+      compileGithub(makeBackgroundStdoutGraph()).artifacts[0]!.content,
+    ) as { jobs: Record<string, { steps: { run?: string }[] }> };
     const runStep = yaml.jobs["server"]!.steps.find((s) =>
       s.run?.includes("npm start"),
     );

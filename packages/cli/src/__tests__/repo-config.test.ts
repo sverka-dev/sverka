@@ -38,29 +38,27 @@ describe("repository sverka.config.ts (e2e fixture)", () => {
     expect(out.stdoutText).toContain("ci/lint-sarif");
   });
 
-  it("compiles the github target including the stdout artifact upload", async () => {
-    const { code, out } = await run([
+  it("compiles both targets including the stdout artifact handling", async () => {
+    const github = await run([
       "compile",
       "--target",
       "github",
       "--root",
       REPO_ROOT,
     ]);
-    expect(code).toBe(0);
-    expect(out.stdoutText).toContain("actions/upload-artifact@v4");
-    expect(out.stdoutText).toContain("eslint.sarif");
-  });
+    expect(github.code).toBe(0);
+    expect(github.out.stdoutText).toContain("actions/upload-artifact@v4");
+    expect(github.out.stdoutText).toContain("eslint.sarif");
 
-  it("compiles the gitlab target including the stdout artifact path", async () => {
-    const { code, out } = await run([
+    const gitlab = await run([
       "compile",
       "--target",
       "gitlab",
       "--root",
       REPO_ROOT,
     ]);
-    expect(code).toBe(0);
-    expect(out.stdoutText).toContain("eslint.sarif");
-    expect(out.stdoutText).toContain("when: always");
+    expect(gitlab.code).toBe(0);
+    expect(gitlab.out.stdoutText).toContain("eslint.sarif");
+    expect(gitlab.out.stdoutText).toContain("when: always");
   });
 });
