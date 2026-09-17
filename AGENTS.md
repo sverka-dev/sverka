@@ -63,7 +63,7 @@ Key features in active development:
 - `sverka run --format json` — per-step results (stepId, status, durationMs,
   error, stdout, stderr, exitCode)
 - `sverka init --detect` — generate config from detected project checks
-- `sverka validate` — validate Definition Graph (needs: warn on unknown props)
+- `sverka validate` — validate Definition Graph; warns on unknown props
 - `dependsOn` — string step IDs; validate catches typos
 - Dependency inference from data flow (output ref → auto-dep)
 - SARIF findings via `outputs: { "x.sarif": { type: "artifact", fromStdout: true } }`
@@ -75,10 +75,11 @@ Key features in active development:
 
 ## Known Issues
 
-- **`sverka validate` does not warn on unknown props.** Config used
-  `dependencies: [{ kind: "control", ... }]` (non-existent prop) instead of
-  `dependsOn: ["stepId"]` — TypeScript doesn't catch it because config is
-  loaded dynamically. Dependencies were silently lost.
+- **`sverka validate` warns on unknown props.** Step/Entry/Pipeline
+  constructors attach `sverka:warning` metadata for props not in the known
+  set; `loadProjectGraph` returns them and `validate`/`run` print them.
+  (`dependencies:` instead of `dependsOn:` now warns instead of silently
+  dropping the wiring.)
 - **~20 empty package directories** in `packages/` (0 tracked files: `ir`,
   `core`, `cdk`, `planner`, `engine-native`, `runtime-host`, `runtime-docker`,
   `compiler-github`, `compiler-gitlab`, `findings`, `policy`, `checks`).

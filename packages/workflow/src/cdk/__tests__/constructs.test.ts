@@ -6,6 +6,7 @@ import {
   Entry,
   push,
   ConstructError,
+  collectConstructWarnings,
   type StepProps,
 } from "../index.js";
 
@@ -485,5 +486,29 @@ describe("Error handling", () => {
     });
     expect(step.outputs.get("dist")?.retention).toBe("7d");
     expect(step.outputs.get("dist")?.access).toBe("developer");
+  });
+});
+
+describe("unknown prop warnings", () => {
+  it("attaches a warning for unknown props on ShellStep", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      // @ts-expect-error — deliberately unknown prop
+      dependencies: [{ kind: "control", producer: "lint" }],
+    });
+    const warnings = collectConstructWarnings(proj);
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toContain("dependencies");
+    expect(warnings[0]).toContain("build");
+  });
+
+  it("produces no warnings for known props", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    const a = new ShellStep(pipeline, "a", { command: "echo a" });
+    new ShellStep(pipeline, "b", { command: "echo b", dependsOn: [a.node.id] });
+    expect(collectConstructWarnings(proj)).toEqual([]);
   });
 });

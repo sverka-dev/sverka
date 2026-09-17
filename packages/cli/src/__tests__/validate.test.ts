@@ -52,6 +52,25 @@ describe("validate command", () => {
     expect(code).toBe(2);
   });
 
+  it("warns on unknown step props (e.g. 'dependencies')", async () => {
+    await writefile(
+      dir,
+      "sverka.config.ts",
+      `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "build", { command: "echo build", dependencies: [{ kind: "control" }] });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+export default proj;
+`,
+    );
+    const out = new CaptureWriter();
+    const code = await main(["validate", "--root", dir], { output: out });
+    expect(code).toBe(0);
+    expect(out.stderrText).toContain("warning");
+    expect(out.stderrText).toContain("dependencies");
+  });
+
   it("prints JSON format", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();

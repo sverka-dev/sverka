@@ -83,9 +83,9 @@ is optional. SaaS/browser execution is deferred.
 
 ## Known Issues
 
-- **`sverka validate` does not warn on unknown props.** Config used
-  `dependencies: [{ kind: "control", ... }]` (non-existent prop) instead of
-  `dependsOn: ["stepId"]` — silently lost dependencies.
+- ~~**`sverka validate` does not warn on unknown props.**~~ Fixed: construct
+  constructors attach `sverka:warning` metadata for unknown props;
+  `validate`/`run` print them and JSON output includes a `warnings` field.
 - **~20 empty package directories** in `packages/` (0 tracked files). Real
   code lives as subdirs inside `workflow`/`runtime`/`compiler`.
 - **v0 compilers coexist with v1.** Both exported from barrel. v0 candidate

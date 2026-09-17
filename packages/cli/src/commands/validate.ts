@@ -17,7 +17,7 @@ export async function validateCommand(
 ): Promise<number> {
   output.debug(`validate: root=${global.root} config=${global.config ?? "(auto)"}`);
 
-  const { configPath, graph } = await loadProjectGraph(global);
+  const { configPath, graph, warnings } = await loadProjectGraph(global);
   validateGraph(graph);
 
   const durationMs = Date.now() - start;
@@ -25,11 +25,14 @@ export async function validateCommand(
     output.writeLine(
       JSON.stringify({
         command: "validate",
-        data: { path: configPath, valid: true, pipelines: graph.project.pipelines.length },
+        data: { path: configPath, valid: true, pipelines: graph.project.pipelines.length, warnings },
         durationMs,
       }),
     );
   } else {
+    for (const warning of warnings) {
+      output.errorLine(`warning: ${warning}`);
+    }
     output.writeLine(`Config valid: ${configPath}`);
     output.writeLine(`  pipelines: ${graph.project.pipelines.length}`);
     for (const pipeline of graph.project.pipelines) {

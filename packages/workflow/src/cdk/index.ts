@@ -1,6 +1,6 @@
 // Public exports for @sverka/cdk. Spec 01.
 
-export { Project, Pipeline, Step, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, AgentStep, Entry } from "./constructs.js";
+export { Project, Pipeline, Step, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, AgentStep, Entry, collectConstructWarnings, WARNING_METADATA_TYPE } from "./constructs.js";
 export { Construct } from "constructs";
 export type {
   PipelineProps,

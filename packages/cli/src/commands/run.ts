@@ -52,7 +52,10 @@ export async function runCommand(
 
   assertExecutorAvailable(executor);
 
-  const { graph } = await loadProjectGraph(global);
+  const { graph, warnings } = await loadProjectGraph(global);
+  for (const warning of warnings) {
+    output.errorLine(`warning: ${warning}`);
+  }
   const entryId = resolveEntryId(graph, args.entryId);
 
   const plan = bindRunPlan({ graph, entryId });
