@@ -365,10 +365,26 @@ function matchesWorkspaceGlob(dir: string, glob: string): boolean {
 }
 
 function matchesGlobSegment(segment: string, pattern: string): boolean {
-  const re = new RegExp(
-    `^${pattern.replaceAll(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*")}$`,
-  );
-  return re.test(segment);
+  let s = 0;
+  let p = 0;
+  let starP = -1;
+  let starS = -1;
+  while (s < segment.length) {
+    if (p < pattern.length && (pattern[p] === "?" || pattern[p] === segment[s])) {
+      s++;
+      p++;
+    } else if (p < pattern.length && pattern[p] === "*") {
+      starP = p++;
+      starS = s;
+    } else if (starP !== -1) {
+      p = starP + 1;
+      s = ++starS;
+    } else {
+      return false;
+    }
+  }
+  while (p < pattern.length && pattern[p] === "*") p++;
+  return p === pattern.length;
 }
 
 function extractWorkspaceGlobs(ws: unknown): string[] {
