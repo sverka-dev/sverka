@@ -46,6 +46,19 @@ describe("validate command", () => {
     expect(code).toBe(3);
   });
 
+  it("project-shaped object without findAll exits with 3", async () => {
+    await writefile(
+      dir,
+      "sverka.config.ts",
+      `export default { node: { id: "fake", children: [] } };
+`,
+    );
+    const out = new CaptureWriter();
+    const code = await main(["validate", "--root", dir], { output: out });
+    expect(code).toBe(3);
+    expect(out.stderrText).toContain("Project instance");
+  });
+
   it("missing config exits with 2", async () => {
     const out = new CaptureWriter();
     const code = await main(["validate", "--root", dir], { output: out });

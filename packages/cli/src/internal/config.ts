@@ -75,7 +75,8 @@ function assertProjectLike(value: unknown): asserts value is Project {
     typeof node !== "object" ||
     node === null ||
     typeof (node as { id?: unknown }).id !== "string" ||
-    !Array.isArray((node as { children?: unknown }).children)
+    !Array.isArray((node as { children?: unknown }).children) ||
+    typeof (node as { findAll?: unknown }).findAll !== "function"
   ) {
     throw new CliError(
       "config must export a Project instance (default or named 'project')",
