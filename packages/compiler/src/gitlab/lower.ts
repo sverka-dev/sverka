@@ -6,6 +6,7 @@ import { expandPipelineCalls } from "@sverka/workflow";
 import type { MatrixSpec, MatrixValue, StepRef, StatusCondition, StepStatus, Input, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec, InputLiteral } from "@sverka/workflow";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule, GitlabDefault, GitlabSpecInput, GitlabService, GitlabEnvironment, GitlabCache, GitlabComponentInclude, GitlabLocalInclude, GitlabTrigger, GitlabRelease, GitlabPages, GitlabWorkflowRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
+import { shellQuoteSingle, wrapStdoutCaptureLine } from "../stdout-capture.js";
 
 const DOTENV_REPORT_FILE = "sverka.env";
 
@@ -1003,6 +1004,7 @@ interface OperationAccumulator {
   stdoutTargetIndex: number | undefined;
   stdoutNames: string[];
   stdoutArtifacts: boolean;
+  readonly workingDir: string | undefined;
 }
 
 /**
@@ -1035,6 +1037,7 @@ function lowerOperations(
     stdoutTargetIndex: undefined,
     stdoutNames: [],
     stdoutArtifacts: false,
+    workingDir: step.runtime.workingDir,
   };
 
   for (const op of step.operations) {
@@ -1074,7 +1077,13 @@ function sealStdoutCapture(acc: OperationAccumulator): void {
     acc.script[acc.stdoutTargetIndex]!,
     acc.stdoutNames,
   );
-  acc.artifactPaths.push(...acc.stdoutNames);
+  // The capture writes the file inside the step's working directory when one
+  // is set (the script cds there first); artifacts:paths is repo-relative.
+  acc.artifactPaths.push(
+    ...acc.stdoutNames.map((name) =>
+      acc.workingDir ? `${acc.workingDir}/${name}` : name,
+    ),
+  );
   acc.stdoutArtifacts = true;
   acc.stdoutNames = [];
 }
@@ -1324,35 +1333,6 @@ const JSON_STRING_ESCAPES: Readonly<Record<string, string>> = {
  */
 function shellEscapeDoubleQuoted(value: string): string {
   return value.replace(/[\\"`$]/g, "\\$&");
-}
-
-/**
- * Quote a literal string using single quotes for a POSIX shell.
- */
-function shellQuoteSingle(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
-/**
- * Wrap a shell command line so its stdout is also written to the declared
- * artifact file(s), matching the runtime's exportStdout semantics. The
- * capture must work under POSIX sh (no pipefail), so the command's stdout is
- * redirected to the file and replayed with cat; the original exit code is
- * re-raised so a failing check still fails the job.
- */
-function wrapStdoutCaptureLine(
-  command: string,
-  names: readonly string[],
-): string {
-  const [first, ...rest] = names.map(shellQuoteSingle);
-  const teeRest = rest.length > 0 ? ` | tee ${rest.join(" ")}` : "";
-  return [
-    "sverka_rc=0",
-    `{ ${command}`,
-    `} > ${first} || sverka_rc=$?`,
-    `cat ${first}${teeRest}`,
-    `if [ "$sverka_rc" -gt 0 ]; then exit "$sverka_rc"; fi`,
-  ].join("\n");
 }
 
 /**

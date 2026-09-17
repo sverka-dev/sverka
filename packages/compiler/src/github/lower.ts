@@ -15,6 +15,7 @@ import type {
   GithubService,
 } from "./types.js";
 import { GithubTargetError } from "./errors.js";
+import { wrapStdoutCaptureLine } from "../stdout-capture.js";
 
 /**
  * Lower a Definition Graph to one or more GithubTargetGraphs.
@@ -1093,12 +1094,18 @@ function lowerOperations(
     });
     for (const name of stdoutUploadNames) {
       // The runtime persists stdout artifacts even when the shell command
-      // fails, so the upload must run unconditionally.
+      // fails, so the upload must run unconditionally. The capture writes
+      // the file inside the step's working directory when one is set.
       steps.push({
         name: `Upload ${name}`,
         if: "always()",
         uses: "actions/upload-artifact@v4",
-        with: { name: artifactName(shortStepId, name), path: name },
+        with: {
+          name: artifactName(shortStepId, name),
+          path: step.runtime.workingDir
+            ? `${step.runtime.workingDir}/${name}`
+            : name,
+        },
       });
     }
     runLines = [];
@@ -1125,6 +1132,15 @@ function lowerOperations(
             "LOWER_FAILED",
           );
         }
+        if (
+          step.runtime.shell !== undefined &&
+          !POSIX_SHELL_PATTERN.test(step.runtime.shell)
+        ) {
+          throw new GithubTargetError(
+            `step '${step.id}' declares stdout artifact '${op.name}' but shell '${step.runtime.shell}' is not POSIX-compatible`,
+            "LOWER_FAILED",
+          );
+        }
         stdoutNames.push(op.name);
         break;
       default:
@@ -1143,6 +1159,9 @@ function lowerOperations(
 
   return steps;
 }
+
+/** Shells whose run scripts understand POSIX syntax (brace groups, `||`, `[ ]`). */
+const POSIX_SHELL_PATTERN = /^(sh|bash|dash|ash|zsh|ksh)(\s|$)/;
 
 function lowerOperation(
   op: OperationDefinition,
@@ -1270,35 +1289,6 @@ function lowerDiagnostic(op: Extract<OperationDefinition, { kind: "diagnostic" }
  */
 function artifactName(stepId: string, outputName: string): string {
   return `${stepId}-${outputName}`;
-}
-
-/**
- * Quote a literal string using single quotes for a POSIX shell.
- */
-function shellQuoteSingle(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
-/**
- * Wrap a shell command line so its stdout is also written to the declared
- * artifact file(s), matching the runtime's exportStdout semantics. The
- * capture must work under POSIX sh (no pipefail), so the command's stdout is
- * redirected to the file and replayed with cat; the original exit code is
- * re-raised so a failing check still fails the step.
- */
-function wrapStdoutCaptureLine(
-  command: string,
-  names: readonly string[],
-): string {
-  const [first, ...rest] = names.map(shellQuoteSingle);
-  const teeRest = rest.length > 0 ? ` | tee ${rest.join(" ")}` : "";
-  return [
-    "sverka_rc=0",
-    `{ ${command}`,
-    `} > ${first} || sverka_rc=$?`,
-    `cat ${first}${teeRest}`,
-    `if [ "$sverka_rc" -gt 0 ]; then exit "$sverka_rc"; fi`,
-  ].join("\n");
 }
 
 /**

@@ -110,6 +110,69 @@ describe("compileGithub — exportStdout", () => {
     expect(uploads).toHaveLength(2);
   });
 
+  it("resolves the upload path inside the step working directory", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "lint-sarif", {
+      command: "bunx eslint . -f sarif",
+      runtime: { workingDir: "packages/app" },
+      outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
+    });
+    new Entry(p, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["lint-sarif"],
+    });
+    const yaml = parse(compileGithub(synthesize(proj)).artifacts[0]!
+      .content) as {
+      jobs: Record<
+        string,
+        { steps: { uses?: string; with?: { path?: string } }[] }
+      >;
+    };
+    const upload = yaml.jobs["lint-sarif"]!.steps.find(
+      (s) => s.uses === "actions/upload-artifact@v4",
+    );
+    // The run step executes in working-directory, so the file lands at
+    // packages/app/eslint.sarif — the upload path must point there.
+    expect(upload!.with?.path).toBe("packages/app/eslint.sarif");
+  });
+
+  it("emits an empty artifact for a background shell (runtime records empty stdout)", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "server", {
+      command: "npm start",
+      background: true,
+      outputs: { "server.log": { type: "artifact", fromStdout: true } },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["server"] });
+    const yaml = parse(compileGithub(synthesize(proj)).artifacts[0]!
+      .content) as { jobs: Record<string, { steps: { run?: string }[] }> };
+    const runStep = yaml.jobs["server"]!.steps.find((s) =>
+      s.run?.includes("npm start"),
+    );
+    expect(runStep!.run).toContain("npm start &");
+    expect(runStep!.run).toContain("touch 'server.log'");
+    expect(runStep!.run).not.toContain("sverka_rc");
+  });
+
+  it("throws for a fromStdout output on a non-POSIX shell", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "lint-sarif", {
+      command: "eslint . -f sarif",
+      runtime: { shell: "pwsh" },
+      outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
+    });
+    new Entry(p, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["lint-sarif"],
+    });
+    expect(() => compileGithub(synthesize(proj))).toThrowError(
+      /not POSIX-compatible/i,
+    );
+  });
+
   it("throws when a fromStdout output has no preceding shell operation", () => {
     const graph = makeStdoutArtifactGraph();
     const step = graph.project.pipelines[0]!.steps.find(
