@@ -7,6 +7,7 @@ import {
   makeTempDir,
   cleanupTempDir,
   CaptureWriter,
+  initGitRepo,
 } from "./helpers/fixtures.js";
 
 describe("init command", () => {
@@ -125,5 +126,40 @@ describe("init command", () => {
     const code = await main(["init", "--root", dir], { output: out });
     expect(code).toBe(3);
     expect(out.stderrText).toContain("package.json");
+  });
+
+  it("--detect generates a config from package.json scripts that validates clean", async () => {
+    await initGitRepo(dir);
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify({
+        name: "fixture",
+        packageManager: "npm@11.0.0",
+        scripts: {
+          typecheck: "echo typecheck-ok",
+          lint: "echo lint-ok",
+          test: "echo test-ok",
+        },
+      }),
+      "utf8",
+    );
+    await writeFile(join(dir, "index.ts"), "export const x = 1;\n", "utf8");
+
+    const out = new CaptureWriter();
+    const code = await main(["init", "--detect", "--root", dir], { output: out });
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("template: detect");
+
+    const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
+    expect(content).toMatch(/new ShellStep\(ci, "typecheck", \{ command: "npm run typecheck" \}\);/);
+    expect(content).toMatch(/new ShellStep\(ci, "lint", \{ command: "npm run lint" \}\);/);
+    expect(content).toMatch(/new ShellStep\(ci, "test", \{ command: "npm run test" \}\);/);
+    expect(content).toContain('roots: ["typecheck", "lint", "test"]');
+
+    // The generated config must load and validate with no warnings.
+    const vout = new CaptureWriter();
+    const vcode = await main(["validate", "--root", dir], { output: vout });
+    expect(vcode).toBe(0);
+    expect(vout.stderrText).not.toContain("warning");
   });
 });
