@@ -13,13 +13,13 @@
   },
   "devDependencies": {
     "@microsoft/eslint-formatter-sarif": "3.1.0",
-    "@types/node": "26.4.0",
-    "eslint": "10.9.1",
-    "nx": "^23.1.2",
+    "@types/node": "26.5.1",
+    "eslint": "10.10.0",
+    "nx": "^23.2.1",
     "prettier": "3.9.6",
-    "tsdown": "0.22.14",
+    "tsdown": "0.23.0",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.68.0",
+    "typescript-eslint": "8.70.0",
     "vitest": "4.1.11"
   },
   "workspaces": [
