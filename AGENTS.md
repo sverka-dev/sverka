@@ -80,13 +80,12 @@ Key features in active development:
   set; `loadProjectGraph` returns them and `validate`/`run` print them.
   (`dependencies:` instead of `dependsOn:` now warns instead of silently
   dropping the wiring.)
-- **~20 empty package directories** in `packages/` (0 tracked files: `ir`,
-  `core`, `cdk`, `planner`, `engine-native`, `runtime-host`, `runtime-docker`,
-  `compiler-github`, `compiler-gitlab`, `findings`, `policy`, `checks`).
-  Real code lives as subdirs inside `workflow`/`runtime`/`compiler`.
-- **v0 compilers coexist with v1.** `compiler-github/compile.ts` (v0, works
-  with `Plan`) and `github/target.ts` (v1, works with `DefinitionGraph`).
-  Both exported from barrel. v0 is candidate for deletion.
+- ~~**~20 empty package directories**~~ Removed: only stale `dist/` +
+  `node_modules/` residue remained. Real code lives as subdirs inside
+  `workflow`/`runtime`/`compiler`/`sdk`/`verification`.
+- ~~**v0 compilers coexist with v1.**~~ Deleted: `compiler-github/` +
+  `compiler-gitlab/` (Plan-based `compileGithubWorkflow`/`compileGitlabCi`,
+  unused). `github/target.ts` + `gitlab/target.ts` (DefinitionGraph) remain.
 
 ## Critical Audit Findings (2026-02 session) — RESOLVED
 
