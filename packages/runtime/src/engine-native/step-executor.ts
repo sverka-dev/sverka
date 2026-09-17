@@ -95,7 +95,7 @@ export async function executeStep(opts: StepExecOptions): Promise<StepExecResult
     }
 
     try {
-      const out = await executeOperation(op, opts, stepWorkspace, outputDir, lastOutput);
+      const out = await executeOperation(op, opts, outputDir, lastOutput);
       if (out !== undefined) {
         lastOutput = out;
       }
@@ -145,24 +145,23 @@ export async function executeStep(opts: StepExecOptions): Promise<StepExecResult
 async function executeOperation(
   op: OperationDefinition,
   opts: StepExecOptions,
-  stepWorkspace: string,
   outputDir: string,
   lastOutput: ShellOutput | undefined,
 ): Promise<ShellOutput | undefined> {
   switch (op.kind) {
     case "shell":
-      return executeShellOperation(op, opts, stepWorkspace, outputDir);
+      return executeShellOperation(op, opts, outputDir);
     case "exportOutput":
       await executeExportOutputOperation(op, opts, outputDir);
       return undefined;
     case "exportArtifact":
-      await executeExportArtifactOperation(op, opts, stepWorkspace);
+      await executeExportArtifactOperation(op, opts);
       return undefined;
     case "exportStdout":
       await executeExportStdoutOperation(op, opts, lastOutput);
       return undefined;
     case "importArtifact":
-      await executeImportArtifactOperation(op, opts, stepWorkspace);
+      await executeImportArtifactOperation(op, opts);
       return undefined;
     case "diagnostic":
       executeDiagnosticOperation(op, opts);
@@ -176,18 +175,17 @@ async function executeOperation(
 async function executeShellOperation(
   op: Extract<OperationDefinition, { kind: "shell" }>,
   opts: StepExecOptions,
-  stepWorkspace: string,
   outputDir: string,
 ): Promise<ShellOutput> {
   const { step, driver, secrets, valueStore, inputs, signal, workspace } = opts;
   const env = buildShellEnv(step, outputDir, stepScopedSecrets(opts));
   const cwd = step.runtime.workingDir
-    ? resolveUnder(stepWorkspace, step.runtime.workingDir)
-    : stepWorkspace;
+    ? resolveUnder(workspace, step.runtime.workingDir)
+    : workspace;
   const command = interpolateCommand(op.command, step, valueStore, inputs, secrets, workspace);
   const request: ShellExecuteRequest = {
     command,
-    workspace: stepWorkspace,
+    workspace,
     env,
     cwd,
     ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
@@ -242,11 +240,10 @@ async function executeExportOutputOperation(
 async function executeExportArtifactOperation(
   op: Extract<OperationDefinition, { kind: "exportArtifact" }>,
   opts: StepExecOptions,
-  stepWorkspace: string,
 ): Promise<void> {
-  const { step, artifactStore } = opts;
+  const { step, artifactStore, workspace } = opts;
   assertSafeFileName(op.name);
-  const sourcePath = resolveUnder(stepWorkspace, op.path);
+  const sourcePath = resolveUnder(workspace, op.path);
   await artifactStore.store(step.id, op.name, sourcePath);
 }
 
@@ -312,13 +309,12 @@ async function writeStdoutArtifacts(
 async function executeImportArtifactOperation(
   op: Extract<OperationDefinition, { kind: "importArtifact" }>,
   opts: StepExecOptions,
-  stepWorkspace: string,
 ): Promise<void> {
   const { step, artifactStore } = opts;
   assertSafeFileName(op.name);
   const prefix = stepPrefix(step.id);
   const producerId = resolveProducerId(prefix, op.from);
-  const destPath = join(stepWorkspace, op.name);
+  const destPath = join(opts.workspace, op.name);
   await artifactStore.retrieve(producerId, op.output, destPath);
 }
 

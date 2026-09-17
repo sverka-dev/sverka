@@ -4,7 +4,6 @@
 
 import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
 import { EngineError } from "./errors.js";
 import type { RunPlan } from "@sverka/workflow";
@@ -241,6 +240,8 @@ class NativeEngine implements Engine {
       eventDeferred.current = new Deferred();
     };
 
+    this.warnOnConcurrentCachePaths(ctx, setup.plan);
+
     for (const s of setup.plan.steps) {
       ctx.emit({ type: "step-pending", stepId: s.id });
     }
@@ -455,8 +456,6 @@ class NativeEngine implements Engine {
     step: StepDefinition,
     driver: RuntimeDriver,
   ): Promise<void> {
-    const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", step.id));
-
     // Spec 27: agent steps are non-deterministic and skip cache restore/store
     // entirely, even if a cache spec is present.
     const isAgentStep = step.operations.some((op) => op.kind === "agent");
@@ -474,7 +473,7 @@ class NativeEngine implements Engine {
             key,
             restoreKeys,
             paths: step.cache.paths,
-            targetDir: stepWorkspace,
+            targetDir: ctx.request.workspace,
           });
           if (hit) {
             ctx.states.set(step.id, "succeeded");
@@ -525,7 +524,7 @@ class NativeEngine implements Engine {
       if (policy === "push" || policy === "pull-push") {
         const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
         try {
-          await ctx.cache.store({ key, paths: step.cache.paths, sourceDir: stepWorkspace });
+          await ctx.cache.store({ key, paths: step.cache.paths, sourceDir: ctx.request.workspace });
         } catch (e) {
           ctx.emit({
             type: "diagnostic",
@@ -646,10 +645,10 @@ class NativeEngine implements Engine {
     ctx.emit({ type: "step-compensating", stepId, command });
     yield* this.drainEvents(ctx);
 
-    const request = buildCompensationRequest(ctx, stepId, step, command);
     const compStart = Date.now();
     let result: ShellResult;
     try {
+      const request = buildCompensationRequest(ctx, stepId, step, command);
       result = await driver.executeShell(request);
     } catch (e) {
       this.emitCompensationFailure(ctx, stepId, Date.now() - compStart, `compensation failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -663,6 +662,47 @@ class NativeEngine implements Engine {
       this.emitCompensationFailure(ctx, stepId, durationMs, `compensation for step '${stepId}' failed with exit code ${result.exitCode}`);
     }
     yield* this.drainEvents(ctx);
+  }
+
+  /**
+   * Warn when steps that may run concurrently share cache paths. The
+   * workspace is shared across steps, so a concurrent store can capture
+   * another step's partial writes and a restore can overwrite files the
+   * other step is using. Ordered (dependency-linked) steps sharing paths
+   * are fine — sequential reuse is the intended cache pattern.
+   */
+  private warnOnConcurrentCachePaths(ctx: RunContext, plan: RunPlan): void {
+    if (ctx.maxConcurrent <= 1) return; // serial run — no concurrent stores possible
+    const byId = new Map(plan.steps.map((s) => [s.id, s]));
+    const ancestorCache = new Map<string, ReadonlySet<string>>();
+    const ancestors = (id: string): ReadonlySet<string> => {
+      const hit = ancestorCache.get(id);
+      if (hit) return hit;
+      const acc = new Set<string>();
+      ancestorCache.set(id, acc); // set before recursion to break cycles
+      for (const d of byId.get(id)?.dependencies ?? []) {
+        acc.add(d.producer);
+        for (const a of ancestors(d.producer)) acc.add(a);
+      }
+      return acc;
+    };
+
+    const cached = plan.steps.filter((s) => (s.cache?.paths.length ?? 0) > 0);
+    for (let i = 0; i < cached.length; i++) {
+      for (let j = i + 1; j < cached.length; j++) {
+        const a = cached[i], b = cached[j];
+        if (a === undefined || b === undefined) continue;
+        if (ancestors(a.id).has(b.id) || ancestors(b.id).has(a.id)) continue;
+        const shared = (a.cache?.paths ?? []).filter((p) => b.cache?.paths.includes(p));
+        if (shared.length === 0) continue;
+        ctx.emit({
+          type: "diagnostic",
+          stepId: a.id,
+          message: `steps '${a.id}' and '${b.id}' may run concurrently and share cache paths [${shared.join(", ")}] — a cache store can capture partial writes; order them with dependsOn or use distinct paths`,
+          severity: "warn",
+        });
+      }
+    }
   }
 
   /**
@@ -1160,14 +1200,13 @@ function buildCompensationRequest(
   step: StepDefinition,
   command: string,
 ): ShellExecuteRequest {
-  const stepWorkspace = resolveUnder(ctx.request.workspace, join(".sverka", "workspace", stepId));
   return {
     command,
-    workspace: stepWorkspace,
+    workspace: ctx.request.workspace,
     env: buildCompensationEnv(step, scopeSecretsForStep(step, ctx.secrets)),
-    ...(step.runtime.workingDir !== undefined
-      ? { cwd: resolveUnder(stepWorkspace, step.runtime.workingDir) }
-      : {}),
+    cwd: step.runtime.workingDir !== undefined
+      ? resolveUnder(ctx.request.workspace, step.runtime.workingDir)
+      : ctx.request.workspace,
     ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
     ...(step.runtime.image ? { image: step.runtime.image } : {}),
     ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),

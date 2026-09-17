@@ -68,6 +68,10 @@ Key features in active development:
 - Dependency inference from data flow (output ref → auto-dep)
 - SARIF findings via `outputs: { "x.sarif": { type: "artifact", fromStdout: true } }`
   + `sverka run --evaluate`
+- Shell steps run with **cwd = project root**; `runtime.workingDir` is
+  repo-relative. `exportArtifact`/`importArtifact` paths are repo-relative
+  (GitLab `artifacts:paths` semantics). Per-step scratch lives under
+  `.sverka/workspace/<stepId>` — use `$SVERKA_OUTPUT_DIR` for step outputs.
 
 ## Known Issues
 
