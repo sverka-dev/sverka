@@ -337,15 +337,38 @@ function resolveWorkspaceDirs(
 }
 
 function matchesWorkspaceGlob(dir: string, glob: string): boolean {
-  const pattern = glob
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, "§")
-    .replace(/\*/g, "[^/]+")
-    .replace(/\/§\//g, "(?:/[^/]+)*/")
-    .replace(/\/§$/g, "(?:/[^/]+)*")
-    .replace(/^§\//g, "(?:[^/]+/)*")
-    .replace(/§/g, "[^/]*");
-  return new RegExp(`^${pattern}$`).test(dir);
+  const d = dir.split("/");
+  const g = glob.split("/");
+  const memo = new Map<string, boolean>();
+  const match = (di: number, gi: number): boolean => {
+    const key = `${di}:${gi}`;
+    const cached = memo.get(key);
+    if (cached !== undefined) return cached;
+    let result: boolean;
+    if (gi === g.length) {
+      result = di === d.length;
+    } else if (g[gi] === "**") {
+      result = false;
+      for (let k = di; k <= d.length && !result; k++) {
+        result = match(k, gi + 1);
+      }
+    } else {
+      result =
+        di < d.length &&
+        matchesGlobSegment(d[di] as string, g[gi] as string) &&
+        match(di + 1, gi + 1);
+    }
+    memo.set(key, result);
+    return result;
+  };
+  return match(0, 0);
+}
+
+function matchesGlobSegment(segment: string, pattern: string): boolean {
+  const re = new RegExp(
+    `^${pattern.replaceAll(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*")}$`,
+  );
+  return re.test(segment);
 }
 
 function extractWorkspaceGlobs(ws: unknown): string[] {
