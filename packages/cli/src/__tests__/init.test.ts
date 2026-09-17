@@ -151,9 +151,9 @@ describe("init command", () => {
     expect(out.stdoutText).toContain("template: detect");
 
     const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
-    expect(content).toMatch(/new ShellStep\(ci, "typecheck", \{ command: "\w+ run typecheck" \}\);/);
-    expect(content).toMatch(/new ShellStep\(ci, "lint", \{ command: "\w+ run lint" \}\);/);
-    expect(content).toMatch(/new ShellStep\(ci, "test", \{ command: "\w+ run test" \}\);/);
+    expect(content).toMatch(/new ShellStep\(ci, "typecheck", \{ command: "npm run typecheck" \}\);/);
+    expect(content).toMatch(/new ShellStep\(ci, "lint", \{ command: "npm run lint" \}\);/);
+    expect(content).toMatch(/new ShellStep\(ci, "test", \{ command: "npm run test" \}\);/);
     expect(content).toContain('roots: ["typecheck", "lint", "test"]');
 
     // The generated config must load and validate with no warnings.
