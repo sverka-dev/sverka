@@ -58,6 +58,9 @@ export function renderSarifTui(options: SarifTuiOptions): Promise<void> {
 /** Return a raw-mode-capable input stream for Ink, or undefined. */
 function interactiveStdin(): ReadStream | undefined {
   if (process.stdin.isTTY) return process.stdin;
+  // /dev/tty is POSIX-only; on Windows there is no equivalent Node API to
+  // reopen console input, so piped stdin degrades to the text fallback.
+  if (process.platform === "win32") return undefined;
   try {
     return new ReadStream(openSync("/dev/tty", "r"));
   } catch {
