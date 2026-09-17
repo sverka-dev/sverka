@@ -333,7 +333,7 @@ function resolveWorkspaceDirs(
       dirs.add(dir);
     }
   }
-  return [...dirs].sort();
+  return [...dirs].sort((a, b) => a.localeCompare(b));
 }
 
 function matchesWorkspaceGlob(dir: string, glob: string): boolean {
