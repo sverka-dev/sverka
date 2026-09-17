@@ -1,10 +1,8 @@
 // @sverka/compiler — public barrel
 
-export * from "./compiler-github/index.js";
-export * from "./compiler-gitlab/index.js";
 export * from "./plugin/index.js";
 
-// Native target compilers (v0 architecture — Definition Graph → CI YAML).
+// Native target compilers (Definition Graph → CI YAML).
 export { compileGithub } from "./github/target.js";
 export { compileGitlab } from "./gitlab/target.js";
 export type {

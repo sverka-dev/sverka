@@ -86,10 +86,11 @@ is optional. SaaS/browser execution is deferred.
 - ~~**`sverka validate` does not warn on unknown props.**~~ Fixed: construct
   constructors attach `sverka:warning` metadata for unknown props;
   `validate`/`run` print them and JSON output includes a `warnings` field.
-- **~20 empty package directories** in `packages/` (0 tracked files). Real
-  code lives as subdirs inside `workflow`/`runtime`/`compiler`.
-- **v0 compilers coexist with v1.** Both exported from barrel. v0 candidate
-  for deletion.
+- ~~**~20 empty package directories**~~ Removed (stale dist/node_modules
+  residue only). Real code lives as subdirs inside the real packages.
+- ~~**v0 compilers coexist with v1.**~~ Deleted: `compiler-github/` +
+  `compiler-gitlab/` (Plan-based, unused). `github/` + `gitlab/` native
+  targets remain.
 
 ## Conventions & Patterns
 
