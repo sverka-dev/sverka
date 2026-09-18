@@ -1,6 +1,7 @@
 import type { ProjectContext, ChangedFile, DetectedLanguage, PackageManagerName, DetectedPackageManager, MonorepoTool, MonorepoMarker, LocalSignalType, LocalSignal, ProposedCheck, DiscoveryExplanation } from "@sverka/workflow";
 export type { ProjectContext, ChangedFile, DetectedLanguage, PackageManagerName, DetectedPackageManager, MonorepoTool, MonorepoMarker, LocalSignalType, LocalSignal, ProposedCheck, DiscoveryExplanation };
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { createGitCli, type GitCli } from "./internal/git-cli.js";
 import {
@@ -31,6 +32,14 @@ export interface DiscoverOptions {
   root: string;
   baseRef?: string;
   maxDepth?: number;
+  /**
+   * When true and `root` is a subdirectory of the git repository, detection
+   * signals, languages, and package managers are computed from the subtree
+   * under `root` instead of the whole repository. Use for commands whose
+   * generated steps execute with cwd=`root` (e.g. `init --detect`). Git
+   * metadata (commit, dirty, changedFiles) stays repository-wide.
+   */
+  scopeToRoot?: boolean;
 }
 
 export interface PlanProposal {
@@ -58,12 +67,16 @@ class PlannerImpl implements Planner {
     const toplevel = await resolveToplevel(this.git, root);
     const { tracked, untracked, porcelain } = await collectGitFiles(this.git, toplevel);
     const allFiles = [...new Set([...tracked, ...untracked])];
+    const scoped = options.scopeToRoot === true
+      ? scopeFilesToRoot(allFiles, toplevel, root)
+      : null;
+    const projectRoot = scoped?.dir ?? toplevel;
     const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
-    const filtered = applyMaxDepth(allFiles, maxDepth);
+    const filtered = applyMaxDepth(scoped?.files ?? allFiles, maxDepth);
 
     const signals = detectSignals(filtered);
     const languages = detectLanguages(filtered);
-    const rootPkgJson = readRootPackageJson(toplevel);
+    const rootPkgJson = readRootPackageJson(projectRoot);
     const packageManagers = detectPackageManagers(signals, rootPkgJson);
     const monorepo = detectMonorepo(signals, rootPkgJson);
     const hasContainerBuild = signals.some(
@@ -89,7 +102,7 @@ class PlannerImpl implements Planner {
     });
 
     return {
-      root: toplevel,
+      root: projectRoot,
       commit,
       dirty,
       changedFiles,
@@ -114,6 +127,27 @@ class PlannerImpl implements Planner {
 
 function applyMaxDepth(files: string[], maxDepth: number): string[] {
   return files.filter((f) => f.split("/").length <= maxDepth);
+}
+
+/**
+ * Restrict repo-relative `files` to the subtree under `root`, re-rooting
+ * paths relative to `root`. Returns null when `root` is not inside the
+ * repository (should not happen — toplevel is resolved from `root`).
+ */
+function scopeFilesToRoot(
+  files: readonly string[],
+  toplevel: string,
+  root: string,
+): { dir: string; files: string[] } | null {
+  const dir = realpathSync(resolve(root));
+  // Git paths are always slash-separated — normalize for Windows.
+  const prefix = relative(toplevel, dir).split(sep).join("/");
+  if (prefix.startsWith("..") || isAbsolute(prefix)) return null;
+  if (prefix === "") return { dir, files: [...files] };
+  const scoped = files
+    .filter((f) => f.startsWith(prefix + "/"))
+    .map((f) => f.slice(prefix.length + 1));
+  return { dir, files: scoped };
 }
 
 /** Throw `GIT_UNAVAILABLE` if git is not on PATH. */

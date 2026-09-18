@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { join } from "node:path";
+import { realpathSync } from "node:fs";
 import { createPlanner } from "../planner.js";
 import {
   makeFixtureDir,
@@ -382,6 +384,70 @@ describe("discover — monorepo detection", () => {
     try {
       const ctx = await createPlanner().discover({ root });
       expect(ctx.monorepo).toBeNull();
+    } finally {
+      await cleanup(root);
+    }
+  });
+});
+
+// --- Test plan 4b: scopeToRoot ---
+
+describe("discover — scopeToRoot", () => {
+  it("limits detection to the subtree when root is a repo subdirectory", async () => {
+    const files: Record<string, string> = {
+      "go.mod": "module example.com/x",
+      "main.go": "package main",
+      "app/package.json": "{}",
+      "app/index.ts": "export {}",
+    };
+    const root = await makeFixtureDir(files);
+    // git returns canonical paths — mirror that so relative() works under
+    // symlinked TMPDIR (e.g. macOS /var → /private/var).
+    installMockGit({ root: realpathSync(root), trackedFiles: Object.keys(files) });
+    const appRoot = join(root, "app");
+    try {
+      const ctx = await createPlanner().discover({
+        root: appRoot,
+        scopeToRoot: true,
+      });
+      expect(ctx.root).toBe(realpathSync(appRoot));
+      expect(ctx.languages.map((l) => l.name)).toEqual(["TypeScript"]);
+      expect(ctx.packageManagers.map((p) => p.name)).not.toContain("go");
+      // Signal paths are re-rooted relative to the subtree.
+      const manifest = ctx.localSignals.find((s) => s.type === "manifest");
+      expect(manifest?.path).toBe("package.json");
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("detects the whole repo by default from a subdirectory", async () => {
+    const files: Record<string, string> = {
+      "go.mod": "module example.com/x",
+      "main.go": "package main",
+      "app/index.ts": "export {}",
+    };
+    const root = await makeFixtureDir(files);
+    installMockGit({ root: realpathSync(root), trackedFiles: Object.keys(files) });
+    try {
+      const ctx = await createPlanner().discover({ root: join(root, "app") });
+      expect(ctx.root).toBe(realpathSync(root));
+      expect(ctx.languages.map((l) => l.name)).toContain("Go");
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("scopeToRoot at the toplevel detects the whole repo", async () => {
+    const files: Record<string, string> = {
+      "go.mod": "module example.com/x",
+      "main.go": "package main",
+    };
+    const root = await makeFixtureDir(files);
+    installMockGit({ root, trackedFiles: Object.keys(files) });
+    try {
+      const ctx = await createPlanner().discover({ root, scopeToRoot: true });
+      expect(ctx.languages.map((l) => l.name)).toContain("Go");
     } finally {
       await cleanup(root);
     }

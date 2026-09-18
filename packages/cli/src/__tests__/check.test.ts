@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { main } from "../index.js";
 import {
@@ -94,5 +94,38 @@ describe("check command", () => {
       (m) => m[1],
     );
     expect(stepIds.sort()).toEqual([...proposed].sort());
+  });
+
+  it("scopes detection to a nested root — parent ecosystems do not leak", async () => {
+    await initGitRepo(dir);
+    // Parent: Go project + a package.json lint script.
+    await writeFile(join(dir, "go.mod"), "module example.com/x\n", "utf8");
+    await writeFile(join(dir, "main.go"), "package main\n", "utf8");
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify({ name: "parent", scripts: { lint: "echo lint" } }),
+      "utf8",
+    );
+    // Nested project: only its own test script.
+    const sub = join(dir, "app");
+    await mkdir(sub, { recursive: true });
+    await writeFile(
+      join(sub, "package.json"),
+      JSON.stringify({ name: "app", scripts: { test: "echo test" } }),
+      "utf8",
+    );
+
+    const out = new CaptureWriter();
+    const code = await main(["check", "--format", "json", "--root", sub], {
+      output: out,
+    });
+    expect(code).toBe(0);
+    const { proposed, resolved } = (
+      JSON.parse(out.stdoutText.trim()) as CheckOutput
+    ).data;
+    // Steps run with cwd=sub — go vet/test and the parent's lint must not
+    // be proposed.
+    expect(proposed).toEqual(["test"]);
+    expect(resolved.every((r) => !r.command.startsWith("go "))).toBe(true);
   });
 });
