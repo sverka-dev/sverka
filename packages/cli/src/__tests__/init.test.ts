@@ -162,4 +162,82 @@ describe("init command", () => {
     expect(vcode).toBe(0);
     expect(vout.stderrText).not.toContain("warning");
   });
+
+  it("--detect works without a git repository", async () => {
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify({
+        name: "fixture",
+        scripts: { lint: "echo lint-ok", test: "echo test-ok" },
+      }),
+      "utf8",
+    );
+
+    const out = new CaptureWriter();
+    const code = await main(["init", "--detect", "--root", dir], { output: out });
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("template: detect");
+
+    const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
+    expect(content).toContain('"lint"');
+    expect(content).toContain('"test"');
+    expect(content).not.toContain('"typecheck"');
+  });
+
+  it("--detect emits steps only for scripts that exist in package.json", async () => {
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify({
+        name: "fixture",
+        scripts: { lint: "echo lint-ok", build: "echo build-ok" },
+      }),
+      "utf8",
+    );
+
+    const out = new CaptureWriter();
+    const code = await main(["init", "--detect", "--root", dir], { output: out });
+    expect(code).toBe(0);
+
+    const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
+    expect(content).toContain('"lint"');
+    expect(content).toContain('"build"');
+    expect(content).not.toContain('"typecheck"');
+    expect(content).not.toContain('"test"');
+  });
+
+  it("declares an installable @sverka/workflow dep (not bare *)", async () => {
+    const out = new CaptureWriter();
+    const code = await main(["init", "--root", dir], { output: out });
+    expect(code).toBe(0);
+
+    const pkg = JSON.parse(
+      await readFile(join(dir, "package.json"), "utf8"),
+    ) as { devDependencies?: Record<string, string> };
+    const spec = pkg.devDependencies?.["@sverka/workflow"];
+    expect(spec).toBeDefined();
+    expect(spec).not.toBe("*");
+    expect(spec).toMatch(/^(workspace:\*|link:|file:|\^)/);
+  });
+
+  it("replaces a malformed non-string @sverka/workflow dep with a usable spec", async () => {
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify({
+        name: "fixture",
+        devDependencies: { "@sverka/workflow": 123 },
+      }),
+      "utf8",
+    );
+
+    const out = new CaptureWriter();
+    const code = await main(["init", "--root", dir], { output: out });
+    expect(code).toBe(0);
+
+    const pkg = JSON.parse(
+      await readFile(join(dir, "package.json"), "utf8"),
+    ) as { devDependencies?: Record<string, string> };
+    const spec = pkg.devDependencies?.["@sverka/workflow"];
+    expect(typeof spec).toBe("string");
+    expect(spec).toMatch(/^(workspace:\*|link:|file:|\^)/);
+  });
 });

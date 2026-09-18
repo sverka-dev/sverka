@@ -45,4 +45,29 @@ describe("sverka binary (acceptance)", () => {
     });
     expect(result.status).toBe(0);
   });
+
+  it.skipIf(!binBuilt)(
+    "validates a config importing @sverka/workflow with no local node_modules (global-install fallback)",
+    async () => {
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(
+        join(dir, "sverka.config.ts"),
+        [
+          'import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";',
+          'const proj = new Project("verify");',
+          'const ci = new Pipeline(proj, "ci");',
+          'new ShellStep(ci, "x", { command: "echo hi" });',
+          'new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["x"] });',
+          "export default proj;",
+        ].join("\n"),
+        "utf8",
+      );
+      const result = spawnSync("node", [BIN_PATH, "validate", "--root", dir], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      expect(result.stderr).not.toContain("Cannot find package");
+      expect(result.status).toBe(0);
+    },
+  );
 });

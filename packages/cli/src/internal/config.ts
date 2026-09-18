@@ -3,16 +3,45 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { readFileSync, existsSync } from "node:fs";
-import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
-import { join, resolve, isAbsolute, dirname } from "node:path";
+import { register } from "node:module";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { join, resolve, isAbsolute, dirname, sep } from "node:path";
 import type { Project } from "@sverka/workflow";
 import { synthesize, collectConstructWarnings } from "@sverka/workflow";
 import type { DefinitionGraph } from "@sverka/workflow";
 import { resolveUnderRoot } from "./paths.js";
 import { CliError, ExitCode } from "../types.js";
 
-const require = createRequire(import.meta.url);
+let hooksRegistered = false;
+
+function findHooksFile(): string | null {
+  for (const rel of ["./config-hooks.mjs", "./internal/config-hooks.mjs"]) {
+    try {
+      const candidate = fileURLToPath(new URL(rel, import.meta.url));
+      if (existsSync(candidate)) return candidate;
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+/**
+ * Register ESM resolve hooks so a config file that cannot resolve @sverka/*
+ * packages from its own location falls back to the copies bundled with the
+ * CLI. This makes a globally-installed `sverka` self-contained.
+ */
+function registerConfigHooks(): void {
+  if (hooksRegistered) return;
+  const hooksFile = findHooksFile();
+  if (hooksFile === null) return;
+  try {
+    register(pathToFileURL(hooksFile).href);
+    hooksRegistered = true;
+  } catch {
+    // module.register unavailable — fall back to normal resolution
+  }
+}
 
 /** Package-manager names supported by `init` templates. */
 export type PmName = "npm" | "pnpm" | "yarn" | "bun";
@@ -108,6 +137,7 @@ export async function loadConfig(configPath: string): Promise<Project> {
 
   let mod: Record<string, unknown>;
   try {
+    registerConfigHooks();
     mod = await import(pathToFileURL(absPath).href);
   } catch (e) {
     throw new CliError(
@@ -199,7 +229,9 @@ function pmFromPackageManagerField(packageManager: string): PmName | undefined {
  * Ensure `@sverka/workflow` is declared as a devDependency of the target
  * project. Creates a minimal package.json when one does not exist.
  */
-export async function ensureConstructsDependency(root: string): Promise<void> {
+export async function ensureConstructsDependency(
+  root: string,
+): Promise<string | null> {
   const pkgPath = join(root, "package.json");
   const base = await loadPackageBase(pkgPath);
 
@@ -209,9 +241,10 @@ export async function ensureConstructsDependency(root: string): Promise<void> {
     ...base,
   };
 
-  ensureConstructsDeclared(pkg, root);
+  const declared = ensureConstructsDeclared(pkg, root);
 
   await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+  return declared;
 }
 
 async function loadPackageBase(pkgPath: string): Promise<Record<string, unknown>> {
@@ -231,34 +264,95 @@ async function loadPackageBase(pkgPath: string): Promise<Record<string, unknown>
   }
 }
 
-function ensureConstructsDeclared(pkg: Record<string, unknown>, root: string): void {
+/** Dependency names that were renamed to @sverka/workflow. */
+const LEGACY_DEP_NAMES = ["@sverka/constructs", "@sverka/cdk"] as const;
+
+/** Drop renamed legacy package entries from dependencies/devDependencies. */
+function removeLegacyDeps(pkg: Record<string, unknown>): void {
+  for (const key of ["dependencies", "devDependencies"] as const) {
+    const deps = pkg[key] as Record<string, unknown> | undefined;
+    if (deps === undefined) continue;
+    for (const name of LEGACY_DEP_NAMES) delete deps[name];
+    if (Object.keys(deps).length === 0) delete pkg[key];
+  }
+}
+
+function ensureConstructsDeclared(
+  pkg: Record<string, unknown>,
+  root: string,
+): string | null {
+  removeLegacyDeps(pkg);
+
   const deps = (pkg.dependencies as Record<string, unknown> | undefined) ?? {};
   const devDeps =
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
 
-  // Migration: remove the old @sverka/constructs package if present.
-  if ("@sverka/constructs" in deps) {
-    delete (deps as Record<string, unknown>)["@sverka/constructs"];
-    pkg.dependencies = deps;
-  }
-  if ("@sverka/constructs" in devDeps) {
-    delete (devDeps as Record<string, unknown>)["@sverka/constructs"];
-    pkg.devDependencies = devDeps;
-  }
-
-  // Migration: remove the old @sverka/cdk package if present.
-  if ("@sverka/cdk" in deps) {
-    delete (deps as Record<string, unknown>)["@sverka/cdk"];
-    pkg.dependencies = deps;
-  }
-  if ("@sverka/cdk" in devDeps) {
-    delete (devDeps as Record<string, unknown>)["@sverka/cdk"];
-    pkg.devDependencies = devDeps;
+  const existing =
+    deps["@sverka/workflow"] ?? devDeps["@sverka/workflow"];
+  if (typeof existing === "string") return existing;
+  if (existing !== undefined) {
+    // Malformed non-string value — unusable to any package manager.
+    // Replace it with a proper spec rather than leaving it in place.
+    delete deps["@sverka/workflow"];
+    delete devDeps["@sverka/workflow"];
   }
 
-  if (!("@sverka/workflow" in deps) && !("@sverka/workflow" in devDeps)) {
-    const version = isLocalWorkspace(root) ? "workspace:*" : getDefaultConstructsVersion();
-    pkg.devDependencies = { ...devDeps, "@sverka/workflow": version };
+  const spec = constructsDepSpec(root);
+  if (spec === null) return null;
+  pkg.devDependencies = { ...devDeps, "@sverka/workflow": spec };
+  return spec;
+}
+
+/**
+ * Dependency spec for @sverka/workflow in the target project.
+ *
+ * - `workspace:*` inside the sverka monorepo itself.
+ * - `^<version>` when the package resolves from a node_modules tree (a real
+ *   registry install).
+ * - `link:<dir>` (or `file:<dir>` for npm, which rejects the `link:`
+ *   protocol) when it resolves to a bare checkout — a semver spec would
+ *   fail to install when the version was never published.
+ * - null when the package cannot be resolved at all — nothing is declared,
+ *   the caller warns instead of writing an uninstallable spec.
+ */
+function constructsDepSpec(root: string): string | null {
+  if (isLocalWorkspace(root)) return "workspace:*";
+  const resolved = resolveConstructsPackage();
+  if (resolved === null) return null;
+  if (resolved.dir.includes(`${sep}node_modules${sep}`)) {
+    return `^${resolved.version}`;
+  }
+  const protocol = detectPackageManager(root) === "npm" ? "file:" : "link:";
+  return `${protocol}${resolved.dir}`;
+}
+
+/** Resolve the @sverka/workflow package directory and version from the CLI's context. */
+function resolveConstructsPackage(): { dir: string; version: string } | null {
+  let entry: string;
+  try {
+    entry = fileURLToPath(import.meta.resolve("@sverka/workflow"));
+  } catch {
+    return null;
+  }
+  let dir = dirname(entry);
+  while (true) {
+    const pkgPath = join(dir, "package.json");
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+          name?: string;
+          version?: string;
+        };
+        if (pkg.name === "@sverka/workflow") {
+          return { dir, version: pkg.version ?? "0.0.0" };
+        }
+      } catch {
+        // keep walking up
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
   }
 }
 
@@ -280,31 +374,5 @@ function isLocalWorkspace(root: string): boolean {
     return patterns.some((pattern) => pattern.startsWith("packages"));
   } catch {
     return false;
-  }
-}
-
-function getDefaultConstructsVersion(): string {
-  try {
-    // @sverka/workflow only exports "." in its exports map, so resolve the
-    // entry point (typically dist/index.mjs) and walk up to the package
-    // root's package.json.
-    let dir = dirname(require.resolve("@sverka/workflow"));
-    while (true) {
-      const pkgPath = join(dir, "package.json");
-      if (existsSync(pkgPath)) {
-        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
-          name?: string;
-          version?: string;
-        };
-        if (pkg.name === "@sverka/workflow") {
-          return pkg.version ? `^${pkg.version}` : "*";
-        }
-      }
-      const parent = dirname(dir);
-      if (parent === dir) return "*";
-      dir = parent;
-    }
-  } catch {
-    return "*";
   }
 }

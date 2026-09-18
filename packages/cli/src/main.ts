@@ -142,9 +142,9 @@ function addViewCommand(y: Argv): Argv {
     .option("format", {
       type: "string",
       alias: "f",
-      choices: ["tui", "web"],
+      choices: ["tui", "web", "html"],
       default: "tui",
-      describe: "View format: tui (terminal) or web (HTML report)",
+      describe: "View format: tui (terminal), web/html (HTML report)",
     })
     .option("output", {
       type: "string",
@@ -336,7 +336,8 @@ function dispatchView(
   start: number,
 ): Promise<number> {
   const args: ViewArgs = {
-    format: parsed.format === "web" ? "web" : "tui",
+    format:
+      parsed.format === "web" || parsed.format === "html" ? "web" : "tui",
   };
   if (typeof parsed.file === "string") args.file = parsed.file;
   if (typeof parsed.output === "string") args.output = parsed.output;
