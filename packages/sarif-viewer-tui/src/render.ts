@@ -32,8 +32,9 @@ export function renderSarifTui(options: SarifTuiOptions): Promise<void> {
     return Promise.resolve();
   }
 
-  if (!process.stdout.isTTY) {
-    // Non-interactive stdout — a TUI cannot run here. Print the findings.
+  if (!process.stdout.isTTY || process.env.CI) {
+    // Non-interactive stdout or CI — even with a pseudo-TTY there is no
+    // user to quit Ink, so a TUI would block forever. Print the findings.
     printFindings(findings);
     return Promise.resolve();
   }
