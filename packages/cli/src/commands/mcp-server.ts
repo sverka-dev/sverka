@@ -2,8 +2,6 @@
 // Spec 28 — sverka mcp-server.
 
 import process from "node:process";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
 import { registerSverkaTools } from "../internal/mcp-tools.js";
@@ -31,6 +29,11 @@ export async function mcpServerCommand(
 ): Promise<number> {
   output.debug(`mcp-server: root=${global.root}`);
 
+  // Lazy-import the MCP SDK (~250ms) — only paid when serving MCP.
+  const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
+  const { StdioServerTransport } = await import(
+    "@modelcontextprotocol/sdk/server/stdio.js"
+  );
   const server = new McpServer({ name: "sverka", version: "0.0.0" });
   registerSverkaTools(server, global.root);
 

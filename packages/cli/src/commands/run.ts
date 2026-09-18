@@ -12,7 +12,6 @@ import { createHostDriver } from "@sverka/runtime";
 import type { CommandAllowlist } from "@sverka/runtime";
 import { createDockerDriver } from "@sverka/runtime";
 import { bindRunPlan } from "@sverka/sdk";
-import { createTextRenderer, createHtmlRenderer, createInkRenderer, collectFindings, evaluateGate, ReporterError } from "@sverka/reporter";
 import type { Renderer, FindingRow } from "@sverka/reporter";
 import type { Finding } from "@sverka/verification";
 import { serializeSarif } from "@sverka/verification";
@@ -193,6 +192,9 @@ async function consumeEvents(
   const events: RunEvent[] = [];
   let runStatus = "failure";
 
+  // Lazy-import the reporter (~700ms via ink/react) — only paid on `run`.
+  const { createTextRenderer, createHtmlRenderer, createInkRenderer } =
+    await import("@sverka/reporter");
   let renderer: Renderer | null = null;
 
   // --output flag implies HTML format (unless sarif/web format is explicit)
@@ -243,6 +245,9 @@ async function runEvaluation(
   renderer: Renderer | null,
   args: RunArgs,
 ): Promise<{ exitCode: number; summary: { findings: readonly Finding[]; verdict: string; summary: string } | null }> {
+  const { collectFindings, evaluateGate, ReporterError } = await import(
+    "@sverka/reporter"
+  );
   let rows: readonly FindingRow[];
   try {
     rows = await collectFindings({ artifactDir });
