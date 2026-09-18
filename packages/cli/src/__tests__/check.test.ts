@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { main } from "../index.js";
 import {
@@ -8,6 +8,13 @@ import {
   CaptureWriter,
   initGitRepo,
 } from "./helpers/fixtures.js";
+
+interface CheckOutput {
+  data: {
+    proposed: string[];
+    resolved: { id: string; command: string }[];
+  };
+}
 
 describe("check command", () => {
   let dir: string;
@@ -35,14 +42,12 @@ describe("check command", () => {
       output: out,
     });
     expect(code).toBe(0);
-    const parsed = JSON.parse(out.stdoutText.trim());
+    const parsed = JSON.parse(out.stdoutText.trim()) as CheckOutput;
     expect(parsed.data.proposed).toContain("lint");
     expect(parsed.data.proposed).toContain("build");
     expect(parsed.data.proposed).not.toContain("typecheck");
     // pm is detected from lockfiles — the exact prefix varies by env.
-    const lint = parsed.data.resolved.find(
-      (r: { id: string }) => r.id === "lint",
-    );
+    const lint = parsed.data.resolved.find((r) => r.id === "lint");
     expect(lint?.command).toMatch(/run lint$/);
   });
 
@@ -52,7 +57,7 @@ describe("check command", () => {
       output: out,
     });
     expect(code).toBe(0);
-    const parsed = JSON.parse(out.stdoutText.trim());
+    const parsed = JSON.parse(out.stdoutText.trim()) as CheckOutput;
     expect(parsed.data.proposed).toEqual([]);
   });
 
@@ -73,9 +78,21 @@ describe("check command", () => {
       output: cout,
     });
     expect(ccode).toBe(0);
-    const proposed = JSON.parse(cout.stdoutText.trim()).data
-      .proposed as string[];
+    const { proposed } = (JSON.parse(cout.stdoutText.trim()) as CheckOutput)
+      .data;
     expect(proposed).toContain("lint");
     expect(proposed).toContain("test");
+
+    // init --detect must emit exactly the same set of step ids.
+    const iout = new CaptureWriter();
+    const icode = await main(["init", "--detect", "--root", dir], {
+      output: iout,
+    });
+    expect(icode).toBe(0);
+    const config = await readFile(join(dir, "sverka.config.ts"), "utf8");
+    const stepIds = [...config.matchAll(/new ShellStep\(ci, "([^"]+)"/g)].map(
+      (m) => m[1],
+    );
+    expect(stepIds.sort()).toEqual([...proposed].sort());
   });
 });
