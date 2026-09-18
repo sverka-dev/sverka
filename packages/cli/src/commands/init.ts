@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 import type { GlobalFlags, OutputWriter } from "../types.js";
@@ -6,8 +6,7 @@ import { CliError, ExitCode } from "../types.js";
 import type { WriteFileOptions } from "node:fs";
 import { detectPackageManager, ensureConstructsDependency } from "../internal/config.js";
 import type { PmName } from "../internal/config.js";
-import { createPlanner } from "@sverka/sdk";
-import { createBuiltinResolver, synthesizeCheckSteps } from "@sverka/verification";
+import { detectProjectChecks } from "../internal/detect.js";
 
 /** Args parsed for the init command. */
 export interface InitArgs {
@@ -49,111 +48,24 @@ function buildFullTemplate(pm: PmName): string {
   ].join("\n");
 }
 
-/** package.json script names that map to pipeline steps for --detect. */
-const DETECT_SCRIPT_CHECKS = [
-  "lint",
-  "typecheck",
-  "test",
-  "build",
-  "format",
-  "check",
-] as const;
-
-/**
- * Read package.json scripts under root. Returns an empty map when absent or
- * malformed. Ground truth for JS/TS projects.
- */
-function readPackageScripts(root: string): Record<string, string> {
-  try {
-    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
-      scripts?: Record<string, unknown>;
-    };
-    const scripts = pkg.scripts ?? {};
-    const out: Record<string, string> = {};
-    for (const [name, value] of Object.entries(scripts)) {
-      if (typeof value === "string" && value.length > 0) out[name] = value;
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-/** The known check script names that exist in package.json. */
-function detectPackageJsonChecks(root: string): string[] {
-  const scripts = readPackageScripts(root);
-  return DETECT_SCRIPT_CHECKS.filter((name) => name in scripts);
-}
-
-/**
- * True when the planner-proposed command is a package-manager script
- * invocation (`<pm> run <script>`) whose script does not exist — a phantom
- * step that would fail with "Missing script" on first run.
- */
-function isPhantomScriptStep(command: string, root: string): boolean {
-  const m = /^(?:bun|npm|pnpm|yarn|deno)\s+run\s+([A-Za-z0-9:_-]+)/.exec(
-    command.trim(),
-  );
-  if (m === null) return false;
-  return !(m[1]! in readPackageScripts(root));
-}
-
-/** Build a config from detected checks using the planner + resolver + package.json scripts. */
+/** Build a config from detected checks (planner + package.json scripts). */
 async function buildDetectedTemplate(root: string): Promise<string | null> {
-  const pm = detectPackageManager(root);
-  const stepLines: string[] = [];
-  const rootIds: string[] = [];
+  const checks = await detectProjectChecks(root);
+  if (checks.length === 0) return null;
 
-  // Planner-based detection covers non-npm ecosystems (cargo, go, ruff).
-  // It requires a git repository — degrade gracefully when unavailable.
-  try {
-    const planner = createPlanner();
-    const ctx = await planner.discover({ root });
-    const proposal = await planner.plan(ctx);
-    if (proposal.checks.length > 0) {
-      const resolver = createBuiltinResolver();
-      const resolved = synthesizeCheckSteps(proposal.checks, ctx, resolver);
-      for (const r of resolved) {
-        const shellOp = r.step.operations.find((o) => o.kind === "shell");
-        const command = shellOp?.kind === "shell" ? shellOp.command : "";
-        // Planner proposes checks by ecosystem, not by package.json scripts —
-        // drop `<pm> run <script>` steps for scripts that don't exist.
-        if (isPhantomScriptStep(command, root)) continue;
-        const checkId = JSON.stringify(r.checkId);
-        const sarifOut = r.outputs.find((o) => o.format === "sarif");
-        rootIds.push(r.checkId);
-        if (sarifOut !== undefined) {
-          const outputsDecl =
-            "{ " +
-            JSON.stringify(sarifOut.path) +
-            ': { type: "artifact", fromStdout: true } }';
-          stepLines.push(
-            `new ShellStep(ci, ${checkId}, { command: ${JSON.stringify(command)}, outputs: ${outputsDecl} });`,
-          );
-        } else {
-          stepLines.push(
-            `new ShellStep(ci, ${checkId}, { command: ${JSON.stringify(command)} });`,
-          );
-        }
-      }
+  const stepLines = checks.map((c) => {
+    const id = JSON.stringify(c.checkId);
+    const cmd = JSON.stringify(c.command);
+    if (c.sarifOutput !== undefined) {
+      const outputsDecl =
+        "{ " +
+        JSON.stringify(c.sarifOutput) +
+        ': { type: "artifact", fromStdout: true } }';
+      return `new ShellStep(ci, ${id}, { command: ${cmd}, outputs: ${outputsDecl} });`;
     }
-  } catch {
-    // discovery unavailable (e.g. not a git repo) — script checks still apply
-  }
-
-  // Emit a step for every known check script present in package.json that
-  // detection did not already cover.
-  for (const name of detectPackageJsonChecks(root)) {
-    if (rootIds.includes(name)) continue;
-    rootIds.push(name);
-    stepLines.push(
-      `new ShellStep(ci, ${JSON.stringify(name)}, { command: ${JSON.stringify(`${pm} run ${name}`)} });`,
-    );
-  }
-
-  if (stepLines.length === 0) return null;
-
-  const rootList = rootIds.map((id) => JSON.stringify(id)).join(", ");
+    return `new ShellStep(ci, ${id}, { command: ${cmd} });`;
+  });
+  const rootList = checks.map((c) => JSON.stringify(c.checkId)).join(", ");
 
   return [
     'import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/workflow";',

@@ -1,19 +1,13 @@
-// check command — resolve proposed checks → StepDefinitions, display.
+// check command — detect project checks and show proposed steps.
 // Spec 17 — §30.
 
-import { createPlanner } from "@sverka/sdk";
-import { createBuiltinResolver, synthesizeCheckSteps } from "@sverka/verification";
-import type { OperationDefinition } from "@sverka/workflow";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
-
-function getShellCommand(ops: readonly OperationDefinition[]): string {
-  const op = ops.find((o) => o.kind === "shell");
-  return op?.kind === "shell" ? op.command : "n/a";
-}
+import { detectProjectChecks } from "../internal/detect.js";
 
 /**
- * Discover project, plan proposed checks, resolve to StepDefinitions.
+ * Discover project checks (planner + package.json scripts) and display the
+ * steps they would become — the same detection `init --detect` uses.
  */
 export async function checkCommand(
   global: GlobalFlags,
@@ -22,11 +16,7 @@ export async function checkCommand(
 ): Promise<number> {
   output.debug(`check: root=${global.root}`);
 
-  const planner = createPlanner();
-  const ctx = await planner.discover({ root: global.root });
-  const proposal = await planner.plan(ctx);
-  const resolver = createBuiltinResolver();
-  const steps = synthesizeCheckSteps(proposal.checks, ctx, resolver);
+  const checks = await detectProjectChecks(global.root);
 
   const durationMs = Date.now() - start;
   if (global.format === "json") {
@@ -34,20 +24,16 @@ export async function checkCommand(
       JSON.stringify({
         command: "check",
         data: {
-          proposed: proposal.checks.map((c: { checkId: string }) => c.checkId),
-          resolved: steps.map((s) => ({ id: s.step.id, command: getShellCommand(s.step.operations) })),
+          proposed: checks.map((c) => c.checkId),
+          resolved: checks.map((c) => ({ id: c.checkId, command: c.command })),
         },
         durationMs,
       }),
     );
   } else {
-    output.writeLine(`Proposed checks: ${proposal.checks.length}`);
-    for (const check of proposal.checks) {
-      output.writeLine(`  - ${check.checkId} (priority: ${check.priority})`);
-    }
-    output.writeLine(`Resolved steps: ${steps.length}`);
-    for (const resolved of steps) {
-      output.writeLine(`  - ${resolved.step.id}: ${getShellCommand(resolved.step.operations)}`);
+    output.writeLine(`Proposed checks: ${checks.length}`);
+    for (const c of checks) {
+      output.writeLine(`  - ${c.checkId} (${c.source}): ${c.command}`);
     }
   }
 
