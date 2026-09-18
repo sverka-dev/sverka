@@ -8,8 +8,12 @@
  */
 export function missingBuildHint(e: unknown): string | null {
   const msg = e instanceof Error ? e.message : String(e);
+  const code = (e as { code?: unknown }).code;
+  const isModuleNotFound =
+    code === "ERR_MODULE_NOT_FOUND" ||
+    /Cannot find (?:module|package)/.test(msg);
   if (
-    /Cannot find (?:module|package)/.test(msg) &&
+    isModuleNotFound &&
     msg.includes("@sverka/") &&
     /[/\\]dist[/\\]/.test(msg)
   ) {

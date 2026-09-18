@@ -401,11 +401,12 @@ function handleError(
   output: OutputWriter,
   _start: number,
 ): number {
+  const hint = missingBuildHint(e);
   if (e instanceof CliError) {
     output.errorLine(`error: ${e.message}`);
+    if (hint !== null) output.errorLine(`hint: ${hint}`);
     return e.exitCode;
   }
-  const hint = missingBuildHint(e);
   const msg = e instanceof Error ? e.message : String(e);
   output.errorLine(`error: ${msg}`);
   if (hint !== null) output.errorLine(`hint: ${hint}`);
