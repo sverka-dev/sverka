@@ -1,7 +1,7 @@
 import type { ProjectContext, ChangedFile, DetectedLanguage, PackageManagerName, DetectedPackageManager, MonorepoTool, MonorepoMarker, LocalSignalType, LocalSignal, ProposedCheck, DiscoveryExplanation } from "@sverka/workflow";
 export type { ProjectContext, ChangedFile, DetectedLanguage, PackageManagerName, DetectedPackageManager, MonorepoTool, MonorepoMarker, LocalSignalType, LocalSignal, ProposedCheck, DiscoveryExplanation };
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { createGitCli, type GitCli } from "./internal/git-cli.js";
 import {
@@ -140,7 +140,8 @@ function scopeFilesToRoot(
   root: string,
 ): { dir: string; files: string[] } | null {
   const dir = realpathSync(resolve(root));
-  const prefix = relative(toplevel, dir);
+  // Git paths are always slash-separated — normalize for Windows.
+  const prefix = relative(toplevel, dir).split(sep).join("/");
   if (prefix.startsWith("..") || isAbsolute(prefix)) return null;
   if (prefix === "") return { dir, files: [...files] };
   const scoped = files
