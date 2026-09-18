@@ -62,12 +62,15 @@ function readPackageScripts(root: string): Record<string, string> {
  * (`<pm> run <script>`) whose script does not exist — a phantom step that
  * would fail with "Missing script" on first run.
  */
-function isPhantomScriptStep(command: string, root: string): boolean {
+function isPhantomScriptStep(
+  command: string,
+  scripts: Record<string, string>,
+): boolean {
   const m = /^(?:bun|npm|pnpm|yarn|deno)\s+run\s+([A-Za-z0-9:_-]+)/.exec(
     command.trim(),
   );
   if (m === null) return false;
-  return !(m[1]! in readPackageScripts(root));
+  return !(m[1]! in scripts);
 }
 
 /**
@@ -76,6 +79,7 @@ function isPhantomScriptStep(command: string, root: string): boolean {
  */
 export async function detectProjectChecks(root: string): Promise<DetectedCheck[]> {
   const pm = detectPackageManager(root);
+  const scripts = readPackageScripts(root);
   const checks: DetectedCheck[] = [];
 
   // Planner-based detection covers non-npm ecosystems (cargo, go, ruff).
@@ -92,7 +96,7 @@ export async function detectProjectChecks(root: string): Promise<DetectedCheck[]
         const command = shellOp?.kind === "shell" ? shellOp.command : "";
         // Planner proposes checks by ecosystem, not by package.json
         // scripts — drop `<pm> run <script>` steps for missing scripts.
-        if (isPhantomScriptStep(command, root)) continue;
+        if (isPhantomScriptStep(command, scripts)) continue;
         const sarifOut = r.outputs.find((o) => o.format === "sarif");
         checks.push({
           checkId: r.checkId,
@@ -108,7 +112,6 @@ export async function detectProjectChecks(root: string): Promise<DetectedCheck[]
 
   // Emit a check for every known script present in package.json that
   // detection did not already cover.
-  const scripts = readPackageScripts(root);
   for (const name of DETECT_SCRIPT_CHECKS) {
     if (!(name in scripts)) continue;
     if (checks.some((c) => c.checkId === name)) continue;

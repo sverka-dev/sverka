@@ -43,7 +43,7 @@ describe("check command", () => {
     const lint = parsed.data.resolved.find(
       (r: { id: string }) => r.id === "lint",
     );
-    expect(lint.command).toMatch(/run lint$/);
+    expect(lint?.command).toMatch(/run lint$/);
   });
 
   it("proposes nothing for a project with no detectable checks", async () => {
