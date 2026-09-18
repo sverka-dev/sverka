@@ -4,6 +4,7 @@ import yargs, { type Arguments, type Argv } from "yargs";
 import type { GlobalFlags, OutputWriter } from "./types.js";
 import { CliError, ExitCode } from "./types.js";
 import { createOutputWriter, wrapOutputWriter } from "./output.js";
+import { missingBuildHint } from "./internal/errors.js";
 import { initCommand } from "./commands/init.js";
 import { validateCommand } from "./commands/validate.js";
 import { planCommand, type PlanArgs } from "./commands/plan.js";
@@ -400,11 +401,14 @@ function handleError(
   output: OutputWriter,
   _start: number,
 ): number {
+  const hint = missingBuildHint(e);
   if (e instanceof CliError) {
     output.errorLine(`error: ${e.message}`);
+    if (hint !== null) output.errorLine(`hint: ${hint}`);
     return e.exitCode;
   }
   const msg = e instanceof Error ? e.message : String(e);
   output.errorLine(`error: ${msg}`);
+  if (hint !== null) output.errorLine(`hint: ${hint}`);
   return ExitCode.RuntimeError;
 }
