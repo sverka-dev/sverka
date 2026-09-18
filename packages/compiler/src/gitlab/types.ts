@@ -15,6 +15,7 @@ export interface GitlabArtifactSpec {
   readonly reports?: Readonly<Record<string, unknown>>;
   readonly expireIn?: string;
   readonly access?: string;
+  readonly when?: string;
 }
 
 export interface GitlabService {

@@ -15,6 +15,7 @@ import type {
   GithubService,
 } from "./types.js";
 import { GithubTargetError } from "./errors.js";
+import { wrapStdoutCaptureLine } from "../stdout-capture.js";
 
 /**
  * Lower a Definition Graph to one or more GithubTargetGraphs.
@@ -1061,8 +1062,26 @@ function lowerOperations(
 
   let runLines: string[] = [];
   let runHasOutput = false;
+  // exportStdout ops bind to the most recent shell op's captured stdout.
+  // stdoutTargetIndex marks that op's line inside runLines; stdoutNames are
+  // the artifact names declared against it; stdoutUploadNames collects every
+  // name whose upload-artifact step follows the flushed run step.
+  let stdoutTargetIndex: number | undefined;
+  let stdoutNames: string[] = [];
+  let stdoutUploadNames: string[] = [];
+
+  function sealStdoutCapture(): void {
+    if (stdoutTargetIndex === undefined || stdoutNames.length === 0) return;
+    runLines[stdoutTargetIndex] = wrapStdoutCaptureLine(
+      runLines[stdoutTargetIndex]!,
+      stdoutNames,
+    );
+    stdoutUploadNames.push(...stdoutNames);
+    stdoutNames = [];
+  }
 
   function flushRun(): void {
+    sealStdoutCapture();
     if (runLines.length === 0) return;
     const combined = runLines.join("\n");
     const translated = translateCommand(combined, step.inputs, jobIdMap);
@@ -1073,13 +1092,60 @@ function lowerOperations(
       ...(step.runtime.workingDir ? { workingDirectory: step.runtime.workingDir } : {}),
       ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
     });
+    for (const name of stdoutUploadNames) {
+      // The runtime persists stdout artifacts even when the shell command
+      // fails, so the upload must run unconditionally. The capture writes
+      // the file inside the step's working directory when one is set.
+      steps.push({
+        name: `Upload ${name}`,
+        if: "always()",
+        uses: "actions/upload-artifact@v4",
+        with: {
+          name: artifactName(shortStepId, name),
+          path: step.runtime.workingDir
+            ? `${step.runtime.workingDir}/${name}`
+            : name,
+        },
+      });
+    }
     runLines = [];
     runHasOutput = false;
+    stdoutTargetIndex = undefined;
+    stdoutUploadNames = [];
   }
 
   for (const op of step.operations) {
     if (op.kind === "exportOutput") runHasOutput = true;
-    lowerOperation(op, shortStepId, steps, runLines, flushRun);
+    switch (op.kind) {
+      case "shell":
+        // Seal any pending stdout capture before the new command becomes the
+        // most recent shell op.
+        sealStdoutCapture();
+        // F-49: background shell → append & for async execution.
+        runLines.push(op.background ? `${op.command} &` : op.command);
+        stdoutTargetIndex = runLines.length - 1;
+        break;
+      case "exportStdout":
+        if (stdoutTargetIndex === undefined) {
+          throw new GithubTargetError(
+            `step '${step.id}' declares stdout artifact '${op.name}' but no shell output was captured`,
+            "LOWER_FAILED",
+          );
+        }
+        if (
+          step.runtime.shell !== undefined &&
+          !isPosixShell(step.runtime.shell)
+        ) {
+          throw new GithubTargetError(
+            `step '${step.id}' declares stdout artifact '${op.name}' but shell '${step.runtime.shell}' is not POSIX-compatible`,
+            "LOWER_FAILED",
+          );
+        }
+        stdoutNames.push(op.name);
+        break;
+      default:
+        lowerOperation(op, shortStepId, steps, runLines, flushRun);
+    }
   }
 
   flushRun();
@@ -1094,6 +1160,14 @@ function lowerOperations(
   return steps;
 }
 
+/** Shells whose run scripts understand POSIX syntax (brace groups, `||`, `[ ]`). */
+const POSIX_SHELLS = new Set(["sh", "bash", "dash", "ash", "zsh", "ksh"]);
+
+function isPosixShell(shell: string): boolean {
+  const space = shell.indexOf(" ");
+  return POSIX_SHELLS.has(space === -1 ? shell : shell.slice(0, space));
+}
+
 function lowerOperation(
   op: OperationDefinition,
   shortStepId: string,
@@ -1102,10 +1176,6 @@ function lowerOperation(
   flushRun: () => void,
 ): void {
   switch (op.kind) {
-    case "shell":
-      // F-49: background shell → append & for async execution.
-      runLines.push(op.background ? `${op.command} &` : op.command);
-      break;
     case "exportOutput":
       runLines.push(`echo "${op.name}=\${${op.name}}" >> "$GITHUB_OUTPUT"`);
       break;

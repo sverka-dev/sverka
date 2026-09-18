@@ -6,6 +6,7 @@ import { expandPipelineCalls } from "@sverka/workflow";
 import type { MatrixSpec, MatrixValue, StepRef, StatusCondition, StepStatus, Input, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec, InputLiteral } from "@sverka/workflow";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule, GitlabDefault, GitlabSpecInput, GitlabService, GitlabEnvironment, GitlabCache, GitlabComponentInclude, GitlabLocalInclude, GitlabTrigger, GitlabRelease, GitlabPages, GitlabWorkflowRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
+import { shellQuoteSingle, wrapStdoutCaptureLine } from "../stdout-capture.js";
 
 const DOTENV_REPORT_FILE = "sverka.env";
 
@@ -837,7 +838,7 @@ function lowerWriteVariables(step: StepDefinition): Record<string, string> {
 
 interface JobFieldContext {
   image: string | undefined;
-  artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } | undefined;
+  artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string; when?: string } | undefined;
   variables: Record<string, string>;
   rules: readonly GitlabRule[];
   timeout: number | undefined;
@@ -995,6 +996,15 @@ interface OperationAccumulator {
   artifactAccess: string | undefined;
   release: GitlabRelease | undefined;
   pages: GitlabPages | undefined;
+  // exportStdout ops bind to the most recent shell op's captured stdout.
+  // stdoutTargetIndex marks that op's entry inside script; stdoutNames are
+  // the artifact names declared against it; stdoutArtifacts flips
+  // artifacts:when to "always" because the runtime writes the file even on
+  // step failure.
+  stdoutTargetIndex: number | undefined;
+  stdoutNames: string[];
+  stdoutArtifacts: boolean;
+  readonly workingDir: string | undefined;
 }
 
 /**
@@ -1007,7 +1017,7 @@ function lowerOperations(
   jobIdMap: Map<string, string>,
 ): {
   script: string[];
-  artifacts?: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string };
+  artifacts?: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string; when?: string };
   needs: string[];
   variables: Record<string, string>;
   release?: GitlabRelease;
@@ -1024,6 +1034,10 @@ function lowerOperations(
     artifactAccess: undefined,
     release: undefined,
     pages: undefined,
+    stdoutTargetIndex: undefined,
+    stdoutNames: [],
+    stdoutArtifacts: false,
+    workingDir: step.runtime.workingDir,
   };
 
   for (const op of step.operations) {
@@ -1041,9 +1055,37 @@ function lowerShellOp(
   acc: OperationAccumulator,
   jobIdMap: Map<string, string>,
 ): void {
+  // Seal any pending stdout capture before the new command becomes the most
+  // recent shell op.
+  sealStdoutCapture(acc);
   const translated = translateGitlabCommand(op.command, acc.inputs, jobIdMap);
   // F-49: background shell → append & for async execution.
   acc.script.push(op.background ? `${translated} &` : translated);
+  acc.stdoutTargetIndex = acc.script.length - 1;
+}
+
+/**
+ * Bind the pending stdout artifact names to the most recent shell op: wrap
+ * that op's script line so its stdout is also written to the declared file(s)
+ * and record the files as job artifacts.
+ */
+function sealStdoutCapture(acc: OperationAccumulator): void {
+  if (acc.stdoutTargetIndex === undefined || acc.stdoutNames.length === 0) {
+    return;
+  }
+  acc.script[acc.stdoutTargetIndex] = wrapStdoutCaptureLine(
+    acc.script[acc.stdoutTargetIndex]!,
+    acc.stdoutNames,
+  );
+  // The capture writes the file inside the step's working directory when one
+  // is set (the script cds there first); artifacts:paths is repo-relative.
+  acc.artifactPaths.push(
+    ...acc.stdoutNames.map((name) =>
+      acc.workingDir ? `${acc.workingDir}/${name}` : name,
+    ),
+  );
+  acc.stdoutArtifacts = true;
+  acc.stdoutNames = [];
 }
 
 /**
@@ -1064,6 +1106,15 @@ function lowerOperation(
       break;
     case "exportArtifact":
       lowerExportArtifact(op, acc);
+      break;
+    case "exportStdout":
+      if (acc.stdoutTargetIndex === undefined) {
+        throw new GitlabTargetError(
+          `step '${stepId}' declares stdout artifact '${op.name}' but no shell output was captured`,
+          "LOWER_FAILED",
+        );
+      }
+      acc.stdoutNames.push(op.name);
       break;
     case "importArtifact":
       acc.importNeeds.push(jobIdMap.get(op.from) ?? op.from);
@@ -1174,15 +1225,21 @@ function lowerDeployPages(
  */
 function assembleOperationResult(acc: OperationAccumulator, step: StepDefinition): {
   script: string[];
-  artifacts?: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string };
+  artifacts?: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string; when?: string };
   needs: string[];
   variables: Record<string, string>;
   release?: GitlabRelease;
   pages?: GitlabPages;
 } {
-  const artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string } = {};
+  sealStdoutCapture(acc);
+  const artifacts: { paths?: string[]; reports?: Record<string, unknown>; expireIn?: string; access?: string; when?: string } = {};
   if (acc.artifactPaths.length > 0) {
     artifacts.paths = acc.artifactPaths;
+  }
+  if (acc.stdoutArtifacts) {
+    // Stdout artifacts are written even when the shell command fails, so
+    // the upload must not be limited to on_success.
+    artifacts.when = "always";
   }
   if (acc.hasDotenv) {
     acc.reportEntries.dotenv = DOTENV_REPORT_FILE;
@@ -1276,13 +1333,6 @@ const JSON_STRING_ESCAPES: Readonly<Record<string, string>> = {
  */
 function shellEscapeDoubleQuoted(value: string): string {
   return value.replace(/[\\"`$]/g, "\\$&");
-}
-
-/**
- * Quote a literal string using single quotes for a POSIX shell.
- */
-function shellQuoteSingle(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 /**
