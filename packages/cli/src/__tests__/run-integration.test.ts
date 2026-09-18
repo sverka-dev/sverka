@@ -259,4 +259,36 @@ describe("run command — --format html", () => {
     const defaultPath = join(dir, ".sverka", "report.html");
     expect(existsSync(defaultPath)).toBe(true);
   });
+
+  it("--format sarif -o writes SARIF to the given path (documented alias)", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", SARIF_CLEAN_CONFIG);
+
+    const out = new CaptureWriter();
+    const sarifPath = join(dir, "out.sarif");
+    const code = await main(
+      ["run", "--root", dir, "--format", "sarif", "-o", sarifPath],
+      { output: out },
+    );
+
+    expect(code).toBe(0);
+    expect(existsSync(sarifPath)).toBe(true);
+    const sarif = JSON.parse(await readFile(sarifPath, "utf-8")) as { version: string };
+    expect(sarif.version).toBe("2.1.0");
+  });
+
+  it("--format html prints where the report was written", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", SARIF_CLEAN_CONFIG);
+
+    const out = new CaptureWriter();
+    const outputPath = join(dir, "report.html");
+    const code = await main(
+      ["run", "--root", dir, "--format", "html", "--output", outputPath],
+      { output: out },
+    );
+
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain(`Wrote HTML report to ${outputPath}`);
+  });
 });

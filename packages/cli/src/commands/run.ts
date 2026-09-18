@@ -91,6 +91,12 @@ export async function runCommand(
   // Flush the renderer (HtmlRenderer writes the file on flush)
   renderer?.flush();
 
+  // Tell the user where the HTML report went (sarif/web print their own).
+  if (isHtml && renderer) {
+    const reportPath = args.output ?? join(global.root, ".sverka", "report.html");
+    output.writeLine(`Wrote HTML report to ${reportPath}`);
+  }
+
   // Interactive renderers stay mounted until the user quits (q / Ctrl+C).
   if (renderer && "waitUntilExit" in renderer) {
     await (renderer as { waitUntilExit(): Promise<void> }).waitUntilExit();

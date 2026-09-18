@@ -1,8 +1,9 @@
 // @sverka/ui — local web dashboard server.
 
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
-import { readdirSync, readFileSync, existsSync, realpathSync } from "node:fs";
-import { join, extname, resolve, sep } from "node:path";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync, existsSync, realpathSync, type Dirent } from "node:fs";
+import { join, dirname, relative, resolve, sep } from "node:path";
 import { normalizeSarif, type Finding, type SarifLog } from "@sverka/verification";
 import { generateSarifHtml } from "@sverka/sarif-viewer-web";
 import { renderDashboard } from "./dashboard.js";
@@ -130,8 +131,15 @@ function serveReport(
   artifactsDir: string,
   filename: string,
 ): void {
-  // Validate filename — prevent path traversal.
-  if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+  // Validate the relative path — nested step directories are allowed
+  // (artifacts are stored as <pipeline>/<step>/<file>.sarif) but
+  // traversal, backslashes, and absolute paths are not.
+  if (
+    filename === "" ||
+    filename.includes("..") ||
+    filename.includes("\\") ||
+    filename.startsWith("/")
+  ) {
     res.writeHead(400, { "content-type": "text/plain" });
     res.end("Invalid filename");
     return;
@@ -158,31 +166,72 @@ function serveReport(
   try {
     const raw = readFileSync(filePath, "utf8");
     const sarif = JSON.parse(raw) as SarifLog;
+    // Mirror collectFindings: checkId is prefixed with the step directory
+    // relative to the artifacts root ("" for top-level files).
+    const dir = dirname(filename).split(sep).join("/");
     const findings = normalizeSarif(sarif, {
       root: artifactsDir,
-      checkIdPrefix: "",
+      checkIdPrefix: dir === "." ? "" : dir,
       defaultConfidence: 0.5,
     });
     const html = generateSarifHtml(findings);
-    res.writeHead(200, HTML_HEADERS);
-    res.end(html); // CodeQL: stored XSS — escapeHtml + CSP mitigate
+    res.writeHead(200, reportHeaders(html));
+    res.end(html); // CodeQL: stored XSS — escapeHtml + hash-locked CSP mitigate
   } catch (e) {
     res.writeHead(500, { "content-type": "text/plain" });
     res.end(`Error rendering report: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
-/** List .sarif and .sarif.json files in the artifacts directory. */
+/** Response headers for report pages. The generated report ships inline
+ *  <script> blocks for filter/search/sort — allow exactly those scripts by
+ *  SHA-256 hash instead of disabling them with script-src 'none'. */
+function reportHeaders(html: string): Record<string, string> {
+  return {
+    ...HTML_HEADERS,
+    "content-security-policy": `default-src 'self'; script-src ${inlineScriptHashes(html)}; style-src 'unsafe-inline'`,
+  };
+}
+
+/** Compute a CSP script-src source list of SHA-256 hashes for every inline
+ *  <script> block in the HTML. Falls back to 'none' when there are none. */
+function inlineScriptHashes(html: string): string {
+  const hashes: string[] = [];
+  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script[^>]*>/gi)) {
+    const digest = createHash("sha256").update(match[1] ?? "").digest("base64");
+    hashes.push(`'sha256-${digest}'`);
+  }
+  return hashes.length > 0 ? hashes.join(" ") : "'none'";
+}
+
+/** List .sarif and .sarif.json files under the artifacts directory,
+ *  recursively. Artifacts are stored as <pipeline>/<step>/<file>.sarif —
+ *  returned paths are relative to `dir` with forward slashes. */
 function listSarifFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
+  const files: string[] = [];
+  collectSarifFiles(dir, dir, files);
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
+function collectSarifFiles(root: string, dir: string, out: string[]): void {
+  let entries: Dirent[];
   try {
-    return readdirSync(dir)
-      .filter((f) => {
-        const ext = extname(f);
-        return f.endsWith(".sarif") || f.endsWith(".sarif.json");
-      })
-      .sort();
+    entries = readdirSync(dir, { withFileTypes: true });
   } catch {
-    return [];
+    return;
+  }
+  for (const entry of entries) {
+    const entryPath = join(dir, entry.name);
+    // Prevent traversal outside the artifacts root via ../ or links.
+    const resolvedEntry = resolve(entryPath);
+    if (resolvedEntry !== root && !resolvedEntry.startsWith(root + sep)) {
+      continue;
+    }
+    if (entry.isDirectory()) {
+      collectSarifFiles(root, entryPath, out);
+    } else if (entry.name.endsWith(".sarif") || entry.name.endsWith(".sarif.json")) {
+      out.push(relative(root, entryPath).split(sep).join("/"));
+    }
   }
 }
