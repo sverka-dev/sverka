@@ -3,16 +3,75 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { readFileSync, existsSync } from "node:fs";
-import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
-import { join, resolve, isAbsolute, dirname } from "node:path";
+import { register } from "node:module";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { join, resolve, isAbsolute, dirname, sep } from "node:path";
 import type { Project } from "@sverka/workflow";
 import { synthesize, collectConstructWarnings } from "@sverka/workflow";
 import type { DefinitionGraph } from "@sverka/workflow";
 import { resolveUnderRoot } from "./paths.js";
 import { CliError, ExitCode } from "../types.js";
 
-const require = createRequire(import.meta.url);
+/** @sverka packages a config file may import. */
+const SVERKA_CONFIG_IMPORTS = [
+  "@sverka/workflow",
+  "@sverka/sdk",
+  "@sverka/runtime",
+  "@sverka/verification",
+  "@sverka/compiler",
+  "@sverka/reporter",
+  "@sverka/storage",
+  "@sverka/ui",
+  "@sverka/plugin-mcp",
+  "@sverka/sarif-viewer-tui",
+  "@sverka/sarif-viewer-web",
+] as const;
+
+let hooksRegistered = false;
+
+/** Resolve each importable @sverka package to its entry URL in the CLI's context. */
+function buildSverkaFallbacks(): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const specifier of SVERKA_CONFIG_IMPORTS) {
+    try {
+      map[specifier] = import.meta.resolve(specifier);
+    } catch {
+      // package not installed alongside the CLI — skip
+    }
+  }
+  return map;
+}
+
+function findHooksFile(): string | null {
+  for (const rel of ["./config-hooks.mjs", "./internal/config-hooks.mjs"]) {
+    try {
+      const candidate = fileURLToPath(new URL(rel, import.meta.url));
+      if (existsSync(candidate)) return candidate;
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+/**
+ * Register ESM resolve hooks so a config file that cannot resolve @sverka/*
+ * packages from its own location falls back to the copies bundled with the
+ * CLI. This makes a globally-installed `sverka` self-contained.
+ */
+function registerConfigHooks(): void {
+  if (hooksRegistered) return;
+  const hooksFile = findHooksFile();
+  if (hooksFile === null) return;
+  try {
+    register(pathToFileURL(hooksFile).href, {
+      data: { fallbacks: buildSverkaFallbacks() },
+    });
+    hooksRegistered = true;
+  } catch {
+    // module.register unavailable — fall back to normal resolution
+  }
+}
 
 /** Package-manager names supported by `init` templates. */
 export type PmName = "npm" | "pnpm" | "yarn" | "bun";
@@ -108,6 +167,7 @@ export async function loadConfig(configPath: string): Promise<Project> {
 
   let mod: Record<string, unknown>;
   try {
+    registerConfigHooks();
     mod = await import(pathToFileURL(absPath).href);
   } catch (e) {
     throw new CliError(
@@ -199,7 +259,9 @@ function pmFromPackageManagerField(packageManager: string): PmName | undefined {
  * Ensure `@sverka/workflow` is declared as a devDependency of the target
  * project. Creates a minimal package.json when one does not exist.
  */
-export async function ensureConstructsDependency(root: string): Promise<void> {
+export async function ensureConstructsDependency(
+  root: string,
+): Promise<string | null> {
   const pkgPath = join(root, "package.json");
   const base = await loadPackageBase(pkgPath);
 
@@ -209,9 +271,10 @@ export async function ensureConstructsDependency(root: string): Promise<void> {
     ...base,
   };
 
-  ensureConstructsDeclared(pkg, root);
+  const declared = ensureConstructsDeclared(pkg, root);
 
   await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+  return declared;
 }
 
 async function loadPackageBase(pkgPath: string): Promise<Record<string, unknown>> {
@@ -231,7 +294,10 @@ async function loadPackageBase(pkgPath: string): Promise<Record<string, unknown>
   }
 }
 
-function ensureConstructsDeclared(pkg: Record<string, unknown>, root: string): void {
+function ensureConstructsDeclared(
+  pkg: Record<string, unknown>,
+  root: string,
+): string | null {
   const deps = (pkg.dependencies as Record<string, unknown> | undefined) ?? {};
   const devDeps =
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
@@ -256,9 +322,66 @@ function ensureConstructsDeclared(pkg: Record<string, unknown>, root: string): v
     pkg.devDependencies = devDeps;
   }
 
-  if (!("@sverka/workflow" in deps) && !("@sverka/workflow" in devDeps)) {
-    const version = isLocalWorkspace(root) ? "workspace:*" : getDefaultConstructsVersion();
-    pkg.devDependencies = { ...devDeps, "@sverka/workflow": version };
+  const existing =
+    (deps["@sverka/workflow"] as string | undefined) ??
+    (devDeps["@sverka/workflow"] as string | undefined);
+  if (existing !== undefined) return existing;
+
+  const spec = constructsDepSpec(root);
+  if (spec === null) return null;
+  pkg.devDependencies = { ...devDeps, "@sverka/workflow": spec };
+  return spec;
+}
+
+/**
+ * Dependency spec for @sverka/workflow in the target project.
+ *
+ * - `workspace:*` inside the sverka monorepo itself.
+ * - `^<version>` when the package resolves from a node_modules tree (a real
+ *   registry install).
+ * - `link:<dir>` when it resolves to a bare checkout (a bun/npm link or a
+ *   source tree) — a semver spec would fail to install when the version was
+ *   never published.
+ * - null when the package cannot be resolved at all — nothing is declared,
+ *   the caller warns instead of writing an uninstallable spec.
+ */
+function constructsDepSpec(root: string): string | null {
+  if (isLocalWorkspace(root)) return "workspace:*";
+  const resolved = resolveConstructsPackage();
+  if (resolved === null) return null;
+  if (resolved.dir.includes(`${sep}node_modules${sep}`)) {
+    return `^${resolved.version}`;
+  }
+  return `link:${resolved.dir}`;
+}
+
+/** Resolve the @sverka/workflow package directory and version from the CLI's context. */
+function resolveConstructsPackage(): { dir: string; version: string } | null {
+  let entry: string;
+  try {
+    entry = fileURLToPath(import.meta.resolve("@sverka/workflow"));
+  } catch {
+    return null;
+  }
+  let dir = dirname(entry);
+  while (true) {
+    const pkgPath = join(dir, "package.json");
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+          name?: string;
+          version?: string;
+        };
+        if (pkg.name === "@sverka/workflow") {
+          return { dir, version: pkg.version ?? "0.0.0" };
+        }
+      } catch {
+        // keep walking up
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
   }
 }
 
@@ -280,31 +403,5 @@ function isLocalWorkspace(root: string): boolean {
     return patterns.some((pattern) => pattern.startsWith("packages"));
   } catch {
     return false;
-  }
-}
-
-function getDefaultConstructsVersion(): string {
-  try {
-    // @sverka/workflow only exports "." in its exports map, so resolve the
-    // entry point (typically dist/index.mjs) and walk up to the package
-    // root's package.json.
-    let dir = dirname(require.resolve("@sverka/workflow"));
-    while (true) {
-      const pkgPath = join(dir, "package.json");
-      if (existsSync(pkgPath)) {
-        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
-          name?: string;
-          version?: string;
-        };
-        if (pkg.name === "@sverka/workflow") {
-          return pkg.version ? `^${pkg.version}` : "*";
-        }
-      }
-      const parent = dirname(dir);
-      if (parent === dir) return "*";
-      dir = parent;
-    }
-  } catch {
-    return "*";
   }
 }

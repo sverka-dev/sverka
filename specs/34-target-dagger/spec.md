@@ -1,6 +1,6 @@
 # Spec 34 — Dagger Code Generation Target
 
-**Status:** Active
+**Status:** Superseded — implementation removed (dead-target cleanup)
 **Source:** specs/architecture-spec.md §19 (Target Contract), §24 (Capability Model), §29 (Package Surface)
 **Package:** `@sverka/compiler` (dagger sub-module)
 **Capability namespace:** `dagger.*`
