@@ -62,15 +62,6 @@ export async function viewCommand(
     return renderWeb(sarif, args, output);
   }
 
-  // The Ink TUI needs raw-mode stdin — impossible without an interactive
-  // terminal. Fail with a useful hint instead of an Ink stack dump.
-  if (!process.stdin.isTTY) {
-    output.errorLine(
-      "sverka view: TUI requires an interactive terminal. Use --format web to generate an HTML report instead.",
-    );
-    return ExitCode.UsageError;
-  }
-
   return renderTui(sarif, output);
 }
 

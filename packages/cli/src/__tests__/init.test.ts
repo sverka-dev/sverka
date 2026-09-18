@@ -216,6 +216,28 @@ describe("init command", () => {
     const spec = pkg.devDependencies?.["@sverka/workflow"];
     expect(spec).toBeDefined();
     expect(spec).not.toBe("*");
-    expect(spec).toMatch(/^(workspace:\*|link:|\^)/);
+    expect(spec).toMatch(/^(workspace:\*|link:|file:|\^)/);
+  });
+
+  it("replaces a malformed non-string @sverka/workflow dep with a usable spec", async () => {
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify({
+        name: "fixture",
+        devDependencies: { "@sverka/workflow": 123 },
+      }),
+      "utf8",
+    );
+
+    const out = new CaptureWriter();
+    const code = await main(["init", "--root", dir], { output: out });
+    expect(code).toBe(0);
+
+    const pkg = JSON.parse(
+      await readFile(join(dir, "package.json"), "utf8"),
+    ) as { devDependencies?: Record<string, string> };
+    const spec = pkg.devDependencies?.["@sverka/workflow"];
+    expect(typeof spec).toBe("string");
+    expect(spec).toMatch(/^(workspace:\*|link:|file:|\^)/);
   });
 });

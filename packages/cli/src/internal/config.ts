@@ -12,35 +12,7 @@ import type { DefinitionGraph } from "@sverka/workflow";
 import { resolveUnderRoot } from "./paths.js";
 import { CliError, ExitCode } from "../types.js";
 
-/** @sverka packages a config file may import. */
-const SVERKA_CONFIG_IMPORTS = [
-  "@sverka/workflow",
-  "@sverka/sdk",
-  "@sverka/runtime",
-  "@sverka/verification",
-  "@sverka/compiler",
-  "@sverka/reporter",
-  "@sverka/storage",
-  "@sverka/ui",
-  "@sverka/plugin-mcp",
-  "@sverka/sarif-viewer-tui",
-  "@sverka/sarif-viewer-web",
-] as const;
-
 let hooksRegistered = false;
-
-/** Resolve each importable @sverka package to its entry URL in the CLI's context. */
-function buildSverkaFallbacks(): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const specifier of SVERKA_CONFIG_IMPORTS) {
-    try {
-      map[specifier] = import.meta.resolve(specifier);
-    } catch {
-      // package not installed alongside the CLI — skip
-    }
-  }
-  return map;
-}
 
 function findHooksFile(): string | null {
   for (const rel of ["./config-hooks.mjs", "./internal/config-hooks.mjs"]) {
@@ -64,9 +36,7 @@ function registerConfigHooks(): void {
   const hooksFile = findHooksFile();
   if (hooksFile === null) return;
   try {
-    register(pathToFileURL(hooksFile).href, {
-      data: { fallbacks: buildSverkaFallbacks() },
-    });
+    register(pathToFileURL(hooksFile).href);
     hooksRegistered = true;
   } catch {
     // module.register unavailable — fall back to normal resolution
@@ -323,9 +293,14 @@ function ensureConstructsDeclared(
   }
 
   const existing =
-    (deps["@sverka/workflow"] as string | undefined) ??
-    (devDeps["@sverka/workflow"] as string | undefined);
-  if (existing !== undefined) return existing;
+    deps["@sverka/workflow"] ?? devDeps["@sverka/workflow"];
+  if (typeof existing === "string") return existing;
+  if (existing !== undefined) {
+    // Malformed non-string value — unusable to any package manager.
+    // Replace it with a proper spec rather than leaving it in place.
+    delete deps["@sverka/workflow"];
+    delete devDeps["@sverka/workflow"];
+  }
 
   const spec = constructsDepSpec(root);
   if (spec === null) return null;
@@ -339,9 +314,9 @@ function ensureConstructsDeclared(
  * - `workspace:*` inside the sverka monorepo itself.
  * - `^<version>` when the package resolves from a node_modules tree (a real
  *   registry install).
- * - `link:<dir>` when it resolves to a bare checkout (a bun/npm link or a
- *   source tree) — a semver spec would fail to install when the version was
- *   never published.
+ * - `link:<dir>` (or `file:<dir>` for npm, which rejects the `link:`
+ *   protocol) when it resolves to a bare checkout — a semver spec would
+ *   fail to install when the version was never published.
  * - null when the package cannot be resolved at all — nothing is declared,
  *   the caller warns instead of writing an uninstallable spec.
  */
@@ -352,7 +327,8 @@ function constructsDepSpec(root: string): string | null {
   if (resolved.dir.includes(`${sep}node_modules${sep}`)) {
     return `^${resolved.version}`;
   }
-  return `link:${resolved.dir}`;
+  const protocol = detectPackageManager(root) === "npm" ? "file:" : "link:";
+  return `${protocol}${resolved.dir}`;
 }
 
 /** Resolve the @sverka/workflow package directory and version from the CLI's context. */

@@ -33,14 +33,14 @@ describe("view command", () => {
     await cleanupTempDir(dir);
   });
 
-  it("exits 2 with a readable error instead of crashing Ink when stdin is not a TTY", async () => {
+  it("degrades to text output instead of crashing Ink when not a TTY", async () => {
+    // renderSarifTui falls back to /dev/tty for input or plain-text output —
+    // piped/non-interactive runs must not hard-fail.
     const out = new CaptureWriter();
     const code = await main(["view", sarifPath, "--format", "tui"], {
       output: out,
     });
-    expect(code).toBe(2);
-    expect(out.stderrText).toContain("interactive terminal");
-    expect(out.stderrText).toContain("--format web");
+    expect(code).toBe(0);
     expect(out.stderrText).not.toContain("Raw mode is not supported");
   });
 
