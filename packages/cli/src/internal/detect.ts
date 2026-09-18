@@ -86,7 +86,9 @@ export async function detectProjectChecks(root: string): Promise<DetectedCheck[]
   // It requires a git repository — degrade gracefully when unavailable.
   try {
     const planner = createPlanner();
-    const ctx = await planner.discover({ root });
+    // Scope detection to `root`: generated ShellSteps run with cwd=root,
+    // so proposals driven by manifests outside the subtree would fail.
+    const ctx = await planner.discover({ root, scopeToRoot: true });
     const proposal = await planner.plan(ctx);
     if (proposal.checks.length > 0) {
       const resolver = createBuiltinResolver();
