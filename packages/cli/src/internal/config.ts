@@ -264,33 +264,28 @@ async function loadPackageBase(pkgPath: string): Promise<Record<string, unknown>
   }
 }
 
+/** Dependency names that were renamed to @sverka/workflow. */
+const LEGACY_DEP_NAMES = ["@sverka/constructs", "@sverka/cdk"] as const;
+
+/** Drop renamed legacy package entries from dependencies/devDependencies. */
+function removeLegacyDeps(pkg: Record<string, unknown>): void {
+  for (const key of ["dependencies", "devDependencies"] as const) {
+    const deps = pkg[key] as Record<string, unknown> | undefined;
+    if (deps === undefined) continue;
+    for (const name of LEGACY_DEP_NAMES) delete deps[name];
+    if (Object.keys(deps).length === 0) delete pkg[key];
+  }
+}
+
 function ensureConstructsDeclared(
   pkg: Record<string, unknown>,
   root: string,
 ): string | null {
+  removeLegacyDeps(pkg);
+
   const deps = (pkg.dependencies as Record<string, unknown> | undefined) ?? {};
   const devDeps =
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
-
-  // Migration: remove the old @sverka/constructs package if present.
-  if ("@sverka/constructs" in deps) {
-    delete (deps as Record<string, unknown>)["@sverka/constructs"];
-    pkg.dependencies = deps;
-  }
-  if ("@sverka/constructs" in devDeps) {
-    delete (devDeps as Record<string, unknown>)["@sverka/constructs"];
-    pkg.devDependencies = devDeps;
-  }
-
-  // Migration: remove the old @sverka/cdk package if present.
-  if ("@sverka/cdk" in deps) {
-    delete (deps as Record<string, unknown>)["@sverka/cdk"];
-    pkg.dependencies = deps;
-  }
-  if ("@sverka/cdk" in devDeps) {
-    delete (devDeps as Record<string, unknown>)["@sverka/cdk"];
-    pkg.devDependencies = devDeps;
-  }
 
   const existing =
     deps["@sverka/workflow"] ?? devDeps["@sverka/workflow"];
