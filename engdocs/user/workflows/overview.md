@@ -84,24 +84,28 @@ SDK convert that graph into a canonical **Plan** (`@sverka/workflow`) — a vali
 serializable DAG of operations. The Plan is what the runtime executes and what
 the compilers lower to CI YAML.
 
-```ts
-import { createSverka } from "@sverka/sdk";
-
-const sverka = createSverka({ root: process.cwd() });
-
-// Build the canonical Plan IR from sverka.config.ts
-const plan = await sverka.toPlan();
-
-// Or get a richer plan result with discovery context
-const result = await sverka.plan();
-// result.context   — discovered project context
-// result.operations — operations in the plan
-// result.plan      — the canonical Plan
+```sh
+sverka plan    # synthesize the graph, bind a Run Plan, print it
+sverka run     # execute the Run Plan locally
 ```
+
+Programmatically, the same pipeline is `synthesize` (DefinitionGraph) plus
+`bindRunPlan` (Run Plan):
+
+```ts
+import { synthesize } from "@sverka/workflow";
+import { bindRunPlan } from "@sverka/sdk";
+
+const graph = synthesize(proj);   // DefinitionGraph from the construct tree
+const runPlan = bindRunPlan({ graph, entryId: "on-push" });
+```
+
+`createSverka` in `@sverka/sdk` is a separate entry point for the legacy
+`{ name, workflow }` config shape — it does not load Construct configs.
 
 The Plan is then either:
 
-- **Executed locally** via `sverka run` (or `sverka.execute()`)
+- **Executed locally** via `sverka run`
 - **Compiled to CI YAML** via `sverka compile --target github|gitlab`
 
 See [GitHub Actions compiler](../compiling/github/) and

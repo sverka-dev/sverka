@@ -16,17 +16,18 @@ This installs the `sverka` command globally.
 
 ## Add the SDK to your project
 
-The CLI generates a `sverka.config.ts` that imports from `@sverka/workflow`.
-`@sverka/workflow` is required in your project so the config can resolve its
-imports. Add `@sverka/sdk` for the programmatic API (`createSverka`, `$`,
-`shell`).
+The CLI generates a `sverka.config.ts` that imports from `@sverka/workflow`,
+so that package must be resolvable from your project. `sverka init` adds the
+dependency automatically — a `file:`/`link:` spec when run from a local
+checkout, or a semver range once the packages are published to npm.
+
+To add it manually:
 
 ```sh
 cd your-project
-bun add @sverka/workflow
+bun add @sverka/workflow        # after npm publish
+bun add link:/path/to/sverka/packages/workflow   # local checkout
 ```
-
-Install `@sverka/sdk` only when you want the programmatic surface.
 
 ## Initialize
 

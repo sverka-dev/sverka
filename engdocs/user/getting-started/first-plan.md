@@ -83,6 +83,6 @@ new ShellStep(p, "build", { command: "npm run build" });
 new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
-For programmatic use (discovery, plan synthesis, execution) there is
-`createSverka` in `@sverka/sdk` — see
+For programmatic use, `synthesize` (`@sverka/workflow`) and `bindRunPlan`
+(`@sverka/sdk`) drive the same graph → Plan pipeline — see
 [From workflow to Plan](../workflows/overview.md#from-workflow-to-plan).
