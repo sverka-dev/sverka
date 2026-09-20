@@ -109,10 +109,6 @@ The same workflow compiles to multiple CI targets:
 |--------|---------|--------|
 | GitHub Actions | `sverka compile --target github` | Implemented |
 | GitLab CI | `sverka compile --target gitlab` | Implemented |
-| Temporal | `sverka compile --target temporal` | Planned |
-| Dagger | `sverka compile --target dagger` | Planned |
-| Inngest | `sverka compile --target inngest` | Planned |
-| Drone | `sverka compile --target drone` | Planned |
 
 **Why this matters:** No lock-in. Define once, compile to any target.
 Switch CI providers without rewriting your checks.

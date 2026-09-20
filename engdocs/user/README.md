@@ -38,10 +38,6 @@ run them locally, get structured findings. Compile to CI when you need to.
 
 - [GitHub Actions](./compiling/github.md) — compile to GitHub Actions YAML
 - [GitLab CI](./compiling/gitlab.md) — compile to GitLab CI YAML
-- [Temporal](./compiling/temporal.md) — compile to Temporal workflow + activity stubs
-- [Dagger](./compiling/dagger.md) — compile to Dagger module
-- [Inngest](./compiling/inngest.md) — compile to Inngest step function
-- [Drone / Gitness](./compiling/drone.md) — compile to `.drone.yml` pipeline
 
 ## Reference
 

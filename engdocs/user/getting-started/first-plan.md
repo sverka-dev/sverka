@@ -9,7 +9,7 @@ Create `sverka.config.ts` in your project root (or run `sverka init` to
 generate one):
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 
 const proj = new Project("verify");
 const pipeline = new Pipeline(proj, "ci");
@@ -69,14 +69,13 @@ sverka synth --target github
 This lowers the Definition Graph to native GitHub Actions YAML and
 writes it to `.github/workflows/ci.yml`.
 
-## Three authoring surfaces
+## Authoring surface
 
-Sverka offers three equivalent ways to author pipelines:
-
-### Construct API
+Pipelines are authored with the Construct API from `@sverka/workflow` —
+the same surface `sverka init` generates:
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci");
@@ -84,35 +83,6 @@ new ShellStep(p, "build", { command: "npm run build" });
 new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 ```
 
-### SDK API
-
-```ts
-import { Project, Pipeline, Entry } from "@sverka/cdk";
-import { sh } from "@sverka/sdk";
-
-const proj = new Project("myproj");
-const p = new Pipeline(proj, "ci");
-sh`npm run build`.build(p, "build");
-new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-```
-
-### Decorator API
-
-```ts
-import { pipeline, step, entry, decoratePipeline } from "@sverka/decorators";
-import { Project } from "@sverka/cdk";
-
-@pipeline
-class MyPipeline {
-  @step
-  build = "npm run build";
-
-  @entry({ kind: "push" })
-  ["on-push"] = ["build"];
-}
-
-const proj = new Project("myproj");
-decoratePipeline(MyPipeline, proj, "ci");
-```
-
-All three produce the same Definition Graph.
+For programmatic use, `synthesize` (`@sverka/workflow`) and `bindRunPlan`
+(`@sverka/sdk`) drive the same graph → Plan pipeline — see
+[From workflow to Plan](../workflows/overview.md#from-workflow-to-plan).
