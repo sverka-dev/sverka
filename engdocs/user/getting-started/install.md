@@ -16,18 +16,17 @@ This installs the `sverka` command globally.
 
 ## Add the SDK to your project
 
-The CLI generates a `sverka.config.ts` that imports from `@sverka/cdk`.
-`@sverka/cdk` is required in your project so the config can resolve its
-imports. Add `@sverka/sdk` and/or `@sverka/decorators` for the authoring
-surfaces you use.
+The CLI generates a `sverka.config.ts` that imports from `@sverka/workflow`.
+`@sverka/workflow` is required in your project so the config can resolve its
+imports. Add `@sverka/sdk` for the programmatic API (`createSverka`, `$`,
+`shell`).
 
 ```sh
 cd your-project
-bun add @sverka/cdk
+bun add @sverka/workflow
 ```
 
-Install `@sverka/sdk` and/or `@sverka/decorators` only when you want those
-API surfaces. Install all three if you want to try each surface.
+Install `@sverka/sdk` only when you want the programmatic surface.
 
 ## Initialize
 

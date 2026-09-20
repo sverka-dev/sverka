@@ -1,22 +1,21 @@
 # Workflow API
 
-> **Work in progress.** Sverka is under active development. The Construct and
-> Decorator authoring surfaces are implemented; the SDK builder composables
-> (`sh`, `artifact`, `images`) described in earlier design docs are **not yet
-> shipped**. APIs may change without notice.
+> **Work in progress.** Sverka is under active development. The Construct
+> authoring surface (`@sverka/workflow`) is implemented and is what
+> `sverka init` generates. APIs may change without notice.
 
 Sverka workflows are TypeScript. This page documents the authoring surfaces
 that are implemented today and how a workflow becomes a runnable Plan.
 
 ## Authoring surfaces
 
-### Construct API (`@sverka/cdk`)
+### Construct API (`@sverka/workflow`)
 
 Low-level construct tree: `Project`, `Pipeline`, `ShellStep`, `Entry`. This is
 the surface that `sverka init` generates by default.
 
 ```ts
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
+import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 
 const proj = new Project("myproj");
 const p = new Pipeline(proj, "ci", {
@@ -35,40 +34,12 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 export default proj;
 ```
 
-### Decorator API (`@sverka/decorators`)
+### Programmatic API (`@sverka/sdk`)
 
-TC39 standard decorators for class-based pipeline definitions.
-
-```ts
-import { pipeline, step, stepWithOptions, entry, input, decoratePipeline } from "@sverka/decorators";
-import { Project } from "@sverka/cdk";
-
-@pipeline
-class MyPipeline {
-  @input
-  nodeVersion = { type: "string" as const, default: "22" };
-
-  @step
-  lint = "npm run lint";
-
-  @stepWithOptions({ dependsOn: ["lint"] })
-  build = "npm run build";
-
-  @entry({ kind: "push" })
-  ["on-push"] = ["build"];
-}
-
-const proj = new Project("myproj");
-decoratePipeline(MyPipeline, proj, "ci");
-```
-
-### SDK builder API (`@sverka/sdk`) — planned
-
-The composable builders (`sh`, `artifact`, `when`, `images`, context
-references) described in earlier design docs are **not yet implemented**. The
-`@sverka/sdk` package currently exports the `createSverka` entry point (see
-[From workflow to Plan](#from-workflow-to-plan) below) plus a compat re-export
-of the core types. The builder API is planned for a later wave.
+For driving Sverka from code — discovery, plan synthesis, execution — use
+`createSverka` (see [From workflow to Plan](#from-workflow-to-plan) below).
+The package also exports the v0 composables (`$`, `shell`, `artifact`,
+`pipeline`, `when`, `matrix`) for building workflows programmatically.
 
 ## Core types
 
@@ -108,8 +79,8 @@ a path. Outputs are addressable through typed references.
 
 ## From workflow to Plan
 
-The Construct/Decorator surfaces produce a **Definition Graph**. The CLI and
-SDK convert that graph into a canonical **Plan** (`@sverka/ir`) — a validated,
+The Construct surface produces a **Definition Graph**. The CLI and
+SDK convert that graph into a canonical **Plan** (`@sverka/workflow`) — a validated,
 serializable DAG of operations. The Plan is what the runtime executes and what
 the compilers lower to CI YAML.
 
