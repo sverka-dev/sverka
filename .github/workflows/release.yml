@@ -84,6 +84,10 @@ jobs:
             if [ -f "$dir/dist/index.mjs" ]; then
               name=$(node -p "require('./$pkg').name")
               version=$(node -p "require('./$pkg').version")
+              if npm view "$name@$version" version >/dev/null 2>&1; then
+                echo "Skipping $name@$version (already published)"
+                continue
+              fi
               echo "Publishing $name@$version"
               npm publish "$dir" --access public --provenance || failed=1
             fi
