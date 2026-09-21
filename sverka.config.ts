@@ -29,8 +29,10 @@ const lintSarif = new ShellStep(ci, "lint-sarif", {
 // Dependency vulnerabilities (bun audit exits non-zero on findings).
 const audit = new ShellStep(ci, "audit", { command: "bun audit" });
 
-// Self-check: the global sverka binary verifies its own environment.
-const doctor = new ShellStep(ci, "doctor", { command: "sverka doctor" });
+// Self-check: runs the CLI from source — no global install required.
+const doctor = new ShellStep(ci, "doctor", {
+  command: "bun packages/cli/src/bin.ts doctor",
+});
 
 export const onPush = new Entry(ci, "on-push", {
   trigger: push(),
