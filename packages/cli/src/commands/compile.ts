@@ -11,6 +11,8 @@ import { detectCiSetup } from "../internal/ci-setup.js";
 export interface CompileArgs {
   target: string;
   output?: string | undefined;
+  /** Pin GitHub action refs to commit SHAs (github target only). */
+  pin?: boolean;
 }
 
 /** Compile the Definition Graph to a target CI YAML. */
@@ -39,7 +41,10 @@ export async function compileCommand(
   // install) and submodule checkout so the generated YAML actually runs.
   const result: CompilationResult =
     target === "github"
-      ? compileGithub(graph, detectCiSetup(global.root))
+      ? compileGithub(graph, {
+          ...detectCiSetup(global.root),
+          ...(args.pin ? { pinning: { mode: "strict" } } : {}),
+        })
       : compileGitlab(graph);
 
   const yaml = result.artifacts.map((a) => a.content).join("\n---\n");

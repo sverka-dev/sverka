@@ -2,7 +2,10 @@ import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/workflow";
 
 const proj = new Project("sverka");
 
-const ci = new Pipeline(proj, "ci");
+// Least privilege for generated CI — same as hand-written ci.yml.
+const ci = new Pipeline(proj, "ci", {
+  permissions: { actions: "read", contents: "read" },
+});
 
 // nx loads vendored @nx-devkit/* plugins — they must be built after install
 // (CI compiles this pipeline: setup-bun + bun install are injected, then

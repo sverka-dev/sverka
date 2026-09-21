@@ -130,6 +130,11 @@ function addCompileCommand(y: Argv): Argv {
       type: "string",
       alias: "o",
       describe: "Write YAML to a file instead of stdout",
+    })
+    .option("pin", {
+      type: "boolean",
+      default: false,
+      describe: "Pin GitHub action refs to commit SHAs (github target)",
     });
 }
 
@@ -327,6 +332,7 @@ function dispatchCompile(
   const target = parsed.target === "gitlab" ? "gitlab" : "github";
   const args: CompileArgs = { target };
   if (typeof parsed.output === "string") args.output = parsed.output;
+  if (parsed.pin === true) args.pin = true;
   return compileCommand(args, global, output, start);
 }
 
