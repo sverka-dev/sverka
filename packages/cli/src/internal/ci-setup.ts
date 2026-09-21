@@ -30,47 +30,63 @@ function detectPackageManagerSetup(root: string): GithubStep[] {
   const { name, version } = detectPackageManager(root);
   switch (name) {
     case "bun":
-      return [
-        {
-          name: "Setup Bun",
-          uses: "oven-sh/setup-bun@v2",
-          ...(version ? { with: { "bun-version": version } } : {}),
-        },
-        { name: "Install dependencies", run: "bun install --frozen-lockfile" },
-      ];
+      return bunSteps(version);
     case "pnpm":
-      // pnpm/action-setup reads the version from the packageManager field;
-      // the version input is required when the field is absent.
-      return [
-        {
-          name: "Setup pnpm",
-          uses: "pnpm/action-setup@v4",
-          ...(version ? {} : { with: { version: "latest" } }),
-        },
-        { name: "Setup Node", uses: "actions/setup-node@v4" },
-        { name: "Install dependencies", run: "pnpm install --frozen-lockfile" },
-      ];
+      return pnpmSteps(version);
     case "yarn":
-      // Corepack activates the yarn version declared in packageManager.
-      return [
-        { name: "Setup Node", uses: "actions/setup-node@v4" },
-        ...(version ? [{ name: "Enable Corepack", run: "corepack enable" } as GithubStep] : []),
-        { name: "Install dependencies", run: "yarn install" },
-      ];
+      return yarnSteps(version);
     case "npm":
-      return [
-        { name: "Setup Node", uses: "actions/setup-node@v4" },
-        ...(version
-          ? [{ name: "Pin npm", run: `npm install -g "npm@${version}"` } as GithubStep]
-          : []),
-        {
-          name: "Install dependencies",
-          run: existsSync(join(root, "package-lock.json")) ? "npm ci" : "npm install",
-        },
-      ];
+      return npmSteps(root, version);
     default:
       return [];
   }
+}
+
+function bunSteps(version?: string): GithubStep[] {
+  return [
+    {
+      name: "Setup Bun",
+      uses: "oven-sh/setup-bun@v2",
+      ...(version ? { with: { "bun-version": version } } : {}),
+    },
+    { name: "Install dependencies", run: "bun install --frozen-lockfile" },
+  ];
+}
+
+function pnpmSteps(version?: string): GithubStep[] {
+  // pnpm/action-setup reads the version from the packageManager field;
+  // the version input is required when the field is absent.
+  return [
+    {
+      name: "Setup pnpm",
+      uses: "pnpm/action-setup@v4",
+      ...(version ? {} : { with: { version: "latest" } }),
+    },
+    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    { name: "Install dependencies", run: "pnpm install --frozen-lockfile" },
+  ];
+}
+
+function yarnSteps(version?: string): GithubStep[] {
+  // Corepack activates the yarn version declared in packageManager.
+  return [
+    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    ...(version ? [{ name: "Enable Corepack", run: "corepack enable" } as GithubStep] : []),
+    { name: "Install dependencies", run: "yarn install" },
+  ];
+}
+
+function npmSteps(root: string, version?: string): GithubStep[] {
+  return [
+    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    ...(version
+      ? [{ name: "Pin npm", run: `npm install -g "npm@${version}"` } as GithubStep]
+      : []),
+    {
+      name: "Install dependencies",
+      run: existsSync(join(root, "package-lock.json")) ? "npm ci" : "npm install",
+    },
+  ];
 }
 
 interface DetectedPm {
