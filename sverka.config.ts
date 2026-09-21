@@ -41,9 +41,10 @@ const lintSarif = new ShellStep(ci, "lint-sarif", {
 const audit = new ShellStep(ci, "audit", { command: "bun audit" });
 
 // Self-check: runs the CLI from source — needs built workspace deps.
+// CI jobs are isolated runners, so beforeScript builds them in-job.
 const doctor = new ShellStep(ci, "doctor", {
   command: "bun packages/cli/src/bin.ts doctor",
-  dependsOn: [build.node.id],
+  beforeScript: [...nxPlugins, "bun run build"],
 });
 
 export const onPush = new Entry(ci, "on-push", {
