@@ -70,6 +70,23 @@ jobs:
         env:
           NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
 
+      # plugin.json tracks the released version — fold it into the release
+      # commit (nothing is pushed until the changelog step's --atomic push).
+      - name: Sync plugin.json version
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('plugin.json', 'utf8'));
+            p.version = require('./packages/cli/package.json').version;
+            fs.writeFileSync('plugin.json', JSON.stringify(p, null, 2) + '\n');
+          "
+          # Only amend when HEAD is the release commit — on a no-op version
+          # step HEAD is an unrelated commit and must not be rewritten.
+          if [ -n "$(git status --porcelain plugin.json)" ] && git log -1 --format=%s | grep -q "^chore(release)"; then
+            git add plugin.json
+            git commit --amend --no-edit
+          fi
+
       - name: Changelog + GitHub release
         # Standalone changelog requires the version positionally; fixed group
         # means every manifest carries it — read it from cli.
