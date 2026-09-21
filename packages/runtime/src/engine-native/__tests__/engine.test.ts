@@ -83,7 +83,9 @@ describe("Engine.run", () => {
   });
 
   it("supports cancellation", async () => {
-    const slowDriver = createCancellableMockDriver(500);
+    // Cancel from inside the driver's executeShell — deterministic under
+    // parallel load; a wall-clock timer may fire before the step starts.
+    const slowDriver = createCancellableMockDriver(500, () => engine.cancel());
     const engine = createEngine({ drivers: [slowDriver] });
     const events: { type: string; stepId?: string }[] = [];
     const iter = engine.run({
@@ -96,8 +98,6 @@ describe("Engine.run", () => {
         events.push(event as { type: string; stepId?: string });
       }
     })();
-    // Cancel after a short delay.
-    setTimeout(() => engine.cancel(), 50);
     await collectPromise;
     const cancelled = events.find((e) => e.type === "step-cancelled");
     expect(cancelled).toBeDefined();

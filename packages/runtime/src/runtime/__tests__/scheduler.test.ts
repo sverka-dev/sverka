@@ -148,18 +148,23 @@ describe("Scheduler — failure and cancellation", () => {
 
   it("cancel() during execution produces a partial result with running ops cancelled", async () => {
     let releaseA: () => void = () => {};
+    let signalAStarted: () => void = () => {};
     const aPromise = new Promise<void>((r) => (releaseA = r));
+    const aStarted = new Promise<void>((r) => (signalAStarted = r));
     const exec = new MockExecutor({
       result: async (req) => {
-        if (req.operation.id === "a") await aPromise;
+        if (req.operation.id === "a") {
+          signalAStarted();
+          await aPromise;
+        }
         return successResult(req.operation.id);
       },
     });
     const plan = planFromOps([op("a"), op("b", ["a"])]);
     const scheduler = new Scheduler(baseConfig([exec]));
     const execPromise = scheduler.execute(plan);
-    // Give 'a' a moment to start.
-    await new Promise((r) => setTimeout(r, 20));
+    // Wait until 'a' is actually running — a fixed delay is flaky under load.
+    await aStarted;
     await scheduler.cancel();
     releaseA();
     const result = await execPromise;

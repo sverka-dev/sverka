@@ -199,7 +199,8 @@ describe("Engine — saga compensations (Spec 30)", () => {
   it("item 9: run that ends cancelled — no compensation events emitted", async () => {
     // Cancel mid-run using a slow driver + engine.cancel().
     const { createCancellableMockDriver } = await import("./helpers/mock-driver.js");
-    const slowDriver = createCancellableMockDriver(500);
+    // Cancel from inside executeShell — deterministic under parallel load.
+    const slowDriver = createCancellableMockDriver(500, () => engine.cancel());
     const engine = createEngine({ drivers: [slowDriver] });
     const iter = engine.run({
       plan: makeSingleFailPlan("rollback.sh"),
@@ -212,7 +213,6 @@ describe("Engine — saga compensations (Spec 30)", () => {
         events.push(event as { type: string; stepId?: string });
       }
     })();
-    setTimeout(() => engine.cancel(), 50);
     await collectPromise;
 
     const compensating = events.filter((e) => e.type === "step-compensating");
@@ -436,6 +436,9 @@ describe("Engine — saga compensations (Spec 30)", () => {
           return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
         }
         if (req.command.startsWith("rollback")) {
+          // Cancel once B's compensation is in-flight — deterministic under
+          // load, unlike the old 50ms wall-clock timer.
+          if (req.command.startsWith("rollback-b")) engine.cancel();
           // Use the slow, cancellable path for compensations.
           return slowDriver.executeShell(req);
         }
@@ -454,10 +457,6 @@ describe("Engine — saga compensations (Spec 30)", () => {
         events.push(event as { type: string; stepId?: string; status?: string });
       }
     })();
-    // Cancel shortly after the run starts — the compensation phase begins
-    // after C fails, and the first compensation (B) is slow (500ms).
-    // The 50ms cancel fires while B's compensation awaits executeShell.
-    setTimeout(() => engine.cancel(), 50);
     await collectPromise;
 
     const compensating = events.filter((e) => e.type === "step-compensating");

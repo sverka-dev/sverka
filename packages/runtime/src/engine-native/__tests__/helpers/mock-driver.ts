@@ -9,14 +9,29 @@ export interface MockDriverConfig {
   readonly delayMs?: number;
 }
 
-/** Create a mock driver whose delay can be cancelled by an AbortSignal. */
-export function createCancellableMockDriver(delayMs: number): RuntimeDriver & { wasCancelled: boolean } {
+/**
+ * Create a mock driver whose delay can be cancelled by an AbortSignal.
+ * `onStart` fires synchronously when executeShell is entered — tests use it
+ * to trigger engine.cancel() deterministically instead of a wall-clock timer.
+ */
+export function createCancellableMockDriver(
+  delayMs: number,
+  onStart?: () => void,
+): RuntimeDriver & { wasCancelled: boolean } {
   const driver: RuntimeDriver & { wasCancelled: boolean } = {
     name: "cancellable-mock",
     canExecute: () => true,
     wasCancelled: false,
     executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => {
+      onStart?.();
       await new Promise<void>((resolve) => {
+        // Handle a signal aborted before execution began — an "abort" listener
+        // added now would never fire.
+        if (req.signal?.aborted) {
+          driver.wasCancelled = true;
+          resolve();
+          return;
+        }
         const timer = setTimeout(resolve, delayMs);
         if (req.signal) {
           req.signal.addEventListener(
