@@ -38,6 +38,22 @@ describe("sverka binary (acceptance)", () => {
     expect(result.status).toBe(2);
   });
 
+  it.skipIf(!binBuilt)("--version prints the @sverka/cli version, not cwd's", async () => {
+    const { writeFile, readFile } = await import("node:fs/promises");
+    // A decoy package.json in cwd must not leak into --version output.
+    await writeFile(join(dir, "package.json"), '{"name":"consumer","version":"9.9.9"}');
+    const expected = JSON.parse(
+      await readFile(join(import.meta.dirname, "..", "..", "package.json"), "utf8"),
+    ).version;
+    const result = spawnSync("node", [BIN_PATH, "--version"], {
+      cwd: dir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe(expected);
+  });
+
   it.skipIf(!binBuilt)("exits with 0 for doctor", () => {
     const result = spawnSync("node", [BIN_PATH, "doctor", "--root", dir], {
       encoding: "utf8",
