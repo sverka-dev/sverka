@@ -4,19 +4,30 @@ const proj = new Project("sverka");
 
 const ci = new Pipeline(proj, "ci");
 
+// nx loads vendored @nx-devkit/* plugins — they must be built after install
+// (CI compiles this pipeline: setup-bun + bun install are injected, then
+// beforeScript runs before the step command).
+const nxPlugins = ["bun run build:nx-plugins"];
+
 // Build first: package tests resolve workspace deps via dist/.
-const build = new ShellStep(ci, "build", { command: "bun run build" });
+const build = new ShellStep(ci, "build", {
+  command: "bun run build",
+  beforeScript: nxPlugins,
+});
 const typecheck = new ShellStep(ci, "typecheck", {
   command: "bun run typecheck",
   dependsOn: [build.node.id],
+  beforeScript: nxPlugins,
 });
 const lint = new ShellStep(ci, "lint", {
   command: "bun run lint",
   dependsOn: [typecheck.node.id],
+  beforeScript: nxPlugins,
 });
 const test = new ShellStep(ci, "test", {
   command: "bun run test",
   dependsOn: [lint.node.id],
+  beforeScript: nxPlugins,
 });
 
 // Emits SARIF on stdout → collected as a finding artifact for --evaluate.
