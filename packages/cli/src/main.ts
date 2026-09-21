@@ -5,6 +5,7 @@ import type { GlobalFlags, OutputWriter } from "./types.js";
 import { CliError, ExitCode } from "./types.js";
 import { createOutputWriter, wrapOutputWriter } from "./output.js";
 import { missingBuildHint } from "./internal/errors.js";
+import { cliVersion } from "./internal/version.js";
 import { initCommand } from "./commands/init.js";
 import { validateCommand } from "./commands/validate.js";
 import { planCommand, type PlanArgs } from "./commands/plan.js";
@@ -172,6 +173,7 @@ function addUiCommand(y: Argv): Argv {
 function buildParser(): Argv {
   return yargs([])
     .scriptName("sverka")
+    .version(cliVersion())
     .option("format", {
       type: "string",
       alias: "f",

@@ -5,6 +5,7 @@ import process from "node:process";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { ExitCode } from "../types.js";
 import { registerSverkaTools } from "../internal/mcp-tools.js";
+import { cliVersion } from "../internal/version.js";
 
 /** Args for the mcp-server command (none in v1 — stdio transport, all tools exposed). */
 export interface McpServerArgs {}
@@ -34,7 +35,7 @@ export async function mcpServerCommand(
   const { StdioServerTransport } = await import(
     "@modelcontextprotocol/sdk/server/stdio.js"
   );
-  const server = new McpServer({ name: "sverka", version: "0.0.0" });
+  const server = new McpServer({ name: "sverka", version: cliVersion() });
   registerSverkaTools(server, global.root);
 
   const transport = new StdioServerTransport();
