@@ -112,6 +112,22 @@ describe("compileGithub — setup injection", () => {
     expect(steps[4]).toMatchObject({ run: "bun run build" });
   });
 
+  it("emits pinned refs unquoted with the tag as a trailing comment", () => {
+    const result = compileGithub(makeGraph(), {
+      ...SETUP,
+      pinning: { mode: "strict" },
+    });
+    const content = result.artifacts[0]!.content;
+    // GitHub resolves `uses:` literally — a quoted "…@sha # v4" would fail.
+    expect(content).toContain(
+      "uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4",
+    );
+    expect(content).not.toContain('"actions/checkout@');
+    expect(content).toContain(
+      "uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2",
+    );
+  });
+
   it("omits setup when config not provided (backward compat)", () => {
     const result = compileGithub(makeGraph());
     const yaml = parse(result.artifacts[0]!.content) as { jobs: Record<string, YamlJob> };
