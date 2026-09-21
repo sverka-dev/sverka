@@ -3,11 +3,46 @@
 ## Getting started
 
 1. Clone the repository.
-2. Install dependencies: `bun install`
-3. Build all packages: `bun run build`
-4. Run tests: `bun run test` (vitest — `bun test` runs Bun's built-in runner, not vitest)
-5. Run linter: `bun run lint`
-6. Run typecheck: `bun run typecheck`
+2. Init the vendored Nx plugins submodule: `git submodule update --init`
+3. Install dependencies: `bun install`
+4. Build the vendored plugins: `bun run build:nx-plugins`
+   (required once — `nx.json` references `@nx-devkit/*` from `vendor/nx.ts`)
+5. Build all packages: `bun run build`
+6. Run tests: `bun run test` (vitest — `bun test` runs Bun's built-in runner, not vitest)
+7. Run linter: `bun run lint`
+8. Run typecheck: `bun run typecheck`
+
+## Nx plugins (vendor/nx.ts)
+
+Nx plugins ship as **TS source** from the `vendor/nx.ts` submodule
+(`nx-devkit/nx.ts` — no releases, we ride the source). Registered plugins:
+
+- `@nx-devkit/typescript` — infers `typecheck`/`test`/`build`/`build:watch`/
+  `test:watch`/`test:coverage` from `tsconfig.json` + tool configs. Explicit
+  `project.json` targets override inferred ones.
+- `@nx-devkit/skill` — `build`/`lint`/`validate`/`os-check`/`size-check` for
+  every `SKILL.md` (skills/ and pack/skills/ only; `.agents`, `.devin`,
+  `agent`, `vendor`, `website`, `.worktrees` are `.nxignore`d).
+- `@nx-devkit/skillspector` — `scan` target for SkillSpector security scans.
+- `@nx-devkit/prepare-for-release` — `tools:prepare-for-release` executor;
+  publishes `0.0.0` placeholders so OIDC trusted publishing can be set up.
+
+`bun run build:nx-plugins` applies `scripts/patch-nx-submodule.ts`
+(exports→dist, vendor/ skip, projectRoot keys, .mjs executor paths), builds
+each package, and syncs `dist/` into `node_modules` (bun `file:` deps
+hardlink at install time). Re-run it after `git submodule update --remote`.
+
+## Releases
+
+`nx release` versions all `@sverka/*` packages via conventional commits
+(`release.projects` in `nx.json`, tag pattern `v{version}`). Publishing
+runs in `.github/workflows/publish.yml` on `v*` tags.
+
+`tools:prepare-for-release` is a **manual** bootstrap, not part of the
+pipeline: run `nx run tools:prepare-for-release` once per new package to
+publish a `0.0.0` placeholder, which lets npm trusted publishing (OIDC)
+be configured for the package name. It is idempotent — already-published
+packages are skipped.
 
 ## Tech stack
 
