@@ -5,7 +5,7 @@
 1. Clone the repository.
 2. Install dependencies: `bun install`
 3. Build all packages: `bun run build`
-4. Run tests: `bun test`
+4. Run tests: `bun run test` (vitest — `bun test` runs Bun's built-in runner, not vitest)
 5. Run linter: `bun run lint`
 6. Run typecheck: `bun run typecheck`
 
@@ -22,7 +22,7 @@
 
 ## Package layout
 
-```
+```text
 packages/
   workflow/         # cdk + core + ir — constructs, graph model, canonical plan
   runtime/          # engine-native + runtime-host + runtime-docker — scheduler, executors
