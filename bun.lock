@@ -16,7 +16,7 @@
         "eslint": "10.10.0",
         "markdownlint-cli2": "0.23.3",
         "nx": "^23.2.1",
-        "prettier": "3.9.6",
+        "prettier": "3.9.8",
         "tsdown": "0.23.0",
         "typescript": "5.9.3",
         "typescript-eslint": "8.70.0",
@@ -25,7 +25,7 @@
     },
     "packages/arena": {
       "name": "@sverka/arena",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "bin": {
         "arena": "./dist/bin.mjs",
       },
@@ -40,7 +40,7 @@
     },
     "packages/benchmark": {
       "name": "@sverka/benchmark",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "bin": {
         "sverka-benchmark": "./dist/bin.mjs",
       },
@@ -56,7 +56,7 @@
     },
     "packages/cli": {
       "name": "@sverka/cli",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "bin": {
         "sverka": "./dist/bin.mjs",
       },
@@ -83,7 +83,7 @@
     },
     "packages/compiler": {
       "name": "@sverka/compiler",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sverka/workflow": "workspace:*",
         "yaml": "^2.9.1",
@@ -96,7 +96,7 @@
     },
     "packages/playground": {
       "name": "@sverka/playground",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sverka/sarif-viewer-web": "workspace:*",
       },
@@ -109,7 +109,7 @@
     },
     "packages/plugin-mcp": {
       "name": "@sverka/plugin-mcp",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@modelcontextprotocol/sdk": "1.30.0",
         "@sverka/compiler": "workspace:*",
@@ -122,7 +122,7 @@
     },
     "packages/reporter": {
       "name": "@sverka/reporter",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sverka/runtime": "workspace:*",
         "@sverka/verification": "workspace:*",
@@ -140,7 +140,7 @@
     },
     "packages/runtime": {
       "name": "@sverka/runtime",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sverka/workflow": "workspace:*",
       },
@@ -152,7 +152,7 @@
     },
     "packages/sarif-viewer-tui": {
       "name": "@sverka/sarif-viewer-tui",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "bin": {
         "sarif-viewer-tui": "./dist/bin.mjs",
       },
@@ -175,7 +175,7 @@
     },
     "packages/sarif-viewer-web": {
       "name": "@sverka/sarif-viewer-web",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "bin": {
         "sarif-viewer-web": "./dist/bin.mjs",
       },
@@ -190,7 +190,7 @@
     },
     "packages/sdk": {
       "name": "@sverka/sdk",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sverka/compiler": "workspace:*",
         "@sverka/runtime": "workspace:*",
@@ -205,7 +205,7 @@
     },
     "packages/storage": {
       "name": "@sverka/storage",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sverka/runtime": "workspace:*",
       },
@@ -217,7 +217,7 @@
     },
     "packages/ui": {
       "name": "@sverka/ui",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sverka/sarif-viewer-web": "workspace:*",
         "@sverka/verification": "workspace:*",
@@ -230,7 +230,7 @@
     },
     "packages/verification": {
       "name": "@sverka/verification",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sverka/workflow": "workspace:*",
       },
@@ -242,7 +242,7 @@
     },
     "packages/workflow": {
       "name": "@sverka/workflow",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "constructs": "10.8.1",
       },
@@ -1424,7 +1424,7 @@
 
     "prelude-ls": ["prelude-ls@1.2.1", "", {}, "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="],
 
-    "prettier": ["prettier@3.9.6", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-OpN0zzVdiaiAhxpuuj5efpIS4sY9j7bY6uR5mnj5yPzGkdkjNKSJeUThPb60Jw29QuAZgA4o+/iB49kFiaBX6g=="],
+    "prettier": ["prettier@3.9.8", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-WRFq3Wn3WId7LLROfMLdH7xaFr2jR62wU8nLO6rQUOLOxNZUviyJQs1M0iIhLexSFy+L+w0ch66wtoO2jRjG0A=="],
 
     "proxy-addr": ["proxy-addr@2.0.7", "", { "dependencies": { "forwarded": "0.2.0", "ipaddr.js": "1.9.1" } }, "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg=="],
 
