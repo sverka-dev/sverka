@@ -126,12 +126,16 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
 
 function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   const stepId = `${pipelineId}/${step.node.id}`;
-  const operations: OperationDefinition[] = [...collectPrimaryOperations(step)];
+  // Artifact inputs are prerequisites: import them before the step's primary
+  // operations so the command sees the materialized files (and compilers emit
+  // download steps before run steps). Exports and reports stay last.
+  const operations: OperationDefinition[] = [];
   const dependencies: Dependency[] = [];
   const seenDeps = new Set<string>();
 
-  collectExportOperations(step, stepId, operations);
   collectImportOperations(step, pipelineId, operations, dependencies, seenDeps);
+  operations.push(...collectPrimaryOperations(step));
+  collectExportOperations(step, stepId, operations);
   collectControlDeps(step, pipelineId, dependencies, seenDeps);
   collectReportOperations(step, operations);
 
