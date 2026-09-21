@@ -70,7 +70,9 @@ function stringifyTargetGraph(graph: GithubTargetGraph, options?: EmitOptions): 
   }
   doc.jobs = jobs;
 
-  return stringify(doc, { sortMapEntries: false });
+  // GitHub Actions does not support YAML anchors — never alias repeated
+  // objects (e.g. identical `with:` maps injected into every job).
+  return stringify(doc, { sortMapEntries: false, aliasDuplicateObjects: false });
 }
 
 /**

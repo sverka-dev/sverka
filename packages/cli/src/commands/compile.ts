@@ -5,6 +5,7 @@ import type { CompilationResult } from "@sverka/compiler";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";
+import { detectCiSetup } from "../internal/ci-setup.js";
 
 /** Args parsed for the compile command. */
 export interface CompileArgs {
@@ -34,8 +35,12 @@ export async function compileCommand(
 
   const { graph } = await loadProjectGraph(global);
 
+  // GitHub runners start empty — inject detected toolchain setup (bun/npm/…
+  // install) and submodule checkout so the generated YAML actually runs.
   const result: CompilationResult =
-    target === "github" ? compileGithub(graph) : compileGitlab(graph);
+    target === "github"
+      ? compileGithub(graph, detectCiSetup(global.root))
+      : compileGitlab(graph);
 
   const yaml = result.artifacts.map((a) => a.content).join("\n---\n");
 

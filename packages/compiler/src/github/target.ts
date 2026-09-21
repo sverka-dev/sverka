@@ -30,11 +30,13 @@ export class GithubTarget implements Target {
 
   private readonly pinningMode: "strict" | "off";
   private readonly pinningRegistry: PinRegistry;
+  private readonly config?: GithubTargetConfig;
 
   constructor(config?: GithubTargetConfig) {
     const pinning = config?.pinning;
     this.pinningMode = pinning?.mode ?? "off";
     this.pinningRegistry = pinning?.registry ?? loadBundledRegistry();
+    this.config = config;
   }
 
   /**
@@ -56,7 +58,7 @@ export class GithubTarget implements Target {
    * with reusable workflow calls return one per pipeline.
    */
   lower(graph: DefinitionGraph): GithubTargetGraph | readonly GithubTargetGraph[] {
-    return lowerGithub(graph);
+    return lowerGithub(graph, this.config);
   }
 
   /**
@@ -154,6 +156,9 @@ function collectUsesRefs(job: GithubJob): readonly string[] {
 /**
  * Convenience function: analyze → lower → emit in one call.
  */
-export function compileGithub(graph: DefinitionGraph): CompilationResult {
-  return new GithubTarget().compile(graph);
+export function compileGithub(
+  graph: DefinitionGraph,
+  config?: GithubTargetConfig,
+): CompilationResult {
+  return new GithubTarget(config).compile(graph);
 }

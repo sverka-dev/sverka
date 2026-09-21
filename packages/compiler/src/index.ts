@@ -9,6 +9,8 @@ export type {
   CompilationResult,
   GeneratedArtifact,
   TargetDiagnostic,
+  GithubTargetConfig,
+  GithubStep,
 } from "./github/types.js";
 
 // Spec 22: GHA action SHA pinning (re-exported from the native github target).
