@@ -101,7 +101,7 @@ jobs:
         run: bun install --frozen-lockfile --ignore-scripts
       - run: |-
           sverka_rc=0
-          { bun run lint:sarif
+          { bun run lint:sarif || true
           } > 'eslint.sarif' || sverka_rc=$?
           cat 'eslint.sarif'
           if [ "$sverka_rc" -gt 0 ]; then exit "$sverka_rc"; fi
@@ -137,8 +137,8 @@ jobs:
         with:
           name: lint-sarif-eslint.sarif
           path: eslint.sarif
-      - run: bun packages/cli/src/bin.ts policy --findings "$(find eslint.sarif -name
-          '*.sarif' | head -n1)"
+      - run: bun packages/cli/src/bin.ts policy --findings "$(find eslint.sarif -type f
+          -name '*.sarif' | head -n1)"
         shell: sh
   audit:
     name: audit
