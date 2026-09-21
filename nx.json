@@ -24,8 +24,7 @@
       "conventionalCommits": true,
       "fallbackCurrentVersionResolver": "disk",
       "git": {
-        "commit": true,
-        "push": true
+        "commit": true
       }
     },
     "changelog": {
@@ -85,7 +84,7 @@
       "cache": true
     },
     "lint": {
-      "inputs": ["default", "{workspaceRoot}/.eslintrc.json"],
+      "inputs": ["default", "{workspaceRoot}/eslint.config.mjs"],
       "cache": true
     },
     "typecheck": {

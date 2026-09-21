@@ -62,10 +62,10 @@ jobs:
       # tolerates workspace:* in manifests. `nx release publish` can't be used:
       # npm refuses workspace protocols and bun publish has no OIDC support —
       # so publish is a plain npm loop over the manifests rewritten below.
-      # Tag is created by the changelog step (on the CHANGELOG commit), not by
-      # version — otherwise changelog would resolve --from to the tag it just
-      # created and produce an empty entry.
-      - name: Version packages (bump, commit, push)
+      # Tag and push happen in the changelog step so the release commit +
+      # CHANGELOG commit + tag land atomically — a failed changelog leaves
+      # nothing pushed and the run can simply be re-dispatched.
+      - name: Version packages (bump, commit)
         run: ./node_modules/.bin/nx release version
         env:
           NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
