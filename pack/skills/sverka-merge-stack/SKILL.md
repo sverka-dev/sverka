@@ -28,7 +28,6 @@ are included in the top PR's squash commit).
    └── (no more stacks) ──► FINAL RETROSPECT ──► DONE (all flat on main)                                 │
 ```
 
-
 ## Step 1: Discover the stacks
 
 Query all open PRs and build chains:
@@ -39,11 +38,13 @@ gh pr list --state open --limit 200 --json number,title,baseRefName,headRefName 
 ```
 
 For each stack, identify:
+
 - **TOP PR**: the one whose head is NOT any other PR's base
 - **BOTTOM PR**: base = main
 - **Members**: all PRs in the chain
 
 Example:
+
 - Stack A: top=#18, members=[#1,#2,#3,#5,#6,#7,#8,#9,#10,#11,#12,#13,#14,#16,#17,#18]
 - Stack B: top=#22, members=[#19,#20,#22]
 
@@ -103,6 +104,7 @@ After each push, the agent MUST click the checkbox to force a re-review.
 ### /act convergence check
 
 All must be 0 on the same HEAD:
+
 1. `open_threads == 0`
 2. `CI_REQUIRED_PENDING == 0` (all required CI checks must have status COMPLETED with conclusion SUCCESS — failures and action_required are NOT passing)
 3. `SAST_FINDINGS_PENDING == 0`
@@ -128,6 +130,7 @@ This single squash commit brings ALL stack changes into main.
 ### Close all lower PRs in the stack
 
 For each lower PR (bottom to just-below-top):
+
 ```bash
 gh pr close <lower-PR> --comment "Merged via #<top-PR> (squash). All stack changes are now in main."
 git push origin --delete <lower-head-branch> 2>/dev/null || true
@@ -170,6 +173,7 @@ Apply lessons learned — proactively fix patterns before bots find them.
 ## Step 5: Advance to next stack
 
 If there are more stacks:
+
 1. Take the next stack's TOP PR
 2. Rebase onto main (which now has the previous stack's changes)
 3. Change base to main
@@ -180,6 +184,7 @@ If no more stacks — run final retrospect, then done.
 ## Final Retrospect
 
 After all stacks are merged:
+
 1. Total stacks merged
 2. Total PRs merged (top) vs closed (lower)
 3. Total /act iterations
@@ -194,7 +199,7 @@ After all stacks are merged:
 - **Never skip CodeRabbit trigger.** Review must be triggered after every push.
 - **Never skip retrospect.** Self-learning is mandatory after each stack.
 - **One merge per stack.** The top PR's squash includes everything.
-- **Close lowers with a comment.** "Merged via #<top>."
+- **Close lowers with a comment.** "Merged via #TOP."
 - **Squash merge only.** Clean history, one commit per stack.
 - **Delete branches after merge/close.** No stale branches.
 - **Escalate on blocker.** Don't loop forever on an unfixable issue.

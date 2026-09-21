@@ -19,7 +19,7 @@ Read `package.json` scripts and check for config files. Build a list of
 available checks:
 
 | Check | How to detect | Command |
-|-------|--------------|---------|
+| ------- | -------------- | --------- |
 | build | `scripts.build` in package.json | `npm run build` |
 | lint | `scripts.lint` in package.json | `npm run lint` |
 | typecheck | `scripts.typecheck` in package.json | `npm run typecheck` |
@@ -59,6 +59,7 @@ export default proj;
 ```
 
 Key rules:
+
 - `dependsOn` accepts string IDs (`sverka validate` catches typos)
 - `roots` is the entry point — planner pulls transitive deps automatically
 - Only include steps for checks that actually exist
@@ -128,6 +129,7 @@ export default proj;
 ### Dependencies
 
 Sverka infers dependencies from data flow:
+
 - Pass an output reference from one step as input to another → dependency auto-inferred
 - For control-only deps (ordering without data flow), use `dependsOn` with string IDs
 - `sverka validate` catches unknown step IDs — no need for object references
@@ -161,7 +163,7 @@ artifacts, `--evaluate` fails with COLLECTION_FAILED instead of a false
 ## CLI Commands
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `sverka init` | Create `sverka.config.ts` from template |
 | `sverka init --detect` | Generate config from detected project checks |
 | `sverka validate` | Check config without executing |

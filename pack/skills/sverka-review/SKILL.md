@@ -20,11 +20,11 @@ bun run build --skip-nx-cache       # tsdown via nx
 
 ## Finding Classification
 
-| Class   | Meaning                        | Action          |
-| ------- | ------------------------------ | --------------- |
-| BLOCKING | Spec violation or broken gate | Must fix        |
-| NIT     | Non-blocking style or edge case | Note, don't block |
-| DECLINE | Reviewer disagrees with suggestion | Explain why    |
+| Class    | Meaning                            | Action            |
+| -------- | ---------------------------------- | ----------------- |
+| BLOCKING | Spec violation or broken gate      | Must fix          |
+| NIT      | Non-blocking style or edge case    | Note, don't block |
+| DECLINE  | Reviewer disagrees with suggestion | Explain why       |
 
 ## Checklist
 
@@ -69,11 +69,13 @@ git status --short
 ```
 
 Stage only:
+
 - `packages/<package>/**`
 - `specs/NN-<name>/`
 - `engdocs/`
 - `bun.lock`
 
 Exclude:
+
 - `city.toml`, `agents/`, `.devin/`, `.gc/`, `.beads/`
 - `.evidence/`, `.opencode/`, `formulas/`

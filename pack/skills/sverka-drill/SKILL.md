@@ -28,6 +28,7 @@ Priority 0 = critical. Drill tasks are urgent.
 ### 2. Scope the investigation
 
 Define what you're investigating:
+
 - What is the symptom?
 - What is the expected behavior?
 - When did it start?
@@ -36,6 +37,7 @@ Define what you're investigating:
 ### 3. Isolate
 
 Reproduce the problem reliably:
+
 ```bash
 # Run the failing test in isolation
 cd packages/<name> && bun run vitest run __tests__/<failing-test>.test.ts
@@ -49,6 +51,7 @@ git diff HEAD~1
 ### 4. Trace the code path
 
 Read the code, don't guess:
+
 - Follow the execution path from entry to failure
 - Add targeted logging if needed
 - Identify the exact line where behavior diverges from expected

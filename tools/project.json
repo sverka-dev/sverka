@@ -1,0 +1,9 @@
+{
+  "name": "tools",
+  "targets": {
+    "prepare-for-release": {
+      "executor": "@nx-devkit/prepare-for-release:publish-placeholder",
+      "options": {}
+    }
+  }
+}

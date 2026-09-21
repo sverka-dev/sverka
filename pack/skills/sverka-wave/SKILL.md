@@ -11,7 +11,7 @@ A wave is one package's journey from spec to reviewed implementation. Every wave
 
 The spec tree lives in `specs/` as numbered directories:
 
-```
+```text
 specs/
   00-overview/
   01-core/
@@ -50,12 +50,14 @@ Each spec contains: Overview, Goals, Non-goals, Interfaces, Data models, Error h
 ### 3. Review (reviewer)
 
 1. Run all gates fresh (not cached, not trusted from builder):
+
    ```bash
    bun run test --skip-nx-cache
    bun run typecheck
    bun run lint
    bun run build --skip-nx-cache
    ```
+
 2. Read the diff and spec
 3. Check: exports match spec 1:1, no `any`, error classes use `override` on cause
 4. APPROVE or REJECT with specific feedback
@@ -65,14 +67,18 @@ Each spec contains: Overview, Goals, Non-goals, Interfaces, Data models, Error h
 
 1. Verify reviewer approved
 2. Check commit completeness:
+
    ```bash
    git status --short
    ```
+
    Confirm no untracked wave files remain before staging.
 3. Stage only wave files:
+
    ```bash
    git add packages/<package>/ specs/NN-<name>/ engdocs/ bun.lock
    ```
+
 4. Exclude: `city.toml`, `agents/`, `.devin/`, `.gc/`, `.beads/`, `formulas/`
 5. Commit and push stacked PR
 6. Close wave epic, create next wave
@@ -96,7 +102,7 @@ approved, before any other session can switch branches.
 
 Each wave's PR targets the previous wave's branch:
 
-```
+```text
 main
  └── wave-1-core (PR #1, base: main)
       └── wave-2-ir (PR #2, base: wave-1-core)
@@ -106,6 +112,7 @@ main
 ## Failure Handling
 
 When a wave fails review or a builder is stuck:
+
 1. Create a drill task: `gc bd create "DRILL: <problem>"`
 2. Dispatch to builder or architect with `skill drill` instructions
 3. Wait for drill result before dispatching fix work

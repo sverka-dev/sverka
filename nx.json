@@ -1,5 +1,52 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "defaultBase": "main",
+  "release": {
+    "projects": [
+      "arena",
+      "benchmark",
+      "cli",
+      "compiler",
+      "playground",
+      "plugin-mcp",
+      "reporter",
+      "runtime",
+      "sarif-viewer-tui",
+      "sarif-viewer-web",
+      "sdk",
+      "storage",
+      "ui",
+      "verification",
+      "workflow"
+    ],
+    "version": {
+      "conventionalCommits": true,
+      "fallbackCurrentVersionResolver": "disk"
+    },
+    "releaseTag": {
+      "pattern": "v{version}"
+    }
+  },
+  "plugins": [
+    {
+      "plugin": "@nx-devkit/typescript",
+      "options": {
+        "tsgo": false
+      }
+    },
+    {
+      "plugin": "@nx-devkit/skill",
+      "options": {}
+    },
+    {
+      "plugin": "@nx-devkit/skillspector",
+      "options": {}
+    },
+    {
+      "plugin": "@nx-devkit/prepare-for-release",
+      "options": {}
+    }
+  ],
   "namedInputs": {
     "default": [
       "{projectRoot}/**/*",

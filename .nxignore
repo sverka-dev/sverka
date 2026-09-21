@@ -1,1 +1,6 @@
 .worktrees
+vendor
+website
+.agents
+.devin
+agent
