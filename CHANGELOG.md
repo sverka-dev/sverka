@@ -1,3 +1,19 @@
+## 0.1.2 (2026-09-21)
+
+### 🚀 Features
+
+- **compiler:** inject toolchain setup into generated GitHub workflows ([#196](https://github.com/sverka-dev/sverka/pull/196))
+
+### 🩹 Fixes
+
+- **cli:** report own package version for --version and MCP server ([#198](https://github.com/sverka-dev/sverka/pull/198))
+- **release:** prefix publish dir with ./ to avoid git shorthand ([#194](https://github.com/sverka-dev/sverka/pull/194))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+- ThePlenkov
+
 ## 0.1.1 (2026-09-21)
 
 ### 🚀 Features
