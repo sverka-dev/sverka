@@ -23,6 +23,7 @@
     "@sverka/workflow": "workspace:*",
     "@types/node": "26.5.1",
     "eslint": "10.10.0",
+    "markdownlint-cli2": "0.23.3",
     "nx": "^23.2.1",
     "prettier": "3.9.6",
     "tsdown": "0.23.0",
