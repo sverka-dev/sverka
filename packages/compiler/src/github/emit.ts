@@ -79,8 +79,8 @@ function stringifyTargetGraph(graph: GithubTargetGraph, options?: EmitOptions): 
   // make GitHub treat the whole string — comment included — as the ref.
   // Unquote `uses:` lines so the ` # ` part stays a real comment.
   yaml = yaml.replaceAll(
-    /^(\s*uses:\s*)("|')([^"']+@[0-9a-f]{40}) # ([^"']+)\2$/gm,
-    "$1$3 # $4",
+    /^(\s*uses:\s*)["']([^"']+@[0-9a-f]{40}) # ([^"']+)["']$/gm,
+    "$1$2 # $3",
   );
   return yaml;
 }

@@ -8,6 +8,7 @@
     "build": "nx run-many --target=build --all --exclude=skills-*,pack-skills-*",
     "test": "nx run-many --target=test --all",
     "lint": "nx run-many --target=lint --all",
+    "lint:sarif": "eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
     "typecheck": "nx run-many --target=typecheck --all",
     "clean": "nx reset",
     "build:nx-plugins": "bun scripts/build-nx-plugins.ts",

@@ -35,7 +35,7 @@ const test = new ShellStep(ci, "test", {
 
 // Emits SARIF on stdout → collected as a finding artifact for --evaluate.
 const lintSarif = new ShellStep(ci, "lint-sarif", {
-  command: "bunx eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
+  command: "bun run lint:sarif",
   runtime: { shell: "sh" },
   outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
 });

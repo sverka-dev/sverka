@@ -223,7 +223,7 @@ describe("compileGithub — interruptible", () => {
 });
 
 describe("compileGithub — permissions", () => {
-  it("emits permissions: map at workflow level", () => {
+  it("scopes pipeline permissions per job and denies all at workflow level", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci", {
       permissions: { contents: "read", "id-token": "write" },
@@ -232,9 +232,8 @@ describe("compileGithub — permissions", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.permissions).toBeDefined();
-    expect(yaml.permissions.contents).toBe("read");
-    expect(yaml.permissions["id-token"]).toBe("write");
+    expect(yaml.permissions).toEqual({});
+    expect(yaml.jobs.build.permissions).toEqual({ contents: "read", "id-token": "write" });
   });
 
   it("omits permissions key when not set", () => {
