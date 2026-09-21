@@ -34,6 +34,15 @@ describe("detectCiSetup", () => {
     expect(cfg?.setup?.[0]).toMatchObject({ uses: "pnpm/action-setup@v4" });
   });
 
+  it("honors the declared bun version", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ packageManager: "bun@1.3.13" }));
+    const cfg = detectCiSetup(dir);
+    expect(cfg?.setup?.[0]).toMatchObject({
+      uses: "oven-sh/setup-bun@v2",
+      with: { "bun-version": "1.3.13" },
+    });
+  });
+
   it("uses npm ci when package-lock exists, npm install otherwise", () => {
     writeFileSync(join(dir, "package.json"), "{}");
     writeFileSync(join(dir, "package-lock.json"), "{}");

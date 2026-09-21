@@ -7,6 +7,7 @@
   "actions/cache/restore@v4": "0057852bfaa89a56745cba8c7296529d2fc39830",
   "actions/cache/save@v4": "0057852bfaa89a56745cba8c7296529d2fc39830",
   "oven-sh/setup-bun@v2": "0c5077e51419868618aeaa5fe8019c62421857d6",
+  "pnpm/action-setup@v4": "b906affcce14559ad1aafd4ab0e942779e9f58b1",
   "softprops/action-gh-release@v2": "3bb12739c298aeb8a4eeaf626c5b8d85266b0e65",
   "actions/upload-pages-artifact@v3": "56afc609e74202658d3ffba0e8f6dda462b719fa",
   "actions/deploy-pages@v4": "d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e",

@@ -746,9 +746,6 @@ function lowerStep(
 
   const jobId = jobIdMap.get(step.id) ?? step.id;
 
-  // F-48: delay → emulated via sleep step (GitHub has no native delayed execution).
-  applyDelay(steps, step);
-
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
   const runsOn = resolveRunsOn(step);
@@ -760,17 +757,16 @@ function lowerStep(
 
 /**
  * Insert a sleep step to emulate delay (GitHub has no native delayed execution).
+ * Called after checkout + setup steps are pushed, so the delay precedes the
+ * step's own work but does not postpone toolchain setup.
  */
 function applyDelay(steps: GithubStep[], step: StepDefinition): void {
   if (!step.delay) return;
   const sleepSeconds = parseDurationToSeconds(step.delay);
-  // Insert sleep step after checkout (which is always first).
-  if (steps.length > 0) {
-    steps.splice(1, 0, {
-      name: `Delay (${step.delay})`,
-      run: `sleep ${sleepSeconds}`,
-    });
-  }
+  steps.push({
+    name: `Delay (${step.delay})`,
+    run: `sleep ${sleepSeconds}`,
+  });
 }
 
 /**
@@ -1082,6 +1078,9 @@ function lowerOperations(
   steps.push(checkoutStep(config));
   // Toolchain/dependency setup runs right after checkout, before everything else.
   steps.push(...setupSteps(config));
+
+  // F-48: delay → sleep after toolchain setup, before the step's own work.
+  applyDelay(steps, step);
 
   // Spec 26: network allowlist annotation (GHA has no native per-job egress control).
   if (step.runtime.network && step.runtime.network.allowed.length > 0) {
