@@ -96,6 +96,16 @@ sverka compile --target github --output .github/workflows/sverka.yml
 sverka compile --target gitlab --output .gitlab-ci.yml
 ```
 
+## Devin plugin
+
+Install Sverka as a [Devin](https://devin.ai) plugin to get the `sverka`
+skill in every session — agents get `/sverka:sverka`, a guided wrapper
+around the CLI (detect checks → write config → `sverka run`):
+
+```bash
+devin plugins install sverka-dev/sverka
+```
+
 ## Architecture
 
 ```text
