@@ -38,6 +38,12 @@ hardlink at install time). Re-run it after `git submodule update --remote`.
 (`release.projects` in `nx.json`, tag pattern `v{version}`). Publishing
 runs in `.github/workflows/publish.yml` on `v*` tags.
 
+`tools:prepare-for-release` is a **manual** bootstrap, not part of the
+pipeline: run `nx run tools:prepare-for-release` once per new package to
+publish a `0.0.0` placeholder, which lets npm trusted publishing (OIDC)
+be configured for the package name. It is idempotent — already-published
+packages are skipped.
+
 ## Tech stack
 
 - **Language:** TypeScript (strict, ESM)

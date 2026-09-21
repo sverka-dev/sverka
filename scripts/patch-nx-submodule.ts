@@ -48,6 +48,9 @@ function patchFile(path: string, check: (content: string) => boolean, apply: (co
       return;
     }
     const patched = apply(original);
+    if (!check(patched)) {
+      throw new Error(`patch did not apply cleanly: ${path} — vendored source may have changed`);
+    }
     ftruncateSync(fd, 0);
     writeSync(fd, patched, 0, "utf8");
     console.log(`  ✓ patched: ${path}`);
@@ -74,19 +77,24 @@ function main(): void {
       pkgJsonPath,
       (c) => c.includes('"./dist/index.mjs"') || c.includes('"./dist/plugin.mjs"'),
       (c) => {
-        const pkg = JSON.parse(c) as {
+        let manifest: {
           main?: string;
           module?: string;
           types?: string;
           exports?: Record<string, unknown>;
           [k: string]: unknown;
         };
+        try {
+          manifest = JSON.parse(c);
+        } catch (err) {
+          throw new Error(`Invalid JSON in ${pkgJsonPath}: ${err instanceof Error ? err.message : String(err)}`);
+        }
         // typescript-preset's entry is plugin.ts; the others use index.ts
         const entry = pkg.name === "@nx-devkit/typescript" ? "plugin" : "index";
-        pkg.main = `./dist/${entry}.mjs`;
-        pkg.module = `./dist/${entry}.mjs`;
-        pkg.types = `./dist/${entry}.d.mts`;
-        pkg.exports = {
+        manifest.main = `./dist/${entry}.mjs`;
+        manifest.module = `./dist/${entry}.mjs`;
+        manifest.types = `./dist/${entry}.d.mts`;
+        manifest.exports = {
           ".": {
             "@nx/nx-source": `./src/${entry}.ts`,
             types: `./dist/${entry}.d.mts`,
@@ -107,7 +115,7 @@ function main(): void {
             : {}),
           "./package.json": "./package.json",
         };
-        return `${JSON.stringify(pkg, null, 2)}\n`;
+        return `${JSON.stringify(manifest, null, 2)}\n`;
       },
     );
   }
@@ -119,7 +127,7 @@ function main(): void {
     if (pkg.name === "@nx-devkit/skill") {
       patchFile(
         pluginPath,
-        (c) => c.includes("rel.startsWith('vendor/')"),
+        (c) => c.includes("rel.startsWith('vendor/')") && c.includes("[projectRoot]:"),
         (c) => {
           if (!c.includes("rel.startsWith('vendor/')")) {
             c = c.replace(
@@ -139,7 +147,7 @@ function main(): void {
       const executorPath = resolve(pkgDir, "src/executors/build/executor.ts");
       patchFile(
         executorPath,
-        (c) => c.includes("'--project'"),
+        (c) => c.includes("'--project'") && c.includes("'--out-dir'"),
         (c) =>
           c
             .replace("'--out',", "'--out-dir',")
@@ -148,7 +156,7 @@ function main(): void {
     } else {
       patchFile(
         pluginPath,
-        (c) => c.includes("projectRoot.startsWith('vendor/')"),
+        (c) => c.includes("projectRoot.startsWith('vendor/')") && c.includes("[projectRoot]: project"),
         (c) => {
           if (!c.includes("projectRoot.startsWith('vendor/')")) {
             c = c.replace(
