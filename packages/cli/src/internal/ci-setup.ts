@@ -39,9 +39,14 @@ function detectPackageManagerSetup(root: string): GithubStep[] {
         { name: "Install dependencies", run: "bun install --frozen-lockfile" },
       ];
     case "pnpm":
-      // pnpm/action-setup reads the version from the packageManager field.
+      // pnpm/action-setup reads the version from the packageManager field;
+      // the version input is required when the field is absent.
       return [
-        { name: "Setup pnpm", uses: "pnpm/action-setup@v4" },
+        {
+          name: "Setup pnpm",
+          uses: "pnpm/action-setup@v4",
+          ...(version ? {} : { with: { version: "latest" } }),
+        },
         { name: "Setup Node", uses: "actions/setup-node@v4" },
         { name: "Install dependencies", run: "pnpm install --frozen-lockfile" },
       ];

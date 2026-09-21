@@ -84,6 +84,34 @@ describe("compileGithub — setup injection", () => {
     expect(steps[3]).toMatchObject({ uses: "org/deploy-action@v1" });
   });
 
+  it("continueOnError does not leak into injected setup", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "bun run build", continueOnError: true });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj), SETUP);
+    const yaml = parse(result.artifacts[0]!.content) as {
+      jobs: Record<string, { steps: (YamlJob["steps"][number] & { "continue-on-error"?: boolean })[] }>;
+    };
+    const steps = yaml.jobs["build"]!.steps;
+    expect(steps[1]).toMatchObject({ uses: "oven-sh/setup-bun@v2" });
+    expect(steps[2]).not.toHaveProperty("continue-on-error");
+    expect(steps[3]).toMatchObject({ run: "bun run build", "continue-on-error": true });
+  });
+
+  it("delay sleeps after setup, not before", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "bun run build", delay: "30s" });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+    const result = compileGithub(synthesize(proj), SETUP);
+    const yaml = parse(result.artifacts[0]!.content) as { jobs: Record<string, YamlJob> };
+    const steps = yaml.jobs["build"]!.steps;
+    expect(steps[1]).toMatchObject({ uses: "oven-sh/setup-bun@v2" });
+    expect(steps[3]).toMatchObject({ run: "sleep 30" });
+    expect(steps[4]).toMatchObject({ run: "bun run build" });
+  });
+
   it("omits setup when config not provided (backward compat)", () => {
     const result = compileGithub(makeGraph());
     const yaml = parse(result.artifacts[0]!.content) as { jobs: Record<string, YamlJob> };

@@ -728,11 +728,13 @@ function lowerStep(
     );
   }
 
-  // Apply continueOnError to all run steps (not Checkout/uses steps).
+  // Apply continueOnError to the step's own run commands. Injected setup
+  // stays fail-fast — a failed dependency install must not be ignored.
+  const infraSteps = new Set<GithubStep>(setupSteps(config));
   const steps =
     step.continueOnError !== undefined
       ? rawSteps.map((s) =>
-          s.run !== undefined
+          s.run !== undefined && !infraSteps.has(s)
             ? {
                 ...s,
                 continueOnError:
@@ -1074,10 +1076,9 @@ function lowerOperations(
   const steps: GithubStep[] = [];
   const shortStepId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
 
-  // Every job needs the repository checked out.
-  steps.push(checkoutStep(config));
-  // Toolchain/dependency setup runs right after checkout, before everything else.
-  steps.push(...setupSteps(config));
+  // Every job needs the repository checked out, then toolchain/dependency
+  // setup runs before everything else.
+  steps.push(checkoutStep(config), ...setupSteps(config));
 
   // F-48: delay → sleep after toolchain setup, before the step's own work.
   applyDelay(steps, step);

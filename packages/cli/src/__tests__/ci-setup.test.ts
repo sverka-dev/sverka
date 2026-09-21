@@ -43,6 +43,15 @@ describe("detectCiSetup", () => {
     });
   });
 
+  it("passes an explicit version to pnpm when packageManager is absent", () => {
+    writeFileSync(join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'");
+    const cfg = detectCiSetup(dir);
+    expect(cfg?.setup?.[0]).toMatchObject({
+      uses: "pnpm/action-setup@v4",
+      with: { version: "latest" },
+    });
+  });
+
   it("uses npm ci when package-lock exists, npm install otherwise", () => {
     writeFileSync(join(dir, "package.json"), "{}");
     writeFileSync(join(dir, "package-lock.json"), "{}");
