@@ -25,6 +25,8 @@ permissions:
 
 jobs:
   release:
+    # workflow_dispatch can target any branch — restrict releases to main.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,16 +78,23 @@ jobs:
 
       - name: Publish packages (npm OIDC)
         run: |
+          failed=0
           for pkg in packages/*/package.json; do
             dir=$(dirname "$pkg")
             if [ -f "$dir/dist/index.mjs" ]; then
-              echo "Publishing $(jq -r .name "$pkg")@$(jq -r .version "$pkg")"
-              npm publish "$dir" --access public --provenance
+              name=$(node -p "require('./$pkg').name")
+              version=$(node -p "require('./$pkg').version")
+              echo "Publishing $name@$version"
+              npm publish "$dir" --access public --provenance || failed=1
             fi
           done
+          exit $failed
         env:
           NPM_CONFIG_PROVENANCE: "true"
 
       - name: Restore workspace:* protocol
-        run: git checkout -- packages/*/package.json
+        run: |
+          if [ -n "$(git status --porcelain -- 'packages/*/package.json')" ]; then
+            git checkout -- packages/*/package.json
+          fi
         if: always()
