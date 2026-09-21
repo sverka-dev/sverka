@@ -30,11 +30,11 @@
         "arena": "./dist/bin.mjs",
       },
       "dependencies": {
-        "@agentclientprotocol/sdk": "*",
+        "@agentclientprotocol/sdk": "^1.4.0",
       },
       "devDependencies": {
-        "typescript": "*",
-        "vitest": "*",
+        "typescript": "^5.8.0",
+        "vitest": "^5.0.0",
       },
     },
     "packages/benchmark": {
