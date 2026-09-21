@@ -6,9 +6,9 @@ concurrency:
 
 on:
   workflow_dispatch:
-  # TODO: enable `push: [main]` once the npm OIDC bootstrap has run
-  # (tools:prepare-for-release --trust). Without trusted publishers
-  # configured, a release would version+tag but fail at publish.
+  # Deliberately dispatch-only: enable `push: [main]` once the npm OIDC
+  # bootstrap has run (tools:prepare-for-release --trust). Without trusted
+  # publishers configured, a release would version+tag but fail at publish.
 
 # npm OIDC trusted publishing — no NPM_TOKEN anywhere:
 #   1. id-token: write lets npm exchange the GHA OIDC token for a short-lived
@@ -48,7 +48,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - run: ./node_modules/.bin/nx run-many -t lint build test --exclude=skills-*,pack-skills-*
         env:
