@@ -49,7 +49,7 @@ function bunSteps(version?: string): GithubStep[] {
       uses: "oven-sh/setup-bun@v2",
       ...(version ? { with: { "bun-version": version } } : {}),
     },
-    { name: "Install dependencies", run: "bun install --frozen-lockfile" },
+    { name: "Install dependencies", run: "bun install --frozen-lockfile --ignore-scripts" },
   ];
 }
 
@@ -63,7 +63,7 @@ function pnpmSteps(version?: string): GithubStep[] {
       ...(version ? {} : { with: { version: "latest" } }),
     },
     { name: "Setup Node", uses: "actions/setup-node@v4" },
-    { name: "Install dependencies", run: "pnpm install --frozen-lockfile" },
+    { name: "Install dependencies", run: "pnpm install --frozen-lockfile --ignore-scripts" },
   ];
 }
 
@@ -84,7 +84,9 @@ function npmSteps(root: string, version?: string): GithubStep[] {
       : []),
     {
       name: "Install dependencies",
-      run: existsSync(join(root, "package-lock.json")) ? "npm ci" : "npm install",
+      run: existsSync(join(root, "package-lock.json"))
+        ? "npm ci --ignore-scripts"
+        : "npm install --ignore-scripts",
     },
   ];
 }

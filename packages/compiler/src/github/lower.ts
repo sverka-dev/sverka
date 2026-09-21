@@ -94,12 +94,28 @@ function assemblePipelineTarget(
   triggers: GithubTriggers,
   jobs: readonly GithubJob[],
 ): GithubTargetGraph {
+  // Least privilege (S8264): pipeline permissions become per-job grants and
+  // the workflow-level default is deny-all. Jobs with explicit permissions
+  // (e.g. deploys, safe-outputs) keep theirs.
+  const grants = pipeline.permissions;
+  const jobsWithPermissions =
+    grants === undefined
+      ? jobs
+      : jobs.map((job): GithubJob => {
+          if (job.permissions !== undefined) return job;
+          const permissions: Readonly<Record<string, string>> = job.steps.some(
+            (s) => s.uses?.startsWith("github/codeql-action/upload-sarif@"),
+          )
+            ? { ...grants, "security-events": "write" }
+            : grants;
+          return { ...job, permissions };
+        });
   return {
     name: pipeline.id,
     on: triggers,
-    jobs,
+    jobs: jobsWithPermissions,
     env: collectEnv(pipeline),
-    ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
+    ...(pipeline.permissions !== undefined ? { permissions: {} } : {}),
     ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
     ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
   };

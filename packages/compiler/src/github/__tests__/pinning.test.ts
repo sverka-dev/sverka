@@ -88,7 +88,11 @@ describe("GithubTarget pinning — strict mode (spec 22 items 5, 6)", () => {
       (s: { uses?: string }) => s.uses?.includes("checkout"),
     );
     expect(checkoutStep).toBeDefined();
-    expect(checkoutStep.uses).toBe(`actions/checkout@${CHECKOUT_SHA} # v4`);
+    // ` # v4` is a real YAML comment — GitHub resolves only the ref part.
+    expect(checkoutStep.uses).toBe(`actions/checkout@${CHECKOUT_SHA}`);
+    expect(result.artifacts[0]!.content).toContain(
+      `uses: actions/checkout@${CHECKOUT_SHA} # v4`,
+    );
   });
 
   it("6. emits an error unpinned-action diagnostic for a missing registry entry", () => {

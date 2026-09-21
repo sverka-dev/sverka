@@ -24,7 +24,9 @@ describe("detectCiSetup", () => {
     writeFileSync(join(dir, "package.json"), "{}");
     const cfg = detectCiSetup(dir);
     expect(cfg?.setup?.[0]).toMatchObject({ uses: "oven-sh/setup-bun@v2" });
-    expect(cfg?.setup?.[1]).toMatchObject({ run: "bun install --frozen-lockfile" });
+    expect(cfg?.setup?.[1]).toMatchObject({
+      run: "bun install --frozen-lockfile --ignore-scripts",
+    });
   });
 
   it("packageManager field wins over lockfiles", () => {
@@ -55,7 +57,7 @@ describe("detectCiSetup", () => {
   it("uses npm ci when package-lock exists, npm install otherwise", () => {
     writeFileSync(join(dir, "package.json"), "{}");
     writeFileSync(join(dir, "package-lock.json"), "{}");
-    expect(detectCiSetup(dir)?.setup?.at(-1)).toMatchObject({ run: "npm ci" });
+    expect(detectCiSetup(dir)?.setup?.at(-1)).toMatchObject({ run: "npm ci --ignore-scripts" });
   });
 
   it("emits recursive submodule checkout when .gitmodules exists", () => {

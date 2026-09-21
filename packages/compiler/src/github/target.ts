@@ -30,7 +30,7 @@ export class GithubTarget implements Target {
 
   private readonly pinningMode: "strict" | "off";
   private readonly pinningRegistry: PinRegistry;
-  private readonly config?: GithubTargetConfig;
+  private readonly config: GithubTargetConfig | undefined;
 
   constructor(config?: GithubTargetConfig) {
     const pinning = config?.pinning;
