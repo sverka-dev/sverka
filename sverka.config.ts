@@ -46,6 +46,7 @@ const lintSarif = new ShellStep(ci, "lint-sarif", {
 const policy = new ShellStep(ci, "policy", {
   command:
     "bun packages/cli/src/bin.ts policy --findings \"$(find eslint.sarif -name '*.sarif' | head -n1)\"",
+  runtime: { shell: "sh" },
   inputs: [{ kind: "step", step: lintSarif.node.id, output: "eslint.sarif", type: "artifact" }],
   beforeScript: [...nxPlugins, "bun run build"],
 });

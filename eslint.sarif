@@ -1,0 +1,1304 @@
+{
+  "version": "2.1.0",
+  "$schema": "http://json.schemastore.org/sarif-2.1.0-rtm.5",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "ESLint",
+          "informationUri": "https://eslint.org",
+          "rules": [],
+          "version": "10.10.0"
+        }
+      },
+      "artifacts": [
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/arena/src/acp.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/arena/src/adapters/devin.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/arena/src/bin.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/arena/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/arena/src/judge.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/arena/src/runner.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/arena/src/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/benchmark/src/arena.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/benchmark/src/bin.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/benchmark/src/collector.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/benchmark/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/benchmark/src/tasks.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/benchmark/src/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/bin.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/check.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/compile.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/discover.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/doctor.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/graph.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/init.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/mcp-server.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/plan.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/policy.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/run.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/synth.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/ui.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/validate.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/commands/view.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/buffering-writer.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/ci-setup.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/config-hooks.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/config.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/detect.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/graph.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/mcp-tools.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/paths.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/runtime-check.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/internal/version.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/main.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/output.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/cli/src/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/capabilities.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/emit.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/importer.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/lower.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/pinning.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/target.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/github/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/gitlab/capabilities.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/gitlab/emit.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/gitlab/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/gitlab/importer.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/gitlab/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/gitlab/lower.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/gitlab/target.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/gitlab/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/plugin/capabilities.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/plugin/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/plugin/factory.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/plugin/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/plugin/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/compiler/src/stdout-capture.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/playground/src/app.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/playground/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/playground/src/pipeline.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/playground/src/runner.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/playground/src/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/plugin-mcp/src/client.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/plugin-mcp/src/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/plugin-mcp/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/dag-layout.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/findings-collector.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/html-renderer.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/ink-renderer.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/policy-gate.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/reducer.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/text-renderer.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/tui-model.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/reporter/src/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/agent-driver.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/artifact-store.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/cache-store.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/engine.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/internal/sort-keys.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/refs.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/retry.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/scheduler.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/snapshot-store.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/step-executor.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/engine-native/value-store.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-docker/cache.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-docker/config.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-docker/docker-driver.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-docker/docker-executor.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-docker/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-docker/image.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-docker/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-docker/internal/docker-cli.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-host/allowlist.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-host/config.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-host/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-host/host-driver.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-host/host-executor.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime-host/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/cache.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/executor.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/internal/parse.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/internal/resource-pool.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/internal/retry.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/internal/scheduler-helpers.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/internal/state-persist.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/internal/topo.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/result.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/scheduler.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/runtime/src/runtime/state-store.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-tui/src/bin.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-tui/src/filter-model.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-tui/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-tui/src/input.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-tui/src/render.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-tui/src/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-tui/src/viewer.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-web/src/bin.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-web/src/html-generator.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-web/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-web/src/input.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-web/src/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sarif-viewer-web/src/viewer.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/agent.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/artifact.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/call-pipeline.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/compat/config.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/compat/convert.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/compat/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/compat/helpers.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/compat/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/compat/internal/plan-runtime.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/compat/sverka.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/compat/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/component.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/context.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/dollar.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/expr.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/images.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/internal/is-reference.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/internal/proxy-props.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/pipeline.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/planner/bind.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/planner/detect.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/planner/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/planner/explain.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/planner/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/planner/internal/git-cli.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/planner/matrix.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/planner/planner.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/shell.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/status.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/sverka.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/sdk/src/when.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/storage/src/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/storage/src/file-store.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/storage/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/storage/src/internal/io-helpers.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/storage/src/internal/serialize.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/storage/src/sqlite-store.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/ui/src/dashboard.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/ui/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/ui/src/server.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/checks/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/checks/extract.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/checks/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/checks/resolver.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/checks/synthesize.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/baseline.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/fingerprint.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/input-helpers.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/normalize.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/resolve-input.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/search.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/serialize.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/suppress.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/test-helpers.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/findings/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/policy/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/policy/evaluator.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/policy/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/policy/policy.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/policy/types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/verification/src/policy/verify.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/cdk/constructs.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/cdk/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/cdk/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/cdk/model.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/composables/matrix.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/composables/parallel.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/composables/pipeline.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/composables/run.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/composables/when.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/composables/workflow.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/expand-calls.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/graph.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/internal/canonical.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/internal/conditions.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/internal/ids.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/internal/merge.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/internal/node.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/internal/plan.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/operation.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/planner-types.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/runtime.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/synthesize.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/validate-calls.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/core/validate.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/canonical.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/compat/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/compat/graph.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/compat/ids.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/compat/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/compat/plan.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/compat/serialize.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/compat/validate.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/compat/version.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/errors.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/ids.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/index.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/run-plan.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/serialize.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/validate.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///env/workspace/sverka/packages/workflow/src/ir/version.ts"
+          }
+        }
+      ],
+      "results": [],
+      "invocations": [
+        {
+          "toolConfigurationNotifications": [
+            {
+              "level": "warning",
+              "message": {
+                "text": "Unused eslint-disable directive (no problems were reported from 'no-await-in-loop')."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "file:///env/workspace/sverka/packages/arena/src/judge.ts",
+                      "index": 4
+                    },
+                    "region": {
+                      "startLine": 211,
+                      "startColumn": 7
+                    }
+                  }
+                }
+              ],
+              "descriptor": {
+                "id": "ESL0999"
+              }
+            }
+          ],
+          "executionSuccessful": true
+        }
+      ]
+    }
+  ]
+}

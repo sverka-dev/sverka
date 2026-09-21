@@ -139,6 +139,7 @@ jobs:
           path: eslint.sarif
       - run: bun packages/cli/src/bin.ts policy --findings "$(find eslint.sarif -name
           '*.sarif' | head -n1)"
+        shell: sh
   audit:
     name: audit
     runs-on: ubuntu-latest
