@@ -133,4 +133,12 @@ export interface CompilationResult {
 export interface GithubTargetConfig {
   /** Action SHA pinning policy; defaults to `{ mode: "off" }` with the bundled registry. */
   readonly pinning?: PinningConfig;
+  /**
+   * Steps injected into every job after Checkout and before the step's own
+   * operations — toolchain setup (`uses:` actions) and dependency installs
+   * (`run:` commands) the target runner does not provide.
+   */
+  readonly setup?: readonly GithubStep[];
+  /** Extra `with:` inputs merged into the Checkout step of every job. */
+  readonly checkoutWith?: Record<string, unknown>;
 }

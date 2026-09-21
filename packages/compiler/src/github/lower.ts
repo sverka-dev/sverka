@@ -13,6 +13,7 @@ import type {
   GithubDefaultsRun,
   GithubInput,
   GithubService,
+  GithubTargetConfig,
 } from "./types.js";
 import { GithubTargetError } from "./errors.js";
 import { wrapStdoutCaptureLine } from "../stdout-capture.js";
@@ -25,7 +26,10 @@ import { wrapStdoutCaptureLine } from "../stdout-capture.js";
  * - Call steps become `uses:` jobs.
  * Single-pipeline graphs (no calls) are unchanged (backward compat).
  */
-export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph | readonly GithubTargetGraph[] {
+export function lowerGithub(
+  graph: DefinitionGraph,
+  config?: GithubTargetConfig,
+): GithubTargetGraph | readonly GithubTargetGraph[] {
   if (graph.project.pipelines.length === 0) {
     throw new GithubTargetError("graph has no pipelines", "INVALID_GRAPH");
   }
@@ -37,23 +41,46 @@ export function lowerGithub(graph: DefinitionGraph): GithubTargetGraph | readonl
       (s) => s.call || s.component || s.childPipeline || s.downstream,
     );
     if (!hasSpecial) {
-      return lowerSinglePipeline(pipeline);
+      return lowerSinglePipeline(pipeline, config);
     }
   }
 
   // Multi-pipeline or has special steps → lower all pipelines.
-  return lowerMultiPipeline(graph);
+  return lowerMultiPipeline(graph, config);
+}
+
+/**
+ * The Checkout step shared by every job, with optional `with:` inputs
+ * (e.g. `submodules: recursive`) from {@link GithubTargetConfig.checkoutWith}.
+ */
+function checkoutStep(config?: GithubTargetConfig): GithubStep {
+  return {
+    name: "Checkout",
+    uses: "actions/checkout@v4",
+    ...(config?.checkoutWith ? { with: config.checkoutWith } : {}),
+  };
+}
+
+/**
+ * Toolchain/dependency setup steps injected after Checkout in every job
+ * that executes user commands (shell and component steps).
+ */
+function setupSteps(config?: GithubTargetConfig): readonly GithubStep[] {
+  return config?.setup ?? [];
 }
 
 /**
  * Lower a single pipeline (no calls) — original v0 behavior.
  */
-function lowerSinglePipeline(pipeline: PipelineDefinition): GithubTargetGraph {
+function lowerSinglePipeline(
+  pipeline: PipelineDefinition,
+  config?: GithubTargetConfig,
+): GithubTargetGraph {
   const reachableSteps = filterReachableSteps(pipeline);
   const jobIdMap = buildJobIdMap(reachableSteps);
 
   const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
-  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
+  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id, config);
 
   return assemblePipelineTarget(pipeline, triggers, jobs);
 }
@@ -93,13 +120,16 @@ function lowerDefaults(defaults: PipelineDefaults): GithubDefaults {
  * Lower a multi-pipeline graph. Each pipeline that has entries OR is referenced
  * by a call step gets its own workflow file.
  */
-function lowerMultiPipeline(graph: DefinitionGraph): readonly GithubTargetGraph[] {
+function lowerMultiPipeline(
+  graph: DefinitionGraph,
+  config?: GithubTargetConfig,
+): readonly GithubTargetGraph[] {
   const pipelines = graph.project.pipelines;
   const calledPipelineIds = collectCalledPipelineIds(pipelines);
 
   const result: GithubTargetGraph[] = [];
   for (const pipeline of pipelines) {
-    const target = lowerPipelineInGraph(pipeline, calledPipelineIds.has(pipeline.id));
+    const target = lowerPipelineInGraph(pipeline, calledPipelineIds.has(pipeline.id), config);
     if (target !== undefined) result.push(target);
   }
   return result;
@@ -127,6 +157,7 @@ function collectCalledPipelineIds(pipelines: readonly PipelineDefinition[]): Set
 function lowerPipelineInGraph(
   pipeline: PipelineDefinition,
   isCalled: boolean,
+  config?: GithubTargetConfig,
 ): GithubTargetGraph | undefined {
   const hasEntries = pipeline.entries.length > 0;
   if (!hasEntries && !isCalled) return undefined;
@@ -142,7 +173,7 @@ function lowerPipelineInGraph(
     triggers = addWorkflowCall(triggers, pipeline.inputs);
   }
 
-  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id);
+  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id, config);
   return assemblePipelineTarget(pipeline, triggers, jobs);
 }
 
@@ -467,13 +498,14 @@ function lowerStepsWithCalls(
   steps: readonly StepDefinition[],
   jobIdMap: Map<string, string>,
   pipelineId: string,
+  config?: GithubTargetConfig,
 ): readonly GithubJob[] {
   return steps.map((step) => {
     if (step.call) {
       return lowerCallStep(step, jobIdMap, pipelineId);
     }
     if (step.component) {
-      return lowerComponentStep(step, jobIdMap);
+      return lowerComponentStep(step, jobIdMap, config);
     }
     if (step.childPipeline) {
       return lowerChildPipelineStep(step, jobIdMap);
@@ -481,7 +513,7 @@ function lowerStepsWithCalls(
     if (step.downstream) {
       return lowerDownstreamStep(step, jobIdMap);
     }
-    return lowerStep(step, jobIdMap);
+    return lowerStep(step, jobIdMap, config);
   });
 }
 
@@ -559,6 +591,7 @@ function lowerCallStep(
 function lowerComponentStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  config?: GithubTargetConfig,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -583,7 +616,8 @@ function lowerComponentStep(
       runsOn: resolveRunsOn(step),
       needs,
       steps: [
-        { name: "Checkout", uses: "actions/checkout@v4" },
+        checkoutStep(config),
+        ...setupSteps(config),
         {
           name: `Component ${comp.name}`,
           uses: `${comp.name}@${comp.version}`,
@@ -678,9 +712,13 @@ function lowerDownstreamStep(
 /**
  * Lower a single Step to a GitHub job.
  */
-function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJob {
+function lowerStep(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+  config?: GithubTargetConfig,
+): GithubJob {
   const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const rawSteps = lowerOperations(step, jobIdMap);
+  const rawSteps = lowerOperations(step, jobIdMap, config);
 
   // GitHub only supports boolean continue-on-error, not exit-code mapping.
   if (step.continueOnError !== undefined && typeof step.continueOnError !== "boolean") {
@@ -690,26 +728,9 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
     );
   }
 
-  // Apply continueOnError to all run steps (not Checkout/uses steps).
-  const steps =
-    step.continueOnError !== undefined
-      ? rawSteps.map((s) =>
-          s.run !== undefined
-            ? {
-                ...s,
-                continueOnError:
-                  typeof step.continueOnError === "boolean"
-                    ? step.continueOnError
-                    : true,
-              }
-            : s,
-        )
-      : [...rawSteps];
+  const steps = applyContinueOnError(rawSteps, step, config);
 
   const jobId = jobIdMap.get(step.id) ?? step.id;
-
-  // F-48: delay → emulated via sleep step (GitHub has no native delayed execution).
-  applyDelay(steps, step);
 
   const runtime = step.runtime;
   const mode = runtime.mode ?? "host";
@@ -721,18 +742,38 @@ function lowerStep(step: StepDefinition, jobIdMap: Map<string, string>): GithubJ
 }
 
 /**
+ * Apply continueOnError to the step's own run commands. Injected setup
+ * stays fail-fast — a failed dependency install must not be ignored.
+ */
+function applyContinueOnError(
+  rawSteps: readonly GithubStep[],
+  step: StepDefinition,
+  config?: GithubTargetConfig,
+): GithubStep[] {
+  const infraSteps = new Set<GithubStep>(setupSteps(config));
+  return rawSteps.map((s) =>
+    step.continueOnError !== undefined && s.run !== undefined && !infraSteps.has(s)
+      ? {
+          ...s,
+          continueOnError:
+            typeof step.continueOnError === "boolean" ? step.continueOnError : true,
+        }
+      : s,
+  );
+}
+
+/**
  * Insert a sleep step to emulate delay (GitHub has no native delayed execution).
+ * Called after checkout + setup steps are pushed, so the delay precedes the
+ * step's own work but does not postpone toolchain setup.
  */
 function applyDelay(steps: GithubStep[], step: StepDefinition): void {
   if (!step.delay) return;
   const sleepSeconds = parseDurationToSeconds(step.delay);
-  // Insert sleep step after checkout (which is always first).
-  if (steps.length > 0) {
-    steps.splice(1, 0, {
-      name: `Delay (${step.delay})`,
-      run: `sleep ${sleepSeconds}`,
-    });
-  }
+  steps.push({
+    name: `Delay (${step.delay})`,
+    run: `sleep ${sleepSeconds}`,
+  });
 }
 
 /**
@@ -1035,15 +1076,17 @@ function lowerDependencies(
 function lowerOperations(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  config?: GithubTargetConfig,
 ): readonly GithubStep[] {
   const steps: GithubStep[] = [];
   const shortStepId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
 
-  // Every job needs the repository checked out.
-  steps.push({
-    name: "Checkout",
-    uses: "actions/checkout@v4",
-  });
+  // Every job needs the repository checked out, then toolchain/dependency
+  // setup runs before everything else.
+  steps.push(checkoutStep(config), ...setupSteps(config));
+
+  // F-48: delay → sleep after toolchain setup, before the step's own work.
+  applyDelay(steps, step);
 
   // Spec 26: network allowlist annotation (GHA has no native per-job egress control).
   if (step.runtime.network && step.runtime.network.allowed.length > 0) {
