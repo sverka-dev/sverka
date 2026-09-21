@@ -7,128 +7,18 @@ checks once in TypeScript. Run locally with one command. Compile to CI
 optionally. AI-agent friendly — one command replaces dozens of tool-call
 round-trips.
 
-## Tech stack
+## Devin plugin
 
-- **Language:** TypeScript (strict, ESM)
-- **Runtime:** Node.js 24+, Bun
-- **Package manager:** Bun (workspaces)
-- **Monorepo:** Nx
-- **Build:** tsdown
-- **Test:** Vitest
-- **Lint:** ESLint
-- **Format:** Prettier
+This repo is a Devin plugin. `devin plugins install sverka-dev/sverka`
+exposes the `sverka` skill (`/sverka:sverka`) — a thin wrapper that drives
+the `sverka` CLI for check detection, config authoring, `sverka plan`,
+`sverka run`, and `sverka validate`. All mechanics live in the CLI; the
+skill carries usage policy only.
 
-## Structure
+## Working on sverka itself
 
-```
-packages/
-  workflow/         # cdk + core + ir — constructs, graph model, canonical plan
-  runtime/          # engine-native + runtime-host + runtime-docker — scheduler, executors
-  compiler/        # github + gitlab + temporal + dagger + inngest + drone targets + plugin framework
-  verification/     # findings + policy + checks + sarif pipeline
-  sdk/              # public TypeScript API, including planner
-  cli/              # command-line interface (includes mcp-server)
-  plugin-mcp/       # MCP plugin: load external MCP servers as tools
-  reporter/         # report generation
-  storage/          # persistence layer
-  ui/               # local web dashboard for SARIF findings
-  sarif-viewer-tui/ # terminal SARIF viewer
-  sarif-viewer-web/ # standalone HTML report generator for SARIF
-  playground/       # browser sandbox for building and running check pipelines
-  arena/            # conformance arena
-  benchmark/        # performance benchmarking
-website/            # sverka.dev minimalistic site
-specs/              # numbered spec tree (SDD)
-engdocs/            # engineering docs (document-first)
-```
-
-## Conventions
-
-- **SDD:** Specs are written first, in `specs/`, numbered and structured.
-- **TDD:** Tests are written before implementation. Always.
-- **Document-first:** Engineering docs in `engdocs/` before code.
-- **Waves:** Work is organized in waves. Each wave: architect -> builder -> reviewer.
-- **No `any`:** Use `unknown` and narrow. Strict TypeScript.
-- **Public API:** Everything public is exported from `src/index.ts`.
-- **Error handling:** Custom error classes per package.
-
-## Current Product Focus
-
-Sverka is a **local-first check runner for AI agents**. The core value
-proposition: one `sverka run --format json` replaces N tool-call
-round-trips. CI compilation is optional, not the headline. SaaS/browser
-execution is deferred.
-
-Key features in active development:
-- `sverka run --format json` — per-step results (stepId, status, durationMs,
-  error, stdout, stderr, exitCode)
-- `sverka init --detect` — generate config from detected project checks
-- `sverka validate` — validate Definition Graph; warns on unknown props
-- `dependsOn` — string step IDs; validate catches typos
-- Dependency inference from data flow (output ref → auto-dep)
-- SARIF findings via `outputs: { "x.sarif": { type: "artifact", fromStdout: true } }`
-  + `sverka run --evaluate`
-- Shell steps run with **cwd = project root**; `runtime.workingDir` is
-  repo-relative. `exportArtifact`/`importArtifact` paths are repo-relative
-  (GitLab `artifacts:paths` semantics). Per-step scratch lives under
-  `.sverka/workspace/<stepId>` — use `$SVERKA_OUTPUT_DIR` for step outputs.
-
-## Known Issues
-
-- **`sverka validate` warns on unknown props.** Step/Entry/Pipeline
-  constructors attach `sverka:warning` metadata for props not in the known
-  set; `loadProjectGraph` returns them and `validate`/`run` print them.
-  (`dependencies:` instead of `dependsOn:` now warns instead of silently
-  dropping the wiring.)
-- ~~**~20 empty package directories**~~ Removed: only stale `dist/` +
-  `node_modules/` residue remained. Real code lives as subdirs inside
-  `workflow`/`runtime`/`compiler`/`sdk`/`verification`.
-- ~~**v0 compilers coexist with v1.**~~ Deleted: `compiler-github/` +
-  `compiler-gitlab/` (Plan-based `compileGithubWorkflow`/`compileGitlabCi`,
-  unused). `github/target.ts` + `gitlab/target.ts` (DefinitionGraph) remain.
-
-## Critical Audit Findings (2026-02 session) — RESOLVED
-
-- ~~**Findings/policy/SARIF pipeline disconnected.**~~ Fixed: `exportStdout`
-  op + `fromStdout` output declaration writes captured stdout into the
-  artifact dir (even on step failure). `collectFindings` now errors when the
-  artifact dir is missing instead of a false `verdict:pass`. `ruff check`
-  resolves with `--output-format=sarif` + SARIF output declaration.
-- ~~**AI agent JSON output too shallow.**~~ Fixed: step results include
-  `stdout`, `stderr`, `exitCode` (truncated at 10KB per stream).
-- ~~**CDK-style `dependsOn` Step objects.**~~ Reverted: `dependsOn` takes
-  string IDs only; `sverka validate` catches typos.
-- **11s startup overhead.** `sverka run` takes 11s before first command starts
-  (config load + tsx register). 10-line bash script does same parallelism in 1.4s.
-- ~~**Tests test structure not behavior.**~~ Integration test now exercises the
-  real SARIF pipeline (step emits SARIF on stdout → artifact → collectFindings
-  → policy gate) instead of a manually placed fixture + invalid `dependencies`
-  prop.
-- ~~**Dead compilers.**~~ Deleted: temporal/dagger/inngest/drone (36 files) +
-  orphaned `internal/` + `__tests__/helpers/`.
-
-## Commands
-
-```bash
-bun install          # install dependencies
-bun run build        # build all packages (tsdown via nx)
-bun run test         # run all tests (vitest via nx); NOTE: `bun test` runs Bun's built-in runner, not vitest
-bun run lint         # lint all packages
-bun run typecheck    # typecheck all packages
-```
-
-## Gas City
-
-This project is orchestrated by Gas City. The mayor agent plans and dispatches
-all work. Agents: mayor (orchestrator), architect (specs/design), builder
-(implementation), reviewer (quality gate).
-
-All work flows through the mayor. Use formulas in `formulas/` for multi-step
-orchestration.
-
-**Model:** All agents use `DEVIN_MODEL=glm-5-2` (GLM-5.2 High, free tier).
-This is set in `city.toml` at the `[workspace]` env level. Do not override
-this with a paid model.
+See `engdocs/contributing/guide.md` for tech stack, monorepo layout,
+conventions (SDD, TDD, waves), build commands, and Gas City orchestration.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
 ## Beads Issue Tracker
