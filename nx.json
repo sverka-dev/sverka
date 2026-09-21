@@ -22,7 +22,15 @@
     "projectsRelationship": "fixed",
     "version": {
       "conventionalCommits": true,
-      "fallbackCurrentVersionResolver": "disk"
+      "fallbackCurrentVersionResolver": "disk",
+      "git": {
+        "push": true
+      }
+    },
+    "changelog": {
+      "git": {
+        "push": true
+      }
     },
     "releaseTag": {
       "pattern": "v{version}"

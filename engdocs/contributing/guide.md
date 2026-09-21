@@ -34,15 +34,36 @@ hardlink at install time). Re-run it after `git submodule update --remote`.
 
 ## Releases
 
-`nx release` versions all `@sverka/*` packages via conventional commits
-(`release.projects` in `nx.json`, tag pattern `v{version}`). Publishing
-runs in `.github/workflows/publish.yml` on `v*` tags.
+`nx release` versions all `@sverka/*` packages in lockstep via conventional
+commits (`release.projects` + `projectsRelationship: "fixed"` in `nx.json`,
+tag pattern `v{version}`). `.github/workflows/release.yml` runs the pipeline:
+gates → `nx release version` (bump + commit + tag + push) → `nx release
+changelog` (GitHub release) → publish. It is `workflow_dispatch`-only until
+the npm bootstrap below has run — then the `push: [main]` trigger can be
+enabled.
 
-`tools:prepare-for-release` is a **manual** bootstrap, not part of the
-pipeline: run `nx run tools:prepare-for-release` once per new package to
-publish a `0.0.0` placeholder, which lets npm trusted publishing (OIDC)
-be configured for the package name. It is idempotent — already-published
-packages are skipped.
+Publishing is **tokenless** — npm OIDC trusted publishing (`id-token: write`,
+`registry-url` on setup-node, `NPM_CONFIG_PROVENANCE`). The publish step is a
+plain `npm publish` loop, not `nx release publish`: npm refuses `workspace:*`
+protocols and `bun publish` has no OIDC support. `scripts/prepare-publish.mjs`
+rewrites `workspace:*` → `^<version>` in the working tree before publish
+(restored afterwards; the pushed release commit keeps `workspace:*`).
+
+### One-time npm bootstrap (manual, requires MFA)
+
+Trusted publishing can only be configured for packages that already exist on
+npm. After `npm login`:
+
+```bash
+bunx nx run tools:prepare-for-release --trust --trustRepo=sverka-dev/sverka
+```
+
+This publishes `0.0.0` placeholders for any unpublished `@sverka/*` package,
+then runs `npm trust github <pkg> --file release.yml --repo sverka-dev/sverka
+--allow-publish` for all of them (the `--file` name is hardcoded in the
+executor — the workflow must stay `release.yml`). Idempotent; re-run it when
+adding a new publishable package. Requires npm >= 11.5.1 locally
+(`npm i -g npm@latest`).
 
 ## Tech stack
 
