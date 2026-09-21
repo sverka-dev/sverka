@@ -33,11 +33,25 @@ const test = new ShellStep(ci, "test", {
   beforeScript: nxPlugins,
 });
 
-// Emits SARIF on stdout → collected as a finding artifact for --evaluate.
+// Emits SARIF on stdout → collected as a finding artifact for the policy
+// gate. Always exits 0: eslint exits 1 on findings, and a failed step would
+// skip the artifact export — policy is the gate, not eslint's exit code.
 const lintSarif = new ShellStep(ci, "lint-sarif", {
-  command: "bun run lint:sarif",
+  command: "bun run lint:sarif || true",
   runtime: { shell: "sh" },
   outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
+});
+
+// Policy gate on the lint SARIF (Spec 16). DEFAULT_POLICY fails on any
+// high-severity finding and on new medium-severity findings (no baseline).
+// The artifact lands as a bare file locally and under <name>/<name> in CI
+// (download-artifact treats `path` as a directory) — `find` resolves both.
+const policy = new ShellStep(ci, "policy", {
+  command:
+    "bun packages/cli/src/bin.ts policy --findings \"$(find eslint.sarif -type f -name '*.sarif' | head -n1)\"",
+  runtime: { shell: "sh" },
+  inputs: [{ kind: "step", step: lintSarif.node.id, output: "eslint.sarif", type: "artifact" }],
+  beforeScript: [...nxPlugins, "bun run build"],
 });
 
 // Dependency vulnerabilities (bun audit exits non-zero on findings).
@@ -54,7 +68,7 @@ export const onPush = new Entry(ci, "on-push", {
   trigger: push(),
   roots: [
     test.node.id, // pulls build → typecheck → lint via dependsOn
-    lintSarif.node.id,
+    policy.node.id, // pulls lint-sarif via artifact input
     audit.node.id,
     doctor.node.id,
   ],
