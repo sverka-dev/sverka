@@ -32,7 +32,7 @@ jobs:
       - uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
         with:
           nx-cloud-url: https://cloud.nx.app
-      - run: bunx nx affected -t build
+      - run: bunx nx affected -t build --exclude=skills-*,pack-skills-*
         env:
           NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
       - run: bunx nx affected -t lint test

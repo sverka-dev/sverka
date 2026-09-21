@@ -19,7 +19,7 @@
  * Once these are upstreamed and the submodule pointer is updated, this
  * script can be deleted.
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, ftruncateSync, openSync, readFileSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
@@ -33,18 +33,27 @@ const PKGS = [
 ] as const;
 
 function patchFile(path: string, check: (content: string) => boolean, apply: (content: string) => string): void {
-  if (!existsSync(path)) {
+  // Single open fd for read + write — no check-then-act window (CodeQL js/file-system-race).
+  let fd: number;
+  try {
+    fd = openSync(path, "r+");
+  } catch {
     console.warn(`  ! not found: ${path}`);
     return;
   }
-  const original = readFileSync(path, "utf8");
-  if (check(original)) {
-    console.log(`  ✓ already patched: ${path}`);
-    return;
+  try {
+    const original = readFileSync(fd, "utf8");
+    if (check(original)) {
+      console.log(`  ✓ already patched: ${path}`);
+      return;
+    }
+    const patched = apply(original);
+    ftruncateSync(fd, 0);
+    writeSync(fd, patched, 0, "utf8");
+    console.log(`  ✓ patched: ${path}`);
+  } finally {
+    closeSync(fd);
   }
-  const patched = apply(original);
-  writeFileSync(path, patched, "utf8");
-  console.log(`  ✓ patched: ${path}`);
 }
 
 function main(): void {
