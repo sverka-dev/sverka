@@ -34,7 +34,8 @@
     "typecheck": "nx typecheck"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.4.0"
+    "@agentclientprotocol/sdk": "^1.4.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "vitest": "^5.0.0",
