@@ -128,7 +128,7 @@ function main(): void {
             );
           }
           c = c.replace(
-            /projects:\s*\{\s*\n\s*\[projectName\]:\s*\{\s*\n\s*targets,/,
+            /projects:[^\S\n]*\{[^\S\n]*\n[^\S\n]*\[projectName\]:[^\S\n]*\{[^\S\n]*\n[^\S\n]*targets,/,
             "projects: {\n              [projectRoot]: {\n                name: projectName,\n                root: projectRoot,\n                targets,",
           );
           return c;
@@ -157,7 +157,7 @@ function main(): void {
             );
           }
           c = c.replace(
-            /const project:\s*ProjectConfiguration\s*=\s*\{\s*\n\s*root:/,
+            /const project:[^\S\n]*ProjectConfiguration[^\S\n]*=[^\S\n]*\{[^\S\n]*\n[^\S\n]*root:/,
             "const project: ProjectConfiguration = {\n        name: projectName,\n        root:",
           );
           c = c.replace(
