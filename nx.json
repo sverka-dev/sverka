@@ -19,6 +19,7 @@
       "verification",
       "workflow"
     ],
+    "projectsRelationship": "fixed",
     "version": {
       "conventionalCommits": true,
       "fallbackCurrentVersionResolver": "disk"
