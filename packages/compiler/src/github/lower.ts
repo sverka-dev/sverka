@@ -728,23 +728,7 @@ function lowerStep(
     );
   }
 
-  // Apply continueOnError to the step's own run commands. Injected setup
-  // stays fail-fast — a failed dependency install must not be ignored.
-  const infraSteps = new Set<GithubStep>(setupSteps(config));
-  const steps =
-    step.continueOnError !== undefined
-      ? rawSteps.map((s) =>
-          s.run !== undefined && !infraSteps.has(s)
-            ? {
-                ...s,
-                continueOnError:
-                  typeof step.continueOnError === "boolean"
-                    ? step.continueOnError
-                    : true,
-              }
-            : s,
-        )
-      : [...rawSteps];
+  const steps = applyContinueOnError(rawSteps, step, config);
 
   const jobId = jobIdMap.get(step.id) ?? step.id;
 
@@ -755,6 +739,27 @@ function lowerStep(
   const jobEnv = collectJobEnv(runtime);
 
   return assembleGithubJob({ jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap });
+}
+
+/**
+ * Apply continueOnError to the step's own run commands. Injected setup
+ * stays fail-fast — a failed dependency install must not be ignored.
+ */
+function applyContinueOnError(
+  rawSteps: readonly GithubStep[],
+  step: StepDefinition,
+  config?: GithubTargetConfig,
+): GithubStep[] {
+  const infraSteps = new Set<GithubStep>(setupSteps(config));
+  return rawSteps.map((s) =>
+    step.continueOnError !== undefined && s.run !== undefined && !infraSteps.has(s)
+      ? {
+          ...s,
+          continueOnError:
+            typeof step.continueOnError === "boolean" ? step.continueOnError : true,
+        }
+      : s,
+  );
 }
 
 /**
