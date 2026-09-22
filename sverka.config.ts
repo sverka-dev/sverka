@@ -72,7 +72,7 @@ const doctor = new ShellStep(ci, "doctor", {
 // mask a failed compile when the emitted YAML happens to match.
 const drift = new ShellStep(ci, "workflow-drift", {
   command:
-    "f=$(mktemp) && bun packages/cli/src/bin.ts compile --target github --pin > \"$f\" && diff \"$f\" .github/workflows/sverka.yml",
+    "f=$(mktemp) && trap 'rm -f \"$f\"' EXIT && bun packages/cli/src/bin.ts compile --target github --pin > \"$f\" && diff \"$f\" .github/workflows/sverka.yml",
   runtime: { shell: "sh" },
   beforeScript: [...nxPlugins, "bun run build"],
 });
