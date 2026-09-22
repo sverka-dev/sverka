@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sverka-dev/sverka",
+    "url": "git+https://github.com/sverka-dev/sverka.git",
     "directory": "packages/benchmark"
   },
   "homepage": "https://sverka.dev",
@@ -32,7 +32,7 @@
     "dist"
   ],
   "bin": {
-    "sverka-benchmark": "./dist/bin.mjs"
+    "sverka-benchmark": "dist/bin.mjs"
   },
   "scripts": {
     "build": "tsdown",

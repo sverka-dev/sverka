@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sverka-dev/sverka",
+    "url": "git+https://github.com/sverka-dev/sverka.git",
     "directory": "packages/sarif-viewer-web"
   },
   "homepage": "https://sverka.dev",
@@ -28,7 +28,7 @@
     }
   },
   "bin": {
-    "sarif-viewer-web": "./dist/bin.mjs"
+    "sarif-viewer-web": "dist/bin.mjs"
   },
   "files": [
     "dist"

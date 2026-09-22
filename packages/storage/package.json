@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sverka-dev/sverka",
+    "url": "git+https://github.com/sverka-dev/sverka.git",
     "directory": "packages/storage"
   },
   "homepage": "https://sverka.dev",

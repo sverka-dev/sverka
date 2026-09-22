@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sverka-dev/sverka",
+    "url": "git+https://github.com/sverka-dev/sverka.git",
     "directory": "packages/arena"
   },
   "homepage": "https://sverka.dev",
@@ -23,7 +23,9 @@
       "import": "./dist/index.mjs"
     }
   },
-  "bin": { "arena": "./dist/bin.mjs" },
+  "bin": {
+    "arena": "dist/bin.mjs"
+  },
   "files": [
     "dist"
   ],
