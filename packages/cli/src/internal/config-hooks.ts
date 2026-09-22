@@ -9,27 +9,54 @@
 // Re-resolving through the standard resolver keeps package exports intact,
 // so subpath imports (e.g. "@sverka/sdk/planner") work the same way.
 
-// Synchronous signature: `module.registerHooks` (in-thread hooks) requires
-// sync hooks, and `module.register` (off-thread) accepts them too.
+type ResolveContext = { parentURL?: string } & Record<string, unknown>;
+type ResolveResult = { url: string };
+type NextResolve = (
+  specifier: string,
+  context: ResolveContext,
+) => ResolveResult | Promise<ResolveResult>;
+
+// nextResolve is synchronous under module.registerHooks (in-thread hooks)
+// but returns a rejecting Promise under the deprecated module.register
+// (worker hooks) — handle both so the @sverka/* fallback fires either way.
+function onResolveFailure(
+  specifier: string,
+  context: ResolveContext,
+  nextResolve: NextResolve,
+  error: unknown,
+): ResolveResult | Promise<ResolveResult> {
+  if (!specifier.startsWith("@sverka/")) throw error;
+  try {
+    const fallback = nextResolve(specifier, {
+      ...context,
+      parentURL: import.meta.url,
+    });
+    if (fallback instanceof Promise) {
+      return fallback.catch(() => {
+        throw error;
+      });
+    }
+    return fallback;
+  } catch {
+    throw error;
+  }
+}
+
 export function resolve(
   specifier: string,
-  context: { parentURL?: string } & Record<string, unknown>,
-  nextResolve: (
-    specifier: string,
-    context: unknown,
-  ) => { url: string },
-): { url: string } {
+  context: ResolveContext,
+  nextResolve: NextResolve,
+): ResolveResult | Promise<ResolveResult> {
+  let result: ResolveResult | Promise<ResolveResult>;
   try {
-    return nextResolve(specifier, context);
+    result = nextResolve(specifier, context);
   } catch (e) {
-    if (!specifier.startsWith("@sverka/")) throw e;
-    try {
-      return nextResolve(specifier, {
-        ...context,
-        parentURL: import.meta.url,
-      });
-    } catch {
-      throw e;
-    }
+    return onResolveFailure(specifier, context, nextResolve, e);
   }
+  if (result instanceof Promise) {
+    return result.catch((e) =>
+      onResolveFailure(specifier, context, nextResolve, e),
+    );
+  }
+  return result;
 }
