@@ -197,6 +197,6 @@ jobs:
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run build:nx-plugins
       - run: bun run build
-      - run: bun packages/cli/src/bin.ts compile --target github --pin | diff -
-          .github/workflows/sverka.yml
+      - run: f=$(mktemp) && bun packages/cli/src/bin.ts compile --target github --pin >
+          "$f" && diff "$f" .github/workflows/sverka.yml
         shell: sh

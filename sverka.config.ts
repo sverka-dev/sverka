@@ -67,9 +67,12 @@ const doctor = new ShellStep(ci, "doctor", {
 // Drift guard: .github/workflows/sverka.yml must equal `compile --pin`
 // output — catches edits to the generated file (e.g. dependabot bumps
 // that belong in the compiler's pinned-actions registry instead).
+// compile exits non-zero on error diagnostics (e.g. unpinned actions),
+// so its exit code is propagated explicitly — a bare `| diff` would
+// mask a failed compile when the emitted YAML happens to match.
 const drift = new ShellStep(ci, "workflow-drift", {
   command:
-    "bun packages/cli/src/bin.ts compile --target github --pin | diff - .github/workflows/sverka.yml",
+    "f=$(mktemp) && bun packages/cli/src/bin.ts compile --target github --pin > \"$f\" && diff \"$f\" .github/workflows/sverka.yml",
   runtime: { shell: "sh" },
   beforeScript: [...nxPlugins, "bun run build"],
 });

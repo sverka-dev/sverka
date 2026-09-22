@@ -47,6 +47,15 @@ export async function compileCommand(
         })
       : compileGitlab(graph);
 
+  // Surface diagnostics on stderr — stdout must stay clean YAML for pipes
+  // (e.g. `compile --pin | diff - workflow.yml`). Error-severity findings
+  // (e.g. unpinned actions in --pin mode) fail the command.
+  let hasError = false;
+  for (const d of result.diagnostics) {
+    output.errorLine(`[${d.severity}] ${d.capability}: ${d.message}`);
+    if (d.severity === "error") hasError = true;
+  }
+
   const yaml = result.artifacts.map((a) => a.content).join("\n---\n");
 
   if (args.output) {
@@ -79,5 +88,5 @@ export async function compileCommand(
     }
   }
 
-  return ExitCode.Success;
+  return hasError ? ExitCode.RuntimeError : ExitCode.Success;
 }
