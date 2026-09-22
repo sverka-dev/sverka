@@ -5,10 +5,9 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-  # Deliberately dispatch-only: enable `push: [main]` once the npm OIDC
-  # bootstrap has run (tools:prepare-for-release --trust). Without trusted
-  # publishers configured, a release would version+tag but fail at publish.
 
 # npm OIDC trusted publishing — no NPM_TOKEN anywhere:
 #   1. id-token: write lets npm exchange the GHA OIDC token for a short-lived
@@ -51,6 +50,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}"
+          # Queued runs checkout the SHA of their push event, which may be
+          # behind main's tip — the release push would then be rejected as
+          # non-fast-forward. Catch up first; ff-only fails loudly if the
+          # checkout somehow diverged.
+          git fetch origin main
+          git merge --ff-only origin/main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -65,14 +70,29 @@ jobs:
       # Tag and push happen in the changelog step so the release commit +
       # CHANGELOG commit + tag land atomically — a failed changelog leaves
       # nothing pushed and the run can simply be re-dispatched.
+      # `released=false` when no conventional-commit bump applied (docs/ci/chore
+      # merges, or the workflow's own release commits retriggering this run) —
+      # downstream steps must skip or they'd fail on the already-existing tag.
+      # Detection compares HEAD before/after: a run triggered BY a release
+      # commit already has a "chore(release)" subject, so subject alone is
+      # not sufficient.
       - name: Version packages (bump, commit)
-        run: ./node_modules/.bin/nx release version
+        id: version
+        run: |
+          before_head="$(git rev-parse HEAD)"
+          ./node_modules/.bin/nx release version
+          if [ "$before_head" != "$(git rev-parse HEAD)" ] && git log -1 --format=%s | grep -q "^chore(release)"; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
         env:
           NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
 
       # plugin.json tracks the released version — fold it into the release
       # commit (nothing is pushed until the changelog step's --atomic push).
       - name: Sync plugin.json version
+        if: steps.version.outputs.released == 'true'
         run: |
           node -e "
             const fs = require('fs');
@@ -88,6 +108,7 @@ jobs:
           fi
 
       - name: Changelog + GitHub release
+        if: steps.version.outputs.released == 'true'
         # Standalone changelog requires the version positionally; fixed group
         # means every manifest carries it — read it from cli.
         run: ./node_modules/.bin/nx release changelog "$(node -p "require('./packages/cli/package.json').version")"
@@ -97,8 +118,10 @@ jobs:
       # Rewrite workspace:* -> ^<version> in the working tree only (the release
       # commit already pushed). Restored after publish.
       - run: node scripts/prepare-publish.mjs
+        if: steps.version.outputs.released == 'true'
 
       - name: Publish packages (npm OIDC)
+        if: steps.version.outputs.released == 'true'
         run: |
           failed=0
           for pkg in packages/*/package.json; do
