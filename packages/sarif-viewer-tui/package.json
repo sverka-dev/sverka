@@ -1,6 +1,6 @@
 {
   "name": "@sverka/sarif-viewer-tui",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Sverka SARIF viewer TUI — standalone Ink-based terminal viewer for SARIF files",
   "license": "MIT",
   "repository": {
