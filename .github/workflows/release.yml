@@ -50,6 +50,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}"
+          # Queued runs checkout the SHA of their push event, which may be
+          # behind main's tip — the release push would then be rejected as
+          # non-fast-forward. Catch up first; ff-only fails loudly if the
+          # checkout somehow diverged.
+          git fetch origin main
+          git merge --ff-only origin/main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -67,11 +73,15 @@ jobs:
       # `released=false` when no conventional-commit bump applied (docs/ci/chore
       # merges, or the workflow's own release commits retriggering this run) —
       # downstream steps must skip or they'd fail on the already-existing tag.
+      # Detection compares HEAD before/after: a run triggered BY a release
+      # commit already has a "chore(release)" subject, so subject alone is
+      # not sufficient.
       - name: Version packages (bump, commit)
         id: version
         run: |
+          before_head="$(git rev-parse HEAD)"
           ./node_modules/.bin/nx release version
-          if git log -1 --format=%s | grep -q "^chore(release)"; then
+          if [ "$before_head" != "$(git rev-parse HEAD)" ] && git log -1 --format=%s | grep -q "^chore(release)"; then
             echo "released=true" >> "$GITHUB_OUTPUT"
           else
             echo "released=false" >> "$GITHUB_OUTPUT"
