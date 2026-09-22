@@ -163,6 +163,31 @@ describe("compile command", () => {
   it("exits 2 for invalid target", async () => {
     await runExpectingExit2(["compile", "--target", "bad", "--root", getDir()]);
   });
+
+  it("prints diagnostics to stderr and exits 3 on error-severity findings", async () => {
+    // Two OIDC audiences → secrets.oidc.multiAudience → unsupported on github
+    // → error diagnostic (stdout must still carry clean YAML).
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["compile", "--target", "github", "--root", dir],
+      dir,
+      "sverka.config.ts",
+      `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "build", {
+  command: "echo build",
+  identity: { tokens: { a: { audience: "aud-a" }, b: { audience: "aud-b" } } },
+});
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+export default proj;
+`,
+    );
+    expect(code).toBe(3);
+    expect(out.stderrText).toContain("secrets.oidc.multiAudience");
+    expect(out.stderrText).toContain("[error]");
+    expect(out.stdoutText).toContain("jobs:");
+  });
 });
 
 describe("synth command (delegates to compile)", () => {
