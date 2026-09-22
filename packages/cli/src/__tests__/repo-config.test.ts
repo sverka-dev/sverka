@@ -57,7 +57,13 @@ describe("repository sverka.config.ts (e2e fixture)", () => {
       "--root",
       REPO_ROOT,
     ]);
-    expect(gitlab.code).toBe(0);
+    // The repo config uses capabilities gitlab cannot honor
+    // (execution.shell, environment.permissions) — unsupported features
+    // are error-severity diagnostics, so compile fails loudly instead of
+    // emitting a workflow that silently drops them.
+    expect(gitlab.code).toBe(3);
+    expect(gitlab.out.stderrText).toContain("environment.permissions");
+    expect(gitlab.out.stderrText).toContain("execution.shell");
     expect(gitlab.out.stdoutText).toContain("eslint.sarif");
     expect(gitlab.out.stdoutText).toContain("when: always");
   });
