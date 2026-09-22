@@ -6,6 +6,7 @@ import { expandPipelineCalls } from "@sverka/workflow";
 import type { MatrixSpec, MatrixValue, StepRef, StatusCondition, StepStatus, Input, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec, InputLiteral } from "@sverka/workflow";
 import type { GitlabTargetGraph, GitlabJob, GitlabRule, GitlabDefault, GitlabSpecInput, GitlabService, GitlabEnvironment, GitlabCache, GitlabComponentInclude, GitlabLocalInclude, GitlabTrigger, GitlabRelease, GitlabPages, GitlabWorkflowRule } from "./types.js";
 import { GitlabTargetError } from "./errors.js";
+import { buildJobIdMap } from "../job-ids.js";
 import { shellQuoteSingle, wrapStdoutCaptureLine } from "../stdout-capture.js";
 
 const DOTENV_REPORT_FILE = "sverka.env";
@@ -302,28 +303,6 @@ function buildJobRulesMap(
     }
     const jobId = jobIdMap.get(step.id)!;
     map.set(jobId, rules);
-  }
-
-  return map;
-}
-
-/**
- * Build a mapping from full step IDs to GitLab-safe job IDs.
- */
-function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
-  const map = new Map<string, string>();
-  const used = new Set<string>();
-
-  for (const step of steps) {
-    const shortId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
-    let jobId = shortId;
-    let suffix = 1;
-    while (used.has(jobId)) {
-      jobId = `${shortId}-${suffix}`;
-      suffix++;
-    }
-    used.add(jobId);
-    map.set(step.id, jobId);
   }
 
   return map;

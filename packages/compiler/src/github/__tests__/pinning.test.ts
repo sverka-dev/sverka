@@ -58,8 +58,8 @@ describe("loadBundledRegistry — spec 22 item 8", () => {
   it("includes the actions currently emitted by github/lower.ts", () => {
     const reg = loadBundledRegistry();
     expect(reg["actions/checkout@v4"]).toBeDefined();
-    expect(reg["actions/upload-artifact@v4"]).toBeDefined();
-    expect(reg["actions/download-artifact@v4"]).toBeDefined();
+    expect(reg["actions/upload-artifact@v7"]).toBeDefined();
+    expect(reg["actions/download-artifact@v8"]).toBeDefined();
     expect(reg["actions/cache@v4"]).toBeDefined();
     expect(reg["actions/cache/restore@v4"]).toBeDefined();
     expect(reg["actions/cache/save@v4"]).toBeDefined();

@@ -28,18 +28,39 @@ export function detectCiSetup(root: string): GithubTargetConfig | undefined {
 
 function detectPackageManagerSetup(root: string): GithubStep[] {
   const { name, version } = detectPackageManager(root);
+  if (name === "bun") return bunSteps(version);
+  if (name === undefined) return [];
+  const node = setupNodeStep(root);
   switch (name) {
-    case "bun":
-      return bunSteps(version);
     case "pnpm":
-      return pnpmSteps(version);
+      return pnpmSteps(version, node);
     case "yarn":
-      return yarnSteps(version);
+      return yarnSteps(version, node);
     case "npm":
-      return npmSteps(root, version);
+      return npmSteps(root, version, node);
     default:
       return [];
   }
+}
+
+/** setup-node step — pins Node from engines.node (a semver range), else lts. */
+function setupNodeStep(root: string): GithubStep {
+  return {
+    name: "Setup Node",
+    uses: "actions/setup-node@v7",
+    with: { "node-version": nodeVersion(root) },
+  };
+}
+
+function nodeVersion(root: string): string {
+  try {
+    const raw = readFileSync(join(root, "package.json"), "utf8");
+    const engines = (JSON.parse(raw) as { engines?: { node?: unknown } }).engines?.node;
+    if (typeof engines === "string" && engines.trim() !== "") return engines;
+  } catch {
+    // fall through to lts
+  }
+  return "lts/*";
 }
 
 function bunSteps(version?: string): GithubStep[] {
@@ -53,7 +74,7 @@ function bunSteps(version?: string): GithubStep[] {
   ];
 }
 
-function pnpmSteps(version?: string): GithubStep[] {
+function pnpmSteps(version: string | undefined, node: GithubStep): GithubStep[] {
   // pnpm/action-setup reads the version from the packageManager field;
   // the version input is required when the field is absent.
   return [
@@ -62,23 +83,23 @@ function pnpmSteps(version?: string): GithubStep[] {
       uses: "pnpm/action-setup@v4",
       ...(version ? {} : { with: { version: "latest" } }),
     },
-    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    node,
     { name: "Install dependencies", run: "pnpm install --frozen-lockfile --ignore-scripts" },
   ];
 }
 
-function yarnSteps(version?: string): GithubStep[] {
+function yarnSteps(version: string | undefined, node: GithubStep): GithubStep[] {
   // Corepack activates the yarn version declared in packageManager.
   return [
-    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    node,
     ...(version ? [{ name: "Enable Corepack", run: "corepack enable" } as GithubStep] : []),
     { name: "Install dependencies", run: "yarn install" },
   ];
 }
 
-function npmSteps(root: string, version?: string): GithubStep[] {
+function npmSteps(root: string, version: string | undefined, node: GithubStep): GithubStep[] {
   return [
-    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    node,
     ...(version
       ? [{ name: "Pin npm", run: `npm install -g "npm@${version}"` } as GithubStep]
       : []),

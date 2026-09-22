@@ -16,6 +16,7 @@ import type {
   GithubTargetConfig,
 } from "./types.js";
 import { GithubTargetError } from "./errors.js";
+import { buildJobIdMap } from "../job-ids.js";
 import { wrapStdoutCaptureLine } from "../stdout-capture.js";
 
 /**
@@ -310,30 +311,6 @@ function enqueueIfNew(
     reachable.add(id);
     queue.push(id);
   }
-}
-
-/**
- * Build a mapping from full step IDs (e.g., "ci/lint") to GitHub-safe
- * job IDs (e.g., "lint"). If there are collisions, append a suffix.
- */
-function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
-  const map = new Map<string, string>();
-  const used = new Set<string>();
-
-  for (const step of steps) {
-    // Use the last segment of the path as the job ID.
-    const shortId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
-    let jobId = shortId;
-    let suffix = 1;
-    while (used.has(jobId)) {
-      jobId = `${shortId}-${suffix}`;
-      suffix++;
-    }
-    used.add(jobId);
-    map.set(step.id, jobId);
-  }
-
-  return map;
 }
 
 /**
@@ -1158,7 +1135,7 @@ function lowerOperations(
       steps.push({
         name: `Upload ${name}`,
         if: "always()",
-        uses: "actions/upload-artifact@v4",
+        uses: "actions/upload-artifact@v7",
         with: {
           name: artifactName(shortStepId, name),
           path: step.runtime.workingDir
@@ -1242,7 +1219,7 @@ function lowerOperation(
       flushRun();
       steps.push({
         name: `Upload ${op.name}`,
-        uses: "actions/upload-artifact@v4",
+        uses: "actions/upload-artifact@v7",
         with: {
           name: artifactName(shortStepId, op.name),
           path: op.path,
@@ -1329,7 +1306,7 @@ function lowerImportArtifact(op: Extract<OperationDefinition, { kind: "importArt
   const fromShort = op.from.includes("/") ? op.from.split("/").pop()! : op.from;
   steps.push({
     name: `Download ${op.output}`,
-    uses: "actions/download-artifact@v4",
+    uses: "actions/download-artifact@v8",
     with: { name: artifactName(fromShort, op.output), path: op.output },
   });
 }
@@ -1398,7 +1375,7 @@ function lowerReport(spec: ReportSpec): GithubStep {
       // No standard action — upload as generic artifact
       return {
         name: `Upload ${spec.type} report`,
-        uses: "actions/upload-artifact@v4",
+        uses: "actions/upload-artifact@v7",
         with: { name: `${spec.type}-report`, path: spec.path },
       };
   }
