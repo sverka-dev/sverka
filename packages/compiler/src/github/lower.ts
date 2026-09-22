@@ -16,6 +16,7 @@ import type {
   GithubTargetConfig,
 } from "./types.js";
 import { GithubTargetError } from "./errors.js";
+import { buildJobIdMap } from "../job-ids.js";
 import { wrapStdoutCaptureLine } from "../stdout-capture.js";
 
 /**
@@ -310,30 +311,6 @@ function enqueueIfNew(
     reachable.add(id);
     queue.push(id);
   }
-}
-
-/**
- * Build a mapping from full step IDs (e.g., "ci/lint") to GitHub-safe
- * job IDs (e.g., "lint"). If there are collisions, append a suffix.
- */
-function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
-  const map = new Map<string, string>();
-  const used = new Set<string>();
-
-  for (const step of steps) {
-    // Use the last segment of the path as the job ID.
-    const shortId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
-    let jobId = shortId;
-    let suffix = 1;
-    while (used.has(jobId)) {
-      jobId = `${shortId}-${suffix}`;
-      suffix++;
-    }
-    used.add(jobId);
-    map.set(step.id, jobId);
-  }
-
-  return map;
 }
 
 /**
