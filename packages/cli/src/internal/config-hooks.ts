@@ -9,20 +9,22 @@
 // Re-resolving through the standard resolver keeps package exports intact,
 // so subpath imports (e.g. "@sverka/sdk/planner") work the same way.
 
-export async function resolve(
+// Synchronous signature: `module.registerHooks` (in-thread hooks) requires
+// sync hooks, and `module.register` (off-thread) accepts them too.
+export function resolve(
   specifier: string,
   context: { parentURL?: string } & Record<string, unknown>,
   nextResolve: (
     specifier: string,
     context: unknown,
-  ) => Promise<{ url: string }>,
-): Promise<{ url: string }> {
+  ) => { url: string },
+): { url: string } {
   try {
-    return await nextResolve(specifier, context);
+    return nextResolve(specifier, context);
   } catch (e) {
     if (!specifier.startsWith("@sverka/")) throw e;
     try {
-      return await nextResolve(specifier, {
+      return nextResolve(specifier, {
         ...context,
         parentURL: import.meta.url,
       });
