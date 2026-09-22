@@ -1,3 +1,13 @@
+## 0.1.4 (2026-09-22)
+
+### 🩹 Fixes
+
+- **cli:** use module.registerHooks when available ([#207](https://github.com/sverka-dev/sverka/pull/207))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.3 (2026-09-22)
 
 ### 🚀 Features
