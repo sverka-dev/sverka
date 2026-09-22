@@ -450,7 +450,7 @@ describe("compileGithub — reports", () => {
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     const steps = yaml.jobs.perf.steps as Record<string, unknown>[];
-    const reportStep = steps.find((s) => s.uses === "actions/upload-artifact@v4");
+    const reportStep = steps.find((s) => s.uses === "actions/upload-artifact@v7");
     expect(reportStep).toBeDefined();
   });
 });
@@ -905,7 +905,7 @@ describe("compileGithub — scalar outputs (F-23)", () => {
 
 // F-24: Artifact outputs — exportArtifact → upload-artifact action
 describe("compileGithub — artifact outputs (F-24)", () => {
-  it("lowers exportArtifact to actions/upload-artifact@v4", () => {
+  it("lowers exportArtifact to actions/upload-artifact@v7", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
@@ -919,7 +919,7 @@ describe("compileGithub — artifact outputs (F-24)", () => {
       (s: { uses?: string }) => s.uses?.startsWith("actions/upload-artifact"),
     );
     expect(uploadStep).toBeDefined();
-    expect(uploadStep.uses).toBe("actions/upload-artifact@v4");
+    expect(uploadStep.uses).toBe("actions/upload-artifact@v7");
     expect(uploadStep.with.name).toBe("build-dist");
     expect(uploadStep.with.path).toBe("dist/");
   });
@@ -927,7 +927,7 @@ describe("compileGithub — artifact outputs (F-24)", () => {
 
 // F-25: Artifact import — importArtifact → download-artifact action
 describe("compileGithub — artifact import (F-25)", () => {
-  it("lowers importArtifact to actions/download-artifact@v4", () => {
+  it("lowers importArtifact to actions/download-artifact@v8", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
@@ -945,7 +945,7 @@ describe("compileGithub — artifact import (F-25)", () => {
       (s: { uses?: string }) => s.uses?.startsWith("actions/download-artifact"),
     );
     expect(downloadStep).toBeDefined();
-    expect(downloadStep.uses).toBe("actions/download-artifact@v4");
+    expect(downloadStep.uses).toBe("actions/download-artifact@v8");
     expect(downloadStep.with.name).toBe("build-dist");
     expect(downloadStep.with.path).toBe("dist");
   });

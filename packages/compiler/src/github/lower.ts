@@ -1158,7 +1158,7 @@ function lowerOperations(
       steps.push({
         name: `Upload ${name}`,
         if: "always()",
-        uses: "actions/upload-artifact@v4",
+        uses: "actions/upload-artifact@v7",
         with: {
           name: artifactName(shortStepId, name),
           path: step.runtime.workingDir
@@ -1242,7 +1242,7 @@ function lowerOperation(
       flushRun();
       steps.push({
         name: `Upload ${op.name}`,
-        uses: "actions/upload-artifact@v4",
+        uses: "actions/upload-artifact@v7",
         with: {
           name: artifactName(shortStepId, op.name),
           path: op.path,
@@ -1329,7 +1329,7 @@ function lowerImportArtifact(op: Extract<OperationDefinition, { kind: "importArt
   const fromShort = op.from.includes("/") ? op.from.split("/").pop()! : op.from;
   steps.push({
     name: `Download ${op.output}`,
-    uses: "actions/download-artifact@v4",
+    uses: "actions/download-artifact@v8",
     with: { name: artifactName(fromShort, op.output), path: op.output },
   });
 }
@@ -1398,7 +1398,7 @@ function lowerReport(spec: ReportSpec): GithubStep {
       // No standard action — upload as generic artifact
       return {
         name: `Upload ${spec.type} report`,
-        uses: "actions/upload-artifact@v4",
+        uses: "actions/upload-artifact@v7",
         with: { name: `${spec.type}-report`, path: spec.path },
       };
   }

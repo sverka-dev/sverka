@@ -47,7 +47,7 @@ describe("repository sverka.config.ts (e2e fixture)", () => {
       REPO_ROOT,
     ]);
     expect(github.code).toBe(0);
-    expect(github.out.stdoutText).toContain("actions/upload-artifact@v4");
+    expect(github.out.stdoutText).toContain("actions/upload-artifact@v7");
     expect(github.out.stdoutText).toContain("eslint.sarif");
 
     const gitlab = await run([

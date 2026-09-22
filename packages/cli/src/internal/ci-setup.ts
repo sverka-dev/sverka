@@ -62,7 +62,7 @@ function pnpmSteps(version?: string): GithubStep[] {
       uses: "pnpm/action-setup@v4",
       ...(version ? {} : { with: { version: "latest" } }),
     },
-    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    { name: "Setup Node", uses: "actions/setup-node@v7" },
     { name: "Install dependencies", run: "pnpm install --frozen-lockfile --ignore-scripts" },
   ];
 }
@@ -70,7 +70,7 @@ function pnpmSteps(version?: string): GithubStep[] {
 function yarnSteps(version?: string): GithubStep[] {
   // Corepack activates the yarn version declared in packageManager.
   return [
-    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    { name: "Setup Node", uses: "actions/setup-node@v7" },
     ...(version ? [{ name: "Enable Corepack", run: "corepack enable" } as GithubStep] : []),
     { name: "Install dependencies", run: "yarn install" },
   ];
@@ -78,7 +78,7 @@ function yarnSteps(version?: string): GithubStep[] {
 
 function npmSteps(root: string, version?: string): GithubStep[] {
   return [
-    { name: "Setup Node", uses: "actions/setup-node@v4" },
+    { name: "Setup Node", uses: "actions/setup-node@v7" },
     ...(version
       ? [{ name: "Pin npm", run: `npm install -g "npm@${version}"` } as GithubStep]
       : []),

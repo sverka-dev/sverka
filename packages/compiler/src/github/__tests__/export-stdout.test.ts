@@ -58,7 +58,7 @@ describe("compileGithub — exportStdout", () => {
     };
     const job = yaml.jobs["lint-sarif"]!;
     const upload = job.steps.find(
-      (s) => s.uses === "actions/upload-artifact@v4",
+      (s) => s.uses === "actions/upload-artifact@v7",
     );
     expect(upload).toBeDefined();
     // The runtime writes the stdout artifact even on step failure, so the
@@ -79,7 +79,7 @@ describe("compileGithub — exportStdout", () => {
     expect(runStep!.run).toContain("> 'eslint.sarif'");
     expect(runStep!.run).toContain("tee 'eslint-copy.sarif'");
     const uploads = job.steps.filter(
-      (s) => s.uses === "actions/upload-artifact@v4",
+      (s) => s.uses === "actions/upload-artifact@v7",
     );
     expect(uploads).toHaveLength(2);
   });
@@ -94,7 +94,7 @@ describe("compileGithub — exportStdout", () => {
       >;
     };
     const upload = yaml.jobs["lint-sarif"]!.steps.find(
-      (s) => s.uses === "actions/upload-artifact@v4",
+      (s) => s.uses === "actions/upload-artifact@v7",
     );
     // The run step executes in working-directory, so the file lands at
     // packages/app/eslint.sarif — the upload path must point there.
