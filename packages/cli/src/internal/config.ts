@@ -4,6 +4,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { readFileSync, existsSync } from "node:fs";
 import { register } from "node:module";
+import * as nodeModule from "node:module";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { join, resolve, isAbsolute, dirname, sep } from "node:path";
 import type { Project } from "@sverka/workflow";
@@ -31,15 +32,30 @@ function findHooksFile(): string | null {
  * packages from its own location falls back to the copies bundled with the
  * CLI. This makes a globally-installed `sverka` self-contained.
  */
-function registerConfigHooks(): void {
+async function registerConfigHooks(): Promise<void> {
   if (hooksRegistered) return;
   const hooksFile = findHooksFile();
   if (hooksFile === null) return;
+  const href = pathToFileURL(hooksFile).href;
   try {
-    register(pathToFileURL(hooksFile).href);
+    // Prefer registerHooks (in-thread) when available: module.register is
+    // deprecated (DEP0205) on Node 24.5+ and prints a warning per call.
+    const registerHooks = (nodeModule as { registerHooks?: unknown })
+      .registerHooks;
+    if (typeof registerHooks === "function") {
+      const hooks = (await import(href)) as { resolve?: unknown };
+      if (typeof hooks.resolve === "function") {
+        registerHooks.call(nodeModule, {
+          resolve: hooks.resolve,
+        });
+        hooksRegistered = true;
+        return;
+      }
+    }
+    register(href);
     hooksRegistered = true;
   } catch {
-    // module.register unavailable — fall back to normal resolution
+    // hook registration unavailable — fall back to normal resolution
   }
 }
 
@@ -137,7 +153,7 @@ export async function loadConfig(configPath: string): Promise<Project> {
 
   let mod: Record<string, unknown>;
   try {
-    registerConfigHooks();
+    await registerConfigHooks();
     mod = await import(pathToFileURL(absPath).href);
   } catch (e) {
     throw new CliError(
