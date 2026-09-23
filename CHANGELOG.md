@@ -1,3 +1,14 @@
+## 0.1.9 (2026-09-23)
+
+### 🚀 Features
+
+- **arena:** sverka-arena CLI — run, report, doctor ([#218](https://github.com/sverka-dev/sverka/pull/218))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.8 (2026-09-23)
 
 ### 🩹 Fixes
