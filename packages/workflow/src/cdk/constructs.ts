@@ -104,26 +104,44 @@ const PIPELINE_PROPS: ReadonlySet<string> = new Set([
   "includes",
 ]);
 
+/** PipelineProps with collection fields normalized to non-optional. */
+type NormalizedPipelineProps = PipelineProps & {
+  inputs: Readonly<Record<string, Input>>;
+  rules: ReadonlyArray<PipelineRule>;
+  includes: ReadonlyArray<IncludeRef>;
+};
+
 /** Resolve Pipeline's overloaded constructor arguments. */
 function resolvePipelineArgs(
   scopeOrId: Project | string,
   idOrProps: string | PipelineProps | undefined,
   props: PipelineProps | undefined,
-): { scope: Project; id: string; pipelineProps: PipelineProps | undefined } {
+): { scope: Project; id: string; pipelineProps: NormalizedPipelineProps } {
+  let scope: Project;
+  let id: string;
+  let raw: PipelineProps | undefined;
   if (typeof scopeOrId === "string") {
-    return {
-      scope: new Project("default"),
-      id: scopeOrId,
-      pipelineProps: idOrProps as PipelineProps | undefined,
-    };
+    scope = new Project("default");
+    id = scopeOrId;
+    raw = idOrProps as PipelineProps | undefined;
+  } else {
+    if (!(scopeOrId instanceof Project)) {
+      throw new ConstructError(
+        "INVALID_SCOPE",
+        "Pipeline must be created under a Project",
+      );
+    }
+    scope = scopeOrId;
+    id = idOrProps as string;
+    raw = props;
   }
-  if (!(scopeOrId instanceof Project)) {
-    throw new ConstructError(
-      "INVALID_SCOPE",
-      "Pipeline must be created under a Project",
-    );
-  }
-  return { scope: scopeOrId, id: idOrProps as string, pipelineProps: props };
+  // Collection fields get defaults so the constructor stays branch-free;
+  // unknown keys pass through for warnUnknownProps.
+  return {
+    scope,
+    id,
+    pipelineProps: { inputs: {}, rules: [], includes: [], ...(raw ?? {}) },
+  };
 }
 
 /**
@@ -170,25 +188,25 @@ export class Pipeline extends Construct {
       }
       throw err;
     }
-    this.inputs = new Map(Object.entries(pipelineProps?.inputs ?? {}));
-    if (pipelineProps?.name !== undefined) {
+    this.inputs = new Map(Object.entries(pipelineProps.inputs));
+    if (pipelineProps.name !== undefined) {
       this.name = pipelineProps.name;
     }
-    if (pipelineProps?.runName !== undefined) {
+    if (pipelineProps.runName !== undefined) {
       this.runName = pipelineProps.runName;
     }
-    if (pipelineProps?.permissions !== undefined) {
+    if (pipelineProps.permissions !== undefined) {
       this.permissions = pipelineProps.permissions;
     }
-    if (pipelineProps?.defaults !== undefined) {
+    if (pipelineProps.defaults !== undefined) {
       this.defaults = pipelineProps.defaults;
     }
-    if (pipelineProps?.concurrency !== undefined) {
+    if (pipelineProps.concurrency !== undefined) {
       this.concurrency = pipelineProps.concurrency;
     }
-    this.rules = [...(pipelineProps?.rules ?? [])];
-    this.includes = [...(pipelineProps?.includes ?? [])];
-    warnUnknownProps(this, pipelineProps ?? {}, PIPELINE_PROPS);
+    this.rules = [...pipelineProps.rules];
+    this.includes = [...pipelineProps.includes];
+    warnUnknownProps(this, pipelineProps, PIPELINE_PROPS);
   }
 }
 
