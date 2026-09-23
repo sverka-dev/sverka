@@ -119,4 +119,33 @@ describe("sverka-arena bin", () => {
     expect(await main([], io)).toBe(2);
     expect(c.stderr).toContain("usage");
   });
+
+  it("unknown --option exits 2 instead of becoming positional", async () => {
+    const { c, io } = capture();
+    const code = await main(["doctor", "--forma", "json"], io);
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("unknown option '--forma'");
+  });
+
+  it("flag missing its value exits 2", async () => {
+    const { c, io } = capture();
+    const code = await main(["run", "--out"], io);
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("--out requires a value");
+  });
+
+  it("flag followed by another option exits 2", async () => {
+    const { c, io } = capture();
+    const code = await main(["run", "--out", "--format", "json"], io);
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("--out requires a value");
+  });
+
+  it("report exits 2 on a results file with wrong shape", async () => {
+    writeFileSync(join(dir, "not-results.json"), JSON.stringify({ ok: 1 }));
+    const { c, io } = capture();
+    const code = await main(["report", join(dir, "not-results.json")], io);
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("not a sverka-arena results file");
+  });
 });

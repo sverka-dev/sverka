@@ -28,14 +28,13 @@ const ADAPTERS: Readonly<Record<string, () => AgentAdapter>> = {
 };
 
 export function resolveAdapter(name: string): AgentAdapter {
-  const factory = ADAPTERS[name];
-  if (!factory) {
+  if (!Object.hasOwn(ADAPTERS, name)) {
     throw new ArenaError(
       `unknown agent '${name}' — registered adapters: ${Object.keys(ADAPTERS).join(", ")}`,
       "UNKNOWN_AGENT",
     );
   }
-  return factory();
+  return ADAPTERS[name]!();
 }
 
 // ─── Schema ──────────────────────────────────────────────────────────

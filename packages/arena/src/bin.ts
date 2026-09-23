@@ -6,8 +6,8 @@
 
 import process from "node:process";
 import { readFile } from "node:fs/promises";
-import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { delimiter, join, resolve } from "node:path";
 
 import type { ArenaResult } from "./types.js";
 import { ArenaError, loadArenaConfig } from "./config.js";
@@ -43,12 +43,17 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let command: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    if (arg === "--config") config = argv[++i] ?? config;
-    else if (arg === "--out") out = argv[++i];
-    else if (arg === "--format") {
-      const f = argv[++i];
-      if (f === "json" || f === "text") format = f;
-      else throw new ArenaError(`invalid --format '${f}'`, "CONFIG_INVALID");
+    if (arg === "--config" || arg === "--out" || arg === "--format") {
+      const val = argv[++i];
+      if (val === undefined || val.startsWith("--")) {
+        throw new ArenaError(`${arg} requires a value`, "CONFIG_INVALID");
+      }
+      if (arg === "--config") config = val;
+      else if (arg === "--out") out = val;
+      else if (val === "json" || val === "text") format = val;
+      else throw new ArenaError(`invalid --format '${val}'`, "CONFIG_INVALID");
+    } else if (arg.startsWith("--")) {
+      throw new ArenaError(`unknown option '${arg}'`, "CONFIG_INVALID");
     } else if (command === undefined) command = arg;
     else positional.push(arg);
   }
@@ -56,12 +61,14 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 }
 
 function which(bin: string): boolean {
-  try {
-    execFileSync("which", [bin], { stdio: ["pipe", "pipe", "pipe"] });
-    return true;
-  } catch {
-    return false;
+  const exts =
+    process.platform === "win32"
+      ? ["", ...(process.env.PATHEXT ?? ".EXE;.CMD;.BAT").split(";")]
+      : [""];
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    if (exts.some((ext) => existsSync(join(dir, bin + ext)))) return true;
   }
+  return false;
 }
 
 async function cmdReport(args: ParsedArgs, io: Io): Promise<number> {
@@ -77,6 +84,14 @@ async function cmdReport(args: ParsedArgs, io: Io): Promise<number> {
     io.err(
       `report: cannot read '${file}': ${err instanceof Error ? err.message : String(err)}`,
     );
+    return 2;
+  }
+  if (
+    !Array.isArray(result.aggregates) ||
+    !Array.isArray(result.analysis) ||
+    !Array.isArray(result.results)
+  ) {
+    io.err(`report: '${file}' is not a sverka-arena results file\n`);
     return 2;
   }
   if (args.format === "json") {
@@ -132,13 +147,15 @@ async function cmdDoctor(args: ParsedArgs, io: Io): Promise<number> {
   return checks.every((chk) => chk.ok) ? 0 : 1;
 }
 
+const defaultIo: Io = {
+  out: (s) => process.stdout.write(s),
+  err: (s) => process.stderr.write(s),
+};
+
 /** Entry point — exported for tests; bin calls it with process.argv. */
 export async function main(
   argv: readonly string[],
-  io: Io = {
-    out: (s) => process.stdout.write(s),
-    err: (s) => process.stderr.write(s),
-  },
+  io: Io = defaultIo,
 ): Promise<number> {
   let args: ParsedArgs;
   try {

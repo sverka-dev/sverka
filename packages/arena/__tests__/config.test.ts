@@ -31,6 +31,10 @@ describe("resolveAdapter", () => {
     expect(() => resolveAdapter("nope")).toThrow(ArenaError);
     expect(() => resolveAdapter("nope")).toThrow(/devin/);
   });
+
+  it("inherited names are not adapters", () => {
+    expect(() => resolveAdapter("toString")).toThrow(ArenaError);
+  });
 });
 
 describe("loadArenaConfig", () => {

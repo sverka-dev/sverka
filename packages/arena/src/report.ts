@@ -41,7 +41,7 @@ function aggregateTable(aggregates: readonly AggregateMetrics[]): string {
     a.judgePassCount > 0 || a.avgJudgeScore > 0 ? fmtNum(a.avgJudgeScore) : "-",
   ]);
   const widths = header.map((h, i) =>
-    Math.max(h.length + 2, ...data.map((r) => String(r[i]).length + 2)),
+    Math.max(h.length + 2, ...data.map((r) => String(r[i] ?? "").length + 2)),
   );
   const lines = [row(header, widths)];
   for (const r of data) lines.push(row(r, widths));
@@ -52,8 +52,7 @@ function aggregateTable(aggregates: readonly AggregateMetrics[]): string {
 export function renderReport(result: ArenaResult): string {
   const parts: string[] = [];
 
-  parts.push("Aggregates");
-  parts.push(aggregateTable(result.aggregates));
+  parts.push("Aggregates", aggregateTable(result.aggregates));
 
   if (result.analysis.length > 0) {
     parts.push("", "Analysis");
