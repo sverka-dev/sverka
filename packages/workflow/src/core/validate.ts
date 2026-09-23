@@ -361,7 +361,7 @@ export function validateRetryPolicy(step: StepDefinition): void {
  * such as `${{ steps.build.outputs.version }}` or `${{ step.build.version }}`.
  */
 function hasStepOutputRef(key: string): boolean {
-  const refPattern = /\$\{\{\s*([^}]+?)\s*\}\}/g;
+  const refPattern = /\$\{\{([^{}]*)\}\}/g;
   for (const match of key.matchAll(refPattern)) {
     const inner = match[1]!.trim();
     // `steps.<id>.outputs.<name>` or `step.<id>.<name>` — both refer to step outputs.
