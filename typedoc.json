@@ -1,0 +1,19 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["packages/workflow/src/index.ts"],
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "skipErrorChecking": true,
+  "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter"],
+  "out": "website/src/content/docs/api",
+  "readme": "none",
+  "outputFileStrategy": "modules",
+  "useCodeBlocks": true,
+  "hideBreadcrumbs": true,
+  "frontmatterGlobals": {
+    "description": "Sverka API reference"
+  },
+  "tsconfig": "typedoc.tsconfig.json"
+}

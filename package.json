@@ -14,7 +14,8 @@
     "typecheck": "nx run-many --target=typecheck --all",
     "clean": "nx reset",
     "build:nx-plugins": "bun scripts/build-nx-plugins.ts",
-    "patch:nx": "bun scripts/patch-nx-submodule.ts"
+    "patch:nx": "bun scripts/patch-nx-submodule.ts",
+    "docs:api": "typedoc --options typedoc.json && bun scripts/fix-api-docs.ts"
   },
   "devDependencies": {
     "@microsoft/eslint-formatter-sarif": "3.1.0",
@@ -30,6 +31,9 @@
     "nx": "^23.2.1",
     "prettier": "3.9.8",
     "tsdown": "0.23.0",
+    "typedoc": "0.28.20",
+    "typedoc-plugin-frontmatter": "1.3.2",
+    "typedoc-plugin-markdown": "4.13.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0",
     "vitest": "5.0.0"

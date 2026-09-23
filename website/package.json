@@ -8,12 +8,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run sync-docs && astro build",
+    "build": "bun run docs:api && bun run sync-docs && astro build",
     "test": "bun test",
     "preview": "astro preview",
     "dev": "bun run sync-docs && astro dev",
-    "check": "bun run sync-docs && astro check",
+    "check": "bun run docs:api && bun run sync-docs && astro check",
     "sync-docs": "bun scripts/sync-docs.ts",
+    "docs:api": "cd .. && bun run docs:api",
     "arena": "bun run server/arena-server.ts"
   },
   "dependencies": {
