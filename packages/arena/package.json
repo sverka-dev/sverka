@@ -1,7 +1,7 @@
 {
   "name": "@sverka/arena",
   "version": "0.1.8",
-  "description": "Sverka agent arena — run agents against verification workflows",
+  "description": "Sverka agent arena \u2014 run agents against verification workflows",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -39,5 +39,8 @@
   "devDependencies": {
     "vitest": "^5.0.0",
     "typescript": "^5.8.0"
+  },
+  "bin": {
+    "sverka-arena": "dist/bin.mjs"
   }
 }

@@ -48,3 +48,12 @@ export {
   compareCombos,
   DEFAULT_JUDGE_PROMPT,
 } from "./judge.js";
+
+export {
+  ArenaError,
+  defineConfig,
+  loadArenaConfig,
+  resolveAdapter,
+} from "./config.js";
+export type { ArenaConfigFile } from "./config.js";
+export { renderReport } from "./report.js";
