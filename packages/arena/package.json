@@ -23,9 +23,6 @@
       "import": "./dist/index.mjs"
     }
   },
-  "bin": {
-    "arena": "dist/bin.mjs"
-  },
   "files": [
     "dist"
   ],
