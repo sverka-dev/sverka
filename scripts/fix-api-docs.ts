@@ -12,7 +12,15 @@ const apiDir = join(process.cwd(), "website/src/content/docs/api");
 const readmePath = join(apiDir, "README.md");
 const targetPath = join(apiDir, "workflow.md");
 
-const content = await readFile(readmePath, "utf8");
+let content: string;
+try {
+  content = await readFile(readmePath, "utf8");
+} catch (err) {
+  console.error(
+    `docs:api — ${readmePath} missing; did typedoc generate the entry page?`,
+  );
+  throw err;
+}
 
 // Inject title into the generated frontmatter block.
 const withTitle = content.replace(
