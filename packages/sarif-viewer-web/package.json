@@ -1,6 +1,6 @@
 {
   "name": "@sverka/sarif-viewer-web",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Sverka SARIF viewer Web — standalone HTML report generator for SARIF files",
   "license": "MIT",
   "repository": {
