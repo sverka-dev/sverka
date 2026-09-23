@@ -50,12 +50,22 @@ const policy = new ShellStep(ci, "policy", {
   command:
     "bun packages/cli/src/bin.ts policy --findings \"$(find eslint.sarif -type f -name '*.sarif' | head -n1)\"",
   runtime: { shell: "sh" },
-  inputs: [{ kind: "step", step: lintSarif.node.id, output: "eslint.sarif", type: "artifact" }],
+  inputs: [
+    {
+      kind: "step",
+      step: lintSarif.node.id,
+      output: "eslint.sarif",
+      type: "artifact",
+    },
+  ],
   beforeScript: [...nxPlugins, "bun run build"],
 });
 
 // Dependency vulnerabilities (bun audit exits non-zero on findings).
 const audit = new ShellStep(ci, "audit", { command: "bun audit" });
+
+// Formatting gate — prettier version is pinned in devDependencies/lockfile.
+const format = new ShellStep(ci, "format", { command: "bun run format:check" });
 
 // Self-check: runs the CLI from source — needs built workspace deps.
 // CI jobs are isolated runners, so beforeScript builds them in-job.
@@ -72,7 +82,7 @@ const doctor = new ShellStep(ci, "doctor", {
 // mask a failed compile when the emitted YAML happens to match.
 const drift = new ShellStep(ci, "workflow-drift", {
   command:
-    "f=$(mktemp) && trap 'rm -f \"$f\"' EXIT && bun packages/cli/src/bin.ts compile --target github --pin > \"$f\" && diff \"$f\" .github/workflows/sverka.yml",
+    'f=$(mktemp) && trap \'rm -f "$f"\' EXIT && bun packages/cli/src/bin.ts compile --target github --pin > "$f" && diff "$f" .github/workflows/sverka.yml',
   runtime: { shell: "sh" },
   beforeScript: [...nxPlugins, "bun run build"],
 });
@@ -83,6 +93,7 @@ export const onPush = new Entry(ci, "on-push", {
     test.node.id, // pulls build → typecheck → lint via dependsOn
     policy.node.id, // pulls lint-sarif via artifact input
     audit.node.id,
+    format.node.id,
     doctor.node.id,
     drift.node.id,
   ],

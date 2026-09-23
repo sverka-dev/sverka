@@ -9,6 +9,8 @@
     "test": "nx run-many --target=test --all",
     "lint": "nx run-many --target=lint --all",
     "lint:sarif": "eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "nx run-many --target=typecheck --all",
     "clean": "nx reset",
     "build:nx-plugins": "bun scripts/build-nx-plugins.ts",

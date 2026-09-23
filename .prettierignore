@@ -1,0 +1,29 @@
+# Dependencies & build output
+node_modules/
+dist/
+.nx/
+
+# Vendored sources (upstream formatting is authoritative)
+vendor/
+
+# Compiler-generated CI — the emitter owns this formatting, the drift
+# guard compares byte-for-byte against `compile --pin` output
+.github/workflows/
+
+# Generated/build-time content
+website/.astro/
+website/public/
+.sverka/
+
+# Tool-managed directories
+.beads/
+.codacy/
+.devin/
+.gc/
+.opencode/
+.evidence/
+.agents/
+
+# Lockfiles & data files
+bun.lock
+*.jsonl
