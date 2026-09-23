@@ -1,11 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, Entry, push, schedule } from "@sverka/workflow";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  Entry,
+  push,
+  schedule,
+} from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import { GithubTarget } from "../target.js";
 import { GithubTargetError } from "../errors.js";
 import type { GithubTargetGraph } from "../types.js";
 
-function singleGraph(result: GithubTargetGraph | readonly GithubTargetGraph[]): GithubTargetGraph {
+function singleGraph(
+  result: GithubTargetGraph | readonly GithubTargetGraph[],
+): GithubTargetGraph {
   if ("jobs" in result) return result;
   return result[0]!;
 }
@@ -15,7 +24,10 @@ describe("GitHub F-05: schedule trigger lowering", () => {
     const project = new Project("gh-schedule-test");
     const pipeline = new Pipeline(project, "ci");
     new ShellStep(pipeline, "test", { command: "make test" });
-    new Entry(pipeline, "nightly", { trigger: schedule("0 0 * * *"), roots: ["test"] });
+    new Entry(pipeline, "nightly", {
+      trigger: schedule("0 0 * * *"),
+      roots: ["test"],
+    });
 
     const graph = synthesize(project);
     const target = new GithubTarget();
@@ -28,19 +40,27 @@ describe("GitHub F-05: schedule trigger lowering", () => {
     const project = new Project("gh-schedule-tz");
     const pipeline = new Pipeline(project, "ci");
     new ShellStep(pipeline, "test", { command: "make test" });
-    new Entry(pipeline, "nightly", { trigger: schedule("0 0 * * *", "UTC"), roots: ["test"] });
+    new Entry(pipeline, "nightly", {
+      trigger: schedule("0 0 * * *", "UTC"),
+      roots: ["test"],
+    });
 
     const graph = synthesize(project);
     const target = new GithubTarget();
     const targetGraph = singleGraph(target.lower(graph));
-    expect(targetGraph.on.schedule).toEqual([{ cron: "0 0 * * *", timezone: "UTC" }]);
+    expect(targetGraph.on.schedule).toEqual([
+      { cron: "0 0 * * *", timezone: "UTC" },
+    ]);
   });
 
   it("emits schedule in YAML", () => {
     const project = new Project("gh-schedule-yaml");
     const pipeline = new Pipeline(project, "ci");
     new ShellStep(pipeline, "test", { command: "make test" });
-    new Entry(pipeline, "nightly", { trigger: schedule("0 0 * * *"), roots: ["test"] });
+    new Entry(pipeline, "nightly", {
+      trigger: schedule("0 0 * * *"),
+      roots: ["test"],
+    });
 
     const graph = synthesize(project);
     const target = new GithubTarget();

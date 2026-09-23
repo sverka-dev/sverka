@@ -24,7 +24,12 @@
       },
       "output": "I fixed the two bugs in src/index.ts:\n\n1. countUniqueWords: Changed to use a Set with case-insensitive words. Now 'hello world hello' returns 2.\n2. truncate: Fixed the off-by-one error. Now truncate('hello world', 8) returns 'hello...' (5 chars + 3 dots = 8).\n\nAll tests pass.",
       "checkResults": [
-        { "checkId": "tests-pass", "passed": true, "output": "8 pass, 0 fail", "exitCode": 0 }
+        {
+          "checkId": "tests-pass",
+          "passed": true,
+          "output": "8 pass, 0 fail",
+          "exitCode": 0
+        }
       ],
       "success": true,
       "verdicts": [
@@ -56,7 +61,12 @@
       },
       "output": "Fixed both bugs using sverka run-checks workflow:\n\n1. countUniqueWords: Used Set with toLowerCase() for case-insensitive unique word counting.\n2. truncate: Fixed slice index from maxLen-4 to maxLen-3 to produce correct 'hello...' output.\n\nAll tests pass.",
       "checkResults": [
-        { "checkId": "tests-pass", "passed": true, "output": "8 pass, 0 fail", "exitCode": 0 }
+        {
+          "checkId": "tests-pass",
+          "passed": true,
+          "output": "8 pass, 0 fail",
+          "exitCode": 0
+        }
       ],
       "success": true,
       "verdicts": [
@@ -88,9 +98,24 @@
       },
       "output": "I created .github/workflows/ci.yml with a GitHub Actions workflow that:\n- Triggers on push and pull_request\n- Runs on ubuntu-latest\n- Installs bun\n- Runs tests with bun test\n- Runs build with bun build\n\nThe workflow uses the bun setup action from oven-sh/setup-bun@v1.",
       "checkResults": [
-        { "checkId": "ci-file-exists", "passed": true, "output": "File exists", "exitCode": 0 },
-        { "checkId": "ci-valid-yaml", "passed": true, "output": "Valid YAML", "exitCode": 0 },
-        { "checkId": "ci-has-test-step", "passed": true, "output": "Contains 'bun test'", "exitCode": 0 }
+        {
+          "checkId": "ci-file-exists",
+          "passed": true,
+          "output": "File exists",
+          "exitCode": 0
+        },
+        {
+          "checkId": "ci-valid-yaml",
+          "passed": true,
+          "output": "Valid YAML",
+          "exitCode": 0
+        },
+        {
+          "checkId": "ci-has-test-step",
+          "passed": true,
+          "output": "Contains 'bun test'",
+          "exitCode": 0
+        }
       ],
       "success": true,
       "verdicts": [
@@ -99,7 +124,10 @@
           "score": 78,
           "passed": true,
           "reasoning": "A valid GitHub Actions workflow was created with correct triggers, bun setup, and test/build steps. The YAML is valid. However, the workflow could be improved with caching and matrix testing.",
-          "issues": ["No bun cache configuration", "No matrix testing strategy"],
+          "issues": [
+            "No bun cache configuration",
+            "No matrix testing strategy"
+          ],
           "taskId": "create-ci",
           "modelId": "glm-5-2",
           "pluginIds": []
@@ -122,9 +150,24 @@
       },
       "output": "Created CI workflow using sverka compile-github:\n\n.github/workflows/ci.yml contains a compiled workflow with:\n- Push and PR triggers\n- Bun setup with cache\n- Test and build jobs\n- Matrix testing (ubuntu, macos)\n\nGenerated from sverka workflow definition.",
       "checkResults": [
-        { "checkId": "ci-file-exists", "passed": true, "output": "File exists", "exitCode": 0 },
-        { "checkId": "ci-valid-yaml", "passed": true, "output": "Valid YAML", "exitCode": 0 },
-        { "checkId": "ci-has-test-step", "passed": true, "output": "Contains 'bun test'", "exitCode": 0 }
+        {
+          "checkId": "ci-file-exists",
+          "passed": true,
+          "output": "File exists",
+          "exitCode": 0
+        },
+        {
+          "checkId": "ci-valid-yaml",
+          "passed": true,
+          "output": "Valid YAML",
+          "exitCode": 0
+        },
+        {
+          "checkId": "ci-has-test-step",
+          "passed": true,
+          "output": "Contains 'bun test'",
+          "exitCode": 0
+        }
       ],
       "success": true,
       "verdicts": [
@@ -156,8 +199,18 @@
       },
       "output": "I refactored all three functions from callback style to async/await:\n\n1. readJsonFile: Now returns Promise<unknown>, uses fs.promises.readFile\n2. writeJsonFile: Now returns Promise<void>, uses fs.promises.writeFile\n3. combineFiles: Now returns Promise<unknown[]>, uses Promise.all with mapped readJsonFile calls\n\nAll tests pass.",
       "checkResults": [
-        { "checkId": "tests-pass", "passed": true, "output": "3 pass, 0 fail", "exitCode": 0 },
-        { "checkId": "no-callbacks", "passed": true, "output": "No callback patterns found", "exitCode": 0 }
+        {
+          "checkId": "tests-pass",
+          "passed": true,
+          "output": "3 pass, 0 fail",
+          "exitCode": 0
+        },
+        {
+          "checkId": "no-callbacks",
+          "passed": true,
+          "output": "No callback patterns found",
+          "exitCode": 0
+        }
       ],
       "success": true,
       "verdicts": [
@@ -189,8 +242,18 @@
       },
       "output": "Refactored callback-style functions to async/await using sverka workflow:\n\n1. readJsonFile: async function returning Promise, uses fs.promises.readFile with try-catch\n2. writeJsonFile: async function returning Promise<void>, uses fs.promises.writeFile\n3. combineFiles: async function using Promise.all with mapped readJsonFile calls\n\nAll tests pass. Used sverka run-checks to verify tests after each change.",
       "checkResults": [
-        { "checkId": "tests-pass", "passed": true, "output": "3 pass, 0 fail", "exitCode": 0 },
-        { "checkId": "no-callbacks", "passed": true, "output": "No callback patterns found", "exitCode": 0 }
+        {
+          "checkId": "tests-pass",
+          "passed": true,
+          "output": "3 pass, 0 fail",
+          "exitCode": 0
+        },
+        {
+          "checkId": "no-callbacks",
+          "passed": true,
+          "output": "No callback patterns found",
+          "exitCode": 0
+        }
       ],
       "success": true,
       "verdicts": [

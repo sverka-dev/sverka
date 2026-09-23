@@ -84,6 +84,7 @@ export type { CheckErrorCode };
 
 **Resolution**: The resolver table maps `(checkId, packageManager)` →
 `(command, args)`. The resolver creates a `StepDefinition` with:
+
 - `id`: `checks/<checkId>` (e.g., `checks/typecheck`)
 - `runtime`: `{ mode: "host", workingDir: <project root> }` (checks run on host in v0)
 - `operations`: a single `shell` operation with `command` and `args`
@@ -109,6 +110,7 @@ Reads SARIF files from the artifact directory, normalizes via
 ## Error handling
 
 Reuses existing `CheckError` with codes:
+
 - `RESOLUTION_FAILED`: check resolution failed
 - `EXTRACTION_FAILED`: SARIF extraction or normalization failed
 

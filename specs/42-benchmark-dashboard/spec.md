@@ -30,14 +30,14 @@ website/public/benchmark/
 
 ### Metrics Displayed
 
-| Metric | Display |
-|--------|---------|
-| Input tokens | number |
-| Output tokens | number |
-| Total tokens | number |
-| Tool calls | number |
+| Metric         | Display                  |
+| -------------- | ------------------------ |
+| Input tokens   | number                   |
+| Output tokens  | number                   |
+| Total tokens   | number                   |
+| Tool calls     | number                   |
 | Execution time | ms → seconds (1 decimal) |
-| Success | checkmark / cross |
+| Success        | checkmark / cross        |
 
 ### Styling
 

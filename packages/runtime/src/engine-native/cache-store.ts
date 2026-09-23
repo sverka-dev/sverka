@@ -2,7 +2,14 @@
 // Spec 19 — §22, §24, §25.
 
 import { createHash } from "node:crypto";
-import { cp, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  readFile,
+  readdir,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 
 /**
@@ -104,7 +111,11 @@ function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-async function restorePaths(entryDir: string, paths: readonly string[], targetDir: string): Promise<void> {
+async function restorePaths(
+  entryDir: string,
+  paths: readonly string[],
+  targetDir: string,
+): Promise<void> {
   await mkdir(targetDir, { recursive: true });
   for (const path of paths) {
     const src = join(entryDir, path);
@@ -136,7 +147,9 @@ async function findPrefixMatch(
     const dir = join(cacheDir, entry);
     let manifest: CacheManifest;
     try {
-      manifest = JSON.parse(await readFile(join(dir, "manifest.json"), "utf-8")) as CacheManifest;
+      manifest = JSON.parse(
+        await readFile(join(dir, "manifest.json"), "utf-8"),
+      ) as CacheManifest;
     } catch {
       continue;
     }

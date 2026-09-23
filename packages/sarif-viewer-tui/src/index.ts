@@ -1,11 +1,7 @@
 // @sverka/sarif-viewer-tui — public barrel. Spec 46.
 
 // Types
-export type {
-  SarifTuiOptions,
-  ViewerFilter,
-  SortMode,
-} from "./types.js";
+export type { SarifTuiOptions, ViewerFilter, SortMode } from "./types.js";
 
 // Component (for embedding in other Ink apps)
 export { SarifTuiApp, TuiStore } from "./viewer.js";

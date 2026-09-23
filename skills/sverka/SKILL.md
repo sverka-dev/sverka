@@ -18,16 +18,16 @@ through one `sverka run`.
 Read `package.json` scripts and check for config files. Build a list of
 available checks:
 
-| Check | How to detect | Command |
-| ------- | -------------- | --------- |
-| build | `scripts.build` in package.json | `npm run build` |
-| lint | `scripts.lint` in package.json | `npm run lint` |
-| typecheck | `scripts.typecheck` in package.json | `npm run typecheck` |
-| test | `scripts.test` in package.json | `npm run test` |
-| biome | `biome.json` or `biome.jsonc` exists | `npx @biomejs/biome check .` |
-| oxlint | `.oxlintrc.json` or `oxlint` in deps | `npx oxlint .` |
-| opengrep | `opengrep.yml` exists | `opengrep --config opengrep.yml` |
-| prettier | `.prettierrc` or `prettier` in deps | `npx prettier --check .` |
+| Check     | How to detect                        | Command                          |
+| --------- | ------------------------------------ | -------------------------------- |
+| build     | `scripts.build` in package.json      | `npm run build`                  |
+| lint      | `scripts.lint` in package.json       | `npm run lint`                   |
+| typecheck | `scripts.typecheck` in package.json  | `npm run typecheck`              |
+| test      | `scripts.test` in package.json       | `npm run test`                   |
+| biome     | `biome.json` or `biome.jsonc` exists | `npx @biomejs/biome check .`     |
+| oxlint    | `.oxlintrc.json` or `oxlint` in deps | `npx oxlint .`                   |
+| opengrep  | `opengrep.yml` exists                | `opengrep --config opengrep.yml` |
+| prettier  | `.prettierrc` or `prettier` in deps  | `npx prettier --check .`         |
 
 Only include checks where the detection condition is met. Don't guess.
 
@@ -48,7 +48,10 @@ new ShellStep(ci, "lint", { command: "npm run lint" });
 new ShellStep(ci, "typecheck", { command: "npm run typecheck" });
 
 // Test depends on fast checks
-new ShellStep(ci, "test", { command: "npm run test", dependsOn: ["lint", "typecheck"] });
+new ShellStep(ci, "test", {
+  command: "npm run test",
+  dependsOn: ["lint", "typecheck"],
+});
 
 // Build depends on test
 new ShellStep(ci, "build", { command: "npm run build", dependsOn: ["test"] });
@@ -162,21 +165,21 @@ artifacts, `--evaluate` fails with COLLECTION_FAILED instead of a false
 
 ## CLI Commands
 
-| Command | Description |
-| --------- | ------------- |
-| `sverka init` | Create `sverka.config.ts` from template |
-| `sverka init --detect` | Generate config from detected project checks |
-| `sverka validate` | Check config without executing |
-| `sverka plan` | Show the run plan |
-| `sverka graph` | Print the definition graph |
-| `sverka run` | Execute the workflow (plan + run) |
-| `sverka run --format json` | Execute with structured per-step JSON output |
-| `sverka discover` | Detect project context |
-| `sverka check` | Resolve checks to commands |
-| `sverka policy --findings <file>` | Evaluate policy against findings |
-| `sverka compile --target github\|gitlab` | Compile to CI YAML |
-| `sverka synth --target github\|gitlab` | Alias for `compile` |
-| `sverka doctor` | Diagnose environment |
+| Command                                  | Description                                  |
+| ---------------------------------------- | -------------------------------------------- |
+| `sverka init`                            | Create `sverka.config.ts` from template      |
+| `sverka init --detect`                   | Generate config from detected project checks |
+| `sverka validate`                        | Check config without executing               |
+| `sverka plan`                            | Show the run plan                            |
+| `sverka graph`                           | Print the definition graph                   |
+| `sverka run`                             | Execute the workflow (plan + run)            |
+| `sverka run --format json`               | Execute with structured per-step JSON output |
+| `sverka discover`                        | Detect project context                       |
+| `sverka check`                           | Resolve checks to commands                   |
+| `sverka policy --findings <file>`        | Evaluate policy against findings             |
+| `sverka compile --target github\|gitlab` | Compile to CI YAML                           |
+| `sverka synth --target github\|gitlab`   | Alias for `compile`                          |
+| `sverka doctor`                          | Diagnose environment                         |
 
 Global flags: `--config/-c`, `--root/-r`, `--format/-f` (text\|json\|html\|sarif\|web), `--quiet/-q`, `--verbose/-v`
 

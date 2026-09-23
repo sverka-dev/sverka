@@ -65,7 +65,8 @@ const p = sverka.pipeline("deploy-with-approval");
 
 sverka.suspend("await-approval");
 
-sverka.step("deploy")
+sverka
+  .step("deploy")
   .sh("kubectl apply -f deploy.yaml")
   .dependsOn("await-approval");
 ```
@@ -86,7 +87,12 @@ const engine = createEngine({ drivers: [] });
 // const plan = bindRunPlan({ graph, entryId: "deploy/on-push" });
 
 // Start the run — it will suspend at the await-approval step
-const iter = engine.run({ plan, snapshotStore: store, workspace: "./ws", artifactDir: "./art" });
+const iter = engine.run({
+  plan,
+  snapshotStore: store,
+  workspace: "./ws",
+  artifactDir: "./art",
+});
 for await (const event of iter) {
   if (event.type === "run-suspended") {
     console.log("Run suspended, waiting for resume...");
@@ -108,20 +114,20 @@ for await (const event of resumeIter) {
 
 ## Events
 
-| Event | When |
-|-------|------|
+| Event            | When                                               |
+| ---------------- | -------------------------------------------------- |
 | `step-suspended` | A step has suspended — snapshot is being persisted |
-| `run-suspended` | The run is now suspended, waiting for resume |
-| `run-resumed` | The run has been resumed from a snapshot |
+| `run-suspended`  | The run is now suspended, waiting for resume       |
+| `run-resumed`    | The run has been resumed from a snapshot           |
 
 ## Snapshot stores
 
-| Store | Status | Use case |
-|-------|--------|----------|
-| `createInMemorySnapshotStore` | Implemented | Tests, ephemeral runs |
-| `createFileSnapshotStore` | Implemented | Local persistent runs |
-| `createSqliteSnapshotStore` | Implemented | Local persistent runs (SQLite) |
-| Postgres adapter | Planned | Distributed runs |
+| Store                         | Status      | Use case                       |
+| ----------------------------- | ----------- | ------------------------------ |
+| `createInMemorySnapshotStore` | Implemented | Tests, ephemeral runs          |
+| `createFileSnapshotStore`     | Implemented | Local persistent runs          |
+| `createSqliteSnapshotStore`   | Implemented | Local persistent runs (SQLite) |
+| Postgres adapter              | Planned     | Distributed runs               |
 
 ## Limitations (v1)
 

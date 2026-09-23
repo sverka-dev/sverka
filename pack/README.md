@@ -4,18 +4,18 @@ Reusable Gas City pack for spec-driven, test-first monorepo projects.
 
 ## What's in the pack
 
-| Directory | Contents |
-| --------- | -------- |
-| `agents/mayor/` | Always-on orchestrator: plans waves, dispatches work, gates quality, drills failures |
-| `agents/architect/` | On-demand designer: specs, implementation plans, interface definitions |
-| `agents/builder/` | On-demand implementer: TDD-strict, drill-first, surgical diffs |
-| `agents/reviewer/` | On-demand gatekeeper: paranoid, spec-strict, runs all checks fresh |
-| `formulas/wave.toml` | Wave formula: design → implement → review → finalize |
-| `formulas/address-review.toml` | PR review formula: /act loop to address all GitHub review threads |
-| `formulas/bootstrap-sdd.toml` | Bootstrap formula: spec tree → engdocs → monorepo → README → website → review |
-| `template-fragments/review-policy.md` | Template for project `REVIEW.md` |
-| `template-fragments/security-policy.md` | Template for project `SECURITY.md` |
-| `template-fragments/conventions.md` | Template for project `AGENTS.md` |
+| Directory                               | Contents                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------ |
+| `agents/mayor/`                         | Always-on orchestrator: plans waves, dispatches work, gates quality, drills failures |
+| `agents/architect/`                     | On-demand designer: specs, implementation plans, interface definitions               |
+| `agents/builder/`                       | On-demand implementer: TDD-strict, drill-first, surgical diffs                       |
+| `agents/reviewer/`                      | On-demand gatekeeper: paranoid, spec-strict, runs all checks fresh                   |
+| `formulas/wave.toml`                    | Wave formula: design → implement → review → finalize                                 |
+| `formulas/address-review.toml`          | PR review formula: /act loop to address all GitHub review threads                    |
+| `formulas/bootstrap-sdd.toml`           | Bootstrap formula: spec tree → engdocs → monorepo → README → website → review        |
+| `template-fragments/review-policy.md`   | Template for project `REVIEW.md`                                                     |
+| `template-fragments/security-policy.md` | Template for project `SECURITY.md`                                                   |
+| `template-fragments/conventions.md`     | Template for project `AGENTS.md`                                                     |
 
 ## Usage
 

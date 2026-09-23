@@ -4,7 +4,10 @@ import { dirname, isAbsolute, join } from "node:path";
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
 import type { WriteFileOptions } from "node:fs";
-import { detectPackageManager, ensureConstructsDependency } from "../internal/config.js";
+import {
+  detectPackageManager,
+  ensureConstructsDependency,
+} from "../internal/config.js";
 import type { PmName } from "../internal/config.js";
 import { detectProjectChecks } from "../internal/detect.js";
 
@@ -107,7 +110,9 @@ async function writeConfig(
   }
   // Use exclusive create (wx) when not forcing to close the TOCTOU race
   // between existsSync and writeFile. With --force, use standard write.
-  const flags: WriteFileOptions = force ? "utf8" : { encoding: "utf8", flag: "wx" };
+  const flags: WriteFileOptions = force
+    ? "utf8"
+    : { encoding: "utf8", flag: "wx" };
   try {
     await mkdir(dirname(configPath), { recursive: true });
     await writeFile(configPath, content, flags);
@@ -181,13 +186,17 @@ export async function initCommand(
   let template: string;
 
   if (args.detect) {
-    output.debug(`init: root=${global.root} detect=true force=${Boolean(args.force)}`);
+    output.debug(
+      `init: root=${global.root} detect=true force=${Boolean(args.force)}`,
+    );
     const detected = await buildDetectedTemplate(global.root);
     if (detected !== null) {
       content = detected;
       template = "detect";
     } else {
-      output.debug("init: detection found no checks, falling back to minimal template");
+      output.debug(
+        "init: detection found no checks, falling back to minimal template",
+      );
       const pm = detectPackageManager(global.root);
       content = buildMinimalTemplate(pm);
       template = "minimal";
@@ -195,7 +204,9 @@ export async function initCommand(
   } else {
     template = args.template ?? "minimal";
     const pm = detectPackageManager(global.root);
-    output.debug(`init: root=${global.root} template=${template} pm=${pm} force=${Boolean(args.force)}`);
+    output.debug(
+      `init: root=${global.root} template=${template} pm=${pm} force=${Boolean(args.force)}`,
+    );
     content = resolveTemplateContent(template, pm);
   }
 

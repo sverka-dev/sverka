@@ -53,25 +53,37 @@ function reduceStepEvent(state: UIState, event: RunEvent): UIState | null {
   const simpleState = simpleStates[event.type];
   if (simpleState) {
     const stepId = (event as { stepId: string }).stepId;
-    return withStep(state, stepId, { stepId, state: simpleState as StepUIState["state"] });
+    return withStep(state, stepId, {
+      stepId,
+      state: simpleState as StepUIState["state"],
+    });
   }
 
   switch (event.type) {
     case "step-succeeded":
       return withStep(state, event.stepId, {
-        stepId: event.stepId, state: "succeeded", durationMs: event.durationMs,
+        stepId: event.stepId,
+        state: "succeeded",
+        durationMs: event.durationMs,
       });
     case "step-failed":
       return withStep(state, event.stepId, {
-        stepId: event.stepId, state: "failed", durationMs: event.durationMs, error: event.error,
+        stepId: event.stepId,
+        state: "failed",
+        durationMs: event.durationMs,
+        error: event.error,
       });
     case "step-retry":
       return withStep(state, event.stepId, {
-        stepId: event.stepId, state: "running", attempt: event.attempt,
+        stepId: event.stepId,
+        state: "running",
+        attempt: event.attempt,
       });
     case "step-compensated":
       return withStep(state, event.stepId, {
-        stepId: event.stepId, state: "compensated", durationMs: event.durationMs,
+        stepId: event.stepId,
+        state: "compensated",
+        durationMs: event.durationMs,
       });
     default:
       return null;

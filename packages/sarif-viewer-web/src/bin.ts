@@ -7,7 +7,10 @@ import { dirname } from "node:path";
 import { resolveFindings } from "./input.js";
 import { generateSarifHtml } from "./viewer.js";
 
-function parseArgs(argv: string[]): { inputPath: string | null; outputPath: string } {
+function parseArgs(argv: string[]): {
+  inputPath: string | null;
+  outputPath: string;
+} {
   let inputPath: string | null = null;
   let outputPath = "sarif-report.html";
   for (let i = 0; i < argv.length; i++) {
@@ -16,7 +19,9 @@ function parseArgs(argv: string[]): { inputPath: string | null; outputPath: stri
     if (arg === "-o" || arg === "--output") {
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("-")) {
-        process.stderr.write("sarif-viewer-web: -o requires a file path argument.\n");
+        process.stderr.write(
+          "sarif-viewer-web: -o requires a file path argument.\n",
+        );
         process.exit(1);
       }
       outputPath = next;
@@ -28,7 +33,9 @@ function parseArgs(argv: string[]): { inputPath: string | null; outputPath: stri
       process.exit(0);
     } else if (!arg.startsWith("-")) {
       if (inputPath !== null) {
-        process.stderr.write("sarif-viewer-web: only one input file may be provided.\n");
+        process.stderr.write(
+          "sarif-viewer-web: only one input file may be provided.\n",
+        );
         process.exit(1);
       }
       inputPath = arg;

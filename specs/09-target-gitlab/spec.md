@@ -113,8 +113,12 @@ interface CompilationResult {
 ```ts
 export { GitlabTarget, compileGitlab };
 export type {
-  GitlabTargetGraph, GitlabJob, GitlabRule,
-  GeneratedArtifact, TargetDiagnostic, CompilationResult,
+  GitlabTargetGraph,
+  GitlabJob,
+  GitlabRule,
+  GeneratedArtifact,
+  TargetDiagnostic,
+  CompilationResult,
 };
 ```
 
@@ -122,28 +126,28 @@ export type {
 
 ### Trigger mapping
 
-| Sverka Trigger | GitLab Rule |
-|---|---|
-| `push` | `if: $CI_PIPELINE_SOURCE == "push"` (plus branch filter when present) |
+| Sverka Trigger  | GitLab Rule                                                                          |
+| --------------- | ------------------------------------------------------------------------------------ |
+| `push`          | `if: $CI_PIPELINE_SOURCE == "push"` (plus branch filter when present)                |
 | `changeRequest` | `if: $CI_PIPELINE_SOURCE == "merge_request_event"` (plus branch filter when present) |
-| `manual` | `if: $CI_PIPELINE_SOURCE == "web"` |
+| `manual`        | `if: $CI_PIPELINE_SOURCE == "web"`                                                   |
 
 ### Runtime mapping
 
-| Sverka Runtime | GitLab Job |
-|---|---|
-| `host` (default) | no `image:` (uses runner default) |
-| `container` with image | `image: <image>` |
+| Sverka Runtime         | GitLab Job                        |
+| ---------------------- | --------------------------------- |
+| `host` (default)       | no `image:` (uses runner default) |
+| `container` with image | `image: <image>`                  |
 
 ### Operation mapping
 
-| Sverka Operation | GitLab Job |
-|---|---|
-| `shell` | `script:` entry |
-| `exportArtifact` | `artifacts:` paths |
-| `importArtifact` | `needs` (artifact producer) |
-| `exportOutput` | `script: echo "name=value" >> sverka.env` + `artifacts: reports: dotenv: sverka.env` |
-| `diagnostic` | `script: echo "message"` (shell-escaped) |
+| Sverka Operation | GitLab Job                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| `shell`          | `script:` entry                                                                      |
+| `exportArtifact` | `artifacts:` paths                                                                   |
+| `importArtifact` | `needs` (artifact producer)                                                          |
+| `exportOutput`   | `script: echo "name=value" >> sverka.env` + `artifacts: reports: dotenv: sverka.env` |
+| `diagnostic`     | `script: echo "message"` (shell-escaped)                                             |
 
 ### Stage assignment
 
@@ -151,6 +155,7 @@ Stages are derived from the dependency graph. Steps with no dependencies
 go into `build` stage. Steps that depend on other steps go into a stage
 named after their dependency depth (e.g., `stage-1`, `stage-2`). For
 simplicity in v0, stages are assigned by topological level:
+
 - Level 0: `build`
 - Level N: `stage-N`
 
@@ -173,6 +178,7 @@ const gitlabCapabilities: CapabilityManifest = {
 ## Error handling
 
 Custom error class `GitlabTargetError` with codes:
+
 - `INVALID_GRAPH`: graph has no pipelines or invalid structure
 - `UNSUPPORTED_TRIGGER`: trigger kind not supported
 - `LOWER_FAILED`: lowering failed

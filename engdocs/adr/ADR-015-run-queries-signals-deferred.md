@@ -14,7 +14,7 @@ Temporal signals/queries/updates.
 Two questions:
 
 1. **Does the write side (signals) earn its place in v1?** Signals are
-   async messages to a *running* run: "approval", "cancel", "update".
+   async messages to a _running_ run: "approval", "cancel", "update".
 2. **Does the read side (queries) earn its place?** Queries are read-only
    state inspection of a running run.
 
@@ -31,7 +31,7 @@ it — both come from the mega-plan (a planning doc, not authoritative).
 2. **The write side is already covered.**
    - **approval** → suspend/resume (Spec 29 / ADR-012): a step suspends,
      persists a snapshot, and an external actor calls `Engine.resume()` with
-     the approval data. This is the *durable* HITL mechanism — the right
+     the approval data. This is the _durable_ HITL mechanism — the right
      one for CI, where the gap between "request input" and "receive input"
      can be hours and span a process restart.
    - **cancel** → `Engine.cancel()` (already in the Engine contract, §21).
@@ -40,7 +40,7 @@ it — both come from the mega-plan (a planning doc, not authoritative).
      and not requested by any consumer. YAGNI.
 
 3. **Mid-execution signal delivery has no clean model in Sverka.** Temporal
-   signals work because a workflow is a long-running *function* that can
+   signals work because a workflow is a long-running _function_ that can
    `await` a signal channel. Sverka steps are **batch operations** (shell
    commands, agent calls) executed by a DAG scheduler. There is no
    long-running step function that can park on a signal:
@@ -48,7 +48,7 @@ it — both come from the mega-plan (a planning doc, not authoritative).
      `engine.signal(name)` resolves it) is an **anti-pattern for CI**: if
      the process dies, the wait is lost with no snapshot to resume from.
      Suspend is the durable alternative and already exists.
-   - Delivering a signal *into* a running shell command would require a new
+   - Delivering a signal _into_ a running shell command would require a new
      mechanism (signal files, env injection, polling) with unclear
      semantics and no concrete consumer.
 

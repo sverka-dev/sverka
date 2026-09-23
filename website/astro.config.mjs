@@ -5,9 +5,13 @@ import { existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 async function loadSidebar() {
-  const generatedPath = fileURLToPath(new URL("./sidebar.generated.mjs", import.meta.url));
+  const generatedPath = fileURLToPath(
+    new URL("./sidebar.generated.mjs", import.meta.url),
+  );
   if (!existsSync(generatedPath)) return [];
-  const mod = await import(/* @vite-ignore */ pathToFileURL(generatedPath).href);
+  const mod = await import(
+    /* @vite-ignore */ pathToFileURL(generatedPath).href
+  );
   return mod.sidebar ?? [];
 }
 
@@ -44,7 +48,8 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Sverka",
-      description: "Run local checks with code-defined workflows. Get structured findings. Compile to CI when you need to.",
+      description:
+        "Run local checks with code-defined workflows. Get structured findings. Compile to CI when you need to.",
       sidebar,
       favicon: "/favicon.svg",
       social: [

@@ -10,10 +10,10 @@ After the v0 redesign (waves A–N) and the package collapse refactor (PR #119,
 18 → 6 packages), `@sverka/runtime` contains **two parallel runtime
 implementations** in one package:
 
-| Sub-module | Model | Streaming | Cache | Retry | State persist | Used by |
-|---|---|---|---|---|---|---|
-| `engine-native/` | `RunPlan` / `StepDefinition` (§22) | `AsyncIterable<RunEvent>` (10 events) | no | no | no | CLI `sverka run` |
-| `runtime/` | `Plan` / `PlanOperation` (legacy) | none (returns `ExecutionResult`) | yes (`CacheBackend`) | yes (`executeWithRetry`) | yes (`StateStore`) | SDK `execute` path |
+| Sub-module       | Model                              | Streaming                             | Cache                | Retry                    | State persist      | Used by            |
+| ---------------- | ---------------------------------- | ------------------------------------- | -------------------- | ------------------------ | ------------------ | ------------------ |
+| `engine-native/` | `RunPlan` / `StepDefinition` (§22) | `AsyncIterable<RunEvent>` (10 events) | no                   | no                       | no                 | CLI `sverka run`   |
+| `runtime/`       | `Plan` / `PlanOperation` (legacy)  | none (returns `ExecutionResult`)      | yes (`CacheBackend`) | yes (`executeWithRetry`) | yes (`StateStore`) | SDK `execute` path |
 
 `StepDefinition` (in `@sverka/workflow` cdk/model.ts) already declares
 `retry?: RetryPolicy` and `cache?: CacheSpec`, and `synthesize()` propagates
@@ -62,7 +62,7 @@ RunEvent, GHA action SHA pinning. Three of the four touch the runtime.
   via `actions/cache`, GitLab: `native`, native engine: `native`).
 - `policy.retry` GitHub manifest entry moves from `unsupported` to
   `emulated` (lowered to a composite retry wrapper) — but the GHA retry
-  *lowering* itself is a follow-up; Wave 1 only implements native-engine
+  _lowering_ itself is a follow-up; Wave 1 only implements native-engine
   retry and documents the capability level.
 
 ## Follow-ups (out of Wave 1 scope, to be filed as beads)

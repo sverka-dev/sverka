@@ -1,6 +1,7 @@
 // Construct error class. Spec 01 — Error handling.
 
-export type ConstructErrorCode = "INVALID_SCOPE" | "DUPLICATE_ID" | "INVALID_OUTPUT";
+export type ConstructErrorCode =
+  "INVALID_SCOPE" | "DUPLICATE_ID" | "INVALID_OUTPUT";
 
 export class ConstructError extends Error {
   override readonly cause: unknown;

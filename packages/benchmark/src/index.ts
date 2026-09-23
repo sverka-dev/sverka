@@ -1,4 +1,9 @@
-export { runBenchmark, writeReport, extractMetrics, aggregateMetrics } from "./arena.js";
+export {
+  runBenchmark,
+  writeReport,
+  extractMetrics,
+  aggregateMetrics,
+} from "./arena.js";
 export { BENCHMARK_TASKS, DEFAULT_AGENTS } from "./tasks.js";
 export {
   readTranscript,

@@ -46,7 +46,9 @@ export class GithubTarget implements Target {
    * that are not pinned in the emitted output.
    */
   analyze(graph: DefinitionGraph): readonly TargetDiagnostic[] {
-    const capDiags = analyzeCapabilities(graph, [this.capabilities]) as readonly TargetDiagnostic[];
+    const capDiags = analyzeCapabilities(graph, [
+      this.capabilities,
+    ]) as readonly TargetDiagnostic[];
     const targetGraph = this.lower(graph);
     const pinDiags = this.pinningDiagnostics(targetGraph);
     return [...capDiags, ...pinDiags];
@@ -57,7 +59,9 @@ export class GithubTarget implements Target {
    * Single-pipeline graphs return one target graph; multi-pipeline graphs
    * with reusable workflow calls return one per pipeline.
    */
-  lower(graph: DefinitionGraph): GithubTargetGraph | readonly GithubTargetGraph[] {
+  lower(
+    graph: DefinitionGraph,
+  ): GithubTargetGraph | readonly GithubTargetGraph[] {
     return lowerGithub(graph, this.config);
   }
 
@@ -81,7 +85,9 @@ export class GithubTarget implements Target {
    */
   compile(graph: DefinitionGraph): CompilationResult {
     const targetGraph = this.lower(graph);
-    const capDiags = analyzeCapabilities(graph, [this.capabilities]) as readonly TargetDiagnostic[];
+    const capDiags = analyzeCapabilities(graph, [
+      this.capabilities,
+    ]) as readonly TargetDiagnostic[];
     const pinDiags = this.pinningDiagnostics(targetGraph);
     const artifacts = this.emit(targetGraph);
     return { artifacts, diagnostics: [...capDiags, ...pinDiags] };
@@ -116,7 +122,10 @@ export class GithubTarget implements Target {
     return diags;
   }
 
-  private diagnosticFor(ref: string, jobId: string): TargetDiagnostic | undefined {
+  private diagnosticFor(
+    ref: string,
+    jobId: string,
+  ): TargetDiagnostic | undefined {
     // Local actions and already-pinned refs are fine.
     if (ref.startsWith("./")) return undefined;
     const at = ref.lastIndexOf("@");

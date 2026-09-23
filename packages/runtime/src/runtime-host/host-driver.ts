@@ -4,7 +4,11 @@
 import { basename } from "node:path";
 import { spawn } from "node:child_process";
 import type { StepDefinition } from "@sverka/workflow";
-import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "../engine-native/index.js";
+import type {
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+} from "../engine-native/index.js";
 import type { HostDriverConfig } from "./config.js";
 import { HostDriverError, CommandNotAllowedError } from "./errors.js";
 
@@ -14,7 +18,17 @@ const TRUNCATION_NOTICE = "\n[log truncated]";
 
 // Shell metacharacters that should not appear outside a quoted script token.
 const UNSAFE_SHELL_METACHARS = /[<>&|;`$\[\](){}\\!*?~#]/;
-const SHELL_BINARIES = new Set(["sh", "bash", "dash", "zsh", "ksh", "fish", "cmd", "powershell", "pwsh"]);
+const SHELL_BINARIES = new Set([
+  "sh",
+  "bash",
+  "dash",
+  "zsh",
+  "ksh",
+  "fish",
+  "cmd",
+  "powershell",
+  "pwsh",
+]);
 
 /** Create a host process runtime driver. */
 export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
@@ -27,7 +41,9 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
       if (!config.enabled) return false;
       const mode = step.runtime.mode;
       if (mode !== undefined && mode !== "host") return false;
-      const shellOp = step.operations.find((op: { kind: string }) => op.kind === "shell");
+      const shellOp = step.operations.find(
+        (op: { kind: string }) => op.kind === "shell",
+      );
       if (!shellOp || shellOp.kind !== "shell") return false;
       const { tokens, valid } = tokenize(shellOp.command);
       if (!valid || tokens.length === 0) return false;
@@ -36,7 +52,10 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
 
     async executeShell(request: ShellExecuteRequest): Promise<ShellResult> {
       if (!config.enabled) {
-        throw new HostDriverError("host driver is disabled", "EXECUTOR_DISABLED");
+        throw new HostDriverError(
+          "host driver is disabled",
+          "EXECUTOR_DISABLED",
+        );
       }
 
       // When a shell is requested, execute the command through that shell
@@ -47,10 +66,15 @@ export function createHostDriver(config: HostDriverConfig): RuntimeDriver {
 
       const { tokens, valid } = tokenize(request.command);
       if (!valid) {
-        throw new CommandNotAllowedError("command has unterminated quote or trailing escape", { command: request.command });
+        throw new CommandNotAllowedError(
+          "command has unterminated quote or trailing escape",
+          { command: request.command },
+        );
       }
       if (tokens.length === 0) {
-        throw new CommandNotAllowedError("empty command is not allowed", { command: request.command });
+        throw new CommandNotAllowedError("empty command is not allowed", {
+          command: request.command,
+        });
       }
       const binary = tokens[0]!;
       if (!config.allowlist.isAllowed(binary)) {
@@ -249,7 +273,10 @@ function runChildProcess(
       resolve({
         exitCode: -1,
         stdout: "",
-        stderr: truncateBytes(Buffer.from(`spawn error: ${err.message}`, "utf8"), maxLogBytes).toString("utf8"),
+        stderr: truncateBytes(
+          Buffer.from(`spawn error: ${err.message}`, "utf8"),
+          maxLogBytes,
+        ).toString("utf8"),
         durationMs: Date.now() - start,
         timedOut: false,
       });
@@ -305,7 +332,11 @@ function makeAppender(maxBytes: number) {
       return Buffer.concat([buffer, chunk]);
     }
     const prefix = chunk.subarray(0, free);
-    return Buffer.concat([buffer, prefix, Buffer.from(TRUNCATION_NOTICE, "utf8")]);
+    return Buffer.concat([
+      buffer,
+      prefix,
+      Buffer.from(TRUNCATION_NOTICE, "utf8"),
+    ]);
   };
 }
 

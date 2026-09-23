@@ -42,20 +42,31 @@ export function stepGlyph(state: StepState): StepGlyph {
 }
 
 /** Build the tree connector prefix for a node. */
-function buildConnector(isRoot: boolean, prefix: string, isLast: boolean): string {
+function buildConnector(
+  isRoot: boolean,
+  prefix: string,
+  isLast: boolean,
+): string {
   if (isRoot) return "";
   return prefix + (isLast ? "└─ " : "├─ ");
 }
 
 /** Build the child prefix for children of a node. */
-function buildChildPrefix(isRoot: boolean, prefix: string, isLast: boolean): string {
+function buildChildPrefix(
+  isRoot: boolean,
+  prefix: string,
+  isLast: boolean,
+): string {
   if (isRoot) return "";
   return prefix + (isLast ? "   " : "│  ");
 }
 
 /** Build children map and hasParent set from graph steps. */
 function buildChildrenMap(
-  steps: readonly { id: string; dependencies: readonly { producer: string }[] }[],
+  steps: readonly {
+    id: string;
+    dependencies: readonly { producer: string }[];
+  }[],
   stepIds: Set<string>,
 ): { children: Map<string, string[]>; hasParent: Set<string> } {
   const children = new Map<string, string[]>();
@@ -74,7 +85,8 @@ function buildChildrenMap(
       hasParent.add(step.id);
     }
   }
-  for (const list of children.values()) list.sort((a, b) => a.localeCompare(b, "en"));
+  for (const list of children.values())
+    list.sort((a, b) => a.localeCompare(b, "en"));
   return { children, hasParent };
 }
 
@@ -93,7 +105,9 @@ export function buildStepTree(
   const visited = new Set<string>();
 
   if (!graph) {
-    const ids = [...state.steps.keys()].sort((a, b) => a.localeCompare(b, "en"));
+    const ids = [...state.steps.keys()].sort((a, b) =>
+      a.localeCompare(b, "en"),
+    );
     for (const id of ids) {
       rows.push({ stepId: id, prefix: "", depth: 0 });
     }
@@ -109,10 +123,20 @@ export function buildStepTree(
     .filter((id) => !hasParent.has(id))
     .sort((a, b) => a.localeCompare(b, "en"));
 
-  const visit = (id: string, prefix: string, depth: number, isLast: boolean, isRoot: boolean): void => {
+  const visit = (
+    id: string,
+    prefix: string,
+    depth: number,
+    isLast: boolean,
+    isRoot: boolean,
+  ): void => {
     if (visited.has(id)) return;
     visited.add(id);
-    rows.push({ stepId: id, prefix: buildConnector(isRoot, prefix, isLast), depth });
+    rows.push({
+      stepId: id,
+      prefix: buildConnector(isRoot, prefix, isLast),
+      depth,
+    });
     const kids = children.get(id) ?? [];
     const childPrefix = buildChildPrefix(isRoot, prefix, isLast);
     kids.forEach((kid, i) => {

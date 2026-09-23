@@ -15,7 +15,11 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
-import type { PromptResponse, Usage, ToolCallContent } from "@agentclientprotocol/sdk";
+import type {
+  PromptResponse,
+  Usage,
+  ToolCallContent,
+} from "@agentclientprotocol/sdk";
 
 import type {
   AgentAdapter,
@@ -92,16 +96,14 @@ async function readTranscript(
 export function countLlmCalls(transcript: Transcript): number {
   return transcript.steps.filter(
     (s) =>
-      s.source === "agent" &&
-      s.extra?.telemetry?.operation === "inference",
+      s.source === "agent" && s.extra?.telemetry?.operation === "inference",
   ).length;
 }
 
 /** Build a {@link TraceStep} from a raw transcript step. */
 function buildTraceStep(step: TranscriptStep): TraceStep {
   const isLlmCall =
-    step.source === "agent" &&
-    step.extra?.telemetry?.operation === "inference";
+    step.source === "agent" && step.extra?.telemetry?.operation === "inference";
   return {
     stepId: step.step_id,
     timestamp: step.timestamp,
@@ -205,7 +207,11 @@ export async function installPlugins(
   await mkdir(skillsDir, { recursive: true });
   for (const plugin of enabledPlugins) {
     // Reject path-like plugin ids to prevent directory traversal
-    if (plugin.id.includes("/") || plugin.id.includes("\\") || plugin.id.includes("..")) {
+    if (
+      plugin.id.includes("/") ||
+      plugin.id.includes("\\") ||
+      plugin.id.includes("..")
+    ) {
       throw new Error(`Invalid plugin id: ${plugin.id}`);
     }
     const dest = join(skillsDir, plugin.id);
@@ -249,7 +255,10 @@ export class DevinAdapter implements AgentAdapter {
 /** Resolve the full path to the devin binary to avoid PATH-based lookup. */
 function resolveDevinBinary(): string {
   try {
-    return execSync("which devin", { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim(); // NOSONAR — PATH needed to locate devin binary
+    return execSync("which devin", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim(); // NOSONAR — PATH needed to locate devin binary
   } catch {
     return "devin";
   }
@@ -386,7 +395,12 @@ async function runDevinSession(
       collector.observationsByCallId,
     );
     const llmCallCount = trace.steps.filter((s) => s.isLlmCall).length;
-    const metrics = buildMetrics(promptResult, collector.toolCallCount, llmCallCount, startTime);
+    const metrics = buildMetrics(
+      promptResult,
+      collector.toolCallCount,
+      llmCallCount,
+      startTime,
+    );
     const agentOutput = extractAgentOutput(promptResult, trace);
 
     return {
@@ -401,7 +415,14 @@ async function runDevinSession(
       success: metrics.stopReason === "end_turn",
     };
   } catch (error) {
-    return buildErrorResult(model, pluginIds, collector.toolCallCount, sessionId, startTime, error);
+    return buildErrorResult(
+      model,
+      pluginIds,
+      collector.toolCallCount,
+      sessionId,
+      startTime,
+      error,
+    );
   }
 }
 
@@ -444,7 +465,8 @@ function attachNextToolCall(
   observationsByCallId: Map<string, Observation>,
   toolIdx: number,
 ): { attached: boolean; nextIdx: number } {
-  if (toolIdx >= collectedToolCalls.length) return { attached: false, nextIdx: toolIdx };
+  if (toolIdx >= collectedToolCalls.length)
+    return { attached: false, nextIdx: toolIdx };
   const tc = collectedToolCalls[toolIdx];
   if (!tc) return { attached: false, nextIdx: toolIdx };
   const calls: ToolCall[] = [tc];
@@ -464,7 +486,12 @@ function attachToolCallsToSteps(
   let toolIdx = 0;
   for (const step of steps) {
     if (step.source !== "agent") continue;
-    const result = attachNextToolCall(step, collectedToolCalls, observationsByCallId, toolIdx);
+    const result = attachNextToolCall(
+      step,
+      collectedToolCalls,
+      observationsByCallId,
+      toolIdx,
+    );
     if (result.attached) toolIdx = result.nextIdx;
   }
 }

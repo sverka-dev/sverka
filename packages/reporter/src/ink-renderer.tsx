@@ -5,7 +5,12 @@ import { useEffect, useSyncExternalStore } from "react";
 import { Box, Text, render, useApp, useInput, useStdout } from "ink";
 import type { Key } from "ink";
 import type { RunEvent } from "@sverka/runtime";
-import { handleSearchInput, isQuitInput, type Finding, type PolicyResult } from "@sverka/verification";
+import {
+  handleSearchInput,
+  isQuitInput,
+  type Finding,
+  type PolicyResult,
+} from "@sverka/verification";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type {
   FindingFilter,
@@ -52,7 +57,7 @@ class TuiStore {
     this.graph = options.graph ?? null;
     this.baseline = options.baselineFingerprints;
     const stdin = options.stdin ?? process.stdin;
-    this.interactive = options.interactive ?? (stdin.isTTY === true);
+    this.interactive = options.interactive ?? stdin.isTTY === true;
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -130,7 +135,11 @@ class TuiStore {
 }
 
 /** Format a step's trailing status text. */
-function stepStatusText(step: { state: string; durationMs?: number; attempt?: number }): string {
+function stepStatusText(step: {
+  state: string;
+  durationMs?: number;
+  attempt?: number;
+}): string {
   const parts: string[] = [];
   if (step.attempt !== undefined && step.attempt > 1) {
     parts.push(`attempt ${step.attempt}`);
@@ -203,7 +212,10 @@ function TuiApp({ store }: Readonly<{ store: TuiStore }>) {
       ? detailsFor(store, rows[selected].stepId)
       : [];
 
-  const available = Math.max(4, termRows - RESERVED_LINES - detailsLines.length);
+  const available = Math.max(
+    4,
+    termRows - RESERVED_LINES - detailsLines.length,
+  );
   const stepsCap = Math.max(2, Math.ceil(available / 2));
   const stepWindow = windowRows(rows, selected, stepsCap);
   const findingsCap = Math.max(1, available - stepWindow.length);
@@ -225,7 +237,7 @@ function TuiApp({ store }: Readonly<{ store: TuiStore }>) {
         const g = stepGlyph(st);
         const isRunning = st === "running" || st === "compensating";
         const glyph = isRunning
-          ? SPINNER_FRAMES[store.spinnerFrame] ?? "●"
+          ? (SPINNER_FRAMES[store.spinnerFrame] ?? "●")
           : g.glyph;
         const isSel = rows[selected]?.stepId === row.stepId;
         const line = `${row.prefix}${glyph} ${row.stepId}  ${step ? stepStatusText(step) : ""}`;
@@ -259,19 +271,20 @@ function TuiApp({ store }: Readonly<{ store: TuiStore }>) {
       </Text>
 
       {findingRows.map((f) => (
-        <Text
-          key={f.id}
-          {...severityColor(f.severity)}
-          wrap="truncate"
-        >
-          {`  ${f.severity.padEnd(8)} ${f.checkId}  ${f.file}:${f.startLine}  ${f.message}`.slice(0, maxWidth)}
+        <Text key={f.id} {...severityColor(f.severity)} wrap="truncate">
+          {`  ${f.severity.padEnd(8)} ${f.checkId}  ${f.file}:${f.startLine}  ${f.message}`.slice(
+            0,
+            maxWidth,
+          )}
         </Text>
       ))}
 
       <Text>
         {renderFooterStatus(store)}
         {"   "}
-        <Text color="gray">q quit · j/k scroll · / search · f filter · d details</Text>
+        <Text color="gray">
+          q quit · j/k scroll · / search · f filter · d details
+        </Text>
       </Text>
     </Box>
   );
@@ -292,7 +305,11 @@ function detailsFor(store: TuiStore, stepId: string): string[] {
 }
 
 /** Window rows around the selected index within `cap` visible rows. */
-function windowRows<T>(rows: readonly T[], selected: number, cap: number): readonly T[] {
+function windowRows<T>(
+  rows: readonly T[],
+  selected: number,
+  cap: number,
+): readonly T[] {
   if (rows.length <= cap) return rows;
   const start = Math.min(
     Math.max(0, selected - Math.floor(cap / 2)),
@@ -302,7 +319,9 @@ function windowRows<T>(rows: readonly T[], selected: number, cap: number): reado
 }
 
 /** Create the interactive terminal renderer. */
-export function createInkRenderer(options: InkRendererOptions = {}): InkRenderer {
+export function createInkRenderer(
+  options: InkRendererOptions = {},
+): InkRenderer {
   const store = new TuiStore(options);
   let instance: ReturnType<typeof render>;
   try {

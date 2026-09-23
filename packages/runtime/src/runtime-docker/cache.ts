@@ -1,5 +1,12 @@
 import { copyFile, mkdir, stat } from "node:fs/promises";
-import { dirname, isAbsolute, join, normalize, relative, resolve } from "node:path";
+import {
+  dirname,
+  isAbsolute,
+  join,
+  normalize,
+  relative,
+  resolve,
+} from "node:path";
 import { DockerExecutorError } from "./errors.js";
 
 /**
@@ -14,7 +21,11 @@ export interface CacheManager {
     workspace?: string,
   ): Promise<string>;
   /** Collect cache outputs after execution. */
-  collect(outputs: readonly string[], sourceDir: string, key: string): Promise<void>;
+  collect(
+    outputs: readonly string[],
+    sourceDir: string,
+    key: string,
+  ): Promise<void>;
 }
 
 /**

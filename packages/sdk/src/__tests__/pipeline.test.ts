@@ -8,7 +8,9 @@ describe("pipeline factory", () => {
     const p = pipeline(proj, "ci", {
       steps: [
         (pip) => {
-          $`npm run build`.outputs({ dist: artifact("./dist") }).build(pip, "build");
+          $`npm run build`
+            .outputs({ dist: artifact("./dist") })
+            .build(pip, "build");
         },
         (pip) => {
           $`npm test`.dependsOn(["build"]).build(pip, "test");
@@ -31,11 +33,10 @@ describe("pipeline factory", () => {
   it("runs entry functions", () => {
     const proj = new Project("test");
     const p = pipeline(proj, "ci", {
-      steps: [
-        (pip) => $`npm run build`.build(pip, "build"),
-      ],
+      steps: [(pip) => $`npm run build`.build(pip, "build")],
       entries: [
-        (pip) => new Entry(pip, "on-push", { trigger: push(), roots: ["build"] }),
+        (pip) =>
+          new Entry(pip, "on-push", { trigger: push(), roots: ["build"] }),
       ],
     });
     expect(p.node.children).toHaveLength(2);

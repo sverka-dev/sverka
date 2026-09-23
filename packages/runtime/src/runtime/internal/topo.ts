@@ -103,7 +103,10 @@ function findCycle(ops: readonly PlanOperation[]): readonly string[] {
   const ids = new Set(ops.map((o) => o.id));
   const adj = new Map<string, string[]>();
   for (const op of ops) {
-    adj.set(op.id, op.dependsOn.filter((d) => ids.has(d)));
+    adj.set(
+      op.id,
+      op.dependsOn.filter((d) => ids.has(d)),
+    );
   }
   const stack: string[] = [];
   const onStack = new Set<string>();

@@ -31,7 +31,9 @@ describe("synthesize — validation: unknown producer", () => {
     const pipeline = new Pipeline(proj, "ci");
     new ShellStep(pipeline, "test", {
       command: "npm test",
-      inputs: [{ kind: "step", step: "nonexistent", output: "dist", type: "artifact" }],
+      inputs: [
+        { kind: "step", step: "nonexistent", output: "dist", type: "artifact" },
+      ],
     });
     expect(() => synthesize(proj)).toThrow(SynthesisError);
     try {
@@ -164,7 +166,9 @@ describe("validateGraph", () => {
     });
     new ShellStep(pipeline, "test", {
       command: "npm test",
-      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+      inputs: [
+        { kind: "step", step: "build", output: "dist", type: "artifact" },
+      ],
     });
     const graph = synthesize(proj);
     expect(() => validateGraph(graph)).not.toThrow();
@@ -181,7 +185,9 @@ describe("synthesize — validation: incompatible reference", () => {
     });
     new ShellStep(pipeline, "deploy", {
       command: "deploy",
-      inputs: [{ kind: "step", step: "build", output: "version", type: "artifact" }],
+      inputs: [
+        { kind: "step", step: "build", output: "version", type: "artifact" },
+      ],
     });
     expect(() => synthesize(proj)).toThrow(SynthesisError);
     try {
@@ -200,7 +206,9 @@ describe("synthesize — validation: incompatible reference", () => {
     });
     new ShellStep(pipeline, "test", {
       command: "npm test",
-      inputs: [{ kind: "step", step: "build", output: "nonexistent", type: "string" }],
+      inputs: [
+        { kind: "step", step: "build", output: "nonexistent", type: "string" },
+      ],
     });
     expect(() => synthesize(proj)).toThrow(SynthesisError);
     try {

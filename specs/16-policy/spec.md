@@ -42,7 +42,10 @@ interface PolicyVerification {
   readonly errors?: readonly string[];
 }
 
-function verifyPolicyAgainstGraph(policy: Policy, graph: DefinitionGraph): PolicyVerification;
+function verifyPolicyAgainstGraph(
+  policy: Policy,
+  graph: DefinitionGraph,
+): PolicyVerification;
 ```
 
 ### Exports
@@ -74,6 +77,7 @@ finding ids consistently with `verifyPolicyAgainstGraph`.
 ## Error handling
 
 Reuses existing `PolicyError` with codes:
+
 - `INVALID_POLICY`: policy is malformed (existing)
 - `INVALID_SEVERITY`: rule has unknown severity (existing)
 

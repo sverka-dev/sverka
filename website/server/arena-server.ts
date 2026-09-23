@@ -22,7 +22,9 @@ import { join, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
-const PUBLIC_DIR = fileURLToPath(new URL("../public/benchmark/", import.meta.url));
+const PUBLIC_DIR = fileURLToPath(
+  new URL("../public/benchmark/", import.meta.url),
+);
 const DATA_DIR = join(PUBLIC_DIR, "api");
 const CASES_FILE = join(DATA_DIR, "cases.json");
 const CONFIG_FILE = join(DATA_DIR, "config.json");
@@ -207,7 +209,8 @@ async function updateCase(id: string, req: Request): Promise<Response> {
     ...existing,
     name: (body.name as string) ?? existing.name,
     prompt: (body.prompt as string) ?? existing.prompt,
-    successCriteria: (body.successCriteria as string) ?? existing.successCriteria,
+    successCriteria:
+      (body.successCriteria as string) ?? existing.successCriteria,
     fixture: (body.fixture as string) ?? existing.fixture,
     timeoutMs: (body.timeoutMs as number) ?? existing.timeoutMs,
     checks: (body.checks as CaseDefinition["checks"]) ?? existing.checks,
@@ -279,7 +282,8 @@ async function startRun(req: Request): Promise<Response> {
     args.push("--cases", caseIds.join(","));
   }
 
-  const proc = spawn("bun", ["run", "packages/arena/src/bin.ts", ...args], { // NOSONAR — PATH needed for bun
+  const proc = spawn("bun", ["run", "packages/arena/src/bin.ts", ...args], {
+    // NOSONAR — PATH needed for bun
     cwd: process.cwd(),
     stdio: "pipe",
     env: { ...process.env },
@@ -361,10 +365,11 @@ const PORT = Number(process.env.PORT ?? 8099);
 
 const server: Server = serve({
   port: PORT,
-  fetch: (req) => route(req).catch((err) => {
-    console.error("[arena-server] error:", err);
-    return error(500, err instanceof Error ? err.message : String(err));
-  }),
+  fetch: (req) =>
+    route(req).catch((err) => {
+      console.error("[arena-server] error:", err);
+      return error(500, err instanceof Error ? err.message : String(err));
+    }),
 });
 
 console.log(`[arena-server] listening on http://localhost:${PORT}`);

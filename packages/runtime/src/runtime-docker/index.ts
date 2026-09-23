@@ -15,5 +15,8 @@ export type { DockerDriverConfig } from "./config.js";
 
 // Shared
 export { verifyImageDigest } from "./image.js";
-export { DockerExecutorError, ImageDigestError, ContainerPolicyError }
-  from "./errors.js";
+export {
+  DockerExecutorError,
+  ImageDigestError,
+  ContainerPolicyError,
+} from "./errors.js";

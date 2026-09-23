@@ -1,10 +1,25 @@
 // @sverka/ui — local web dashboard server.
 
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type Server,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, existsSync, realpathSync, type Dirent } from "node:fs";
+import {
+  readdirSync,
+  readFileSync,
+  existsSync,
+  realpathSync,
+  type Dirent,
+} from "node:fs";
 import { join, dirname, relative, resolve, sep } from "node:path";
-import { normalizeSarif, type Finding, type SarifLog } from "@sverka/verification";
+import {
+  normalizeSarif,
+  type Finding,
+  type SarifLog,
+} from "@sverka/verification";
 import { generateSarifHtml } from "@sverka/sarif-viewer-web";
 import { renderDashboard } from "./dashboard.js";
 
@@ -28,7 +43,8 @@ export interface UiServer {
  * generateSarifHtml escapes all user-controlled data via escapeHtml(). */
 const HTML_HEADERS = {
   "content-type": "text/html; charset=utf-8",
-  "content-security-policy": "default-src 'self'; script-src 'none'; style-src 'unsafe-inline'",
+  "content-security-policy":
+    "default-src 'self'; script-src 'none'; style-src 'unsafe-inline'",
   "x-content-type-options": "nosniff",
 } as const;
 
@@ -42,9 +58,11 @@ export function startUiServer(options: UiServerOptions): Promise<UiServer> {
   const host = options.host ?? "localhost";
   const artifactsDir = resolve(options.artifactsDir);
 
-  const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
-    handleRequest(req, res, artifactsDir);
-  });
+  const server: Server = createServer(
+    (req: IncomingMessage, res: ServerResponse) => {
+      handleRequest(req, res, artifactsDir);
+    },
+  );
 
   return new Promise((resolve, reject) => {
     const onError = (err: Error): void => reject(err);
@@ -53,7 +71,8 @@ export function startUiServer(options: UiServerOptions): Promise<UiServer> {
     server.listen(port, host, () => {
       // Get the actual port (supports port 0 = ephemeral).
       const address = server.address();
-      const actualPort = typeof address === "object" && address ? address.port : port;
+      const actualPort =
+        typeof address === "object" && address ? address.port : port;
 
       // Keep the error listener active for errors after listen (e.g. ECONNRESET).
       server.removeListener("error", onError);
@@ -66,7 +85,10 @@ export function startUiServer(options: UiServerOptions): Promise<UiServer> {
         url: `http://${host}:${actualPort}`,
         close: () => {
           server.close((err) => {
-            if (err && (err as NodeJS.ErrnoException).code !== "ERR_SERVER_NOT_RUNNING") {
+            if (
+              err &&
+              (err as NodeJS.ErrnoException).code !== "ERR_SERVER_NOT_RUNNING"
+            ) {
               // Ignore — server may already be closed.
             }
           });
@@ -115,10 +137,7 @@ function handleRequest(
  *  All user-controlled data (artifactsDir, filenames) is escaped via
  *  escapeHtml() in renderDashboard. CSP blocks inline scripts as
  *  defense-in-depth. */
-function serveDashboard(
-  res: ServerResponse,
-  artifactsDir: string,
-): void {
+function serveDashboard(res: ServerResponse, artifactsDir: string): void {
   const files = listSarifFiles(artifactsDir);
   const html = renderDashboard(artifactsDir, files);
   res.writeHead(200, HTML_HEADERS);
@@ -152,7 +171,10 @@ function serveReport(
   try {
     const realArtifacts = realpathSync(artifactsDir);
     const realFile = realpathSync(filePath);
-    if (!realFile.startsWith(realArtifacts + sep) && realFile !== realArtifacts) {
+    if (
+      !realFile.startsWith(realArtifacts + sep) &&
+      realFile !== realArtifacts
+    ) {
       res.writeHead(400, { "content-type": "text/plain" });
       res.end("Invalid filename");
       return;
@@ -179,7 +201,9 @@ function serveReport(
     res.end(html); // CodeQL: stored XSS — escapeHtml + hash-locked CSP mitigate
   } catch (e) {
     res.writeHead(500, { "content-type": "text/plain" });
-    res.end(`Error rendering report: ${e instanceof Error ? e.message : String(e)}`);
+    res.end(
+      `Error rendering report: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
 }
 
@@ -197,8 +221,12 @@ function reportHeaders(html: string): Record<string, string> {
  *  <script> block in the HTML. Falls back to 'none' when there are none. */
 function inlineScriptHashes(html: string): string {
   const hashes: string[] = [];
-  for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script[^>]*>/gi)) {
-    const digest = createHash("sha256").update(match[1] ?? "").digest("base64");
+  for (const match of html.matchAll(
+    /<script\b[^>]*>([\s\S]*?)<\/script[^>]*>/gi,
+  )) {
+    const digest = createHash("sha256")
+      .update(match[1] ?? "")
+      .digest("base64");
     hashes.push(`'sha256-${digest}'`);
   }
   return hashes.length > 0 ? hashes.join(" ") : "'none'";
@@ -230,7 +258,10 @@ function collectSarifFiles(root: string, dir: string, out: string[]): void {
     }
     if (entry.isDirectory()) {
       collectSarifFiles(root, entryPath, out);
-    } else if (entry.name.endsWith(".sarif") || entry.name.endsWith(".sarif.json")) {
+    } else if (
+      entry.name.endsWith(".sarif") ||
+      entry.name.endsWith(".sarif.json")
+    ) {
       out.push(relative(root, entryPath).split(sep).join("/"));
     }
   }

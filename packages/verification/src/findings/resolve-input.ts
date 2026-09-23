@@ -32,7 +32,9 @@ export interface ResolveSarifInputOptions {
  * @throws {NormalizationError} when SARIF is invalid (propagated).
  * @throws {Error} when the file cannot be read or parsed.
  */
-export function resolveSarifInput(options: ResolveSarifInputOptions): Finding[] {
+export function resolveSarifInput(
+  options: ResolveSarifInputOptions,
+): Finding[] {
   const { sarif, sarifPath, findings, context } = options;
   const provided = [sarif, sarifPath, findings].filter((v) => v !== undefined);
   if (provided.length === 0) {
@@ -62,7 +64,9 @@ export function resolveSarifInput(options: ResolveSarifInputOptions): Finding[] 
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error(`resolveSarifInput: failed to parse SARIF JSON from ${sarifPath as string}`);
+    throw new Error(
+      `resolveSarifInput: failed to parse SARIF JSON from ${sarifPath as string}`,
+    );
   }
   return normalizeSarif(parsed, ctx);
 }

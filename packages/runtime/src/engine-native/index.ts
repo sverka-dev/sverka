@@ -8,10 +8,21 @@ export { createStubAgentDriver } from "./agent-driver.js";
 export { createInMemorySnapshotStore } from "./snapshot-store.js";
 
 export type {
-  Engine, RunRequest, ResumeRequest, RunEvent, RunStatus, RuntimeDriver,
-  ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore,
-  SecretProvider, EngineConfig,
-  RunSnapshot, SnapshotStore, ResumeSchema,
+  Engine,
+  RunRequest,
+  ResumeRequest,
+  RunEvent,
+  RunStatus,
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+  ValueStore,
+  ArtifactStore,
+  SecretProvider,
+  EngineConfig,
+  RunSnapshot,
+  SnapshotStore,
+  ResumeSchema,
   RunState,
 } from "./types.js";
 export type {
@@ -29,10 +40,24 @@ export type {
   AgentUsage,
 } from "./agent-driver.js";
 
-export { EngineError, SchedulerError, StepExecError, AgentDriverError } from "./errors.js";
+export {
+  EngineError,
+  SchedulerError,
+  StepExecError,
+  AgentDriverError,
+} from "./errors.js";
 export type { EngineErrorCode, AgentDriverErrorCode } from "./errors.js";
 
-export { buildStepExecutionGraph, topoSortSteps, transitiveDependents, isStepReady } from "./scheduler.js";
+export {
+  buildStepExecutionGraph,
+  topoSortSteps,
+  transitiveDependents,
+  isStepReady,
+} from "./scheduler.js";
 export type { StepState, StepGraph } from "./scheduler.js";
 
-export type { StepExecResult, StepExecOptions, ShellOutput } from "./step-executor.js";
+export type {
+  StepExecResult,
+  StepExecOptions,
+  ShellOutput,
+} from "./step-executor.js";

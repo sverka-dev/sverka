@@ -20,7 +20,9 @@ export function computeGraphId(graph: DefinitionGraph): string {
  * Compute a deterministic run plan id from the plan content (excluding
  * `id` and `createdAt`). SHA-256 over canonical JSON, prefixed `rp-`.
  */
-export function computeRunPlanId(plan: Omit<RunPlan, "id" | "createdAt">): string {
+export function computeRunPlanId(
+  plan: Omit<RunPlan, "id" | "createdAt">,
+): string {
   const canonical = canonicalStringify(plan);
   const hex = createHash("sha256").update(canonical, "utf8").digest("hex");
   return `rp-${hex}`;

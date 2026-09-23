@@ -12,13 +12,13 @@ Artifacts don't live forever — they expire and have access controls. GitHub us
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `retention-days` (upload-artifact) | `artifacts:expire_in`, `artifacts:access` | `retention`, `access` on artifact |
-| Semantics | Days before artifact is deleted | Duration before deletion + who can access | Retention duration + access level |
-| Value type | number (days) | duration string + enum | duration string + enum |
-| Limitations | repo/org retention settings override | `access`: all/developer/maintainer/none | — |
-| Provider gap | no access control in YAML | no per-artifact retention-days | — |
+| Aspect       | GitHub Actions                       | GitLab CI                                 | Sverka (proposed)                 |
+| ------------ | ------------------------------------ | ----------------------------------------- | --------------------------------- |
+| Construct    | `retention-days` (upload-artifact)   | `artifacts:expire_in`, `artifacts:access` | `retention`, `access` on artifact |
+| Semantics    | Days before artifact is deleted      | Duration before deletion + who can access | Retention duration + access level |
+| Value type   | number (days)                        | duration string + enum                    | duration string + enum            |
+| Limitations  | repo/org retention settings override | `access`: all/developer/maintainer/none   | —                                 |
+| Provider gap | no access control in YAML            | no per-artifact retention-days            | —                                 |
 
 ## GitHub Actions
 
@@ -54,7 +54,7 @@ Add optional fields to artifact export:
 interface ArtifactExport {
   readonly name: string;
   readonly path: string;
-  readonly retention?: string;        // duration string: "7d", "1h", "never"
+  readonly retention?: string; // duration string: "7d", "1h", "never"
   readonly access?: "all" | "developer" | "maintainer" | "none";
 }
 ```

@@ -1,13 +1,25 @@
 // @sverka/reporter — DAG layout (pure). Spec 44.
 
 import type { DefinitionGraph } from "@sverka/workflow";
-import type { DagNode, DagEdge, DagLayoutResult, DagLayoutOptions } from "./types.js";
+import type {
+  DagNode,
+  DagEdge,
+  DagLayoutResult,
+  DagLayoutOptions,
+} from "./types.js";
 
 const DEFAULT_SPACING_X = 200;
 const DEFAULT_SPACING_Y = 80;
 
 /** Collect all steps and build edges from dependencies. */
-function buildEdges(graph: DefinitionGraph): { steps: readonly { id: string; dependencies: readonly { producer: string; kind?: string }[] }[]; stepIds: Set<string>; edges: DagEdge[] } {
+function buildEdges(graph: DefinitionGraph): {
+  steps: readonly {
+    id: string;
+    dependencies: readonly { producer: string; kind?: string }[];
+  }[];
+  stepIds: Set<string>;
+  edges: DagEdge[];
+} {
   const steps = graph.project.pipelines.flatMap((p) => p.steps);
   const stepIds = new Set(steps.map((s) => s.id));
   const edges: DagEdge[] = [];
@@ -22,7 +34,10 @@ function buildEdges(graph: DefinitionGraph): { steps: readonly { id: string; dep
 }
 
 /** Compute in-degree for each node. */
-function computeInDegrees(stepIds: Set<string>, edges: readonly DagEdge[]): Map<string, number> {
+function computeInDegrees(
+  stepIds: Set<string>,
+  edges: readonly DagEdge[],
+): Map<string, number> {
   const inDegree = new Map<string, number>();
   for (const id of stepIds) inDegree.set(id, 0);
   for (const edge of edges) {
@@ -32,7 +47,10 @@ function computeInDegrees(stepIds: Set<string>, edges: readonly DagEdge[]): Map<
 }
 
 /** Build adjacency list from edges. */
-function buildAdjList(stepIds: Set<string>, edges: readonly DagEdge[]): Map<string, string[]> {
+function buildAdjList(
+  stepIds: Set<string>,
+  edges: readonly DagEdge[],
+): Map<string, string[]> {
   const adjList = new Map<string, string[]>();
   for (const id of stepIds) adjList.set(id, []);
   for (const edge of edges) {
@@ -90,7 +108,14 @@ function computeLayers(
     processed.add(node);
     const currentLayer = layer.get(node) ?? 0;
     for (const neighbor of adjList.get(node) ?? []) {
-      processNeighbor(neighbor, currentLayer, layer, inDegree, processed, queue);
+      processNeighbor(
+        neighbor,
+        currentLayer,
+        layer,
+        inDegree,
+        processed,
+        queue,
+      );
     }
   }
   for (const id of stepIds) {
@@ -125,10 +150,18 @@ function assignPositions(
   const nodes: DagNode[] = [];
   for (const [l, ids] of byLayer) {
     ids.forEach((id, index) => {
-      nodes.push({ id, label: id, x: l * spacingX, y: index * spacingY, layer: l });
+      nodes.push({
+        id,
+        label: id,
+        x: l * spacingX,
+        y: index * spacingY,
+        layer: l,
+      });
     });
   }
-  nodes.sort((a, b) => a.layer - b.layer || a.y - b.y || a.id.localeCompare(b.id, "en"));
+  nodes.sort(
+    (a, b) => a.layer - b.layer || a.y - b.y || a.id.localeCompare(b.id, "en"),
+  );
   return nodes;
 }
 

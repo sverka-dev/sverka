@@ -15,13 +15,13 @@ template (SDK), lowering to `OperationDefinition` kind `shell` in the graph.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `steps[*].run` | `script` (array) | `ShellStep.command` / `sh` template |
-| Semantics | string run in runner shell | array of strings run sequentially | single command string per shell op |
-| Value type | string | string or string array | string |
-| Limitations | one shell per step | multiple scripts per job | consecutive shell ops combined in lowering |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions             | GitLab CI                         | Sverka (proposed)                          |
+| ------------ | -------------------------- | --------------------------------- | ------------------------------------------ |
+| Construct    | `steps[*].run`             | `script` (array)                  | `ShellStep.command` / `sh` template        |
+| Semantics    | string run in runner shell | array of strings run sequentially | single command string per shell op         |
+| Value type   | string                     | string or string array            | string                                     |
+| Limitations  | one shell per step         | multiple scripts per job          | consecutive shell ops combined in lowering |
+| Provider gap | —                          | —                                 | —                                          |
 
 ## GitHub Actions
 

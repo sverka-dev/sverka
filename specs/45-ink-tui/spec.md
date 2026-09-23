@@ -40,13 +40,13 @@ a TTY and no `--format` is given; otherwise it falls back to text.
 ```typescript
 /** Findings list filter selected via the filter bar. */
 export type FindingFilter =
-  | "all"       // every finding
-  | "critical"  // severity === "critical"
-  | "high"      // severity === "high"
-  | "medium"    // severity === "medium"
-  | "low"       // severity === "low"
-  | "new"       // fingerprint not in baselineFingerprints (all new if no baseline)
-  | "error";    // source.originalSeverity === "error" (SARIF level preserved)
+  | "all" // every finding
+  | "critical" // severity === "critical"
+  | "high" // severity === "high"
+  | "medium" // severity === "medium"
+  | "low" // severity === "low"
+  | "new" // fingerprint not in baselineFingerprints (all new if no baseline)
+  | "error"; // source.originalSeverity === "error" (SARIF level preserved)
 ```
 
 ### Step glyphs
@@ -64,19 +64,19 @@ export function stepGlyph(state: StepState): StepGlyph;
 
 Mapping:
 
-| StepState | Glyph | Color |
-|-----------|-------|-------|
-| pending | `○` | gray |
-| ready | `○` | gray |
-| running | `●` | yellow |
-| succeeded | `✓` | green |
-| failed | `✗` | red |
-| skipped | `○` | gray |
-| cancelled | `○` | gray |
-| cache-hit | `✓` | green |
-| suspended | `⏸` | cyan |
-| compensating | `●` | yellow |
-| compensated | `✓` | green |
+| StepState    | Glyph | Color  |
+| ------------ | ----- | ------ |
+| pending      | `○`   | gray   |
+| ready        | `○`   | gray   |
+| running      | `●`   | yellow |
+| succeeded    | `✓`   | green  |
+| failed       | `✗`   | red    |
+| skipped      | `○`   | gray   |
+| cancelled    | `○`   | gray   |
+| cache-hit    | `✓`   | green  |
+| suspended    | `⏸`   | cyan   |
+| compensating | `●`   | yellow |
+| compensated  | `✓`   | green  |
 
 ### DAG tree rows
 
@@ -190,15 +190,15 @@ caller, which falls back to `TextRenderer`.
 
 ### Keybindings
 
-| Key | Action |
-|-----|--------|
-| `j` / ↓ | scroll selection down |
-| `k` / ↑ | scroll selection up |
-| `/` | enter search mode; typing filters findings by substring; `Esc` exits |
-| `f` | cycle the findings filter forward |
-| `d` | toggle the details pane for the selected step (error, diagnostics, attempt) |
-| `q` | quit (resolves `waitUntilExit`) |
-| Ctrl+C | quit |
+| Key     | Action                                                                      |
+| ------- | --------------------------------------------------------------------------- |
+| `j` / ↓ | scroll selection down                                                       |
+| `k` / ↑ | scroll selection up                                                         |
+| `/`     | enter search mode; typing filters findings by substring; `Esc` exits        |
+| `f`     | cycle the findings filter forward                                           |
+| `d`     | toggle the details pane for the selected step (error, diagnostics, attempt) |
+| `q`     | quit (resolves `waitUntilExit`)                                             |
+| Ctrl+C  | quit                                                                        |
 
 ### Resize
 
@@ -232,11 +232,11 @@ returns the computed exit code.
 
 ## Dependencies
 
-| Package | Dep | Type | Justification |
-|---------|-----|------|---------------|
-| @sverka/reporter | ink `^7` | external | React-based terminal UI |
-| @sverka/reporter | react `^19.2` | external | ink peer dependency |
-| @sverka/reporter | ink-testing-library | dev | headless component tests |
+| Package          | Dep                 | Type     | Justification            |
+| ---------------- | ------------------- | -------- | ------------------------ |
+| @sverka/reporter | ink `^7`            | external | React-based terminal UI  |
+| @sverka/reporter | react `^19.2`       | external | ink peer dependency      |
+| @sverka/reporter | ink-testing-library | dev      | headless component tests |
 
 No other new dependencies. The spinner is implemented in-package (frame
 tick on `useState` + interval); `ink-spinner` is not needed.

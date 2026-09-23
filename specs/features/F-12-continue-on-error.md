@@ -12,13 +12,13 @@ Sometimes a step should not block the pipeline when it fails — non-critical ch
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `continue-on-error` | `allow_failure` | `continueOnError` on Step |
-| Semantics | Step failure doesn't fail the job/pipeline | Job failure doesn't fail the pipeline | Step failure doesn't block pipeline |
-| Value type | boolean or expression | boolean or `{ exit_codes }` | boolean or `{ exitCodes }` |
-| Limitations | no exit-code filtering | exit-code filtering via `exit_codes` | — |
-| Provider gap | no exit-code filtering | — | exit-code filtering is GitLab-only |
+| Aspect       | GitHub Actions                             | GitLab CI                             | Sverka (proposed)                   |
+| ------------ | ------------------------------------------ | ------------------------------------- | ----------------------------------- |
+| Construct    | `continue-on-error`                        | `allow_failure`                       | `continueOnError` on Step           |
+| Semantics    | Step failure doesn't fail the job/pipeline | Job failure doesn't fail the pipeline | Step failure doesn't block pipeline |
+| Value type   | boolean or expression                      | boolean or `{ exit_codes }`           | boolean or `{ exitCodes }`          |
+| Limitations  | no exit-code filtering                     | exit-code filtering via `exit_codes`  | —                                   |
+| Provider gap | no exit-code filtering                     | —                                     | exit-code filtering is GitLab-only  |
 
 ## GitHub Actions
 

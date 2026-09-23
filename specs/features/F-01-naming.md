@@ -12,13 +12,13 @@ Every pipeline has a display name shown in the provider UI. GitHub also supports
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `name`, `run-name` | `workflow:name` | `name`, `runName` |
-| Semantics | `name` = workflow display; `run-name` = per-run display with expressions | `workflow:name` = pipeline display name with variables | `name` = pipeline display; `runName` = per-run expression |
-| Value type | string (both) | string or CI/CD variable | string (name), expression string (runName) |
-| Limitations | `run-name` only in GitHub | `workflow:name` only in GitLab | `runName` optional, lowered where supported |
-| Provider gap | — | no per-run name equivalent | `runName` lowers to GitHub `run-name`, omitted on GitLab |
+| Aspect       | GitHub Actions                                                           | GitLab CI                                              | Sverka (proposed)                                         |
+| ------------ | ------------------------------------------------------------------------ | ------------------------------------------------------ | --------------------------------------------------------- |
+| Construct    | `name`, `run-name`                                                       | `workflow:name`                                        | `name`, `runName`                                         |
+| Semantics    | `name` = workflow display; `run-name` = per-run display with expressions | `workflow:name` = pipeline display name with variables | `name` = pipeline display; `runName` = per-run expression |
+| Value type   | string (both)                                                            | string or CI/CD variable                               | string (name), expression string (runName)                |
+| Limitations  | `run-name` only in GitHub                                                | `workflow:name` only in GitLab                         | `runName` optional, lowered where supported               |
+| Provider gap | —                                                                        | no per-run name equivalent                             | `runName` lowers to GitHub `run-name`, omitted on GitLab  |
 
 ## GitHub Actions
 

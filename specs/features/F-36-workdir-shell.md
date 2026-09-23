@@ -12,13 +12,13 @@ Steps may need to run in a specific directory or with a specific shell. GitHub s
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `working-directory`, `shell` | (none) | `workdir`, `shell` on Step |
-| Semantics | Run command in specified directory with specified shell | Uses repo root and runner default | Run in directory with shell |
-| Value type | string (path), string (shell name) | n/a | string, string |
-| Limitations | — | no native support | GitLab: emulated via cd + explicit shell |
-| Provider gap | — | no equivalent | — |
+| Aspect       | GitHub Actions                                          | GitLab CI                         | Sverka (proposed)                        |
+| ------------ | ------------------------------------------------------- | --------------------------------- | ---------------------------------------- |
+| Construct    | `working-directory`, `shell`                            | (none)                            | `workdir`, `shell` on Step               |
+| Semantics    | Run command in specified directory with specified shell | Uses repo root and runner default | Run in directory with shell              |
+| Value type   | string (path), string (shell name)                      | n/a                               | string, string                           |
+| Limitations  | —                                                       | no native support                 | GitLab: emulated via cd + explicit shell |
+| Provider gap | —                                                       | no equivalent                     | —                                        |
 
 ## GitHub Actions
 
@@ -101,7 +101,7 @@ export interface Runtime {
   readonly env?: Readonly<Record<string, string>>;
   readonly secrets?: readonly string[];
   readonly workingDir?: string;
-  readonly shell?: string;         // NEW: "bash" | "sh" | "pwsh" | etc.
+  readonly shell?: string; // NEW: "bash" | "sh" | "pwsh" | etc.
 }
 ```
 
@@ -111,6 +111,7 @@ both are execution-environment properties, not step-structure properties.
 ### GitHub target
 
 Add `workingDirectory?: string` and `shell?: string` to `GithubStep`:
+
 ```ts
 export interface GithubStep {
   // ...existing fields...
@@ -121,12 +122,15 @@ export interface GithubStep {
 
 In `lowerOperations`, when `flushRun` creates a run step, attach
 `workingDirectory` and `shell` from `step.runtime`:
+
 ```ts
 function flushRun(): void {
   if (runLines.length === 0) return;
   steps.push({
     run: runLines.join("\n"),
-    ...(step.runtime.workingDir ? { workingDirectory: step.runtime.workingDir } : {}),
+    ...(step.runtime.workingDir
+      ? { workingDirectory: step.runtime.workingDir }
+      : {}),
     ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
   });
   runLines = [];

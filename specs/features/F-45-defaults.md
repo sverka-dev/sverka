@@ -12,13 +12,13 @@ Defaults provide pipeline-wide settings that apply to all steps unless overridde
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `defaults.run` | `default` | `defaults` on Pipeline |
-| Semantics | Apply shell/workdir to all steps | Apply image/services/cache/script to all jobs | Apply settings to all steps |
-| Value type | map with `shell`, `working-directory` | map with image, services, cache, before_script, after_script, etc. | map with shared step properties |
-| Limitations | only shell and workdir | broad set of defaults | — |
-| Provider gap | limited scope | broad scope | portable subset |
+| Aspect       | GitHub Actions                        | GitLab CI                                                          | Sverka (proposed)               |
+| ------------ | ------------------------------------- | ------------------------------------------------------------------ | ------------------------------- |
+| Construct    | `defaults.run`                        | `default`                                                          | `defaults` on Pipeline          |
+| Semantics    | Apply shell/workdir to all steps      | Apply image/services/cache/script to all jobs                      | Apply settings to all steps     |
+| Value type   | map with `shell`, `working-directory` | map with image, services, cache, before_script, after_script, etc. | map with shared step properties |
+| Limitations  | only shell and workdir                | broad set of defaults                                              | —                               |
+| Provider gap | limited scope                         | broad scope                                                        | portable subset                 |
 
 ## GitHub Actions
 

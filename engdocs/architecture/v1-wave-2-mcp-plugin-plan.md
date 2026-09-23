@@ -26,20 +26,20 @@ be mandatory deps of core).
 
 ## Files
 
-| File | Action |
-|---|---|
-| `packages/compiler/src/plugin/types.ts` | **Edit** — add `ToolProvider`, `ToolDefinition`, `ToolResult`, `ToolResultContent` interfaces; add `tools?: ToolProvider` to `SverkaPlugin`. |
-| `packages/compiler/src/plugin/index.ts` | **Edit** — export the 4 new types. |
-| `packages/compiler/src/plugin/factory.ts` | **Edit** — `snapshotPlugin` copies `tools` facet (shallow copy — the provider is a live object, not snapshotable). |
-| `packages/compiler/src/plugin/__tests__/tools-facet.test.ts` | **New** — assert `SverkaPlugin` accepts `tools`, registry snapshots preserve it, types exported (items 10, 12). |
-| `packages/plugin-mcp/` | **New package** — scaffold (package.json, project.json, tsconfig, tsdown.config, src/index.ts). |
-| `packages/plugin-mcp/src/index.ts` | **New** — `createMCPPlugin`, `MCPPluginConfig`, `MCPServerConfig` types. |
-| `packages/plugin-mcp/src/client.ts` | **New** — `MCPClientPool`: lazy connect, multi-server, transport selection (stdio/HTTP/SSE fallback), `listTools`/`callTool` proxying with name prefixing. |
-| `packages/plugin-mcp/src/errors.ts` | **New** — `MCPPluginError` with `override cause`, 4 codes. |
-| `packages/plugin-mcp/src/__tests__/client.test.ts` | **New** — unit tests with mocked MCP SDK `Client` (items 1–9). |
-| `packages/plugin-mcp/src/__tests__/public-api.test.ts` | **New** — export assertions (item 11). |
-| `package.json` (root) | **Edit** — add `packages/plugin-mcp` to workspaces if not glob-covered. |
-| `bun.lock` | **Regenerate** — `bun install` after adding `@modelcontextprotocol/sdk`. |
+| File                                                         | Action                                                                                                                                                     |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/compiler/src/plugin/types.ts`                      | **Edit** — add `ToolProvider`, `ToolDefinition`, `ToolResult`, `ToolResultContent` interfaces; add `tools?: ToolProvider` to `SverkaPlugin`.               |
+| `packages/compiler/src/plugin/index.ts`                      | **Edit** — export the 4 new types.                                                                                                                         |
+| `packages/compiler/src/plugin/factory.ts`                    | **Edit** — `snapshotPlugin` copies `tools` facet (shallow copy — the provider is a live object, not snapshotable).                                         |
+| `packages/compiler/src/plugin/__tests__/tools-facet.test.ts` | **New** — assert `SverkaPlugin` accepts `tools`, registry snapshots preserve it, types exported (items 10, 12).                                            |
+| `packages/plugin-mcp/`                                       | **New package** — scaffold (package.json, project.json, tsconfig, tsdown.config, src/index.ts).                                                            |
+| `packages/plugin-mcp/src/index.ts`                           | **New** — `createMCPPlugin`, `MCPPluginConfig`, `MCPServerConfig` types.                                                                                   |
+| `packages/plugin-mcp/src/client.ts`                          | **New** — `MCPClientPool`: lazy connect, multi-server, transport selection (stdio/HTTP/SSE fallback), `listTools`/`callTool` proxying with name prefixing. |
+| `packages/plugin-mcp/src/errors.ts`                          | **New** — `MCPPluginError` with `override cause`, 4 codes.                                                                                                 |
+| `packages/plugin-mcp/src/__tests__/client.test.ts`           | **New** — unit tests with mocked MCP SDK `Client` (items 1–9).                                                                                             |
+| `packages/plugin-mcp/src/__tests__/public-api.test.ts`       | **New** — export assertions (item 11).                                                                                                                     |
+| `package.json` (root)                                        | **Edit** — add `packages/plugin-mcp` to workspaces if not glob-covered.                                                                                    |
+| `bun.lock`                                                   | **Regenerate** — `bun install` after adding `@modelcontextprotocol/sdk`.                                                                                   |
 
 ## TDD steps
 
@@ -74,6 +74,7 @@ be mandatory deps of core).
 Use `@modelcontextprotocol/sdk` (the established package). Check
 `npm view @modelcontextprotocol/sdk version` at build time and pin a version
 published ≥7 days ago. The SDK provides:
+
 - `Client` (from `@modelcontextprotocol/sdk/client/index.js`)
 - `StdioClientTransport` (from `@modelcontextprotocol/sdk/client/stdio.js`)
 - `StreamableHTTPClientTransport` (from `@modelcontextprotocol/sdk/client/streamableHttp.js`)

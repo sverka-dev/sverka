@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, FunctionStep, Entry, runPipeline } from "../src/index.js";
+import {
+  Project,
+  Pipeline,
+  FunctionStep,
+  Entry,
+  runPipeline,
+} from "../src/index.js";
 
 describe("runPipeline", () => {
   it("runs a simple pipeline with one FunctionStep", async () => {
@@ -8,11 +14,20 @@ describe("runPipeline", () => {
 
     new FunctionStep(checks, "lint", {
       fn: () => [
-        { rule: "no-unused-vars", file: "src/index.ts", line: 5, severity: "high" as const, message: "x is unused" },
+        {
+          rule: "no-unused-vars",
+          file: "src/index.ts",
+          line: 5,
+          severity: "high" as const,
+          message: "x is unused",
+        },
       ],
     });
 
-    new Entry(checks, "on-push", { trigger: { kind: "push" }, roots: ["lint"] });
+    new Entry(checks, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["lint"],
+    });
 
     const result = await runPipeline(proj);
     expect(result.success).toBe(true);
@@ -32,14 +47,32 @@ describe("runPipeline", () => {
 
     new FunctionStep(checks, "lint", {
       fn: () => [
-        { rule: "no-unused-vars", file: "a.ts", line: 1, severity: "high" as const, message: "unused" },
-        { rule: "no-console", file: "b.ts", line: 3, severity: "medium" as const, message: "console.log" },
+        {
+          rule: "no-unused-vars",
+          file: "a.ts",
+          line: 1,
+          severity: "high" as const,
+          message: "unused",
+        },
+        {
+          rule: "no-console",
+          file: "b.ts",
+          line: 3,
+          severity: "medium" as const,
+          message: "console.log",
+        },
       ],
     });
 
     new FunctionStep(checks, "typecheck", {
       fn: () => [
-        { rule: "ts2322", file: "c.ts", line: 10, severity: "critical" as const, message: "type error" },
+        {
+          rule: "ts2322",
+          file: "c.ts",
+          line: 10,
+          severity: "critical" as const,
+          message: "type error",
+        },
       ],
     });
 
@@ -58,7 +91,13 @@ describe("runPipeline", () => {
       fn: async () => {
         await new Promise((r) => setTimeout(r, 10));
         return [
-          { rule: "async-rule", file: "x.ts", line: 1, severity: "low" as const, message: "async finding" },
+          {
+            rule: "async-rule",
+            file: "x.ts",
+            line: 1,
+            severity: "low" as const,
+            message: "async finding",
+          },
         ];
       },
     });
@@ -80,7 +119,13 @@ describe("runPipeline", () => {
 
     new FunctionStep(checks, "passing", {
       fn: () => [
-        { rule: "ok", file: "ok.ts", line: 1, severity: "info" as const, message: "fine" },
+        {
+          rule: "ok",
+          file: "ok.ts",
+          line: 1,
+          severity: "info" as const,
+          message: "fine",
+        },
       ],
     });
 
@@ -105,7 +150,13 @@ describe("runPipeline", () => {
     const checks1 = new Pipeline(proj1, "checks");
     new FunctionStep(checks1, "lint", {
       fn: () => [
-        { rule: "r1", file: "f.ts", line: 1, severity: "high" as const, message: "m" },
+        {
+          rule: "r1",
+          file: "f.ts",
+          line: 1,
+          severity: "high" as const,
+          message: "m",
+        },
       ],
     });
 
@@ -113,7 +164,13 @@ describe("runPipeline", () => {
     const checks2 = new Pipeline(proj2, "checks");
     new FunctionStep(checks2, "lint", {
       fn: () => [
-        { rule: "r1", file: "f.ts", line: 1, severity: "high" as const, message: "m" },
+        {
+          rule: "r1",
+          file: "f.ts",
+          line: 1,
+          severity: "high" as const,
+          message: "m",
+        },
       ],
     });
 
@@ -128,7 +185,14 @@ describe("runPipeline", () => {
     const checks = new Pipeline(proj, "checks");
     new FunctionStep(checks, "eslint", {
       fn: () => [
-        { rule: "r1", file: "f.ts", line: 1, severity: "high" as const, message: "m", tool: "eslint" },
+        {
+          rule: "r1",
+          file: "f.ts",
+          line: 1,
+          severity: "high" as const,
+          message: "m",
+          tool: "eslint",
+        },
       ],
     });
 
@@ -141,7 +205,13 @@ describe("runPipeline", () => {
     const checks = new Pipeline(proj, "checks");
     new FunctionStep(checks, "my-check", {
       fn: () => [
-        { rule: "r1", file: "f.ts", line: 1, severity: "high" as const, message: "m" },
+        {
+          rule: "r1",
+          file: "f.ts",
+          line: 1,
+          severity: "high" as const,
+          message: "m",
+        },
       ],
     });
 
@@ -155,7 +225,15 @@ describe("runPipeline", () => {
     new FunctionStep(checks, "slow", {
       fn: async () => {
         await new Promise((r) => setTimeout(r, 50));
-        return [{ rule: "r", file: "f.ts", line: 1, severity: "low" as const, message: "m" }];
+        return [
+          {
+            rule: "r",
+            file: "f.ts",
+            line: 1,
+            severity: "low" as const,
+            message: "m",
+          },
+        ];
       },
     });
 

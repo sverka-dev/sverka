@@ -117,14 +117,14 @@ declare credentials, the `env:` block is omitted.
 
 ### Default config
 
-| Field           | Default                                    |
-|-----------------|--------------------------------------------|
-| `name`          | `"Sverka"`                                 |
-| `on`            | `{ push: ["main"], pullRequest: [] }`      |
-| `runner`        | `"ubuntu-latest"`                          |
-| `sverkaVersion` | `"latest"`                                 |
-| `nodeVersion`   | `"24"`                                     |
-| `permissions`   | `{ contents: "read" }`                     |
+| Field           | Default                               |
+| --------------- | ------------------------------------- |
+| `name`          | `"Sverka"`                            |
+| `on`            | `{ push: ["main"], pullRequest: [] }` |
+| `runner`        | `"ubuntu-latest"`                     |
+| `sverkaVersion` | `"latest"`                            |
+| `nodeVersion`   | `"24"`                                |
+| `permissions`   | `{ contents: "read" }`                |
 
 ### YAML serialization
 
@@ -142,8 +142,8 @@ well-formed input), the native `Error` propagates.
 
 1. **Minimal plan, default config:** YAML contains `name: Sverka`, push on
    main, pull_request, `permissions: contents: read`, `runs-on:
-   ubuntu-latest`, checkout, setup-node (node 24), `bun install -g
-   sverka@latest`, `sverka execute .sverka/plan.json`, upload-artifact.
+ubuntu-latest`, checkout, setup-node (node 24), `bun install -g
+sverka@latest`, `sverka execute .sverka/plan.json`, upload-artifact.
 2. **Custom config:** custom name, runner, sverkaVersion, nodeVersion
    reflected in YAML.
 3. **Custom triggers:** `workflowDispatch: true` present; custom push

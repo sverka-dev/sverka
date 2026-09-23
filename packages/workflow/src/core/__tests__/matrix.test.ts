@@ -14,7 +14,9 @@ describe("Matrix in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step).toBeDefined();
     expect(step?.matrix).toEqual(matrix);
   });
@@ -26,7 +28,9 @@ describe("Matrix in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step).toBeDefined();
     expect(step?.matrix).toBeUndefined();
     expect("matrix" in step!).toBe(false);
@@ -44,7 +48,9 @@ describe("Matrix in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step?.matrix?.include).toEqual([{ node: 22 }]);
     expect(step?.matrix?.exclude).toEqual([{ node: 18 }]);
   });

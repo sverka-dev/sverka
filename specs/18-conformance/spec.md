@@ -85,19 +85,19 @@ Project "conf"
 
 ## §34 acceptance criteria mapping
 
-| # | Criterion | Conformance test |
-|---|---|---|
-| 1 | Pipeline authored through 3 APIs | createSeedWith* functions |
-| 2 | All 3 synthesize same graph | authoring-conformance test |
-| 3 | Graph compiles to GitHub + GitLab | target-conformance test |
-| 4 | Graph executes through native engine | execution-conformance test |
-| 5 | Scalar output flows between steps | covered by seed + engine |
-| 6 | Artifact flows between steps | artifact-transfer test |
-| 7 | Container image selected provider-neutrally | runtime-conformance test |
-| 8 | Context namespaces available | context test (SDK) |
-| 9 | Cycles produce diagnostics | cycle-detection test |
-| 10 | Target compilation no network access | target-no-network test |
-| 11 | No provider-specific term required | runner §34.11 check |
+| #   | Criterion                                   | Conformance test           |
+| --- | ------------------------------------------- | -------------------------- |
+| 1   | Pipeline authored through 3 APIs            | createSeedWith* functions  |
+| 2   | All 3 synthesize same graph                 | authoring-conformance test |
+| 3   | Graph compiles to GitHub + GitLab           | target-conformance test    |
+| 4   | Graph executes through native engine        | execution-conformance test |
+| 5   | Scalar output flows between steps           | covered by seed + engine   |
+| 6   | Artifact flows between steps                | artifact-transfer test     |
+| 7   | Container image selected provider-neutrally | runtime-conformance test   |
+| 8   | Context namespaces available                | context test (SDK)         |
+| 9   | Cycles produce diagnostics                  | cycle-detection test       |
+| 10  | Target compilation no network access        | target-no-network test     |
+| 11  | No provider-specific term required          | runner §34.11 check        |
 
 > §34.12 (Feature docs from manifests) is listed in the Non-goals section as future work and is not part of the v0 acceptance gate.
 

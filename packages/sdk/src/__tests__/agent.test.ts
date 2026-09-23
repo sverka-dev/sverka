@@ -62,9 +62,7 @@ describe("agent tagged template — builder (items 2-4)", () => {
     const pipeline = new Pipeline(project, "ci");
     // Add a prior step so dependsOn has a target.
     agent`First`.build(pipeline, "first");
-    const step = agent`Second`
-      .dependsOn(["first"])
-      .build(pipeline, "second");
+    const step = agent`Second`.dependsOn(["first"]).build(pipeline, "second");
 
     expect(step.dependsOn).toEqual(["first"]);
   });

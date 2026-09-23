@@ -12,13 +12,13 @@ OIDC (OpenID Connect) allows CI jobs to authenticate with cloud providers withou
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `permissions.id-token: write` | `id_tokens`, `identity` | `identity` on Step |
-| Semantics | Request OIDC token via API | Declare ID tokens with audience | Request OIDC token with audience |
-| Value type | permission scope | map of token names with `aud` | `{ audience }` |
-| Limitations | one token per job | multiple tokens with different audiences | — |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                | GitLab CI                                | Sverka (proposed)                |
+| ------------ | ----------------------------- | ---------------------------------------- | -------------------------------- |
+| Construct    | `permissions.id-token: write` | `id_tokens`, `identity`                  | `identity` on Step               |
+| Semantics    | Request OIDC token via API    | Declare ID tokens with audience          | Request OIDC token with audience |
+| Value type   | permission scope              | map of token names with `aud`            | `{ audience }`                   |
+| Limitations  | one token per job             | multiple tokens with different audiences | —                                |
+| Provider gap | —                             | —                                        | —                                |
 
 ## GitHub Actions
 

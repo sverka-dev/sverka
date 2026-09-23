@@ -44,13 +44,7 @@ export function buildJudgePrompt(
   pluginIds: string[] = [],
 ): string {
   const systemPrompt = config.systemPrompt ?? DEFAULT_JUDGE_PROMPT;
-  const lines: string[] = [
-    systemPrompt,
-    "",
-    "## Task Prompt",
-    task.prompt,
-    "",
-  ];
+  const lines: string[] = [systemPrompt, "", "## Task Prompt", task.prompt, ""];
 
   if (task.successCriteria) {
     lines.push("## Success Criteria", task.successCriteria, "");
@@ -123,10 +117,8 @@ export function parseJudgeResponse(
 
   const obj = parsed as Record<string, unknown>;
   const score = typeof obj.score === "number" ? obj.score : 0;
-  const passed =
-    typeof obj.passed === "boolean" ? obj.passed : score >= 70;
-  const reasoning =
-    typeof obj.reasoning === "string" ? obj.reasoning : "";
+  const passed = typeof obj.passed === "boolean" ? obj.passed : score >= 70;
+  const reasoning = typeof obj.reasoning === "string" ? obj.reasoning : "";
   const issues = Array.isArray(obj.issues)
     ? obj.issues.filter((i): i is string => typeof i === "string")
     : [];
@@ -170,8 +162,7 @@ export async function judgeRun(
       runIndex,
       score: 0,
       passed: false,
-      reasoning:
-        error instanceof Error ? error.message : String(error),
+      reasoning: error instanceof Error ? error.message : String(error),
       issues: [],
       taskId: run.taskId,
       modelId: run.modelId,
@@ -254,8 +245,13 @@ export function compareCombos(
     deltaTimeMs <= 0;
 
   const candidateBetter =
-    deltaJudgeScore > 0 || (deltaJudgeScore === 0 && fewerResources &&
-      (deltaTokens < 0 || deltaToolCalls < 0 || deltaLlmCalls < 0 || deltaTimeMs < 0));
+    deltaJudgeScore > 0 ||
+    (deltaJudgeScore === 0 &&
+      fewerResources &&
+      (deltaTokens < 0 ||
+        deltaToolCalls < 0 ||
+        deltaLlmCalls < 0 ||
+        deltaTimeMs < 0));
 
   return {
     baseline: comboLabel(baseline),
@@ -304,7 +300,10 @@ function extractFromFence(text: string): string | null {
     contentStart = 4;
   }
   // Skip whitespace after label
-  while (contentStart < afterFence.length && /\s/.test(afterFence[contentStart]!)) {
+  while (
+    contentStart < afterFence.length &&
+    /\s/.test(afterFence[contentStart]!)
+  ) {
     contentStart++;
   }
   const fenceEnd = afterFence.indexOf("```", contentStart);

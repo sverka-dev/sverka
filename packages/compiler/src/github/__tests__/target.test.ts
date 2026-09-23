@@ -1,6 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { Project, Pipeline, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, Entry } from "@sverka/workflow";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  PipelineCallStep,
+  ComponentStep,
+  ChildPipelineStep,
+  DownstreamStep,
+  ReleaseStep,
+  PagesStep,
+  Entry,
+} from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import type { DefinitionGraph } from "@sverka/workflow";
 import {
@@ -102,7 +113,10 @@ describe("compileGithub — trigger mapping", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-pr", { trigger: { kind: "changeRequest" }, roots: ["build"] });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest" },
+      roots: ["build"],
+    });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.on.pull_request).toBeDefined();
@@ -112,7 +126,10 @@ describe("compileGithub — trigger mapping", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["build"],
+    });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.on.workflow_dispatch).toBeNull();
@@ -123,7 +140,10 @@ describe("compileGithub — trigger mapping", () => {
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi" });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    new Entry(p, "on-pr", { trigger: { kind: "changeRequest" }, roots: ["build"] });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest" },
+      roots: ["build"],
+    });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.on.push).toBeDefined();
@@ -193,7 +213,9 @@ describe("GithubTarget — analyze", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const target = new GithubTarget();
     const diags = target.analyze(synthesize(proj));
-    const interruptibleDiag = diags.find((d) => d.capability === "concurrency.interruptible");
+    const interruptibleDiag = diags.find(
+      (d) => d.capability === "concurrency.interruptible",
+    );
     expect(interruptibleDiag).toBeDefined();
     expect(interruptibleDiag?.support).toBe("partial");
     expect(interruptibleDiag?.severity).toBe("warning");
@@ -203,7 +225,9 @@ describe("GithubTarget — analyze", () => {
     const graph = makeSimpleGraph();
     const target = new GithubTarget();
     const diags = target.analyze(graph);
-    expect(diags.find((d) => d.capability === "concurrency.interruptible")).toBeUndefined();
+    expect(
+      diags.find((d) => d.capability === "concurrency.interruptible"),
+    ).toBeUndefined();
   });
 });
 
@@ -233,7 +257,10 @@ describe("compileGithub — permissions", () => {
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.permissions).toEqual({});
-    expect(yaml.jobs.build.permissions).toEqual({ contents: "read", "id-token": "write" });
+    expect(yaml.jobs.build.permissions).toEqual({
+      contents: "read",
+      "id-token": "write",
+    });
   });
 
   it("omits permissions key when not set", () => {
@@ -271,7 +298,10 @@ describe("compileGithub — runner", () => {
   it("emits runs-on as string for single label", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo", runner: { labels: ["ubuntu-latest"] } });
+    new ShellStep(p, "build", {
+      command: "echo",
+      runner: { labels: ["ubuntu-latest"] },
+    });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
@@ -281,7 +311,10 @@ describe("compileGithub — runner", () => {
   it("emits runs-on as array for multiple labels", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo", runner: { labels: ["self-hosted", "linux"] } });
+    new ShellStep(p, "build", {
+      command: "echo",
+      runner: { labels: ["self-hosted", "linux"] },
+    });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
@@ -318,7 +351,9 @@ describe("compileGithub — identity (OIDC)", () => {
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "deploy", {
       command: "deploy",
-      identity: { tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } } },
+      identity: {
+        tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } },
+      },
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const result = compileGithub(synthesize(proj));
@@ -342,7 +377,9 @@ describe("compileGithub — identity (OIDC)", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const target = new GithubTarget();
     const diags = target.analyze(synthesize(proj));
-    const multiDiag = diags.find((d) => d.capability === "secrets.oidc.multiAudience");
+    const multiDiag = diags.find(
+      (d) => d.capability === "secrets.oidc.multiAudience",
+    );
     expect(multiDiag).toBeDefined();
     expect(multiDiag?.support).toBe("unsupported");
     expect(multiDiag?.severity).toBe("error");
@@ -400,7 +437,9 @@ describe("compileGithub — rules", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const target = new GithubTarget();
     const diags = target.analyze(synthesize(proj));
-    const changesDiag = diags.find((d) => d.capability === "workflow.rules.changes");
+    const changesDiag = diags.find(
+      (d) => d.capability === "workflow.rules.changes",
+    );
     expect(changesDiag).toBeDefined();
     expect(changesDiag?.support).toBe("unsupported");
   });
@@ -434,7 +473,9 @@ describe("compileGithub — reports", () => {
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     const steps = yaml.jobs.scan.steps as Record<string, unknown>[];
-    const reportStep = steps.find((s) => s.uses === "github/codeql-action/upload-sarif@v3");
+    const reportStep = steps.find(
+      (s) => s.uses === "github/codeql-action/upload-sarif@v3",
+    );
     expect(reportStep).toBeDefined();
     expect(reportStep?.with).toMatchObject({ sarif_file: "results.sarif" });
   });
@@ -450,7 +491,9 @@ describe("compileGithub — reports", () => {
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     const steps = yaml.jobs.perf.steps as Record<string, unknown>[];
-    const reportStep = steps.find((s) => s.uses === "actions/upload-artifact@v7");
+    const reportStep = steps.find(
+      (s) => s.uses === "actions/upload-artifact@v7",
+    );
     expect(reportStep).toBeDefined();
   });
 });
@@ -470,13 +513,19 @@ describe("compileGithub — typed inputs", () => {
       },
     });
     new ShellStep(p, "build", { command: "echo" });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["build"],
+    });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.on.workflow_dispatch).toBeDefined();
     expect(yaml.on.workflow_dispatch.inputs).toBeDefined();
     expect(yaml.on.workflow_dispatch.inputs.environment.type).toBe("choice");
-    expect(yaml.on.workflow_dispatch.inputs.environment.options).toEqual(["staging", "production"]);
+    expect(yaml.on.workflow_dispatch.inputs.environment.options).toEqual([
+      "staging",
+      "production",
+    ]);
     expect(yaml.on.workflow_dispatch.inputs.debug.type).toBe("boolean");
   });
 
@@ -486,10 +535,15 @@ describe("compileGithub — typed inputs", () => {
       inputs: { targets: { type: "array" } },
     });
     new ShellStep(p, "build", { command: "echo" });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["build"],
+    });
     const target = new GithubTarget();
     const diags = target.analyze(synthesize(proj));
-    const arrayDiag = diags.find((d) => d.capability === "workflow.inputs.array");
+    const arrayDiag = diags.find(
+      (d) => d.capability === "workflow.inputs.array",
+    );
     expect(arrayDiag).toBeDefined();
     expect(arrayDiag?.support).toBe("unsupported");
   });
@@ -502,7 +556,12 @@ describe("compileGithub — services", () => {
     new ShellStep(p, "test", {
       command: "make test",
       services: [
-        { name: "postgres", image: "postgres:16", env: { POSTGRES_PASSWORD: "secret" }, ports: [5432] },
+        {
+          name: "postgres",
+          image: "postgres:16",
+          env: { POSTGRES_PASSWORD: "secret" },
+          ports: [5432],
+        },
         { name: "redis", image: "redis:7", ports: [6379] },
       ],
     });
@@ -511,7 +570,9 @@ describe("compileGithub — services", () => {
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.jobs.test.services).toBeDefined();
     expect(yaml.jobs.test.services.postgres.image).toBe("postgres:16");
-    expect(yaml.jobs.test.services.postgres.env.POSTGRES_PASSWORD).toBe("secret");
+    expect(yaml.jobs.test.services.postgres.env.POSTGRES_PASSWORD).toBe(
+      "secret",
+    );
     expect(yaml.jobs.test.services.postgres.ports).toEqual(["5432:5432"]);
     expect(yaml.jobs.test.services.redis.image).toBe("redis:7");
   });
@@ -553,7 +614,9 @@ describe("compileGithub — environment", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const target = new GithubTarget();
     const diags = target.analyze(synthesize(proj));
-    const actionDiag = diags.find((d) => d.capability === "deployment.environment.action");
+    const actionDiag = diags.find(
+      (d) => d.capability === "deployment.environment.action",
+    );
     expect(actionDiag).toBeDefined();
     expect(actionDiag?.support).toBe("unsupported");
   });
@@ -570,7 +633,9 @@ describe("compileGithub — artifact retention", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    const uploadStep = yaml.jobs.build.steps.find((s: { uses?: string }) => s.uses?.includes("upload-artifact"));
+    const uploadStep = yaml.jobs.build.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("upload-artifact"),
+    );
     expect(uploadStep.with["retention-days"]).toBe(7);
   });
 
@@ -579,7 +644,9 @@ describe("compileGithub — artifact retention", () => {
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
       command: "make build",
-      outputs: { dist: { type: "artifact", path: "dist/", access: "developer" } },
+      outputs: {
+        dist: { type: "artifact", path: "dist/", access: "developer" },
+      },
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const target = new GithubTarget();
@@ -605,7 +672,9 @@ describe("compileGithub — cache", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) => s.uses?.includes("actions/cache"));
+    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("actions/cache"),
+    );
     expect(cacheStep).toBeDefined();
     expect(cacheStep.uses).toBe("actions/cache@v4");
     expect(cacheStep.with.key).toBe("node-${{ hashFiles('bun.lock') }}");
@@ -622,7 +691,9 @@ describe("compileGithub — cache", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) => s.uses?.includes("cache"));
+    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("cache"),
+    );
     expect(cacheStep.uses).toBe("actions/cache/restore@v4");
   });
 
@@ -636,7 +707,9 @@ describe("compileGithub — cache", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) => s.uses?.includes("cache"));
+    const cacheStep = yaml.jobs.build.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("cache"),
+    );
     expect(cacheStep.uses).toBe("actions/cache/save@v4");
   });
 });
@@ -645,7 +718,10 @@ describe("compileGithub — concurrency", () => {
   it("emits workflow-level concurrency from pipeline-level setting", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci", {
-      concurrency: { group: "deploy-${{ github.ref }}", cancelInProgress: true },
+      concurrency: {
+        group: "deploy-${{ github.ref }}",
+        cancelInProgress: true,
+      },
     });
     new ShellStep(p, "build", { command: "echo" });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
@@ -706,13 +782,17 @@ describe("compileGithub — invalid graph handling", () => {
     const graph: DefinitionGraph = {
       project: {
         id: "test",
-        pipelines: [{
-          id: "ci",
-          inputs: {},
-          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["missing"] }],
-          steps: [],
-          outputs: [],
-        }],
+        pipelines: [
+          {
+            id: "ci",
+            inputs: {},
+            entries: [
+              { id: "on-push", trigger: { kind: "push" }, roots: ["missing"] },
+            ],
+            steps: [],
+            outputs: [],
+          },
+        ],
       },
     };
     expect(() => compileGithub(graph)).toThrow(GithubTargetError);
@@ -727,20 +807,26 @@ describe("compileGithub — invalid graph handling", () => {
     const graph: DefinitionGraph = {
       project: {
         id: "test",
-        pipelines: [{
-          id: "ci",
-          inputs: {},
-          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["build"] }],
-          steps: [{
-            id: "build",
-            runtime: { mode: "host" },
-            operations: [{ kind: "shell", command: "echo hi" }],
-            inputs: [],
+        pipelines: [
+          {
+            id: "ci",
+            inputs: {},
+            entries: [
+              { id: "on-push", trigger: { kind: "push" }, roots: ["build"] },
+            ],
+            steps: [
+              {
+                id: "build",
+                runtime: { mode: "host" },
+                operations: [{ kind: "shell", command: "echo hi" }],
+                inputs: [],
+                outputs: [],
+                dependencies: [{ kind: "control", producer: "missing" }],
+              },
+            ],
             outputs: [],
-            dependencies: [{ kind: "control", producer: "missing" }],
-          }],
-          outputs: [],
-        }],
+          },
+        ],
       },
     };
     expect(() => compileGithub(graph)).toThrow(GithubTargetError);
@@ -757,20 +843,28 @@ describe("compileGithub — diagnostic operation", () => {
     const graph: DefinitionGraph = {
       project: {
         id: "test",
-        pipelines: [{
-          id: "ci",
-          inputs: {},
-          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["build"] }],
-          steps: [{
-            id: "build",
-            runtime: { mode: "host" },
-            operations: [{ kind: "diagnostic", message: "hello", severity: "error" }],
-            inputs: [],
+        pipelines: [
+          {
+            id: "ci",
+            inputs: {},
+            entries: [
+              { id: "on-push", trigger: { kind: "push" }, roots: ["build"] },
+            ],
+            steps: [
+              {
+                id: "build",
+                runtime: { mode: "host" },
+                operations: [
+                  { kind: "diagnostic", message: "hello", severity: "error" },
+                ],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+            ],
             outputs: [],
-            dependencies: [],
-          }],
-          outputs: [],
-        }],
+          },
+        ],
       },
     };
     const result = compileGithub(graph);
@@ -787,28 +881,32 @@ describe("compileGithub — diagnostic operation", () => {
     const graph: DefinitionGraph = {
       project: {
         id: "test",
-        pipelines: [{
-          id: "ci",
-          inputs: {},
-          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["build"] }],
-          steps: [{
-            id: "build",
-            runtime: { mode: "host" },
-            operations: [{ kind: "diagnostic", message, severity: "warn" }],
-            inputs: [],
+        pipelines: [
+          {
+            id: "ci",
+            inputs: {},
+            entries: [
+              { id: "on-push", trigger: { kind: "push" }, roots: ["build"] },
+            ],
+            steps: [
+              {
+                id: "build",
+                runtime: { mode: "host" },
+                operations: [{ kind: "diagnostic", message, severity: "warn" }],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+            ],
             outputs: [],
-            dependencies: [],
-          }],
-          outputs: [],
-        }],
+          },
+        ],
       },
     };
     const result = compileGithub(graph);
     const yaml = parse(result.artifacts[0]!.content);
     const runStep = yaml.jobs.build.steps.find((s: { run?: string }) => s.run);
-    expect(runStep.env.SVERKA_DIAGNOSTIC_MESSAGE).toBe(
-      "50%25%0Aline%0Dmore",
-    );
+    expect(runStep.env.SVERKA_DIAGNOSTIC_MESSAGE).toBe("50%25%0Aline%0Dmore");
     expect(runStep.run).toContain("::warning::");
   });
 });
@@ -899,7 +997,9 @@ describe("compileGithub — scalar outputs (F-23)", () => {
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     const runStep = yaml.jobs.build.steps.find((s: { run?: string }) => s.run);
-    expect(runStep.run).toContain('echo "version=${version}" >> "$GITHUB_OUTPUT"');
+    expect(runStep.run).toContain(
+      'echo "version=${version}" >> "$GITHUB_OUTPUT"',
+    );
   });
 });
 
@@ -915,8 +1015,8 @@ describe("compileGithub — artifact outputs (F-24)", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    const uploadStep = yaml.jobs.build.steps.find(
-      (s: { uses?: string }) => s.uses?.startsWith("actions/upload-artifact"),
+    const uploadStep = yaml.jobs.build.steps.find((s: { uses?: string }) =>
+      s.uses?.startsWith("actions/upload-artifact"),
     );
     expect(uploadStep).toBeDefined();
     expect(uploadStep.uses).toBe("actions/upload-artifact@v7");
@@ -936,13 +1036,15 @@ describe("compileGithub — artifact import (F-25)", () => {
     });
     new ShellStep(p, "deploy", {
       command: "ls dist/",
-      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+      inputs: [
+        { kind: "step", step: "build", output: "dist", type: "artifact" },
+      ],
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    const downloadStep = yaml.jobs.deploy.steps.find(
-      (s: { uses?: string }) => s.uses?.startsWith("actions/download-artifact"),
+    const downloadStep = yaml.jobs.deploy.steps.find((s: { uses?: string }) =>
+      s.uses?.startsWith("actions/download-artifact"),
     );
     expect(downloadStep).toBeDefined();
     expect(downloadStep.uses).toBe("actions/download-artifact@v8");
@@ -966,7 +1068,10 @@ describe("compileGithub — reusable workflows (F-31)", () => {
       dependsOn: ["build"],
     });
     // Root is the call step (terminal) — reachability follows deps backward.
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["deploy-staging"],
+    });
     return synthesize(proj);
   }
 
@@ -982,7 +1087,9 @@ describe("compileGithub — reusable workflows (F-31)", () => {
   it("deploy.yml has on: workflow_call with inputs", () => {
     const graph = makeReusableGraph();
     const result = compileGithub(graph);
-    const deployArtifact = result.artifacts.find((a) => a.path.includes("deploy"))!;
+    const deployArtifact = result.artifacts.find((a) =>
+      a.path.includes("deploy"),
+    )!;
     const yaml = parse(deployArtifact.content);
     expect(yaml.on.workflow_call).toBeDefined();
     expect(yaml.on.workflow_call.inputs.env).toBeDefined();
@@ -1016,7 +1123,10 @@ describe("compileGithub — reusable workflows (F-31)", () => {
       inputs: { env: { type: "string", required: true } },
     });
     new ShellStep(deploy, "deploy", { command: "deploy" });
-    new Entry(deploy, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    new Entry(deploy, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["deploy"],
+    });
     const ci = new Pipeline(proj, "ci");
     new ShellStep(ci, "build", { command: "make build" });
     new PipelineCallStep(ci, "deploy-staging", {
@@ -1024,11 +1134,16 @@ describe("compileGithub — reusable workflows (F-31)", () => {
       callInputs: { env: "staging" },
       dependsOn: ["build"],
     });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["deploy-staging"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGithub(graph);
-    const deployArtifact = result.artifacts.find((a) => a.path.includes("deploy"))!;
+    const deployArtifact = result.artifacts.find((a) =>
+      a.path.includes("deploy"),
+    )!;
     const yaml = parse(deployArtifact.content);
     expect(yaml.on.push).toBeDefined();
     expect(yaml.on.workflow_call).toBeDefined();
@@ -1041,7 +1156,11 @@ describe("compileGithub — components (F-32)", () => {
     const ci = new Pipeline(proj, "ci");
     new ShellStep(ci, "build", { command: "make build" });
     new ComponentStep(ci, "deploy", {
-      component: { name: "org/deploy-action", version: "v1", inputs: { env: "staging" } },
+      component: {
+        name: "org/deploy-action",
+        version: "v1",
+        inputs: { env: "staging" },
+      },
       dependsOn: ["build"],
     });
     new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
@@ -1058,7 +1177,9 @@ describe("compileGithub — components (F-32)", () => {
     // Action-like component references are emitted as normal jobs with action steps.
     expect(deployJob["runs-on"]).toBe("ubuntu-latest");
     expect(deployJob.needs).toBe("build");
-    const actionStep = deployJob.steps.find((s: Record<string, unknown>) => s.uses === "org/deploy-action@v1");
+    const actionStep = deployJob.steps.find(
+      (s: Record<string, unknown>) => s.uses === "org/deploy-action@v1",
+    );
     expect(actionStep).toBeDefined();
     expect(actionStep.with.env).toBe("staging");
   });
@@ -1083,7 +1204,10 @@ describe("compileGithub — child pipelines (F-33)", () => {
       childPipeline: { generator: "generate", artifact: "child-pipeline" },
       dependsOn: ["generate"],
     });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["trigger-child"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["trigger-child"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGithub(graph);
@@ -1103,10 +1227,17 @@ describe("compileGithub — downstream projects (F-34)", () => {
     const ci = new Pipeline(proj, "ci");
     new ShellStep(ci, "build", { command: "make build" });
     new DownstreamStep(ci, "trigger-downstream", {
-      downstream: { project: "group/other-project", branch: "main", inputs: { env: "staging" } },
+      downstream: {
+        project: "group/other-project",
+        branch: "main",
+        inputs: { env: "staging" },
+      },
       dependsOn: ["build"],
     });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["trigger-downstream"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["trigger-downstream"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGithub(graph);
@@ -1115,7 +1246,9 @@ describe("compileGithub — downstream projects (F-34)", () => {
     const dsJob = yaml.jobs["trigger-downstream"];
     expect(dsJob).toBeDefined();
     expect(dsJob.needs).toBe("build");
-    expect(dsJob.steps[0].run).toContain("gh api repos/group/other-project/dispatches");
+    expect(dsJob.steps[0].run).toContain(
+      "gh api repos/group/other-project/dispatches",
+    );
     expect(dsJob.steps[0].run).toContain("sverka-trigger");
     // Payload is passed through an env var to avoid shell injection from
     // single quotes in runtime values (CodeRabbit finding).
@@ -1150,7 +1283,9 @@ describe("compileGithub — release (F-39)", () => {
     const releaseJob = yaml.jobs.release;
     expect(releaseJob).toBeDefined();
     // Find the release step (not checkout).
-    const releaseStep = releaseJob.steps.find((s: { uses?: string }) => s.uses?.includes("action-gh-release"));
+    const releaseStep = releaseJob.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("action-gh-release"),
+    );
     expect(releaseStep).toBeDefined();
     expect(releaseStep.uses).toBe("softprops/action-gh-release@v2");
     expect(releaseStep.with.tag_name).toBe("v1.0.0");
@@ -1169,17 +1304,24 @@ describe("compileGithub — pages (F-40)", () => {
       pages: { path: "dist/" },
       dependsOn: ["build"],
     });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-pages"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["deploy-pages"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGithub(graph);
     const yaml = parse(result.artifacts[0]!.content);
     const pagesJob = yaml.jobs["deploy-pages"];
     expect(pagesJob).toBeDefined();
-    const uploadStep = pagesJob.steps.find((s: { uses?: string }) => s.uses?.includes("upload-pages-artifact"));
+    const uploadStep = pagesJob.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("upload-pages-artifact"),
+    );
     expect(uploadStep).toBeDefined();
     expect(uploadStep.with.path).toBe("dist/");
-    const deployStep = pagesJob.steps.find((s: { uses?: string }) => s.uses?.includes("deploy-pages"));
+    const deployStep = pagesJob.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("deploy-pages"),
+    );
     expect(deployStep).toBeDefined();
   });
 });
@@ -1196,7 +1338,9 @@ describe("compileGithub — delayed execution (F-48)", () => {
     const yaml = parse(result.artifacts[0]!.content);
     const deployJob = yaml.jobs.deploy;
     expect(deployJob).toBeDefined();
-    const sleepStep = deployJob.steps.find((s: { run?: string }) => s.run?.startsWith("sleep"));
+    const sleepStep = deployJob.steps.find((s: { run?: string }) =>
+      s.run?.startsWith("sleep"),
+    );
     expect(sleepStep).toBeDefined();
     expect(sleepStep.run).toBe("sleep 300");
   });
@@ -1206,8 +1350,14 @@ describe("compileGithub — background execution (F-49)", () => {
   it("appends & to background shell commands", () => {
     const proj = new Project("test");
     const ci = new Pipeline(proj, "ci");
-    new ShellStep(ci, "start-server", { command: "npm start", background: true });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["start-server"] });
+    new ShellStep(ci, "start-server", {
+      command: "npm start",
+      background: true,
+    });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["start-server"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGithub(graph);
@@ -1215,7 +1365,9 @@ describe("compileGithub — background execution (F-49)", () => {
     const serverJob = yaml.jobs["start-server"];
     expect(serverJob).toBeDefined();
     // Find the run step (not checkout).
-    const runStep = serverJob.steps.find((s: { run?: string }) => s.run?.includes("npm start"));
+    const runStep = serverJob.steps.find((s: { run?: string }) =>
+      s.run?.includes("npm start"),
+    );
     expect(runStep).toBeDefined();
     expect(runStep.run).toContain("&");
     expect(runStep.run).toBe("npm start &");

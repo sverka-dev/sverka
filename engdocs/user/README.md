@@ -44,7 +44,7 @@ run them locally, get structured findings. Compile to CI when you need to.
 - [Built-in checks](./reference/checks.md) — check IDs, resolver behavior, SARIF extraction
 - [Findings normalization](./reference/findings.md) — SARIF normalization, fingerprints, baselines
 - [Policy enforcement](./reference/policy.md) — rules, severities, enforcement
-- [Run audit](./reference/audit.md) *(planned)* — per-step timings, AI cost estimation
-- [Graph visualization](./reference/graph.md) *(planned)* — Mermaid flowchart output
-- [Markdown authoring](./reference/markdown-authoring.md) *(planned)* — `.sverka.md` files
+- [Run audit](./reference/audit.md) _(planned)_ — per-step timings, AI cost estimation
+- [Graph visualization](./reference/graph.md) _(planned)_ — Mermaid flowchart output
+- [Markdown authoring](./reference/markdown-authoring.md) _(planned)_ — `.sverka.md` files
 - [Roadmap](./reference/roadmap.md) — planned features and future targets

@@ -25,7 +25,7 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid } from "@astrojs/starlight/components";
 
 > **⚠️ Work in progress — pre-alpha.** Sverka is under active development and
 > not ready for production use. APIs may change without notice.
@@ -43,24 +43,24 @@ findings in SARIF, JSON, or HTML.
 
 <CardGrid stagger>
   <Card title="Run checks locally" icon="rocket">
-    Define checks in TypeScript. Run them with a single command.
-    Topological scheduling, parallel steps, artifact transfer, and
-    suspend/resume — all in a single process. No cloud, no remote API.
+    Define checks in TypeScript. Run them with a single command. Topological
+    scheduling, parallel steps, artifact transfer, and suspend/resume — all in a
+    single process. No cloud, no remote API.
   </Card>
   <Card title="Structured findings" icon="seti:settings">
-    Every check produces normalized findings. SARIF in, SARIF out.
-    View findings in the terminal TUI, generate HTML reports, or start
-    a local web dashboard. Policy gates enforce severity rules.
+    Every check produces normalized findings. SARIF in, SARIF out. View findings
+    in the terminal TUI, generate HTML reports, or start a local web dashboard.
+    Policy gates enforce severity rules.
   </Card>
   <Card title="Agent-friendly" icon="seti:python">
-    Skill + CLI with structured JSON on every command. Agents delegate
-    check orchestration to Sverka instead of running tools one by one.
-    Optional MCP server exposes Sverka as tools for any MCP client.
+    Skill + CLI with structured JSON on every command. Agents delegate check
+    orchestration to Sverka instead of running tools one by one. Optional MCP
+    server exposes Sverka as tools for any MCP client.
   </Card>
   <Card title="Compile to CI" icon="seti:yaml">
-    Same workflow definition compiles to GitHub Actions or GitLab CI.
-    CI is one use case — not the only one. You define once, the compiler
-    lowers to each target. No lock-in.
+    Same workflow definition compiles to GitHub Actions or GitLab CI. CI is one
+    use case — not the only one. You define once, the compiler lowers to each
+    target. No lock-in.
   </Card>
 </CardGrid>
 
@@ -73,8 +73,14 @@ const proj = new Project("my-project");
 const ci = new Pipeline(proj, "checks");
 
 new ShellStep(ci, "typecheck", { command: "bun run typecheck" });
-new ShellStep(ci, "lint",      { command: "bun run lint", dependencies: [{ kind: "control", producer: "typecheck" }] });
-new ShellStep(ci, "test",      { command: "bun run test", dependencies: [{ kind: "control", producer: "lint" }] });
+new ShellStep(ci, "lint", {
+  command: "bun run lint",
+  dependencies: [{ kind: "control", producer: "typecheck" }],
+});
+new ShellStep(ci, "test", {
+  command: "bun run test",
+  dependencies: [{ kind: "control", producer: "lint" }],
+});
 
 new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
 

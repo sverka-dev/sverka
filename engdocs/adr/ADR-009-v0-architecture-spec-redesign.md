@@ -20,6 +20,7 @@ execute a full redesign (waves A–N) per the reconciliation plan at
 `engdocs/architecture/v0-architecture-spec-reconciliation.md`.
 
 Key changes:
+
 1. **Construct API** using the `constructs` package (spec §8).
 2. **Definition Graph** replaces flat Plan IR (spec §10).
 3. **Decorator API** using TC39 standard decorators (spec §9.3).

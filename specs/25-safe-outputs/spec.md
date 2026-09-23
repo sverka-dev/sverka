@@ -67,8 +67,8 @@ auditable and explicit.
 
 ```ts
 export interface WriteDeclaration {
-  readonly kind: string;        // e.g. "pull-request", "comment", "deploy", "push"
-  readonly target: string;      // e.g. "comment", "production", "main"
+  readonly kind: string; // e.g. "pull-request", "comment", "deploy", "push"
+  readonly target: string; // e.g. "comment", "production", "main"
   readonly description?: string;
 }
 
@@ -90,6 +90,7 @@ resolved — a step with no writes gets an empty (or read-only) secret set.
 ### GHA target (`@sverka/compiler` github)
 
 `resolveJobPermissions(step)` extended:
+
 - If `step.permissions?.write` is non-empty: derive a `permissions:` block
   from write kinds via a `WRITE_KIND_TO_GHA_PERMISSION` map
   (`pull-request` → `pull-requests: write`, `deploy` → `deployments: write`,
@@ -116,11 +117,11 @@ injection is the practical enforcement).
 ```ts
 const WRITE_KIND_TO_GHA_PERMISSION: Readonly<Record<string, string>> = {
   "pull-request": "pull-requests: write",
-  "comment": "issues: write",
-  "deploy": "deployments: write",
-  "push": "contents: write",
+  comment: "issues: write",
+  deploy: "deployments: write",
+  push: "contents: write",
   "id-token": "id-token: write",
-  "pages": "pages: write",
+  pages: "pages: write",
 };
 ```
 
@@ -141,16 +142,16 @@ Unknown kinds default to `contents: read` + a `warn` diagnostic
 1. `StepPermissions` with one write declaration synthesizes onto
    `StepDefinition.permissions` (verify via synthesize + graph inspect).
 2. `WriteDeclaration` with empty `kind` → `SynthesisError(
-   INVALID_WRITE_DECLARATION)`.
+INVALID_WRITE_DECLARATION)`.
 3. `WriteDeclaration` with empty `target` → `SynthesisError(
-   INVALID_WRITE_DECLARATION)`.
+INVALID_WRITE_DECLARATION)`.
 4. Step with no `permissions` → `StepDefinition.permissions` is `undefined`
    (read-only default).
 5. GHA: step with `permissions.write: [{ kind: "pull-request", target:
-   "comment" }]` → job `permissions: { "pull-requests": "write" }`.
+"comment" }]` → job `permissions: { "pull-requests": "write" }`.
 6. GHA: step with no writes → job `permissions: {}` (read-only).
 7. GHA: step with unknown write kind `foo` → job `permissions: { "contents":
-   "read" }` + `warn` diagnostic (`unknown-write-kind`).
+"read" }` + `warn` diagnostic (`unknown-write-kind`).
 8. GHA: step with `deployPages` operation AND `permissions.write` → existing
    `deployPages` permissions take precedence (pages:write + id-token:write).
 9. GitLab: step with writes → job `variables` includes only write-kind

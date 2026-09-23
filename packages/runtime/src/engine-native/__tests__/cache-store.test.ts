@@ -41,7 +41,10 @@ describe("FileCacheStore", () => {
 
     expect(result).toBeDefined();
     expect(result?.key).toBe("build-key-1");
-    const restored = await readFile(join(targetDir, "dist", "out.txt"), "utf-8");
+    const restored = await readFile(
+      join(targetDir, "dist", "out.txt"),
+      "utf-8",
+    );
     expect(restored).toBe("built-content");
   });
 
@@ -83,7 +86,10 @@ describe("FileCacheStore", () => {
     });
     expect(result).toBeDefined();
     expect(result?.key).toBe("build-linux-v1");
-    const restored = await readFile(join(targetDir, "dist", "out.txt"), "utf-8");
+    const restored = await readFile(
+      join(targetDir, "dist", "out.txt"),
+      "utf-8",
+    );
     expect(restored).toBe("prefix-content");
   });
 
@@ -94,12 +100,20 @@ describe("FileCacheStore", () => {
     const srcA = join(workDir, "srcA");
     await mkdir(join(srcA, "dist"), { recursive: true });
     await writeFile(join(srcA, "dist", "out.txt"), "prefix-A");
-    await store.store({ key: "build-linux-v1", paths: ["dist"], sourceDir: srcA });
+    await store.store({
+      key: "build-linux-v1",
+      paths: ["dist"],
+      sourceDir: srcA,
+    });
 
     const srcB = join(workDir, "srcB");
     await mkdir(join(srcB, "dist"), { recursive: true });
     await writeFile(join(srcB, "dist", "out.txt"), "primary-B");
-    await store.store({ key: "build-linux-v2", paths: ["dist"], sourceDir: srcB });
+    await store.store({
+      key: "build-linux-v2",
+      paths: ["dist"],
+      sourceDir: srcB,
+    });
 
     const targetDir = join(workDir, "target");
     await mkdir(targetDir, { recursive: true });
@@ -110,7 +124,10 @@ describe("FileCacheStore", () => {
       targetDir,
     });
     expect(result?.key).toBe("build-linux-v2");
-    const restored = await readFile(join(targetDir, "dist", "out.txt"), "utf-8");
+    const restored = await readFile(
+      join(targetDir, "dist", "out.txt"),
+      "utf-8",
+    );
     expect(restored).toBe("primary-B");
   });
 

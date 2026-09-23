@@ -37,6 +37,7 @@ core; this plan deviates because the spec uses no core type directly. Update
 the doc if the deviation holds after implementation.)
 
 **Out of scope (filed as follow-ups):**
+
 - Critical-check prioritization (needs IR `tags`/`critical` field).
 - Concrete file-backed `StateStore`/`CacheBackend` (this wave: interfaces +
   in-test mocks only).
@@ -93,6 +94,7 @@ is not in the public surface (spec removed it from exports).
 The builder writes tests before each module. Suggested commit-sized slices:
 
 ### Slice A — Errors (foundation, no deps)
+
 1. `errors.test.ts` — `RuntimeExecutionError` base, `SchedulerError`/
    `ExecutorError` codes and `instanceof` chain. Mirror `ir/src/errors.ts`
    exactly (constructor sets `name`, calls `super`).
@@ -100,6 +102,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
 3. Wire into `index.ts`.
 
 ### Slice B — Type-only modules (no runtime)
+
 4. `executor.ts` — `Executor`, `ExecuteRequest`, `ExecuteResult` interfaces.
    `import type { PlanOperation } from "@sverka/ir"`.
 5. `result.ts` — `OperationOutcome`, `ExecutionResult`, `ExecutionState`.
@@ -109,6 +112,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
 9. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
 
 ### Slice C — Internal helpers
+
 10. `internal/parse.ts` — `parseCpu(s: string): number` (handles "2", "0.5",
     "1.5"), `parseMemory(s: string): number` (handles "512Mi", "2Gi", "1Ti",
     bare bytes). **Test first:** each format parses to the right byte count.
@@ -122,6 +126,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
     **Test first:** acquire/release accounting, over-request returns false.
 
 ### Slice D — Scheduler core (topo + concurrency + failure)
+
 13. `helpers/fixtures.ts` — `makePlan(overrides)`, `mockExecutor` (records
     calls, configurable `canExecute` + canned `ExecuteResult`), helpers to
     build a minimal valid `Plan` (reuse `@sverka/ir` `computePlanId`).
@@ -147,6 +152,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
     - Compute final `ExecutionResult.status` per spec semantics.
 
 ### Slice E — Retry policy
+
 16. Extend `scheduler.test.ts` — `maxAttempts: 3` fail-twice-then-succeed →
     success; fail-all → failure; `retryOn: ["timeout"]` no retry on
     non-timeout; `backoffSeconds` delays (use vi fake timers).
@@ -158,6 +164,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
     to a string containing "timeout" when `timeoutSeconds` is exceeded).
 
 ### Slice F — Resource limits (optional)
+
 18. Extend `scheduler.test.ts` — `totalCpu: 4`, two ops requesting 4 CPU run
     sequentially; two ops requesting 2 CPU run concurrently; op requesting
     more than `totalCpu` → `INSUFFICIENT_RESOURCES`.
@@ -166,6 +173,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
     entirely (only `maxConcurrent` limits).
 
 ### Slice G — State persistence + resume (optional)
+
 20. `state-store.test.ts` — after running `a`+`b`, mock store has both
     completed; resumed run skips them; "running" ops re-run on resume;
     `load` failure → `STATE_LOAD_ERROR`; no store configured → no persistence.
@@ -175,6 +183,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
     Skip already-completed ops; re-run "running" ops.
 
 ### Slice H — Cache reuse (optional)
+
 22. `cache.test.ts` — cache hit → `fromCache: true`, not executed; miss →
     executed + `store` called; no cache configured → all `fromCache: false`.
 23. Wire `CacheBackend`: before executing an op with `cache` declared, call
@@ -182,6 +191,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
     execute then `cache.store` + `cache.put`.
 
 ### Slice I — Public API + gates
+
 24. Complete `index.ts` exports to match spec §Interfaces exactly.
 25. `public-api.test.ts` — every symbol importable + exercised.
 26. Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
@@ -238,13 +248,13 @@ The builder writes tests before each module. Suggested commit-sized slices:
 
 The builder should use these stable `code` strings (reviewer checks them):
 
-| Condition              | code                    | error class      |
-|------------------------|-------------------------|------------------|
-| No executor for op     | `NO_EXECUTOR`           | `SchedulerError` |
-| Cycle in plan DAG      | `CYCLE_DETECTED`        | `SchedulerError` |
-| Op exceeds totalCpu/Mem| `INSUFFICIENT_RESOURCES`| `SchedulerError` |
-| State load failure     | `STATE_LOAD_ERROR`      | `SchedulerError` |
-| Executor threw         | `EXECUTOR_ERROR`        | `ExecutorError`  |
+| Condition               | code                     | error class      |
+| ----------------------- | ------------------------ | ---------------- |
+| No executor for op      | `NO_EXECUTOR`            | `SchedulerError` |
+| Cycle in plan DAG       | `CYCLE_DETECTED`         | `SchedulerError` |
+| Op exceeds totalCpu/Mem | `INSUFFICIENT_RESOURCES` | `SchedulerError` |
+| State load failure      | `STATE_LOAD_ERROR`       | `SchedulerError` |
+| Executor threw          | `EXECUTOR_ERROR`         | `ExecutorError`  |
 
 `ExecutorError` wraps executor exceptions; the operation outcome is
 `status: "failure"` with the wrapped message. `SchedulerError` is raised for

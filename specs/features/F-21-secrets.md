@@ -15,13 +15,13 @@ array on `Runtime` (names only) and as a `secret` flag on pipeline `Input`.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `secrets` context + `${{ secrets.X }}` | CI/CD variables (masked) | `Runtime.secrets: string[]` + `Input.secret` |
-| Semantics | secret value referenced in env via expression | variable injected at runtime, masked in logs | secret name list → env injection |
-| Value type | string (context ref) | string (variable) | `readonly string[]` (names) |
-| Limitations | must be defined in repo/org settings | must be defined in project settings | names only — values resolved at runtime |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                                | GitLab CI                                    | Sverka (proposed)                            |
+| ------------ | --------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
+| Construct    | `secrets` context + `${{ secrets.X }}`        | CI/CD variables (masked)                     | `Runtime.secrets: string[]` + `Input.secret` |
+| Semantics    | secret value referenced in env via expression | variable injected at runtime, masked in logs | secret name list → env injection             |
+| Value type   | string (context ref)                          | string (variable)                            | `readonly string[]` (names)                  |
+| Limitations  | must be defined in repo/org settings          | must be defined in project settings          | names only — values resolved at runtime      |
+| Provider gap | —                                             | —                                            | —                                            |
 
 ## GitHub Actions
 

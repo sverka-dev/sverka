@@ -143,8 +143,9 @@ packages/conformance/
 ## Implementation order
 
 Markdown first (unblocks conformance markdown tests). Then observability
-+ visualization (independent, can parallelize). Conformance last (depends
-on all other features being implemented).
+
+- visualization (independent, can parallelize). Conformance last (depends
+  on all other features being implemented).
 
 ## Estimated size
 
@@ -157,6 +158,7 @@ on all other features being implemented).
 ## Commit hygiene
 
 Stage ONLY:
+
 - `packages/sdk/src/markdown/**`
 - `packages/sdk/src/index.ts` (modified)
 - `packages/runtime/src/engine-native/report.ts`

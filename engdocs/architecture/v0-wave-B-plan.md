@@ -15,17 +15,17 @@ No new external dependencies. Uses `node:crypto` (built-in).
 
 ## Reuse vs. rebuild
 
-| Old IR file | Action | Reason |
-|---|---|---|
-| `internal/canonical.ts` | **Reuse pattern, move to IR** | `canonicalStringify` was in old core; new core deleted it. IR owns it now. |
-| `serialize.ts` | **Rebuild** | Old serialized flat `Plan`; new serializes `DefinitionGraph` + `RunPlan` |
-| `ids.ts` | **Rebuild** | `computePlanId` → `computeGraphId` + `computeRunPlanId`. No `computeOperationId`. |
-| `validate.ts` | **Rebuild** | Old validated flat Plan (459 lines); new validates graph + run plan schemas (~80 lines) |
-| `errors.ts` | **Adapt** | Same 3 classes, add `override readonly cause` |
-| `plan.ts` | **Delete** | Flat Plan replaced by Run Plan |
-| `version.ts` | **Adapt** | `PLAN_SCHEMA_VERSION` → `GRAPH_SCHEMA_VERSION` + `RUN_PLAN_SCHEMA_VERSION` |
-| `internal/graph.ts` | **Delete** | `findCycle` replaced by core's `detectCycles` |
-| All old tests | **Delete** | Test flat Plan schema; new tests for graph + run plan |
+| Old IR file             | Action                        | Reason                                                                                  |
+| ----------------------- | ----------------------------- | --------------------------------------------------------------------------------------- |
+| `internal/canonical.ts` | **Reuse pattern, move to IR** | `canonicalStringify` was in old core; new core deleted it. IR owns it now.              |
+| `serialize.ts`          | **Rebuild**                   | Old serialized flat `Plan`; new serializes `DefinitionGraph` + `RunPlan`                |
+| `ids.ts`                | **Rebuild**                   | `computePlanId` → `computeGraphId` + `computeRunPlanId`. No `computeOperationId`.       |
+| `validate.ts`           | **Rebuild**                   | Old validated flat Plan (459 lines); new validates graph + run plan schemas (~80 lines) |
+| `errors.ts`             | **Adapt**                     | Same 3 classes, add `override readonly cause`                                           |
+| `plan.ts`               | **Delete**                    | Flat Plan replaced by Run Plan                                                          |
+| `version.ts`            | **Adapt**                     | `PLAN_SCHEMA_VERSION` → `GRAPH_SCHEMA_VERSION` + `RUN_PLAN_SCHEMA_VERSION`              |
+| `internal/graph.ts`     | **Delete**                    | `findCycle` replaced by core's `detectCycles`                                           |
+| All old tests           | **Delete**                    | Test flat Plan schema; new tests for graph + run plan                                   |
 
 ## Core changes (minor)
 
@@ -74,11 +74,13 @@ src/
 ### Step 1: Core changes — export validateGraph + fix test gap
 
 Write failing test:
+
 - `validate.test.ts`: test that `validateGraph` runs all 4 validators on a
   valid graph (no throw). Test that duplicate export names throw
   `SynthesisError(OUTPUT_COLLISION)`.
 
 Implement:
+
 - `validate.ts`: add `validateGraph(graph: DefinitionGraph): void` — iterate
   pipelines, call each validator.
 - `index.ts`: export `validateGraph`.
@@ -88,6 +90,7 @@ Verify: `bun run test --filter @sverka/core`, `bun run typecheck --filter @sverk
 ### Step 2: Scaffold IR package
 
 Delete old IR source files. Create:
+
 - `package.json` (already exists, update deps: `@sverka/core: "workspace:*"`)
 - `src/index.ts` (empty exports)
 - `src/errors.ts` (IRError, ValidationError, SerializationError with override cause)
@@ -98,10 +101,12 @@ Verify: `bun run typecheck --filter @sverka/ir` (should pass with stubs).
 ### Step 3: Canonical JSON
 
 Write failing tests (`canonical.test.ts`):
+
 - ADR-006 test vectors: `{b:1,a:2}` → `{"a":2,"b":1}`, undefined omitted,
   arrays preserved, NaN rejected, Date → ISO string.
 
 Implement `canonicalStringify` in `canonical.ts`:
+
 - Manual recursive emitter (copy pattern from old core, adapt).
 - Reject NaN/Infinity by throwing.
 
@@ -110,6 +115,7 @@ Verify: `bun run test --filter @sverka/ir`.
 ### Step 4: Error classes
 
 Write failing tests (`errors.test.ts`):
+
 - `IRError` is `instanceof Error`, has `code` field.
 - `ValidationError` extends `IRError`, code `VALIDATION_ERROR`.
 - `SerializationError` extends `IRError`, code `SERIALIZATION_ERROR`.
@@ -122,6 +128,7 @@ Verify: `bun run test --filter @sverka/ir`.
 ### Step 5: Run Plan types
 
 Write failing tests (`run-plan.test.ts`):
+
 - `RunPlan` has apiVersion, id, graphId, entry, inputs, steps, createdAt.
 - `BoundEntry` has id + trigger.
 - `InputValue` is string | number | boolean.
@@ -133,11 +140,13 @@ Verify: `bun run typecheck --filter @sverka/ir`.
 ### Step 6: ID computation
 
 Write failing tests (`ids.test.ts`):
+
 - `computeGraphId`: deterministic, `graph-` prefix, 64 hex chars.
 - `computeRunPlanId`: deterministic, `rp-` prefix, 64 hex chars.
 - `id`/`createdAt` excluded from run plan hash.
 
 Implement `ids.ts`:
+
 - `computeGraphId(graph)`: SHA-256 over `canonicalStringify(graph)`.
 - `computeRunPlanId(plan)`: strip id/createdAt, SHA-256 over canonical.
 
@@ -146,6 +155,7 @@ Verify: `bun run test --filter @sverka/ir`.
 ### Step 7: Serialization
 
 Write failing tests (`serialize.test.ts`):
+
 - `serializeGraph` → `deserializeGraph` round-trip.
 - `deserializeGraph`: rejects malformed JSON, wrong apiVersion, missing
   fields, invalid structure. Calls core `validateGraph`.
@@ -154,6 +164,7 @@ Write failing tests (`serialize.test.ts`):
   fields.
 
 Implement `serialize.ts`:
+
 - `serializeGraph(graph)`: build `SerializableGraph` envelope (apiVersion,
   id=computeGraphId, graph, createdAt), canonicalStringify.
 - `deserializeGraph(json)`: JSON.parse, validateGraphSchema, return.
@@ -161,6 +172,7 @@ Implement `serialize.ts`:
 - `deserializeRunPlan(json)`: JSON.parse, validateRunPlanSchema, return.
 
 Implement `validate.ts`:
+
 - `validateGraphSchema(value)`: assert shape (apiVersion, id, graph,
   createdAt), assert graph structure (project → pipelines → steps...),
   call core `validateGraph`.
@@ -172,12 +184,14 @@ Verify: `bun run test --filter @sverka/ir`.
 ### Step 8: Public API + version constants
 
 Write failing tests (`public-api.test.ts`):
+
 - All exports present (types + functions + error classes + version constants).
 - `GRAPH_SCHEMA_VERSION === "sverka.dev/v1graph"`.
 - `RUN_PLAN_SCHEMA_VERSION === "sverka.dev/v1run"`.
 - No `any` types in public API.
 
 Implement `index.ts`:
+
 - Export all types, functions, error classes, version constants.
 
 Verify: `bun run test --filter @sverka/ir`, `bun run typecheck --filter @sverka/ir`,
@@ -186,6 +200,7 @@ Verify: `bun run test --filter @sverka/ir`, `bun run typecheck --filter @sverka/
 ### Step 9: Full gates
 
 Run all four gates on IR + core:
+
 ```
 bun run test --filter @sverka/ir --filter @sverka/core
 bun run typecheck --filter @sverka/ir --filter @sverka/core
@@ -200,6 +215,7 @@ the same pattern as Wave A.
 ### Step 10: ADR amendments
 
 Amend ADR-006:
+
 - `canonicalStringify` now lives in `@sverka/ir`, not `@sverka/core`.
 - `computeOperationId` removed — operations are nested in steps.
 - ID scheme: `graph-<sha256>` and `rp-<sha256>` replace `plan-<sha256>`.

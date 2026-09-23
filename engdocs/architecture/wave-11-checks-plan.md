@@ -125,7 +125,13 @@ Write `resolver.test.ts` (tests 1-9). Use helpers:
 import type { ProposedCheck, ProjectContext } from "@sverka/planner";
 
 export function makeCheck(checkId: string, reason = "test"): ProposedCheck {
-  return { id: `prop-${checkId}`, checkId, reason, signalRef: null, priority: 2 };
+  return {
+    id: `prop-${checkId}`,
+    checkId,
+    reason,
+    signalRef: null,
+    priority: 2,
+  };
 }
 
 export function makeContext(pms: string[]): ProjectContext {
@@ -135,12 +141,28 @@ export function makeContext(pms: string[]): ProjectContext {
     dirty: false,
     changedFiles: [],
     languages: [],
-    packageManagers: pms.map((name) => ({ name: name as any, version: null, lockfile: null, evidence: [] })),
+    packageManagers: pms.map((name) => ({
+      name: name as any,
+      version: null,
+      lockfile: null,
+      evidence: [],
+    })),
     hasContainerBuild: false,
     hasCiDefinition: false,
     monorepo: null,
     localSignals: [],
-    explanation: { summary: "test", signalCounts: { manifest: 0, lockfile: 0, dockerfile: 0, "docker-compose": 0, "ci-definition": 0, "monorepo-marker": 0, "git-metadata": 0 } },
+    explanation: {
+      summary: "test",
+      signalCounts: {
+        manifest: 0,
+        lockfile: 0,
+        dockerfile: 0,
+        "docker-compose": 0,
+        "ci-definition": 0,
+        "monorepo-marker": 0,
+        "git-metadata": 0,
+      },
+    },
   };
 }
 ```
@@ -169,7 +191,11 @@ Then implement `resolver.ts`:
 
 ```typescript
 import type { OperationSpec } from "@sverka/core";
-import type { ProposedCheck, ProjectContext, PackageManagerName } from "@sverka/planner";
+import type {
+  ProposedCheck,
+  ProjectContext,
+  PackageManagerName,
+} from "@sverka/planner";
 
 export interface CheckResolver {
   resolve(check: ProposedCheck, ctx: ProjectContext): ResolvedCheck | null;
@@ -192,8 +218,18 @@ interface TableEntry {
 }
 
 const TABLE: readonly TableEntry[] = [
-  { checkId: "typecheck", packageManagers: ["bun"], command: "bun", args: ["run", "typecheck"] },
-  { checkId: "typecheck", packageManagers: ["npm", "yarn", "pnpm"], command: "npm", args: ["run", "typecheck"] },
+  {
+    checkId: "typecheck",
+    packageManagers: ["bun"],
+    command: "bun",
+    args: ["run", "typecheck"],
+  },
+  {
+    checkId: "typecheck",
+    packageManagers: ["npm", "yarn", "pnpm"],
+    command: "npm",
+    args: ["run", "typecheck"],
+  },
   // ... full table per spec
 ];
 
@@ -248,6 +284,7 @@ For Python/Rust/Go, the command is fixed (ruff/pytest/cargo/go). This is
 cleaner than a static table with duplicate rows.
 
 Revised approach: two resolution strategies:
+
 1. **Node checks** (typecheck, lint, test): if any PM in `NODE_PMS`, use
    that PM's name as command + `["run", checkId]`.
 2. **Tool-specific checks**: fixed mapping (lint+ruff, test+pytest, cargo+clippy/fmt/test, go+vet/test).
@@ -265,19 +302,31 @@ import { join } from "node:path";
 
 const sampleSarif = {
   version: "2.1.0",
-  runs: [{
-    tool: { driver: { name: "test-tool" } },
-    results: [{
-      ruleId: "R1",
-      level: "error",
-      message: { text: "bad" },
-      locations: [{ physicalLocation: { artifactLocation: { uri: "src/a.ts" }, region: { startLine: 1, endLine: 1 } } }],
-    }],
-  }],
+  runs: [
+    {
+      tool: { driver: { name: "test-tool" } },
+      results: [
+        {
+          ruleId: "R1",
+          level: "error",
+          message: { text: "bad" },
+          locations: [
+            {
+              physicalLocation: {
+                artifactLocation: { uri: "src/a.ts" },
+                region: { startLine: 1, endLine: 1 },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
 };
 ```
 
 Test cases:
+
 - SARIF file exists → `Finding[]` with `checkId` prefix, correct severity.
 - Missing file → `[]`.
 - `format: "json"` → `[]`.
@@ -289,19 +338,32 @@ Then implement `extract.ts`:
 ```typescript
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
-import { normalizeSarif, type Finding, type NormalizeContext } from "@sverka/findings";
+import {
+  normalizeSarif,
+  type Finding,
+  type NormalizeContext,
+} from "@sverka/findings";
 import type { SarifLog } from "@sverka/findings";
 import { CheckError } from "./errors.js";
 import type { CheckOutput } from "./resolver.js";
 
-function resolveSafeOutputPath(outputPath: string, artifactDir: string): string {
+function resolveSafeOutputPath(
+  outputPath: string,
+  artifactDir: string,
+): string {
   if (isAbsolute(outputPath)) {
-    throw new CheckError(`absolute output path "${outputPath}" is not allowed`, "EXTRACTION_FAILED");
+    throw new CheckError(
+      `absolute output path "${outputPath}" is not allowed`,
+      "EXTRACTION_FAILED",
+    );
   }
   const filePath = resolve(artifactDir, outputPath);
   const rel = relative(artifactDir, filePath);
   if (rel === ".." || rel.startsWith("../")) {
-    throw new CheckError(`output path "${outputPath}" escapes artifactDir`, "EXTRACTION_FAILED");
+    throw new CheckError(
+      `output path "${outputPath}" escapes artifactDir`,
+      "EXTRACTION_FAILED",
+    );
   }
   return filePath;
 }
@@ -320,20 +382,36 @@ export async function extractFindings(
       raw = await readFile(filePath, "utf8");
     } catch (e) {
       if (isErrnoException(e) && e.code === "ENOENT") continue;
-      throw new CheckError(`cannot read ${output.path}`, "EXTRACTION_FAILED", e);
+      throw new CheckError(
+        `cannot read ${output.path}`,
+        "EXTRACTION_FAILED",
+        e,
+      );
     }
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
     } catch (e) {
-      throw new CheckError(`invalid JSON in ${output.path}`, "EXTRACTION_FAILED", e);
+      throw new CheckError(
+        `invalid JSON in ${output.path}`,
+        "EXTRACTION_FAILED",
+        e,
+      );
     }
     try {
-      const ctx: NormalizeContext = { root: artifactDir, checkIdPrefix: checkId, defaultConfidence: 0.5 };
+      const ctx: NormalizeContext = {
+        root: artifactDir,
+        checkIdPrefix: checkId,
+        defaultConfidence: 0.5,
+      };
       const result = normalizeSarif(parsed as SarifLog, ctx);
       findings.push(...result);
     } catch (e) {
-      throw new CheckError(`SARIF normalization failed for ${output.path}`, "EXTRACTION_FAILED", e);
+      throw new CheckError(
+        `SARIF normalization failed for ${output.path}`,
+        "EXTRACTION_FAILED",
+        e,
+      );
     }
   }
   return findings;
@@ -413,6 +491,7 @@ when outputs are declared (mock the artifact dir).
 ## 7. Commit hygiene (for finalize)
 
 Stage ONLY:
+
 - `packages/checks/**`
 - `packages/sdk/src/sverka.ts` (if SDK integration done)
 - `packages/sdk/src/index.ts` (if re-exports added)

@@ -12,13 +12,13 @@ When a matrix expands into many parallel jobs, two controls matter: fail-fast (c
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `strategy.fail-fast`, `strategy.max-parallel` | (none) | `failFast`, `maxParallel` on matrix |
-| Semantics | Cancel matrix jobs on first failure; limit concurrency | n/a | Cancel on failure; limit concurrency |
-| Value type | boolean (default true), number | n/a | boolean, number |
-| Limitations | — | no native support | GitLab: emulated by native engine only |
-| Provider gap | — | no equivalent | — |
+| Aspect       | GitHub Actions                                         | GitLab CI         | Sverka (proposed)                      |
+| ------------ | ------------------------------------------------------ | ----------------- | -------------------------------------- |
+| Construct    | `strategy.fail-fast`, `strategy.max-parallel`          | (none)            | `failFast`, `maxParallel` on matrix    |
+| Semantics    | Cancel matrix jobs on first failure; limit concurrency | n/a               | Cancel on failure; limit concurrency   |
+| Value type   | boolean (default true), number                         | n/a               | boolean, number                        |
+| Limitations  | —                                                      | no native support | GitLab: emulated by native engine only |
+| Provider gap | —                                                      | no equivalent     | —                                      |
 
 ## GitHub Actions
 
@@ -45,7 +45,7 @@ Add to `MatrixSpec` (F-15):
 ```ts
 interface MatrixSpec {
   // ... dimensions, include, exclude (F-15)
-  readonly failFast?: boolean;      // normalized to true when omitted
+  readonly failFast?: boolean; // normalized to true when omitted
   readonly maxParallel?: number;
 }
 ```

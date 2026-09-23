@@ -87,7 +87,9 @@ export default proj;
   it("prints JSON format", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
-    const code = await main(["validate", "--root", dir, "--format", "json"], { output: out });
+    const code = await main(["validate", "--root", dir, "--format", "json"], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("validate");

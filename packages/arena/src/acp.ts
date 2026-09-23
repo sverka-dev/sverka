@@ -23,7 +23,10 @@ import type { AgentSpawnConfig } from "./types.js";
 // ─── Types ───────────────────────────────────────────────────────────
 
 /** A `session/update` notification whose `sessionUpdate` is `"tool_call"`. */
-export type ToolCallMessage = Extract<SessionUpdate, { sessionUpdate: "tool_call" }>;
+export type ToolCallMessage = Extract<
+  SessionUpdate,
+  { sessionUpdate: "tool_call" }
+>;
 
 /** A `session/update` notification whose `sessionUpdate` is `"tool_call_update"`. */
 export type ToolCallUpdateMessage = Extract<
@@ -70,7 +73,10 @@ function copyCleanEnv(): Record<string, string> {
 }
 
 /** Apply model and permission settings to the env record. */
-function applyModelEnv(env: Record<string, string>, config: AgentSpawnConfig): void {
+function applyModelEnv(
+  env: Record<string, string>,
+  config: AgentSpawnConfig,
+): void {
   const model = config.model;
   env.DEVIN_PERMISSION_MODE = config.permissionMode ?? "dangerous";
   env.DEVIN_MODEL = model.envVar ? (env[model.envVar] ?? model.id) : model.id;
@@ -80,7 +86,10 @@ function applyModelEnv(env: Record<string, string>, config: AgentSpawnConfig): v
 }
 
 /** Merge explicit env overrides from config (these win). */
-function mergeEnvOverrides(env: Record<string, string>, overrides?: Record<string, string>): void {
+function mergeEnvOverrides(
+  env: Record<string, string>,
+  overrides?: Record<string, string>,
+): void {
   if (!overrides) return;
   for (const [key, value] of Object.entries(overrides)) {
     env[key] = value;
@@ -231,7 +240,14 @@ export async function runAcpSession(
       return ctx
         .buildSession(workspace)
         .withSession((session) =>
-          runSessionLoop(session, prompt, timeoutMs, onToolCall, onToolUpdate, onSession),
+          runSessionLoop(
+            session,
+            prompt,
+            timeoutMs,
+            onToolCall,
+            onToolUpdate,
+            onSession,
+          ),
         );
     });
 }

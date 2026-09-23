@@ -38,30 +38,30 @@ No new external deps. `InMemorySnapshotStore` uses a `Map`. SQLite adapter
 
 ## Files
 
-| File | Action |
-|---|---|
-| `packages/workflow/src/cdk/model.ts` | **Edit** — add `ResumeSchema`, `SuspendOperation` interfaces. |
-| `packages/workflow/src/cdk/constructs.ts` | **Edit** — add `SuspendStepProps`, `SuspendStep` class (extends `Step`). |
-| `packages/workflow/src/cdk/index.ts` | **Edit** — export `ResumeSchema`, `SuspendOperation`, `SuspendStepProps`, `SuspendStep`. |
-| `packages/workflow/src/core/graph.ts` | **Edit** — add `SuspendOperation` to `OperationDefinition` union. |
-| `packages/workflow/src/core/synthesize.ts` | **Edit** — `SuspendStep` → `StepDefinition` with `suspend` op + auto-add resume output; validate `suspend` is last op (`SUSPEND_NOT_LAST`). |
-| `packages/workflow/src/core/errors.ts` | **Edit** — add `SUSPEND_NOT_LAST` to `SynthesisErrorCode`. |
-| `packages/sdk/src/suspend.ts` | **New** — `suspend()` builder + `SuspendStepBuilder`. |
-| `packages/sdk/src/index.ts` | **Edit** — export `suspend`, `SuspendStepBuilder`. |
-| `packages/runtime/src/engine-native/types.ts` | **Edit** — add `RunSnapshot`, `SnapshotStore`, `ResumeRequest` interfaces; `snapshotStore?` on `RunRequest`; `resume()` on `Engine`; new `RunEvent` variants; `"suspended"` on `RunStatus`. |
-| `packages/runtime/src/engine-native/snapshot-store.ts` | **New** — `createInMemorySnapshotStore`. |
-| `packages/runtime/src/engine-native/snapshot.ts` | **New** — `buildSnapshot()` + `restoreSnapshot()` helpers (pure). |
-| `packages/runtime/src/engine-native/engine.ts` | **Edit** — suspend path in `runStep` (emit `step-suspended`, await in-flight, persist, emit `run-suspended`, end generator); `resume()` method (load, validate, restore, continue scheduling). |
-| `packages/runtime/src/engine-native/step-executor.ts` | **Edit** — handle `op.kind === "suspend"`: stop the operation loop and return `StepExecResult` with `status: "suspended"` (pre-suspend `exportOutput` ops already wrote to the `ValueStore`). |
-| `packages/runtime/src/engine-native/errors.ts` | **Edit** — add `SUSPEND_WITHOUT_STORE`, `INVALID_RESUME_DATA`, `SNAPSHOT_NOT_FOUND` to `EngineErrorCode`. |
-| `packages/runtime/src/engine-native/index.ts` | **Edit** — export `RunSnapshot`, `SnapshotStore`, `ResumeRequest`, `createInMemorySnapshotStore`. |
-| `packages/compiler/src/github/capabilities.ts` | **Edit** — add `suspend.resume: "emulated"`. |
-| `packages/compiler/src/gitlab/capabilities.ts` | **Edit** — add `suspend.resume: "emulated"`. |
-| `packages/workflow/src/cdk/__tests__/suspend-step.test.ts` | **New** — model/synthesize tests (items 1–4, 14). |
-| `packages/sdk/src/__tests__/suspend.test.ts` | **New** — SDK builder tests (items 3, 15). |
-| `packages/runtime/src/engine-native/__tests__/suspend-resume.test.ts` | **New** — engine suspend/resume tests (items 5–13, 16). |
-| `packages/compiler/src/github/__tests__/capabilities.test.ts` | **Edit** — assert `suspend.resume: "emulated"` (item 17). |
-| `packages/compiler/src/gitlab/__tests__/capabilities.test.ts` | **Edit** — assert `suspend.resume: "emulated"` (item 17). |
+| File                                                                  | Action                                                                                                                                                                                         |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/workflow/src/cdk/model.ts`                                  | **Edit** — add `ResumeSchema`, `SuspendOperation` interfaces.                                                                                                                                  |
+| `packages/workflow/src/cdk/constructs.ts`                             | **Edit** — add `SuspendStepProps`, `SuspendStep` class (extends `Step`).                                                                                                                       |
+| `packages/workflow/src/cdk/index.ts`                                  | **Edit** — export `ResumeSchema`, `SuspendOperation`, `SuspendStepProps`, `SuspendStep`.                                                                                                       |
+| `packages/workflow/src/core/graph.ts`                                 | **Edit** — add `SuspendOperation` to `OperationDefinition` union.                                                                                                                              |
+| `packages/workflow/src/core/synthesize.ts`                            | **Edit** — `SuspendStep` → `StepDefinition` with `suspend` op + auto-add resume output; validate `suspend` is last op (`SUSPEND_NOT_LAST`).                                                    |
+| `packages/workflow/src/core/errors.ts`                                | **Edit** — add `SUSPEND_NOT_LAST` to `SynthesisErrorCode`.                                                                                                                                     |
+| `packages/sdk/src/suspend.ts`                                         | **New** — `suspend()` builder + `SuspendStepBuilder`.                                                                                                                                          |
+| `packages/sdk/src/index.ts`                                           | **Edit** — export `suspend`, `SuspendStepBuilder`.                                                                                                                                             |
+| `packages/runtime/src/engine-native/types.ts`                         | **Edit** — add `RunSnapshot`, `SnapshotStore`, `ResumeRequest` interfaces; `snapshotStore?` on `RunRequest`; `resume()` on `Engine`; new `RunEvent` variants; `"suspended"` on `RunStatus`.    |
+| `packages/runtime/src/engine-native/snapshot-store.ts`                | **New** — `createInMemorySnapshotStore`.                                                                                                                                                       |
+| `packages/runtime/src/engine-native/snapshot.ts`                      | **New** — `buildSnapshot()` + `restoreSnapshot()` helpers (pure).                                                                                                                              |
+| `packages/runtime/src/engine-native/engine.ts`                        | **Edit** — suspend path in `runStep` (emit `step-suspended`, await in-flight, persist, emit `run-suspended`, end generator); `resume()` method (load, validate, restore, continue scheduling). |
+| `packages/runtime/src/engine-native/step-executor.ts`                 | **Edit** — handle `op.kind === "suspend"`: stop the operation loop and return `StepExecResult` with `status: "suspended"` (pre-suspend `exportOutput` ops already wrote to the `ValueStore`).  |
+| `packages/runtime/src/engine-native/errors.ts`                        | **Edit** — add `SUSPEND_WITHOUT_STORE`, `INVALID_RESUME_DATA`, `SNAPSHOT_NOT_FOUND` to `EngineErrorCode`.                                                                                      |
+| `packages/runtime/src/engine-native/index.ts`                         | **Edit** — export `RunSnapshot`, `SnapshotStore`, `ResumeRequest`, `createInMemorySnapshotStore`.                                                                                              |
+| `packages/compiler/src/github/capabilities.ts`                        | **Edit** — add `suspend.resume: "emulated"`.                                                                                                                                                   |
+| `packages/compiler/src/gitlab/capabilities.ts`                        | **Edit** — add `suspend.resume: "emulated"`.                                                                                                                                                   |
+| `packages/workflow/src/cdk/__tests__/suspend-step.test.ts`            | **New** — model/synthesize tests (items 1–4, 14).                                                                                                                                              |
+| `packages/sdk/src/__tests__/suspend.test.ts`                          | **New** — SDK builder tests (items 3, 15).                                                                                                                                                     |
+| `packages/runtime/src/engine-native/__tests__/suspend-resume.test.ts` | **New** — engine suspend/resume tests (items 5–13, 16).                                                                                                                                        |
+| `packages/compiler/src/github/__tests__/capabilities.test.ts`         | **Edit** — assert `suspend.resume: "emulated"` (item 17).                                                                                                                                      |
+| `packages/compiler/src/gitlab/__tests__/capabilities.test.ts`         | **Edit** — assert `suspend.resume: "emulated"` (item 17).                                                                                                                                      |
 
 ## TDD steps
 
@@ -103,7 +103,7 @@ No new external deps. `InMemorySnapshotStore` uses a `Map`. SQLite adapter
 ## Implementation notes
 
 - **StepExecResult `"suspended"`**: the executor returns `status:
-  "suspended"` when it reaches a `suspend` op (it stops the operation loop
+"suspended"` when it reaches a `suspend` op (it stops the operation loop
   normally — no throw-for-control-flow). Pre-suspend `exportOutput` ops
   have already written to the `ValueStore`, so the engine reads partial
   outputs from the store when building the snapshot.

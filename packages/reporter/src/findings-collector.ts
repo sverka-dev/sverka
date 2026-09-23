@@ -75,7 +75,10 @@ async function scanDir(
 
     // Prevent traversal outside artifactDir via symlink or ../
     const resolvedEntry = resolve(entryPath);
-    if (resolvedEntry !== artifactDir && !resolvedEntry.startsWith(artifactDir + sep)) {
+    if (
+      resolvedEntry !== artifactDir &&
+      !resolvedEntry.startsWith(artifactDir + sep)
+    ) {
       continue;
     }
 

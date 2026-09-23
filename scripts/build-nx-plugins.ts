@@ -28,14 +28,18 @@ function run(cmd: string, args: string[], cwd: string): void {
   console.log(`> ${cmd} ${args.join(" ")}  (cwd: ${cwd})`);
   const result = spawnSync(cmd, args, { cwd, stdio: "inherit", shell: false });
   if (result.status !== 0) {
-    console.error(`Command failed: ${cmd} ${args.join(" ")} (exit ${result.status ?? 1})`);
+    console.error(
+      `Command failed: ${cmd} ${args.join(" ")} (exit ${result.status ?? 1})`,
+    );
     process.exit(result.status ?? 1);
   }
 }
 
 function main(): void {
   if (!existsSync(SUBMODULE)) {
-    console.error(`vendor/nx.ts not found at ${SUBMODULE} — run: git submodule update --init`);
+    console.error(
+      `vendor/nx.ts not found at ${SUBMODULE} — run: git submodule update --init`,
+    );
     process.exit(1);
   }
 
@@ -79,7 +83,9 @@ function main(): void {
         cpSync(distSrc, distDst, { recursive: true });
         console.log(`Synced dist/ → node_modules/${pkg.nm}/dist/`);
       } else {
-        console.log(`dist/ already in-place (symlink resolves to source) — skip sync`);
+        console.log(
+          `dist/ already in-place (symlink resolves to source) — skip sync`,
+        );
       }
     }
   }

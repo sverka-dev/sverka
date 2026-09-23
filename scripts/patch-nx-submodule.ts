@@ -19,7 +19,14 @@
  * Once these are upstreamed and the submodule pointer is updated, this
  * script can be deleted.
  */
-import { closeSync, existsSync, ftruncateSync, openSync, readFileSync, writeSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  ftruncateSync,
+  openSync,
+  readFileSync,
+  writeSync,
+} from "node:fs";
 import { resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
@@ -29,10 +36,17 @@ const PKGS = [
   { dir: "packages/skill", name: "@nx-devkit/skill" },
   { dir: "packages/skillspector", name: "@nx-devkit/skillspector" },
   { dir: "packages/typescript-preset", name: "@nx-devkit/typescript" },
-  { dir: "packages/prepare-for-release", name: "@nx-devkit/prepare-for-release" },
+  {
+    dir: "packages/prepare-for-release",
+    name: "@nx-devkit/prepare-for-release",
+  },
 ] as const;
 
-function patchFile(path: string, check: (content: string) => boolean, apply: (content: string) => string): void {
+function patchFile(
+  path: string,
+  check: (content: string) => boolean,
+  apply: (content: string) => string,
+): void {
   // Single open fd for read + write — no check-then-act window (CodeQL js/file-system-race).
   let fd: number;
   try {
@@ -49,7 +63,9 @@ function patchFile(path: string, check: (content: string) => boolean, apply: (co
     }
     const patched = apply(original);
     if (!check(patched)) {
-      throw new Error(`patch did not apply cleanly: ${path} — vendored source may have changed`);
+      throw new Error(
+        `patch did not apply cleanly: ${path} — vendored source may have changed`,
+      );
     }
     ftruncateSync(fd, 0);
     writeSync(fd, patched, 0, "utf8");
@@ -75,7 +91,8 @@ function main(): void {
     const pkgJsonPath = resolve(pkgDir, "package.json");
     patchFile(
       pkgJsonPath,
-      (c) => c.includes('"./dist/index.mjs"') || c.includes('"./dist/plugin.mjs"'),
+      (c) =>
+        c.includes('"./dist/index.mjs"') || c.includes('"./dist/plugin.mjs"'),
       (c) => {
         let manifest: {
           main?: string;
@@ -87,7 +104,9 @@ function main(): void {
         try {
           manifest = JSON.parse(c);
         } catch (err) {
-          throw new Error(`Invalid JSON in ${pkgJsonPath}: ${err instanceof Error ? err.message : String(err)}`);
+          throw new Error(
+            `Invalid JSON in ${pkgJsonPath}: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
         // typescript-preset's entry is plugin.ts; the others use index.ts
         const entry = pkg.name === "@nx-devkit/typescript" ? "plugin" : "index";
@@ -127,7 +146,9 @@ function main(): void {
     if (pkg.name === "@nx-devkit/skill") {
       patchFile(
         pluginPath,
-        (c) => c.includes("rel.startsWith('vendor/')") && c.includes("[projectRoot]:"),
+        (c) =>
+          c.includes("rel.startsWith('vendor/')") &&
+          c.includes("[projectRoot]:"),
         (c) => {
           if (!c.includes("rel.startsWith('vendor/')")) {
             c = c.replace(
@@ -156,7 +177,9 @@ function main(): void {
     } else {
       patchFile(
         pluginPath,
-        (c) => c.includes("projectRoot.startsWith('vendor/')") && c.includes("[projectRoot]: project"),
+        (c) =>
+          c.includes("projectRoot.startsWith('vendor/')") &&
+          c.includes("[projectRoot]: project"),
         (c) => {
           if (!c.includes("projectRoot.startsWith('vendor/')")) {
             c = c.replace(
@@ -168,10 +191,7 @@ function main(): void {
             /const project:[^\S\n]*ProjectConfiguration[^\S\n]*=[^\S\n]*\{[^\S\n]*\n[^\S\n]*root:/,
             "const project: ProjectConfiguration = {\n        name: projectName,\n        root:",
           );
-          c = c.replace(
-            "[projectName]: project,",
-            "[projectRoot]: project,",
-          );
+          c = c.replace("[projectName]: project,", "[projectRoot]: project,");
           return c;
         },
       );
@@ -181,8 +201,14 @@ function main(): void {
   // Patch 5: executors.json — add .mjs extension for ESM resolution
   const EXECUTOR_PATCHES = [
     ["packages/skill/executors.json", '"./dist/executors/build/executor"'],
-    ["packages/skillspector/executors.json", '"./dist/executors/scan/executor"'],
-    ["packages/prepare-for-release/executors.json", '"./dist/executors/publish-placeholder/executor"'],
+    [
+      "packages/skillspector/executors.json",
+      '"./dist/executors/scan/executor"',
+    ],
+    [
+      "packages/prepare-for-release/executors.json",
+      '"./dist/executors/publish-placeholder/executor"',
+    ],
   ] as const;
   for (const [rel, bare] of EXECUTOR_PATCHES) {
     patchFile(

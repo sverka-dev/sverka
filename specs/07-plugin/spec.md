@@ -72,12 +72,7 @@ interface SverkaPlugin {
 
 ```ts
 type CapabilitySupport =
-  | "native"
-  | "lowered"
-  | "emulated"
-  | "connector"
-  | "partial"
-  | "unsupported";
+  "native" | "lowered" | "emulated" | "connector" | "partial" | "unsupported";
 
 interface CapabilityDetail {
   support: CapabilitySupport;
@@ -103,13 +98,29 @@ interface CapabilityDiagnostic {
 ### Exports
 
 ```ts
-export { defineSverkaPlugin, analyzeCapabilities, detectCapabilities, createPluginRegistry };
+export {
+  defineSverkaPlugin,
+  analyzeCapabilities,
+  detectCapabilities,
+  createPluginRegistry,
+};
 export type {
-  SverkaPlugin, PluginOptions, PluginMeta,
-  CapabilityManifest, CapabilitySupport, CapabilityDetail,
+  SverkaPlugin,
+  PluginOptions,
+  PluginMeta,
+  CapabilityManifest,
+  CapabilitySupport,
+  CapabilityDetail,
   CapabilityDiagnostic,
-  ModelContribution, GraphTransform, GraphValidator,
-  Target, CompilationResult, Importer, Engine, ConnectorFactory, NativeExtension,
+  ModelContribution,
+  GraphTransform,
+  GraphValidator,
+  Target,
+  CompilationResult,
+  Importer,
+  Engine,
+  ConnectorFactory,
+  NativeExtension,
   PluginRegistry,
 };
 export { PluginError, type PluginErrorCode } from "./errors.js";
@@ -130,6 +141,7 @@ diagnostic is produced. "emulated" and "partial" produce warnings.
 ### Capability detection
 
 The analyzer detects capabilities from the graph:
+
 - `trigger.<kind>` for each entry trigger kind
 - `runtime.<mode>` for each step runtime mode
 - `operation.shell` for shell operations
@@ -154,6 +166,7 @@ interface PluginRegistry {
 ## Error handling
 
 Custom error class `PluginError` with codes:
+
 - `INVALID_PLUGIN`: plugin is missing required fields
 - `DUPLICATE_PLUGIN`: plugin name already registered
 - `INVALID_CAPABILITY`: invalid capability manifest

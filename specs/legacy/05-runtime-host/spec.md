@@ -52,8 +52,11 @@ timeouts, capture output, and prevent ambient privilege escalation.
 export { HostExecutor } from "./host-executor.js";
 export { type HostExecutorConfig } from "./config.js";
 export { type CommandAllowlist } from "./allowlist.js";
-export { HostExecutorError, HostTimeoutError, CommandNotAllowedError }
-  from "./errors.js";
+export {
+  HostExecutorError,
+  HostTimeoutError,
+  CommandNotAllowedError,
+} from "./errors.js";
 ```
 
 ```typescript
@@ -95,8 +98,7 @@ export function createAllowlist(entries: readonly string[]): CommandAllowlist;
 ```typescript
 // src/host-executor.ts
 
-import type { Executor, ExecuteRequest, ExecuteResult }
-  from "@sverka/runtime";
+import type { Executor, ExecuteRequest, ExecuteResult } from "@sverka/runtime";
 import type { PlanOperation } from "@sverka/ir";
 import type { HostExecutorConfig } from "./config.js";
 
@@ -155,17 +157,17 @@ HostExecutor.execute(request)
 
 ### Security restrictions
 
-| Restriction               | Enforcement                                             |
-|---------------------------|---------------------------------------------------------|
-| Explicit enable           | `config.enabled` must be `true`                         |
-| Type guard                | `operation.executor.type` must be `"host"`              |
-| Command allowlist         | `command` must match an allowlist entry                 |
-| Mandatory timeout         | `timeoutSeconds` must be present and > 0                |
+| Restriction               | Enforcement                                                 |
+| ------------------------- | ----------------------------------------------------------- |
+| Explicit enable           | `config.enabled` must be `true`                             |
+| Type guard                | `operation.executor.type` must be `"host"`                  |
+| Command allowlist         | `command` must match an allowlist entry                     |
+| Mandatory timeout         | `timeoutSeconds` must be present and > 0                    |
 | Bounded env               | Only `envAllowlist` + `request.credentials` + `request.env` |
-| No ambient env leakage    | Host env not forwarded unless in `envAllowlist`         |
-| Workspace-constrained cwd | `cwd` is within `request.workspace`                      |
-| No privilege escalation    | `runAsUid` must not be 0; no `sudo` in allowlist        |
-| No network isolation      | Host network is ambient; document this limitation       |
+| No ambient env leakage    | Host env not forwarded unless in `envAllowlist`             |
+| Workspace-constrained cwd | `cwd` is within `request.workspace`                         |
+| No privilege escalation   | `runAsUid` must not be 0; no `sudo` in allowlist            |
+| No network isolation      | Host network is ambient; document this limitation           |
 
 ### Eligibility (`canExecute`)
 

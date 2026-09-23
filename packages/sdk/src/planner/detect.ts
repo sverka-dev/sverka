@@ -46,42 +46,79 @@ export function detectSignals(files: readonly string[]): LocalSignal[] {
     const base = basename(file);
     // manifest
     if (MANIFEST_FILES.has(base)) {
-      signals.push({ type: "manifest", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "manifest",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // lockfile
     if (Object.hasOwn(LOCKFILE_MAP, base)) {
-      signals.push({ type: "lockfile", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "lockfile",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // dockerfile
     if (base === "Dockerfile" || base.endsWith(".Dockerfile")) {
-      signals.push({ type: "dockerfile", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "dockerfile",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // docker-compose
     if (base === "docker-compose.yml" || base === "docker-compose.yaml") {
-      signals.push({ type: "docker-compose", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "docker-compose",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // ci-definition
     if (isCiDefinition(file, base)) {
-      signals.push({ type: "ci-definition", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "ci-definition",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
       continue;
     }
     // monorepo-marker (file-based only; package.json workspaces handled in detectMonorepo)
     if (Object.hasOwn(MONOREPO_MARKER_FILES, base)) {
-      signals.push({ type: "monorepo-marker", path: file, detail: null, confidence: 1.0 });
+      signals.push({
+        type: "monorepo-marker",
+        path: file,
+        detail: null,
+        confidence: 1.0,
+      });
     }
   }
   return signals;
 }
 
 function isCiDefinition(file: string, base: string): boolean {
-  if (base === ".gitlab-ci.yml" || base === "azure-pipelines.yml" || base === "Jenkinsfile") {
+  if (
+    base === ".gitlab-ci.yml" ||
+    base === "azure-pipelines.yml" ||
+    base === "Jenkinsfile"
+  ) {
     return true;
   }
-  if (file.startsWith(".github/workflows/") && (base.endsWith(".yml") || base.endsWith(".yaml"))) {
+  if (
+    file.startsWith(".github/workflows/") &&
+    (base.endsWith(".yml") || base.endsWith(".yaml"))
+  ) {
     return true;
   }
   if (file.startsWith(".circleci/")) {
@@ -260,8 +297,20 @@ function parsePackageManager(pm: string): {
   const toolName = pm.slice(0, atIdx);
   const version = pm.slice(atIdx + 1) || null;
   const valid: PackageManagerName[] = [
-    "npm", "yarn", "pnpm", "bun", "pip", "poetry", "uv",
-    "pipenv", "cargo", "go", "maven", "gradle", "composer", "other",
+    "npm",
+    "yarn",
+    "pnpm",
+    "bun",
+    "pip",
+    "poetry",
+    "uv",
+    "pipenv",
+    "cargo",
+    "go",
+    "maven",
+    "gradle",
+    "composer",
+    "other",
   ];
   if (!valid.includes(toolName as PackageManagerName)) {
     return { tool: null, version };
@@ -289,7 +338,8 @@ export function detectMonorepo(
       return {
         tool,
         workspaces,
-        evidence: globs.length > 0 ? [sig.path, "package.json#workspaces"] : [sig.path],
+        evidence:
+          globs.length > 0 ? [sig.path, "package.json#workspaces"] : [sig.path],
       };
     }
   }
@@ -324,7 +374,8 @@ function resolveWorkspaceDirs(
     .map((g) => g.slice(1));
   const dirs = new Set<string>();
   for (const sig of signals) {
-    if (sig.type !== "manifest" || !sig.path.endsWith("/package.json")) continue;
+    if (sig.type !== "manifest" || !sig.path.endsWith("/package.json"))
+      continue;
     const dir = sig.path.slice(0, sig.path.length - "/package.json".length);
     if (
       positive.some((g) => matchesWorkspaceGlob(dir, g)) &&
@@ -370,7 +421,10 @@ function matchesGlobSegment(segment: string, pattern: string): boolean {
   let starP = -1;
   let starS = -1;
   while (s < segment.length) {
-    if (p < pattern.length && (pattern[p] === "?" || pattern[p] === segment[s])) {
+    if (
+      p < pattern.length &&
+      (pattern[p] === "?" || pattern[p] === segment[s])
+    ) {
       s++;
       p++;
     } else if (p < pattern.length && pattern[p] === "*") {

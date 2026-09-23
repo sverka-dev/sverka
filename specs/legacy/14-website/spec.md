@@ -230,7 +230,7 @@ generated at `src/pages/404.astro`.
 - Page tests: each page (`/`, `/docs`, `/getting-started`) renders without
   errors.
 - SEO tests: each generated HTML file contains `<title>`, `<meta
-  description>`, Open Graph tags, and canonical link.
+description>`, Open Graph tags, and canonical link.
 - Sitemap test: `sitemap-index.xml` is generated and contains all pages.
 - Link check: no broken internal links in generated output.
 - Performance test: home page HTML is under 20 KB gzipped (excluding

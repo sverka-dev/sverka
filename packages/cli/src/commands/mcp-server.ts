@@ -32,9 +32,8 @@ export async function mcpServerCommand(
 
   // Lazy-import the MCP SDK (~250ms) — only paid when serving MCP.
   const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
-  const { StdioServerTransport } = await import(
-    "@modelcontextprotocol/sdk/server/stdio.js"
-  );
+  const { StdioServerTransport } =
+    await import("@modelcontextprotocol/sdk/server/stdio.js");
   const server = new McpServer({ name: "sverka", version: cliVersion() });
   registerSverkaTools(server, global.root);
 

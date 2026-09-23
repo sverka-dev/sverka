@@ -31,12 +31,7 @@ describe("CliError", () => {
 
   it("preserves cause when provided", () => {
     const inner = new Error("inner");
-    const err = new CliError(
-      "wrap",
-      "SDK_ERROR",
-      ExitCode.RuntimeError,
-      inner,
-    );
+    const err = new CliError("wrap", "SDK_ERROR", ExitCode.RuntimeError, inner);
     expect(err.cause).toBe(inner);
   });
 

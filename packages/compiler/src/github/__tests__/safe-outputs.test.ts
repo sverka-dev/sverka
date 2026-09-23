@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { Project, Pipeline, ShellStep, PagesStep, Entry } from "@sverka/workflow";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  PagesStep,
+  Entry,
+} from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import { compileGithub, githubCapabilities } from "../index.js";
 
@@ -35,7 +41,10 @@ function makeGraphWithPagesAndPermissions(): ReturnType<typeof synthesize> {
     pages: { path: "./dist" },
     permissions: { write: [{ kind: "push", target: "main" }] },
   });
-  new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy-pages"] });
+  new Entry(p, "on-push", {
+    trigger: { kind: "push" },
+    roots: ["deploy-pages"],
+  });
   return synthesize(proj);
 }
 
@@ -62,9 +71,7 @@ describe("compileGithub — safe-outputs: step permissions (Spec 25)", () => {
   });
 
   it("item 5c: step with permissions.write push → job permissions contents: write", () => {
-    const graph = makeGraphWithPermissions([
-      { kind: "push", target: "main" },
-    ]);
+    const graph = makeGraphWithPermissions([{ kind: "push", target: "main" }]);
     const result = compileGithub(graph);
     const yaml = parse(result.artifacts[0]!.content);
     const job = yaml.jobs.deploy;
@@ -72,9 +79,7 @@ describe("compileGithub — safe-outputs: step permissions (Spec 25)", () => {
   });
 
   it("item 5d: step with permissions.write comment → job permissions issues: write", () => {
-    const graph = makeGraphWithPermissions([
-      { kind: "comment", target: "pr" },
-    ]);
+    const graph = makeGraphWithPermissions([{ kind: "comment", target: "pr" }]);
     const result = compileGithub(graph);
     const yaml = parse(result.artifacts[0]!.content);
     const job = yaml.jobs.deploy;
@@ -92,9 +97,7 @@ describe("compileGithub — safe-outputs: step permissions (Spec 25)", () => {
   });
 
   it("item 5f: step with permissions.write pages → job permissions pages: write", () => {
-    const graph = makeGraphWithPermissions([
-      { kind: "pages", target: "site" },
-    ]);
+    const graph = makeGraphWithPermissions([{ kind: "pages", target: "site" }]);
     const result = compileGithub(graph);
     const yaml = parse(result.artifacts[0]!.content);
     const job = yaml.jobs.deploy;
@@ -111,9 +114,7 @@ describe("compileGithub — safe-outputs: step permissions (Spec 25)", () => {
   });
 
   it("item 7: step with unknown write kind foo → job permissions contents: read", () => {
-    const graph = makeGraphWithPermissions([
-      { kind: "foo", target: "bar" },
-    ]);
+    const graph = makeGraphWithPermissions([{ kind: "foo", target: "bar" }]);
     const result = compileGithub(graph);
     const yaml = parse(result.artifacts[0]!.content);
     const job = yaml.jobs.deploy;

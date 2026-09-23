@@ -1,10 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, Entry, push, schedule } from "@sverka/workflow";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  Entry,
+  push,
+  schedule,
+} from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import { GitlabTarget } from "../target.js";
 import type { GitlabTargetGraph } from "../types.js";
 
-function singleGraph(result: GitlabTargetGraph | readonly GitlabTargetGraph[]): GitlabTargetGraph {
+function singleGraph(
+  result: GitlabTargetGraph | readonly GitlabTargetGraph[],
+): GitlabTargetGraph {
   if ("jobs" in result) return result;
   return result[0]!;
 }
@@ -14,13 +23,18 @@ describe("GitLab F-05: schedule trigger lowering", () => {
     const project = new Project("gl-schedule-test");
     const pipeline = new Pipeline(project, "ci");
     new ShellStep(pipeline, "test", { command: "make test" });
-    new Entry(pipeline, "nightly", { trigger: schedule("0 0 * * *"), roots: ["test"] });
+    new Entry(pipeline, "nightly", {
+      trigger: schedule("0 0 * * *"),
+      roots: ["test"],
+    });
 
     const graph = synthesize(project);
     const target = new GitlabTarget();
     const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs[0]!;
-    expect(job.rules).toContainEqual({ if: '$CI_PIPELINE_SOURCE == "schedule"' });
+    expect(job.rules).toContainEqual({
+      if: '$CI_PIPELINE_SOURCE == "schedule"',
+    });
   });
 });
 

@@ -12,13 +12,13 @@ Retries automatically re-run a failed step. GitLab has native `retry` with max c
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | (none — actions/loops) | `retry` | `retry` on Step |
-| Semantics | n/a | Re-run job on failure up to N times | Re-run step on failure up to N times |
-| Value type | n/a | number (0-2) or `{ max, when, exit_codes }` | `{ max, when?, exitCodes? }` |
-| Limitations | no native support | max 2 retries | — |
-| Provider gap | no native retry | — | GitHub: emulated via shell wrapper |
+| Aspect       | GitHub Actions         | GitLab CI                                   | Sverka (proposed)                    |
+| ------------ | ---------------------- | ------------------------------------------- | ------------------------------------ |
+| Construct    | (none — actions/loops) | `retry`                                     | `retry` on Step                      |
+| Semantics    | n/a                    | Re-run job on failure up to N times         | Re-run step on failure up to N times |
+| Value type   | n/a                    | number (0-2) or `{ max, when, exit_codes }` | `{ max, when?, exitCodes? }`         |
+| Limitations  | no native support      | max 2 retries                               | —                                    |
+| Provider gap | no native retry        | —                                           | GitHub: emulated via shell wrapper   |
 
 ## GitHub Actions
 
@@ -66,7 +66,7 @@ Add optional `retry?: RetryPolicy` to Step:
 
 ```ts
 interface RetryPolicy {
-  readonly max: number;           // 0-2 (GitLab limit); native engine allows higher
+  readonly max: number; // 0-2 (GitLab limit); native engine allows higher
   readonly when?: readonly RetryWhen[];
   readonly exitCodes?: readonly number[];
 }

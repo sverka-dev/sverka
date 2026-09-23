@@ -13,16 +13,16 @@ raw SARIF or `Finding[]` — no workflow runtime needed.
 
 ### Extracts (standalone packages)
 
-| Feature | TUI (spec 46) | Web (spec 47) |
-|---------|-------------|---------------|
-| Findings list/table | yes | yes |
-| Severity filter | yes (6 levels) | yes (buttons) |
-| Text search | yes | yes |
-| Sort | yes (s key cycle) | yes (column click) |
-| Finding detail panel | yes (d key) | n/a (table shows all) |
-| Summary header | no | yes (count + breakdown + tool) |
-| CLI entry point | yes (stdin/file) | yes (file → -o) |
-| Input normalization | `normalizeSarif` | `normalizeSarif` |
+| Feature              | TUI (spec 46)     | Web (spec 47)                  |
+| -------------------- | ----------------- | ------------------------------ |
+| Findings list/table  | yes               | yes                            |
+| Severity filter      | yes (6 levels)    | yes (buttons)                  |
+| Text search          | yes               | yes                            |
+| Sort                 | yes (s key cycle) | yes (column click)             |
+| Finding detail panel | yes (d key)       | n/a (table shows all)          |
+| Summary header       | no                | yes (count + breakdown + tool) |
+| CLI entry point      | yes (stdin/file)  | yes (file → -o)                |
+| Input normalization  | `normalizeSarif`  | `normalizeSarif`               |
 
 ### Stays in `@sverka/reporter` (workflow-coupled)
 
@@ -96,6 +96,7 @@ finding (j/k navigates the findings list, not a step tree). Shows: rule,
 file, startLine–endLine, message, helpUrl (if present).
 
 **D4 — Input resolution.** `input.ts` exports `resolveFindings(options)`:
+
 - `findings` provided → use directly
 - `sarif` provided → `normalizeSarif(sarif, context)`
 - `sarifPath` provided → `readFileSync` → `JSON.parse` → `normalizeSarif`
@@ -159,7 +160,11 @@ packages/sarif-viewer-web/
 ```json
 {
   "dependencies": { "@sverka/verification": "workspace:*" },
-  "devDependencies": { "tsdown": "^0.22.0", "typescript": "^5.8.0", "vitest": "^4.1.11" }
+  "devDependencies": {
+    "tsdown": "^0.22.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.11"
+  }
 }
 ```
 

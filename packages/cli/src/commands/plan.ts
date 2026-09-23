@@ -26,7 +26,11 @@ export async function planCommand(
 
   const entryId = args.entryId ?? resolveDefaultEntryId(graph);
   if (!entryId) {
-    throw new CliError("no entries in graph", "MISSING_ARG", ExitCode.UsageError);
+    throw new CliError(
+      "no entries in graph",
+      "MISSING_ARG",
+      ExitCode.UsageError,
+    );
   }
   if (!entryExists(graph, entryId)) {
     throw new CliError(
@@ -58,9 +62,10 @@ export async function planCommand(
     output.writeLine(`  entry: ${plan.entry.id}`);
     output.writeLine(`  steps: ${plan.steps.length}`);
     for (const step of plan.steps) {
-      const deps = step.dependencies.length > 0
-        ? ` (depends: ${step.dependencies.map((d) => d.producer).join(", ")})`
-        : "";
+      const deps =
+        step.dependencies.length > 0
+          ? ` (depends: ${step.dependencies.map((d) => d.producer).join(", ")})`
+          : "";
       output.writeLine(`    - ${step.id}${deps}`);
     }
   }

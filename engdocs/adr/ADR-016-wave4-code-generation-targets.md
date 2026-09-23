@@ -12,17 +12,19 @@ v1 mega-plan Wave 4 (sv-wthn.4) calls for three "delegated engines"
 on external platforms.
 
 The architecture spec defines two contracts:
+
 - **Target** (§19): `compile(graph: DefinitionGraph): CompilationResult` —
   pure, deterministic, no network, emits artifacts.
 - **Engine** (§21): `run(request: RunRequest): AsyncIterable<RunEvent>` —
   executes, streams events, requires cancellation.
 
-§23 defines **delegated engines** as consuming *emitted provider
-configuration* (act runs GitHub YAML, gitlab-ci-local runs GitLab YAML).
+§23 defines **delegated engines** as consuming _emitted provider
+configuration_ (act runs GitHub YAML, gitlab-ci-local runs GitLab YAML).
 They are compatibility backends, not the source of Sverka semantics.
 
 Temporal, Dagger, and Inngest are **external orchestration platforms**.
 "Executing" on them requires:
+
 - Temporal: `@temporalio/sdk` + a running Temporal server + worker
 - Dagger: Dagger CLI + engine daemon
 - Inngest: `@inngest/agent-kit` + Inngest dashboard/deployment
@@ -39,12 +41,12 @@ CompilationResult`) and emit platform-native source code from a
 DefinitionGraph. No SDK dependencies, no running infrastructure, no
 execution, no event streaming.
 
-| Integration | Input | Output | Package |
-|---|---|---|---|
-| Temporal | DefinitionGraph | Temporal Workflow `.ts` + activities `.ts` | `@sverka/compiler` (temporal sub-module) |
-| Dagger | DefinitionGraph | Dagger Module `.ts` | `@sverka/compiler` (dagger sub-module) |
-| Inngest | DefinitionGraph | Inngest function `.ts` | `@sverka/compiler` (inngest sub-module) |
-| Drone | DefinitionGraph | `.drone.yml` | `@sverka/compiler` (drone sub-module) |
+| Integration | Input           | Output                                     | Package                                  |
+| ----------- | --------------- | ------------------------------------------ | ---------------------------------------- |
+| Temporal    | DefinitionGraph | Temporal Workflow `.ts` + activities `.ts` | `@sverka/compiler` (temporal sub-module) |
+| Dagger      | DefinitionGraph | Dagger Module `.ts`                        | `@sverka/compiler` (dagger sub-module)   |
+| Inngest     | DefinitionGraph | Inngest function `.ts`                     | `@sverka/compiler` (inngest sub-module)  |
+| Drone       | DefinitionGraph | `.drone.yml`                               | `@sverka/compiler` (drone sub-module)    |
 
 The user deploys the generated code to their platform. This is how
 Temporal, Dagger, and Inngest actually work — you write code and deploy it.
@@ -63,12 +65,12 @@ Temporal, Dagger, and Inngest actually work — you write code and deploy it.
 
 4. **The Engine.run() contract is wrong for these platforms.** It requires
    live execution with event streaming. Temporal/Dagger/Inngest execution
-   happens on *their* infrastructure, not in-process. A real execution
+   happens on _their_ infrastructure, not in-process. A real execution
    adapter would need SDK clients, network connections, and long-running
    sessions — all anti-patterns for a deterministic compiler package.
 
-5. **§23 delegated engines are a different concept.** They run *emitted CI
-   config* locally (act, gitlab-ci-local). Temporal/Dagger/Inngest don't
+5. **§23 delegated engines are a different concept.** They run _emitted CI
+   config_ locally (act, gitlab-ci-local). Temporal/Dagger/Inngest don't
    consume emitted config — they have their own SDKs and deployment models.
 
 6. **The value is interoperability, not execution.** Users get

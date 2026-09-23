@@ -1,8 +1,20 @@
 import type { Reference, StepRef, ContextRef } from "@sverka/workflow";
 
-const OUTPUT_TYPES = new Set<string>(["string", "number", "boolean", "artifact"]);
+const OUTPUT_TYPES = new Set<string>([
+  "string",
+  "number",
+  "boolean",
+  "artifact",
+]);
 const CONTEXT_NAMESPACES = new Set<string>([
-  "env", "secrets", "git", "change", "event", "run", "inputs", "matrix",
+  "env",
+  "secrets",
+  "git",
+  "change",
+  "event",
+  "run",
+  "inputs",
+  "matrix",
 ]);
 
 /**

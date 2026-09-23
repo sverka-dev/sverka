@@ -86,7 +86,11 @@ async function evaluateOperations(
   let aborted = false;
   for (const spec of ordered) {
     if (aborted) {
-      outcomes.push({ operationId: spec.id, status: "cancelled", durationMs: 0 });
+      outcomes.push({
+        operationId: spec.id,
+        status: "cancelled",
+        durationMs: 0,
+      });
       continue;
     }
     const skipped =
@@ -187,13 +191,15 @@ function expandMatrices(nodes: readonly OperationNode[]): OperationNode[] {
 }
 
 /** Validate that all matrix dimensions are non-empty arrays. */
-function validateMatrixDims(dims: Readonly<Record<string, readonly unknown[]>>): void {
+function validateMatrixDims(
+  dims: Readonly<Record<string, readonly unknown[]>>,
+): void {
   for (const [key, values] of Object.entries(dims)) {
     if (!Array.isArray(values)) {
-      throw new CompositionError(
-        `matrix dimension '${key}' is not an array`,
-        { dimension: key, value: values },
-      );
+      throw new CompositionError(`matrix dimension '${key}' is not an array`, {
+        dimension: key,
+        value: values,
+      });
     }
     if (values.length === 0) {
       throw new CompositionError(`matrix dimension '${key}' is empty`, {
@@ -219,7 +225,9 @@ function cartesianProduct(
   return result;
 }
 
-function cartesianProductCount(dims: Readonly<Record<string, readonly unknown[]>>): number {
+function cartesianProductCount(
+  dims: Readonly<Record<string, readonly unknown[]>>,
+): number {
   const entries = Object.entries(dims);
   if (entries.length === 0) return 1;
   const [first, ...rest] = entries;
@@ -280,10 +288,18 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
     const joinCond = joinConditions.get(node);
     if (joinCond !== undefined && !isArtifact(node)) {
       const existing = node.spec.condition;
-      const combined = existing !== undefined ? `(${existing} && ${joinCond})` : joinCond;
+      const combined =
+        existing !== undefined ? `(${existing} && ${joinCond})` : joinCond;
       if (combined !== existing) {
         const newSpec = { ...node.spec, condition: combined };
-        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id, node);
+        return makeNodeWith(
+          node.kind,
+          newSpec,
+          node.predecessors,
+          node.siblings,
+          node._id,
+          node,
+        );
       }
     }
     if (node.predecessors.length === 0) return node;
@@ -293,7 +309,14 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       newPreds.length === node.predecessors.length &&
       newPreds.every((p, i) => p === node.predecessors[i]);
     if (same) return node;
-    return makeNodeWith(node.kind, node.spec, newPreds, node.siblings, node._id, node);
+    return makeNodeWith(
+      node.kind,
+      node.spec,
+      newPreds,
+      node.siblings,
+      node._id,
+      node,
+    );
   });
 
   return rewritten.filter((n) => !isArtifact(n));
@@ -315,7 +338,8 @@ function makeNodeWith(
   if (siblings.length > 0) n = asNode(n.with(...siblings));
   if (_id !== undefined) (n as unknown as { _id: string })._id = _id;
   if (source !== undefined) {
-    const combo = (source as unknown as { __matrixCombo?: unknown }).__matrixCombo;
+    const combo = (source as unknown as { __matrixCombo?: unknown })
+      .__matrixCombo;
     if (combo !== undefined) {
       (n as unknown as { __matrixCombo?: unknown }).__matrixCombo = combo;
     }
@@ -350,9 +374,13 @@ function assignIds(nodes: readonly OperationNode[]): {
   const usedIds = new Set<string>();
   for (const node of nodes) {
     if (!isKnownKind(node.kind)) {
-      throw new CoreError(`unknown operation kind '${node.kind}'`, "UNKNOWN_KIND", {
-        kind: node.kind,
-      });
+      throw new CoreError(
+        `unknown operation kind '${node.kind}'`,
+        "UNKNOWN_KIND",
+        {
+          kind: node.kind,
+        },
+      );
     }
     const id = computeOperationId(node.kind, nameFor(node), contextFor(node));
     if (usedIds.has(id)) {
@@ -362,10 +390,9 @@ function assignIds(nodes: readonly OperationNode[]): {
     idMap.set(node, id);
     if (node.spec.id !== undefined) {
       if (aliasMap.has(node.spec.id)) {
-        throw new CompositionError(
-          `duplicate operation id '${node.spec.id}'`,
-          { id: node.spec.id },
-        );
+        throw new CompositionError(`duplicate operation id '${node.spec.id}'`, {
+          id: node.spec.id,
+        });
       }
       aliasMap.set(node.spec.id, id);
     }
@@ -395,8 +422,7 @@ function contextFor(node: OperationNode): Record<string, unknown> {
   const s = node.spec;
   const ctx: Record<string, unknown> = {};
   const combo = (node as unknown as Record<string, unknown>).__matrixCombo as
-    | readonly [string, unknown][]
-    | undefined;
+    readonly [string, unknown][] | undefined;
   if (combo !== undefined) {
     for (const [k, v] of combo) ctx[k] = v;
   }
@@ -427,10 +453,14 @@ function resolveEdges(
     const id = idMap.get(node)!;
     const resolvedDeps = node.predecessors.map((p) => idMap.get(p));
     if (resolvedDeps.includes(undefined)) {
-      throw new CompositionError("unresolved predecessor reference", { node: id });
+      throw new CompositionError("unresolved predecessor reference", {
+        node: id,
+      });
     }
     const userDeps = node.spec.dependsOn ?? [];
-    const resolvedUserDeps = userDeps.map((dep) => resolveDep(dep, aliasMap, knownOpIds));
+    const resolvedUserDeps = userDeps.map((dep) =>
+      resolveDep(dep, aliasMap, knownOpIds),
+    );
     const dependsOn = [
       ...new Set([...resolvedUserDeps, ...(resolvedDeps as string[])]),
     ];
@@ -459,9 +489,24 @@ function resolveDep(
 }
 
 const OPTIONAL_SPEC_KEYS = [
-  "description", "command", "args", "env", "workingDir", "image", "imageDigest",
-  "condition", "cpuLimit", "memoryLimit", "timeoutSeconds", "retries",
-  "continueOnError", "cache", "artifacts", "network", "credentials", "tags",
+  "description",
+  "command",
+  "args",
+  "env",
+  "workingDir",
+  "image",
+  "imageDigest",
+  "condition",
+  "cpuLimit",
+  "memoryLimit",
+  "timeoutSeconds",
+  "retries",
+  "continueOnError",
+  "cache",
+  "artifacts",
+  "network",
+  "credentials",
+  "tags",
 ] as const satisfies readonly (keyof OperationSpec)[];
 
 function buildSpec(
@@ -545,7 +590,9 @@ function kahnSort(
   indegree: Map<string, number>,
   adj: Map<string, string[]>,
 ): OperationSpec[] {
-  const queue = all.filter((s) => (indegree.get(s.id) ?? 0) === 0).map((s) => s.id);
+  const queue = all
+    .filter((s) => (indegree.get(s.id) ?? 0) === 0)
+    .map((s) => s.id);
   const ordered: OperationSpec[] = [];
   while (queue.length > 0) {
     const id = queue.shift()!;

@@ -10,25 +10,25 @@ Always-on orchestrator. All work flows through the mayor. Plans waves, dispatche
 
 ## Skills
 
-| Skill | When |
-| --- | --- |
-| `spec-driven-development` | Reading the spec tree, planning waves |
-| `minimalist` | Auditing wave plans for unnecessary tasks |
-| `critical-thinking` | Challenging wave scope |
-| `drill` | When a wave fails or an agent is stuck |
-| `deepwiki` | Researching how Gas City, bd, or external tools work |
-| `sourcegraph` | Searching the codebase to verify state |
-| `sverka-wave` | Planning and executing the wave cycle |
-| `sverka-review` | Verifying gates before finalizing |
-| `sverka-drill` | Creating drill tasks for failures |
+| Skill                     | When                                                 |
+| ------------------------- | ---------------------------------------------------- |
+| `spec-driven-development` | Reading the spec tree, planning waves                |
+| `minimalist`              | Auditing wave plans for unnecessary tasks            |
+| `critical-thinking`       | Challenging wave scope                               |
+| `drill`                   | When a wave fails or an agent is stuck               |
+| `deepwiki`                | Researching how Gas City, bd, or external tools work |
+| `sourcegraph`             | Searching the codebase to verify state               |
+| `sverka-wave`             | Planning and executing the wave cycle                |
+| `sverka-review`           | Verifying gates before finalizing                    |
+| `sverka-drill`            | Creating drill tasks for failures                    |
 
 ## Formulas
 
-| Formula | When |
-| --- | --- |
-| `wave` | Standard implementation cycle (design→implement→review→finalize) |
-| `address-review` | After PR creation, to address GitHub review feedback |
-| `bootstrap-sdd` | Initial project bootstrap (spec tree → monorepo → website) |
+| Formula          | When                                                             |
+| ---------------- | ---------------------------------------------------------------- |
+| `wave`           | Standard implementation cycle (design→implement→review→finalize) |
+| `address-review` | After PR creation, to address GitHub review feedback             |
+| `bootstrap-sdd`  | Initial project bootstrap (spec tree → monorepo → website)       |
 
 ## Responsibilities
 

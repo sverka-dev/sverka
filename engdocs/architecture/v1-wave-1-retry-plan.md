@@ -13,17 +13,17 @@ engine. Extends `RetryPolicy` with optional `BackoffSpec`; adds
 
 ## Files
 
-| File | Action |
-|---|---|
-| `packages/workflow/src/cdk/model.ts` | **Edit** — add `BackoffSpec` interface; add `backoff?: BackoffSpec` to `RetryPolicy`. |
-| `packages/workflow/src/cdk/index.ts` | **Edit** — export `BackoffSpec`. |
-| `packages/workflow/src/core/graph.ts` | **Edit** — re-export `BackoffSpec`. |
-| `packages/runtime/src/engine-native/retry.ts` | **New** — `executeStepWithRetry`: retry loop, `classifyRetryWhen`, backoff delay, cancellation, emits `step-retry`. |
-| `packages/runtime/src/engine-native/types.ts` | **Edit** — add `step-retry` to `RunEvent`. |
-| `packages/runtime/src/engine-native/engine.ts` | **Edit** — `runStep` calls `executeStepWithRetry` instead of `executeStep` directly. |
-| `packages/runtime/src/engine-native/__tests__/retry.test.ts` | **New** — retry unit/integration tests (items 1–11). |
-| `packages/workflow/src/cdk/__tests__/model.test.ts` (or existing) | **Edit** — assert `BackoffSpec` export (item 12). |
-| `packages/compiler/src/github/capabilities.ts` | **Edit** — `policy.retry`: `unsupported` → `emulated`. |
+| File                                                              | Action                                                                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `packages/workflow/src/cdk/model.ts`                              | **Edit** — add `BackoffSpec` interface; add `backoff?: BackoffSpec` to `RetryPolicy`.                               |
+| `packages/workflow/src/cdk/index.ts`                              | **Edit** — export `BackoffSpec`.                                                                                    |
+| `packages/workflow/src/core/graph.ts`                             | **Edit** — re-export `BackoffSpec`.                                                                                 |
+| `packages/runtime/src/engine-native/retry.ts`                     | **New** — `executeStepWithRetry`: retry loop, `classifyRetryWhen`, backoff delay, cancellation, emits `step-retry`. |
+| `packages/runtime/src/engine-native/types.ts`                     | **Edit** — add `step-retry` to `RunEvent`.                                                                          |
+| `packages/runtime/src/engine-native/engine.ts`                    | **Edit** — `runStep` calls `executeStepWithRetry` instead of `executeStep` directly.                                |
+| `packages/runtime/src/engine-native/__tests__/retry.test.ts`      | **New** — retry unit/integration tests (items 1–11).                                                                |
+| `packages/workflow/src/cdk/__tests__/model.test.ts` (or existing) | **Edit** — assert `BackoffSpec` export (item 12).                                                                   |
+| `packages/compiler/src/github/capabilities.ts`                    | **Edit** — `policy.retry`: `unsupported` → `emulated`.                                                              |
 
 ## TDD steps
 

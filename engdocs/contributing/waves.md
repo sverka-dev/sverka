@@ -19,24 +19,24 @@ Each wave corresponds to one or more packages in the monorepo.
 
 ## Wave list
 
-| Wave | Packages | Status |
-|------|----------|--------|
-| 0 | Spec tree, monorepo scaffold, Gas City | In progress |
-| 1 | core | Pending |
-| 2 | ir | Pending |
-| 3 | runtime | Pending |
-| 4 | runtime-docker | Pending |
-| 5 | runtime-host | Pending |
-| 6 | planner | Pending |
-| 7 | findings | Pending |
-| 8 | policy | Pending |
-| 9 | sdk | Pending |
-| 10 | cli | Pending |
-| 11 | checks | Pending |
-| 12 | compiler-github | Pending |
-| 13 | compiler-gitlab | Pending |
-| 14 | website | Pending |
-| 15 | documentation | Pending |
+| Wave | Packages                               | Status      |
+| ---- | -------------------------------------- | ----------- |
+| 0    | Spec tree, monorepo scaffold, Gas City | In progress |
+| 1    | core                                   | Pending     |
+| 2    | ir                                     | Pending     |
+| 3    | runtime                                | Pending     |
+| 4    | runtime-docker                         | Pending     |
+| 5    | runtime-host                           | Pending     |
+| 6    | planner                                | Pending     |
+| 7    | findings                               | Pending     |
+| 8    | policy                                 | Pending     |
+| 9    | sdk                                    | Pending     |
+| 10   | cli                                    | Pending     |
+| 11   | checks                                 | Pending     |
+| 12   | compiler-github                        | Pending     |
+| 13   | compiler-gitlab                        | Pending     |
+| 14   | website                                | Pending     |
+| 15   | documentation                          | Pending     |
 
 ## Formula
 

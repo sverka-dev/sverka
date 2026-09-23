@@ -12,13 +12,13 @@ The change request trigger starts a pipeline when a pull request (GitHub) or mer
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `on: pull_request` / `pull_request_target` | `rules: if $CI_PIPELINE_SOURCE == "merge_request_event"` | `trigger.changeRequest` |
-| Semantics | Runs on PR activity types (opened, synchronize, reopened, closed, edited, labeled, etc.) | Runs on MR events | Pipeline starts on PR/MR event |
-| Value type | string or map with `types` + branch/path filters | rule expression | trigger kind + optional activity types + filters |
-| Limitations | `pull_request_target` runs in base branch context (security implications) | MR pipeline runs in merge ref, not target branch | no `pull_request_target` equivalent |
-| Provider gap | `pull_request_target` has no GitLab equivalent | — | `pull_request_target` as provider extension |
+| Aspect       | GitHub Actions                                                                           | GitLab CI                                                | Sverka (proposed)                                |
+| ------------ | ---------------------------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------ |
+| Construct    | `on: pull_request` / `pull_request_target`                                               | `rules: if $CI_PIPELINE_SOURCE == "merge_request_event"` | `trigger.changeRequest`                          |
+| Semantics    | Runs on PR activity types (opened, synchronize, reopened, closed, edited, labeled, etc.) | Runs on MR events                                        | Pipeline starts on PR/MR event                   |
+| Value type   | string or map with `types` + branch/path filters                                         | rule expression                                          | trigger kind + optional activity types + filters |
+| Limitations  | `pull_request_target` runs in base branch context (security implications)                | MR pipeline runs in merge ref, not target branch         | no `pull_request_target` equivalent              |
+| Provider gap | `pull_request_target` has no GitLab equivalent                                           | —                                                        | `pull_request_target` as provider extension      |
 
 ## GitHub Actions
 

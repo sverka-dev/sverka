@@ -116,7 +116,9 @@ jobs:
 `;
     const result = importGithubWithDiagnostics(yaml);
     expect(result.diagnostics.length).toBeGreaterThan(0);
-    const unmapped = result.diagnostics.find((d) => d.message.includes("unmapped"));
+    const unmapped = result.diagnostics.find((d) =>
+      d.message.includes("unmapped"),
+    );
     expect(unmapped).toBeDefined();
   });
 });

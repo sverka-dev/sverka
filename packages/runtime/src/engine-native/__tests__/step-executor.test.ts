@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { executeStep } from "../step-executor.js";
 import { createValueStore } from "../value-store.js";
 import { createArtifactStore } from "../artifact-store.js";
-import { createOutputWritingMockDriver, createMockDriver } from "./helpers/mock-driver.js";
+import {
+  createOutputWritingMockDriver,
+  createMockDriver,
+} from "./helpers/mock-driver.js";
 import type { StepDefinition } from "@sverka/workflow";
 import type { RunEvent } from "../types.js";
 
@@ -37,9 +40,14 @@ describe("StepExecutor", () => {
       dependencies: [],
     };
     const result = await executeStep({
-      step, driver, workspace: join(testDir, "ws"),
-      artifactStore, valueStore, secrets: {},
-      emit: (e) => events.push(e), isCancelled: () => false,
+      step,
+      driver,
+      workspace: join(testDir, "ws"),
+      artifactStore,
+      valueStore,
+      secrets: {},
+      emit: (e) => events.push(e),
+      isCancelled: () => false,
     });
     expect(result.status).toBe("succeeded");
     expect(valueStore.get("ci/build", "version")).toBe("1.2.3");
@@ -58,17 +66,20 @@ describe("StepExecutor", () => {
     const step: StepDefinition = {
       id: "ci/build",
       runtime: {},
-      operations: [
-        { kind: "exportArtifact", name: "dist", path: "dist.txt" },
-      ],
+      operations: [{ kind: "exportArtifact", name: "dist", path: "dist.txt" }],
       inputs: [],
       outputs: [],
       dependencies: [],
     };
     const result = await executeStep({
-      step, driver, workspace: join(testDir, "ws"),
-      artifactStore, valueStore, secrets: {},
-      emit: (e) => events.push(e), isCancelled: () => false,
+      step,
+      driver,
+      workspace: join(testDir, "ws"),
+      artifactStore,
+      valueStore,
+      secrets: {},
+      emit: (e) => events.push(e),
+      isCancelled: () => false,
     });
     expect(result.status).toBe("succeeded");
     // Verify artifact was stored.
@@ -90,16 +101,26 @@ describe("StepExecutor", () => {
       id: "ci/test",
       runtime: {},
       operations: [
-        { kind: "importArtifact", name: "dist", from: "ci/build", output: "dist" },
+        {
+          kind: "importArtifact",
+          name: "dist",
+          from: "ci/build",
+          output: "dist",
+        },
       ],
       inputs: [],
       outputs: [],
       dependencies: [],
     };
     const result = await executeStep({
-      step, driver, workspace: join(testDir, "ws"),
-      artifactStore, valueStore, secrets: {},
-      emit: (e) => events.push(e), isCancelled: () => false,
+      step,
+      driver,
+      workspace: join(testDir, "ws"),
+      artifactStore,
+      valueStore,
+      secrets: {},
+      emit: (e) => events.push(e),
+      isCancelled: () => false,
     });
     expect(result.status).toBe("succeeded");
     // Verify artifact was imported into workspace root.
@@ -123,9 +144,14 @@ describe("StepExecutor", () => {
       dependencies: [],
     };
     const result = await executeStep({
-      step, driver, workspace: join(testDir, "ws"),
-      artifactStore, valueStore, secrets: {},
-      emit: (e) => events.push(e), isCancelled: () => false,
+      step,
+      driver,
+      workspace: join(testDir, "ws"),
+      artifactStore,
+      valueStore,
+      secrets: {},
+      emit: (e) => events.push(e),
+      isCancelled: () => false,
     });
     expect(result.status).toBe("succeeded");
     const diag = events.find((e) => e.type === "diagnostic");
@@ -151,22 +177,34 @@ describe("StepExecutor — context ref resolution", () => {
       const driver = createMockDriver({
         executeFn: async (req) => {
           capturedCommand = req.command;
-          return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: "",
+            durationMs: 1,
+            timedOut: false,
+          };
         },
       });
       const step: StepDefinition = {
         id: "ci/build",
         runtime: {},
         operations: [{ kind: "shell", command: "echo ${env.SVERKA_TEST_VAR}" }],
-        inputs: [{ kind: "context", namespace: "env", field: "SVERKA_TEST_VAR" }],
+        inputs: [
+          { kind: "context", namespace: "env", field: "SVERKA_TEST_VAR" },
+        ],
         outputs: [],
         dependencies: [],
       };
       await executeStep({
-        step, driver, workspace: testDir,
+        step,
+        driver,
+        workspace: testDir,
         artifactStore: createArtifactStore(join(testDir, "art")),
-        valueStore: createValueStore(), secrets: {},
-        emit: () => {}, isCancelled: () => false,
+        valueStore: createValueStore(),
+        secrets: {},
+        emit: () => {},
+        isCancelled: () => false,
       });
       expect(capturedCommand).toBe("echo test-value");
     } finally {
@@ -181,22 +219,34 @@ describe("StepExecutor — context ref resolution", () => {
       const driver = createMockDriver({
         executeFn: async (req) => {
           capturedCommand = req.command;
-          return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: "",
+            durationMs: 1,
+            timedOut: false,
+          };
         },
       });
       const step: StepDefinition = {
         id: "ci/build",
         runtime: { env: { SVERKA_TEST_VAR: "from-runtime" } },
         operations: [{ kind: "shell", command: "echo ${env.SVERKA_TEST_VAR}" }],
-        inputs: [{ kind: "context", namespace: "env", field: "SVERKA_TEST_VAR" }],
+        inputs: [
+          { kind: "context", namespace: "env", field: "SVERKA_TEST_VAR" },
+        ],
         outputs: [],
         dependencies: [],
       };
       await executeStep({
-        step, driver, workspace: testDir,
+        step,
+        driver,
+        workspace: testDir,
         artifactStore: createArtifactStore(join(testDir, "art")),
-        valueStore: createValueStore(), secrets: {},
-        emit: () => {}, isCancelled: () => false,
+        valueStore: createValueStore(),
+        secrets: {},
+        emit: () => {},
+        isCancelled: () => false,
       });
       expect(capturedCommand).toBe("echo from-runtime");
     } finally {
@@ -211,7 +261,13 @@ describe("StepExecutor — context ref resolution", () => {
       executeFn: async (req) => {
         capturedCommand = req.command;
         capturedEnv = req.env;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -224,10 +280,14 @@ describe("StepExecutor — context ref resolution", () => {
       permissions: { write: [{ kind: "comment", target: "pr" }] },
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: { TOKEN: "secret123" },
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: { TOKEN: "secret123" },
+      emit: () => {},
+      isCancelled: () => false,
     });
     // Secret value must NOT appear in the command — only the env var reference
     expect(capturedCommand).toBe("echo $TOKEN");
@@ -236,7 +296,13 @@ describe("StepExecutor — context ref resolution", () => {
 
   it("rejects undeclared secret references", async () => {
     const driver = createMockDriver({
-      executeFn: async () => ({ exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false }),
+      executeFn: async () => ({
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        durationMs: 1,
+        timedOut: false,
+      }),
     });
     const step: StepDefinition = {
       id: "ci/build",
@@ -247,10 +313,14 @@ describe("StepExecutor — context ref resolution", () => {
       dependencies: [],
     };
     const result = await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: { TOKEN: "secret123" },
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: { TOKEN: "secret123" },
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(result.status).toBe("failed");
     expect(result.error).toContain("undeclared secret");
@@ -261,7 +331,13 @@ describe("StepExecutor — context ref resolution", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedCommand = req.command;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -274,10 +350,14 @@ describe("StepExecutor — context ref resolution", () => {
     };
     // Use the repo root as workspace so git context resolves
     await executeStep({
-      step, driver, workspace: process.cwd(),
+      step,
+      driver,
+      workspace: process.cwd(),
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     });
     // git.sha should be a non-empty hex string
     expect(capturedCommand).toMatch(/^echo [0-9a-f]{7,40}$/);
@@ -288,7 +368,13 @@ describe("StepExecutor — context ref resolution", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedCommand = req.command;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -301,10 +387,14 @@ describe("StepExecutor — context ref resolution", () => {
     };
     // Use the repo root as workspace so git context resolves
     await executeStep({
-      step, driver, workspace: process.cwd(),
+      step,
+      driver,
+      workspace: process.cwd(),
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     });
     // git.branch should be a non-empty branch name
     expect(capturedCommand).not.toBe("echo ${git.branch}");
@@ -316,7 +406,13 @@ describe("StepExecutor — context ref resolution", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedCommand = req.command;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -328,11 +424,15 @@ describe("StepExecutor — context ref resolution", () => {
       dependencies: [],
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
+      valueStore: createValueStore(),
+      secrets: {},
       inputs: { env: "staging" },
-      emit: () => {}, isCancelled: () => false,
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(capturedCommand).toBe("echo staging");
   });
@@ -355,7 +455,13 @@ describe("StepExecutor — env var injection (F-20)", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedEnv = req.env;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -367,10 +473,14 @@ describe("StepExecutor — env var injection (F-20)", () => {
       dependencies: [],
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(capturedEnv.NODE_ENV).toBe("production");
     expect(capturedEnv.CI).toBe("true");
@@ -381,22 +491,34 @@ describe("StepExecutor — env var injection (F-20)", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedEnv = req.env;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
       id: "ci/build",
-      runtime: { env: { SVERKA_OUTPUT_DIR: "tampered", SVERKA_STEP_ID: "tampered" } },
+      runtime: {
+        env: { SVERKA_OUTPUT_DIR: "tampered", SVERKA_STEP_ID: "tampered" },
+      },
       operations: [{ kind: "shell", command: "echo hi" }],
       inputs: [],
       outputs: [],
       dependencies: [],
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(capturedEnv.SVERKA_OUTPUT_DIR).not.toBe("tampered");
     expect(capturedEnv.SVERKA_STEP_ID).toBe("ci/build");
@@ -420,7 +542,13 @@ describe("StepExecutor — secret injection (F-21)", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedEnv = req.env;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -433,11 +561,14 @@ describe("StepExecutor — secret injection (F-21)", () => {
       permissions: { write: [{ kind: "deploy", target: "production" }] },
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
       valueStore: createValueStore(),
       secrets: { NPM_TOKEN: "secret-npm-value", GH_TOKEN: "secret-gh-value" },
-      emit: () => {}, isCancelled: () => false,
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(capturedEnv.NPM_TOKEN).toBe("secret-npm-value");
     expect(capturedEnv.GH_TOKEN).toBe("secret-gh-value");
@@ -448,7 +579,13 @@ describe("StepExecutor — secret injection (F-21)", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedEnv = req.env;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -460,10 +597,14 @@ describe("StepExecutor — secret injection (F-21)", () => {
       dependencies: [],
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(capturedEnv.UNRESOLVED_TOKEN).toBeUndefined();
   });
@@ -481,7 +622,14 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
   });
 
   function makeStep(operations: StepDefinition["operations"]): StepDefinition {
-    return { id: "ci/build", runtime: {}, operations, inputs: [], outputs: [], dependencies: [] };
+    return {
+      id: "ci/build",
+      runtime: {},
+      operations,
+      inputs: [],
+      outputs: [],
+      dependencies: [],
+    };
   }
 
   function execOpts(
@@ -490,17 +638,27 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     artifactDir?: string,
   ) {
     return {
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       ...(artifactDir !== undefined ? { artifactDir } : {}),
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     };
   }
 
   it("succeeding step returns stdout/stderr/exitCode in result", async () => {
     const driver = createMockDriver({
-      executeFn: async () => ({ exitCode: 0, stdout: "build ok", stderr: "warn", durationMs: 5, timedOut: false }),
+      executeFn: async () => ({
+        exitCode: 0,
+        stdout: "build ok",
+        stderr: "warn",
+        durationMs: 5,
+        timedOut: false,
+      }),
     });
     const result = await executeStep(
       execOpts(makeStep([{ kind: "shell", command: "bun run build" }]), driver),
@@ -513,7 +671,13 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
 
   it("failing step returns stdout/stderr/exitCode in result", async () => {
     const driver = createMockDriver({
-      executeFn: async () => ({ exitCode: 2, stdout: "partial out", stderr: "lint error", durationMs: 5, timedOut: false }),
+      executeFn: async () => ({
+        exitCode: 2,
+        stdout: "partial out",
+        stderr: "lint error",
+        durationMs: 5,
+        timedOut: false,
+      }),
     });
     const result = await executeStep(
       execOpts(makeStep([{ kind: "shell", command: "ruff check" }]), driver),
@@ -527,7 +691,13 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
   it("truncates stdout/stderr beyond 10KB", async () => {
     const big = "x".repeat(12000);
     const driver = createMockDriver({
-      executeFn: async () => ({ exitCode: 0, stdout: big, stderr: "", durationMs: 5, timedOut: false }),
+      executeFn: async () => ({
+        exitCode: 0,
+        stdout: big,
+        stderr: "",
+        durationMs: 5,
+        timedOut: false,
+      }),
     });
     const result = await executeStep(
       execOpts(makeStep([{ kind: "shell", command: "cat big" }]), driver),
@@ -545,26 +715,44 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
   it("exportStdout writes captured stdout to artifact dir on success", async () => {
     const artifactDir = join(testDir, "artifacts");
     const driver = createMockDriver({
-      executeFn: async () => ({ exitCode: 0, stdout: '{"version":"2.1.0"}', stderr: "", durationMs: 5, timedOut: false }),
+      executeFn: async () => ({
+        exitCode: 0,
+        stdout: '{"version":"2.1.0"}',
+        stderr: "",
+        durationMs: 5,
+        timedOut: false,
+      }),
     });
     const result = await executeStep(
       execOpts(makeStep([...SARIF_STEP]), driver, artifactDir),
     );
     expect(result.status).toBe("succeeded");
-    const written = await readFile(join(artifactDir, "ci/build", "results.sarif"), "utf-8");
+    const written = await readFile(
+      join(artifactDir, "ci/build", "results.sarif"),
+      "utf-8",
+    );
     expect(written).toBe('{"version":"2.1.0"}');
   });
 
   it("exportStdout preserves stdout on step failure (findings present → non-zero exit)", async () => {
     const artifactDir = join(testDir, "artifacts");
     const driver = createMockDriver({
-      executeFn: async () => ({ exitCode: 1, stdout: '{"sarif":"with-findings"}', stderr: "", durationMs: 5, timedOut: false }),
+      executeFn: async () => ({
+        exitCode: 1,
+        stdout: '{"sarif":"with-findings"}',
+        stderr: "",
+        durationMs: 5,
+        timedOut: false,
+      }),
     });
     const result = await executeStep(
       execOpts(makeStep([...SARIF_STEP]), driver, artifactDir),
     );
     expect(result.status).toBe("failed");
-    const written = await readFile(join(artifactDir, "ci/build", "results.sarif"), "utf-8");
+    const written = await readFile(
+      join(artifactDir, "ci/build", "results.sarif"),
+      "utf-8",
+    );
     expect(written).toBe('{"sarif":"with-findings"}');
   });
 
@@ -573,10 +761,18 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedCwd = req.cwd ?? "";
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
-    await executeStep(execOpts(makeStep([{ kind: "shell", command: "pwd" }]), driver));
+    await executeStep(
+      execOpts(makeStep([{ kind: "shell", command: "pwd" }]), driver),
+    );
     expect(capturedCwd).toBe(testDir);
   });
 
@@ -585,7 +781,13 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedCwd = req.cwd ?? "";
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {

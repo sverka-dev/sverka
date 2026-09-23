@@ -3,8 +3,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEngine } from "../engine.js";
-import { createMockDriver, createOutputWritingMockDriver, createCancellableMockDriver } from "./helpers/mock-driver.js";
-import { makeSingleStepPlan, makeDependencyPlan, makeFailingPlan, makeFailureConditionPlan, makeAlwaysConditionPlan, makeNeverConditionPlan, makeConditionalPlan } from "./helpers/fixtures.js";
+import {
+  createMockDriver,
+  createOutputWritingMockDriver,
+  createCancellableMockDriver,
+} from "./helpers/mock-driver.js";
+import {
+  makeSingleStepPlan,
+  makeDependencyPlan,
+  makeFailingPlan,
+  makeFailureConditionPlan,
+  makeAlwaysConditionPlan,
+  makeNeverConditionPlan,
+  makeConditionalPlan,
+} from "./helpers/fixtures.js";
 
 describe("createEngine", () => {
   it("returns an Engine with run() and cancel()", () => {
@@ -40,7 +52,9 @@ describe("Engine.run", () => {
     expect(types).toContain("step-started");
     expect(types).toContain("step-succeeded");
     expect(types).toContain("run-completed");
-    const completed = events.find((e) => (e as { type: string }).type === "run-completed") as unknown as unknown as { status: string };
+    const completed = events.find(
+      (e) => (e as { type: string }).type === "run-completed",
+    ) as unknown as unknown as { status: string };
     expect(completed.status).toBe("success");
   });
 
@@ -54,11 +68,19 @@ describe("Engine.run", () => {
     })) {
       events.push(event as { type: string; stepId?: string });
     }
-    const started = events.filter((e) => e.type === "step-started").map((e) => e.stepId);
+    const started = events
+      .filter((e) => e.type === "step-started")
+      .map((e) => e.stepId);
     // build must start before test, test before deploy.
-    expect(started.indexOf("ci/build")).toBeLessThan(started.indexOf("ci/test"));
-    expect(started.indexOf("ci/test")).toBeLessThan(started.indexOf("ci/deploy"));
-    const completed = events.find((e) => e.type === "run-completed") as unknown as { status: string };
+    expect(started.indexOf("ci/build")).toBeLessThan(
+      started.indexOf("ci/test"),
+    );
+    expect(started.indexOf("ci/test")).toBeLessThan(
+      started.indexOf("ci/deploy"),
+    );
+    const completed = events.find(
+      (e) => e.type === "run-completed",
+    ) as unknown as { status: string };
     expect(completed.status).toBe("success");
   });
 
@@ -74,11 +96,17 @@ describe("Engine.run", () => {
     }
     // build should fail, test should be skipped (F-11: default condition is
     // status:success, so dependents of failed steps are skipped, not cancelled).
-    const failed = events.filter((e) => e.type === "step-failed").map((e) => e.stepId);
-    const skipped = events.filter((e) => e.type === "step-skipped").map((e) => e.stepId);
+    const failed = events
+      .filter((e) => e.type === "step-failed")
+      .map((e) => e.stepId);
+    const skipped = events
+      .filter((e) => e.type === "step-skipped")
+      .map((e) => e.stepId);
     expect(failed).toContain("ci/build");
     expect(skipped).toContain("ci/test");
-    const completed = events.find((e) => e.type === "run-completed") as unknown as { status: string };
+    const completed = events.find(
+      (e) => e.type === "run-completed",
+    ) as unknown as { status: string };
     expect(completed.status).toBe("failure");
   });
 
@@ -102,7 +130,9 @@ describe("Engine.run", () => {
     const cancelled = events.find((e) => e.type === "step-cancelled");
     expect(cancelled).toBeDefined();
     expect(slowDriver.wasCancelled).toBe(true);
-    const completed = events.find((e) => e.type === "run-completed") as unknown as { status: string };
+    const completed = events.find(
+      (e) => e.type === "run-completed",
+    ) as unknown as { status: string };
     expect(completed.status).toBe("cancelled");
   });
 
@@ -118,7 +148,9 @@ describe("Engine.run", () => {
     })) {
       events.push(event as { type: string });
     }
-    const completed = events.find((e) => e.type === "run-completed") as unknown as { status: string };
+    const completed = events.find(
+      (e) => e.type === "run-completed",
+    ) as unknown as { status: string };
     expect(completed.status).toBe("success");
   });
 
@@ -148,8 +180,12 @@ describe("Engine.run", () => {
     })) {
       events.push(event as { type: string; stepId?: string });
     }
-    const failed = events.filter((e) => e.type === "step-failed").map((e) => e.stepId);
-    const succeeded = events.filter((e) => e.type === "step-succeeded").map((e) => e.stepId);
+    const failed = events
+      .filter((e) => e.type === "step-failed")
+      .map((e) => e.stepId);
+    const succeeded = events
+      .filter((e) => e.type === "step-succeeded")
+      .map((e) => e.stepId);
     expect(failed).toContain("ci/build");
     expect(succeeded).toContain("ci/notify");
   });
@@ -164,8 +200,12 @@ describe("Engine.run", () => {
     })) {
       events.push(event as { type: string; stepId?: string });
     }
-    const failed = events.filter((e) => e.type === "step-failed").map((e) => e.stepId);
-    const succeeded = events.filter((e) => e.type === "step-succeeded").map((e) => e.stepId);
+    const failed = events
+      .filter((e) => e.type === "step-failed")
+      .map((e) => e.stepId);
+    const succeeded = events
+      .filter((e) => e.type === "step-succeeded")
+      .map((e) => e.stepId);
     expect(failed).toContain("ci/build");
     expect(succeeded).toContain("ci/cleanup");
   });
@@ -180,8 +220,12 @@ describe("Engine.run", () => {
     })) {
       events.push(event as { type: string; stepId?: string });
     }
-    const skipped = events.filter((e) => e.type === "step-skipped").map((e) => e.stepId);
-    const succeeded = events.filter((e) => e.type === "step-succeeded").map((e) => e.stepId);
+    const skipped = events
+      .filter((e) => e.type === "step-skipped")
+      .map((e) => e.stepId);
+    const succeeded = events
+      .filter((e) => e.type === "step-succeeded")
+      .map((e) => e.stepId);
     expect(skipped).toContain("ci/skip");
     expect(succeeded).not.toContain("ci/skip");
   });

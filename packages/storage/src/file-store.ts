@@ -24,7 +24,10 @@ function validateRunId(runId: string): void {
     runId === "." ||
     runId.includes("\0")
   ) {
-    throw new StorageError("INVALID_RUN_ID", `runId contains invalid path characters`);
+    throw new StorageError(
+      "INVALID_RUN_ID",
+      `runId contains invalid path characters`,
+    );
   }
 }
 
@@ -34,7 +37,9 @@ function validateRunId(runId: string): void {
  * human-debuggable. `load` returns `undefined` for missing files (ENOENT).
  * `delete` is idempotent. Writes are atomic (temp file + rename).
  */
-export function createFileSnapshotStore(config?: FileSnapshotStoreConfig): SnapshotStore {
+export function createFileSnapshotStore(
+  config?: FileSnapshotStoreConfig,
+): SnapshotStore {
   const root = config?.root ?? process.cwd();
 
   return {
@@ -42,7 +47,10 @@ export function createFileSnapshotStore(config?: FileSnapshotStoreConfig): Snaps
       validateRunId(snapshot.runId);
       const dir = join(root, ".sverka", "runs", snapshot.runId);
       const finalPath = join(dir, "snapshot.json");
-      const tmpPath = join(dir, `.snapshot.${randomBytes(6).toString("hex")}.tmp`);
+      const tmpPath = join(
+        dir,
+        `.snapshot.${randomBytes(6).toString("hex")}.tmp`,
+      );
       await wrapIO(`save snapshot ${snapshot.runId}`, async () => {
         await mkdir(dir, { recursive: true });
         await writeFile(tmpPath, serialize(snapshot), "utf8");
@@ -58,7 +66,11 @@ export function createFileSnapshotStore(config?: FileSnapshotStoreConfig): Snaps
         text = await readFile(filePath, "utf8");
       } catch (e) {
         if (isENOENT(e)) return undefined;
-        throw new StorageError("STORE_IO_FAILED", `failed to load snapshot ${runId}`, e);
+        throw new StorageError(
+          "STORE_IO_FAILED",
+          `failed to load snapshot ${runId}`,
+          e,
+        );
       }
       return deserialize(text, runId);
     },
@@ -70,7 +82,11 @@ export function createFileSnapshotStore(config?: FileSnapshotStoreConfig): Snaps
         await unlink(filePath);
       } catch (e) {
         if (isENOENT(e)) return;
-        throw new StorageError("STORE_IO_FAILED", `failed to delete snapshot ${runId}`, e);
+        throw new StorageError(
+          "STORE_IO_FAILED",
+          `failed to delete snapshot ${runId}`,
+          e,
+        );
       }
     },
   };

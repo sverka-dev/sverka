@@ -6,7 +6,9 @@ describe("StepBuilder.matrix()", () => {
   it("sets matrix spec on the built ShellStep", () => {
     const project = new Project("sdk-matrix");
     const pipeline = new Pipeline(project, "ci");
-    const step = $`make test`.matrix({ dimensions: { node: [18, 20] } }).build(pipeline, "test");
+    const step = $`make test`
+      .matrix({ dimensions: { node: [18, 20] } })
+      .build(pipeline, "test");
     expect(step.matrix).toEqual({ dimensions: { node: [18, 20] } });
   });
 
@@ -33,7 +35,11 @@ describe("StepBuilder.matrix()", () => {
 describe("matrix context namespace", () => {
   it("creates a ContextRef for matrix.node", () => {
     const ref = matrixContext.node;
-    expect(ref).toEqual({ kind: "context", namespace: "matrix", field: "node" });
+    expect(ref).toEqual({
+      kind: "context",
+      namespace: "matrix",
+      field: "node",
+    });
   });
 
   it("creates a ContextRef for matrix.os", () => {
@@ -46,6 +52,10 @@ describe("matrix context namespace", () => {
     const pipeline = new Pipeline(project, "ci");
     const nodeMatrix = matrixContext.node!;
     const step = $`make test NODE=${nodeMatrix}`.build(pipeline, "test");
-    expect(step.inputs).toContainEqual({ kind: "context", namespace: "matrix", field: "node" });
+    expect(step.inputs).toContainEqual({
+      kind: "context",
+      namespace: "matrix",
+      field: "node",
+    });
   });
 });

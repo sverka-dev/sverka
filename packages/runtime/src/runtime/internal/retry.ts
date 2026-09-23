@@ -35,14 +35,26 @@ export async function executeWithRetry(
     if (ctx.isCancelled()) return cancelledOutcome(op.id, Date.now() - start);
     const request = buildRequest(ctx.config, op);
     const result = await executeAttempt(
-      ctx, executor, op, request, attempt, maxAttempts, retryOn, backoffSeconds, start,
+      ctx,
+      executor,
+      op,
+      request,
+      attempt,
+      maxAttempts,
+      retryOn,
+      backoffSeconds,
+      start,
     );
     if (result.outcome) return result.outcome;
     if (result.lastResult) lastResult = result.lastResult;
     if (result.lastError) lastError = result.lastError;
   }
   if (lastResult) return toOutcome(op.id, lastResult, false);
-  return failureOutcome(op.id, Date.now() - start, lastError?.message ?? "retries exhausted");
+  return failureOutcome(
+    op.id,
+    Date.now() - start,
+    lastError?.message ?? "retries exhausted",
+  );
 }
 
 function buildRequest(
@@ -69,10 +81,15 @@ async function executeAttempt(
   retryOn: readonly ("failure" | "timeout")[],
   backoffSeconds: number,
   start: number,
-): Promise<{ outcome?: OperationOutcome; lastResult?: ExecuteResult; lastError?: Error }> {
+): Promise<{
+  outcome?: OperationOutcome;
+  lastResult?: ExecuteResult;
+  lastError?: Error;
+}> {
   try {
     const result = await executor.execute(request);
-    if (ctx.isCancelled()) return { outcome: cancelledOutcome(op.id, Date.now() - start) };
+    if (ctx.isCancelled())
+      return { outcome: cancelledOutcome(op.id, Date.now() - start) };
     if (result.status === "success" || result.status === "skipped") {
       return { outcome: toOutcome(op.id, result, false) };
     }
@@ -80,11 +97,20 @@ async function executeAttempt(
     if (!shouldRetry(attempt, maxAttempts, retryOn, isTimeout)) {
       return { outcome: toOutcome(op.id, result, false) };
     }
-    if (backoffSeconds > 0) await cancellableSleep(backoffSeconds * 1000, ctx.isCancelled);
+    if (backoffSeconds > 0)
+      await cancellableSleep(backoffSeconds * 1000, ctx.isCancelled);
     return { lastResult: result };
   } catch (e) {
     return handleExecutorThrow(
-      ctx, executor, op, e, attempt, maxAttempts, retryOn, backoffSeconds, start,
+      ctx,
+      executor,
+      op,
+      e,
+      attempt,
+      maxAttempts,
+      retryOn,
+      backoffSeconds,
+      start,
     );
   }
 }
@@ -106,8 +132,11 @@ async function handleExecutorThrow(
   );
   const isTimeout = e instanceof Error && e.message.includes("timeout");
   if (!shouldRetry(attempt, maxAttempts, retryOn, isTimeout)) {
-    return { outcome: failureOutcome(op.id, Date.now() - start, wrapped.message) };
+    return {
+      outcome: failureOutcome(op.id, Date.now() - start, wrapped.message),
+    };
   }
-  if (backoffSeconds > 0) await cancellableSleep(backoffSeconds * 1000, ctx.isCancelled);
+  if (backoffSeconds > 0)
+    await cancellableSleep(backoffSeconds * 1000, ctx.isCancelled);
   return { lastError: wrapped };
 }

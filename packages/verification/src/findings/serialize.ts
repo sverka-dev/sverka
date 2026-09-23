@@ -1,10 +1,19 @@
 // @sverka/verification — SARIF serialization (Finding[] → SarifLog).
 
 import type { Finding, Severity } from "./types.js";
-import type { SarifLog, SarifRun, SarifResult, SarifRule, SarifLocation } from "./normalize.js";
+import type {
+  SarifLog,
+  SarifRun,
+  SarifResult,
+  SarifRule,
+  SarifLocation,
+} from "./normalize.js";
 
 /** Map Sverka severity to SARIF level. */
-const SEVERITY_TO_LEVEL: Record<Severity, "error" | "warning" | "note" | "none"> = {
+const SEVERITY_TO_LEVEL: Record<
+  Severity,
+  "error" | "warning" | "note" | "none"
+> = {
   critical: "error",
   high: "error",
   medium: "warning",
@@ -43,7 +52,10 @@ export function serializeSarif(findings: readonly Finding[]): SarifLog {
 
   // Group findings by tool name + version (same tool with different
   // versions produces separate SARIF runs).
-  const byTool = new Map<string, { tool: string; version: string | null; findings: Finding[] }>();
+  const byTool = new Map<
+    string,
+    { tool: string; version: string | null; findings: Finding[] }
+  >();
   for (const f of findings) {
     const tool = f.source.tool;
     const version = f.source.version ?? null;
@@ -68,7 +80,11 @@ export function serializeSarif(findings: readonly Finding[]): SarifLog {
 }
 
 /** Build a single SARIF run for one tool's findings. */
-function buildRun(toolName: string, toolVersion: string | null, findings: readonly Finding[]): SarifRun {
+function buildRun(
+  toolName: string,
+  toolVersion: string | null,
+  findings: readonly Finding[],
+): SarifRun {
   // Deduplicate rules by rule ID.
   const ruleMap = new Map<string, SarifRule>();
   for (const f of findings) {

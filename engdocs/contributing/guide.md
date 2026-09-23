@@ -108,6 +108,7 @@ round-trips. CI compilation is optional, not the headline. SaaS/browser
 execution is deferred.
 
 Key features in active development:
+
 - `sverka run --format json` — per-step results (stepId, status, durationMs,
   error, stdout, stderr, exitCode)
 - `sverka init --detect` — generate config from detected project checks
@@ -115,7 +116,7 @@ Key features in active development:
 - `dependsOn` — string step IDs; validate catches typos
 - Dependency inference from data flow (output ref → auto-dep)
 - SARIF findings via `outputs: { "x.sarif": { type: "artifact", fromStdout: true } }`
-  + `sverka run --evaluate`
+  - `sverka run --evaluate`
 - Shell steps run with **cwd = project root**; `runtime.workingDir` is
   repo-relative. `exportArtifact`/`importArtifact` paths are repo-relative
   (GitLab `artifacts:paths` semantics). Per-step scratch lives under

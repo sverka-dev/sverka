@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { DockerExecutor } from "../docker-executor.js";
-import { defaultConfig, makeDockerOp, makeRequest } from "./helpers/fixtures.js";
+import {
+  defaultConfig,
+  makeDockerOp,
+  makeRequest,
+} from "./helpers/fixtures.js";
 
 // Integration tests require a real Docker daemon. Skipped by default.
 // Run with: SVERKA_DOCKER=1 bun run test

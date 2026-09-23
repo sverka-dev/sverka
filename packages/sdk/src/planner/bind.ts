@@ -1,7 +1,13 @@
 // Run Plan binding — binds a Definition Graph's Entry + inputs into a RunPlan.
 // Spec 13 — §22.1 component 1. Architecture spec §10, §22.
 
-import type { DefinitionGraph, StepDefinition, PipelineDefinition, EntryDefinition, Input } from "@sverka/workflow";
+import type {
+  DefinitionGraph,
+  StepDefinition,
+  PipelineDefinition,
+  EntryDefinition,
+  Input,
+} from "@sverka/workflow";
 import { validateGraph, expandPipelineCalls } from "@sverka/workflow";
 import type { RunPlan, InputValue, BoundEntry } from "@sverka/workflow";
 import { computeGraphId, computeRunPlanId } from "@sverka/workflow";
@@ -86,7 +92,10 @@ function validateGraphShape(value: DefinitionGraph): void {
 
   const pipelines = (project as Record<string, unknown>).pipelines;
   if (!Array.isArray(pipelines)) {
-    throw new PlannerError("graph.project.pipelines must be an array", "INVALID_GRAPH");
+    throw new PlannerError(
+      "graph.project.pipelines must be an array",
+      "INVALID_GRAPH",
+    );
   }
 
   for (let i = 0; i < pipelines.length; i++) {
@@ -95,19 +104,22 @@ function validateGraphShape(value: DefinitionGraph): void {
   }
 }
 
-function validatePipelineShape(
-  value: unknown,
-  index: number,
-): void {
+function validatePipelineShape(value: unknown, index: number): void {
   const pipeline = value as Record<string, unknown>;
   if (typeof pipeline !== "object" || pipeline === null) {
-    throw new PlannerError(`graph.project.pipelines[${index}] must be an object`, "INVALID_GRAPH");
+    throw new PlannerError(
+      `graph.project.pipelines[${index}] must be an object`,
+      "INVALID_GRAPH",
+    );
   }
   validatePipelineFields(pipeline, index);
   validatePipelineChildren(pipeline, index);
 }
 
-function validatePipelineFields(pipeline: Record<string, unknown>, index: number): void {
+function validatePipelineFields(
+  pipeline: Record<string, unknown>,
+  index: number,
+): void {
   if (typeof pipeline.id !== "string") {
     throw new PlannerError(
       `graph.project.pipelines[${index}].id must be a string`,
@@ -126,7 +138,11 @@ function validatePipelineFields(pipeline: Record<string, unknown>, index: number
       "INVALID_GRAPH",
     );
   }
-  if (typeof pipeline.inputs !== "object" || pipeline.inputs === null || Array.isArray(pipeline.inputs)) {
+  if (
+    typeof pipeline.inputs !== "object" ||
+    pipeline.inputs === null ||
+    Array.isArray(pipeline.inputs)
+  ) {
     throw new PlannerError(
       `graph.project.pipelines[${index}].inputs must be an object`,
       "INVALID_GRAPH",
@@ -134,7 +150,10 @@ function validatePipelineFields(pipeline: Record<string, unknown>, index: number
   }
 }
 
-function validatePipelineChildren(pipeline: Record<string, unknown>, index: number): void {
+function validatePipelineChildren(
+  pipeline: Record<string, unknown>,
+  index: number,
+): void {
   const inputs = pipeline.inputs as Record<string, unknown>;
   for (const [name, descriptor] of Object.entries(inputs)) {
     validateInputDescriptor(descriptor, index, name);
@@ -265,7 +284,9 @@ export function computeReachableSteps(
 /**
  * Build a map from each step id to the list of producer step ids it depends on.
  */
-function buildProducerMap(steps: readonly StepDefinition[]): Map<string, string[]> {
+function buildProducerMap(
+  steps: readonly StepDefinition[],
+): Map<string, string[]> {
   const map = new Map<string, string[]>();
   for (const step of steps) {
     const producers: string[] = [];
@@ -285,13 +306,13 @@ function findEntry(
     const entry = pipeline.entries.find((e) => e.id === entryId);
     if (entry) return { pipeline, entry };
   }
-  throw new PlannerError(
-    `entry "${entryId}" not found`,
-    "ENTRY_NOT_FOUND",
-  );
+  throw new PlannerError(`entry "${entryId}" not found`, "ENTRY_NOT_FOUND");
 }
 
-function validateRoots(pipeline: PipelineDefinition, entry: EntryDefinition): void {
+function validateRoots(
+  pipeline: PipelineDefinition,
+  entry: EntryDefinition,
+): void {
   const stepIds = new Set(pipeline.steps.map((s) => s.id));
   for (const root of entry.roots) {
     if (!stepIds.has(root)) {
@@ -303,7 +324,10 @@ function validateRoots(pipeline: PipelineDefinition, entry: EntryDefinition): vo
   }
 }
 
-function validatePipeline(graph: DefinitionGraph, pipeline: PipelineDefinition): void {
+function validatePipeline(
+  graph: DefinitionGraph,
+  pipeline: PipelineDefinition,
+): void {
   try {
     validateGraph({
       project: {
@@ -375,7 +399,10 @@ function assertInputValue(
   name: string,
 ): void {
   if (type === "array") {
-    if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+    if (
+      !Array.isArray(value) ||
+      !value.every((item) => typeof item === "string")
+    ) {
       throw new PlannerError(
         `input "${name}" value ${JSON.stringify(value)} does not match declared type "array" (expected string array)`,
         "INVALID_INPUT",

@@ -1,7 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, PipelineCallStep, Entry, push } from "../../cdk/index.js";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  PipelineCallStep,
+  Entry,
+  push,
+} from "../../cdk/index.js";
 import type { Reference } from "../../cdk/index.js";
-import { synthesize, expandPipelineCalls, type StepDefinition } from "../index.js";
+import {
+  synthesize,
+  expandPipelineCalls,
+  type StepDefinition,
+} from "../index.js";
 
 describe("expandPipelineCalls", () => {
   it("ci calls deploy (1 step) → expansion yields ci/build, ci/deploy-staging/deploy", () => {
@@ -50,7 +61,9 @@ describe("expandPipelineCalls", () => {
     const ciPipeline = graph.project.pipelines.find((p) => p.id === "ci")!;
     const expanded = expandPipelineCalls(graph, ciPipeline.steps);
 
-    const deployStep = expanded.find((s) => s.id === "ci/deploy-staging/deploy")!;
+    const deployStep = expanded.find(
+      (s) => s.id === "ci/deploy-staging/deploy",
+    )!;
     // The inputs.env context ref should be dropped (literal binding).
     expect(deployStep.inputs).toEqual([]);
   });
@@ -72,7 +85,12 @@ describe("expandPipelineCalls", () => {
     new PipelineCallStep(ci, "deploy-staging", {
       callee: "deploy",
       callInputs: {
-        version: { kind: "step", step: "build", output: "version", type: "string" },
+        version: {
+          kind: "step",
+          step: "build",
+          output: "version",
+          type: "string",
+        },
       },
       dependsOn: ["build"],
     });
@@ -81,7 +99,9 @@ describe("expandPipelineCalls", () => {
     const ciPipeline = graph.project.pipelines.find((p) => p.id === "ci")!;
     const expanded = expandPipelineCalls(graph, ciPipeline.steps);
 
-    const deployStep = expanded.find((s) => s.id === "ci/deploy-staging/deploy")!;
+    const deployStep = expanded.find(
+      (s) => s.id === "ci/deploy-staging/deploy",
+    )!;
     // The inputs.version context ref should be replaced with a StepRef to ci/build.
     expect(deployStep.inputs).toContainEqual({
       kind: "step",
@@ -111,7 +131,14 @@ describe("expandPipelineCalls", () => {
     new ShellStep(ci, "notify", {
       command: "notify",
       dependsOn: ["deploy-staging"],
-      inputs: [{ kind: "step", step: "ci/deploy-staging", output: "url", type: "string" }],
+      inputs: [
+        {
+          kind: "step",
+          step: "ci/deploy-staging",
+          output: "url",
+          type: "string",
+        },
+      ],
     });
 
     const graph = synthesize(proj);

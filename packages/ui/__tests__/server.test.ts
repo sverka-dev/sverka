@@ -47,7 +47,7 @@ describe("startUiServer", () => {
     expect(server.port).toBe(13456);
     const res = await fetch(`${server.url}/health`);
     expect(res.status).toBe(200);
-    const body = await res.json() as { status: string };
+    const body = (await res.json()) as { status: string };
     expect(body.status).toBe("ok");
   });
 

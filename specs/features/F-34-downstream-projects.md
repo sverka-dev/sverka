@@ -12,13 +12,13 @@ Downstream project pipelines trigger CI in another repository or project. GitLab
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `repository_dispatch` | `trigger:project` | `trigger.downstream` |
-| Semantics | Send dispatch event to another repo | Trigger pipeline in another project | Trigger pipeline in another project |
-| Value type | event + repo | project path + branch | project ref + inputs |
-| Limitations | requires workflow listening for dispatch | requires API token | — |
-| Provider gap | — | — | different trigger mechanisms |
+| Aspect       | GitHub Actions                           | GitLab CI                           | Sverka (proposed)                   |
+| ------------ | ---------------------------------------- | ----------------------------------- | ----------------------------------- |
+| Construct    | `repository_dispatch`                    | `trigger:project`                   | `trigger.downstream`                |
+| Semantics    | Send dispatch event to another repo      | Trigger pipeline in another project | Trigger pipeline in another project |
+| Value type   | event + repo                             | project path + branch               | project ref + inputs                |
+| Limitations  | requires workflow listening for dispatch | requires API token                  | —                                   |
+| Provider gap | —                                        | —                                   | different trigger mechanisms        |
 
 ## GitHub Actions
 
@@ -53,7 +53,7 @@ GitLab natively supports multi-project pipelines via `trigger:project`. The trig
 
 ```ts
 interface DownstreamTrigger {
-  readonly project: string;        // org/repo or group/project
+  readonly project: string; // org/repo or group/project
   readonly branch?: string;
   readonly inputs?: Record<string, unknown>;
 }

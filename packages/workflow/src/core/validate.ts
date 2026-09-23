@@ -3,7 +3,14 @@
 
 import type { StepDefinition, DefinitionGraph } from "./graph.js";
 import { SynthesisError } from "./errors.js";
-import type { StepRef, OutputType, CacheSpec, RetryPolicy, NetworkAllowlist, WriteDeclaration } from "../cdk/index.js";
+import type {
+  StepRef,
+  OutputType,
+  CacheSpec,
+  RetryPolicy,
+  NetworkAllowlist,
+  WriteDeclaration,
+} from "../cdk/index.js";
 
 /**
  * Detect cycles in the dependency graph using DFS.
@@ -23,7 +30,11 @@ export function detectCycles(steps: readonly StepDefinition[]): void {
     const c = color.get(id);
     if (c === BLACK) return;
     if (c === GRAY) {
-      throw new SynthesisError("CYCLE", `Dependency cycle detected at step '${id}'`, id);
+      throw new SynthesisError(
+        "CYCLE",
+        `Dependency cycle detected at step '${id}'`,
+        id,
+      );
     }
     const step = stepMap.get(id);
     if (!step) {
@@ -109,7 +120,9 @@ export function validateReferences(
  * Validate that no step has duplicate output names.
  * Throws SynthesisError(OUTPUT_COLLISION).
  */
-export function validateOutputCollisions(steps: readonly StepDefinition[]): void {
+export function validateOutputCollisions(
+  steps: readonly StepDefinition[],
+): void {
   for (const step of steps) {
     const names = new Set<string>();
     for (const op of step.operations) {

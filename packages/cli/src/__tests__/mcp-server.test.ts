@@ -55,7 +55,11 @@ vi.mock("@modelcontextprotocol/sdk/server/stdio.js", () => ({
 
 // Imported AFTER vi.mock so mocks apply.
 import { mcpServerCommand } from "../commands/mcp-server.js";
-import { runCommandAsTool, registerSverkaTools, SVERKA_TOOLS } from "../internal/mcp-tools.js";
+import {
+  runCommandAsTool,
+  registerSverkaTools,
+  SVERKA_TOOLS,
+} from "../internal/mcp-tools.js";
 import { BufferingOutputWriter } from "../internal/buffering-writer.js";
 import { validateCommand } from "../commands/validate.js";
 import { main } from "../index.js";
@@ -86,7 +90,13 @@ function lastServer(): MockMcpServer {
 }
 
 function makeGlobal(root: string) {
-  return { format: "text" as const, config: null, root, quiet: false, verbose: false };
+  return {
+    format: "text" as const,
+    config: null,
+    root,
+    quiet: false,
+    verbose: false,
+  };
 }
 
 describe("sverka mcp-server", () => {
@@ -114,7 +124,13 @@ describe("sverka mcp-server", () => {
 
   // Item 3: tools/list returns 5 tools with correct names + schemas
   it("registers exactly 5 tools with correct names", async () => {
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     expect(server.tools.size).toBe(5);
     expect(server.tools.has("sverka.validate")).toBe(true);
@@ -148,10 +164,19 @@ describe("sverka mcp-server", () => {
   // Item 4: tools/call sverka.validate returns structured result
   it("sverka.validate tool returns { valid: true } for valid config", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     const tool = server.tools.get("sverka.validate")!;
-    const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
+    const result = (await tool.callback({})) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
     expect(result.isError).not.toBe(true);
     const data = JSON.parse(result.content[0]!.text);
     expect(data.valid).toBe(true);
@@ -159,20 +184,38 @@ describe("sverka mcp-server", () => {
 
   // Item 7: command handler failure → isError: true
   it("sverka.validate tool returns isError for missing config", async () => {
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     const tool = server.tools.get("sverka.validate")!;
-    const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
+    const result = (await tool.callback({})) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
     expect(result.isError).toBe(true);
   });
 
   // Item 5: tools/call sverka.run returns status
   it("sverka.run tool returns { status } for valid config", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     const tool = server.tools.get("sverka.run")!;
-    const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
+    const result = (await tool.callback({})) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
     const data = JSON.parse(result.content[0]!.text);
     expect(data).toHaveProperty("status");
   });
@@ -180,10 +223,19 @@ describe("sverka mcp-server", () => {
   // sverka.plan tool returns plan data
   it("sverka.plan tool returns step list", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     const tool = server.tools.get("sverka.plan")!;
-    const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
+    const result = (await tool.callback({})) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
     expect(result.isError).not.toBe(true);
     const data = JSON.parse(result.content[0]!.text);
     expect(data).toHaveProperty("steps");
@@ -192,10 +244,19 @@ describe("sverka mcp-server", () => {
   // sverka.graph tool returns graph data
   it("sverka.graph tool returns pipeline info", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     const tool = server.tools.get("sverka.graph")!;
-    const result = await tool.callback({}) as { content: { text: string }[]; isError?: boolean };
+    const result = (await tool.callback({})) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
     expect(result.isError).not.toBe(true);
     const data = JSON.parse(result.content[0]!.text);
     expect(data).toHaveProperty("project");
@@ -204,10 +265,19 @@ describe("sverka mcp-server", () => {
   // sverka.synth tool returns compiled yaml
   it("sverka.synth tool returns artifacts for github target", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     const tool = server.tools.get("sverka.synth")!;
-    const result = await tool.callback({ target: "github" }) as { content: { text: string }[]; isError?: boolean };
+    const result = (await tool.callback({ target: "github" })) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
     expect(result.isError).not.toBe(true);
     const data = JSON.parse(result.content[0]!.text);
     expect(data).toHaveProperty("target", "github");
@@ -217,14 +287,26 @@ describe("sverka mcp-server", () => {
 
   // Item 2: server connects to transport (handshake)
   it("server connects to transport on startup", async () => {
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     expect(server.connect).toHaveBeenCalledTimes(1);
   });
 
   // Item 8: shutdown signal → clean shutdown (server.close called)
   it("server closes on shutdown signal", async () => {
-    await mcpServerCommand({}, makeGlobal(dir), new CaptureWriter(), Date.now(), immediateShutdown());
+    await mcpServerCommand(
+      {},
+      makeGlobal(dir),
+      new CaptureWriter(),
+      Date.now(),
+      immediateShutdown(),
+    );
     const server = lastServer();
     expect(server.close).toHaveBeenCalledTimes(1);
   });
@@ -232,7 +314,9 @@ describe("sverka mcp-server", () => {
   // Item 9: no stdout pollution — BufferingOutputWriter routes errors to stderr
   it("BufferingOutputWriter captures stdout, routes errors to stderr", () => {
     const writer = new BufferingOutputWriter();
-    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
 
     writer.writeLine("stdout content");
     writer.errorLine("stderr content");
@@ -240,7 +324,9 @@ describe("sverka mcp-server", () => {
 
     expect(writer.captured).toContain("stdout content");
     expect(stderrSpy).toHaveBeenCalled();
-    expect(stderrSpy.mock.calls.some((c) => String(c[0]).includes("stderr content"))).toBe(true);
+    expect(
+      stderrSpy.mock.calls.some((c) => String(c[0]).includes("stderr content")),
+    ).toBe(true);
 
     stderrSpy.mockRestore();
   });
@@ -267,12 +353,9 @@ describe("sverka mcp-server", () => {
     });
 
     it("returns isError on thrown exception", async () => {
-      const result = await runCommandAsTool(
-        async () => {
-          throw new Error("boom");
-        },
-        dir,
-      );
+      const result = await runCommandAsTool(async () => {
+        throw new Error("boom");
+      }, dir);
       expect(result.isError).toBe(true);
       expect(result.content[0]!.text).toBe("boom");
     });

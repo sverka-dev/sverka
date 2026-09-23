@@ -13,7 +13,10 @@ export function isENOENT(e: unknown): boolean {
 /**
  * Wrap an async I/O operation, throwing StorageError(STORE_IO_FAILED) on failure.
  */
-export async function wrapIO<T>(label: string, fn: () => Promise<T>): Promise<T> {
+export async function wrapIO<T>(
+  label: string,
+  fn: () => Promise<T>,
+): Promise<T> {
   try {
     return await fn();
   } catch (e) {

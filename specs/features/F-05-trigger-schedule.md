@@ -12,13 +12,13 @@ The schedule trigger starts a pipeline on a time-based cron schedule. GitHub Act
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `on: schedule` | (none in YAML) | `trigger.schedule` |
-| Semantics | Runs on cron schedule from YAML | Configured via API/UI, not YAML | Pipeline starts on cron schedule |
-| Value type | array of `{ cron, timezone }` | n/a | `{ cron, timezone? }` |
-| Limitations | POSIX cron, min 5 min interval | no YAML keyword — API only | GitLab requires connector or manual setup |
-| Provider gap | — | no YAML-native scheduling | connector needed for GitLab |
+| Aspect       | GitHub Actions                  | GitLab CI                       | Sverka (proposed)                         |
+| ------------ | ------------------------------- | ------------------------------- | ----------------------------------------- |
+| Construct    | `on: schedule`                  | (none in YAML)                  | `trigger.schedule`                        |
+| Semantics    | Runs on cron schedule from YAML | Configured via API/UI, not YAML | Pipeline starts on cron schedule          |
+| Value type   | array of `{ cron, timezone }`   | n/a                             | `{ cron, timezone? }`                     |
+| Limitations  | POSIX cron, min 5 min interval  | no YAML keyword — API only      | GitLab requires connector or manual setup |
+| Provider gap | —                               | no YAML-native scheduling       | connector needed for GitLab               |
 
 ## GitHub Actions
 
@@ -54,10 +54,11 @@ build:
 
 ```ts
 // SDK
-triggers: [trigger.schedule({ cron: "0 2 * * *", timezone: "America/New_York" })],
-
-// Construct
-new Entry(pipeline, { trigger: { kind: "schedule", cron: "0 2 * * *" } });
+triggers: ([
+  trigger.schedule({ cron: "0 2 * * *", timezone: "America/New_York" }),
+],
+  // Construct
+  new Entry(pipeline, { trigger: { kind: "schedule", cron: "0 2 * * *" } }));
 ```
 
 ### Lowering
@@ -76,6 +77,7 @@ new Entry(pipeline, { trigger: { kind: "schedule", cron: "0 2 * * *" } });
 ### Portability & divergence
 
 This is the starkest provider divergence in the trigger space. GitHub is YAML-native; GitLab requires out-of-band API configuration. Sverka's approach:
+
 1. Lower to GitHub `on: schedule` natively.
 2. On GitLab, lower to `rules:if` for detection + emit a warning diagnostic instructing the user to create schedules via GitLab project settings or API.
 3. Document the limitation clearly.

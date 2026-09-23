@@ -12,13 +12,13 @@ The push trigger starts a pipeline when commits are pushed to the repository. Bo
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `on: push` | `rules: if $CI_PIPELINE_SOURCE == "push"` | `trigger.push` |
-| Semantics | Runs on push to any or filtered branches/tags | Runs when pipeline source is push | Pipeline starts on push event |
-| Value type | string or map with filters | rule expression | trigger kind + optional filters |
-| Limitations | branch/tag/path filters via globs | branch filter via `$CI_COMMIT_BRANCH` | filters via F-06 |
-| Provider gap | — | — | current lowering omits branch/tag/path filters |
+| Aspect       | GitHub Actions                                | GitLab CI                                 | Sverka (proposed)                              |
+| ------------ | --------------------------------------------- | ----------------------------------------- | ---------------------------------------------- |
+| Construct    | `on: push`                                    | `rules: if $CI_PIPELINE_SOURCE == "push"` | `trigger.push`                                 |
+| Semantics    | Runs on push to any or filtered branches/tags | Runs when pipeline source is push         | Pipeline starts on push event                  |
+| Value type   | string or map with filters                    | rule expression                           | trigger kind + optional filters                |
+| Limitations  | branch/tag/path filters via globs             | branch filter via `$CI_COMMIT_BRANCH`     | filters via F-06                               |
+| Provider gap | —                                             | —                                         | current lowering omits branch/tag/path filters |
 
 ## GitHub Actions
 
@@ -27,9 +27,9 @@ on:
   push:
     branches:
       - main
-      - 'releases/**'
+      - "releases/**"
     paths:
-      - 'src/**'
+      - "src/**"
 ```
 
 The `push` event supports `branches`, `branches-ignore`, `tags`, `tags-ignore`, `paths`, `paths-ignore` filters. Glob patterns use `*`, `**`, `?`, `+`, `!`.

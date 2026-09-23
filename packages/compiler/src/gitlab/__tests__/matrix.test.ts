@@ -6,7 +6,9 @@ import { GitlabTarget } from "../target.js";
 import { GitlabTargetError } from "../errors.js";
 import type { GitlabTargetGraph } from "../types.js";
 
-function singleGraph(result: GitlabTargetGraph | readonly GitlabTargetGraph[]): GitlabTargetGraph {
+function singleGraph(
+  result: GitlabTargetGraph | readonly GitlabTargetGraph[],
+): GitlabTargetGraph {
   if ("jobs" in result) return result;
   return result[0]!;
 }
@@ -15,7 +17,11 @@ function matrixRef(field: string): ContextRef {
   return { kind: "context", namespace: "matrix", field };
 }
 
-function makeGraphWithMatrix(matrixSpec: unknown, command = "make test", inputs: ContextRef[] = []) {
+function makeGraphWithMatrix(
+  matrixSpec: unknown,
+  command = "make test",
+  inputs: ContextRef[] = [],
+) {
   const project = new Project("gl-matrix-test");
   const pipeline = new Pipeline(project, "ci");
   new ShellStep(pipeline, "test", {
@@ -52,7 +58,10 @@ describe("GitLab matrix lowering", () => {
     const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs.find((j) => j.id === "test");
     expect(job?.parallel!.matrix).toHaveLength(3);
-    expect(job?.parallel!.matrix).not.toContainEqual({ node: 18, os: "windows" });
+    expect(job?.parallel!.matrix).not.toContainEqual({
+      node: 18,
+      os: "windows",
+    });
   });
 
   it("appends include entries to parallel.matrix", () => {
@@ -103,7 +112,9 @@ describe("GitLab matrix lowering", () => {
     });
     const target = new GitlabTarget();
     const result = target.compile(graph);
-    const excludeDiag = result.diagnostics.find((d) => d.capability === "matrix.exclude");
+    const excludeDiag = result.diagnostics.find(
+      (d) => d.capability === "matrix.exclude",
+    );
     expect(excludeDiag).toBeDefined();
     expect(excludeDiag?.support).toBe("emulated");
   });
@@ -115,7 +126,9 @@ describe("GitLab matrix lowering", () => {
     });
     const target = new GitlabTarget();
     const result = target.compile(graph);
-    const diag = result.diagnostics.find((d) => d.capability === "matrix.failFast");
+    const diag = result.diagnostics.find(
+      (d) => d.capability === "matrix.failFast",
+    );
     expect(diag).toBeDefined();
     expect(diag?.support).toBe("unsupported");
   });
@@ -127,7 +140,9 @@ describe("GitLab matrix lowering", () => {
     });
     const target = new GitlabTarget();
     const result = target.compile(graph);
-    const diag = result.diagnostics.find((d) => d.capability === "matrix.maxParallel");
+    const diag = result.diagnostics.find(
+      (d) => d.capability === "matrix.maxParallel",
+    );
     expect(diag).toBeDefined();
     expect(diag?.support).toBe("unsupported");
   });

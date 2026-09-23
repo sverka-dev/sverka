@@ -45,7 +45,11 @@ describe("computeRunPlanId", () => {
   it("excludes id and createdAt from the hash", () => {
     const plan = makeSampleRunPlan(makeSampleGraph());
     const { id: _id1, createdAt: _c1, ...body1 } = plan;
-    const { id: _id2, createdAt: _c2, ...body2 } = {
+    const {
+      id: _id2,
+      createdAt: _c2,
+      ...body2
+    } = {
       ...plan,
       id: "rp-different",
       createdAt: "2025-01-01T00:00:00.000Z",

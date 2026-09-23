@@ -66,7 +66,10 @@ export async function viewCommand(
 }
 
 /** Launch the TUI viewer using @sverka/sarif-viewer-tui. */
-async function renderTui(sarif: unknown, output: OutputWriter): Promise<number> {
+async function renderTui(
+  sarif: unknown,
+  output: OutputWriter,
+): Promise<number> {
   try {
     const { renderSarifTui } = await import("@sverka/sarif-viewer-tui");
     await renderSarifTui({ sarif: sarif as never });

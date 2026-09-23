@@ -54,6 +54,7 @@ Contains Steps, Entries, and Inputs.
 ### ShellStep
 
 A step that executes a shell command. Supports:
+
 - `command`: shell command string
 - `dependsOn`: step IDs this step depends on
 - `outputs`: artifact and scalar outputs
@@ -63,6 +64,7 @@ A step that executes a shell command. Supports:
 ### Entry
 
 Binds a trigger to root steps. Triggers:
+
 - `push`: on push to branches
 - `changeRequest`: on pull/merge request
 - `manual`: manually triggered
@@ -96,7 +98,7 @@ Programmatically, the same pipeline is `synthesize` (DefinitionGraph) plus
 import { synthesize } from "@sverka/workflow";
 import { bindRunPlan } from "@sverka/sdk";
 
-const graph = synthesize(proj);   // DefinitionGraph from the construct tree
+const graph = synthesize(proj); // DefinitionGraph from the construct tree
 const runPlan = bindRunPlan({ graph, entryId: "on-push" });
 ```
 

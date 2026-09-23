@@ -15,13 +15,13 @@ schedules steps in topological order.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `jobs.<id>.needs` | `needs` | `Dependency` (control/value/artifact) |
-| Semantics | job waits for named jobs | job waits for named jobs | typed dep with producer + optional output |
-| Value type | string or array of strings | string or array | `Dependency` union |
-| Limitations | no value passing (artifacts only) | artifacts via `needs` + dependencies | value deps resolved in-memory by engine |
-| Provider gap | — | — | all deps flatten to `needs` (value/artifact lost) |
+| Aspect       | GitHub Actions                    | GitLab CI                            | Sverka (proposed)                                 |
+| ------------ | --------------------------------- | ------------------------------------ | ------------------------------------------------- |
+| Construct    | `jobs.<id>.needs`                 | `needs`                              | `Dependency` (control/value/artifact)             |
+| Semantics    | job waits for named jobs          | job waits for named jobs             | typed dep with producer + optional output         |
+| Value type   | string or array of strings        | string or array                      | `Dependency` union                                |
+| Limitations  | no value passing (artifacts only) | artifacts via `needs` + dependencies | value deps resolved in-memory by engine           |
+| Provider gap | —                                 | —                                    | all deps flatten to `needs` (value/artifact lost) |
 
 ## GitHub Actions
 

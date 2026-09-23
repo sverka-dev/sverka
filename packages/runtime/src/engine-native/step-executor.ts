@@ -7,8 +7,19 @@ import { isAbsolute, join, normalize, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import type { StepDefinition, OperationDefinition } from "@sverka/workflow";
 import type { InputValue } from "@sverka/workflow";
-import type { RuntimeDriver, ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore, RunEvent } from "./types.js";
-import type { AgentDriver, AgentExecuteRequest, AgentResult } from "./agent-driver.js";
+import type {
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+  ValueStore,
+  ArtifactStore,
+  RunEvent,
+} from "./types.js";
+import type {
+  AgentDriver,
+  AgentExecuteRequest,
+  AgentResult,
+} from "./agent-driver.js";
 import { StepExecError, EngineError, AgentDriverError } from "./errors.js";
 import { stepPrefix, resolveProducerId } from "./refs.js";
 
@@ -68,12 +79,17 @@ function truncateOutput(value: string): string {
 }
 
 /** Execute all operations in a step in order. */
-export async function executeStep(opts: StepExecOptions): Promise<StepExecResult> {
+export async function executeStep(
+  opts: StepExecOptions,
+): Promise<StepExecResult> {
   const start = Date.now();
   const { step, workspace, isCancelled } = opts;
   // Keep per-step scratch directories inside .sverka/workspace but run commands
   // from the project root so project-relative tooling works as expected.
-  const stepWorkspace = resolveUnder(workspace, join(".sverka", "workspace", step.id));
+  const stepWorkspace = resolveUnder(
+    workspace,
+    join(".sverka", "workspace", step.id),
+  );
   const outputDir = join(stepWorkspace, ".outputs");
 
   try {
@@ -182,7 +198,14 @@ async function executeShellOperation(
   const cwd = step.runtime.workingDir
     ? resolveUnder(workspace, step.runtime.workingDir)
     : workspace;
-  const command = interpolateCommand(op.command, step, valueStore, inputs, secrets, workspace);
+  const command = interpolateCommand(
+    op.command,
+    step,
+    valueStore,
+    inputs,
+    secrets,
+    workspace,
+  );
   const request: ShellExecuteRequest = {
     command,
     workspace,
@@ -212,7 +235,11 @@ async function executeShellOperation(
       result.stderr,
     );
   }
-  return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+  };
 }
 
 async function executeExportOutputOperation(
@@ -282,7 +309,10 @@ async function writeStdoutArtifact(
   assertSafeFileName(name);
   // Split on both separators — on Windows ".." can hide behind backslashes.
   if (isAbsolute(stepId) || stepId.split(/[\\/]/).includes("..")) {
-    throw new StepExecError(`invalid step id for artifact store: '${stepId}'`, "ARTIFACT_ERROR");
+    throw new StepExecError(
+      `invalid step id for artifact store: '${stepId}'`,
+      "ARTIFACT_ERROR",
+    );
   }
   const dir = join(artifactDir, stepId);
   await mkdir(dir, { recursive: true });
@@ -348,7 +378,17 @@ async function executeAgentOperation(
   op: Extract<OperationDefinition, { kind: "agent" }>,
   opts: StepExecOptions,
 ): Promise<void> {
-  const { step, emit, agentDrivers, artifactDir, signal, valueStore, inputs, secrets, workspace } = opts;
+  const {
+    step,
+    emit,
+    agentDrivers,
+    artifactDir,
+    signal,
+    valueStore,
+    inputs,
+    secrets,
+    workspace,
+  } = opts;
 
   // 1. Select a driver.
   const drivers = agentDrivers ?? [];
@@ -363,7 +403,14 @@ async function executeAgentOperation(
   }
 
   // 3. Resolve/interpolate the prompt (reuse shell interpolation logic).
-  const prompt = interpolateCommand(op.prompt, step, valueStore, inputs, secrets, workspace);
+  const prompt = interpolateCommand(
+    op.prompt,
+    step,
+    valueStore,
+    inputs,
+    secrets,
+    workspace,
+  );
 
   // 4. Resolve tool references. Missing tools are non-fatal.
   //    The plugin registry is not yet wired (Spec 23 follow-up); for now we
@@ -430,7 +477,9 @@ async function executeAgentOperation(
  * and receive an empty secret set, even if they declare `runtime.secrets`.
  * Steps with at least one write declaration resolve secrets normally.
  */
-function stepScopedSecrets(opts: StepExecOptions): Readonly<Record<string, string>> {
+function stepScopedSecrets(
+  opts: StepExecOptions,
+): Readonly<Record<string, string>> {
   return scopeSecretsForStep(opts.step, opts.secrets);
 }
 
@@ -515,12 +564,18 @@ function resolveCwd(base: string, workingDir: string | undefined): string {
 
 export function resolveUnder(base: string, subpath: string): string {
   if (isAbsolute(subpath)) {
-    throw new EngineError(`path must be relative: '${subpath}'`, "STEP_EXEC_ERROR");
+    throw new EngineError(
+      `path must be relative: '${subpath}'`,
+      "STEP_EXEC_ERROR",
+    );
   }
   const resolved = normalize(join(base, subpath));
   const rel = relative(base, resolved);
   if (rel.startsWith("..") || isAbsolute(rel)) {
-    throw new EngineError(`path escapes workspace: '${subpath}'`, "STEP_EXEC_ERROR");
+    throw new EngineError(
+      `path escapes workspace: '${subpath}'`,
+      "STEP_EXEC_ERROR",
+    );
   }
   return resolved;
 }
@@ -530,7 +585,10 @@ function assertSafeFileName(name: string): void {
     throw new EngineError(`invalid file name: '${name}'`, "STEP_EXEC_ERROR");
   }
   if (isAbsolute(name) || name.includes("/") || name.includes("\\")) {
-    throw new EngineError(`file name must be a base name: '${name}'`, "STEP_EXEC_ERROR");
+    throw new EngineError(
+      `file name must be a base name: '${name}'`,
+      "STEP_EXEC_ERROR",
+    );
   }
 }
 
@@ -558,7 +616,10 @@ export function interpolateCommand(
       if (inputs && inputs[key] !== undefined) {
         return shellQuote(inputs[key] as InputValue);
       }
-      throw new StepExecError(`unresolved input reference '\${${key}}'`, "STEP_EXEC_ERROR");
+      throw new StepExecError(
+        `unresolved input reference '\${${key}}'`,
+        "STEP_EXEC_ERROR",
+      );
     }
     const ns = key.slice(0, dot);
     const field = key.slice(dot + 1);
@@ -576,7 +637,14 @@ export function interpolateCommand(
     }
 
     // Context ref resolution (F-35, F-15) — env.X prioritizes runtime.env over process.env
-    const ctxValue = resolveContextRef(ns, field, inputs, runtimeEnv, workspace, step.matrixValues);
+    const ctxValue = resolveContextRef(
+      ns,
+      field,
+      inputs,
+      runtimeEnv,
+      workspace,
+      step.matrixValues,
+    );
     if (ctxValue !== undefined) {
       return shellQuote(ctxValue as InputValue);
     }
@@ -591,7 +659,10 @@ export function interpolateCommand(
     if (inputs && inputs[inputKey] !== undefined) {
       return shellQuote(inputs[inputKey] as InputValue);
     }
-    throw new StepExecError(`unresolved step reference '\${${key}}'`, "STEP_EXEC_ERROR");
+    throw new StepExecError(
+      `unresolved step reference '\${${key}}'`,
+      "STEP_EXEC_ERROR",
+    );
   });
 }
 
@@ -644,12 +715,19 @@ function resolveMatrixField(
  * This is safe because the engine runs in a trusted CI context where PATH
  * is controlled by the operator, not by untrusted user input.
  */
-export function resolveGitContext(field: string, cwd?: string): string | undefined {
+export function resolveGitContext(
+  field: string,
+  cwd?: string,
+): string | undefined {
   const controlledEnv: Record<string, string> = {
     PATH: process.env.PATH ?? "", // NOSONAR: trusted CI environment
     HOME: process.env.HOME ?? "",
   };
-  const opts = { encoding: "utf-8" as const, env: controlledEnv, ...(cwd ? { cwd } : {}) };
+  const opts = {
+    encoding: "utf-8" as const,
+    env: controlledEnv,
+    ...(cwd ? { cwd } : {}),
+  };
   const args = gitContextArgs(field);
   if (args === undefined) return undefined;
   try {

@@ -1,8 +1,26 @@
 // Synthesis: transforms a construct tree into a Definition Graph.
 // Spec 05 — §16, §11.3, §11.4. F-31: two-pass for pipeline calls.
 
-import { Pipeline, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, AgentStep, Entry, Project, Step } from "../cdk/index.js";
-import type { StepRef, Reference, InputLiteral, OutputDeclaration } from "../cdk/index.js";
+import {
+  Pipeline,
+  ShellStep,
+  PipelineCallStep,
+  ComponentStep,
+  ChildPipelineStep,
+  DownstreamStep,
+  ReleaseStep,
+  PagesStep,
+  AgentStep,
+  Entry,
+  Project,
+  Step,
+} from "../cdk/index.js";
+import type {
+  StepRef,
+  Reference,
+  InputLiteral,
+  OutputDeclaration,
+} from "../cdk/index.js";
 import type {
   DefinitionGraph,
   PipelineDefinition,
@@ -46,7 +64,8 @@ export function synthesize(pipeline: Pipeline): DefinitionGraph;
 export function synthesize(root: Project | Pipeline): DefinitionGraph {
   // A bare Pipeline root is legal for single-pipeline configs — its scope is
   // the auto-created default Project.
-  const project = root instanceof Pipeline ? (root.node.scope as Project) : root;
+  const project =
+    root instanceof Pipeline ? (root.node.scope as Project) : root;
   const projectId = project.node.id;
   const pipelines: PipelineDefinition[] = [];
 
@@ -90,7 +109,10 @@ export function synthesize(root: Project | Pipeline): DefinitionGraph {
   };
 }
 
-function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefinition {
+function synthesizePipeline(
+  pipeline: Pipeline,
+  projectId: string,
+): PipelineDefinition {
   const pipelineId = pipeline.node.path.slice(projectId.length + 1);
   const steps: StepDefinition[] = [];
   const entries: EntryDefinition[] = [];
@@ -121,9 +143,13 @@ function synthesizePipeline(pipeline: Pipeline, projectId: string): PipelineDefi
     entries,
     steps,
     outputs,
-    ...(pipeline.permissions !== undefined ? { permissions: pipeline.permissions } : {}),
+    ...(pipeline.permissions !== undefined
+      ? { permissions: pipeline.permissions }
+      : {}),
     ...(pipeline.defaults !== undefined ? { defaults: pipeline.defaults } : {}),
-    ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
+    ...(pipeline.concurrency !== undefined
+      ? { concurrency: pipeline.concurrency }
+      : {}),
     ...(pipeline.rules.length > 0 ? { rules: pipeline.rules } : {}),
     ...(pipeline.includes.length > 0 ? { includes: pipeline.includes } : {}),
   };
@@ -161,7 +187,14 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   // Component step: set `component`, emit no shell operations.
   if (step instanceof ComponentStep) {
     // Collect dependencies from StepRef bindings in component inputs.
-    collectCallInputDeps(step.component.inputs as Readonly<Record<string, Reference | InputLiteral>>, pipelineId, dependencies, seenDeps);
+    collectCallInputDeps(
+      step.component.inputs as Readonly<
+        Record<string, Reference | InputLiteral>
+      >,
+      pipelineId,
+      dependencies,
+      seenDeps,
+    );
     return { ...base, component: step.component };
   }
 
@@ -173,7 +206,14 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   // Downstream step: set `downstream`, emit no shell operations.
   if (step instanceof DownstreamStep) {
     // Collect dependencies from StepRef bindings in downstream inputs.
-    collectCallInputDeps(step.downstream.inputs as Readonly<Record<string, Reference | InputLiteral>>, pipelineId, dependencies, seenDeps);
+    collectCallInputDeps(
+      step.downstream.inputs as Readonly<
+        Record<string, Reference | InputLiteral>
+      >,
+      pipelineId,
+      dependencies,
+      seenDeps,
+    );
     return { ...base, downstream: step.downstream };
   }
 
@@ -198,14 +238,16 @@ function collectPrimaryOperations(step: Step): OperationDefinition[] {
     return [{ kind: "deployPages", ...step.pages }];
   }
   if (step instanceof AgentStep) {
-    return [{
-      kind: "agent",
-      engine: step.engine,
-      ...(step.model !== undefined ? { model: step.model } : {}),
-      prompt: step.prompt,
-      ...(step.tools.length > 0 ? { tools: [...step.tools] } : {}),
-      ...(step.maxTokens !== undefined ? { maxTokens: step.maxTokens } : {}),
-    }];
+    return [
+      {
+        kind: "agent",
+        engine: step.engine,
+        ...(step.model !== undefined ? { model: step.model } : {}),
+        prompt: step.prompt,
+        ...(step.tools.length > 0 ? { tools: [...step.tools] } : {}),
+        ...(step.maxTokens !== undefined ? { maxTokens: step.maxTokens } : {}),
+      },
+    ];
   }
   return [];
 }
@@ -294,7 +336,10 @@ function resolveCallOutputs(pipelines: PipelineDefinition[]): void {
 
     for (let pi = 0; pi < pipelines.length; pi++) {
       const pipeline = pipelines[pi]!;
-      const { steps: newSteps, modified } = resolvePipelineCallSteps(pipeline, byId);
+      const { steps: newSteps, modified } = resolvePipelineCallSteps(
+        pipeline,
+        byId,
+      );
 
       if (modified) {
         // Recompute pipeline-level outputs from the updated steps so that
@@ -353,7 +398,10 @@ function copyCalleeOutputs(callee: PipelineDefinition): OutputDefinition[] {
 /**
  * Compare two output arrays for structural equality (prevents infinite loops).
  */
-function outputsEqual(prev: readonly OutputDefinition[], next: readonly OutputDefinition[]): boolean {
+function outputsEqual(
+  prev: readonly OutputDefinition[],
+  next: readonly OutputDefinition[],
+): boolean {
   if (prev.length !== next.length) return false;
   return prev.every((po, i) => {
     const co = next[i]!;
@@ -454,14 +502,22 @@ function collectImportOperations(
  * These ensure the producer step runs before the call step so its output is available.
  */
 function collectCallInputDeps(
-  inputs: Readonly<Record<string, Reference | InputLiteral>> | ReadonlyMap<string, Reference | InputLiteral>,
+  inputs:
+    | Readonly<Record<string, Reference | InputLiteral>>
+    | ReadonlyMap<string, Reference | InputLiteral>,
   pipelineId: string,
   dependencies: Dependency[],
   seenDeps: Set<string>,
 ): void {
-  const entries = inputs instanceof Map ? inputs.entries() : Object.entries(inputs);
+  const entries =
+    inputs instanceof Map ? inputs.entries() : Object.entries(inputs);
   for (const [, value] of entries) {
-    if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      !Array.isArray(value) &&
+      "kind" in value
+    ) {
       const ref = value as Reference;
       if (ref.kind === "step") {
         const producerId = resolveStepId(pipelineId, ref.step);

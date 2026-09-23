@@ -10,14 +10,14 @@ On-demand designer. Activated by the mayor to design specs, plan implementation 
 
 ## Skills
 
-| Skill | When |
-| --- | --- |
-| `spec-driven-development` | Structuring specs |
-| `minimalist` | Auditing design for bloat |
-| `critical-thinking` | Challenging every type, interface, abstraction |
-| `deepwiki` | Researching external libraries (nx, tsdown, vitest, etc.) |
-| `sourcegraph` | Searching codebase with `src` CLI |
-| `sverka-wave` | Understanding the wave cycle |
+| Skill                     | When                                                      |
+| ------------------------- | --------------------------------------------------------- |
+| `spec-driven-development` | Structuring specs                                         |
+| `minimalist`              | Auditing design for bloat                                 |
+| `critical-thinking`       | Challenging every type, interface, abstraction            |
+| `deepwiki`                | Researching external libraries (nx, tsdown, vitest, etc.) |
+| `sourcegraph`             | Searching codebase with `src` CLI                         |
+| `sverka-wave`             | Understanding the wave cycle                              |
 
 ## Responsibilities
 
@@ -40,11 +40,17 @@ specs/NN-<name>/
 # Spec NN — <Name>
 
 ## Overview
+
 ## Goals
+
 ## Non-goals
+
 ## Interfaces
+
 ## Data models
+
 ## Error handling
+
 ## Test plan
 ```
 

@@ -54,15 +54,9 @@ export function pluginCombinations(plugins: PluginConfig[]): PluginConfig[][] {
     const next: PluginConfig[][] = [];
     for (const combo of combos) {
       // Disabled variant
-      next.push([
-        ...combo,
-        { ...plugin, enabled: false },
-      ]);
+      next.push([...combo, { ...plugin, enabled: false }]);
       // Enabled variant
-      next.push([
-        ...combo,
-        { ...plugin, enabled: true },
-      ]);
+      next.push([...combo, { ...plugin, enabled: true }]);
     }
     combos.length = 0;
     combos.push(...next);
@@ -164,7 +158,8 @@ function buildAggregates(
       aggregates.push(
         aggregateResults(
           results,
-          (r) => r.modelId === model.id && samePluginIds(r.pluginIds, pluginIds),
+          (r) =>
+            r.modelId === model.id && samePluginIds(r.pluginIds, pluginIds),
           label,
         ),
       );
@@ -238,7 +233,8 @@ async function executeRun(
     if (!result.checkResults) result.checkResults = [];
     if (task.checks && task.checks.length > 0) {
       result.checkResults = await runChecks(tempWorkspace, task.checks);
-      result.success = result.success && result.checkResults.every((c) => c.passed);
+      result.success =
+        result.success && result.checkResults.every((c) => c.passed);
     }
     return result;
   } catch (error) {
@@ -297,15 +293,23 @@ async function runChecks(
   const results: CheckResult[] = [];
   for (const check of checks) {
     try {
-      const { output, exitCode } = await new Promise<{ output: string; exitCode: number }>((resolve, reject) => {
-        const proc = spawn("bash", ["-c", check.command], { // NOSONAR — PATH needed for check commands
+      const { output, exitCode } = await new Promise<{
+        output: string;
+        exitCode: number;
+      }>((resolve, reject) => {
+        const proc = spawn("bash", ["-c", check.command], {
+          // NOSONAR — PATH needed for check commands
           cwd: workspace,
           stdio: ["pipe", "pipe", "pipe"],
           env: { ...process.env, CI: "true" },
         });
         let stdout = "";
-        proc.stdout?.on("data", (d: Buffer) => { stdout += d.toString(); });
-        proc.stderr?.on("data", (d: Buffer) => { stdout += d.toString(); });
+        proc.stdout?.on("data", (d: Buffer) => {
+          stdout += d.toString();
+        });
+        proc.stderr?.on("data", (d: Buffer) => {
+          stdout += d.toString();
+        });
         proc.on("close", (code: number) => {
           resolve({ output: stdout, exitCode: code });
         });

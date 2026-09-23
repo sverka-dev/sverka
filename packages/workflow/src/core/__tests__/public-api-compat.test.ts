@@ -61,7 +61,9 @@ describe("public API surface", () => {
     // consumer (planner, compiler, ir) can use to recompute an operation id
     // from its content. It is part of the stable public contract.
     expect(typeof api.computeOperationId).toBe("function");
-    expect(api.computeOperationId("run", "build", {})).toMatch(/^op-[0-9a-f]{64}$/);
+    expect(api.computeOperationId("run", "build", {})).toMatch(
+      /^op-[0-9a-f]{64}$/,
+    );
   });
 
   it("exports canonicalStringify (canonical JSON primitive, ADR-006)", () => {

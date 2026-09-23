@@ -12,13 +12,13 @@ Conditions control whether a step or job runs based on prior results. GitHub use
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `steps[*].if`, `jobs.<id>.if` | `rules:when`, `rules:if` | `condition` on Step |
-| Semantics | Expression evaluated to boolean | Pipeline status + variable expression | Condition expression |
-| Value type | expression string | `when:` enum + `if:` expression | expression or status enum |
-| Limitations | expression syntax is GitHub-specific | `when` is limited enum | — |
-| Provider gap | — | — | expression translation needed |
+| Aspect       | GitHub Actions                       | GitLab CI                             | Sverka (proposed)             |
+| ------------ | ------------------------------------ | ------------------------------------- | ----------------------------- |
+| Construct    | `steps[*].if`, `jobs.<id>.if`        | `rules:when`, `rules:if`              | `condition` on Step           |
+| Semantics    | Expression evaluated to boolean      | Pipeline status + variable expression | Condition expression          |
+| Value type   | expression string                    | `when:` enum + `if:` expression       | expression or status enum     |
+| Limitations  | expression syntax is GitHub-specific | `when` is limited enum                | —                             |
+| Provider gap | —                                    | —                                     | expression translation needed |
 
 ## GitHub Actions
 

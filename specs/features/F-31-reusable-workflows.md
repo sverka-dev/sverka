@@ -12,13 +12,13 @@ Reusable workflows let you define a pipeline once and call it from multiple plac
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `workflow_call` + `uses` + `with` + `secrets` | `include` + `trigger:include` | `pipeline()` composition |
-| Semantics | Reusable workflow called as a job | Config merged at parse time or child pipeline triggered | Compose pipelines as steps |
-| Value type | workflow file ref + inputs + secrets | file refs + inputs | pipeline ref + inputs |
-| Limitations | max 10 levels of workflows (including caller) | include merges flatly | — |
-| Provider gap | call-based | merge-based | different composition models |
+| Aspect       | GitHub Actions                                | GitLab CI                                               | Sverka (proposed)            |
+| ------------ | --------------------------------------------- | ------------------------------------------------------- | ---------------------------- |
+| Construct    | `workflow_call` + `uses` + `with` + `secrets` | `include` + `trigger:include`                           | `pipeline()` composition     |
+| Semantics    | Reusable workflow called as a job             | Config merged at parse time or child pipeline triggered | Compose pipelines as steps   |
+| Value type   | workflow file ref + inputs + secrets          | file refs + inputs                                      | pipeline ref + inputs        |
+| Limitations  | max 10 levels of workflows (including caller) | include merges flatly                                   | —                            |
+| Provider gap | call-based                                    | merge-based                                             | different composition models |
 
 ## GitHub Actions
 

@@ -54,11 +54,17 @@ describe("extractFindings — non-SARIF format", () => {
 describe("extractFindings — invalid SARIF", () => {
   it("throws CheckError(EXTRACTION_FAILED) with cause set", async () => {
     const dir = makeDir();
-    writeFileSync(join(dir, "bad.sarif"), JSON.stringify({ version: "1.0.0", runs: [] }));
+    writeFileSync(
+      join(dir, "bad.sarif"),
+      JSON.stringify({ version: "1.0.0", runs: [] }),
+    );
     const outputs: CheckOutput[] = [{ path: "bad.sarif", format: "sarif" }];
     try {
       await extractFindings(outputs, dir, "mycheck");
-      throw new CheckError("expected extractFindings to throw", "EXTRACTION_FAILED");
+      throw new CheckError(
+        "expected extractFindings to throw",
+        "EXTRACTION_FAILED",
+      );
     } catch (e) {
       expect(e).toBeInstanceOf(CheckError);
       const err = e as CheckError;
@@ -79,7 +85,11 @@ describe("extractFindings — empty outputs", () => {
 describe("extractFindings — path traversal", () => {
   it("throws CheckError when output.path escapes artifactDir", async () => {
     const dir = makeDir();
-    const outputs: CheckOutput[] = [{ path: "../../etc/passwd", format: "sarif" }];
-    await expect(extractFindings(outputs, dir, "mycheck")).rejects.toBeInstanceOf(CheckError);
+    const outputs: CheckOutput[] = [
+      { path: "../../etc/passwd", format: "sarif" },
+    ];
+    await expect(
+      extractFindings(outputs, dir, "mycheck"),
+    ).rejects.toBeInstanceOf(CheckError);
   });
 });

@@ -42,7 +42,10 @@ function sanitizeWorkflowName(name: string): string {
 /**
  * Convert a GithubTargetGraph to a YAML string.
  */
-function stringifyTargetGraph(graph: GithubTargetGraph, options?: EmitOptions): string {
+function stringifyTargetGraph(
+  graph: GithubTargetGraph,
+  options?: EmitOptions,
+): string {
   const doc: Record<string, unknown> = {
     name: graph.name,
     on: graph.on,
@@ -72,7 +75,10 @@ function stringifyTargetGraph(graph: GithubTargetGraph, options?: EmitOptions): 
 
   // GitHub Actions does not support YAML anchors — never alias repeated
   // objects (e.g. identical `with:` maps injected into every job).
-  let yaml = stringify(doc, { sortMapEntries: false, aliasDuplicateObjects: false });
+  let yaml = stringify(doc, {
+    sortMapEntries: false,
+    aliasDuplicateObjects: false,
+  });
 
   // Pinned refs carry the original tag as a trailing YAML comment
   // (`org/name@<sha> # v4`). The serializer quotes such scalars, which would
@@ -88,7 +94,10 @@ function stringifyTargetGraph(graph: GithubTargetGraph, options?: EmitOptions): 
 /**
  * Convert a GithubJob to a YAML-compatible object.
  */
-function jobToYaml(job: GithubJob, options?: EmitOptions): Record<string, unknown> {
+function jobToYaml(
+  job: GithubJob,
+  options?: EmitOptions,
+): Record<string, unknown> {
   const result: Record<string, unknown> = {
     name: job.name,
   };
@@ -149,7 +158,9 @@ function jobToYaml(job: GithubJob, options?: EmitOptions): Record<string, unknow
 /**
  * Convert a job strategy spec to a YAML-compatible object.
  */
-function strategyToYaml(strategy: NonNullable<GithubJob["strategy"]>): Record<string, unknown> {
+function strategyToYaml(
+  strategy: NonNullable<GithubJob["strategy"]>,
+): Record<string, unknown> {
   const strat: Record<string, unknown> = { matrix: strategy.matrix };
   if (strategy.failFast !== undefined) {
     strat["fail-fast"] = strategy.failFast;
@@ -163,7 +174,11 @@ function strategyToYaml(strategy: NonNullable<GithubJob["strategy"]>): Record<st
 /**
  * Convert a reusable workflow call job (uses) to a YAML-compatible object.
  */
-function reusableJobToYaml(job: GithubJob, result: Record<string, unknown>, options?: EmitOptions): Record<string, unknown> {
+function reusableJobToYaml(
+  job: GithubJob,
+  result: Record<string, unknown>,
+  options?: EmitOptions,
+): Record<string, unknown> {
   result.uses = options?.pinUses ? options.pinUses(job.uses!) : job.uses;
   if (job.needs.length > 0) {
     result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
@@ -180,7 +195,10 @@ function reusableJobToYaml(job: GithubJob, result: Record<string, unknown>, opti
 /**
  * Convert a concurrency spec to a YAML-compatible object.
  */
-function concurrencyToYaml(conc: { readonly group: string; readonly cancelInProgress?: boolean }): Record<string, unknown> {
+function concurrencyToYaml(conc: {
+  readonly group: string;
+  readonly cancelInProgress?: boolean;
+}): Record<string, unknown> {
   const result: Record<string, unknown> = { group: conc.group };
   if (conc.cancelInProgress !== undefined) {
     result["cancel-in-progress"] = conc.cancelInProgress;
@@ -191,7 +209,11 @@ function concurrencyToYaml(conc: { readonly group: string; readonly cancelInProg
 /**
  * Convert a GithubStep to a YAML-compatible object.
  */
-function stepToYaml(step: GithubStep, index: number, options?: EmitOptions): Record<string, unknown> {
+function stepToYaml(
+  step: GithubStep,
+  index: number,
+  options?: EmitOptions,
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
   // GitHub steps require a name or uses or run.

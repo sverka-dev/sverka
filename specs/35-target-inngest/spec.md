@@ -39,7 +39,7 @@ triggers. The user deploys the generated function to their Inngest app.
 
 ```ts
 interface InngestTargetConfig {
-  readonly appId?: string;  // default: pipeline id
+  readonly appId?: string; // default: pipeline id
 }
 
 function compileInngest(
@@ -86,19 +86,19 @@ export const <entryId> = inngest.createFunction(
 
 ### Step → Inngest mapping
 
-| Sverka | Inngest |
-|---|---|
-| Step | `step.run(stepId, async () => { ... })` |
-| Dependency | Sequential `await step.run()` |
-| Condition | `if`/`else` in function body |
-| Matrix | `Promise.all` of `step.run` calls |
-| RetryPolicy | `createFunction` retries config |
-| Timeout | `step.run` timeout option |
-| Shell operation | `step.run` stub calls `sverka run --step` |
-| Scalar output | `step.run` return value |
-| Artifact output | `sverka run` handles; `step.run` returns path |
-| Manual trigger | `{ event: "sverka/<entryId>" }` |
-| Schedule trigger | `{ cron: "<cron-expr>" }` |
+| Sverka           | Inngest                                       |
+| ---------------- | --------------------------------------------- |
+| Step             | `step.run(stepId, async () => { ... })`       |
+| Dependency       | Sequential `await step.run()`                 |
+| Condition        | `if`/`else` in function body                  |
+| Matrix           | `Promise.all` of `step.run` calls             |
+| RetryPolicy      | `createFunction` retries config               |
+| Timeout          | `step.run` timeout option                     |
+| Shell operation  | `step.run` stub calls `sverka run --step`     |
+| Scalar output    | `step.run` return value                       |
+| Artifact output  | `sverka run` handles; `step.run` returns path |
+| Manual trigger   | `{ event: "sverka/<entryId>" }`               |
+| Schedule trigger | `{ cron: "<cron-expr>" }`                     |
 
 ### Capability manifest
 
@@ -129,6 +129,7 @@ AgentStep.
 ## Error handling
 
 `InngestTargetError` with `override readonly cause: unknown`. Codes:
+
 - `INVALID_GRAPH` — no pipelines or no entries.
 - `LOWER_FAILED` — step lowering error.
 - `EMIT_FAILED` — code generation error.

@@ -23,7 +23,13 @@ describe("StepExecutor — safe-outputs: secret enforcement (Spec 25)", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedEnv = req.env;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     // Step declares runtime.secrets (so they would normally be injected),
@@ -39,11 +45,14 @@ describe("StepExecutor — safe-outputs: secret enforcement (Spec 25)", () => {
       // No permissions → read-only
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
       valueStore: createValueStore(),
       secrets: { DEPLOY_TOKEN: "secret-deploy-value" },
-      emit: () => {}, isCancelled: () => false,
+      emit: () => {},
+      isCancelled: () => false,
     });
     // Read-only step must not receive write-capable secrets
     expect(capturedEnv.DEPLOY_TOKEN).toBeUndefined();
@@ -54,7 +63,13 @@ describe("StepExecutor — safe-outputs: secret enforcement (Spec 25)", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedEnv = req.env;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -69,11 +84,14 @@ describe("StepExecutor — safe-outputs: secret enforcement (Spec 25)", () => {
       },
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
       valueStore: createValueStore(),
       secrets: { DEPLOY_TOKEN: "secret-deploy-value" },
-      emit: () => {}, isCancelled: () => false,
+      emit: () => {},
+      isCancelled: () => false,
     });
     // Step with declared writes resolves secrets normally
     expect(capturedEnv.DEPLOY_TOKEN).toBe("secret-deploy-value");
@@ -84,7 +102,13 @@ describe("StepExecutor — safe-outputs: secret enforcement (Spec 25)", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedEnv = req.env;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -97,11 +121,14 @@ describe("StepExecutor — safe-outputs: secret enforcement (Spec 25)", () => {
       permissions: { write: [] },
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
       valueStore: createValueStore(),
       secrets: { DEPLOY_TOKEN: "secret-deploy-value" },
-      emit: () => {}, isCancelled: () => false,
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(capturedEnv.DEPLOY_TOKEN).toBeUndefined();
   });

@@ -3,7 +3,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { join } from "node:path";
 import { createSqliteSnapshotStore } from "../sqlite-store.js";
 import { StorageError } from "../errors.js";
-import { makeSnapshot, makeTempDir, cleanupTempDir } from "./helpers/fixtures.js";
+import {
+  makeSnapshot,
+  makeTempDir,
+  cleanupTempDir,
+} from "./helpers/fixtures.js";
 
 describe("SqliteSnapshotStore", () => {
   let dir: string;
@@ -36,10 +40,16 @@ describe("SqliteSnapshotStore", () => {
   it("save is upsert — saving twice replaces (no duplicate rows)", async () => {
     const store = createSqliteSnapshotStore({ path: ":memory:" });
     const base = makeSnapshot("run-upsert");
-    const snap1 = { ...base, completedSteps: [{ stepId: "ci/build", outputs: { result: "first" } }] };
+    const snap1 = {
+      ...base,
+      completedSteps: [{ stepId: "ci/build", outputs: { result: "first" } }],
+    };
     await store.save(snap1);
 
-    const snap2 = { ...base, completedSteps: [{ stepId: "ci/build", outputs: { result: "second" } }] };
+    const snap2 = {
+      ...base,
+      completedSteps: [{ stepId: "ci/build", outputs: { result: "second" } }],
+    };
     await store.save(snap2);
 
     const loaded = await store.load("run-upsert");

@@ -33,18 +33,50 @@ and Wave 3 HITL (suspend/resume consumes events).
 
 ```ts
 type RunEvent =
-  | { readonly type: "run-started"; readonly runId: string; readonly planId: string }
+  | {
+      readonly type: "run-started";
+      readonly runId: string;
+      readonly planId: string;
+    }
   | { readonly type: "step-pending"; readonly stepId: string }
   | { readonly type: "step-ready"; readonly stepId: string }
   | { readonly type: "step-started"; readonly stepId: string }
-  | { readonly type: "step-succeeded"; readonly stepId: string; readonly durationMs: number }
-  | { readonly type: "step-failed"; readonly stepId: string; readonly error: string; readonly durationMs: number }
+  | {
+      readonly type: "step-succeeded";
+      readonly stepId: string;
+      readonly durationMs: number;
+    }
+  | {
+      readonly type: "step-failed";
+      readonly stepId: string;
+      readonly error: string;
+      readonly durationMs: number;
+    }
   | { readonly type: "step-skipped"; readonly stepId: string }
   | { readonly type: "step-cancelled"; readonly stepId: string }
-  | { readonly type: "step-cache-hit"; readonly stepId: string; readonly key: string }   // NEW (Spec 19)
-  | { readonly type: "step-retry"; readonly stepId: string; readonly attempt: number; readonly nextAttemptMs: number } // NEW (Spec 20)
-  | { readonly type: "run-completed"; readonly runId: string; readonly status: RunStatus; readonly durationMs: number }
-  | { readonly type: "diagnostic"; readonly stepId: string; readonly message: string; readonly severity: "info" | "warn" | "error" };
+  | {
+      readonly type: "step-cache-hit";
+      readonly stepId: string;
+      readonly key: string;
+    } // NEW (Spec 19)
+  | {
+      readonly type: "step-retry";
+      readonly stepId: string;
+      readonly attempt: number;
+      readonly nextAttemptMs: number;
+    } // NEW (Spec 20)
+  | {
+      readonly type: "run-completed";
+      readonly runId: string;
+      readonly status: RunStatus;
+      readonly durationMs: number;
+    }
+  | {
+      readonly type: "diagnostic";
+      readonly stepId: string;
+      readonly message: string;
+      readonly severity: "info" | "warn" | "error";
+    };
 
 type RunStatus = "success" | "failure" | "cancelled";
 ```

@@ -144,7 +144,15 @@ describe("compile command", () => {
   it("writes to --output file", async () => {
     const dir = getDir();
     const { code } = await runWithFile(
-      ["compile", "--target", "github", "--root", dir, "--output", "workflow.yml"],
+      [
+        "compile",
+        "--target",
+        "github",
+        "--root",
+        dir,
+        "--output",
+        "workflow.yml",
+      ],
       dir,
       "sverka.config.ts",
       VALID_CONFIG,
@@ -157,7 +165,13 @@ describe("compile command", () => {
   });
 
   it("exits 2 when no config found", async () => {
-    await runExpectingExit2(["compile", "--target", "github", "--root", getDir()]);
+    await runExpectingExit2([
+      "compile",
+      "--target",
+      "github",
+      "--root",
+      getDir(),
+    ]);
   });
 
   it("exits 2 for invalid target", async () => {
@@ -233,7 +247,6 @@ describe("run command", () => {
     expect(out.stdoutText).toContain("run completed");
     expect(out.stdoutText).toContain("success");
   });
-
 });
 
 describe("policy command", () => {
@@ -258,7 +271,15 @@ describe("policy command", () => {
   it("prints JSON format", async () => {
     const dir = getDir();
     const { code, out } = await runWithFile(
-      ["policy", "--root", dir, "--findings", "findings.sarif", "--format", "json"],
+      [
+        "policy",
+        "--root",
+        dir,
+        "--findings",
+        "findings.sarif",
+        "--format",
+        "json",
+      ],
       dir,
       "findings.sarif",
       EMPTY_SARIF,

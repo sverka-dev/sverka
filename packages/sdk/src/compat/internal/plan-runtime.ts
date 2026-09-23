@@ -1,4 +1,10 @@
-import type { PlanRuntime as IPlanRuntime, RuntimeMode, RuntimeResult, OperationOutcome, OperationSpec } from "@sverka/workflow";
+import type {
+  PlanRuntime as IPlanRuntime,
+  RuntimeMode,
+  RuntimeResult,
+  OperationOutcome,
+  OperationSpec,
+} from "@sverka/workflow";
 
 /**
  * A plan-mode Runtime that records operations without side effects.

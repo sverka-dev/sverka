@@ -16,22 +16,22 @@ nx monorepo. It has its own `package.json` and `bun.lock`. Gates are
 
 ## Spec amendments (14 cuts)
 
-| Cut | Reason |
-|-----|--------|
-| `WebsiteBuildError` + `WebsiteErrorCode` | Static site, Astro handles build errors natively |
-| `designTokens` TS export | CSS custom properties in global.css are the tokens |
-| JSON data models | Inline content in .astro files for 3 pages |
-| `BaseLayoutProps` interface | Astro's native frontmatter Props pattern |
-| Component inventory (6 components) | Each would have 1 consumer — premature abstraction |
-| `ogImage` prop | No OG image asset exists |
-| axe-core tests | Gold-plating for v1 |
-| Snapshot tests | Gold-plating for v1 |
-| Performance budget (20KB) | Gold-plating for v1 |
-| "Tests run via `bun test`" | Use `astro check` + `astro build` instead |
-| Inter + JetBrains Mono fonts | System fonts are faster, already implemented |
-| "single light theme" | Existing dark theme is functional, high-contrast |
-| Docs links to non-existent pages | Link to GitHub instead, text descriptions for unbuilt guides |
-| `build.inlineStylesheets` config | Already the Astro default behavior |
+| Cut                                      | Reason                                                       |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| `WebsiteBuildError` + `WebsiteErrorCode` | Static site, Astro handles build errors natively             |
+| `designTokens` TS export                 | CSS custom properties in global.css are the tokens           |
+| JSON data models                         | Inline content in .astro files for 3 pages                   |
+| `BaseLayoutProps` interface              | Astro's native frontmatter Props pattern                     |
+| Component inventory (6 components)       | Each would have 1 consumer — premature abstraction           |
+| `ogImage` prop                           | No OG image asset exists                                     |
+| axe-core tests                           | Gold-plating for v1                                          |
+| Snapshot tests                           | Gold-plating for v1                                          |
+| Performance budget (20KB)                | Gold-plating for v1                                          |
+| "Tests run via `bun test`"               | Use `astro check` + `astro build` instead                    |
+| Inter + JetBrains Mono fonts             | System fonts are faster, already implemented                 |
+| "single light theme"                     | Existing dark theme is functional, high-contrast             |
+| Docs links to non-existent pages         | Link to GitHub instead, text descriptions for unbuilt guides |
+| `build.inlineStylesheets` config         | Already the Astro default behavior                           |
 
 ## Steps (TDD-adjacent: verify after each change)
 
@@ -128,6 +128,7 @@ export default defineWorkflow({
 ```
 
 **Actual CLI commands** (from `packages/cli/src/main.ts`):
+
 - `sverka init` — create sverka.config.ts
 - `sverka inspect` — discover and display project context
 - `sverka plan` — synthesize a plan without executing
@@ -150,6 +151,7 @@ export default defineWorkflow({
 - **docs.astro**: Fix the example code to match actual API.
 
 **Package name check:**
+
 ```bash
 grep '"name"' packages/cli/package.json
 ```
@@ -163,6 +165,7 @@ bun run build    # astro build — static generation
 ```
 
 Verify dist/ contains:
+
 - `index.html`
 - `docs/index.html`
 - `getting-started/index.html`
@@ -175,6 +178,7 @@ Verify each HTML file has: `<title>`, `<meta name="description">`, OG tags,
 `<link rel="canonical">`.
 
 Verify no `any` types in .astro frontmatter or config:
+
 ```bash
 grep -rn ': any' src/ astro.config.mjs
 ```
@@ -182,6 +186,7 @@ grep -rn ': any' src/ astro.config.mjs
 ## Commit hygiene
 
 Stage ONLY:
+
 - `website/` (all changes within the website directory)
 - `specs/14-website/spec.md`
 - `engdocs/architecture/wave-14-website-plan.md`

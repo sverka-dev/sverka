@@ -33,11 +33,23 @@ const PRIORITY: Record<CapabilitySupport, number> = {
  * Shape of a step used for capability detection.
  */
 interface CapabilityStep {
-  runtime?: { mode?: string; workingDir?: string; shell?: string; env?: Readonly<Record<string, string>>; secrets?: readonly string[] };
+  runtime?: {
+    mode?: string;
+    workingDir?: string;
+    shell?: string;
+    env?: Readonly<Record<string, string>>;
+    secrets?: readonly string[];
+  };
   operations: readonly CapabilityOperation[];
   outputs: readonly { type: string }[];
   dependencies: readonly unknown[];
-  matrix?: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number };
+  matrix?: {
+    dimensions?: unknown;
+    include?: readonly unknown[];
+    exclude?: readonly unknown[];
+    failFast?: boolean;
+    maxParallel?: number;
+  };
   beforeScript?: readonly unknown[];
   afterScript?: readonly unknown[];
   continueOnError?: unknown;
@@ -45,7 +57,10 @@ interface CapabilityStep {
   interruptible?: boolean;
   runner?: { labels?: readonly string[]; group?: string };
   identity?: { tokens?: Readonly<Record<string, { audience: string }>> };
-  rules?: readonly { changes?: readonly string[]; exists?: readonly string[] }[];
+  rules?: readonly {
+    changes?: readonly string[];
+    exists?: readonly string[];
+  }[];
   services?: readonly { ports?: readonly number[] }[];
   environment?: { name?: string; action?: string; tier?: string };
   cache?: { policy?: string; restoreKeys?: readonly string[] };
@@ -74,7 +89,10 @@ interface OutputFlags {
  * Validate that a value is a valid capability support level.
  */
 export function validateSupport(value: unknown): CapabilitySupport {
-  if (typeof value !== "string" || !SUPPORT_LEVELS.includes(value as CapabilitySupport)) {
+  if (
+    typeof value !== "string" ||
+    !SUPPORT_LEVELS.includes(value as CapabilitySupport)
+  ) {
     throw new PluginError(
       `invalid capability support level: ${String(value)}`,
       "INVALID_CAPABILITY",
@@ -86,9 +104,18 @@ export function validateSupport(value: unknown): CapabilitySupport {
 /**
  * Validate a capability manifest object.
  */
-export function validateCapabilityManifest(manifest: unknown): asserts manifest is CapabilityManifest {
-  if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
-    throw new PluginError("capability manifest must be an object", "INVALID_CAPABILITY");
+export function validateCapabilityManifest(
+  manifest: unknown,
+): asserts manifest is CapabilityManifest {
+  if (
+    typeof manifest !== "object" ||
+    manifest === null ||
+    Array.isArray(manifest)
+  ) {
+    throw new PluginError(
+      "capability manifest must be an object",
+      "INVALID_CAPABILITY",
+    );
   }
   const obj = manifest as Record<string, unknown>;
   for (const [key, value] of Object.entries(obj)) {
@@ -111,13 +138,22 @@ function validateManifestEntry(key: string, value: unknown): void {
   );
 }
 
-function validateManifestDetail(key: string, detail: Record<string, unknown>): void {
+function validateManifestDetail(
+  key: string,
+  detail: Record<string, unknown>,
+): void {
   validateSupport(detail.support);
   if (detail.via !== undefined && typeof detail.via !== "string") {
-    throw new PluginError(`capability '${key}' has invalid via: must be a string`, "INVALID_CAPABILITY");
+    throw new PluginError(
+      `capability '${key}' has invalid via: must be a string`,
+      "INVALID_CAPABILITY",
+    );
   }
   if (detail.notes !== undefined && typeof detail.notes !== "string") {
-    throw new PluginError(`capability '${key}' has invalid notes: must be a string`, "INVALID_CAPABILITY");
+    throw new PluginError(
+      `capability '${key}' has invalid notes: must be a string`,
+      "INVALID_CAPABILITY",
+    );
   }
 }
 
@@ -154,7 +190,10 @@ function detectStepCapabilities(step: CapabilityStep, caps: Set<string>): void {
  * Detect capabilities for special step kinds: call, component, child pipeline,
  * downstream, and delay.
  */
-function detectSpecialStepCapabilities(step: CapabilityStep, caps: Set<string>): void {
+function detectSpecialStepCapabilities(
+  step: CapabilityStep,
+  caps: Set<string>,
+): void {
   if (step.call !== undefined) caps.add("reusable.pipeline");
   if (step.component !== undefined) caps.add("reusable.component");
   if (step.childPipeline !== undefined) caps.add("reusable.childPipeline");
@@ -163,7 +202,15 @@ function detectSpecialStepCapabilities(step: CapabilityStep, caps: Set<string>):
 }
 
 function detectMatrixCapabilities(
-  matrix: { dimensions?: unknown; include?: readonly unknown[]; exclude?: readonly unknown[]; failFast?: boolean; maxParallel?: number } | undefined,
+  matrix:
+    | {
+        dimensions?: unknown;
+        include?: readonly unknown[];
+        exclude?: readonly unknown[];
+        failFast?: boolean;
+        maxParallel?: number;
+      }
+    | undefined,
   caps: Set<string>,
 ): void {
   if (!matrix) return;
@@ -184,30 +231,43 @@ function detectScriptCapabilities(
   },
   caps: Set<string>,
 ): void {
-  if (step.beforeScript && step.beforeScript.length > 0) caps.add("step.beforeScript");
-  if (step.afterScript && step.afterScript.length > 0) caps.add("step.afterScript");
+  if (step.beforeScript && step.beforeScript.length > 0)
+    caps.add("step.beforeScript");
+  if (step.afterScript && step.afterScript.length > 0)
+    caps.add("step.afterScript");
   if (step.continueOnError !== undefined) caps.add("step.continueOnError");
   if (step.retry !== undefined) caps.add("policy.retry");
   if (step.timeout !== undefined) caps.add("policy.timeout");
 }
 
-function detectRuntimeCapabilities(step: CapabilityStep, caps: Set<string>): void {
+function detectRuntimeCapabilities(
+  step: CapabilityStep,
+  caps: Set<string>,
+): void {
   const mode = step.runtime?.mode ?? "host";
   caps.add(`runtime.${mode}`);
   if (step.runtime?.workingDir) caps.add("execution.workdir");
   if (step.runtime?.shell) caps.add("execution.shell");
-  if (step.runtime?.env && Object.keys(step.runtime.env).length > 0) caps.add("environment.variables");
-  if (step.runtime?.secrets && step.runtime.secrets.length > 0) caps.add("secrets.runtime");
+  if (step.runtime?.env && Object.keys(step.runtime.env).length > 0)
+    caps.add("environment.variables");
+  if (step.runtime?.secrets && step.runtime.secrets.length > 0)
+    caps.add("secrets.runtime");
   if (step.interruptible === true) caps.add("concurrency.interruptible");
 }
 
-function detectRunnerCapabilities(step: CapabilityStep, caps: Set<string>): void {
+function detectRunnerCapabilities(
+  step: CapabilityStep,
+  caps: Set<string>,
+): void {
   if (step.runner === undefined) return;
   caps.add("runner.selection");
   if (step.runner.group !== undefined) caps.add("runner.group");
 }
 
-function detectIdentityCapabilities(step: CapabilityStep, caps: Set<string>): void {
+function detectIdentityCapabilities(
+  step: CapabilityStep,
+  caps: Set<string>,
+): void {
   if (step.identity === undefined) return;
   caps.add("secrets.oidc");
   const audiences = new Set<string>();
@@ -228,7 +288,10 @@ function detectRuleCapabilities(step: CapabilityStep, caps: Set<string>): void {
   }
 }
 
-function detectServiceCapabilities(step: CapabilityStep, caps: Set<string>): void {
+function detectServiceCapabilities(
+  step: CapabilityStep,
+  caps: Set<string>,
+): void {
   if (step.services === undefined || step.services.length === 0) return;
   caps.add("environment.services");
   for (const service of step.services) {
@@ -238,24 +301,37 @@ function detectServiceCapabilities(step: CapabilityStep, caps: Set<string>): voi
   }
 }
 
-function detectEnvironmentCapabilities(step: CapabilityStep, caps: Set<string>): void {
+function detectEnvironmentCapabilities(
+  step: CapabilityStep,
+  caps: Set<string>,
+): void {
   if (step.environment === undefined) return;
   caps.add("deployment.environment");
-  if (step.environment.action !== undefined) caps.add("deployment.environment.action");
-  if (step.environment.tier !== undefined) caps.add("deployment.environment.tier");
+  if (step.environment.action !== undefined)
+    caps.add("deployment.environment.action");
+  if (step.environment.tier !== undefined)
+    caps.add("deployment.environment.tier");
 }
 
-function detectCacheCapabilities(step: CapabilityStep, caps: Set<string>): void {
+function detectCacheCapabilities(
+  step: CapabilityStep,
+  caps: Set<string>,
+): void {
   if (step.cache === undefined) return;
   caps.add("cache");
   if (step.cache.policy !== undefined) caps.add("cache.policy");
-  if (step.cache.restoreKeys !== undefined && step.cache.restoreKeys.length > 0) caps.add("cache.fallbackKeys");
+  if (step.cache.restoreKeys !== undefined && step.cache.restoreKeys.length > 0)
+    caps.add("cache.fallbackKeys");
 }
 
-function detectConcurrencyCapabilities(step: CapabilityStep, caps: Set<string>): void {
+function detectConcurrencyCapabilities(
+  step: CapabilityStep,
+  caps: Set<string>,
+): void {
   if (step.concurrency === undefined) return;
   caps.add("concurrency.group");
-  if (step.concurrency.cancelInProgress !== undefined) caps.add("concurrency.cancelInProgress");
+  if (step.concurrency.cancelInProgress !== undefined)
+    caps.add("concurrency.cancelInProgress");
 }
 
 function detectOperationCapabilities(
@@ -292,7 +368,10 @@ function detectExportArtifactCapabilities(
   if (op.access !== undefined) caps.add("artifact.access");
 }
 
-function detectReportCapabilities(op: CapabilityOperation, caps: Set<string>): void {
+function detectReportCapabilities(
+  op: CapabilityOperation,
+  caps: Set<string>,
+): void {
   caps.add("artifact.report");
   if (op.spec?.type !== undefined) {
     caps.add(`artifact.report.${op.spec.type}`);
@@ -312,24 +391,37 @@ function detectOutputTypeCapabilities(
 /**
  * Detect capabilities used by a single pipeline.
  */
-function detectPipelineCapabilities(pipeline: {
-  entries: readonly { trigger: { kind: string } }[];
-  steps: readonly CapabilityStep[];
-  permissions?: unknown;
-  defaults?: {
-    shell?: unknown;
-    workdir?: unknown;
-    env?: unknown;
-    beforeScript?: unknown;
-    afterScript?: unknown;
-    timeout?: unknown;
-    retry?: unknown;
-    interruptible?: unknown;
-  };
-  inputs?: Readonly<Record<string, { type?: string; options?: readonly string[]; pattern?: string; secret?: boolean }>>;
-  concurrency?: { group?: string; cancelInProgress?: boolean };
-  rules?: readonly unknown[];
-}, caps: Set<string>): void {
+function detectPipelineCapabilities(
+  pipeline: {
+    entries: readonly { trigger: { kind: string } }[];
+    steps: readonly CapabilityStep[];
+    permissions?: unknown;
+    defaults?: {
+      shell?: unknown;
+      workdir?: unknown;
+      env?: unknown;
+      beforeScript?: unknown;
+      afterScript?: unknown;
+      timeout?: unknown;
+      retry?: unknown;
+      interruptible?: unknown;
+    };
+    inputs?: Readonly<
+      Record<
+        string,
+        {
+          type?: string;
+          options?: readonly string[];
+          pattern?: string;
+          secret?: boolean;
+        }
+      >
+    >;
+    concurrency?: { group?: string; cancelInProgress?: boolean };
+    rules?: readonly unknown[];
+  },
+  caps: Set<string>,
+): void {
   detectTriggerCapabilities(pipeline.entries, caps);
   if (pipeline.permissions !== undefined) {
     caps.add("environment.permissions");
@@ -340,7 +432,8 @@ function detectPipelineCapabilities(pipeline: {
   }
   if (pipeline.concurrency !== undefined) {
     caps.add("concurrency.group");
-    if (pipeline.concurrency.cancelInProgress !== undefined) caps.add("concurrency.cancelInProgress");
+    if (pipeline.concurrency.cancelInProgress !== undefined)
+      caps.add("concurrency.cancelInProgress");
   }
   if (pipeline.rules !== undefined && pipeline.rules.length > 0) {
     caps.add("workflow.rules");
@@ -360,7 +453,19 @@ function detectTriggerCapabilities(
 }
 
 function detectInputCapabilities(
-  inputs: Readonly<Record<string, { type?: string; options?: readonly string[]; pattern?: string; secret?: boolean }>> | undefined,
+  inputs:
+    | Readonly<
+        Record<
+          string,
+          {
+            type?: string;
+            options?: readonly string[];
+            pattern?: string;
+            secret?: boolean;
+          }
+        >
+      >
+    | undefined,
   caps: Set<string>,
 ): void {
   if (inputs === undefined || Object.keys(inputs).length === 0) return;
@@ -417,10 +522,15 @@ export function detectCapabilities(graph: DefinitionGraph): Set<string> {
 /**
  * Get the support level from a manifest entry.
  */
-function getSupportLevel(entry: CapabilitySupport | CapabilityDetail): CapabilitySupport {
+function getSupportLevel(
+  entry: CapabilitySupport | CapabilityDetail,
+): CapabilitySupport {
   if (typeof entry === "string") return validateSupport(entry);
   if (entry === null || typeof entry !== "object") {
-    throw new PluginError("capability entry must be a string or CapabilityDetail", "INVALID_CAPABILITY");
+    throw new PluginError(
+      "capability entry must be a string or CapabilityDetail",
+      "INVALID_CAPABILITY",
+    );
   }
   return validateSupport((entry as CapabilityDetail).support);
 }

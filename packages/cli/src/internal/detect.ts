@@ -12,7 +12,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPlanner } from "@sverka/sdk";
-import { createBuiltinResolver, synthesizeCheckSteps } from "@sverka/verification";
+import {
+  createBuiltinResolver,
+  synthesizeCheckSteps,
+} from "@sverka/verification";
 import { detectPackageManager } from "./config.js";
 
 /** A detected check ready to become a ShellStep. */
@@ -43,7 +46,9 @@ const DETECT_SCRIPT_CHECKS = [
  */
 function readPackageScripts(root: string): Record<string, string> {
   try {
-    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+    const pkg = JSON.parse(
+      readFileSync(join(root, "package.json"), "utf8"),
+    ) as {
       scripts?: Record<string, unknown>;
     };
     const scripts = pkg.scripts ?? {};
@@ -77,7 +82,9 @@ function isPhantomScriptStep(
  * Detect checks for the project at `root`: planner proposals (filtered to
  * real scripts) plus any known check scripts the planner did not cover.
  */
-export async function detectProjectChecks(root: string): Promise<DetectedCheck[]> {
+export async function detectProjectChecks(
+  root: string,
+): Promise<DetectedCheck[]> {
   const pm = detectPackageManager(root);
   const scripts = readPackageScripts(root);
   const checks: DetectedCheck[] = [];
@@ -117,7 +124,11 @@ export async function detectProjectChecks(root: string): Promise<DetectedCheck[]
   for (const name of DETECT_SCRIPT_CHECKS) {
     if (!(name in scripts)) continue;
     if (checks.some((c) => c.checkId === name)) continue;
-    checks.push({ checkId: name, command: `${pm} run ${name}`, source: "script" });
+    checks.push({
+      checkId: name,
+      command: `${pm} run ${name}`,
+      source: "script",
+    });
   }
 
   return checks;

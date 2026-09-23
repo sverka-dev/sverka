@@ -12,7 +12,9 @@ export const MAX_PIPELINE_CALL_DEPTH = 4;
  * Validate all pipeline-call steps across the project's pipelines.
  * Must run AFTER resolveCallOutputs (callee outputs copied onto call steps).
  */
-export function validatePipelineCalls(pipelines: readonly PipelineDefinition[]): void {
+export function validatePipelineCalls(
+  pipelines: readonly PipelineDefinition[],
+): void {
   const byId = new Map(pipelines.map((p) => [p.id, p]));
 
   for (const pipeline of pipelines) {
@@ -56,7 +58,13 @@ function validateCallStep(
     }
     // Type-check literal bindings (Reference bindings are checked at expansion).
     if (typeof binding !== "object" || binding === null) {
-      validateLiteralType(binding as InputLiteral, inputSpec, inputName, step.id, callee.id);
+      validateLiteralType(
+        binding as InputLiteral,
+        inputSpec,
+        inputName,
+        step.id,
+        callee.id,
+      );
     }
   }
 
@@ -105,7 +113,13 @@ function validateChoiceType(
   calleeId: string,
 ): void {
   if (typeof value !== "string") {
-    throw typeMismatchError(inputName, "choice", typeof value, stepId, calleeId);
+    throw typeMismatchError(
+      inputName,
+      "choice",
+      typeof value,
+      stepId,
+      calleeId,
+    );
   }
   if (input.options !== undefined && !input.options.includes(value)) {
     throw new SynthesisError(
@@ -172,7 +186,9 @@ function validateCallGraph(
   }
 
   // Cycle detection (DFS) + depth check.
-  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const WHITE = 0,
+    GRAY = 1,
+    BLACK = 2;
   const color = new Map<string, number>();
   for (const p of pipelines) color.set(p.id, WHITE);
 
@@ -189,7 +205,11 @@ function validateCallGraph(
     if (c === GRAY) {
       const cycleStart = path.indexOf(id);
       const cycle = path.slice(cycleStart).concat(id).join(" -> ");
-      throw new SynthesisError("CALL_CYCLE", `Pipeline call cycle: ${cycle}`, id);
+      throw new SynthesisError(
+        "CALL_CYCLE",
+        `Pipeline call cycle: ${cycle}`,
+        id,
+      );
     }
     color.set(id, GRAY);
     for (const callee of calls.get(id) ?? []) {

@@ -42,8 +42,8 @@ to their Temporal worker.
 
 ```ts
 interface TemporalTargetConfig {
-  readonly namespace?: string;   // default: "default"
-  readonly taskQueue?: string;   // default: "sverka"
+  readonly namespace?: string; // default: "default"
+  readonly taskQueue?: string; // default: "sverka"
 }
 
 function compileTemporal(
@@ -88,16 +88,16 @@ Exported types: `TemporalTargetConfig`, `TemporalTargetGraph`,
 
 ### Step → activity mapping
 
-| Sverka | Temporal |
-|---|---|
-| Step | Activity (`runStep(stepId)`) |
-| Dependency | `await` sequencing |
-| Condition | `if`/`else` in workflow body |
-| Matrix | `for` loop with activity calls |
-| RetryPolicy | Activity retry config |
-| Timeout | `startToCloseTimeout` |
-| Shell operation | Activity stub calls `sverka run --step` |
-| Scalar output | Unsupported (activities are `Promise<void>`) |
+| Sverka          | Temporal                                                    |
+| --------------- | ----------------------------------------------------------- |
+| Step            | Activity (`runStep(stepId)`)                                |
+| Dependency      | `await` sequencing                                          |
+| Condition       | `if`/`else` in workflow body                                |
+| Matrix          | `for` loop with activity calls                              |
+| RetryPolicy     | Activity retry config                                       |
+| Timeout         | `startToCloseTimeout`                                       |
+| Shell operation | Activity stub calls `sverka run --step`                     |
+| Scalar output   | Unsupported (activities are `Promise<void>`)                |
 | Artifact output | Unsupported (no output propagation in generated activities) |
 
 ### Capability manifest
@@ -125,6 +125,7 @@ const temporalCapabilities: CapabilityManifest = {
 ## Error handling
 
 `TemporalTargetError` with `override readonly cause: unknown`. Codes:
+
 - `INVALID_GRAPH` — no pipelines or no entries.
 - `LOWER_FAILED` — step lowering error.
 - `EMIT_FAILED` — code generation error.

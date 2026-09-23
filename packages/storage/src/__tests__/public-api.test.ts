@@ -22,7 +22,9 @@ describe("@sverka/storage public API", () => {
   });
 
   it("createSqliteSnapshotStore returns a SnapshotStore", () => {
-    const store: SnapshotStore = createSqliteSnapshotStore({ path: ":memory:" });
+    const store: SnapshotStore = createSqliteSnapshotStore({
+      path: ":memory:",
+    });
     expect(typeof store.save).toBe("function");
     expect(typeof store.load).toBe("function");
     expect(typeof store.delete).toBe("function");

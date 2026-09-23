@@ -34,8 +34,16 @@ describe("public API — exports (item 11)", () => {
 
   it("all types are importable (compile-time check)", () => {
     const _config: MCPPluginConfig = { servers: [] };
-    const _server: MCPServerConfig = { name: "s", transport: "stdio", command: "x" };
-    const _http: MCPServerConfig = { name: "s", transport: "http", url: "http://x" };
+    const _server: MCPServerConfig = {
+      name: "s",
+      transport: "stdio",
+      command: "x",
+    };
+    const _http: MCPServerConfig = {
+      name: "s",
+      transport: "http",
+      url: "http://x",
+    };
     const _code: MCPPluginErrorCode = "TOOL_NOT_FOUND";
     expect(_config.servers).toHaveLength(0);
     expect(_server.transport).toBe("stdio");

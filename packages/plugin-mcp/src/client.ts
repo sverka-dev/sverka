@@ -5,7 +5,11 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import type { ToolDefinition, ToolResult, ToolProvider } from "@sverka/compiler";
+import type {
+  ToolDefinition,
+  ToolResult,
+  ToolProvider,
+} from "@sverka/compiler";
 import { MCPPluginError } from "./errors.js";
 import type { MCPServerConfig } from "./index.js";
 
@@ -37,9 +41,15 @@ export class MCPClientPool implements ToolProvider {
       for (const tool of response.tools) {
         all.push({
           name: `${entry.config.name}.${tool.name}`,
-          ...(tool.description !== undefined ? { description: tool.description } : {}),
+          ...(tool.description !== undefined
+            ? { description: tool.description }
+            : {}),
           ...(tool.inputSchema !== undefined
-            ? { inputSchema: tool.inputSchema as Readonly<Record<string, unknown>> }
+            ? {
+                inputSchema: tool.inputSchema as Readonly<
+                  Record<string, unknown>
+                >,
+              }
             : {}),
         });
       }
@@ -78,7 +88,9 @@ export class MCPClientPool implements ToolProvider {
     }
     return {
       content: response.content as ToolResult["content"],
-      ...(response.isError !== undefined ? { isError: response.isError as boolean } : {}),
+      ...(response.isError !== undefined
+        ? { isError: response.isError as boolean }
+        : {}),
     };
   }
 
@@ -107,7 +119,10 @@ export class MCPClientPool implements ToolProvider {
   }
 }
 
-function splitNamespaced(name: string): { serverName: string; toolName: string } {
+function splitNamespaced(name: string): {
+  serverName: string;
+  toolName: string;
+} {
   const dot = name.indexOf(".");
   if (dot < 0) {
     throw new MCPPluginError(
@@ -146,7 +161,10 @@ async function connectServer(config: MCPServerConfig): Promise<Client> {
   }
 }
 
-async function connectClient(name: string, transport: unknown): Promise<Client> {
+async function connectClient(
+  name: string,
+  transport: unknown,
+): Promise<Client> {
   const client = new Client(
     { name: "sverka-mcp", version: "0.0.0" },
     { capabilities: {} },

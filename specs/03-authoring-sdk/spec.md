@@ -36,7 +36,11 @@ identical regardless of which authoring surface is used.
 
 ```ts
 import type {
-  Runtime, Input, OutputDeclaration, Reference, Trigger,
+  Runtime,
+  Input,
+  OutputDeclaration,
+  Reference,
+  Trigger,
 } from "@sverka/cdk";
 import type { Project, Pipeline, ShellStep, Entry } from "@sverka/cdk";
 
@@ -53,7 +57,10 @@ interface StepBuilder {
   build(pipeline: Pipeline, id: string): ShellStep;
 }
 
-function sh(strings: TemplateStringsArray, ...values: readonly (string | Reference)[]): StepBuilder;
+function sh(
+  strings: TemplateStringsArray,
+  ...values: readonly (string | Reference)[]
+): StepBuilder;
 
 // --- artifact: output declaration factory ---
 
@@ -67,7 +74,11 @@ interface PipelineConfig {
   entries?: ReadonlyArray<(pipeline: Pipeline) => Entry>;
 }
 
-function pipeline(project: Project, id: string, config: PipelineConfig): Pipeline;
+function pipeline(
+  project: Project,
+  id: string,
+  config: PipelineConfig,
+): Pipeline;
 
 // --- when: condition reference ---
 
@@ -76,7 +87,7 @@ function when(ref: Reference): Reference;
 // --- images: typed image values (§14.2) ---
 
 interface ImageRef {
-  readonly ref: string;  // raw OCI reference
+  readonly ref: string; // raw OCI reference
 }
 
 const images: {
@@ -91,7 +102,12 @@ function image(ref: string): ImageRef;
 const env: Record<string, ContextRef>;
 const secrets: Record<string, ContextRef>;
 const git: { sha: ContextRef; branch: ContextRef; tag: ContextRef };
-const change: { id: ContextRef; source: ContextRef; target: ContextRef; draft: ContextRef };
+const change: {
+  id: ContextRef;
+  source: ContextRef;
+  target: ContextRef;
+  draft: ContextRef;
+};
 const event: { type: ContextRef };
 const run: { id: ContextRef; attempt: ContextRef };
 const inputs: Record<string, ContextRef>;

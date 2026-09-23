@@ -85,6 +85,7 @@ function createFileCacheStore(config: FileCacheStoreConfig): CacheStore;
 ## Data models
 
 `CacheSpec` (existing, unchanged):
+
 ```ts
 interface CacheSpec {
   readonly paths: readonly string[];
@@ -95,6 +96,7 @@ interface CacheSpec {
 ```
 
 FileCacheStore on-disk layout:
+
 ```
 <cacheDir>/<sha256(key)>/
   manifest.json   // { key, paths, createdAt }
@@ -139,4 +141,4 @@ No new error class: cache is best-effort and surfaces through the existing
     `CacheRestoreRequest`, `CacheRestoreResult`, `CacheStoreRequest`
     exported from `@sverka/runtime`.
 12. GitHub target manifest declares `cache: lowered`, `cache.policy:
-    lowered`, `cache.fallbackKeys: lowered`; GitLab unchanged (`native`).
+lowered`, `cache.fallbackKeys: lowered`; GitLab unchanged (`native`).

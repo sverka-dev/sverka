@@ -190,24 +190,24 @@ The builder writes tests before each module. Suggested commit-sized slices:
 
 The builder should use these stable `code` strings (reviewer checks them):
 
-| Rule | code                       | field                          |
-|------|----------------------------|--------------------------------|
-| -    | `INVALID_PLAN`             | `""`, `name`, `sourceContextHash`, `createdAt` |
-| 1    | `INVALID_API_VERSION`      | `apiVersion`                   |
-| 2    | `ID_MISMATCH`              | `id`                           |
-| 3    | `EMPTY_OPERATIONS`         | `operations`                   |
-| 4    | `UNKNOWN_DEPENDENCY`       | `operations[].dependsOn`       |
-| 5    | `CYCLE_DETECTED`           | `operations[].dependsOn`       |
-| 6    | `DUPLICATE_OPERATION_ID`   | `operations[].id`              |
-| 7    | `MISSING_IMAGE_DIGEST`     | `operations[].executor.imageDigest` |
-| 8    | `INVALID_TIMEOUT`          | `operations[].timeoutSeconds`  |
-| 9    | `INVALID_RESOURCES`        | `operations[].resources`       |
-| 10   | `INVALID_RETRY_POLICY`     | `operations[].retry`           |
-| 11   | `INVALID_NETWORK_POLICY`   | `operations[].network`         |
-| 12   | `MISSING_CACHE_KEY`        | `operations[].cache.key`       |
-| 13   | `EMPTY_CREDENTIAL_ENVVAR`  | `operations[].credentials[].envVar` |
-| 14   | `INVALID_METADATA`         | `metadata`                     |
-| 15   | `INVALID_OPERATION`        | `operations[]`                 |
+| Rule | code                      | field                                          |
+| ---- | ------------------------- | ---------------------------------------------- |
+| -    | `INVALID_PLAN`            | `""`, `name`, `sourceContextHash`, `createdAt` |
+| 1    | `INVALID_API_VERSION`     | `apiVersion`                                   |
+| 2    | `ID_MISMATCH`             | `id`                                           |
+| 3    | `EMPTY_OPERATIONS`        | `operations`                                   |
+| 4    | `UNKNOWN_DEPENDENCY`      | `operations[].dependsOn`                       |
+| 5    | `CYCLE_DETECTED`          | `operations[].dependsOn`                       |
+| 6    | `DUPLICATE_OPERATION_ID`  | `operations[].id`                              |
+| 7    | `MISSING_IMAGE_DIGEST`    | `operations[].executor.imageDigest`            |
+| 8    | `INVALID_TIMEOUT`         | `operations[].timeoutSeconds`                  |
+| 9    | `INVALID_RESOURCES`       | `operations[].resources`                       |
+| 10   | `INVALID_RETRY_POLICY`    | `operations[].retry`                           |
+| 11   | `INVALID_NETWORK_POLICY`  | `operations[].network`                         |
+| 12   | `MISSING_CACHE_KEY`       | `operations[].cache.key`                       |
+| 13   | `EMPTY_CREDENTIAL_ENVVAR` | `operations[].credentials[].envVar`            |
+| 14   | `INVALID_METADATA`        | `metadata`                                     |
+| 15   | `INVALID_OPERATION`       | `operations[]`                                 |
 
 ## 8. Gates (reviewer runs these)
 

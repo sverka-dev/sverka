@@ -16,7 +16,7 @@ You are the mayor finalizing a completed wave. The reviewer has approved.
    - Commit the staged changes.
    - Push: `git push -u origin <branch>`
    - Create PR: `gh pr create --base <prev-wave-branch> --head <branch>
-     --title "Wave <N>: <package>" --body "..."`
+--title "Wave <N>: <package>" --body "..."`
 5. Run `bd dolt push` to sync beads (if authorized).
 6. Send mail to human: "Wave <N> complete: <package>" with summary.
 7. Check `bd ready` for the next unblocked wave, dispatch immediately.

@@ -24,11 +24,11 @@ Inspired by gh-aw agentic workflows + Mastra agent steps.
 ## Goals
 
 - `AgentOperation` added to `OperationDefinition` union: `{ kind: "agent",
-  engine, model?, prompt, tools?, maxTokens? }`.
+engine, model?, prompt, tools?, maxTokens? }`.
 - `AgentStep` class in cdk (extends `Step`); `AgentStepProps`.
 - `agent` tagged template in SDK (mirrors `$`): returns `AgentStepBuilder`.
 - `AgentDriver` runtime interface in engine-native: `executeAgent(request)
-  → AgentResult`. The native engine selects an `AgentDriver` from its
+→ AgentResult`. The native engine selects an `AgentDriver` from its
   config when a step has an `agent` operation.
 - `AgentResult`: `{ text, toolCalls?, finishReason, usage? }` — saved as
   artifact (`<stepId>/agent-result.json`).
@@ -64,14 +64,14 @@ Inspired by gh-aw agentic workflows + Mastra agent steps.
 
 ```ts
 export interface AgentToolRef {
-  readonly plugin: string;   // e.g. "mcp"
-  readonly tool: string;     // e.g. "github.create-pr"
+  readonly plugin: string; // e.g. "mcp"
+  readonly tool: string; // e.g. "github.create-pr"
 }
 
 export interface AgentOperation {
   readonly kind: "agent";
-  readonly engine: string;           // e.g. "claude", "gpt-4", "copilot"
-  readonly model?: string;           // e.g. "claude-sonnet-4-5"
+  readonly engine: string; // e.g. "claude", "gpt-4", "copilot"
+  readonly model?: string; // e.g. "claude-sonnet-4-5"
   readonly prompt: string;
   readonly tools?: readonly AgentToolRef[];
   readonly maxTokens?: number;
@@ -103,7 +103,9 @@ export class AgentStep extends Step {
 
 ```ts
 export interface AgentStepBuilder {
-  outputs(outputs: Readonly<Record<string, OutputDeclaration>>): AgentStepBuilder;
+  outputs(
+    outputs: Readonly<Record<string, OutputDeclaration>>,
+  ): AgentStepBuilder;
   inputs(inputs: readonly Reference[]): AgentStepBuilder;
   dependsOn(steps: readonly string[]): AgentStepBuilder;
   tools(...tools: readonly AgentToolRef[]): AgentStepBuilder;
@@ -118,8 +120,7 @@ export function agent(
 ): AgentStepBuilder;
 ```
 
-`agent\`Build and test the project\`` creates an `AgentStepBuilder` with
-`engine: "default"`. The builder's `.engine("claude")` method sets the
+`agent\`Build and test the project\``creates an`AgentStepBuilder`with`engine: "default"`. The builder's `.engine("claude")` method sets the
 engine (or pass via a config object — see alternatives).
 
 ### Engine (`@sverka/runtime` engine-native)
@@ -143,7 +144,11 @@ export interface AgentUsage {
 
 export interface AgentResult {
   readonly text: string;
-  readonly toolCalls?: readonly { readonly tool: string; readonly args: Readonly<Record<string, unknown>>; readonly result?: unknown }[];
+  readonly toolCalls?: readonly {
+    readonly tool: string;
+    readonly args: Readonly<Record<string, unknown>>;
+    readonly result?: unknown;
+  }[];
   readonly finishReason: "stop" | "length" | "tool-call" | "error";
   readonly usage?: AgentUsage;
 }
@@ -214,7 +219,7 @@ the agent driver decides how to handle missing tools.
 
 1. `AgentStep` synthesizes to `StepDefinition` with an `agent` operation
    (verify via synthesize + graph inspect).
-2. `agent\`prompt\`` SDK builder creates an `AgentStep` with `engine:
+2. `agent\`prompt\``SDK builder creates an`AgentStep`with`engine:
    "default"`, the prompt string, and no tools.
 3. `agent\`prompt\`.tools({ plugin: "mcp", tool: "github.create-pr" })`
    adds a tool ref to the step.

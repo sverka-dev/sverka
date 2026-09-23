@@ -14,6 +14,7 @@ updates. No new packages. No target lowering (emulated). ~120 impl lines +
 ## Files
 
 ### `@sverka/workflow` (packages/workflow/src)
+
 - `cdk/constructs.ts` — add `compensation?: OperationDefinition` to
   `StepProps`, `Step` class, `OPTIONAL_STEP_PROPS`.
 - `cdk/model.ts` — no new type (reuses `OperationDefinition`); re-export
@@ -30,6 +31,7 @@ updates. No new packages. No target lowering (emulated). ~120 impl lines +
   `StepDefinition` (if not already covered by graph re-export test).
 
 ### `@sverka/sdk` (packages/sdk/src)
+
 - `dollar.ts` — add `compensate(command: string): StepBuilder` to
   `StepBuilder` interface + `createBuilder`; store in `StepBuilderState`;
   pass to `ShellStep` props in `build()`.
@@ -37,6 +39,7 @@ updates. No new packages. No target lowering (emulated). ~120 impl lines +
   step with the compensation field.
 
 ### `@sverka/runtime` (packages/runtime/src/engine-native)
+
 - `types.ts` — add `step-compensating` and `step-compensated` to `RunEvent`;
   add `completionOrder: string[]` to the `RunContext` shape (internal, not
   exported on `Engine`).
@@ -56,6 +59,7 @@ updates. No new packages. No target lowering (emulated). ~120 impl lines +
 - `__tests__/compensation.test.ts` (new) — test plan items 4–13.
 
 ### `@sverka/compiler` (packages/compiler/src) — capability manifests
+
 - `github/capabilities.ts` — add `"policy.compensation": "emulated"`.
 - `gitlab/capabilities.ts` — add `"policy.compensation": "emulated"`.
 - `__tests__` — update capability count assertions if any.
@@ -82,7 +86,7 @@ updates. No new packages. No target lowering (emulated). ~120 impl lines +
    Green.
 7. **Engine — compensation failure is non-fatal.** Write test: first
    compensation fails (exit 1) → `warn` diagnostic + `step-compensated
-   { status: "failed" }`; second compensation still runs. Green.
+{ status: "failed" }`; second compensation still runs. Green.
 8. **Engine — failed/skipped steps not compensated.** Write test: a failed
    step with compensation is NOT compensated; a skipped step with
    compensation is NOT compensated. Green.
@@ -94,7 +98,7 @@ updates. No new packages. No target lowering (emulated). ~120 impl lines +
 11. **Capability manifests.** Write test: `policy.compensation` is
     `emulated` for both targets. Add manifest entries. Green.
 12. **Gates.** `bun run test && bun run typecheck && bun run lint && bun
-    run build` — all green across affected packages.
+run build` — all green across affected packages.
 
 ## Notes for the builder
 

@@ -8,6 +8,7 @@
 ## Scope
 
 New `@sverka/reporter` package with:
+
 - Renderer interface (onEvent/onFindings/onVerdict/flush)
 - EventReducer (pure: RunEvent → UIState)
 - FindingsCollector (I/O: scan artifact dir for SARIF)
@@ -61,8 +62,8 @@ tsdown.config.ts, and empty `src/index.ts`. Add to root `package.json`
 workspaces if needed. Run `bun install`.
 
 - package.json: `@sverka/reporter`, type module, exports `./dist/index.mjs`
-  + `./dist/index.d.mts`, deps `@sverka/runtime` + `@sverka/verification`
-  (workspace:*), scripts test/typecheck/lint/build matching other packages.
+  - `./dist/index.d.mts`, deps `@sverka/runtime` + `@sverka/verification`
+    (workspace:*), scripts test/typecheck/lint/build matching other packages.
 - project.json: nx targets matching pattern (test: vitest run, typecheck:
   tsc --noEmit, lint: eslint src, build: tsdown).
 - tsconfig.json: extends root, strict, ESM.
@@ -83,6 +84,7 @@ asserting ReporterError has code, cause, override. Implement `types.ts` and
 ### Step 2: EventReducer (pure, test-first)
 
 Write `reducer.test.ts` (tests 1-10 from spec). Implement `reducer.ts`:
+
 - `createInitialState()`: returns empty UIState.
 - `reduceEvent(state, event)`: pure switch on event.type, returns new UIState.
   - run-started: set runId, planId
@@ -101,6 +103,7 @@ Write `reducer.test.ts` (tests 1-10 from spec). Implement `reducer.ts`:
 ### Step 3: PolicyGate (pure, test-first)
 
 Write `policy-gate.test.ts` (tests 16-19 from spec). Implement `policy-gate.ts`:
+
 - Import `evaluatePolicy`, `DEFAULT_POLICY` from `@sverka/verification`.
 - `evaluateGate(options)`: call evaluatePolicy with DEFAULT_POLICY or
   provided policy, pass baselineFingerprints (empty array if not provided),
@@ -111,6 +114,7 @@ Write `policy-gate.test.ts` (tests 16-19 from spec). Implement `policy-gate.ts`:
 
 Write `findings-collector.test.ts` (tests 11-15 from spec). Use temp dirs
 with mock SARIF files. Implement `findings-collector.ts`:
+
 - `collectFindings({ artifactDir })`: readdir(artifactDir), for each
   subdirectory (stepId), read `*.sarif` and `*.sarif.json` files, parse
   JSON, call `normalizeSarif` from `@sverka/verification`, attribute
@@ -123,6 +127,7 @@ with mock SARIF files. Implement `findings-collector.ts`:
 
 Write `text-renderer.test.ts` (tests 20-25 from spec). Use a mock
 OutputWriter that captures lines. Implement `text-renderer.ts`:
+
 - `createTextRenderer({ writer })`: returns Renderer.
 - `onEvent`: accumulate events via EventReducer, print step status lines
   (✓/✗/●/○ + stepId + duration). Print run-started and run-completed lines.
@@ -139,6 +144,7 @@ export all public types and functions.
 
 Write `run-integration.test.ts` in cli package (tests 27-30 from spec).
 Modify `packages/cli/src/`:
+
 - `types.ts`: rename format `"human"` to `"text"` (update GlobalFlags).
 - `commands/run.ts`: when format is "text", use TextRenderer instead of
   EVENT_LABELS. When `--evaluate` is set, after run completes: call
@@ -150,6 +156,7 @@ Modify `packages/cli/src/`:
 ### Step 8: Gates
 
 Run all gates for reporter package + cli package + full monorepo:
+
 ```bash
 bun run test --filter @sverka/reporter
 bun run typecheck --filter @sverka/reporter

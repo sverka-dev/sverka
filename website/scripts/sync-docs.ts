@@ -3,7 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 const docsRoot = path.resolve(repoRoot, "website/src/content/docs");
 const publicDir = path.resolve(repoRoot, "website/public");
 const websiteDir = path.resolve(repoRoot, "website");
@@ -60,7 +63,10 @@ async function collectFiles(): Promise<FileEntry[]> {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           found = found.concat(await walk(full));
-        } else if (entry.isFile() && (entry.name.endsWith(".md") || entry.name.endsWith(".mdx"))) {
+        } else if (
+          entry.isFile() &&
+          (entry.name.endsWith(".md") || entry.name.endsWith(".mdx"))
+        ) {
           found.push(full);
         }
       }
@@ -71,7 +77,10 @@ async function collectFiles(): Promise<FileEntry[]> {
     try {
       files = await walk(srcDir);
     } catch (err) {
-      throw new DocsSyncError(`Could not read source docs directory ${srcDir}`, { cause: err });
+      throw new DocsSyncError(
+        `Could not read source docs directory ${srcDir}`,
+        { cause: err },
+      );
     }
 
     for (const file of files) {
@@ -92,7 +101,11 @@ async function collectFiles(): Promise<FileEntry[]> {
   }));
 }
 
-function parseFrontmatter(content: string): { frontmatter: string; body: string; fields: Record<string, unknown> } {
+function parseFrontmatter(content: string): {
+  frontmatter: string;
+  body: string;
+  fields: Record<string, unknown>;
+} {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(content);
   if (!match) {
     return { frontmatter: "", body: content, fields: {} };
@@ -107,11 +120,17 @@ function parseFrontmatter(content: string): { frontmatter: string; body: string;
         fields = parsed as Record<string, unknown>;
       }
     } catch (err) {
-      throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, { cause: err });
+      throw new DocsSyncError(`Invalid YAML frontmatter: ${err}`, {
+        cause: err,
+      });
     }
   }
 
-  return { frontmatter: match[0], body: content.slice(match[0].length), fields };
+  return {
+    frontmatter: match[0],
+    body: content.slice(match[0].length),
+    fields,
+  };
 }
 
 function extractTitle(body: string): string | undefined {
@@ -132,9 +151,7 @@ function extractDescription(body: string): string | undefined {
 
 function fileNameToTitle(filePath: string): string {
   const base = path.basename(filePath, path.extname(filePath));
-  return base
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return base.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 const ACRONYMS = new Set(["api", "cli", "ci", "sarif"]);
@@ -153,17 +170,24 @@ function formatLabel(slug: string): string {
 function stripLeadingH1(body: string, title: string): string {
   const trimmed = body.replace(/^\s+/, "");
   const newlineIndex = trimmed.indexOf("\n");
-  const firstLine = newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex);
+  const firstLine =
+    newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex);
   const lineText = firstLine.trim();
   if (!lineText.startsWith("# ")) return body;
   const headingText = lineText.slice(2).trim();
-  if (headingText.localeCompare(title.trim(), undefined, { sensitivity: "base" }) === 0) {
+  if (
+    headingText.localeCompare(title.trim(), undefined, {
+      sensitivity: "base",
+    }) === 0
+  ) {
     return trimmed.slice(firstLine.length).replace(/^\s+/, "");
   }
   return body;
 }
 
-function parseExistingFrontmatter(rawFrontmatter: string): Record<string, unknown> {
+function parseExistingFrontmatter(
+  rawFrontmatter: string,
+): Record<string, unknown> {
   if (!rawFrontmatter) return {};
   const inner = rawFrontmatter
     .replace(/^---\r?\n/, "")
@@ -203,7 +227,10 @@ function mergeFrontmatter(
       "⚠️ Work in progress — pre-alpha. APIs may change. Not ready for production use.",
   };
 
-  const yaml = stringifyYaml(fields, { lineWidth: 0, defaultStringType: "PLAIN" });
+  const yaml = stringifyYaml(fields, {
+    lineWidth: 0,
+    defaultStringType: "PLAIN",
+  });
   return `---\n${yaml}---\n\n`;
 }
 
@@ -222,7 +249,10 @@ function rewriteLink(
   const clean = cleanHref.split("?")[0];
 
   const resolvedSrc = posix(path.resolve(currentSrcDir, clean));
-  const srcRel = posix(path.relative(repoRoot, resolvedSrc)).replace(/\.mdx?$/i, "");
+  const srcRel = posix(path.relative(repoRoot, resolvedSrc)).replace(
+    /\.mdx?$/i,
+    "",
+  );
   const targetRoute = sourceToRoute.get(srcRel);
   if (!targetRoute) {
     console.warn(`Unresolved internal link in ${currentSrcPath}: ${href}`);
@@ -244,7 +274,10 @@ function transformLinks(
   sourceToRoute: Map<string, string>,
 ): string {
   const currentSrcDir = posix(path.dirname(currentSrcPath));
-  const currentSrcKey = posix(path.relative(repoRoot, currentSrcPath)).replace(/\.mdx?$/i, "");
+  const currentSrcKey = posix(path.relative(repoRoot, currentSrcPath)).replace(
+    /\.mdx?$/i,
+    "",
+  );
   const currentRoute = sourceToRoute.get(currentSrcKey);
   if (!currentRoute) return body;
   const currentRoutePath = `${currentRoute}/`;
@@ -259,7 +292,16 @@ function transformLinks(
     if (full.startsWith("!")) {
       segments.push(full);
     } else {
-      segments.push(rewriteLink(text, href, currentSrcPath, currentSrcDir, currentRoutePath, sourceToRoute));
+      segments.push(
+        rewriteLink(
+          text,
+          href,
+          currentSrcPath,
+          currentSrcDir,
+          currentRoutePath,
+          sourceToRoute,
+        ),
+      );
     }
     lastIndex = match.index + full.length;
     if (match.index === linkRegex.lastIndex) {
@@ -287,13 +329,18 @@ async function cleanDocsRoot() {
     if (code === "ENOENT") {
       await fs.mkdir(docsRoot, { recursive: true });
     } else {
-      throw new DocsSyncError(`Failed to clean docs directory ${docsRoot}`, { cause: err });
+      throw new DocsSyncError(`Failed to clean docs directory ${docsRoot}`, {
+        cause: err,
+      });
     }
   }
 }
 
 async function writeRobotsTxt() {
-  const site = (process.env.SITE_URL || "https://sverka.dev").replace(/\/+$/, "");
+  const site = (process.env.SITE_URL || "https://sverka.dev").replace(
+    /\/+$/,
+    "",
+  );
   const baseInput = process.env.BASE_PATH || "/";
   const basePath = baseInput === "/" ? "" : baseInput.replace(/\/$/, "");
   const sitemapUrl = `${site}${basePath}/sitemap-index.xml`;
@@ -303,15 +350,20 @@ async function writeRobotsTxt() {
 }
 
 async function copyMermaid() {
-  const mermaidSrc = path.resolve(repoRoot, "website/node_modules/mermaid/dist/mermaid.min.js");
+  const mermaidSrc = path.resolve(
+    repoRoot,
+    "website/node_modules/mermaid/dist/mermaid.min.js",
+  );
   const mermaidDest = path.resolve(publicDir, "mermaid.min.js");
   try {
     await fs.copyFile(mermaidSrc, mermaidDest);
   } catch (err) {
-    throw new DocsSyncError(`Failed to copy mermaid bundle from ${mermaidSrc}`, { cause: err });
+    throw new DocsSyncError(
+      `Failed to copy mermaid bundle from ${mermaidSrc}`,
+      { cause: err },
+    );
   }
 }
-
 
 async function syncDocs() {
   const entries = await collectFiles();
@@ -326,24 +378,39 @@ async function syncDocs() {
 
   for (const entry of entries) {
     const content = await fs.readFile(entry.srcPath, "utf-8");
-    const { frontmatter: existingFrontmatter, body, fields } = parseFrontmatter(content);
+    const {
+      frontmatter: existingFrontmatter,
+      body,
+      fields,
+    } = parseFrontmatter(content);
 
     const title =
       (typeof fields.title === "string" ? fields.title : undefined) ||
       extractTitle(body) ||
       fileNameToTitle(entry.srcPath);
     const description =
-      (typeof fields.description === "string" ? fields.description : undefined) ||
-      extractDescription(body);
+      (typeof fields.description === "string"
+        ? fields.description
+        : undefined) || extractDescription(body);
     const srcEditPath = posix(path.relative(repoRoot, entry.srcPath));
     const editUrl = `https://github.com/sverka-dev/sverka/edit/main/${srcEditPath}`;
 
     const rawBody = existingFrontmatter ? body : content;
     const dedupedBody = stripLeadingH1(rawBody, title);
-    const linkedBody = transformLinks(dedupedBody, entry.srcPath, sourceToRoute);
+    const linkedBody = transformLinks(
+      dedupedBody,
+      entry.srcPath,
+      sourceToRoute,
+    );
 
     const sidebar = entry.isIndex ? { label: "Overview" } : undefined;
-    const frontmatter = mergeFrontmatter(existingFrontmatter, title, description, editUrl, sidebar);
+    const frontmatter = mergeFrontmatter(
+      existingFrontmatter,
+      title,
+      description,
+      editUrl,
+      sidebar,
+    );
     await fs.mkdir(path.dirname(entry.destPath), { recursive: true });
     await fs.writeFile(entry.destPath, frontmatter + linkedBody, "utf-8");
   }
@@ -422,14 +489,18 @@ async function writeSidebarConfig(entries: FileEntry[]) {
 
   const userItems: unknown[] = [{ slug: "user" }];
   for (const dir of sortedDirs) {
-    const items: unknown[] = [{ autogenerate: { directory: `user/${dir}`, collapsed: false } }];
+    const items: unknown[] = [
+      { autogenerate: { directory: `user/${dir}`, collapsed: false } },
+    ];
     // Inject CI compatibility matrix under Reference.
     if (dir === "reference" && hasFeatures) {
       items.push(...featureItems);
     }
     userItems.push({ label: formatLabel(dir), items });
   }
-  standalone.sort((a, b) => fileNameToTitle(a.srcPath).localeCompare(fileNameToTitle(b.srcPath)));
+  standalone.sort((a, b) =>
+    fileNameToTitle(a.srcPath).localeCompare(fileNameToTitle(b.srcPath)),
+  );
   for (const page of standalone) {
     userItems.push({ label: fileNameToTitle(page.srcPath), slug: page.slug });
   }
@@ -446,7 +517,10 @@ async function writeSidebarConfig(entries: FileEntry[]) {
       "utf-8",
     );
   } catch (err) {
-    throw new DocsSyncError(`Failed to write generated sidebar config: ${err}`, { cause: err });
+    throw new DocsSyncError(
+      `Failed to write generated sidebar config: ${err}`,
+      { cause: err },
+    );
   }
 }
 

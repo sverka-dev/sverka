@@ -1,9 +1,7 @@
 // Plugin error class. Spec 07.
 
 export type PluginErrorCode =
-  | "INVALID_PLUGIN"
-  | "DUPLICATE_PLUGIN"
-  | "INVALID_CAPABILITY";
+  "INVALID_PLUGIN" | "DUPLICATE_PLUGIN" | "INVALID_CAPABILITY";
 
 export class PluginError extends Error {
   readonly code: PluginErrorCode;

@@ -25,7 +25,11 @@ describe("Trigger factories", () => {
   });
 
   it("push() with filter preserves branches, tags, paths", () => {
-    const t = push({ branches: ["main", "dev"], tags: ["v*"], paths: ["src/**"] });
+    const t = push({
+      branches: ["main", "dev"],
+      tags: ["v*"],
+      paths: ["src/**"],
+    });
     expect(t.kind).toBe("push");
     expect(t.filter?.branches).toEqual(["main", "dev"]);
     expect(t.filter?.tags).toEqual(["v*"]);

@@ -3,7 +3,11 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { Key } from "ink";
-import { handleSearchInput, isQuitInput, type Finding } from "@sverka/verification";
+import {
+  handleSearchInput,
+  isQuitInput,
+  type Finding,
+} from "@sverka/verification";
 import type { SortMode, ViewerFilter } from "./types.js";
 import {
   SEVERITY_FILTERS,
@@ -70,11 +74,18 @@ export class TuiStore {
     }
     if (input === "f") {
       const i = SEVERITY_FILTERS.indexOf(this.filter);
-      this.filter = SEVERITY_FILTERS[(i + 1) % SEVERITY_FILTERS.length] ?? "all";
-      this.selected = Math.min(this.selected, Math.max(0, this.visibleFindings().length - 1));
+      this.filter =
+        SEVERITY_FILTERS[(i + 1) % SEVERITY_FILTERS.length] ?? "all";
+      this.selected = Math.min(
+        this.selected,
+        Math.max(0, this.visibleFindings().length - 1),
+      );
     } else if (input === "s") {
       this.sort = nextSortMode(this.sort);
-      this.selected = Math.min(this.selected, Math.max(0, this.visibleFindings().length - 1));
+      this.selected = Math.min(
+        this.selected,
+        Math.max(0, this.visibleFindings().length - 1),
+      );
     } else if (input === "d") {
       this.details = !this.details;
     } else if (input === "j" || key.downArrow) {
@@ -158,7 +169,10 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
   useEffect(() => {
     if (store.findings !== props.findings) {
       (store as { findings: readonly Finding[] }).findings = props.findings;
-      store.selected = Math.min(store.selected, Math.max(0, store.visibleFindings().length - 1));
+      store.selected = Math.min(
+        store.selected,
+        Math.max(0, store.visibleFindings().length - 1),
+      );
       store.notify();
     }
   }, [props.findings, store]);
@@ -181,7 +195,10 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
     store.details && selectedFinding ? detailsForFinding(selectedFinding) : [];
 
   const { start: viewportStart, items: viewportItems } = computeViewport(
-    visible, selected, termRows, detailsLines.length,
+    visible,
+    selected,
+    termRows,
+    detailsLines.length,
   );
 
   return (

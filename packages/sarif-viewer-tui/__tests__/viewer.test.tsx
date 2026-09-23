@@ -41,7 +41,10 @@ class FakeStdin extends EventEmitter {
   };
 }
 
-const active: { instance: ReturnType<typeof render> | null; stdin: FakeStdin | null } = {
+const active: {
+  instance: ReturnType<typeof render> | null;
+  stdin: FakeStdin | null;
+} = {
   instance: null,
   stdin: null,
 };
@@ -65,7 +68,12 @@ async function waitFor(
   needle: string,
   timeoutMs = 4000,
 ): Promise<string> {
-  return waitUntil(stdout, (f) => f.includes(needle), timeoutMs, `contain ${JSON.stringify(needle)}`);
+  return waitUntil(
+    stdout,
+    (f) => f.includes(needle),
+    timeoutMs,
+    `contain ${JSON.stringify(needle)}`,
+  );
 }
 
 async function waitUntil(
@@ -80,16 +88,23 @@ async function waitUntil(
     if (pred(frame)) return frame;
     await new Promise((r) => setTimeout(r, 25));
   }
-  throw new Error(`frame never satisfied ${desc}; last frame:\n${stdout.lastFrame()}`);
+  throw new Error(
+    `frame never satisfied ${desc}; last frame:\n${stdout.lastFrame()}`,
+  );
 }
 
-async function quit(stdin: FakeStdin, instance: ReturnType<typeof render>): Promise<void> {
+async function quit(
+  stdin: FakeStdin,
+  instance: ReturnType<typeof render>,
+): Promise<void> {
   stdin.write("\u001B");
   await new Promise((r) => setTimeout(r, 150));
   stdin.write("q");
   await Promise.race([
     instance.waitUntilExit(),
-    new Promise((_, rej) => setTimeout(() => rej(new Error("quit timeout")), 3000)),
+    new Promise((_, rej) =>
+      setTimeout(() => rej(new Error("quit timeout")), 3000),
+    ),
   ]);
 }
 
@@ -153,7 +168,10 @@ describe("SarifTuiApp", () => {
     stdin.write("f");
     const highFrame = await waitUntil(
       stdout,
-      (f) => f.includes("[high]") && f.includes("high-one") && !f.includes("low-one"),
+      (f) =>
+        f.includes("[high]") &&
+        f.includes("high-one") &&
+        !f.includes("low-one"),
       4000,
       "high filter",
     );
@@ -186,8 +204,20 @@ describe("SarifTuiApp", () => {
 
   it("sort cycles: none -> severity -> file -> rule -> none", async () => {
     const { stdout, stdin, instance } = mount([
-      makeFinding({ fingerprint: "a", severity: "low", file: "z.ts", rule: "rule-z", message: "aaa" }),
-      makeFinding({ fingerprint: "b", severity: "high", file: "a.ts", rule: "rule-a", message: "bbb" }),
+      makeFinding({
+        fingerprint: "a",
+        severity: "low",
+        file: "z.ts",
+        rule: "rule-z",
+        message: "aaa",
+      }),
+      makeFinding({
+        fingerprint: "b",
+        severity: "high",
+        file: "a.ts",
+        rule: "rule-a",
+        message: "bbb",
+      }),
     ]);
     await waitFor(stdout, "aaa");
 

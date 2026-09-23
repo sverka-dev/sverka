@@ -41,7 +41,8 @@ export function createMCPPlugin(
   config: MCPPluginConfig,
 ): SverkaPlugin & { readonly tools: ToolProvider } {
   const pool = new MCPClientPool(config.servers);
-  const name = config.servers.length === 1 ? config.servers[0]?.name ?? "mcp" : "mcp";
+  const name =
+    config.servers.length === 1 ? (config.servers[0]?.name ?? "mcp") : "mcp";
   return {
     name,
     apiVersion: "sverka.dev/v1",

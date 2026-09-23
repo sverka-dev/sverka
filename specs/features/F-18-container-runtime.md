@@ -16,13 +16,13 @@ engine.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `container` | `image` | `Runtime.mode: "container"` + `Runtime.image` |
-| Semantics | job runs inside the named container | job runs inside the named image | step runs in Docker container |
-| Value type | string or map (image, env, volumes) | string or map (name, entrypoint) | string (OCI ref) |
-| Limitations | no digest pinning in v0 | no digest pinning in v0 | digest verification in native engine |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                      | GitLab CI                        | Sverka (proposed)                             |
+| ------------ | ----------------------------------- | -------------------------------- | --------------------------------------------- |
+| Construct    | `container`                         | `image`                          | `Runtime.mode: "container"` + `Runtime.image` |
+| Semantics    | job runs inside the named container | job runs inside the named image  | step runs in Docker container                 |
+| Value type   | string or map (image, env, volumes) | string or map (name, entrypoint) | string (OCI ref)                              |
+| Limitations  | no digest pinning in v0             | no digest pinning in v0          | digest verification in native engine          |
+| Provider gap | —                                   | —                                | —                                             |
 
 ## GitHub Actions
 
@@ -85,7 +85,7 @@ new ShellStep(pipeline, "build", {
 - **Native engine:** `DockerDriver` (`runtime-docker/docker-driver.ts:19-59`).
   `canExecute` checks mode is `"container"` and image is non-empty. Execution
   via `docker run --rm --read-only --cap-drop=ALL --user=<uid:gid>
-  --network=none` with workspace mounted at `/workspace`. Optional digest
+--network=none` with workspace mounted at `/workspace`. Optional digest
   verification via `verifyImageDigest`. Timeout via `--stop-timeout`.
 
 ### Capability manifest

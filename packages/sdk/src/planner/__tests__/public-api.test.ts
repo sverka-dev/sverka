@@ -63,9 +63,25 @@ describe("public API", () => {
     const _dCode: DiscoveryErrorCode = "ROOT_NOT_FOUND";
     const _pCode: PlannerErrorCode = "ENTRY_NOT_FOUND";
     // Touch all to avoid unused warnings; verify the exported values are usable.
-    const exported = [_ctx, _proposal, _check, _signal, _lang, _pm, _mono, _changed, _expl, _planner, _bindOpts];
+    const exported = [
+      _ctx,
+      _proposal,
+      _check,
+      _signal,
+      _lang,
+      _pm,
+      _mono,
+      _changed,
+      _expl,
+      _planner,
+      _bindOpts,
+    ];
     expect(exported).toHaveLength(11);
     expect(_opts.root).toBe("/tmp");
-    expect([_sigType, _dCode, _pCode]).toEqual(["manifest", "ROOT_NOT_FOUND", "ENTRY_NOT_FOUND"]);
+    expect([_sigType, _dCode, _pCode]).toEqual([
+      "manifest",
+      "ROOT_NOT_FOUND",
+      "ENTRY_NOT_FOUND",
+    ]);
   });
 });

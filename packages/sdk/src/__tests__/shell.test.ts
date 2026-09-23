@@ -28,9 +28,7 @@ describe("Shell proxy — command prefix", () => {
   it("chaining still works after prefix", () => {
     const project = new Project("shell-chain");
     const pipeline = new Pipeline(project, "ci");
-    const step = shell.git!`push`
-      .dependsOn(["build"])
-      .build(pipeline, "push");
+    const step = shell.git!`push`.dependsOn(["build"]).build(pipeline, "push");
     expect(step.command).toBe("git push");
     expect(step.dependsOn).toEqual(["build"]);
   });

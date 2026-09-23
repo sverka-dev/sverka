@@ -54,7 +54,12 @@ export async function extractFindings(
     try {
       raw = await readFile(filePath, "utf8");
     } catch (e) {
-      if (typeof e === "object" && e !== null && "code" in e && (e as { code: string }).code === "ENOENT") {
+      if (
+        typeof e === "object" &&
+        e !== null &&
+        "code" in e &&
+        (e as { code: string }).code === "ENOENT"
+      ) {
         continue;
       }
       throw new CheckError(
@@ -74,7 +79,9 @@ export async function extractFindings(
       );
     }
     try {
-      const checkIdPrefix = checkId.startsWith("checks/") ? checkId.slice(7) : checkId;
+      const checkIdPrefix = checkId.startsWith("checks/")
+        ? checkId.slice(7)
+        : checkId;
       const ctx: NormalizeContext = {
         root: artifactDir,
         checkIdPrefix,

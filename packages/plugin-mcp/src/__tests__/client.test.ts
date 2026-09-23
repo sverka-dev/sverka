@@ -20,7 +20,11 @@ class MockClient {
     if (this.closeShouldThrow) throw new Error("close failed");
   });
 
-  tools: { name: string; description?: string; inputSchema?: Record<string, unknown> }[] = [];
+  tools: {
+    name: string;
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+  }[] = [];
   callToolResponse: { content: unknown[]; isError?: boolean } = { content: [] };
   connectShouldThrow = false;
   connectErrorMessage?: string;
@@ -75,7 +79,10 @@ function stdioServer(name: string, command = "echo"): MCPServerConfig {
   return { name, transport: "stdio", command };
 }
 
-function httpServer(name: string, url = "http://localhost:9000"): MCPServerConfig {
+function httpServer(
+  name: string,
+  url = "http://localhost:9000",
+): MCPServerConfig {
   return { name, transport: "http", url };
 }
 
@@ -108,7 +115,10 @@ describe("MCPClientPool — Spec 23", () => {
     // callTool proxies to the server with the unprefixed tool name
     client.callToolResponse = { content: [{ type: "text", text: "hi" }] };
     const result = await pool.callTool("srv.echo", { x: 1 });
-    expect(client.callTool).toHaveBeenCalledWith({ name: "echo", arguments: { x: 1 } });
+    expect(client.callTool).toHaveBeenCalledWith({
+      name: "echo",
+      arguments: { x: 1 },
+    });
     expect(result.content[0]).toEqual({ type: "text", text: "hi" });
   });
 

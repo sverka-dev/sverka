@@ -2,10 +2,17 @@
 // Returns a builder that creates a PipelineCallStep when .build() is called.
 
 import { PipelineCallStep, Pipeline } from "@sverka/workflow";
-import type { Reference, InputLiteral, Runtime, OutputDeclaration } from "@sverka/workflow";
+import type {
+  Reference,
+  InputLiteral,
+  Runtime,
+  OutputDeclaration,
+} from "@sverka/workflow";
 
 export interface CallPipelineBuilder {
-  outputs(outputs: Readonly<Record<string, OutputDeclaration>>): CallPipelineBuilder;
+  outputs(
+    outputs: Readonly<Record<string, OutputDeclaration>>,
+  ): CallPipelineBuilder;
   dependsOn(steps: readonly string[]): CallPipelineBuilder;
   runtime(runtime: Runtime): CallPipelineBuilder;
   timeout(ms: number): CallPipelineBuilder;
@@ -27,7 +34,9 @@ interface CallBuilderState {
 
 function createCallBuilder(state: CallBuilderState): CallPipelineBuilder {
   const builder: CallPipelineBuilder = {
-    outputs(outputs: Readonly<Record<string, OutputDeclaration>>): CallPipelineBuilder {
+    outputs(
+      outputs: Readonly<Record<string, OutputDeclaration>>,
+    ): CallPipelineBuilder {
       state.outputs = outputs;
       return builder;
     },
@@ -59,8 +68,12 @@ function createCallBuilder(state: CallBuilderState): CallPipelineBuilder {
         ...(state.dependsOn ? { dependsOn: state.dependsOn } : {}),
         ...(state.runtime ? { runtime: state.runtime } : {}),
         ...(state.timeout !== undefined ? { timeout: state.timeout } : {}),
-        ...(state.condition !== undefined ? { condition: state.condition } : {}),
-        ...(state.interruptible !== undefined ? { interruptible: state.interruptible } : {}),
+        ...(state.condition !== undefined
+          ? { condition: state.condition }
+          : {}),
+        ...(state.interruptible !== undefined
+          ? { interruptible: state.interruptible }
+          : {}),
       });
     },
   };

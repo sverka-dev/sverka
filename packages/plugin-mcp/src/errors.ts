@@ -1,10 +1,7 @@
 // MCP plugin errors. Spec 23 — §"Error handling".
 
 export type MCPPluginErrorCode =
-  | "CONNECT_FAILED"
-  | "TOOL_NOT_FOUND"
-  | "TOOL_CALL_FAILED"
-  | "TRANSPORT_ERROR";
+  "CONNECT_FAILED" | "TOOL_NOT_FOUND" | "TOOL_CALL_FAILED" | "TRANSPORT_ERROR";
 
 export class MCPPluginError extends Error {
   override readonly cause: unknown;

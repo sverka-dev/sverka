@@ -39,11 +39,11 @@ lines. No SDK/CDK/compiler changes (query is an engine-level concern).
 3. **Test #2 + #6:** during an active 3-step linear run, pause iteration
    inside the `for await` loop after `step-succeeded` for step 1 (step 2
    running, step 3 pending) and call `engine.query()` → assert `status:
-   "running"`, correct `runId`/`planId`/`startedAt`, step 1 `succeeded`
+"running"`, correct `runId`/`planId`/`startedAt`, step 1 `succeeded`
    with `durationMs`, step 2 `running`, step 3 `pending`. Implement
    `currentRun` set on `run-started` + the snapshot logic. Pass.
 
-   *How to pause mid-run:* use a plan where step 2 has a `sleep` in its
+   _How to pause mid-run:_ use a plan where step 2 has a `sleep` in its
    command (or a driver mock that resolves on a deferred) so the test can
    `await` a tick between events and call `query()` while step 2 is
    running. The existing test fixtures use mock drivers — add a deferred
@@ -59,7 +59,7 @@ lines. No SDK/CDK/compiler changes (query is an engine-level concern).
 
 7. **Test #7:** query inside the `for await` loop on the iteration that
    delivers `run-completed` (before the loop body returns) → terminal
-   `RunStatus` (e.g. `"success"`), because `currentRun` is cleared *after*
+   `RunStatus` (e.g. `"success"`), because `currentRun` is cleared _after_
    the event is emitted. Pass. (If the engine clears before yielding, fix
    the ordering: emit `run-completed`, then clear `currentRun` after the
    yield resumes — or capture the terminal status on `currentRun` before
@@ -93,6 +93,7 @@ lines. No SDK/CDK/compiler changes (query is an engine-level concern).
 ## Commit hygiene (for finalize)
 
 Stage ONLY:
+
 - `packages/runtime/src/engine-native/types.ts`
 - `packages/runtime/src/engine-native/engine.ts`
 - `packages/runtime/src/engine-native/index.ts`

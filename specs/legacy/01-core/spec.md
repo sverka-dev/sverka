@@ -46,22 +46,30 @@ operations and a `Runtime` interprets that graph according to the active mode.
 ```typescript
 // src/index.ts — public exports
 
-export { type Operation, type OperationKind, type OperationSpec,
-  type CacheDeclaration, type ArtifactDeclaration, type NetworkPolicy,
-  type CredentialDeclaration }
-  from "./operation.js";
-export { type Runtime, type RuntimeMode, type RuntimeResult,
-  type OperationOutcome, type PlanContext, type Artifact }
-  from "./runtime.js";
+export {
+  type Operation,
+  type OperationKind,
+  type OperationSpec,
+  type CacheDeclaration,
+  type ArtifactDeclaration,
+  type NetworkPolicy,
+  type CredentialDeclaration,
+} from "./operation.js";
+export {
+  type Runtime,
+  type RuntimeMode,
+  type RuntimeResult,
+  type OperationOutcome,
+  type PlanContext,
+  type Artifact,
+} from "./runtime.js";
 export { pipeline } from "./composables/pipeline.js";
 export { run } from "./composables/run.js";
 export { parallel } from "./composables/parallel.js";
 export { when } from "./composables/when.js";
 export { matrix } from "./composables/matrix.js";
-export { workflow, type Workflow }
-  from "./composables/workflow.js";
-export { CoreError, PlanningError, CompositionError }
-  from "./errors.js";
+export { workflow, type Workflow } from "./composables/workflow.js";
+export { CoreError, PlanningError, CompositionError } from "./errors.js";
 ```
 
 ```typescript
@@ -72,13 +80,13 @@ export { CoreError, PlanningError, CompositionError }
  * compilers interpret the spec.
  */
 export type OperationKind =
-  | "run"        // execute a command in a container or host process
-  | "check"      // run a verification tool and produce findings
-  | "build"      // produce a build artifact
-  | "analyze"    // static or dynamic analysis without a pass/fail verdict
-  | "fetch"      // retrieve an external resource (cache, dependency)
-  | "publish"    // emit an artifact or report
-  | "custom";    // user-defined operation kind
+  | "run" // execute a command in a container or host process
+  | "check" // run a verification tool and produce findings
+  | "build" // produce a build artifact
+  | "analyze" // static or dynamic analysis without a pass/fail verdict
+  | "fetch" // retrieve an external resource (cache, dependency)
+  | "publish" // emit an artifact or report
+  | "custom"; // user-defined operation kind
 
 /**
  * A fully-resolved, serializable description of a single unit of work.
@@ -300,10 +308,7 @@ export function matrix(
  * @example
  * const wf = workflow("ci", parallel(build, lint), pipeline(test, report));
  */
-export function workflow(
-  name: string,
-  ...roots: Operation[]
-): Workflow;
+export function workflow(name: string, ...roots: Operation[]): Workflow;
 
 export interface Workflow {
   readonly name: string;
@@ -421,6 +426,7 @@ reference ADR-006 as the source of truth.
 
 `matrix({ dim: [v1, v2, ...] }, op)` produces the cartesian product of all
 dimensions. Each combination becomes a separate `OperationNode` with:
+
 - A content-addressed id per the rule above. The dimension values are
   included in the `context` record (e.g. `{ node: "24", os: "linux" }`),
   so each combination yields a distinct hash by construction — no

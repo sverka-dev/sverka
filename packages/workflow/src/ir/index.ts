@@ -34,5 +34,8 @@ export type {
 export { computePlanId, computeOperationId } from "./compat/ids.js";
 export { serializePlan, deserializePlan } from "./compat/serialize.js";
 export { validatePlan } from "./compat/validate.js";
-export type { ValidationResult, ValidationErrorDetail } from "./compat/validate.js";
+export type {
+  ValidationResult,
+  ValidationErrorDetail,
+} from "./compat/validate.js";
 export { PLAN_SCHEMA_VERSION } from "./compat/version.js";

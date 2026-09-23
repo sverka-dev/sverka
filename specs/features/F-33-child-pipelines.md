@@ -12,13 +12,13 @@ Dynamic child pipelines are generated at runtime — a step produces a YAML file
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `workflow_run` (limited) | `trigger:include` + `artifact` | `trigger.childPipeline` |
-| Semantics | Triggers workflow after another completes | Generates child pipeline from artifact YAML | Generate and trigger child pipeline |
-| Value type | event ref | include ref + artifact path | generator step + pipeline ref |
-| Limitations | no dynamic generation | child pipeline from generated YAML | — |
-| Provider gap | no dynamic generation | — | GitHub: emulated or unsupported |
+| Aspect       | GitHub Actions                            | GitLab CI                                   | Sverka (proposed)                   |
+| ------------ | ----------------------------------------- | ------------------------------------------- | ----------------------------------- |
+| Construct    | `workflow_run` (limited)                  | `trigger:include` + `artifact`              | `trigger.childPipeline`             |
+| Semantics    | Triggers workflow after another completes | Generates child pipeline from artifact YAML | Generate and trigger child pipeline |
+| Value type   | event ref                                 | include ref + artifact path                 | generator step + pipeline ref       |
+| Limitations  | no dynamic generation                     | child pipeline from generated YAML          | —                                   |
+| Provider gap | no dynamic generation                     | —                                           | GitHub: emulated or unsupported     |
 
 ## GitHub Actions
 
@@ -67,8 +67,8 @@ GitLab generates a YAML file, declares it as an artifact, and triggers a child p
 
 ```ts
 interface ChildPipelineTrigger {
-  readonly generator: string;        // step that produces the pipeline YAML
-  readonly artifact: string;          // artifact name containing the YAML
+  readonly generator: string; // step that produces the pipeline YAML
+  readonly artifact: string; // artifact name containing the YAML
 }
 ```
 

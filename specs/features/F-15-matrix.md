@@ -12,13 +12,13 @@ Matrix expansion fans out one step into N parallel executions, each with differe
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `strategy.matrix` | `parallel:matrix` | `matrix` on Step |
-| Semantics | Fan out job per matrix combination | Fan out job per matrix combination | Fan out step per combination |
-| Value type | map of var→array | array of variable hashes | `{ dimensions, include?, exclude? }` |
-| Limitations | max 256 jobs per matrix | max 200 parallel jobs | — |
-| Provider gap | — | no include/exclude | include/exclude is GitHub-only |
+| Aspect       | GitHub Actions                     | GitLab CI                          | Sverka (proposed)                    |
+| ------------ | ---------------------------------- | ---------------------------------- | ------------------------------------ |
+| Construct    | `strategy.matrix`                  | `parallel:matrix`                  | `matrix` on Step                     |
+| Semantics    | Fan out job per matrix combination | Fan out job per matrix combination | Fan out step per combination         |
+| Value type   | map of var→array                   | array of variable hashes           | `{ dimensions, include?, exclude? }` |
+| Limitations  | max 256 jobs per matrix            | max 200 parallel jobs              | —                                    |
+| Provider gap | —                                  | no include/exclude                 | include/exclude is GitHub-only       |
 
 ## GitHub Actions
 

@@ -41,7 +41,11 @@ function safeJsonParse(text: string): unknown | null {
  * returned as text content. On failure, isError is set with the error message.
  */
 export async function runCommandAsTool(
-  fn: (writer: OutputWriter, global: GlobalFlags, start: number) => Promise<number>,
+  fn: (
+    writer: OutputWriter,
+    global: GlobalFlags,
+    start: number,
+  ) => Promise<number>,
   root: string,
 ): Promise<ToolResult> {
   const writer = new BufferingOutputWriter();
@@ -52,13 +56,16 @@ export async function runCommandAsTool(
     const text = writer.captured.trim();
     if (exitCode === ExitCode.Success) {
       const parsed = text ? safeJsonParse(text) : null;
-      const data = parsed && typeof parsed === "object" && "data" in parsed
-        ? (parsed as { data: unknown }).data
-        : parsed ?? {};
+      const data =
+        parsed && typeof parsed === "object" && "data" in parsed
+          ? (parsed as { data: unknown }).data
+          : (parsed ?? {});
       return { content: [{ type: "text", text: JSON.stringify(data) }] };
     }
     const parsed = text ? safeJsonParse(text) : null;
-    const msg = parsed ? JSON.stringify(parsed) : text || `exit code ${exitCode}`;
+    const msg = parsed
+      ? JSON.stringify(parsed)
+      : text || `exit code ${exitCode}`;
     return { content: [{ type: "text", text: msg }], isError: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -77,22 +84,29 @@ export interface SverkaToolDef {
 export const SVERKA_TOOLS: readonly SverkaToolDef[] = [
   {
     name: "sverka.validate",
-    description: "Validate a sverka config: synthesize the Definition Graph and run validators.",
+    description:
+      "Validate a sverka config: synthesize the Definition Graph and run validators.",
     inputSchema: { root: z.string().optional() },
   },
   {
     name: "sverka.plan",
-    description: "Bind an Entry and inputs into a Run Plan and return the step list.",
-    inputSchema: { root: z.string().optional(), entryId: z.string().optional() },
+    description:
+      "Bind an Entry and inputs into a Run Plan and return the step list.",
+    inputSchema: {
+      root: z.string().optional(),
+      entryId: z.string().optional(),
+    },
   },
   {
     name: "sverka.graph",
-    description: "Display the Definition Graph: pipelines, entries, steps, and dependencies.",
+    description:
+      "Display the Definition Graph: pipelines, entries, steps, and dependencies.",
     inputSchema: { root: z.string().optional() },
   },
   {
     name: "sverka.run",
-    description: "Execute the workflow locally through the native engine and return the run status.",
+    description:
+      "Execute the workflow locally through the native engine and return the run status.",
     inputSchema: {
       root: z.string().optional(),
       entryId: z.string().optional(),
@@ -113,7 +127,10 @@ export const SVERKA_TOOLS: readonly SverkaToolDef[] = [
  * Register all 5 Sverka MCP tools on the given McpServer.
  * Each tool maps to the corresponding CLI command handler.
  */
-export function registerSverkaTools(server: McpServer, defaultRoot: string): void {
+export function registerSverkaTools(
+  server: McpServer,
+  defaultRoot: string,
+): void {
   server.tool(
     "sverka.validate",
     "Validate a sverka config: synthesize the Definition Graph and run validators.",
@@ -132,7 +149,13 @@ export function registerSverkaTools(server: McpServer, defaultRoot: string): voi
     { root: z.string().optional(), entryId: z.string().optional() },
     async (args) => {
       return runCommandAsTool(
-        (w, g, s) => planCommand({ ...(args.entryId !== undefined && { entryId: args.entryId }) }, g, w, s),
+        (w, g, s) =>
+          planCommand(
+            { ...(args.entryId !== undefined && { entryId: args.entryId }) },
+            g,
+            w,
+            s,
+          ),
         args.root ?? defaultRoot,
       );
     },
@@ -153,10 +176,23 @@ export function registerSverkaTools(server: McpServer, defaultRoot: string): voi
   server.tool(
     "sverka.run",
     "Execute the workflow locally through the native engine and return the run status.",
-    { root: z.string().optional(), entryId: z.string().optional(), executor: z.enum(["host", "docker"]).optional() },
+    {
+      root: z.string().optional(),
+      entryId: z.string().optional(),
+      executor: z.enum(["host", "docker"]).optional(),
+    },
     async (args) => {
       return runCommandAsTool(
-        (w, g, s) => runCommand({ ...(args.entryId !== undefined && { entryId: args.entryId }), ...(args.executor !== undefined && { executor: args.executor }) }, g, w, s),
+        (w, g, s) =>
+          runCommand(
+            {
+              ...(args.entryId !== undefined && { entryId: args.entryId }),
+              ...(args.executor !== undefined && { executor: args.executor }),
+            },
+            g,
+            w,
+            s,
+          ),
         args.root ?? defaultRoot,
       );
     },
@@ -173,14 +209,20 @@ export function registerSverkaTools(server: McpServer, defaultRoot: string): voi
 }
 
 /** Run the synth tool: load graph, compile to target, return artifacts. */
-async function synthTool(root: string, target: "github" | "gitlab"): Promise<ToolResult> {
+async function synthTool(
+  root: string,
+  target: "github" | "gitlab",
+): Promise<ToolResult> {
   try {
     const { graph } = await loadProjectGraph({ root, config: null });
     const result: CompilationResult =
       target === "github" ? compileGithub(graph) : compileGitlab(graph);
     const data = {
       target,
-      artifacts: result.artifacts.map((a) => ({ path: a.path, content: a.content })),
+      artifacts: result.artifacts.map((a) => ({
+        path: a.path,
+        content: a.content,
+      })),
       diagnostics: result.diagnostics,
     };
     return { content: [{ type: "text", text: JSON.stringify(data) }] };

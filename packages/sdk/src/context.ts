@@ -10,7 +10,9 @@ function ctx(namespace: ContextNamespace, field: string): ContextRef {
 }
 
 /** Dynamic namespace proxy — any property access returns a ContextRef. */
-function dynamicNamespace(namespace: ContextNamespace): Record<string, ContextRef> {
+function dynamicNamespace(
+  namespace: ContextNamespace,
+): Record<string, ContextRef> {
   return createDynamicProxy((prop) => ctx(namespace, prop));
 }
 

@@ -12,13 +12,13 @@ Rules are conditional logic that determines whether a job runs. GitLab uses `rul
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `if:` | `rules` | `condition` + `rules` on Step |
-| Semantics | Expression evaluated to boolean | Array of rule conditions, first match wins | Array of conditions, first match wins |
-| Value type | expression string | array of rule objects | array of condition objects |
-| Limitations | single condition per step | `changes`, `exists`, `if` per rule | — |
-| Provider gap | no `changes`/`exists` | — | GitHub: `changes` emulated via paths filter |
+| Aspect       | GitHub Actions                  | GitLab CI                                  | Sverka (proposed)                           |
+| ------------ | ------------------------------- | ------------------------------------------ | ------------------------------------------- |
+| Construct    | `if:`                           | `rules`                                    | `condition` + `rules` on Step               |
+| Semantics    | Expression evaluated to boolean | Array of rule conditions, first match wins | Array of conditions, first match wins       |
+| Value type   | expression string               | array of rule objects                      | array of condition objects                  |
+| Limitations  | single condition per step       | `changes`, `exists`, `if` per rule         | —                                           |
+| Provider gap | no `changes`/`exists`           | —                                          | GitHub: `changes` emulated via paths filter |
 
 ## GitLab CI
 

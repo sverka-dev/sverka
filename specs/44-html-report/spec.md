@@ -60,8 +60,8 @@ export interface DagLayoutResult {
 
 /** Layout options. */
 export interface DagLayoutOptions {
-  readonly nodeSpacingX?: number;  // default 200
-  readonly nodeSpacingY?: number;  // default 80
+  readonly nodeSpacingX?: number; // default 200
+  readonly nodeSpacingY?: number; // default 80
 }
 
 /**
@@ -153,6 +153,7 @@ Reuses `ReporterError` with code `"RENDER_ERROR"` (already defined in spec 43).
 ### Per-step logs
 
 Each step from `UIState.steps` gets a `<details>` element:
+
 - Summary line: status icon + stepId + duration.
 - Body: error message (if failed), diagnostics (if any), attempt count
   (if retried).
@@ -184,8 +185,8 @@ When `--format html` and policy fails, exit code is `1`.
 
 ## Dependencies
 
-| Package | Dep | Type | Justification |
-|---------|-----|------|---------------|
+| Package          | Dep              | Type      | Justification                              |
+| ---------------- | ---------------- | --------- | ------------------------------------------ |
 | @sverka/reporter | @sverka/workflow | workspace | DefinitionGraph (type-only, for DagLayout) |
 
 No new external dependencies. ReactFlow is loaded from CDN at view time,

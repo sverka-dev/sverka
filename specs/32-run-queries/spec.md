@@ -32,7 +32,7 @@ Spec 28; a future `sverka status` CLI command).
 - `RunState` model: `{ runId, planId, status, startedAt, steps }`.
 - `RunState.status`: `"running" | RunStatus` (where `RunStatus` is the
   terminal status from Spec 21/29: `"success" | "failure" | "cancelled" |
-  "suspended"`). `"running"` is the non-terminal state surfaced only by
+"suspended"`). `"running"` is the non-terminal state surfaced only by
   `query` — it is **not** added to `RunStatus` (which is terminal-only).
 - `RunState.steps`: one entry per step with `{ stepId, state, durationMs? }`.
   `state` is the engine's `StepState` union (Spec 22.2 / scheduler), which
@@ -77,20 +77,20 @@ Spec 28; a future `sverka status` CLI command).
 export interface RunState {
   readonly runId: string;
   readonly planId: string;
-  readonly status: "running" | RunStatus;   // RunStatus from Spec 21/29
-  readonly startedAt: number;               // epoch ms (matches run-started)
+  readonly status: "running" | RunStatus; // RunStatus from Spec 21/29
+  readonly startedAt: number; // epoch ms (matches run-started)
   readonly steps: readonly {
     readonly stepId: string;
-    readonly state: StepState;              // engine's step-state union (Spec 22.2 / scheduler)
-    readonly durationMs?: number;           // present for succeeded/failed steps
+    readonly state: StepState; // engine's step-state union (Spec 22.2 / scheduler)
+    readonly durationMs?: number; // present for succeeded/failed steps
   }[];
 }
 
 export interface Engine {
   run(request: RunRequest): AsyncIterable<RunEvent>;
-  resume(request: ResumeRequest): AsyncIterable<RunEvent>;   // Spec 29
+  resume(request: ResumeRequest): AsyncIterable<RunEvent>; // Spec 29
   cancel(): Promise<void>;
-  query(runId?: string): RunState | undefined;               // NEW
+  query(runId?: string): RunState | undefined; // NEW
 }
 ```
 
@@ -121,7 +121,7 @@ member of the `Engine` interface (already exported). No new SDK/CDK surface
    - If `runId` is provided and `runId !== currentRun.runId` → return
      `undefined`.
    - Otherwise, snapshot `currentRun.ctx.states` (a `Map<string,
-     StepState>`) into `RunState.steps`, compute `status`:
+StepState>`) into `RunState.steps`, compute `status`:
      - If the run has not yet emitted `run-completed` → `"running"`.
      - If `run-completed` was emitted → the terminal `RunStatus`.
    - `durationMs` per step is taken from the step's result when present

@@ -15,7 +15,9 @@ async function makeTempDir(): Promise<string> {
 }
 
 /** Run a test body inside a temp directory, cleaning up afterward. */
-async function withTempDir(body: (dir: string) => Promise<void>): Promise<void> {
+async function withTempDir(
+  body: (dir: string) => Promise<void>,
+): Promise<void> {
   const dir = await makeTempDir();
   try {
     await body(dir);
@@ -47,7 +49,11 @@ async function captureAtEvent(
 
 /** A simple 3-step linear plan (build → test → deploy) without output export. */
 function makeSimpleLinearPlan(): RunPlan {
-  const mkStep = (id: string, command: string, dep?: string): StepDefinition => ({
+  const mkStep = (
+    id: string,
+    command: string,
+    dep?: string,
+  ): StepDefinition => ({
     id,
     runtime: {},
     operations: [{ kind: "shell", command }],
@@ -61,7 +67,11 @@ function makeSimpleLinearPlan(): RunPlan {
     graphId: "graph-linear",
     entry: { id: "ci/on-push", trigger: { kind: "push" } },
     inputs: {},
-    steps: [mkStep("ci/build", "echo build"), mkStep("ci/test", "echo test", "ci/build"), mkStep("ci/deploy", "echo deploy", "ci/test")],
+    steps: [
+      mkStep("ci/build", "echo build"),
+      mkStep("ci/test", "echo test", "ci/build"),
+      mkStep("ci/deploy", "echo deploy", "ci/test"),
+    ],
     createdAt: "2026-08-13T00:00:00.000Z",
   };
 }
@@ -74,10 +84,16 @@ describe("Engine.query() — Spec 32", () => {
 
   it("test 2: query() during an active run returns RunState with status running", async () => {
     await withTempDir(async (dir) => {
-      const engine = createEngine({ drivers: [createMockDriver({ delayMs: 50 })] });
+      const engine = createEngine({
+        drivers: [createMockDriver({ delayMs: 50 })],
+      });
       const plan = makeSimpleLinearPlan();
-      const captured = await captureAtEvent(engine, plan, dir,
-        (e) => e.type === "step-succeeded" && e.stepId === "ci/build");
+      const captured = await captureAtEvent(
+        engine,
+        plan,
+        dir,
+        (e) => e.type === "step-succeeded" && e.stepId === "ci/build",
+      );
 
       expect(captured).toBeDefined();
       expect(captured!.status).toBe("running");
@@ -100,14 +116,23 @@ describe("Engine.query() — Spec 32", () => {
 
   it("test 3: query(activeRunId) returns the same state as query()", async () => {
     await withTempDir(async (dir) => {
-      const engine = createEngine({ drivers: [createMockDriver({ delayMs: 50 })] });
+      const engine = createEngine({
+        drivers: [createMockDriver({ delayMs: 50 })],
+      });
       const plan = makeSingleStepPlan();
       let activeRunId: string | undefined;
       let capturedById: RunState | undefined;
 
-      for await (const event of engine.run({ plan, workspace: dir, artifactDir: join(dir, "artifacts") })) {
+      for await (const event of engine.run({
+        plan,
+        workspace: dir,
+        artifactDir: join(dir, "artifacts"),
+      })) {
         if (event.type === "run-started") activeRunId = event.runId;
-        if (event.type === "step-started") { capturedById = engine.query(activeRunId); break; }
+        if (event.type === "step-started") {
+          capturedById = engine.query(activeRunId);
+          break;
+        }
       }
 
       expect(capturedById).toBeDefined();
@@ -117,10 +142,19 @@ describe("Engine.query() — Spec 32", () => {
 
   it("test 4: query(unknown-id) during active run returns undefined", async () => {
     await withTempDir(async (dir) => {
-      const engine = createEngine({ drivers: [createMockDriver({ delayMs: 50 })] });
+      const engine = createEngine({
+        drivers: [createMockDriver({ delayMs: 50 })],
+      });
       let result: RunState | undefined;
-      for await (const event of engine.run({ plan: makeSingleStepPlan(), workspace: dir, artifactDir: join(dir, "artifacts") })) {
-        if (event.type === "step-started") { result = engine.query("unknown-id-12345"); break; }
+      for await (const event of engine.run({
+        plan: makeSingleStepPlan(),
+        workspace: dir,
+        artifactDir: join(dir, "artifacts"),
+      })) {
+        if (event.type === "step-started") {
+          result = engine.query("unknown-id-12345");
+          break;
+        }
       }
       expect(result).toBeUndefined();
     });
@@ -129,7 +163,11 @@ describe("Engine.query() — Spec 32", () => {
   it("test 5: query() after run-completed returns undefined", async () => {
     await withTempDir(async (dir) => {
       const engine = createEngine({ drivers: [createMockDriver()] });
-      for await (const _event of engine.run({ plan: makeSingleStepPlan(), workspace: dir, artifactDir: join(dir, "artifacts") })) {
+      for await (const _event of engine.run({
+        plan: makeSingleStepPlan(),
+        workspace: dir,
+        artifactDir: join(dir, "artifacts"),
+      })) {
         // consume all events
       }
       expect(engine.query()).toBeUndefined();
@@ -138,9 +176,15 @@ describe("Engine.query() — Spec 32", () => {
 
   it("test 6: RunState.steps reflects mid-run snapshot with correct states", async () => {
     await withTempDir(async (dir) => {
-      const engine = createEngine({ drivers: [createMockDriver({ delayMs: 50 })] });
-      const captured = await captureAtEvent(engine, makeSimpleLinearPlan(), dir,
-        (e) => e.type === "step-succeeded" && e.stepId === "ci/build");
+      const engine = createEngine({
+        drivers: [createMockDriver({ delayMs: 50 })],
+      });
+      const captured = await captureAtEvent(
+        engine,
+        makeSimpleLinearPlan(),
+        dir,
+        (e) => e.type === "step-succeeded" && e.stepId === "ci/build",
+      );
 
       expect(captured).toBeDefined();
       const states = new Map(captured!.steps.map((s) => [s.stepId, s.state]));
@@ -158,7 +202,11 @@ describe("Engine.query() — Spec 32", () => {
     await withTempDir(async (dir) => {
       const engine = createEngine({ drivers: [createMockDriver()] });
       let terminalState: RunState | undefined;
-      for await (const event of engine.run({ plan: makeSingleStepPlan(), workspace: dir, artifactDir: join(dir, "artifacts") })) {
+      for await (const event of engine.run({
+        plan: makeSingleStepPlan(),
+        workspace: dir,
+        artifactDir: join(dir, "artifacts"),
+      })) {
         if (event.type === "run-completed") terminalState = engine.query();
       }
       expect(terminalState).toBeDefined();
@@ -169,8 +217,12 @@ describe("Engine.query() — Spec 32", () => {
   it("test 8: a failed step appears with state failed and durationMs present", async () => {
     await withTempDir(async (dir) => {
       const engine = createEngine({ drivers: [createMockDriver()] });
-      const captured = await captureAtEvent(engine, makeSingleStepPlan("exit 1"), dir,
-        (e) => e.type === "step-failed");
+      const captured = await captureAtEvent(
+        engine,
+        makeSingleStepPlan("exit 1"),
+        dir,
+        (e) => e.type === "step-failed",
+      );
       expect(captured).toBeDefined();
       const step = captured!.steps.find((s) => s.stepId === "ci/hello");
       expect(step?.state).toBe("failed");
@@ -187,18 +239,25 @@ describe("Engine.query() — Spec 32", () => {
         graphId: "graph-skip-test",
         entry: { id: "ci/on-push", trigger: { kind: "push" } },
         inputs: {},
-        steps: [{
-          id: "ci/hello",
-          runtime: {},
-          operations: [{ kind: "shell", command: "echo hello" }],
-          inputs: [],
-          outputs: [],
-          dependencies: [],
-          condition: { kind: "status", status: "never" },
-        }],
+        steps: [
+          {
+            id: "ci/hello",
+            runtime: {},
+            operations: [{ kind: "shell", command: "echo hello" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [],
+            condition: { kind: "status", status: "never" },
+          },
+        ],
         createdAt: "2026-08-13T00:00:00.000Z",
       };
-      const captured = await captureAtEvent(engine, plan, dir, (e) => e.type === "step-skipped");
+      const captured = await captureAtEvent(
+        engine,
+        plan,
+        dir,
+        (e) => e.type === "step-skipped",
+      );
       expect(captured).toBeDefined();
       const step = captured!.steps.find((s) => s.stepId === "ci/hello");
       expect(step?.state).toBe("skipped");
@@ -229,14 +288,26 @@ describe("Engine.query() — Spec 32", () => {
 
   it("test 12: no any in RunState or query implementation", async () => {
     const { readFile } = await import("node:fs/promises");
-    const typesSource = await readFile(join(import.meta.dirname, "..", "types.ts"), "utf-8");
-    const engineSource = await readFile(join(import.meta.dirname, "..", "engine.ts"), "utf-8");
+    const typesSource = await readFile(
+      join(import.meta.dirname, "..", "types.ts"),
+      "utf-8",
+    );
+    const engineSource = await readFile(
+      join(import.meta.dirname, "..", "engine.ts"),
+      "utf-8",
+    );
 
-    const runStateBlock = typesSource.slice(typesSource.indexOf("export interface RunState"), typesSource.indexOf("export interface Engine"));
+    const runStateBlock = typesSource.slice(
+      typesSource.indexOf("export interface RunState"),
+      typesSource.indexOf("export interface Engine"),
+    );
     expect(runStateBlock).not.toContain(" any");
     expect(runStateBlock).not.toContain(": any");
 
-    const queryBlock = engineSource.slice(engineSource.indexOf("query("), engineSource.indexOf("async *run("));
+    const queryBlock = engineSource.slice(
+      engineSource.indexOf("query("),
+      engineSource.indexOf("async *run("),
+    );
     expect(queryBlock).not.toContain(": any");
     expect(queryBlock).not.toContain(" any ");
   });

@@ -21,7 +21,9 @@ export interface GithubTriggers {
     readonly branches?: readonly string[];
     readonly paths?: readonly string[];
   };
-  readonly workflow_dispatch?: null | { readonly inputs?: Readonly<Record<string, GithubInput>> };
+  readonly workflow_dispatch?: null | {
+    readonly inputs?: Readonly<Record<string, GithubInput>>;
+  };
   readonly schedule?: readonly {
     readonly cron: string;
     readonly timezone?: string;
@@ -44,10 +46,13 @@ export interface GithubStep {
   readonly shell?: string;
 }
 
-export type GithubRunsOn = string | readonly string[] | {
-  readonly group: string;
-  readonly labels: readonly string[];
-};
+export type GithubRunsOn =
+  | string
+  | readonly string[]
+  | {
+      readonly group: string;
+      readonly labels: readonly string[];
+    };
 
 export interface GithubService {
   readonly image: string;
@@ -76,7 +81,10 @@ export interface GithubJob {
   readonly services?: Readonly<Record<string, GithubService>>;
   readonly environment?: { readonly name: string; readonly url?: string };
   readonly cache?: GithubCache;
-  readonly concurrency?: { readonly group: string; readonly cancelInProgress?: boolean };
+  readonly concurrency?: {
+    readonly group: string;
+    readonly cancelInProgress?: boolean;
+  };
   /** For reusable workflow call jobs: "uses" + "with" + "secrets". */
   readonly uses?: string;
   readonly with?: Record<string, unknown>;
@@ -106,7 +114,10 @@ export interface GithubTargetGraph {
   readonly env: Record<string, string>;
   readonly permissions?: Readonly<Record<string, string>>;
   readonly defaults?: GithubDefaults;
-  readonly concurrency?: { readonly group: string; readonly cancelInProgress?: boolean };
+  readonly concurrency?: {
+    readonly group: string;
+    readonly cancelInProgress?: boolean;
+  };
 }
 
 export interface GeneratedArtifact {

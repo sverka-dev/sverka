@@ -14,5 +14,9 @@ export type { HostDriverConfig } from "./config.js";
 
 // Shared
 export { type CommandAllowlist, createAllowlist } from "./allowlist.js";
-export { HostExecutorError, HostDriverError, HostTimeoutError, CommandNotAllowedError }
-  from "./errors.js";
+export {
+  HostExecutorError,
+  HostDriverError,
+  HostTimeoutError,
+  CommandNotAllowedError,
+} from "./errors.js";

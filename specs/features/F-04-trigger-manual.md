@@ -12,13 +12,13 @@ The manual trigger allows a user to start a pipeline by hand — via GitHub's "R
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `on: workflow_dispatch` | `when: manual` + `rules` | `trigger.manual` |
-| Semantics | Workflow runs from UI with typed inputs | Job runs when user clicks "play" | Pipeline starts on manual invocation |
-| Value type | map with `inputs` (typed) | `when: manual` (boolean-ish) | trigger kind + optional typed inputs |
-| Limitations | inputs: boolean, choice, number, environment, string | `manual_confirmation` for custom message | typed inputs lowered to GitHub, emulated on GitLab |
-| Provider gap | — | no typed inputs on manual trigger | GitLab inputs via `spec:inputs` (different mechanism) |
+| Aspect       | GitHub Actions                                       | GitLab CI                                | Sverka (proposed)                                     |
+| ------------ | ---------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------- |
+| Construct    | `on: workflow_dispatch`                              | `when: manual` + `rules`                 | `trigger.manual`                                      |
+| Semantics    | Workflow runs from UI with typed inputs              | Job runs when user clicks "play"         | Pipeline starts on manual invocation                  |
+| Value type   | map with `inputs` (typed)                            | `when: manual` (boolean-ish)             | trigger kind + optional typed inputs                  |
+| Limitations  | inputs: boolean, choice, number, environment, string | `manual_confirmation` for custom message | typed inputs lowered to GitHub, emulated on GitLab    |
+| Provider gap | —                                                    | no typed inputs on manual trigger        | GitLab inputs via `spec:inputs` (different mechanism) |
 
 ## GitHub Actions
 

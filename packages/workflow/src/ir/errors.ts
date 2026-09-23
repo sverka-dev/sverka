@@ -7,11 +7,7 @@ export class IRError extends Error {
   override readonly cause: unknown;
   readonly code: IRErrorCode;
 
-  constructor(
-    message: string,
-    code: IRErrorCode,
-    cause?: unknown,
-  ) {
+  constructor(message: string, code: IRErrorCode, cause?: unknown) {
     super(message);
     this.name = "IRError";
     this.code = code;

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { pluginCombinations, aggregateResults, computeAnalysis } from "../src/runner.js";
+import {
+  pluginCombinations,
+  aggregateResults,
+  computeAnalysis,
+} from "../src/runner.js";
 import type {
   PluginConfig,
   RunResult,
@@ -111,11 +115,7 @@ describe("pluginCombinations", () => {
   });
 
   it("generates 8 combinations for 3 plugins", () => {
-    const combos = pluginCombinations([
-      plugin("a"),
-      plugin("b"),
-      plugin("c"),
-    ]);
+    const combos = pluginCombinations([plugin("a"), plugin("b"), plugin("c")]);
     expect(combos).toHaveLength(8);
   });
 
@@ -165,8 +165,28 @@ describe("aggregateResults", () => {
 
   it("computes averages for matching results", () => {
     const results = [
-      runResult({ metrics: metrics({ inputTokens: 100, outputTokens: 50, totalTokens: 160, toolCallCount: 2, llmCallCount: 3, executionTimeMs: 4000 }), success: true }),
-      runResult({ metrics: metrics({ inputTokens: 200, outputTokens: 100, totalTokens: 320, toolCallCount: 4, llmCallCount: 6, executionTimeMs: 6000 }), success: false }),
+      runResult({
+        metrics: metrics({
+          inputTokens: 100,
+          outputTokens: 50,
+          totalTokens: 160,
+          toolCallCount: 2,
+          llmCallCount: 3,
+          executionTimeMs: 4000,
+        }),
+        success: true,
+      }),
+      runResult({
+        metrics: metrics({
+          inputTokens: 200,
+          outputTokens: 100,
+          totalTokens: 320,
+          toolCallCount: 4,
+          llmCallCount: 6,
+          executionTimeMs: 6000,
+        }),
+        success: false,
+      }),
     ];
     const agg = aggregateResults(results, () => true);
     expect(agg.totalRuns).toBe(2);
@@ -214,17 +234,18 @@ describe("aggregateResults", () => {
   });
 
   it("returns 0 avgJudgeScore when no runs have verdicts", () => {
-    const results = [
-      runResult({ verdicts: [] }),
-      runResult({ verdicts: [] }),
-    ];
+    const results = [runResult({ verdicts: [] }), runResult({ verdicts: [] })];
     const agg = aggregateResults(results, () => true);
     expect(agg.avgJudgeScore).toBe(0);
     expect(agg.judgePassCount).toBe(0);
   });
 
   it("includes the label in the result", () => {
-    const agg = aggregateResults([runResult()], () => true, "glm-5-2/plugins=a");
+    const agg = aggregateResults(
+      [runResult()],
+      () => true,
+      "glm-5-2/plugins=a",
+    );
     expect(agg.label).toBe("glm-5-2/plugins=a");
   });
 });
@@ -311,7 +332,9 @@ describe("runArena", () => {
       id: "mock",
       spawn: (): AgentProcess => ({
         run: async () => runResult(),
-        kill: () => { killed++; },
+        kill: () => {
+          killed++;
+        },
       }),
     };
     const config: ArenaConfig = {
@@ -333,7 +356,9 @@ describe("runArena", () => {
     const mockAdapter: AgentAdapter = {
       id: "mock",
       spawn: (): AgentProcess => ({
-        run: async () => { throw new Error("boom"); },
+        run: async () => {
+          throw new Error("boom");
+        },
         kill: () => {},
       }),
     };
@@ -358,9 +383,7 @@ describe("runArena", () => {
 describe("computeAnalysis", () => {
   it("returns empty comparisons when only baseline runs exist", () => {
     const tasks: Task[] = [{ id: "t1", name: "Task 1", prompt: "do it" }];
-    const results = [
-      runResult({ taskId: "t1", pluginIds: [] }),
-    ];
+    const results = [runResult({ taskId: "t1", pluginIds: [] })];
     const analysis = computeAnalysis(results, tasks);
     expect(analysis).toHaveLength(1);
     expect(analysis[0]?.taskId).toBe("t1");
@@ -371,8 +394,16 @@ describe("computeAnalysis", () => {
   it("compares baseline vs candidate combo", () => {
     const tasks: Task[] = [{ id: "t1", name: "Task 1", prompt: "do it" }];
     const results = [
-      runResult({ taskId: "t1", pluginIds: [], metrics: metrics({ totalTokens: 200, executionTimeMs: 5000 }) }),
-      runResult({ taskId: "t1", pluginIds: ["sverka"], metrics: metrics({ totalTokens: 100, executionTimeMs: 3000 }) }),
+      runResult({
+        taskId: "t1",
+        pluginIds: [],
+        metrics: metrics({ totalTokens: 200, executionTimeMs: 5000 }),
+      }),
+      runResult({
+        taskId: "t1",
+        pluginIds: ["sverka"],
+        metrics: metrics({ totalTokens: 100, executionTimeMs: 3000 }),
+      }),
     ];
     const analysis = computeAnalysis(results, tasks);
     expect(analysis).toHaveLength(1);
@@ -440,7 +471,8 @@ describe("runArena with judge", () => {
 
     const judgeRun = vi.fn(async (_prompt: string, _timeout: number) =>
       runResult({
-        output: '{"score": 85, "passed": true, "reasoning": "good work", "issues": ["none"]}',
+        output:
+          '{"score": 85, "passed": true, "reasoning": "good work", "issues": ["none"]}',
         success: true,
       }),
     );
@@ -467,7 +499,9 @@ describe("runArena with judge", () => {
     };
 
     const config: ArenaConfig = {
-      tasks: [{ id: "t1", name: "T", prompt: "do it", successCriteria: "works" }],
+      tasks: [
+        { id: "t1", name: "T", prompt: "do it", successCriteria: "works" },
+      ],
       agent: mockAdapter,
       models: [{ id: "m1", name: "M" }],
       plugins: [],

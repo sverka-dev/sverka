@@ -45,7 +45,9 @@ describe("plan command", () => {
   it("prints JSON format", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
-    const code = await main(["plan", "--root", dir, "--format", "json"], { output: out });
+    const code = await main(["plan", "--root", dir, "--format", "json"], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("plan");
@@ -69,7 +71,9 @@ describe("plan command", () => {
   it("accepts --entry flag", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
-    const code = await main(["plan", "--root", dir, "--entry", "ci/on-push"], { output: out });
+    const code = await main(["plan", "--root", dir, "--entry", "ci/on-push"], {
+      output: out,
+    });
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("ci/on-push");
   });
@@ -77,7 +81,9 @@ describe("plan command", () => {
   it("exits 2 for unknown --entry", async () => {
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
-    const code = await main(["plan", "--root", dir, "--entry", "missing"], { output: out });
+    const code = await main(["plan", "--root", dir, "--entry", "missing"], {
+      output: out,
+    });
     expect(code).toBe(2);
     expect(out.stderrText).toContain("missing");
   });

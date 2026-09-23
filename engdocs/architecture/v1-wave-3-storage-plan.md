@@ -48,7 +48,7 @@ packages/storage/
 
 - `package.json`: `"@sverka/storage"`, `type: "module"`, `main`/`module` →
   `./dist/index.mjs`, `types` → `./dist/index.d.mts`, `exports` map, `files:
-  ["dist"]`. Scripts: `build: tsdown`, `test: vitest run --passWithNoTests`,
+["dist"]`. Scripts: `build: tsdown`, `test: vitest run --passWithNoTests`,
   `lint: eslint src`, `typecheck: tsc --noEmit`.
 - `dependencies`: `"@sverka/runtime": "workspace:*"` (type-only usage, but
   workspace dep so the types resolve).
@@ -107,6 +107,6 @@ packages/storage/
 - `StorageError` MUST use `override readonly cause`.
 - Commit hygiene: stage only `packages/storage/**` +
   `specs/31-storage/spec.md` + `engdocs/architecture/v1-wave-3-storage-plan.md`
-  + `engdocs/adr/ADR-014-storage-package.md` + `bun.lock` (if a dep was
-  added — none should be). Exclude `city.toml`/`agents/`/`.devin/`/`.gc/`/
-  `.beads/`/`formulas/`.
+  - `engdocs/adr/ADR-014-storage-package.md` + `bun.lock` (if a dep was
+    added — none should be). Exclude `city.toml`/`agents/`/`.devin/`/`.gc/`/
+    `.beads/`/`formulas/`.

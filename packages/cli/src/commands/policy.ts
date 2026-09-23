@@ -26,7 +26,9 @@ export async function policyCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  output.debug(`policy: root=${global.root} findings=${args.findings} baseline=${args.baseline ?? "(none)"}`);
+  output.debug(
+    `policy: root=${global.root} findings=${args.findings} baseline=${args.baseline ?? "(none)"}`,
+  );
 
   const findingsPath = resolveUnderRoot(global.root, args.findings);
   const raw = await loadFindingsFile(findingsPath);
@@ -37,9 +39,14 @@ export async function policyCommand(
     defaultConfidence: 0.5,
   };
   const findings = normalizeFindings(raw, ctx);
-  const baselineFingerprints = await loadBaselineFingerprints(global.root, args.baseline);
+  const baselineFingerprints = await loadBaselineFingerprints(
+    global.root,
+    args.baseline,
+  );
 
-  const result = evaluatePolicy(findings, DEFAULT_POLICY, [...baselineFingerprints]);
+  const result = evaluatePolicy(findings, DEFAULT_POLICY, [
+    ...baselineFingerprints,
+  ]);
 
   const durationMs = Date.now() - start;
   writePolicyOutput(result, global, output, durationMs);
@@ -67,7 +74,10 @@ async function loadFindingsFile(findingsPath: string): Promise<unknown> {
   }
 }
 
-function normalizeFindings(raw: unknown, ctx: NormalizeContext): readonly Finding[] {
+function normalizeFindings(
+  raw: unknown,
+  ctx: NormalizeContext,
+): readonly Finding[] {
   try {
     return normalizeSarif(raw as SarifLog, ctx);
   } catch (e) {
@@ -109,7 +119,11 @@ function writePolicyOutput(
     output.writeLine(
       JSON.stringify({
         command: "policy",
-        data: { verdict: result.verdict, summary: result.summary, triggered: result.triggered.length },
+        data: {
+          verdict: result.verdict,
+          summary: result.summary,
+          triggered: result.triggered.length,
+        },
         durationMs,
       }),
     );

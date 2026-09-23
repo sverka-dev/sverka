@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { existsSync, writeFileSync, mkdtempSync, rmSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  writeFileSync,
+  mkdtempSync,
+  rmSync,
+  readFileSync,
+} from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -44,17 +50,20 @@ describe("sarif-viewer-web CLI", () => {
     expect(html).toContain("test-rule");
   });
 
-  it.skipIf(!binBuilt)("defaults output to sarif-report.html when no -o", () => {
-    const sarifPath = join(dir, "input.sarif");
-    writeFileSync(sarifPath, VALID_SARIF_JSON);
-    const result = spawnSync("node", [BIN_PATH, sarifPath], {
-      encoding: "utf8",
-      cwd: dir,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    expect(result.status).toBe(0);
-    expect(existsSync(join(dir, "sarif-report.html"))).toBe(true);
-  });
+  it.skipIf(!binBuilt)(
+    "defaults output to sarif-report.html when no -o",
+    () => {
+      const sarifPath = join(dir, "input.sarif");
+      writeFileSync(sarifPath, VALID_SARIF_JSON);
+      const result = spawnSync("node", [BIN_PATH, sarifPath], {
+        encoding: "utf8",
+        cwd: dir,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      expect(result.status).toBe(0);
+      expect(existsSync(join(dir, "sarif-report.html"))).toBe(true);
+    },
+  );
 
   it.skipIf(!binBuilt)("exits 1 when no input provided", () => {
     const result = spawnSync("node", [BIN_PATH], {
@@ -66,10 +75,14 @@ describe("sarif-viewer-web CLI", () => {
   });
 
   it.skipIf(!binBuilt)("exits 1 for nonexistent file argument", () => {
-    const result = spawnSync("node", [BIN_PATH, "/nonexistent/path.sarif", "-o", join(dir, "out.html")], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const result = spawnSync(
+      "node",
+      [BIN_PATH, "/nonexistent/path.sarif", "-o", join(dir, "out.html")],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("sarif-viewer-web");
   });

@@ -8,8 +8,12 @@ type DockerResult = Awaited<ReturnType<typeof runDocker>>;
 function dockerOptions(config: DockerExecutorConfig): DockerRunOptions {
   return {
     timeoutSeconds: 300,
-    ...(config.dockerPath !== undefined ? { dockerPath: config.dockerPath } : {}),
-    ...(config.dockerHost !== undefined ? { dockerHost: config.dockerHost } : {}),
+    ...(config.dockerPath !== undefined
+      ? { dockerPath: config.dockerPath }
+      : {}),
+    ...(config.dockerHost !== undefined
+      ? { dockerHost: config.dockerHost }
+      : {}),
   };
 }
 
@@ -34,7 +38,8 @@ function assertInspectOk(
     );
   }
   if (result.exitCode !== 0) {
-    const detail = result.stderr.trim() || result.stdout.trim() || "unknown error";
+    const detail =
+      result.stderr.trim() || result.stdout.trim() || "unknown error";
     throw new ImageDigestError(
       `image "${image}" inspect failed ${phase}: ${detail}`,
       { image, expected: expectedDigest },
@@ -62,25 +67,35 @@ export async function verifyImageDigest(
   if (inspectResult.exitCode !== 0) {
     const pullResult = await dockerPull(image, opts);
     if (pullResult.timedOut) {
-      throw new ImageDigestError(
-        `timed out pulling image "${image}"`,
-        { image, expected: expectedDigest },
-      );
+      throw new ImageDigestError(`timed out pulling image "${image}"`, {
+        image,
+        expected: expectedDigest,
+      });
     }
     if (pullResult.exitCode !== 0) {
-      const detail = pullResult.stderr.trim() || pullResult.stdout.trim() || "unknown error";
-      throw new ImageDigestError(
-        `failed to pull image "${image}": ${detail}`,
-        { image, expected: expectedDigest },
-      );
+      const detail =
+        pullResult.stderr.trim() || pullResult.stdout.trim() || "unknown error";
+      throw new ImageDigestError(`failed to pull image "${image}": ${detail}`, {
+        image,
+        expected: expectedDigest,
+      });
     }
     inspectResult = await dockerInspect(image, opts);
   }
 
-  assertInspectOk(inspectResult, image, expectedDigest, inspectResult.exitCode === 0 ? "" : "after pull");
+  assertInspectOk(
+    inspectResult,
+    image,
+    expectedDigest,
+    inspectResult.exitCode === 0 ? "" : "after pull",
+  );
 
   const repoDigests = parseRepoDigests(inspectResult.stdout.trim());
-  if (!repoDigests.some((d) => d === expectedDigest || d.endsWith(`@${expectedDigest}`))) {
+  if (
+    !repoDigests.some(
+      (d) => d === expectedDigest || d.endsWith(`@${expectedDigest}`),
+    )
+  ) {
     throw new ImageDigestError(
       `image digest mismatch for "${image}": expected ${expectedDigest}, got ${repoDigests.join(", ") || "none"}`,
       { image, expected: expectedDigest, actual: repoDigests },

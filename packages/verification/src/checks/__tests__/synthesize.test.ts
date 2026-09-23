@@ -7,7 +7,11 @@ import { makeCheck, makeContext } from "./helpers/fixtures.js";
 describe("synthesizeCheckSteps", () => {
   it("converts proposed checks to StepDefinitions", () => {
     const ctx = makeContext(["bun"]);
-    const checks = [makeCheck("typecheck"), makeCheck("lint"), makeCheck("test")];
+    const checks = [
+      makeCheck("typecheck"),
+      makeCheck("lint"),
+      makeCheck("test"),
+    ];
     const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
     expect(resolved).toHaveLength(3);
     expect(resolved[0]!.step.id).toBe("checks/typecheck");
@@ -17,19 +21,33 @@ describe("synthesizeCheckSteps", () => {
 
   it("skips checks that fail resolution", () => {
     const ctx = makeContext(["bun"]);
-    const checks = [makeCheck("typecheck"), makeCheck("clippy"), makeCheck("lint")];
+    const checks = [
+      makeCheck("typecheck"),
+      makeCheck("clippy"),
+      makeCheck("lint"),
+    ];
     // clippy requires cargo, not bun — should be skipped.
     const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
     expect(resolved).toHaveLength(2);
-    expect(resolved.map((r) => r.step.id)).toEqual(["checks/typecheck", "checks/lint"]);
+    expect(resolved.map((r) => r.step.id)).toEqual([
+      "checks/typecheck",
+      "checks/lint",
+    ]);
   });
 
   it("deduplicates by checkId", () => {
     const ctx = makeContext(["bun"]);
-    const checks = [makeCheck("typecheck"), makeCheck("typecheck"), makeCheck("lint")];
+    const checks = [
+      makeCheck("typecheck"),
+      makeCheck("typecheck"),
+      makeCheck("lint"),
+    ];
     const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
     expect(resolved).toHaveLength(2);
-    expect(resolved.map((r) => r.step.id)).toEqual(["checks/typecheck", "checks/lint"]);
+    expect(resolved.map((r) => r.step.id)).toEqual([
+      "checks/typecheck",
+      "checks/lint",
+    ]);
   });
 
   it("step IDs follow checks/<checkId> pattern", () => {
@@ -41,7 +59,11 @@ describe("synthesizeCheckSteps", () => {
 
   it("steps have runtime.mode === host", () => {
     const ctx = makeContext(["bun"]);
-    const checks = [makeCheck("typecheck"), makeCheck("lint"), makeCheck("test")];
+    const checks = [
+      makeCheck("typecheck"),
+      makeCheck("lint"),
+      makeCheck("test"),
+    ];
     const resolved = synthesizeCheckSteps(checks, ctx, createBuiltinResolver());
     for (const r of resolved) {
       expect(r.step.runtime.mode).toBe("host");
@@ -82,6 +104,8 @@ describe("synthesizeCheckSteps", () => {
     const resolved = synthesizeCheckSteps(checks, ctx, custom);
     expect(resolved).toHaveLength(2);
     expect(resolved[0]!.step.id).toBe("checks/custom1");
-    expect(resolved[0]!.outputs).toEqual([{ path: "out.sarif", format: "sarif" }]);
+    expect(resolved[0]!.outputs).toEqual([
+      { path: "out.sarif", format: "sarif" },
+    ]);
   });
 });

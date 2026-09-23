@@ -1,7 +1,12 @@
 // Tests for AgentStep model + synthesis. Spec 27 — items 1, 11.
 import { describe, it, expect } from "vitest";
 import { Project, Pipeline, Entry, push } from "../index.js";
-import { AgentStep, type AgentStepProps, type AgentToolRef, type AgentOperation } from "../index.js";
+import {
+  AgentStep,
+  type AgentStepProps,
+  type AgentToolRef,
+  type AgentOperation,
+} from "../index.js";
 import { synthesize, type StepDefinition } from "../../core/index.js";
 
 describe("AgentStep — exports (item 11)", () => {
@@ -39,11 +44,15 @@ describe("AgentStep — synthesis (item 1)", () => {
     new Entry(pipeline, "on-push", { trigger: push(), roots: ["review"] });
 
     const graph = synthesize(proj);
-    const step: StepDefinition | undefined = graph.project.pipelines[0]?.steps[0];
+    const step: StepDefinition | undefined =
+      graph.project.pipelines[0]?.steps[0];
     expect(step?.id).toBe("ci/review");
     expect(step?.operations).toHaveLength(1);
     expect(step?.operations[0]?.kind).toBe("agent");
-    const agentOp = step?.operations[0] as Extract<StepDefinition["operations"][number], { kind: "agent" }>;
+    const agentOp = step?.operations[0] as Extract<
+      StepDefinition["operations"][number],
+      { kind: "agent" }
+    >;
     expect(agentOp.engine).toBe("claude");
     expect(agentOp.prompt).toBe("Review the PR");
   });
@@ -61,7 +70,10 @@ describe("AgentStep — synthesis (item 1)", () => {
 
     const graph = synthesize(proj);
     const step = graph.project.pipelines[0]?.steps[0];
-    const op = step?.operations[0] as Extract<StepDefinition["operations"][number], { kind: "agent" }>;
+    const op = step?.operations[0] as Extract<
+      StepDefinition["operations"][number],
+      { kind: "agent" }
+    >;
     expect(op.model).toBe("claude-sonnet-4-5");
     expect(op.tools).toEqual([{ plugin: "mcp", tool: "github.create-pr" }]);
     expect(op.maxTokens).toBe(4096);

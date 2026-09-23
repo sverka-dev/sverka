@@ -1,6 +1,10 @@
 // Mock runtime driver for testing.
 import type { StepDefinition } from "@sverka/workflow";
-import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "../../types.js";
+import type {
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+} from "../../types.js";
 
 export interface MockDriverConfig {
   readonly name?: string;
@@ -63,28 +67,30 @@ export function createMockDriver(config: MockDriverConfig = {}): RuntimeDriver {
   return {
     name: config.name ?? "mock",
     canExecute: config.canExecuteFn ?? (() => true),
-    executeShell: config.executeFn ?? (async (req: ShellExecuteRequest): Promise<ShellResult> => {
-      if (config.delayMs) {
-        await new Promise((r) => setTimeout(r, config.delayMs));
-      }
-      // Simulate exit 1 for commands that start with "exit 1".
-      if (req.command.trim().startsWith("exit 1")) {
+    executeShell:
+      config.executeFn ??
+      (async (req: ShellExecuteRequest): Promise<ShellResult> => {
+        if (config.delayMs) {
+          await new Promise((r) => setTimeout(r, config.delayMs));
+        }
+        // Simulate exit 1 for commands that start with "exit 1".
+        if (req.command.trim().startsWith("exit 1")) {
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: "mock: simulated failure",
+            durationMs: 5,
+            timedOut: false,
+          };
+        }
         return {
-          exitCode: 1,
-          stdout: "",
-          stderr: "mock: simulated failure",
-          durationMs: 5,
+          exitCode: 0,
+          stdout: `mock: ${req.command}`,
+          stderr: "",
+          durationMs: 10,
           timedOut: false,
         };
-      }
-      return {
-        exitCode: 0,
-        stdout: `mock: ${req.command}`,
-        stderr: "",
-        durationMs: 10,
-        timedOut: false,
-      };
-    }),
+      }),
   };
 }
 
@@ -97,7 +103,9 @@ export function createOutputWritingMockDriver(): RuntimeDriver {
       const { writeFile } = await import("node:fs/promises");
       const { join } = await import("node:path");
       // If the command contains "echo X > output/Y", write the file.
-      const match = req.command.match(/echo\s+"?([^>"]+?)"?\s*>\s*\$SVERKA_OUTPUT_DIR\/(\S+)/);
+      const match = req.command.match(
+        /echo\s+"?([^>"]+?)"?\s*>\s*\$SVERKA_OUTPUT_DIR\/(\S+)/,
+      );
       if (match) {
         const value = match[1]!.trim();
         const outputName = match[2]!;

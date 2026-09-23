@@ -26,13 +26,21 @@ const SVERKA_VERSION: string = ((): string => {
     raw = readFileSync(new URL("../package.json", import.meta.url), "utf-8");
   } catch {
     try {
-      raw = readFileSync(new URL("../../package.json", import.meta.url), "utf-8");
+      raw = readFileSync(
+        new URL("../../package.json", import.meta.url),
+        "utf-8",
+      );
     } catch {
       return "0.0.0";
     }
   }
   const parsed: unknown = JSON.parse(raw);
-  if (typeof parsed === "object" && parsed !== null && "version" in parsed && typeof (parsed as Record<string, unknown>).version === "string") {
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "version" in parsed &&
+    typeof (parsed as Record<string, unknown>).version === "string"
+  ) {
     return (parsed as { version: string }).version;
   }
   return "0.0.0";
@@ -104,7 +112,9 @@ function buildExecutor(
   return {
     type: opts.executor,
     ...(spec.image !== undefined ? { image: spec.image } : {}),
-    ...(spec.imageDigest !== undefined ? { imageDigest: spec.imageDigest } : {}),
+    ...(spec.imageDigest !== undefined
+      ? { imageDigest: spec.imageDigest }
+      : {}),
   };
 }
 
@@ -172,7 +182,9 @@ function resolveDefaults(
 
 function optionalFields(spec: OperationSpec): Partial<PlanOperation> {
   return {
-    ...(spec.description !== undefined ? { description: spec.description } : {}),
+    ...(spec.description !== undefined
+      ? { description: spec.description }
+      : {}),
     ...(spec.command !== undefined ? { command: spec.command } : {}),
     ...(spec.args !== undefined ? { args: spec.args } : {}),
     ...(spec.env !== undefined ? { env: spec.env } : {}),
@@ -208,14 +220,14 @@ function computeCacheKey(inputs: readonly string[]): string {
 
 function computeSourceContextHash(context?: ProjectContext): string {
   const changedFiles = context
-    ? [...context.changedFiles.map((f) => f.path)].sort((a, b) => a.localeCompare(b))
+    ? [...context.changedFiles.map((f) => f.path)].sort((a, b) =>
+        a.localeCompare(b),
+      )
     : [];
   const value = {
     commit: context?.commit ?? "",
     dirty: context?.dirty ?? false,
     changedFiles,
   };
-  return createHash("sha256")
-    .update(canonicalStringify(value))
-    .digest("hex");
+  return createHash("sha256").update(canonicalStringify(value)).digest("hex");
 }

@@ -4,13 +4,20 @@ import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { createHtmlRenderer } from "../src/html-renderer.js";
 import {
-  runStarted, stepSucceeded, stepFailed,
-  stepSkipped, runCompleted,
+  runStarted,
+  stepSucceeded,
+  stepFailed,
+  stepSkipped,
+  runCompleted,
 } from "./helpers/fixtures.js";
 import type { Finding, PolicyResult } from "@sverka/verification";
 import type { DefinitionGraph } from "@sverka/workflow";
 
-function makeFinding(severity: string, checkId: string, file = "src/index.ts"): Finding {
+function makeFinding(
+  severity: string,
+  checkId: string,
+  file = "src/index.ts",
+): Finding {
   return {
     id: `${checkId}:fp-${severity}`,
     fingerprint: `fp-${severity}`,
@@ -42,7 +49,13 @@ const PASS_RESULT: PolicyResult = {
 const FAIL_RESULT: PolicyResult = {
   verdict: "fail",
   triggered: [{ finding: makeFinding("high", "ci/lint"), ruleIndex: 0 }],
-  rules: [{ ruleIndex: 0, triggered: true, matched: [makeFinding("high", "ci/lint")] }],
+  rules: [
+    {
+      ruleIndex: 0,
+      triggered: true,
+      matched: [makeFinding("high", "ci/lint")],
+    },
+  ],
   summary: "fail: 1 finding triggered 1 rule (1 high)",
 };
 
@@ -56,8 +69,22 @@ const SAMPLE_GRAPH: DefinitionGraph = {
         entries: [],
         outputs: [],
         steps: [
-          { id: "ci/build", runtime: { kind: "host" }, operations: [{ kind: "shell", command: "echo" }], inputs: [], outputs: [], dependencies: [] },
-          { id: "ci/test", runtime: { kind: "host" }, operations: [{ kind: "shell", command: "echo" }], inputs: [], outputs: [], dependencies: [{ kind: "control", producer: "ci/build" }] },
+          {
+            id: "ci/build",
+            runtime: { kind: "host" },
+            operations: [{ kind: "shell", command: "echo" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [],
+          },
+          {
+            id: "ci/test",
+            runtime: { kind: "host" },
+            operations: [{ kind: "shell", command: "echo" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [{ kind: "control", producer: "ci/build" }],
+          },
         ],
       },
     ],
@@ -67,7 +94,11 @@ const SAMPLE_GRAPH: DefinitionGraph = {
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = join(process.cwd(), ".test-tmp-html", `test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  tmpDir = join(
+    process.cwd(),
+    ".test-tmp-html",
+    `test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   await mkdir(tmpDir, { recursive: true });
 });
 
@@ -76,7 +107,9 @@ afterEach(async () => {
 });
 
 /** Create a renderer, emit events, flush, and return the generated HTML. */
-function renderHtml(events: Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][]): string {
+function renderHtml(
+  events: Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][],
+): string {
   const outputPath = join(tmpDir, "report.html");
   const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
   for (const event of events) renderer.onEvent(event);
@@ -85,8 +118,14 @@ function renderHtml(events: Parameters<ReturnType<typeof createHtmlRenderer>["on
 }
 
 /** Common event sequence: run started + completed with optional extra events. */
-function withRun(...extra: Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][]): Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][] {
-  return [runStarted("run-1", "plan-abc"), ...extra, runCompleted("run-1", "success", 100)];
+function withRun(
+  ...extra: Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][]
+): Parameters<ReturnType<typeof createHtmlRenderer>["onEvent"]>[0][] {
+  return [
+    runStarted("run-1", "plan-abc"),
+    ...extra,
+    runCompleted("run-1", "success", 100),
+  ];
 }
 
 describe("HtmlRenderer", () => {
@@ -101,7 +140,10 @@ describe("HtmlRenderer", () => {
   });
 
   it("10. run summary contains planId, status, duration", () => {
-    const html = renderHtml([runStarted("run-1", "plan-abc"), runCompleted("run-1", "success", 560)]);
+    const html = renderHtml([
+      runStarted("run-1", "plan-abc"),
+      runCompleted("run-1", "success", 560),
+    ]);
     expect(html).toContain("plan-abc");
     expect(html).toContain("success");
     expect(html).toContain("560");
@@ -128,7 +170,10 @@ describe("HtmlRenderer", () => {
     const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
     renderer.onEvent(runStarted("run-1", "plan-abc"));
     renderer.onEvent(runCompleted("run-1", "success", 100));
-    renderer.onFindings([makeFinding("high", "ci/lint"), makeFinding("medium", "ci/test")]);
+    renderer.onFindings([
+      makeFinding("high", "ci/lint"),
+      makeFinding("medium", "ci/test"),
+    ]);
     renderer.flush();
     const html = readFileSync(outputPath, "utf-8");
     expect(html).toContain("<table");
@@ -191,7 +236,10 @@ describe("HtmlRenderer", () => {
     const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
     renderer.onEvent(runStarted("run-1", "plan-abc"));
     renderer.onEvent(runCompleted("run-1", "success", 100));
-    renderer.onFindings([makeFinding("high", "ci/lint"), makeFinding("medium", "ci/test")]);
+    renderer.onFindings([
+      makeFinding("high", "ci/lint"),
+      makeFinding("medium", "ci/test"),
+    ]);
     renderer.flush();
     const html = readFileSync(outputPath, "utf-8");
     expect(html).toContain("filter");

@@ -2,10 +2,7 @@ import type { Plan, PlanOperation } from "@sverka/workflow";
 import type { Executor } from "./executor.js";
 import type { StateStore } from "./state-store.js";
 import type { CacheBackend, CacheKey } from "./cache.js";
-import type {
-  ExecutionResult,
-  OperationOutcome,
-} from "./result.js";
+import type { ExecutionResult, OperationOutcome } from "./result.js";
 import { SchedulerError } from "./errors.js";
 import { topoSort, dependentsOf } from "./internal/topo.js";
 import { ResourcePool } from "./internal/resource-pool.js";
@@ -206,7 +203,9 @@ export class Scheduler {
     topo: { ok: true; order: readonly string[] },
   ): Promise<RunContext> {
     const priorState = await loadPersistedState(
-      this.config.stateStore, this.config.resume, plan.id,
+      this.config.stateStore,
+      this.config.resume,
+      plan.id,
     );
     const completed = new Set<string>(priorState?.completed ?? []);
     const skippedFromResume = new Set<string>(completed);
@@ -232,7 +231,10 @@ export class Scheduler {
 
   private applyPriorOutcomes(
     priorState:
-      | { completed: readonly string[]; outcomes: ReadonlyMap<string, OperationOutcome> }
+      | {
+          completed: readonly string[];
+          outcomes: ReadonlyMap<string, OperationOutcome>;
+        }
       | undefined,
     completed: Set<string>,
     states: Map<string, OpState>,
@@ -266,7 +268,10 @@ export class Scheduler {
   private shouldContinue(ctx: RunContext): boolean {
     return (
       ctx.inflight.size > 0 ||
-      (ctx.index < ctx.order.length && !this.cancelled && !ctx.fatalFailure && !ctx.runError)
+      (ctx.index < ctx.order.length &&
+        !this.cancelled &&
+        !ctx.fatalFailure &&
+        !ctx.runError)
     );
   }
 
@@ -309,9 +314,14 @@ export class Scheduler {
     start: number,
   ): Promise<ExecutionResult> {
     const outcomes = this.buildOutcomes(ctx);
-    const status = computeFinalStatus(this.cancelled, ctx.fatalFailure, outcomes);
+    const status = computeFinalStatus(
+      this.cancelled,
+      ctx.fatalFailure,
+      outcomes,
+    );
     const runtimeFailure = outcomesHaveRuntimeFailure(outcomes);
-    if (status === "success") await clearPersistedState(this.config.stateStore, ctx.plan.id);
+    if (status === "success")
+      await clearPersistedState(this.config.stateStore, ctx.plan.id);
     return {
       planId: ctx.plan.id,
       status,
@@ -391,7 +401,13 @@ export class Scheduler {
       else if (s.status === "skipped") skippedList.push(id);
       else if (s.status === "running") runningList.push(id);
     }
-    return { completed: completedList, failed: failedList, skipped: skippedList, running: runningList, outcomes };
+    return {
+      completed: completedList,
+      failed: failedList,
+      skipped: skippedList,
+      running: runningList,
+      outcomes,
+    };
   }
 
   private async runOp(ctx: RunContext, op: PlanOperation): Promise<void> {
@@ -516,7 +532,10 @@ export class Scheduler {
   }
 
   private launchReady(ctx: RunContext): void {
-    while (ctx.running.size < this.config.maxConcurrent && ctx.index < ctx.order.length) {
+    while (
+      ctx.running.size < this.config.maxConcurrent &&
+      ctx.index < ctx.order.length
+    ) {
       if (this.cancelled) break;
       if (!this.tryLaunchNextReady(ctx)) break;
     }

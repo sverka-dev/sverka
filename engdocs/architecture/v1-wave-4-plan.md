@@ -125,7 +125,7 @@ steps 5-6.
    - `compileInngest`, `InngestTarget`, `InngestTargetConfig`
    - `compileDrone`, `DroneTarget`, `DroneTargetConfig`
 2. Run full monorepo gates: `bun run test`, `bun run typecheck`, `bun run
-   lint`, `bun run build`.
+lint`, `bun run build`.
 3. Verify no `any` types (grep).
 4. Verify all error classes use `override` on `cause`.
 
@@ -147,6 +147,7 @@ across builders if available.
 ## Commit hygiene
 
 Stage ONLY:
+
 - `packages/compiler/src/temporal/**`
 - `packages/compiler/src/dagger/**`
 - `packages/compiler/src/inngest/**`

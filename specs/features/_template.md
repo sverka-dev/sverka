@@ -20,13 +20,13 @@ and the one-line portable idea Sverka adopts.
 The core comparison. Keep rows identical across all feature specs so the
 overview page can stitch them together.
 
-| Aspect        | GitHub Actions                | GitLab CI                  | Sverka (proposed)            |
-|---------------|-------------------------------|----------------------------|------------------------------|
-| Construct     | `yaml key`                    | `keyword`                  | `portable node / op`         |
-| Semantics     | one line                      | one line                   | one line                     |
-| Value type    | string/array/map/bool         | string/array/map/bool      | typed IR node                |
-| Limitations   | one line                      | one line                   | one line                     |
-| Provider gap  | —                             | —                          | —                            |
+| Aspect       | GitHub Actions        | GitLab CI             | Sverka (proposed)    |
+| ------------ | --------------------- | --------------------- | -------------------- |
+| Construct    | `yaml key`            | `keyword`             | `portable node / op` |
+| Semantics    | one line              | one line              | one line             |
+| Value type   | string/array/map/bool | string/array/map/bool | typed IR node        |
+| Limitations  | one line              | one line              | one line             |
+| Provider gap | —                     | —                     | —                    |
 
 ## GitHub Actions
 

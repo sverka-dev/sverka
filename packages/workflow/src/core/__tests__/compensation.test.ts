@@ -30,9 +30,17 @@ function expectSynthesisError(projectId: string, compensation: unknown): void {
 
 describe("Spec 30 — compensation in synthesis", () => {
   it("item 1: Step with compensation synthesizes to StepDefinition with compensation", () => {
-    const graph = makeSingleStepPipeline("saga-synth", { kind: "shell", command: "cleanup.sh" });
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/deploy");
-    expect(step?.compensation).toEqual({ kind: "shell", command: "cleanup.sh" });
+    const graph = makeSingleStepPipeline("saga-synth", {
+      kind: "shell",
+      command: "cleanup.sh",
+    });
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/deploy",
+    );
+    expect(step?.compensation).toEqual({
+      kind: "shell",
+      command: "cleanup.sh",
+    });
   });
 
   it("item 1: compensation undefined when not provided (exactOptionalPropertyTypes)", () => {
@@ -41,19 +49,29 @@ describe("Spec 30 — compensation in synthesis", () => {
     new ShellStep(pipeline, "build", { command: "make build" });
     new Entry(pipeline, "push", { trigger: push(), roots: ["build"] });
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/build");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/build",
+    );
     expect(step?.compensation).toBeUndefined();
     expect("compensation" in step!).toBe(false);
   });
 
   it("item 3: non-shell compensation.kind raises INVALID_COMPENSATION", () => {
-    expectSynthesisError("saga-invalid", { kind: "exportOutput", name: "x", type: "string" });
+    expectSynthesisError("saga-invalid", {
+      kind: "exportOutput",
+      name: "x",
+      type: "string",
+    });
   });
 
   it("item 3: SynthesisError is thrown (not a plain Error)", () => {
     let caught: unknown;
     try {
-      makeSingleStepPipeline("saga-invalid-type", { kind: "diagnostic", message: "x", severity: "info" });
+      makeSingleStepPipeline("saga-invalid-type", {
+        kind: "diagnostic",
+        message: "x",
+        severity: "info",
+      });
     } catch (e) {
       caught = e;
     }

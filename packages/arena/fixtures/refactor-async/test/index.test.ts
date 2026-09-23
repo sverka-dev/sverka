@@ -1,6 +1,12 @@
 import { describe, it, expect } from "bun:test";
 import { readJsonFile, writeJsonFile, combineFiles } from "../src/index";
-import { writeFileSync, unlinkSync, existsSync, mkdirSync, mkdtempSync } from "node:fs";
+import {
+  writeFileSync,
+  unlinkSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 

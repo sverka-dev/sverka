@@ -33,7 +33,11 @@ function makePlan(steps: StepDefinition[], id = "rp-events"): RunPlan {
   };
 }
 
-function shellStep(id: string, command: string, extra?: Partial<StepDefinition>): StepDefinition {
+function shellStep(
+  id: string,
+  command: string,
+  extra?: Partial<StepDefinition>,
+): StepDefinition {
   return {
     id,
     runtime: {},
@@ -72,12 +76,17 @@ describe("RunEvent protocol (Spec 21)", () => {
   it("step-pending emitted before any other step event for that id", async () => {
     const engine = createEngine({ drivers: [createMockDriver()] });
     const events = await collectEvents(engine, {
-      plan: makePlan([shellStep("ci/build", "echo build"), shellStep("ci/test", "echo test")]),
+      plan: makePlan([
+        shellStep("ci/build", "echo build"),
+        shellStep("ci/test", "echo test"),
+      ]),
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
     for (const stepId of ["ci/build", "ci/test"]) {
-      const stepEvents = events.filter((e) => "stepId" in e && e.stepId === stepId);
+      const stepEvents = events.filter(
+        (e) => "stepId" in e && e.stepId === stepId,
+      );
       expect(stepEvents.length).toBeGreaterThan(0);
       expect(stepEvents[0]!.type).toBe("step-pending");
     }
@@ -92,23 +101,39 @@ describe("RunEvent protocol (Spec 21)", () => {
     const seedDir = join(testDir, "seed");
     await mkdir(join(seedDir, "dist"), { recursive: true });
     await writeFile(join(seedDir, "dist", "out.txt"), "cached");
-    await cache.store({ key: "build-key", paths: ["dist"], sourceDir: seedDir });
+    await cache.store({
+      key: "build-key",
+      paths: ["dist"],
+      sourceDir: seedDir,
+    });
 
     let executed = false;
     const driver = createMockDriver({
       executeFn: async () => {
         executed = true;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const engine = createEngine({ drivers: [driver], cache });
     const events = await collectEvents(engine, {
-      plan: makePlan([shellStep("ci/build", "echo build", { cache: { paths: ["dist"], key: "build-key" } })]),
+      plan: makePlan([
+        shellStep("ci/build", "echo build", {
+          cache: { paths: ["dist"], key: "build-key" },
+        }),
+      ]),
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
     expect(executed).toBe(false);
-    const buildEvents = events.filter((e) => "stepId" in e && e.stepId === "ci/build");
+    const buildEvents = events.filter(
+      (e) => "stepId" in e && e.stepId === "ci/build",
+    );
     const types = buildEvents.map((e) => e.type);
     const cacheHitIdx = types.indexOf("step-cache-hit");
     const succeededIdx = types.indexOf("step-succeeded");
@@ -127,26 +152,48 @@ describe("RunEvent protocol (Spec 21)", () => {
       executeShell: async (): Promise<ShellResult> => {
         calls++;
         if (calls <= 1) {
-          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: "fail",
+            durationMs: 1,
+            timedOut: false,
+          };
         }
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
     const events = await collectEvents(engine, {
-      plan: makePlan([shellStep("ci/flaky", "echo flaky", { retry: { max: 2 } })]),
+      plan: makePlan([
+        shellStep("ci/flaky", "echo flaky", { retry: { max: 2 } }),
+      ]),
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
-    const retryEvents = events.filter((e) => e.type === "step-retry") as Extract<RunEvent, { type: "step-retry" }>[];
+    const retryEvents = events.filter(
+      (e) => e.type === "step-retry",
+    ) as Extract<RunEvent, { type: "step-retry" }>[];
     expect(retryEvents).toHaveLength(1);
     expect(retryEvents[0]!.attempt).toBe(1);
     expect(retryEvents[0]!.nextAttemptMs).toBe(0); // no backoff → immediate
     // step-retry should come after step-started and before the terminal step-succeeded.
-    const buildEvents = events.filter((e) => "stepId" in e && e.stepId === "ci/flaky");
+    const buildEvents = events.filter(
+      (e) => "stepId" in e && e.stepId === "ci/flaky",
+    );
     const types = buildEvents.map((e) => e.type);
-    expect(types.indexOf("step-started")).toBeLessThan(types.indexOf("step-retry"));
-    expect(types.indexOf("step-retry")).toBeLessThan(types.indexOf("step-succeeded"));
+    expect(types.indexOf("step-started")).toBeLessThan(
+      types.indexOf("step-retry"),
+    );
+    expect(types.indexOf("step-retry")).toBeLessThan(
+      types.indexOf("step-succeeded"),
+    );
   });
 
   // 5. Setup failure (no driver) yields diagnostic (error) + run-completed (failure) — no throw.
@@ -167,11 +214,16 @@ describe("RunEvent protocol (Spec 21)", () => {
     });
     // Should not throw — events are yielded normally.
     expect(events.length).toBeGreaterThan(0);
-    const diag = events.find((e) => e.type === "diagnostic" && e.severity === "error");
+    const diag = events.find(
+      (e) => e.type === "diagnostic" && e.severity === "error",
+    );
     // The "no driver" case emits step-failed, not a diagnostic. But a setup
     // failure (e.g. workspace creation) emits diagnostic + run-completed.
     // For this test, the no-driver case still emits run-completed with failure.
-    const completed = events.find((e) => e.type === "run-completed") as Extract<RunEvent, { type: "run-completed" }>;
+    const completed = events.find((e) => e.type === "run-completed") as Extract<
+      RunEvent,
+      { type: "run-completed" }
+    >;
     expect(completed.status).toBe("failure");
   });
 
@@ -188,9 +240,14 @@ describe("RunEvent protocol (Spec 21)", () => {
       workspace: badWorkspace,
       artifactDir: join(testDir, "art"),
     });
-    const diag = events.find((e) => e.type === "diagnostic" && e.severity === "error");
+    const diag = events.find(
+      (e) => e.type === "diagnostic" && e.severity === "error",
+    );
     expect(diag).toBeDefined();
-    const completed = events.find((e) => e.type === "run-completed") as Extract<RunEvent, { type: "run-completed" }>;
+    const completed = events.find((e) => e.type === "run-completed") as Extract<
+      RunEvent,
+      { type: "run-completed" }
+    >;
     expect(completed.status).toBe("failure");
   });
 

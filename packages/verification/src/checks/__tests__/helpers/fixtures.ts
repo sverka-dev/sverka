@@ -1,4 +1,9 @@
-import type { ProposedCheck, ProjectContext, DetectedPackageManager, DiscoveryExplanation } from "@sverka/workflow";
+import type {
+  ProposedCheck,
+  ProjectContext,
+  DetectedPackageManager,
+  DiscoveryExplanation,
+} from "@sverka/workflow";
 
 /**
  * Build a ProposedCheck with sensible defaults.

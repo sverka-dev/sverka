@@ -39,9 +39,9 @@ durable adapters. Two questions:
    - `SqliteSnapshotStore` — single DB via `node:sqlite`. Durable,
      concurrent-safe, queryable. For server / multi-run / future-run-history
      use.
-   Both are small (~40 lines each). Shipping both honestly covers the two
-   use cases the mega-plan describes ("SQLite default" + ".sverka/runs/
-   snapshot.json for local") without pretending one store fits both.
+     Both are small (~40 lines each). Shipping both honestly covers the two
+     use cases the mega-plan describes ("SQLite default" + ".sverka/runs/
+     snapshot.json for local") without pretending one store fits both.
 
 4. **No Postgres/Redis in v1.** The `SnapshotStore` interface is the
    pluggability seam; concrete adapters are follow-up beads. No

@@ -113,7 +113,9 @@ returns a plan with operations declaring credentials.
 ```typescript
 import type { Plan, PlanOperation } from "@sverka/ir";
 
-export function makeOperation(overrides: Partial<PlanOperation> = {}): PlanOperation {
+export function makeOperation(
+  overrides: Partial<PlanOperation> = {},
+): PlanOperation {
   return {
     id: "op-test",
     kind: "check",
@@ -161,7 +163,7 @@ describe("compileGithubWorkflow — default config", () => {
     const yaml = compileGithubWorkflow(makePlan());
     expect(yaml).toContain("name: Sverka");
     expect(yaml).toContain("runs-on: ubuntu-latest");
-    expect(yaml).toContain("node-version: \"24\"");
+    expect(yaml).toContain('node-version: "24"');
     expect(yaml).toContain("bun install -g sverka@latest");
     expect(yaml).toContain("sverka execute .sverka/plan.json");
     expect(yaml).toContain("actions/checkout@v4");
@@ -182,7 +184,7 @@ describe("compileGithubWorkflow — custom config", () => {
     });
     expect(yaml).toContain("name: My CI");
     expect(yaml).toContain("runs-on: ubuntu-24.04");
-    expect(yaml).toContain("node-version: \"22\"");
+    expect(yaml).toContain('node-version: "22"');
     expect(yaml).toContain("bun install -g sverka@0.1.0");
   });
 });
@@ -250,7 +252,11 @@ Do not add quoting workarounds for `on` — this is the standard behavior.
 describe("compileGithubWorkflow — triggers", () => {
   it("emits workflow_dispatch and custom branches", () => {
     const yaml = compileGithubWorkflow(makePlan(), {
-      on: { push: ["main", "develop"], pullRequest: ["main"], workflowDispatch: true },
+      on: {
+        push: ["main", "develop"],
+        pullRequest: ["main"],
+        workflowDispatch: true,
+      },
     });
     expect(yaml).toContain("workflow_dispatch:");
     expect(yaml).toContain("develop");
@@ -261,8 +267,14 @@ describe("compileGithubWorkflow — credentials", () => {
   it("emits env block for declared credentials", () => {
     const plan = makePlan({
       operations: [
-        makeOperation({ credentials: [{ name: "token", envVar: "API_TOKEN", required: true }] }),
-        makeOperation({ id: "op-2", name: "lint", credentials: [{ name: "key", envVar: "SECRET_KEY", required: true }] }),
+        makeOperation({
+          credentials: [{ name: "token", envVar: "API_TOKEN", required: true }],
+        }),
+        makeOperation({
+          id: "op-2",
+          name: "lint",
+          credentials: [{ name: "key", envVar: "SECRET_KEY", required: true }],
+        }),
       ],
     });
     const yaml = compileGithubWorkflow(plan);
@@ -276,8 +288,14 @@ describe("compileGithubWorkflow — credentials", () => {
   it("deduplicates envVars across operations", () => {
     const plan = makePlan({
       operations: [
-        makeOperation({ credentials: [{ name: "t", envVar: "TOKEN", required: true }] }),
-        makeOperation({ id: "op-2", name: "lint", credentials: [{ name: "t2", envVar: "TOKEN", required: true }] }),
+        makeOperation({
+          credentials: [{ name: "t", envVar: "TOKEN", required: true }],
+        }),
+        makeOperation({
+          id: "op-2",
+          name: "lint",
+          credentials: [{ name: "t2", envVar: "TOKEN", required: true }],
+        }),
       ],
     });
     const yaml = compileGithubWorkflow(plan);
@@ -400,12 +418,14 @@ is a recurring drill finding.
 ## 8. Commit hygiene (for finalize)
 
 Stage ONLY:
+
 - `packages/compiler-github/**`
 - `specs/12-compiler-github/spec.md`
 - `engdocs/architecture/wave-12-compiler-github-plan.md`
 - `bun.lock` (if `yaml` dep changes the lockfile)
 
 EXCLUDE:
+
 - `city.toml` / `city.toml.bak.*`
 - `agents/`
 - `.devin/` / `.gc/` / `.beads/` / `.evidence/` / `.opencode/`

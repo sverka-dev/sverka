@@ -12,7 +12,11 @@ import {
 
 function makeToolProvider(): ToolProvider {
   const tools: readonly ToolDefinition[] = [
-    { name: "srv.echo", description: "echoes", inputSchema: { type: "object" } },
+    {
+      name: "srv.echo",
+      description: "echoes",
+      inputSchema: { type: "object" },
+    },
   ];
   return {
     async listTools() {
@@ -72,7 +76,11 @@ describe("tools facet — Spec 23", () => {
 
   it("ToolResultContent variants are constructible (item 10 — types exported)", () => {
     const text: ToolResultContent = { type: "text", text: "hi" };
-    const image: ToolResultContent = { type: "image", data: "b64", mimeType: "image/png" };
+    const image: ToolResultContent = {
+      type: "image",
+      data: "b64",
+      mimeType: "image/png",
+    };
     const resource: ToolResultContent = {
       type: "resource",
       resource: { uri: "file:///x", mimeType: "text/plain" },

@@ -1,5 +1,29 @@
-import type { ProjectContext, ChangedFile, DetectedLanguage, PackageManagerName, DetectedPackageManager, MonorepoTool, MonorepoMarker, LocalSignalType, LocalSignal, ProposedCheck, DiscoveryExplanation } from "@sverka/workflow";
-export type { ProjectContext, ChangedFile, DetectedLanguage, PackageManagerName, DetectedPackageManager, MonorepoTool, MonorepoMarker, LocalSignalType, LocalSignal, ProposedCheck, DiscoveryExplanation };
+import type {
+  ProjectContext,
+  ChangedFile,
+  DetectedLanguage,
+  PackageManagerName,
+  DetectedPackageManager,
+  MonorepoTool,
+  MonorepoMarker,
+  LocalSignalType,
+  LocalSignal,
+  ProposedCheck,
+  DiscoveryExplanation,
+} from "@sverka/workflow";
+export type {
+  ProjectContext,
+  ChangedFile,
+  DetectedLanguage,
+  PackageManagerName,
+  DetectedPackageManager,
+  MonorepoTool,
+  MonorepoMarker,
+  LocalSignalType,
+  LocalSignal,
+  ProposedCheck,
+  DiscoveryExplanation,
+};
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
@@ -12,7 +36,10 @@ import {
 } from "./detect.js";
 import { buildExplanation } from "./explain.js";
 import { DiscoveryError } from "./errors.js";
-import { bindRunPlan as bindRunPlanImpl, type BindRunPlanOptions } from "./bind.js";
+import {
+  bindRunPlan as bindRunPlanImpl,
+  type BindRunPlanOptions,
+} from "./bind.js";
 import type { RunPlan } from "@sverka/workflow";
 
 /**
@@ -61,15 +88,22 @@ class PlannerImpl implements Planner {
   async discover(options: DiscoverOptions): Promise<ProjectContext> {
     const root = options.root;
     if (!existsSync(root)) {
-      throw new DiscoveryError(`root directory not found: ${root}`, "ROOT_NOT_FOUND");
+      throw new DiscoveryError(
+        `root directory not found: ${root}`,
+        "ROOT_NOT_FOUND",
+      );
     }
     await assertGitAvailable(this.git, root);
     const toplevel = await resolveToplevel(this.git, root);
-    const { tracked, untracked, porcelain } = await collectGitFiles(this.git, toplevel);
+    const { tracked, untracked, porcelain } = await collectGitFiles(
+      this.git,
+      toplevel,
+    );
     const allFiles = [...new Set([...tracked, ...untracked])];
-    const scoped = options.scopeToRoot === true
-      ? scopeFilesToRoot(allFiles, toplevel, root)
-      : null;
+    const scoped =
+      options.scopeToRoot === true
+        ? scopeFilesToRoot(allFiles, toplevel, root)
+        : null;
     const projectRoot = scoped?.dir ?? toplevel;
     const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
     const filtered = applyMaxDepth(scoped?.files ?? allFiles, maxDepth);
@@ -86,7 +120,11 @@ class PlannerImpl implements Planner {
 
     const commit = await resolveHeadCommit(this.git, toplevel);
     const dirty = porcelain.length > 0;
-    const changedFiles = await collectChangedFiles(this.git, toplevel, options.baseRef);
+    const changedFiles = await collectChangedFiles(
+      this.git,
+      toplevel,
+      options.baseRef,
+    );
 
     const gitSignal: LocalSignal = {
       type: "git-metadata",
@@ -155,7 +193,11 @@ async function assertGitAvailable(git: GitCli, root: string): Promise<void> {
   try {
     await git.run(["--version"], root);
   } catch (err) {
-    throw new DiscoveryError("git is not installed or not on PATH", "GIT_UNAVAILABLE", err);
+    throw new DiscoveryError(
+      "git is not installed or not on PATH",
+      "GIT_UNAVAILABLE",
+      err,
+    );
   }
 }
 
@@ -165,7 +207,11 @@ async function resolveToplevel(git: GitCli, root: string): Promise<string> {
     const out = await git.run(["rev-parse", "--show-toplevel"], root);
     return out.trim();
   } catch (err) {
-    throw new DiscoveryError(`not a git repository: ${root}`, "GIT_NOT_A_REPO", err);
+    throw new DiscoveryError(
+      `not a git repository: ${root}`,
+      "GIT_NOT_A_REPO",
+      err,
+    );
   }
 }
 
@@ -180,7 +226,11 @@ async function collectGitFiles(
     trackedRaw = await git.run(["ls-files"], toplevel);
     porcelainRaw = await git.run(["status", "--porcelain", "-uall"], toplevel);
   } catch (err) {
-    throw new DiscoveryError("filesystem traversal failed", "TRAVERSAL_FAILED", err);
+    throw new DiscoveryError(
+      "filesystem traversal failed",
+      "TRAVERSAL_FAILED",
+      err,
+    );
   }
   const tracked = trackedRaw.split("\n").filter(Boolean);
   const porcelain = porcelainRaw.split("\n").filter(Boolean);
@@ -202,7 +252,10 @@ function extractUntracked(porcelain: readonly string[]): string[] {
 }
 
 /** Resolve the HEAD commit SHA, returning "" on failure. */
-async function resolveHeadCommit(git: GitCli, toplevel: string): Promise<string> {
+async function resolveHeadCommit(
+  git: GitCli,
+  toplevel: string,
+): Promise<string> {
   try {
     const out = await git.run(["rev-parse", "HEAD"], toplevel);
     return out.trim();
@@ -215,10 +268,7 @@ const REF_RE = /^[A-Za-z0-9_./~^\-@{}]+$/;
 
 function validateBaseRef(baseRef: string): void {
   if (baseRef.startsWith("-") || !REF_RE.test(baseRef)) {
-    throw new DiscoveryError(
-      `invalid baseRef: ${baseRef}`,
-      "INVALID_BASE_REF",
-    );
+    throw new DiscoveryError(`invalid baseRef: ${baseRef}`, "INVALID_BASE_REF");
   }
 }
 
@@ -284,33 +334,89 @@ interface PlanDriver {
 }
 
 const PLAN_DRIVERS: readonly PlanDriver[] = [
-  { checkId: "typecheck", reason: "Node project defaults", languages: ["TypeScript", "JavaScript"], packageManagers: ["npm", "yarn", "pnpm", "bun"] },
-  { checkId: "lint", reason: "Node project defaults", languages: ["TypeScript", "JavaScript"], packageManagers: ["npm", "yarn", "pnpm", "bun"] },
-  { checkId: "test", reason: "Node project defaults", languages: ["TypeScript", "JavaScript"], packageManagers: ["npm", "yarn", "pnpm", "bun"] },
-  { checkId: "lint", reason: "Python project defaults", languages: ["Python"], packageManagers: ["pip", "poetry", "uv", "pipenv"] },
-  { checkId: "test", reason: "Python project defaults", languages: ["Python"], packageManagers: ["pip", "poetry", "uv", "pipenv"] },
-  { checkId: "fmt-check", reason: "Rust project defaults", languages: ["Rust"], packageManagers: ["cargo"] },
-  { checkId: "clippy", reason: "Rust project defaults", languages: ["Rust"], packageManagers: ["cargo"] },
-  { checkId: "test", reason: "Rust project defaults", languages: ["Rust"], packageManagers: ["cargo"] },
-  { checkId: "vet", reason: "Go project defaults", languages: ["Go"], packageManagers: ["go"] },
-  { checkId: "test", reason: "Go project defaults", languages: ["Go"], packageManagers: ["go"] },
+  {
+    checkId: "typecheck",
+    reason: "Node project defaults",
+    languages: ["TypeScript", "JavaScript"],
+    packageManagers: ["npm", "yarn", "pnpm", "bun"],
+  },
+  {
+    checkId: "lint",
+    reason: "Node project defaults",
+    languages: ["TypeScript", "JavaScript"],
+    packageManagers: ["npm", "yarn", "pnpm", "bun"],
+  },
+  {
+    checkId: "test",
+    reason: "Node project defaults",
+    languages: ["TypeScript", "JavaScript"],
+    packageManagers: ["npm", "yarn", "pnpm", "bun"],
+  },
+  {
+    checkId: "lint",
+    reason: "Python project defaults",
+    languages: ["Python"],
+    packageManagers: ["pip", "poetry", "uv", "pipenv"],
+  },
+  {
+    checkId: "test",
+    reason: "Python project defaults",
+    languages: ["Python"],
+    packageManagers: ["pip", "poetry", "uv", "pipenv"],
+  },
+  {
+    checkId: "fmt-check",
+    reason: "Rust project defaults",
+    languages: ["Rust"],
+    packageManagers: ["cargo"],
+  },
+  {
+    checkId: "clippy",
+    reason: "Rust project defaults",
+    languages: ["Rust"],
+    packageManagers: ["cargo"],
+  },
+  {
+    checkId: "test",
+    reason: "Rust project defaults",
+    languages: ["Rust"],
+    packageManagers: ["cargo"],
+  },
+  {
+    checkId: "vet",
+    reason: "Go project defaults",
+    languages: ["Go"],
+    packageManagers: ["go"],
+  },
+  {
+    checkId: "test",
+    reason: "Go project defaults",
+    languages: ["Go"],
+    packageManagers: ["go"],
+  },
 ];
 
 function synthesizePlan(context: ProjectContext): PlanProposal {
   const langNames = context.languages.map((l) => l.name);
   const pmNames = context.packageManagers.map((p) => p.name);
   const signalRef = resolveSignalRef(context.localSignals);
-  const checks = collectDefaultChecks(PLAN_DRIVERS, langNames, pmNames, signalRef);
+  const checks = collectDefaultChecks(
+    PLAN_DRIVERS,
+    langNames,
+    pmNames,
+    signalRef,
+  );
   const notes = buildPlanNotes(checks, langNames, pmNames);
   return { context, checks, workflowPath: null, notes };
 }
 
 /** Resolve the signal reference for the first manifest/lockfile signal. */
 function resolveSignalRef(signals: readonly LocalSignal[]): string | null {
-  const manifestSignal = signals.find(
-    (s) => s.type === "manifest" || s.type === "lockfile",
-  ) ?? null;
-  return manifestSignal ? `${manifestSignal.type}:${manifestSignal.path}` : null;
+  const manifestSignal =
+    signals.find((s) => s.type === "manifest" || s.type === "lockfile") ?? null;
+  return manifestSignal
+    ? `${manifestSignal.type}:${manifestSignal.path}`
+    : null;
 }
 
 /** Collect deduplicated default checks that match the detected languages/package managers. */
@@ -330,14 +436,23 @@ function collectDefaultChecks(
     if (seen.has(key)) continue;
     seen.add(key);
     const id = makeCheckId(driver.checkId, driver.reason);
-    checks.push({ id, checkId: driver.checkId, reason: driver.reason, signalRef, priority: 2 });
+    checks.push({
+      id,
+      checkId: driver.checkId,
+      reason: driver.reason,
+      signalRef,
+      priority: 2,
+    });
   }
   return checks;
 }
 
 /** Build a stable proposed-check id from its checkId and reason. */
 function makeCheckId(checkId: string, reason: string): string {
-  const digest = createHash("sha256").update(checkId + reason).digest("hex").slice(0, 16);
+  const digest = createHash("sha256")
+    .update(checkId + reason)
+    .digest("hex")
+    .slice(0, 16);
   return "prop-" + digest;
 }
 
@@ -348,10 +463,14 @@ function buildPlanNotes(
   pmNames: readonly PackageManagerName[],
 ): string[] {
   if (checks.length === 0) {
-    return ["No default checks applied: no recognized languages or package managers detected."];
+    return [
+      "No default checks applied: no recognized languages or package managers detected.",
+    ];
   }
   const drivers: string[] = [];
   if (langNames.length) drivers.push(`languages=[${langNames.join(",")}]`);
   if (pmNames.length) drivers.push(`packageManagers=[${pmNames.join(",")}]`);
-  return [`Selected ${checks.length} default checks from ${drivers.join(" ")}.`];
+  return [
+    `Selected ${checks.length} default checks from ${drivers.join(" ")}.`,
+  ];
 }

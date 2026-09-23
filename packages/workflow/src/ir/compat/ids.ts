@@ -15,7 +15,11 @@ import type { Plan } from "./plan.js";
 export function computePlanId(plan: Omit<Plan, "id" | "createdAt">): string {
   // Defensive: strip any runtime id/createdAt fields so the hash is always
   // over the plan content, not the plan identity.
-  const { id: _id, createdAt: _createdAt, ...body } = plan as Record<string, unknown>;
+  const {
+    id: _id,
+    createdAt: _createdAt,
+    ...body
+  } = plan as Record<string, unknown>;
   const canonical = canonicalStringify(body);
   const hex = createHash("sha256").update(canonical, "utf8").digest("hex");
   return `plan-${hex}`;

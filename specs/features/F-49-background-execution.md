@@ -12,13 +12,13 @@ Background execution runs a service or process that persists beyond the step's l
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | (none — `&` in shell) | (none — `&` in shell) | `background` on operation |
-| Semantics | n/a | n/a | Start process, don't wait for completion |
-| Value type | n/a | n/a | `background: boolean` |
-| Limitations | no native support | no native support | provider: emulated via shell `&` |
-| Provider gap | no native keyword | no native keyword | — |
+| Aspect       | GitHub Actions        | GitLab CI             | Sverka (proposed)                        |
+| ------------ | --------------------- | --------------------- | ---------------------------------------- |
+| Construct    | (none — `&` in shell) | (none — `&` in shell) | `background` on operation                |
+| Semantics    | n/a                   | n/a                   | Start process, don't wait for completion |
+| Value type   | n/a                   | n/a                   | `background: boolean`                    |
+| Limitations  | no native support     | no native support     | provider: emulated via shell `&`         |
+| Provider gap | no native keyword     | no native keyword     | —                                        |
 
 ## GitHub Actions
 

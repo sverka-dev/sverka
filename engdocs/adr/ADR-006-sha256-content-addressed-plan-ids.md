@@ -12,6 +12,7 @@ for cross-referencing `dependsOn` edges. It must be reproducible by any
 tool that reads the plan, without contacting the planner.
 
 The id scheme must be:
+
 - Deterministic (byte-stable input → same output).
 - Collision-resistant under realistic plan sizes.
 - Dependency-free (no external hashing library).
@@ -82,14 +83,14 @@ including it would make the id time-dependent and defeat replay/diff.
 Both `core` and `ir` must produce identical canonical JSON for these
 inputs:
 
-| Input | Canonical JSON |
-|-------|----------------|
-| `{ b: 1, a: 2 }` | `{"a":2,"b":1}` |
-| `{ a: 1, b: undefined, c: 3 }` | `{"a":1,"c":3}` |
-| `[1, undefined, 3]` | `[1,3]` |
-| `NaN` | `null` |
+| Input                                               | Canonical JSON                           |
+| --------------------------------------------------- | ---------------------------------------- |
+| `{ b: 1, a: 2 }`                                    | `{"a":2,"b":1}`                          |
+| `{ a: 1, b: undefined, c: 3 }`                      | `{"a":1,"c":3}`                          |
+| `[1, undefined, 3]`                                 | `[1,3]`                                  |
+| `NaN`                                               | `null`                                   |
 | `{ created: new Date("2026-01-15T00:00:00.000Z") }` | `{"created":"2026-01-15T00:00:00.000Z"}` |
-| `{ a: 1, B: 2, A: 3 }` | `{"A":3,"B":2,"a":1}` |
+| `{ a: 1, B: 2, A: 3 }`                              | `{"A":3,"B":2,"a":1}`                    |
 
 ### Duplicate detection
 

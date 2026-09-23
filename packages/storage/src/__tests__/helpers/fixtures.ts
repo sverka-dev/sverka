@@ -38,9 +38,7 @@ export function makeSnapshot(runId = "run-1"): RunSnapshot {
       ],
       createdAt: "2026-08-31T00:00:00.000Z",
     },
-    completedSteps: [
-      { stepId: "ci/build", outputs: { result: "ok" } },
-    ],
+    completedSteps: [{ stepId: "ci/build", outputs: { result: "ok" } }],
     suspendedStepId: "ci/approve",
     resumeSchema: { required: ["decision"] },
     suspendedAt: 1725064800000,

@@ -67,7 +67,7 @@ The harness exposes these test interfaces:
    `append_fragments`. Assert the fragment includes the exact project name
    (`Sverka`), the full technology stack (`TypeScript`, `Bun`, `Nx`,
    `Vitest`, `tsdown`), and all command entries (`bun install`, `bun run
-   build`, `bun run test`, `bun run lint`, `bun run typecheck`)
+build`, `bun run test`, `bun run lint`, `bun run typecheck`)
 4. `skill sverka-wave` is invocable by agents
 5. Every pack skill is invocable: `sverka-wave`, `sverka-review`,
    `sverka-drill`, `sverka-merge-stack`

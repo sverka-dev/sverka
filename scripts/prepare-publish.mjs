@@ -41,7 +41,11 @@ for (const dir of readdirSync(packagesDir)) {
   }
   const pkg = JSON.parse(raw);
   let changed = false;
-  for (const depField of ["dependencies", "peerDependencies", "optionalDependencies"]) {
+  for (const depField of [
+    "dependencies",
+    "peerDependencies",
+    "optionalDependencies",
+  ]) {
     const deps = pkg[depField];
     if (!deps) continue;
     for (const [name, spec] of Object.entries(deps)) {
@@ -60,4 +64,6 @@ for (const dir of readdirSync(packagesDir)) {
   }
 }
 
-console.log(`prepare-publish: replaced ${replaced} workspace:* references with version ranges`);
+console.log(
+  `prepare-publish: replaced ${replaced} workspace:* references with version ranges`,
+);

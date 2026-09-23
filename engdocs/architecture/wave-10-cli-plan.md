@@ -29,7 +29,7 @@ The original spec (439 lines) was trimmed to ~250 lines. Major cuts:
 6. **`Command`/`CommandArg`/`CommandFlag`/`CommandContext` interfaces
    removed.** yargs handles arg parsing — no need to re-invent a command
    framework. Each command is a function that receives parsed yargs args
-   + global flags + output writer.
+   - global flags + output writer.
 7. **`CliError.code` typed as `CliErrorCode` union**, not `string`.
 8. **`ExitCode` as const object** (not enum — no enums in the codebase).
 9. **`override` on `cause` property.** Per noImplicitOverride.
@@ -62,6 +62,7 @@ Implement the `sverka` CLI with 7 commands:
 **Depends on:** `@sverka/sdk` (all business logic), `yargs` (arg parsing).
 
 **Out of scope (do NOT implement in this wave):**
+
 - `compile`, `replay`, `diff`, `findings`, `plugin`, `watch` commands.
 - SARIF output format.
 - `--remote` flag.
@@ -177,12 +178,12 @@ packages/cli/src/
    - Test: prints plan, no execution (test plan 4).
 7. **`execute`/`run` command + tests (TDD).**
    - `createSverka({ root, configPath, executor, baselinePath, onlyNew
-     }).execute()` → `ExecutionResult`.
+}).execute()` → `ExecutionResult`.
    - Exit code: 0 if verdict "pass", 1 if "fail".
    - `--executor host`/`docker` (default host).
    - Human: print findings (empty in v1), verdict, status.
    - JSON: `JSON.stringify({ command: "execute", verdict, data: result,
-     ... })`.
+... })`.
    - Test: exit codes, executor selection, JSON output (test plan 5).
 8. **`validate` command + tests (TDD).**
    - `loadWorkflow(configPath)` — if success, print "valid". If
@@ -192,7 +193,7 @@ packages/cli/src/
    - Test: valid config, invalid config, missing config (test plan 6).
 9. **`baseline` command + tests (TDD).**
    - `create`: run `execute()`, `saveBaseline(createBaseline(findings),
-     path)`.
+path)`.
    - `update`: run `execute()`, `loadBaseline(path)`,
      `saveBaseline(updateBaseline(newFindings, existing), path)`.
    - `show`: `loadBaseline(path)`, print contents.
@@ -237,18 +238,18 @@ packages/cli/src/
 
 ## 8. Test plan → spec mapping
 
-| Spec test plan | File | Notes |
-|---|---|---|
-| 1 global flags | `main.test.ts` | format, quiet, verbose, root, config |
-| 2 init | `init.test.ts` | create, exists, force, template |
-| 3 inspect | `inspect.test.ts` | human, json |
-| 4 plan | `plan.test.ts` | prints plan, no execution |
-| 5 execute/run | `execute.test.ts` | exit codes, executor, only-new, baseline, json |
-| 6 validate | `validate.test.ts` | valid, invalid, missing |
-| 7 baseline | `baseline.test.ts` | create, update, show, clear |
-| 8 doctor | `doctor.test.ts` | all pass, missing tool |
-| 9 exit codes | `main.test.ts` | 0/1/2/3 |
-| 10 error handling | `main.test.ts` | unknown command, missing arg, SDK error wrap |
+| Spec test plan    | File               | Notes                                          |
+| ----------------- | ------------------ | ---------------------------------------------- |
+| 1 global flags    | `main.test.ts`     | format, quiet, verbose, root, config           |
+| 2 init            | `init.test.ts`     | create, exists, force, template                |
+| 3 inspect         | `inspect.test.ts`  | human, json                                    |
+| 4 plan            | `plan.test.ts`     | prints plan, no execution                      |
+| 5 execute/run     | `execute.test.ts`  | exit codes, executor, only-new, baseline, json |
+| 6 validate        | `validate.test.ts` | valid, invalid, missing                        |
+| 7 baseline        | `baseline.test.ts` | create, update, show, clear                    |
+| 8 doctor          | `doctor.test.ts`   | all pass, missing tool                         |
+| 9 exit codes      | `main.test.ts`     | 0/1/2/3                                        |
+| 10 error handling | `main.test.ts`     | unknown command, missing arg, SDK error wrap   |
 
 ## 9. Acceptance
 

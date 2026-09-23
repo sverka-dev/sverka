@@ -15,13 +15,13 @@ The native engine injects env into the spawned process.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `env` (workflow/job/step) | `variables` (global/job) | `Runtime.env` |
-| Semantics | key-value pairs injected into step env | key-value pairs injected into job env | key-value pairs on step runtime |
-| Value type | string map | string map | `Record<string, string>` |
-| Limitations | values can use `${{ }}` expressions | values can use `$VAR` references | literal strings (expressions via F-35) |
-| Provider gap | — | — | env expressions not lowered (see F-35) |
+| Aspect       | GitHub Actions                         | GitLab CI                             | Sverka (proposed)                      |
+| ------------ | -------------------------------------- | ------------------------------------- | -------------------------------------- |
+| Construct    | `env` (workflow/job/step)              | `variables` (global/job)              | `Runtime.env`                          |
+| Semantics    | key-value pairs injected into step env | key-value pairs injected into job env | key-value pairs on step runtime        |
+| Value type   | string map                             | string map                            | `Record<string, string>`               |
+| Limitations  | values can use `${{ }}` expressions    | values can use `$VAR` references      | literal strings (expressions via F-35) |
+| Provider gap | —                                      | —                                     | env expressions not lowered (see F-35) |
 
 ## GitHub Actions
 

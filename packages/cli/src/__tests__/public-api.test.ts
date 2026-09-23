@@ -56,7 +56,10 @@ describe("public API — exports", () => {
       quiet: false,
       verbose: false,
     };
-    const _w: OutputWriter = new ConsoleOutputWriter(() => {}, () => {});
+    const _w: OutputWriter = new ConsoleOutputWriter(
+      () => {},
+      () => {},
+    );
     const _c: CliErrorCode = "UNKNOWN_COMMAND";
     const _d: MainDeps = {};
     const _s: WriteSink = () => {};

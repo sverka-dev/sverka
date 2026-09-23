@@ -23,7 +23,12 @@ describe("$ tagged template", () => {
   });
 
   it("interpolates Reference values and collects them as inputs", () => {
-    const ref = { kind: "step" as const, step: "build", output: "dist", type: "artifact" as const };
+    const ref = {
+      kind: "step" as const,
+      step: "build",
+      output: "dist",
+      type: "artifact" as const,
+    };
     const builder = $`deploy ${ref}`;
     const proj = new Project("test");
     const pipeline = new Pipeline(proj, "ci");
@@ -39,7 +44,11 @@ describe("$ tagged template", () => {
     const pipeline = new Pipeline(proj, "ci");
     const step = builder.build(pipeline, "echo-step");
     expect(step.command).toBe("echo ${env.CI_TRACE}");
-    expect(step.inputs).toContainEqual({ kind: "context", namespace: "env", field: "CI_TRACE" });
+    expect(step.inputs).toContainEqual({
+      kind: "context",
+      namespace: "env",
+      field: "CI_TRACE",
+    });
   });
 
   it("rejects unsupported interpolation values", () => {
@@ -53,8 +62,13 @@ describe("StepBuilder", () => {
   it("outputs() adds output declarations", () => {
     const proj = new Project("test");
     const pipeline = new Pipeline(proj, "ci");
-    const step = $`npm run build`.outputs({ dist: artifact("./dist") }).build(pipeline, "build");
-    expect(step.outputs.get("dist")).toEqual({ type: "artifact", path: "./dist" });
+    const step = $`npm run build`
+      .outputs({ dist: artifact("./dist") })
+      .build(pipeline, "build");
+    expect(step.outputs.get("dist")).toEqual({
+      type: "artifact",
+      path: "./dist",
+    });
   });
 
   it("dependsOn() adds control dependencies", () => {
@@ -74,7 +88,9 @@ describe("StepBuilder", () => {
   it("runtime() sets the runtime", () => {
     const proj = new Project("test");
     const pipeline = new Pipeline(proj, "ci");
-    const step = $`npm test`.runtime({ image: "node:22" }).build(pipeline, "test");
+    const step = $`npm test`
+      .runtime({ image: "node:22" })
+      .build(pipeline, "test");
     expect(step.runtime.image).toBe("node:22");
   });
 
@@ -95,7 +111,9 @@ describe("StepBuilder", () => {
   it("interruptible(false) sets false", () => {
     const proj = new Project("test");
     const pipeline = new Pipeline(proj, "ci");
-    const step = $`npm run deploy`.interruptible(false).build(pipeline, "deploy");
+    const step = $`npm run deploy`
+      .interruptible(false)
+      .build(pipeline, "deploy");
     expect(step.interruptible).toBe(false);
   });
 

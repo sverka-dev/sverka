@@ -99,7 +99,7 @@ function mount(opts: { tty?: boolean; interactive?: boolean } = {}) {
   const renderer = createInkRenderer({
     stdout: stdout as unknown as NodeJS.WriteStream,
     stdin: stdin as unknown as NodeJS.ReadStream,
-    interactive: opts.interactive ?? (opts.tty ?? true),
+    interactive: opts.interactive ?? opts.tty ?? true,
     debug: true,
   });
   active.renderer = renderer;
@@ -112,7 +112,12 @@ async function waitFor(
   needle: string,
   timeoutMs = 4000,
 ): Promise<string> {
-  return waitUntil(stdout, (f) => f.includes(needle), timeoutMs, `contain ${JSON.stringify(needle)}`);
+  return waitUntil(
+    stdout,
+    (f) => f.includes(needle),
+    timeoutMs,
+    `contain ${JSON.stringify(needle)}`,
+  );
 }
 
 async function waitUntil(
@@ -140,7 +145,9 @@ async function quit(stdin: FakeStdin, renderer: InkRenderer): Promise<void> {
   stdin.write("q");
   await Promise.race([
     renderer.waitUntilExit(),
-    new Promise((_, rej) => setTimeout(() => rej(new Error("quit timeout")), 3000)),
+    new Promise((_, rej) =>
+      setTimeout(() => rej(new Error("quit timeout")), 3000),
+    ),
   ]);
 }
 

@@ -2,7 +2,15 @@
 // F-43 — reverse lowering. Spec §25.
 
 import { parse as parseYaml } from "yaml";
-import type { DefinitionGraph, ProjectDefinition, PipelineDefinition, StepDefinition, OperationDefinition, Dependency, EntryDefinition } from "@sverka/workflow";
+import type {
+  DefinitionGraph,
+  ProjectDefinition,
+  PipelineDefinition,
+  StepDefinition,
+  OperationDefinition,
+  Dependency,
+  EntryDefinition,
+} from "@sverka/workflow";
 import type { Trigger, Runtime } from "@sverka/workflow";
 import { GithubTargetError } from "./errors.js";
 
@@ -45,7 +53,10 @@ export function importGithubWithDiagnostics(source: string): ImportResult {
   }
 
   if (!doc || typeof doc !== "object") {
-    throw new GithubTargetError("GitHub workflow YAML is not a valid object", "IMPORT_FAILED");
+    throw new GithubTargetError(
+      "GitHub workflow YAML is not a valid object",
+      "IMPORT_FAILED",
+    );
   }
 
   const projectId = "imported";
@@ -60,7 +71,10 @@ export function importGithubWithDiagnostics(source: string): ImportResult {
   if (jobs) {
     for (const [jobId, job] of Object.entries(jobs)) {
       if (job === null || typeof job !== "object") {
-        diagnostics.push({ severity: "warn", message: `job '${jobId}' is not a valid object, skipping` });
+        diagnostics.push({
+          severity: "warn",
+          message: `job '${jobId}' is not a valid object, skipping`,
+        });
         continue;
       }
       steps.push(parseJob(jobId, job as Record<string, unknown>, diagnostics));
@@ -91,7 +105,10 @@ export function importGithubWithDiagnostics(source: string): ImportResult {
 /**
  * Parse the `on:` field of a GitHub workflow into a Sverka Trigger.
  */
-function parseTrigger(onField: unknown, diagnostics: ImportDiagnostic[]): Trigger {
+function parseTrigger(
+  onField: unknown,
+  diagnostics: ImportDiagnostic[],
+): Trigger {
   if (typeof onField === "string") {
     return parseStringTrigger(onField);
   }
@@ -107,12 +124,18 @@ function parseStringTrigger(onField: string): Trigger {
   return { kind: "manual" };
 }
 
-function parseObjectTrigger(on: Record<string, unknown>, diagnostics: ImportDiagnostic[]): Trigger {
+function parseObjectTrigger(
+  on: Record<string, unknown>,
+  diagnostics: ImportDiagnostic[],
+): Trigger {
   if ("push" in on) return { kind: "push" };
   if ("pull_request" in on) return { kind: "changeRequest" };
   if ("workflow_dispatch" in on) return { kind: "manual" };
   if ("schedule" in on) {
-    diagnostics.push({ severity: "info", message: "schedule trigger imported as manual" });
+    diagnostics.push({
+      severity: "info",
+      message: "schedule trigger imported as manual",
+    });
     return { kind: "manual" };
   }
   return { kind: "manual" };
@@ -121,7 +144,11 @@ function parseObjectTrigger(on: Record<string, unknown>, diagnostics: ImportDiag
 /**
  * Parse a single GitHub job into a Sverka StepDefinition.
  */
-function parseJob(jobId: string, job: Record<string, unknown>, diagnostics: ImportDiagnostic[]): StepDefinition {
+function parseJob(
+  jobId: string,
+  job: Record<string, unknown>,
+  diagnostics: ImportDiagnostic[],
+): StepDefinition {
   const stepId = `ci/${jobId}`;
   const operations: OperationDefinition[] = [];
   const dependencies: Dependency[] = [];
@@ -159,7 +186,10 @@ function parseJob(jobId: string, job: Record<string, unknown>, diagnostics: Impo
 /**
  * Parse a job's `needs` field into dependencies.
  */
-function parseJobNeeds(job: Record<string, unknown>, dependencies: Dependency[]): void {
+function parseJobNeeds(
+  job: Record<string, unknown>,
+  dependencies: Dependency[],
+): void {
   if (typeof job.needs === "string") {
     dependencies.push({ kind: "control", producer: `ci/${job.needs}` });
   } else if (Array.isArray(job.needs)) {
@@ -221,7 +251,9 @@ function parseUsesStep(
 /**
  * Parse a release action (softprops/action-gh-release) into a release operation.
  */
-function parseReleaseAction(step: Record<string, unknown>): OperationDefinition {
+function parseReleaseAction(
+  step: Record<string, unknown>,
+): OperationDefinition {
   const withMap = (step.with as Record<string, unknown> | undefined) ?? {};
   return {
     kind: "release",
@@ -232,14 +264,18 @@ function parseReleaseAction(step: Record<string, unknown>): OperationDefinition 
       ? { assets: withMap.assets.split("\n").filter((s) => s.length > 0) }
       : {}),
     ...(typeof withMap.draft === "boolean" ? { draft: withMap.draft } : {}),
-    ...(typeof withMap.prerelease === "boolean" ? { prerelease: withMap.prerelease } : {}),
+    ...(typeof withMap.prerelease === "boolean"
+      ? { prerelease: withMap.prerelease }
+      : {}),
   };
 }
 
 /**
  * Parse an upload-pages-artifact action into a deployPages operation.
  */
-function parseDeployPagesAction(step: Record<string, unknown>): OperationDefinition {
+function parseDeployPagesAction(
+  step: Record<string, unknown>,
+): OperationDefinition {
   const withMap = (step.with as Record<string, unknown> | undefined) ?? {};
   return {
     kind: "deployPages",
@@ -252,7 +288,9 @@ function parseDeployPagesAction(step: Record<string, unknown>): OperationDefinit
 /**
  * Parse an actions/upload-artifact action into an exportArtifact operation.
  */
-function parseUploadArtifactAction(step: Record<string, unknown>): OperationDefinition {
+function parseUploadArtifactAction(
+  step: Record<string, unknown>,
+): OperationDefinition {
   const withMap = (step.with as Record<string, unknown> | undefined) ?? {};
   return {
     kind: "exportArtifact",
@@ -271,7 +309,8 @@ function parseDownloadArtifactAction(
   diagnostics: ImportDiagnostic[],
 ): void {
   const withMap = (step.with as Record<string, unknown> | undefined) ?? {};
-  const artifactName = typeof withMap.name === "string" ? withMap.name : "artifact";
+  const artifactName =
+    typeof withMap.name === "string" ? withMap.name : "artifact";
   // Try to resolve the producing job from the artifact name.
   // Artifact names follow the pattern `<stepId>-<outputName>`.
   const from = resolveArtifactProducer(artifactName);
@@ -308,7 +347,9 @@ function resolveArtifactProducer(artifactName: string): string {
  * Parse `runs-on` into a RunnerSpec.
  * Supports string, array, and object forms.
  */
-function parseRunsOn(runsOn: unknown): { labels: readonly string[]; group?: string } | undefined {
+function parseRunsOn(
+  runsOn: unknown,
+): { labels: readonly string[]; group?: string } | undefined {
   if (typeof runsOn === "string") {
     return { labels: [runsOn] };
   }
@@ -332,14 +373,30 @@ function parseRunsOn(runsOn: unknown): { labels: readonly string[]; group?: stri
 /**
  * Record diagnostics for unmappable job-level constructs.
  */
-function recordJobDiagnostics(jobId: string, job: Record<string, unknown>, diagnostics: ImportDiagnostic[]): void {
+function recordJobDiagnostics(
+  jobId: string,
+  job: Record<string, unknown>,
+  diagnostics: ImportDiagnostic[],
+): void {
   if (job.strategy) {
-    diagnostics.push({ severity: "warn", message: `job '${jobId}' has strategy/matrix — not imported`, path: jobId });
+    diagnostics.push({
+      severity: "warn",
+      message: `job '${jobId}' has strategy/matrix — not imported`,
+      path: jobId,
+    });
   }
   if (job.services) {
-    diagnostics.push({ severity: "info", message: `job '${jobId}' has services — not imported`, path: jobId });
+    diagnostics.push({
+      severity: "info",
+      message: `job '${jobId}' has services — not imported`,
+      path: jobId,
+    });
   }
   if (job.environment) {
-    diagnostics.push({ severity: "info", message: `job '${jobId}' has environment — not imported`, path: jobId });
+    diagnostics.push({
+      severity: "info",
+      message: `job '${jobId}' has environment — not imported`,
+      path: jobId,
+    });
   }
 }

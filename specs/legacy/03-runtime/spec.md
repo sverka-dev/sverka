@@ -56,18 +56,24 @@ collects logs and artifacts.
 ```typescript
 // src/index.ts — public exports
 
-export { type Executor, type ExecuteRequest, type ExecuteResult }
-  from "./executor.js";
-export { Scheduler, type SchedulerConfig }
-  from "./scheduler.js";
-export { type ExecutionResult, type OperationOutcome, type ExecutionState }
-  from "./result.js";
-export { type StateStore }
-  from "./state-store.js";
-export { type CacheBackend, type CacheKey, type CacheEntry }
-  from "./cache.js";
-export { RuntimeExecutionError, SchedulerError, ExecutorError }
-  from "./errors.js";
+export {
+  type Executor,
+  type ExecuteRequest,
+  type ExecuteResult,
+} from "./executor.js";
+export { Scheduler, type SchedulerConfig } from "./scheduler.js";
+export {
+  type ExecutionResult,
+  type OperationOutcome,
+  type ExecutionState,
+} from "./result.js";
+export { type StateStore } from "./state-store.js";
+export { type CacheBackend, type CacheKey, type CacheEntry } from "./cache.js";
+export {
+  RuntimeExecutionError,
+  SchedulerError,
+  ExecutorError,
+} from "./errors.js";
 ```
 
 > **Note on `OperationOutcome`:** `@sverka/core` exports a planning-time
@@ -87,7 +93,7 @@ import type { PlanOperation } from "@sverka/ir";
  */
 export interface ExecuteRequest {
   readonly operation: PlanOperation;
-  readonly workspace: string;          // path to mounted/available workspace
+  readonly workspace: string; // path to mounted/available workspace
   readonly env: Readonly<Record<string, string>>;
   readonly credentials: Readonly<Record<string, string>>;
   readonly cacheDir: string;
@@ -223,9 +229,9 @@ export interface SchedulerConfig {
   readonly cache?: CacheBackend;
   readonly maxConcurrent: number;
   /** When set, the scheduler enforces CPU limits via an internal pool. */
-  readonly totalCpu?: number;            // e.g. 8
+  readonly totalCpu?: number; // e.g. 8
   /** When set, the scheduler enforces memory limits via an internal pool. */
-  readonly totalMemory?: string;         // e.g. "16Gi"
+  readonly totalMemory?: string; // e.g. "16Gi"
   readonly workspace: string;
   readonly artifactDir: string;
   readonly cacheDir: string;

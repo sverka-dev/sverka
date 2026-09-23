@@ -16,13 +16,13 @@ step's inputs.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `actions/download-artifact@v4` | `needs` (implicit) | `importArtifact` operation (auto-generated) |
-| Semantics | action downloads named artifact to a path | artifacts from needed jobs are available automatically | engine copies from ArtifactStore to step workspace |
-| Value type | action `with` (name, path) | n/a (implicit) | name, from (producer), output |
-| Limitations | must know artifact name | must declare `needs` | auto-generated from StepRef inputs |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                            | GitLab CI                                              | Sverka (proposed)                                  |
+| ------------ | ----------------------------------------- | ------------------------------------------------------ | -------------------------------------------------- |
+| Construct    | `actions/download-artifact@v4`            | `needs` (implicit)                                     | `importArtifact` operation (auto-generated)        |
+| Semantics    | action downloads named artifact to a path | artifacts from needed jobs are available automatically | engine copies from ArtifactStore to step workspace |
+| Value type   | action `with` (name, path)                | n/a (implicit)                                         | name, from (producer), output                      |
+| Limitations  | must know artifact name                   | must declare `needs`                                   | auto-generated from StepRef inputs                 |
+| Provider gap | —                                         | —                                                      | —                                                  |
 
 ## GitHub Actions
 

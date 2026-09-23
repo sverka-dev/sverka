@@ -12,13 +12,13 @@ Caching stores frequently-used files (dependencies, build artifacts) between pip
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `actions/cache` | `cache` | `cache` on Step |
-| Semantics | Save/restore files by key | Save/restore files by key with policy | Save/restore files by key |
-| Value type | action with `path`, `key`, `restore-keys` | map with `paths`, `key`, `policy`, `when`, `fallback_keys` | `{ paths, key, restoreKeys?, policy? }` |
-| Limitations | no policy (always pull-push) | `pull`, `push`, `pull-push` policies | — |
-| Provider gap | no policy control | no cross-OS archive option | — |
+| Aspect       | GitHub Actions                            | GitLab CI                                                  | Sverka (proposed)                       |
+| ------------ | ----------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
+| Construct    | `actions/cache`                           | `cache`                                                    | `cache` on Step                         |
+| Semantics    | Save/restore files by key                 | Save/restore files by key with policy                      | Save/restore files by key               |
+| Value type   | action with `path`, `key`, `restore-keys` | map with `paths`, `key`, `policy`, `when`, `fallback_keys` | `{ paths, key, restoreKeys?, policy? }` |
+| Limitations  | no policy (always pull-push)              | `pull`, `push`, `pull-push` policies                       | —                                       |
+| Provider gap | no policy control                         | no cross-OS archive option                                 | —                                       |
 
 ## GitHub Actions
 
@@ -62,9 +62,9 @@ build:
 ```ts
 interface CacheSpec {
   readonly paths: readonly string[];
-  readonly key: string;                    // expression or literal
+  readonly key: string; // expression or literal
   readonly restoreKeys?: readonly string[];
-  readonly policy?: "pull" | "push" | "pull-push";  // default: pull-push
+  readonly policy?: "pull" | "push" | "pull-push"; // default: pull-push
 }
 ```
 

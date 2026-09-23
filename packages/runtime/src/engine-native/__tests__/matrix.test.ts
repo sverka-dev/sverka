@@ -29,7 +29,13 @@ describe("Matrix context ref resolution in step executor", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedCommand = req.command;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -42,10 +48,14 @@ describe("Matrix context ref resolution in step executor", () => {
       matrixValues: { node: 18, os: "ubuntu" },
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(capturedCommand).toBe("echo 18");
   });
@@ -55,7 +65,13 @@ describe("Matrix context ref resolution in step executor", () => {
     const driver = createMockDriver({
       executeFn: async (req) => {
         capturedCommand = req.command;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const step: StepDefinition = {
@@ -68,10 +84,14 @@ describe("Matrix context ref resolution in step executor", () => {
       matrixValues: { node: 18, os: "ubuntu" },
     };
     await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(capturedCommand).toBe("echo ubuntu");
   });
@@ -87,10 +107,14 @@ describe("Matrix context ref resolution in step executor", () => {
       dependencies: [],
     };
     const result = await executeStep({
-      step, driver, workspace: testDir,
+      step,
+      driver,
+      workspace: testDir,
       artifactStore: createArtifactStore(join(testDir, "art")),
-      valueStore: createValueStore(), secrets: {},
-      emit: () => {}, isCancelled: () => false,
+      valueStore: createValueStore(),
+      secrets: {},
+      emit: () => {},
+      isCancelled: () => false,
     });
     expect(result.status).toBe("failed");
     expect(result.error).toContain("matrix.node");

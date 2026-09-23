@@ -5,9 +5,16 @@ import { join } from "node:path";
 import { createEngine } from "../engine.js";
 import { createMockDriver } from "./helpers/mock-driver.js";
 import type { RunPlan, StepDefinition } from "@sverka/workflow";
-import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "../types.js";
+import type {
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+} from "../types.js";
 
-function makeRetryPlan(retry: StepDefinition["retry"], command = "exit 1"): RunPlan {
+function makeRetryPlan(
+  retry: StepDefinition["retry"],
+  command = "exit 1",
+): RunPlan {
   const step: StepDefinition = {
     id: "ci/flaky",
     runtime: {},
@@ -31,8 +38,24 @@ function makeRetryPlan(retry: StepDefinition["retry"], command = "exit 1"): RunP
 async function collectEvents(
   engine: ReturnType<typeof createEngine>,
   request: Parameters<ReturnType<typeof createEngine>["run"]>[0],
-): Promise<{ type: string; stepId?: string; attempt?: number; nextAttemptMs?: number; error?: string; status?: string }[]> {
-  const events: { type: string; stepId?: string; attempt?: number; nextAttemptMs?: number; error?: string; status?: string }[] = [];
+): Promise<
+  {
+    type: string;
+    stepId?: string;
+    attempt?: number;
+    nextAttemptMs?: number;
+    error?: string;
+    status?: string;
+  }[]
+> {
+  const events: {
+    type: string;
+    stepId?: string;
+    attempt?: number;
+    nextAttemptMs?: number;
+    error?: string;
+    status?: string;
+  }[] = [];
   for await (const event of engine.run(request)) {
     events.push(event as never);
   }
@@ -57,7 +80,13 @@ describe("Engine — retry integration", () => {
       canExecute: () => true,
       executeShell: async (): Promise<ShellResult> => {
         calls++;
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
@@ -76,7 +105,9 @@ describe("Engine — retry integration", () => {
     expect(retries[1]?.attempt).toBe(2);
     const failed = events.find((e) => e.type === "step-failed");
     expect(failed).toBeDefined();
-    const completed = events.find((e) => e.type === "run-completed") as never as { status: string };
+    const completed = events.find(
+      (e) => e.type === "run-completed",
+    ) as never as { status: string };
     expect(completed.status).toBe("failure");
   });
 
@@ -88,9 +119,21 @@ describe("Engine — retry integration", () => {
       executeShell: async (): Promise<ShellResult> => {
         calls++;
         if (calls < 2) {
-          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: "fail",
+            durationMs: 1,
+            timedOut: false,
+          };
         }
-        return { exitCode: 0, stdout: "ok", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "ok",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
@@ -107,7 +150,9 @@ describe("Engine — retry integration", () => {
     expect(retries[0]?.attempt).toBe(1);
     const succeeded = events.find((e) => e.type === "step-succeeded");
     expect(succeeded).toBeDefined();
-    const completed = events.find((e) => e.type === "run-completed") as never as { status: string };
+    const completed = events.find(
+      (e) => e.type === "run-completed",
+    ) as never as { status: string };
     expect(completed.status).toBe("success");
   });
 
@@ -116,7 +161,13 @@ describe("Engine — retry integration", () => {
       name: "always-fail",
       canExecute: () => true,
       executeShell: async (): Promise<ShellResult> => {
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
@@ -145,7 +196,13 @@ describe("Engine — retry integration", () => {
       name: "fail",
       canExecute: () => true,
       executeShell: async (): Promise<ShellResult> => {
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
@@ -165,13 +222,22 @@ describe("Engine — retry integration", () => {
       name: "fail",
       canExecute: () => true,
       executeShell: async (): Promise<ShellResult> => {
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
 
     const events = await collectEvents(engine, {
-      plan: makeRetryPlan({ max: 2, backoff: { baseMs: 50, maxMs: 200, factor: 2 } }),
+      plan: makeRetryPlan({
+        max: 2,
+        backoff: { baseMs: 50, maxMs: 200, factor: 2 },
+      }),
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
@@ -189,13 +255,22 @@ describe("Engine — retry integration", () => {
       name: "fail",
       canExecute: () => true,
       executeShell: async (): Promise<ShellResult> => {
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
 
     const events = await collectEvents(engine, {
-      plan: makeRetryPlan({ max: 3, backoff: { baseMs: 100, maxMs: 150, factor: 2 } }),
+      plan: makeRetryPlan({
+        max: 3,
+        backoff: { baseMs: 100, maxMs: 150, factor: 2 },
+      }),
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
@@ -218,7 +293,13 @@ describe("Engine — retry integration", () => {
       executeShell: async (): Promise<ShellResult> => {
         calls++;
         // Exit code 42 (not in exitCodes list)
-        return { exitCode: 42, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 42,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
@@ -244,7 +325,13 @@ describe("Engine — retry integration", () => {
       canExecute: () => true,
       executeShell: async (): Promise<ShellResult> => {
         calls++;
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
@@ -267,7 +354,13 @@ describe("Engine — retry integration", () => {
       canExecute: () => true,
       executeShell: async (): Promise<ShellResult> => {
         calls++;
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });
@@ -292,7 +385,13 @@ describe("Engine — retry integration", () => {
       canExecute: () => true,
       executeShell: async (): Promise<ShellResult> => {
         calls++;
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const engine = createEngine({ drivers: [driver] });

@@ -55,7 +55,8 @@ function setupNodeStep(root: string): GithubStep {
 function nodeVersion(root: string): string {
   try {
     const raw = readFileSync(join(root, "package.json"), "utf8");
-    const engines = (JSON.parse(raw) as { engines?: { node?: unknown } }).engines?.node;
+    const engines = (JSON.parse(raw) as { engines?: { node?: unknown } })
+      .engines?.node;
     if (typeof engines === "string" && engines.trim() !== "") return engines;
   } catch {
     // fall through to lts
@@ -70,11 +71,17 @@ function bunSteps(version?: string): GithubStep[] {
       uses: "oven-sh/setup-bun@v2",
       ...(version ? { with: { "bun-version": version } } : {}),
     },
-    { name: "Install dependencies", run: "bun install --frozen-lockfile --ignore-scripts" },
+    {
+      name: "Install dependencies",
+      run: "bun install --frozen-lockfile --ignore-scripts",
+    },
   ];
 }
 
-function pnpmSteps(version: string | undefined, node: GithubStep): GithubStep[] {
+function pnpmSteps(
+  version: string | undefined,
+  node: GithubStep,
+): GithubStep[] {
   // pnpm/action-setup reads the version from the packageManager field;
   // the version input is required when the field is absent.
   return [
@@ -84,24 +91,41 @@ function pnpmSteps(version: string | undefined, node: GithubStep): GithubStep[] 
       ...(version ? {} : { with: { version: "latest" } }),
     },
     node,
-    { name: "Install dependencies", run: "pnpm install --frozen-lockfile --ignore-scripts" },
+    {
+      name: "Install dependencies",
+      run: "pnpm install --frozen-lockfile --ignore-scripts",
+    },
   ];
 }
 
-function yarnSteps(version: string | undefined, node: GithubStep): GithubStep[] {
+function yarnSteps(
+  version: string | undefined,
+  node: GithubStep,
+): GithubStep[] {
   // Corepack activates the yarn version declared in packageManager.
   return [
     node,
-    ...(version ? [{ name: "Enable Corepack", run: "corepack enable" } as GithubStep] : []),
+    ...(version
+      ? [{ name: "Enable Corepack", run: "corepack enable" } as GithubStep]
+      : []),
     { name: "Install dependencies", run: "yarn install" },
   ];
 }
 
-function npmSteps(root: string, version: string | undefined, node: GithubStep): GithubStep[] {
+function npmSteps(
+  root: string,
+  version: string | undefined,
+  node: GithubStep,
+): GithubStep[] {
   return [
     node,
     ...(version
-      ? [{ name: "Pin npm", run: `npm install -g "npm@${version}"` } as GithubStep]
+      ? [
+          {
+            name: "Pin npm",
+            run: `npm install -g "npm@${version}"`,
+          } as GithubStep,
+        ]
       : []),
     {
       name: "Install dependencies",
@@ -120,7 +144,10 @@ interface DetectedPm {
 function detectPackageManager(root: string): Partial<DetectedPm> {
   const declared = packageManagerField(root);
   if (declared) return declared;
-  if (existsSync(join(root, "bun.lock")) || existsSync(join(root, "bun.lockb"))) {
+  if (
+    existsSync(join(root, "bun.lock")) ||
+    existsSync(join(root, "bun.lockb"))
+  ) {
     return { name: "bun" };
   }
   if (existsSync(join(root, "pnpm-lock.yaml"))) return { name: "pnpm" };
@@ -136,7 +163,12 @@ function packageManagerField(root: string): DetectedPm | undefined {
     const pm = (JSON.parse(raw) as { packageManager?: unknown }).packageManager;
     if (typeof pm !== "string") return undefined;
     const [name, version] = pm.split("@");
-    if (name === "bun" || name === "pnpm" || name === "yarn" || name === "npm") {
+    if (
+      name === "bun" ||
+      name === "pnpm" ||
+      name === "yarn" ||
+      name === "npm"
+    ) {
       return version !== undefined ? { name, version } : { name };
     }
   } catch {

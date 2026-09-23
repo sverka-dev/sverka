@@ -235,11 +235,11 @@ run status.
 
 ## Dependencies
 
-| Package | Dep | Type | Justification |
-|---------|-----|------|---------------|
-| @sverka/reporter | @sverka/runtime | workspace | RunEvent, RunStatus types |
-| @sverka/verification | workspace | normalizeSarif, evaluatePolicy, filterOnlyNew, Finding, Policy, PolicyResult |
-| @sverka/workflow | workspace | DefinitionGraph (type-only, for future DAG layout) |
+| Package              | Dep             | Type                                                                         | Justification             |
+| -------------------- | --------------- | ---------------------------------------------------------------------------- | ------------------------- |
+| @sverka/reporter     | @sverka/runtime | workspace                                                                    | RunEvent, RunStatus types |
+| @sverka/verification | workspace       | normalizeSarif, evaluatePolicy, filterOnlyNew, Finding, Policy, PolicyResult |
+| @sverka/workflow     | workspace       | DefinitionGraph (type-only, for future DAG layout)                           |
 
 No new external dependencies in Phase 1.
 

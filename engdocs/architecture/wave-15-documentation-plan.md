@@ -26,7 +26,7 @@ links. Follow the style of `engdocs/README.md`.
 ### Step 3: Write getting-started pages
 
 - `getting-started/install.md` — prerequisites (Node 24+, Bun), `bun
-  install`, `bunx sverka init`. Link to first-plan.
+install`, `bunx sverka init`. Link to first-plan.
 - `getting-started/first-plan.md` — complete working example:
 
   ```ts
@@ -98,7 +98,7 @@ will link to `engdocs/user/` paths once the website wave lands.
    blocks against `packages/sdk/src/index.ts` and relevant package
    `src/index.ts` files.
 4. CLI accuracy: every command/flag in `cli/overview.md` exists in
-  `packages/cli/src/main.ts`.
+   `packages/cli/src/main.ts`.
 5. Completeness: every runtime function exported from `@sverka/sdk` is
    mentioned in at least one user doc page.
 6. No malformed markdown (unclosed code fences).
@@ -106,6 +106,7 @@ will link to `engdocs/user/` paths once the website wave lands.
 ## Commit hygiene
 
 Stage ONLY:
+
 - `engdocs/user/**` (all new files)
 - `engdocs/README.md` (modified)
 - `specs/15-documentation/spec.md` (trimmed)

@@ -72,7 +72,7 @@ export const githubCapabilities: CapabilityManifest = {
   "deployment.environment.tier": "unsupported",
   "artifact.retention": "native",
   "artifact.access": "unsupported",
-  "cache": "lowered",
+  cache: "lowered",
   "cache.policy": "lowered",
   "cache.fallbackKeys": "lowered",
   "concurrency.group": "native",

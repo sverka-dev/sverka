@@ -25,7 +25,17 @@ describe("generateSarifHtml", () => {
 
   it("summary header shows total count, severity breakdown, and tool name", () => {
     const findings = [
-      makeFinding({ id: "a", severity: "critical", source: { tool: "semgrep", version: null, format: "sarif", originalRuleId: "r1", originalSeverity: null } }),
+      makeFinding({
+        id: "a",
+        severity: "critical",
+        source: {
+          tool: "semgrep",
+          version: null,
+          format: "sarif",
+          originalRuleId: "r1",
+          originalSeverity: null,
+        },
+      }),
       makeFinding({ id: "b", severity: "high" }),
       makeFinding({ id: "c", severity: "high" }),
       makeFinding({ id: "d", severity: "medium" }),
@@ -68,7 +78,7 @@ describe("generateSarifHtml", () => {
 
   it("XSS safety — script tags in finding JSON data are escaped", () => {
     const findings = [
-      makeFinding({ id: "xss2", message: '</script><script>alert(1)' }),
+      makeFinding({ id: "xss2", message: "</script><script>alert(1)" }),
     ];
     const html = generateSarifHtml(findings);
     // The JSON data should have < replaced with \u003c

@@ -10,17 +10,17 @@ On-demand implementer. Activated by the mayor to implement code from specs, foll
 
 ## Skills
 
-| Skill | When |
-| --- | --- |
-| `test-driven-development` | Every implementation starts with tests |
-| `investigate-first` | Before editing, understand the code area |
-| `minimal-root-cause` | Before patching a bug, climb the laziness ladder |
-| `drill` | When a test fails unexpectedly or build breaks |
-| `minimalist` | Auditing implementation for unnecessary code |
-| `deepwiki` | Understanding how a dependency works |
-| `sourcegraph` | Searching codebase for existing patterns |
-| `sverka-wave` | Understanding the wave cycle |
-| `sverka-drill` | When stuck or tests break |
+| Skill                     | When                                             |
+| ------------------------- | ------------------------------------------------ |
+| `test-driven-development` | Every implementation starts with tests           |
+| `investigate-first`       | Before editing, understand the code area         |
+| `minimal-root-cause`      | Before patching a bug, climb the laziness ladder |
+| `drill`                   | When a test fails unexpectedly or build breaks   |
+| `minimalist`              | Auditing implementation for unnecessary code     |
+| `deepwiki`                | Understanding how a dependency works             |
+| `sourcegraph`             | Searching codebase for existing patterns         |
+| `sverka-wave`             | Understanding the wave cycle                     |
+| `sverka-drill`            | When stuck or tests break                        |
 
 ## Responsibilities
 
@@ -54,11 +54,13 @@ On-demand implementer. Activated by the mayor to implement code from specs, foll
 ## Commit hygiene (for finalize)
 
 Stage only:
+
 - `packages/<package>/**`
 - `specs/NN-<name>/`
 - `engdocs/`
 - `bun.lock`
 
 Exclude:
+
 - `city.toml`, `agents/`, `.devin/`, `.gc/`, `.beads/`
 - `.evidence/`, `.opencode/`, `formulas/`

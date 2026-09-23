@@ -2,10 +2,18 @@
 // Returns a builder that creates a ComponentStep when .build() is called.
 
 import { ComponentStep, Pipeline } from "@sverka/workflow";
-import type { Reference, InputLiteral, ComponentRef, Runtime, OutputDeclaration } from "@sverka/workflow";
+import type {
+  Reference,
+  InputLiteral,
+  ComponentRef,
+  Runtime,
+  OutputDeclaration,
+} from "@sverka/workflow";
 
 export interface ComponentBuilder {
-  outputs(outputs: Readonly<Record<string, OutputDeclaration>>): ComponentBuilder;
+  outputs(
+    outputs: Readonly<Record<string, OutputDeclaration>>,
+  ): ComponentBuilder;
   dependsOn(steps: readonly string[]): ComponentBuilder;
   runtime(runtime: Runtime): ComponentBuilder;
   timeout(ms: number): ComponentBuilder;
@@ -24,9 +32,13 @@ interface ComponentBuilderState {
   interruptible?: boolean;
 }
 
-function createComponentBuilder(state: ComponentBuilderState): ComponentBuilder {
+function createComponentBuilder(
+  state: ComponentBuilderState,
+): ComponentBuilder {
   const builder: ComponentBuilder = {
-    outputs(outputs: Readonly<Record<string, OutputDeclaration>>): ComponentBuilder {
+    outputs(
+      outputs: Readonly<Record<string, OutputDeclaration>>,
+    ): ComponentBuilder {
       state.outputs = outputs;
       return builder;
     },
@@ -57,8 +69,12 @@ function createComponentBuilder(state: ComponentBuilderState): ComponentBuilder 
         ...(state.dependsOn ? { dependsOn: state.dependsOn } : {}),
         ...(state.runtime ? { runtime: state.runtime } : {}),
         ...(state.timeout !== undefined ? { timeout: state.timeout } : {}),
-        ...(state.condition !== undefined ? { condition: state.condition } : {}),
-        ...(state.interruptible !== undefined ? { interruptible: state.interruptible } : {}),
+        ...(state.condition !== undefined
+          ? { condition: state.condition }
+          : {}),
+        ...(state.interruptible !== undefined
+          ? { interruptible: state.interruptible }
+          : {}),
       });
     },
   };

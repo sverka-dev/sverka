@@ -5,14 +5,14 @@ detected package manager. Source: `packages/checks/src/resolver.ts`.
 
 ## Check IDs
 
-| Check ID     | Description                          |
-|--------------|--------------------------------------|
-| `typecheck`  | TypeScript type checking             |
-| `lint`       | Code linting                         |
-| `test`       | Test suite                           |
-| `clippy`     | Rust clippy lints                    |
-| `vet`        | Go vet                               |
-| `fmt-check`  | Rust formatting check                |
+| Check ID    | Description              |
+| ----------- | ------------------------ |
+| `typecheck` | TypeScript type checking |
+| `lint`      | Code linting             |
+| `test`      | Test suite               |
+| `clippy`    | Rust clippy lints        |
+| `vet`       | Go vet                   |
+| `fmt-check` | Rust formatting check    |
 
 ## Per-language resolution
 
@@ -21,33 +21,33 @@ Node entries take precedence when multiple package managers are present.
 
 ### Node
 
-| Check ID   | Package managers              | Command         |
-|------------|-------------------------------|-----------------|
-| `typecheck`| bun, npm, yarn, pnpm          | `<pm> run typecheck` |
-| `lint`     | bun, npm, yarn, pnpm          | `<pm> run lint`      |
-| `test`     | bun, npm, yarn, pnpm          | `<pm> run test`      |
+| Check ID    | Package managers     | Command              |
+| ----------- | -------------------- | -------------------- |
+| `typecheck` | bun, npm, yarn, pnpm | `<pm> run typecheck` |
+| `lint`      | bun, npm, yarn, pnpm | `<pm> run lint`      |
+| `test`      | bun, npm, yarn, pnpm | `<pm> run test`      |
 
 ### Python
 
-| Check ID | Package managers                  | Command         |
-|----------|-----------------------------------|-----------------|
-| `lint`   | pip, poetry, uv, pipenv           | `ruff check`    |
-| `test`   | pip, poetry, uv, pipenv           | `pytest`        |
+| Check ID | Package managers        | Command      |
+| -------- | ----------------------- | ------------ |
+| `lint`   | pip, poetry, uv, pipenv | `ruff check` |
+| `test`   | pip, poetry, uv, pipenv | `pytest`     |
 
 ### Rust
 
-| Check ID     | Package manager | Command              |
-|--------------|-----------------|----------------------|
-| `clippy`     | cargo           | `cargo clippy`       |
-| `fmt-check`  | cargo           | `cargo fmt --check`  |
-| `test`       | cargo           | `cargo test`         |
+| Check ID    | Package manager | Command             |
+| ----------- | --------------- | ------------------- |
+| `clippy`    | cargo           | `cargo clippy`      |
+| `fmt-check` | cargo           | `cargo fmt --check` |
+| `test`      | cargo           | `cargo test`        |
 
 ### Go
 
-| Check ID | Package manager | Command              |
-|----------|-----------------|----------------------|
-| `vet`    | go              | `go vet ./...`       |
-| `test`   | go              | `go test ./...`      |
+| Check ID | Package manager | Command         |
+| -------- | --------------- | --------------- |
+| `vet`    | go              | `go vet ./...`  |
+| `test`   | go              | `go test ./...` |
 
 ## Using the resolver
 

@@ -8,88 +8,173 @@ import {
   type SverkaPlugin,
   type CapabilityManifest,
 } from "../index.js";
-import type { DefinitionGraph, OperationDefinition, Input, OutputDefinition, ArtifactAccess, EnvironmentAction, EnvironmentTier, CachePolicy } from "@sverka/workflow";
+import type {
+  DefinitionGraph,
+  OperationDefinition,
+  Input,
+  OutputDefinition,
+  ArtifactAccess,
+  EnvironmentAction,
+  EnvironmentTier,
+  CachePolicy,
+} from "@sverka/workflow";
 
-function makeGraph(opts: {
-  triggerKind?: "push" | "changeRequest" | "manual";
-  runtimeMode?: "host" | "container";
-  hasDeps?: boolean;
-  hasShell?: boolean;
-  hasScalarOutput?: boolean;
-  hasArtifactOutput?: boolean;
-  hasEnv?: boolean;
-  hasSecrets?: boolean;
-  hasPipelineSecretInput?: boolean;
-  artifactRetention?: string;
-  artifactAccess?: ArtifactAccess;
-  interruptible?: boolean;
-  permissions?: Record<string, "read" | "write" | "none">;
-  defaults?: { shell?: string; workdir?: string; beforeScript?: readonly string[]; interruptible?: boolean };
-  runner?: { labels: readonly string[]; group?: string };
-  identity?: { tokens: Readonly<Record<string, { audience: string }>> };
-  rules?: readonly { if?: string; changes?: readonly string[]; exists?: readonly string[]; when?: "on_success" | "on_failure" | "always" | "never" | "manual" }[];
-  reports?: readonly { type: string; path: string; format?: string }[];
-  inputs?: Record<string, Input>;
-  services?: readonly { name: string; image: string; ports?: readonly number[] }[];
-  environment?: { name: string; action?: EnvironmentAction; tier?: EnvironmentTier };
-  cache?: { paths: readonly string[]; key: string; restoreKeys?: readonly string[]; policy?: CachePolicy };
-  concurrency?: { group: string; cancelInProgress?: boolean };
-} = {}): DefinitionGraph {
+function makeGraph(
+  opts: {
+    triggerKind?: "push" | "changeRequest" | "manual";
+    runtimeMode?: "host" | "container";
+    hasDeps?: boolean;
+    hasShell?: boolean;
+    hasScalarOutput?: boolean;
+    hasArtifactOutput?: boolean;
+    hasEnv?: boolean;
+    hasSecrets?: boolean;
+    hasPipelineSecretInput?: boolean;
+    artifactRetention?: string;
+    artifactAccess?: ArtifactAccess;
+    interruptible?: boolean;
+    permissions?: Record<string, "read" | "write" | "none">;
+    defaults?: {
+      shell?: string;
+      workdir?: string;
+      beforeScript?: readonly string[];
+      interruptible?: boolean;
+    };
+    runner?: { labels: readonly string[]; group?: string };
+    identity?: { tokens: Readonly<Record<string, { audience: string }>> };
+    rules?: readonly {
+      if?: string;
+      changes?: readonly string[];
+      exists?: readonly string[];
+      when?: "on_success" | "on_failure" | "always" | "never" | "manual";
+    }[];
+    reports?: readonly { type: string; path: string; format?: string }[];
+    inputs?: Record<string, Input>;
+    services?: readonly {
+      name: string;
+      image: string;
+      ports?: readonly number[];
+    }[];
+    environment?: {
+      name: string;
+      action?: EnvironmentAction;
+      tier?: EnvironmentTier;
+    };
+    cache?: {
+      paths: readonly string[];
+      key: string;
+      restoreKeys?: readonly string[];
+      policy?: CachePolicy;
+    };
+    concurrency?: { group: string; cancelInProgress?: boolean };
+  } = {},
+): DefinitionGraph {
   const triggerKind = opts.triggerKind ?? "push";
   const runtimeMode = opts.runtimeMode ?? "host";
   const outputs: OutputDefinition[] = [];
   if (opts.hasScalarOutput) outputs.push({ name: "result", type: "string" });
-  if (opts.hasArtifactOutput) outputs.push({ name: "dist", type: "artifact", path: "./dist", ...(opts.artifactRetention !== undefined ? { retention: opts.artifactRetention } : {}), ...(opts.artifactAccess !== undefined ? { access: opts.artifactAccess } : {}) });
+  if (opts.hasArtifactOutput)
+    outputs.push({
+      name: "dist",
+      type: "artifact",
+      path: "./dist",
+      ...(opts.artifactRetention !== undefined
+        ? { retention: opts.artifactRetention }
+        : {}),
+      ...(opts.artifactAccess !== undefined
+        ? { access: opts.artifactAccess }
+        : {}),
+    });
 
-  const runtime: { mode: "host" | "container"; env?: Record<string, string>; secrets?: string[] } = { mode: runtimeMode };
+  const runtime: {
+    mode: "host" | "container";
+    env?: Record<string, string>;
+    secrets?: string[];
+  } = { mode: runtimeMode };
   if (opts.hasEnv) runtime.env = { NODE_ENV: "production" };
   if (opts.hasSecrets) runtime.secrets = ["NPM_TOKEN"];
 
-  const inputs: Record<string, { type: "string"; secret?: boolean; required?: boolean }> = {};
-  if (opts.hasPipelineSecretInput) inputs.npmToken = { type: "string", secret: true, required: true };
+  const inputs: Record<
+    string,
+    { type: "string"; secret?: boolean; required?: boolean }
+  > = {};
+  if (opts.hasPipelineSecretInput)
+    inputs.npmToken = { type: "string", secret: true, required: true };
 
   return {
     project: {
       id: "test",
-      pipelines: [{
-        id: "ci",
-        inputs,
-        entries: [{
-          id: "on-push",
-          trigger: { kind: triggerKind },
-          roots: ["build"],
-        }],
-        steps: [{
-          id: "build",
-          runtime,
-          operations: [
-            ...(opts.hasShell === false ? [] : [{ kind: "shell", command: "echo hi" }]),
-            ...(opts.hasArtifactOutput ? [{
-              kind: "exportArtifact",
-              name: "dist",
-              path: "./dist",
-              ...(opts.artifactRetention !== undefined ? { retention: opts.artifactRetention } : {}),
-              ...(opts.artifactAccess !== undefined ? { access: opts.artifactAccess } : {}),
-            }] : []),
-            ...(opts.reports ?? []).map((r) => ({ kind: "report", spec: r }) as OperationDefinition),
-          ] as readonly OperationDefinition[],
-          inputs: [],
-          outputs,
-          dependencies: opts.hasDeps ? [{ kind: "control", producer: "lint" }] : [],
-          ...(opts.interruptible !== undefined ? { interruptible: opts.interruptible } : {}),
-          ...(opts.runner !== undefined ? { runner: opts.runner } : {}),
-          ...(opts.identity !== undefined ? { identity: opts.identity } : {}),
-          ...(opts.rules !== undefined ? { rules: opts.rules } : {}),
-          ...(opts.services !== undefined ? { services: opts.services } : {}),
-          ...(opts.environment !== undefined ? { environment: opts.environment } : {}),
-          ...(opts.cache !== undefined ? { cache: opts.cache } : {}),
-          ...(opts.concurrency !== undefined ? { concurrency: opts.concurrency } : {}),
-        }],
-        outputs: [],
-        ...(opts.permissions !== undefined ? { permissions: opts.permissions } : {}),
-        ...(opts.defaults !== undefined ? { defaults: opts.defaults } : {}),
-        ...(opts.inputs !== undefined ? { inputs: opts.inputs } : {}),
-      }],
+      pipelines: [
+        {
+          id: "ci",
+          inputs,
+          entries: [
+            {
+              id: "on-push",
+              trigger: { kind: triggerKind },
+              roots: ["build"],
+            },
+          ],
+          steps: [
+            {
+              id: "build",
+              runtime,
+              operations: [
+                ...(opts.hasShell === false
+                  ? []
+                  : [{ kind: "shell", command: "echo hi" }]),
+                ...(opts.hasArtifactOutput
+                  ? [
+                      {
+                        kind: "exportArtifact",
+                        name: "dist",
+                        path: "./dist",
+                        ...(opts.artifactRetention !== undefined
+                          ? { retention: opts.artifactRetention }
+                          : {}),
+                        ...(opts.artifactAccess !== undefined
+                          ? { access: opts.artifactAccess }
+                          : {}),
+                      },
+                    ]
+                  : []),
+                ...(opts.reports ?? []).map(
+                  (r) => ({ kind: "report", spec: r }) as OperationDefinition,
+                ),
+              ] as readonly OperationDefinition[],
+              inputs: [],
+              outputs,
+              dependencies: opts.hasDeps
+                ? [{ kind: "control", producer: "lint" }]
+                : [],
+              ...(opts.interruptible !== undefined
+                ? { interruptible: opts.interruptible }
+                : {}),
+              ...(opts.runner !== undefined ? { runner: opts.runner } : {}),
+              ...(opts.identity !== undefined
+                ? { identity: opts.identity }
+                : {}),
+              ...(opts.rules !== undefined ? { rules: opts.rules } : {}),
+              ...(opts.services !== undefined
+                ? { services: opts.services }
+                : {}),
+              ...(opts.environment !== undefined
+                ? { environment: opts.environment }
+                : {}),
+              ...(opts.cache !== undefined ? { cache: opts.cache } : {}),
+              ...(opts.concurrency !== undefined
+                ? { concurrency: opts.concurrency }
+                : {}),
+            },
+          ],
+          outputs: [],
+          ...(opts.permissions !== undefined
+            ? { permissions: opts.permissions }
+            : {}),
+          ...(opts.defaults !== undefined ? { defaults: opts.defaults } : {}),
+          ...(opts.inputs !== undefined ? { inputs: opts.inputs } : {}),
+        },
+      ],
     },
   };
 }
@@ -111,16 +196,24 @@ describe("defineSverkaPlugin", () => {
       capabilities: { "trigger.push": "native" },
     }));
     expect(plugin.capabilities).toBeDefined();
-    expect((plugin.capabilities as CapabilityManifest)["trigger.push"]).toBe("native");
+    expect((plugin.capabilities as CapabilityManifest)["trigger.push"]).toBe(
+      "native",
+    );
   });
 
   it("passes options to the factory", () => {
-    const plugin = defineSverkaPlugin((options) => ({
-      name: "github",
-      apiVersion: "sverka.dev/v1",
-      capabilities: options?.foo === "bar" ? { "trigger.push": "native" } : {},
-    }), { foo: "bar" } as unknown as Record<string, unknown>);
-    expect((plugin.capabilities as CapabilityManifest)["trigger.push"]).toBe("native");
+    const plugin = defineSverkaPlugin(
+      (options) => ({
+        name: "github",
+        apiVersion: "sverka.dev/v1",
+        capabilities:
+          options?.foo === "bar" ? { "trigger.push": "native" } : {},
+      }),
+      { foo: "bar" } as unknown as Record<string, unknown>,
+    );
+    expect((plugin.capabilities as CapabilityManifest)["trigger.push"]).toBe(
+      "native",
+    );
   });
 
   it("throws INVALID_PLUGIN for missing name", () => {
@@ -225,12 +318,16 @@ describe("detectCapabilities", () => {
   });
 
   it("detects secrets.pipeline-input from pipeline secret inputs (F-21)", () => {
-    const caps = detectCapabilities(makeGraph({ hasPipelineSecretInput: true }));
+    const caps = detectCapabilities(
+      makeGraph({ hasPipelineSecretInput: true }),
+    );
     expect(caps.has("secrets.pipeline-input")).toBe(true);
   });
 
   it("does not detect secrets.pipeline-input when no secret inputs", () => {
-    const caps = detectCapabilities(makeGraph({ hasPipelineSecretInput: false }));
+    const caps = detectCapabilities(
+      makeGraph({ hasPipelineSecretInput: false }),
+    );
     expect(caps.has("secrets.pipeline-input")).toBe(false);
   });
 
@@ -263,48 +360,66 @@ describe("detectCapabilities", () => {
   });
 
   it("detects environment.permissions when pipeline has permissions", () => {
-    const caps = detectCapabilities(makeGraph({ permissions: { contents: "read" } }));
+    const caps = detectCapabilities(
+      makeGraph({ permissions: { contents: "read" } }),
+    );
     expect(caps.has("environment.permissions")).toBe(true);
   });
 
   it("detects runner.selection when step has runner", () => {
-    const caps = detectCapabilities(makeGraph({ runner: { labels: ["linux"] } }));
+    const caps = detectCapabilities(
+      makeGraph({ runner: { labels: ["linux"] } }),
+    );
     expect(caps.has("runner.selection")).toBe(true);
   });
 
   it("detects runner.group when step has runner with group", () => {
-    const caps = detectCapabilities(makeGraph({ runner: { labels: ["linux"], group: "g1" } }));
+    const caps = detectCapabilities(
+      makeGraph({ runner: { labels: ["linux"], group: "g1" } }),
+    );
     expect(caps.has("runner.group")).toBe(true);
   });
 
   it("does not detect runner.group when runner has no group", () => {
-    const caps = detectCapabilities(makeGraph({ runner: { labels: ["linux"] } }));
+    const caps = detectCapabilities(
+      makeGraph({ runner: { labels: ["linux"] } }),
+    );
     expect(caps.has("runner.group")).toBe(false);
   });
 
   it("detects secrets.oidc when step has identity", () => {
-    const caps = detectCapabilities(makeGraph({
-      identity: { tokens: { AWS: { audience: "https://sts.amazonaws.com" } } },
-    }));
+    const caps = detectCapabilities(
+      makeGraph({
+        identity: {
+          tokens: { AWS: { audience: "https://sts.amazonaws.com" } },
+        },
+      }),
+    );
     expect(caps.has("secrets.oidc")).toBe(true);
   });
 
   it("detects secrets.oidc.multiAudience when multiple audiences", () => {
-    const caps = detectCapabilities(makeGraph({
-      identity: {
-        tokens: {
-          AWS: { audience: "https://sts.amazonaws.com" },
-          VAULT: { audience: "https://vault.example.com" },
+    const caps = detectCapabilities(
+      makeGraph({
+        identity: {
+          tokens: {
+            AWS: { audience: "https://sts.amazonaws.com" },
+            VAULT: { audience: "https://vault.example.com" },
+          },
         },
-      },
-    }));
+      }),
+    );
     expect(caps.has("secrets.oidc.multiAudience")).toBe(true);
   });
 
   it("does not detect secrets.oidc.multiAudience when single audience", () => {
-    const caps = detectCapabilities(makeGraph({
-      identity: { tokens: { AWS: { audience: "https://sts.amazonaws.com" } } },
-    }));
+    const caps = detectCapabilities(
+      makeGraph({
+        identity: {
+          tokens: { AWS: { audience: "https://sts.amazonaws.com" } },
+        },
+      }),
+    );
     expect(caps.has("secrets.oidc.multiAudience")).toBe(false);
   });
 
@@ -314,12 +429,16 @@ describe("detectCapabilities", () => {
   });
 
   it("detects workflow.rules.changes when a rule has changes", () => {
-    const caps = detectCapabilities(makeGraph({ rules: [{ changes: ["src/**"] }] }));
+    const caps = detectCapabilities(
+      makeGraph({ rules: [{ changes: ["src/**"] }] }),
+    );
     expect(caps.has("workflow.rules.changes")).toBe(true);
   });
 
   it("detects workflow.rules.exists when a rule has exists", () => {
-    const caps = detectCapabilities(makeGraph({ rules: [{ exists: ["Makefile"] }] }));
+    const caps = detectCapabilities(
+      makeGraph({ rules: [{ exists: ["Makefile"] }] }),
+    );
     expect(caps.has("workflow.rules.exists")).toBe(true);
   });
 
@@ -334,82 +453,116 @@ describe("detectCapabilities", () => {
   });
 
   it("detects workflow.defaults.beforeScript when defaults has beforeScript", () => {
-    const caps = detectCapabilities(makeGraph({ defaults: { beforeScript: ["install"] } }));
+    const caps = detectCapabilities(
+      makeGraph({ defaults: { beforeScript: ["install"] } }),
+    );
     expect(caps.has("workflow.defaults.beforeScript")).toBe(true);
   });
 
   it("detects artifact.report when step has reports", () => {
-    const caps = detectCapabilities(makeGraph({ reports: [{ type: "junit", path: "test.xml" }] }));
+    const caps = detectCapabilities(
+      makeGraph({ reports: [{ type: "junit", path: "test.xml" }] }),
+    );
     expect(caps.has("artifact.report")).toBe(true);
   });
 
   it("detects artifact.report.junit for junit report", () => {
-    const caps = detectCapabilities(makeGraph({ reports: [{ type: "junit", path: "test.xml" }] }));
+    const caps = detectCapabilities(
+      makeGraph({ reports: [{ type: "junit", path: "test.xml" }] }),
+    );
     expect(caps.has("artifact.report.junit")).toBe(true);
   });
 
   it("detects artifact.report.sarif for sarif report", () => {
-    const caps = detectCapabilities(makeGraph({ reports: [{ type: "sarif", path: "results.sarif" }] }));
+    const caps = detectCapabilities(
+      makeGraph({ reports: [{ type: "sarif", path: "results.sarif" }] }),
+    );
     expect(caps.has("artifact.report.sarif")).toBe(true);
   });
 
   it("detects workflow.inputs when pipeline has inputs", () => {
-    const caps = detectCapabilities(makeGraph({ inputs: { env: { type: "string" } } }));
+    const caps = detectCapabilities(
+      makeGraph({ inputs: { env: { type: "string" } } }),
+    );
     expect(caps.has("workflow.inputs")).toBe(true);
   });
 
   it("detects workflow.inputs.choice for choice type", () => {
-    const caps = detectCapabilities(makeGraph({ inputs: { env: { type: "choice", options: ["a"] } } }));
+    const caps = detectCapabilities(
+      makeGraph({ inputs: { env: { type: "choice", options: ["a"] } } }),
+    );
     expect(caps.has("workflow.inputs.choice")).toBe(true);
   });
 
   it("detects workflow.inputs.array for array type", () => {
-    const caps = detectCapabilities(makeGraph({ inputs: { targets: { type: "array" } } }));
+    const caps = detectCapabilities(
+      makeGraph({ inputs: { targets: { type: "array" } } }),
+    );
     expect(caps.has("workflow.inputs.array")).toBe(true);
   });
 
   it("detects workflow.inputs.pattern when input has pattern", () => {
-    const caps = detectCapabilities(makeGraph({ inputs: { ver: { type: "string", pattern: "^v" } } }));
+    const caps = detectCapabilities(
+      makeGraph({ inputs: { ver: { type: "string", pattern: "^v" } } }),
+    );
     expect(caps.has("workflow.inputs.pattern")).toBe(true);
   });
 
   it("detects environment.services when step has services", () => {
-    const caps = detectCapabilities(makeGraph({ services: [{ name: "pg", image: "postgres:16" }] }));
+    const caps = detectCapabilities(
+      makeGraph({ services: [{ name: "pg", image: "postgres:16" }] }),
+    );
     expect(caps.has("environment.services")).toBe(true);
   });
 
   it("detects environment.services.ports when service has ports", () => {
-    const caps = detectCapabilities(makeGraph({ services: [{ name: "pg", image: "postgres:16", ports: [5432] }] }));
+    const caps = detectCapabilities(
+      makeGraph({
+        services: [{ name: "pg", image: "postgres:16", ports: [5432] }],
+      }),
+    );
     expect(caps.has("environment.services.ports")).toBe(true);
   });
 
   it("does not detect environment.services.ports when no ports", () => {
-    const caps = detectCapabilities(makeGraph({ services: [{ name: "pg", image: "postgres:16" }] }));
+    const caps = detectCapabilities(
+      makeGraph({ services: [{ name: "pg", image: "postgres:16" }] }),
+    );
     expect(caps.has("environment.services.ports")).toBe(false);
   });
 
   it("detects deployment.environment when step has environment", () => {
-    const caps = detectCapabilities(makeGraph({ environment: { name: "prod" } }));
+    const caps = detectCapabilities(
+      makeGraph({ environment: { name: "prod" } }),
+    );
     expect(caps.has("deployment.environment")).toBe(true);
   });
 
   it("detects deployment.environment.action when environment has action", () => {
-    const caps = detectCapabilities(makeGraph({ environment: { name: "prod", action: "stop" } }));
+    const caps = detectCapabilities(
+      makeGraph({ environment: { name: "prod", action: "stop" } }),
+    );
     expect(caps.has("deployment.environment.action")).toBe(true);
   });
 
   it("detects deployment.environment.tier when environment has tier", () => {
-    const caps = detectCapabilities(makeGraph({ environment: { name: "prod", tier: "production" } }));
+    const caps = detectCapabilities(
+      makeGraph({ environment: { name: "prod", tier: "production" } }),
+    );
     expect(caps.has("deployment.environment.tier")).toBe(true);
   });
 
   it("detects artifact.retention when artifact output has retention", () => {
-    const caps = detectCapabilities(makeGraph({ hasArtifactOutput: true, artifactRetention: "7d" }));
+    const caps = detectCapabilities(
+      makeGraph({ hasArtifactOutput: true, artifactRetention: "7d" }),
+    );
     expect(caps.has("artifact.retention")).toBe(true);
   });
 
   it("detects artifact.access when artifact output has access", () => {
-    const caps = detectCapabilities(makeGraph({ hasArtifactOutput: true, artifactAccess: "developer" }));
+    const caps = detectCapabilities(
+      makeGraph({ hasArtifactOutput: true, artifactAccess: "developer" }),
+    );
     expect(caps.has("artifact.access")).toBe(true);
   });
 
@@ -419,27 +572,41 @@ describe("detectCapabilities", () => {
   });
 
   it("detects cache when step has cache", () => {
-    const caps = detectCapabilities(makeGraph({ cache: { paths: ["node_modules"], key: "k" } }));
+    const caps = detectCapabilities(
+      makeGraph({ cache: { paths: ["node_modules"], key: "k" } }),
+    );
     expect(caps.has("cache")).toBe(true);
   });
 
   it("detects cache.policy when cache has policy", () => {
-    const caps = detectCapabilities(makeGraph({ cache: { paths: ["node_modules"], key: "k", policy: "pull" } }));
+    const caps = detectCapabilities(
+      makeGraph({
+        cache: { paths: ["node_modules"], key: "k", policy: "pull" },
+      }),
+    );
     expect(caps.has("cache.policy")).toBe(true);
   });
 
   it("detects cache.fallbackKeys when cache has restoreKeys", () => {
-    const caps = detectCapabilities(makeGraph({ cache: { paths: ["node_modules"], key: "k", restoreKeys: ["fallback"] } }));
+    const caps = detectCapabilities(
+      makeGraph({
+        cache: { paths: ["node_modules"], key: "k", restoreKeys: ["fallback"] },
+      }),
+    );
     expect(caps.has("cache.fallbackKeys")).toBe(true);
   });
 
   it("detects concurrency.group when step has concurrency", () => {
-    const caps = detectCapabilities(makeGraph({ concurrency: { group: "prod" } }));
+    const caps = detectCapabilities(
+      makeGraph({ concurrency: { group: "prod" } }),
+    );
     expect(caps.has("concurrency.group")).toBe(true);
   });
 
   it("detects concurrency.cancelInProgress when set", () => {
-    const caps = detectCapabilities(makeGraph({ concurrency: { group: "prod", cancelInProgress: true } }));
+    const caps = detectCapabilities(
+      makeGraph({ concurrency: { group: "prod", cancelInProgress: true } }),
+    );
     expect(caps.has("concurrency.cancelInProgress")).toBe(true);
   });
 });
@@ -447,22 +614,26 @@ describe("detectCapabilities", () => {
 describe("analyzeCapabilities", () => {
   it("no diagnostics when all capabilities are native", () => {
     const graph = makeGraph();
-    const manifests: CapabilityManifest[] = [{
-      "trigger.push": "native",
-      "runtime.host": "native",
-      "operation.shell": "native",
-    }];
+    const manifests: CapabilityManifest[] = [
+      {
+        "trigger.push": "native",
+        "runtime.host": "native",
+        "operation.shell": "native",
+      },
+    ];
     const diags = analyzeCapabilities(graph, manifests);
     expect(diags).toHaveLength(0);
   });
 
   it("error diagnostic for unsupported capability", () => {
     const graph = makeGraph();
-    const manifests: CapabilityManifest[] = [{
-      "trigger.push": "native",
-      "runtime.host": "native",
-      // operation.shell missing → unsupported
-    }];
+    const manifests: CapabilityManifest[] = [
+      {
+        "trigger.push": "native",
+        "runtime.host": "native",
+        // operation.shell missing → unsupported
+      },
+    ];
     const diags = analyzeCapabilities(graph, manifests);
     expect(diags).toHaveLength(1);
     expect(diags[0]?.capability).toBe("operation.shell");
@@ -472,11 +643,13 @@ describe("analyzeCapabilities", () => {
 
   it("warning diagnostic for emulated capability", () => {
     const graph = makeGraph();
-    const manifests: CapabilityManifest[] = [{
-      "trigger.push": "native",
-      "runtime.host": "native",
-      "operation.shell": "emulated",
-    }];
+    const manifests: CapabilityManifest[] = [
+      {
+        "trigger.push": "native",
+        "runtime.host": "native",
+        "operation.shell": "emulated",
+      },
+    ];
     const diags = analyzeCapabilities(graph, manifests);
     expect(diags).toHaveLength(1);
     expect(diags[0]?.support).toBe("emulated");
@@ -485,11 +658,13 @@ describe("analyzeCapabilities", () => {
 
   it("warning diagnostic for partial capability", () => {
     const graph = makeGraph();
-    const manifests: CapabilityManifest[] = [{
-      "trigger.push": "native",
-      "runtime.host": "native",
-      "operation.shell": "partial",
-    }];
+    const manifests: CapabilityManifest[] = [
+      {
+        "trigger.push": "native",
+        "runtime.host": "native",
+        "operation.shell": "partial",
+      },
+    ];
     const diags = analyzeCapabilities(graph, manifests);
     expect(diags).toHaveLength(1);
     expect(diags[0]?.support).toBe("partial");
@@ -498,11 +673,13 @@ describe("analyzeCapabilities", () => {
 
   it("no diagnostics for lowered capability", () => {
     const graph = makeGraph();
-    const manifests: CapabilityManifest[] = [{
-      "trigger.push": "native",
-      "runtime.host": "native",
-      "operation.shell": "lowered",
-    }];
+    const manifests: CapabilityManifest[] = [
+      {
+        "trigger.push": "native",
+        "runtime.host": "native",
+        "operation.shell": "lowered",
+      },
+    ];
     const diags = analyzeCapabilities(graph, manifests);
     expect(diags).toHaveLength(0);
   });
@@ -520,7 +697,11 @@ describe("analyzeCapabilities", () => {
   it("picks best support across multiple manifests", () => {
     const graph = makeGraph();
     const manifests: CapabilityManifest[] = [
-      { "trigger.push": "native", "runtime.host": "native", "operation.shell": "unsupported" },
+      {
+        "trigger.push": "native",
+        "runtime.host": "native",
+        "operation.shell": "unsupported",
+      },
       { "operation.shell": "native" },
     ];
     const diags = analyzeCapabilities(graph, manifests);
@@ -529,22 +710,26 @@ describe("analyzeCapabilities", () => {
 
   it("supports CapabilityDetail form", () => {
     const graph = makeGraph();
-    const manifests: CapabilityManifest[] = [{
-      "trigger.push": "native",
-      "runtime.host": "native",
-      "operation.shell": { support: "lowered", via: "bash" },
-    }];
+    const manifests: CapabilityManifest[] = [
+      {
+        "trigger.push": "native",
+        "runtime.host": "native",
+        "operation.shell": { support: "lowered", via: "bash" },
+      },
+    ];
     const diags = analyzeCapabilities(graph, manifests);
     expect(diags).toHaveLength(0);
   });
 
   it("info diagnostic for connector capability", () => {
     const graph = makeGraph();
-    const manifests: CapabilityManifest[] = [{
-      "trigger.push": "native",
-      "runtime.host": "native",
-      "operation.shell": "connector",
-    }];
+    const manifests: CapabilityManifest[] = [
+      {
+        "trigger.push": "native",
+        "runtime.host": "native",
+        "operation.shell": "connector",
+      },
+    ];
     const diags = analyzeCapabilities(graph, manifests);
     expect(diags).toHaveLength(1);
     expect(diags[0]?.support).toBe("connector");
@@ -614,9 +799,7 @@ describe("createPluginRegistry", () => {
     const p1 = defineSverkaPlugin(() => ({ name: "a", apiVersion: "v1" }));
     registry.register(p1);
     const plugins = registry.plugins as { name: string; apiVersion: string }[];
-    plugins.push(
-      defineSverkaPlugin(() => ({ name: "b", apiVersion: "v1" })),
-    );
+    plugins.push(defineSverkaPlugin(() => ({ name: "b", apiVersion: "v1" })));
     expect(registry.plugins).toHaveLength(1);
   });
 
@@ -656,16 +839,24 @@ describe("createPluginRegistry", () => {
     }));
     registry.register(p1);
     const caps = registry.getCapabilities();
-    const detail = caps[0]?.["trigger.push"] as { support: string; via: string };
+    const detail = caps[0]?.["trigger.push"] as {
+      support: string;
+      via: string;
+    };
     detail.support = "unsupported";
     detail.via = "gitlab";
-    const stored = registry.getCapabilities()[0]?.["trigger.push"] as { support: string; via: string };
+    const stored = registry.getCapabilities()[0]?.["trigger.push"] as {
+      support: string;
+      via: string;
+    };
     expect(stored.support).toBe("native");
     expect(stored.via).toBe("github");
   });
 
   it("defineSverkaPlugin snapshots nested CapabilityDetail objects defensively", () => {
-    const manifest: CapabilityManifest = { "trigger.push": { support: "native", via: "github" } };
+    const manifest: CapabilityManifest = {
+      "trigger.push": { support: "native", via: "github" },
+    };
     const plugin = defineSverkaPlugin(() => ({
       name: "a",
       apiVersion: "v1",
@@ -674,7 +865,10 @@ describe("createPluginRegistry", () => {
     const detail = manifest["trigger.push"] as { support: string; via: string };
     detail.support = "unsupported";
     detail.via = "gitlab";
-    const stored = plugin.capabilities?.["trigger.push"] as { support: string; via: string };
+    const stored = plugin.capabilities?.["trigger.push"] as {
+      support: string;
+      via: string;
+    };
     expect(stored.support).toBe("native");
     expect(stored.via).toBe("github");
   });

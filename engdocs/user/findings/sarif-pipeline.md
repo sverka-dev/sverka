@@ -45,6 +45,7 @@ const sarifLog = serializeSarif(findings);
 ```
 
 The serializer:
+
 - Groups findings by source tool into separate runs
 - Deduplicates rules within each run
 - Maps Sverka severity to SARIF level (`critical`/`high` → `error`, `medium` → `warning`, etc.)
@@ -77,6 +78,7 @@ cat findings.sarif | sverka view
 ```
 
 The TUI provides:
+
 - Severity filtering (all, critical, high, medium, low, info)
 - Text search across message, check ID, file, and rule
 - Column sorting (severity, file, rule)
@@ -95,6 +97,7 @@ sverka view findings.sarif --format web -o report.html
 
 The HTML report is self-contained — inline CSS and JavaScript, no external
 dependencies, no CDN. It includes:
+
 - Summary counts (total, critical, high, medium, low, info)
 - Tool name from the first finding
 - Severity filtering, text search, and column sorting
@@ -111,6 +114,7 @@ sverka ui --port 8080 --host 0.0.0.0
 ```
 
 The dashboard:
+
 - Lists all SARIF files in `.sverka/artifacts/`
 - Click any file to view the rendered findings report
 - Path traversal protection on report endpoints
@@ -179,12 +183,12 @@ console.log(`Dashboard running at ${server.url}`);
 
 ## Packages
 
-| Package | Purpose |
-|---------|---------|
-| `@sverka/verification` | `serializeSarif`, `normalizeSarif`, `Finding` types |
-| `@sverka/sarif-viewer-tui` | Ink-based terminal TUI |
-| `@sverka/sarif-viewer-web` | Self-contained HTML report generator |
-| `@sverka/ui` | Local web dashboard server |
+| Package                    | Purpose                                             |
+| -------------------------- | --------------------------------------------------- |
+| `@sverka/verification`     | `serializeSarif`, `normalizeSarif`, `Finding` types |
+| `@sverka/sarif-viewer-tui` | Ink-based terminal TUI                              |
+| `@sverka/sarif-viewer-web` | Self-contained HTML report generator                |
+| `@sverka/ui`               | Local web dashboard server                          |
 
 All viewer packages are standalone — they do not depend on
 `@sverka/runtime`, `@sverka/workflow`, or `@sverka/reporter`.

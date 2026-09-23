@@ -82,7 +82,11 @@ const judgeConfig = (over: Partial<JudgeConfig> = {}): JudgeConfig => {
   const agent: AgentAdapter = {
     id: "mock-judge",
     spawn: (): AgentProcess => ({
-      run: async () => runResult({ output: '{"score": 90, "passed": true, "reasoning": "ok", "issues": []}' }),
+      run: async () =>
+        runResult({
+          output:
+            '{"score": 90, "passed": true, "reasoning": "ok", "issues": []}',
+        }),
       kill: () => {},
     }),
   };
@@ -116,7 +120,11 @@ describe("buildJudgePrompt", () => {
   });
 
   it("includes the agent output", () => {
-    const prompt = buildJudgePrompt(task(), "THE_AGENT_RESPONSE", judgeConfig());
+    const prompt = buildJudgePrompt(
+      task(),
+      "THE_AGENT_RESPONSE",
+      judgeConfig(),
+    );
     expect(prompt).toContain("THE_AGENT_RESPONSE");
   });
 
@@ -278,12 +286,22 @@ describe("compareCombos", () => {
   it("computes deltas as candidate - baseline", () => {
     const baseline = runResult({
       pluginIds: [],
-      metrics: metrics({ totalTokens: 1000, toolCallCount: 10, llmCallCount: 5, executionTimeMs: 10000 }),
+      metrics: metrics({
+        totalTokens: 1000,
+        toolCallCount: 10,
+        llmCallCount: 5,
+        executionTimeMs: 10000,
+      }),
       verdicts: [verdict({ score: 70 })],
     });
     const candidate = runResult({
       pluginIds: ["sverka"],
-      metrics: metrics({ totalTokens: 800, toolCallCount: 8, llmCallCount: 4, executionTimeMs: 8000 }),
+      metrics: metrics({
+        totalTokens: 800,
+        toolCallCount: 8,
+        llmCallCount: 4,
+        executionTimeMs: 8000,
+      }),
       verdicts: [verdict({ score: 90 })],
     });
 
@@ -305,7 +323,10 @@ describe("compareCombos", () => {
 
   it("marks candidateBetter=true when judge score improved", () => {
     const baseline = runResult({ verdicts: [verdict({ score: 60 })] });
-    const candidate = runResult({ pluginIds: ["sverka"], verdicts: [verdict({ score: 85 })] });
+    const candidate = runResult({
+      pluginIds: ["sverka"],
+      verdicts: [verdict({ score: 85 })],
+    });
     const cmp = compareCombos(baseline, candidate);
     expect(cmp.deltaJudgeScore).toBe(25);
     expect(cmp.candidateBetter).toBe(true);
@@ -313,12 +334,22 @@ describe("compareCombos", () => {
 
   it("marks candidateBetter=true when equal score but fewer resources", () => {
     const baseline = runResult({
-      metrics: metrics({ totalTokens: 1000, toolCallCount: 10, llmCallCount: 5, executionTimeMs: 10000 }),
+      metrics: metrics({
+        totalTokens: 1000,
+        toolCallCount: 10,
+        llmCallCount: 5,
+        executionTimeMs: 10000,
+      }),
       verdicts: [verdict({ score: 80 })],
     });
     const candidate = runResult({
       pluginIds: ["sverka"],
-      metrics: metrics({ totalTokens: 800, toolCallCount: 8, llmCallCount: 4, executionTimeMs: 8000 }),
+      metrics: metrics({
+        totalTokens: 800,
+        toolCallCount: 8,
+        llmCallCount: 4,
+        executionTimeMs: 8000,
+      }),
       verdicts: [verdict({ score: 80 })],
     });
     const cmp = compareCombos(baseline, candidate);
@@ -328,12 +359,22 @@ describe("compareCombos", () => {
 
   it("marks candidateBetter=false when candidate uses more resources and same score", () => {
     const baseline = runResult({
-      metrics: metrics({ totalTokens: 800, toolCallCount: 8, llmCallCount: 4, executionTimeMs: 8000 }),
+      metrics: metrics({
+        totalTokens: 800,
+        toolCallCount: 8,
+        llmCallCount: 4,
+        executionTimeMs: 8000,
+      }),
       verdicts: [verdict({ score: 80 })],
     });
     const candidate = runResult({
       pluginIds: ["sverka"],
-      metrics: metrics({ totalTokens: 1000, toolCallCount: 10, llmCallCount: 5, executionTimeMs: 10000 }),
+      metrics: metrics({
+        totalTokens: 1000,
+        toolCallCount: 10,
+        llmCallCount: 5,
+        executionTimeMs: 10000,
+      }),
       verdicts: [verdict({ score: 80 })],
     });
     const cmp = compareCombos(baseline, candidate);
@@ -359,8 +400,13 @@ describe("compareCombos", () => {
   });
 
   it("averages multiple verdicts for the judge score", () => {
-    const baseline = runResult({ verdicts: [verdict({ score: 60 }), verdict({ score: 80 })] });
-    const candidate = runResult({ pluginIds: ["sverka"], verdicts: [verdict({ score: 90 }), verdict({ score: 90 })] });
+    const baseline = runResult({
+      verdicts: [verdict({ score: 60 }), verdict({ score: 80 })],
+    });
+    const candidate = runResult({
+      pluginIds: ["sverka"],
+      verdicts: [verdict({ score: 90 }), verdict({ score: 90 })],
+    });
     const cmp = compareCombos(baseline, candidate);
     // baseline avg = 70, candidate avg = 90 → delta = 20
     expect(cmp.deltaJudgeScore).toBe(20);
@@ -378,7 +424,8 @@ describe("judgeRun", () => {
         run: async (prompt: string) => {
           sentPrompts.push(prompt);
           return runResult({
-            output: '{"score": 88, "passed": true, "reasoning": "solid", "issues": ["x"]}',
+            output:
+              '{"score": 88, "passed": true, "reasoning": "solid", "issues": ["x"]}',
           });
         },
         kill: () => {},
@@ -405,8 +452,14 @@ describe("judgeRun", () => {
     const agent: AgentAdapter = {
       id: "mock-judge",
       spawn: (): AgentProcess => ({
-        run: async () => runResult({ output: '{"score": 50, "passed": false, "reasoning": "no", "issues": []}' }),
-        kill: () => { killed++; },
+        run: async () =>
+          runResult({
+            output:
+              '{"score": 50, "passed": false, "reasoning": "no", "issues": []}',
+          }),
+        kill: () => {
+          killed++;
+        },
       }),
     };
     await judgeRun(runResult(), task(), { model: judgeModel, agent }, 0);
@@ -418,11 +471,20 @@ describe("judgeRun", () => {
     const agent: AgentAdapter = {
       id: "mock-judge",
       spawn: (): AgentProcess => ({
-        run: async () => { throw new Error("judge crashed"); },
-        kill: () => { killed++; },
+        run: async () => {
+          throw new Error("judge crashed");
+        },
+        kill: () => {
+          killed++;
+        },
       }),
     };
-    const v = await judgeRun(runResult(), task(), { model: judgeModel, agent }, 0);
+    const v = await judgeRun(
+      runResult(),
+      task(),
+      { model: judgeModel, agent },
+      0,
+    );
     expect(killed).toBe(1);
     expect(v.score).toBe(0);
     expect(v.passed).toBe(false);
@@ -437,7 +499,12 @@ describe("judgeRun", () => {
         kill: () => {},
       }),
     };
-    const v = await judgeRun(runResult(), task(), { model: judgeModel, agent }, 0);
+    const v = await judgeRun(
+      runResult(),
+      task(),
+      { model: judgeModel, agent },
+      0,
+    );
     expect(v.score).toBe(0);
     expect(v.passed).toBe(false);
   });
@@ -453,7 +520,10 @@ describe("judgeAllRuns", () => {
       spawn: (): AgentProcess => ({
         run: async () => {
           runCount++;
-          return runResult({ output: '{"score": 75, "passed": true, "reasoning": "ok", "issues": []}' });
+          return runResult({
+            output:
+              '{"score": 75, "passed": true, "reasoning": "ok", "issues": []}',
+          });
         },
         kill: () => {},
       }),
@@ -463,7 +533,10 @@ describe("judgeAllRuns", () => {
       runResult({ taskId: "t1" }),
       runResult({ taskId: "t2", output: "t2 output" }),
     ];
-    const verdicts = await judgeAllRuns(results, tasks, { model: judgeModel, agent });
+    const verdicts = await judgeAllRuns(results, tasks, {
+      model: judgeModel,
+      agent,
+    });
     expect(verdicts).toHaveLength(2);
     expect(runCount).toBe(2);
     expect(verdicts[0]?.taskId).toBe("t1");
@@ -480,7 +553,10 @@ describe("judgeAllRuns", () => {
       spawn: (): AgentProcess => ({
         run: async () => {
           runCount++;
-          return runResult({ output: '{"score": 70, "passed": true, "reasoning": "ok", "issues": []}' });
+          return runResult({
+            output:
+              '{"score": 70, "passed": true, "reasoning": "ok", "issues": []}',
+          });
         },
         kill: () => {},
       }),
@@ -501,7 +577,10 @@ describe("judgeAllRuns", () => {
       spawn: (): AgentProcess => ({
         run: async () => {
           runCount++;
-          return runResult({ output: '{"score": 70, "passed": true, "reasoning": "ok", "issues": []}' });
+          return runResult({
+            output:
+              '{"score": 70, "passed": true, "reasoning": "ok", "issues": []}',
+          });
         },
         kill: () => {},
       }),
@@ -523,7 +602,10 @@ describe("judgeAllRuns", () => {
         kill: () => {},
       }),
     };
-    const verdicts = await judgeAllRuns([], [task()], { model: judgeModel, agent });
+    const verdicts = await judgeAllRuns([], [task()], {
+      model: judgeModel,
+      agent,
+    });
     expect(verdicts).toEqual([]);
   });
 });

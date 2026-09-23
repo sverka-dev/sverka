@@ -4,7 +4,11 @@ import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEngine } from "../engine.js";
-import { createStubAgentDriver, type AgentDriver, type AgentResult } from "../agent-driver.js";
+import {
+  createStubAgentDriver,
+  type AgentDriver,
+  type AgentResult,
+} from "../agent-driver.js";
 import { AgentDriverError, type AgentDriverErrorCode } from "../errors.js";
 import { createMockDriver } from "./helpers/mock-driver.js";
 import type { RunPlan, StepDefinition } from "@sverka/workflow";
@@ -41,15 +45,33 @@ function makeAgentPlan(
 }
 
 async function runEngine(
-  config: { drivers?: readonly unknown[]; agentDrivers?: readonly AgentDriver[] },
+  config: {
+    drivers?: readonly unknown[];
+    agentDrivers?: readonly AgentDriver[];
+  },
   plan: RunPlan,
   testDir: string,
-): Promise<{ events: { type: string; stepId?: string; error?: string; message?: string; severity?: string }[]; status: string }> {
+): Promise<{
+  events: {
+    type: string;
+    stepId?: string;
+    error?: string;
+    message?: string;
+    severity?: string;
+  }[];
+  status: string;
+}> {
   const engine = createEngine({
     drivers: (config.drivers ?? [createMockDriver()]) as never,
     ...(config.agentDrivers ? { agentDrivers: config.agentDrivers } : {}),
   });
-  const events: { type: string; stepId?: string; error?: string; message?: string; severity?: string }[] = [];
+  const events: {
+    type: string;
+    stepId?: string;
+    error?: string;
+    message?: string;
+    severity?: string;
+  }[] = [];
   for await (const event of engine.run({
     plan,
     workspace: join(testDir, "ws"),
@@ -57,7 +79,9 @@ async function runEngine(
   })) {
     events.push(event as never);
   }
-  const completed = events.find((e) => e.type === "run-completed") as unknown as { status: string };
+  const completed = events.find(
+    (e) => e.type === "run-completed",
+  ) as unknown as { status: string };
   return { events, status: completed?.status ?? "unknown" };
 }
 
@@ -113,7 +137,9 @@ describe("Agent step — stub driver lifecycle + artifact (items 5, 10)", () => 
     );
     expect(status).toBe("success");
     const artifactPath = join(testDir, "art", "ci/agent", "agent-result.json");
-    const content = JSON.parse(await readFile(artifactPath, "utf-8")) as AgentResult;
+    const content = JSON.parse(
+      await readFile(artifactPath, "utf-8"),
+    ) as AgentResult;
     expect(content.text).toBe("[stub agent response]");
     expect(content.finishReason).toBe("stop");
   });
@@ -134,7 +160,8 @@ describe("Agent step — missing driver (item 6)", () => {
     // Use a driver that only handles "default" and "claude", not "unknown-engine".
     const selectiveDriver: AgentDriver = {
       name: "selective",
-      canExecute: (engine: string) => engine === "default" || engine === "claude",
+      canExecute: (engine: string) =>
+        engine === "default" || engine === "claude",
       executeAgent: async () => ({ text: "", finishReason: "stop" }),
     };
     const { events, status } = await runEngine(
@@ -170,8 +197,12 @@ describe("Agent step — cache skipped (item 7)", () => {
     });
     // Build a fake cache store that always reports a hit on restore.
     const fakeCache = {
-      async restore() { return { key: "agent-cache-key", restoredKeys: [] }; },
-      async store() { return; },
+      async restore() {
+        return { key: "agent-cache-key", restoredKeys: [] };
+      },
+      async store() {
+        return;
+      },
     };
     const engine = createEngine({
       drivers: [createMockDriver()],
@@ -209,7 +240,9 @@ describe("Agent step — driver exception wrapping (item 8)", () => {
     const throwingDriver: AgentDriver = {
       name: "throwing",
       canExecute: () => true,
-      executeAgent: async () => { throw new Error("network down"); },
+      executeAgent: async () => {
+        throw new Error("network down");
+      },
     };
     const { events, status } = await runEngine(
       { agentDrivers: [throwingDriver] },
@@ -236,9 +269,12 @@ describe("Agent step — unknown tool warning (item 9)", () => {
   });
 
   it("emits a warn diagnostic for an unknown tool but still succeeds", async () => {
-    const plan = makeAgentPlan({}, {
-      tools: [{ plugin: "missing", tool: "no-such-tool" }],
-    });
+    const plan = makeAgentPlan(
+      {},
+      {
+        tools: [{ plugin: "missing", tool: "no-such-tool" }],
+      },
+    );
     const { events, status } = await runEngine(
       { agentDrivers: [createStubAgentDriver()] },
       plan,
@@ -246,7 +282,10 @@ describe("Agent step — unknown tool warning (item 9)", () => {
     );
     expect(status).toBe("success");
     const diag = events.find(
-      (e) => e.type === "diagnostic" && e.severity === "warn" && e.message?.includes("no-such-tool"),
+      (e) =>
+        e.type === "diagnostic" &&
+        e.severity === "warn" &&
+        e.message?.includes("no-such-tool"),
     );
     expect(diag).toBeDefined();
     const succeeded = events.find((e) => e.type === "step-succeeded");

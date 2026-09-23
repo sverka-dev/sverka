@@ -12,13 +12,13 @@ Environments group deployment targets (staging, production) with protection rule
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `environment` | `environment` | `environment` on Step |
-| Semantics | Deploy to named environment with protection rules | Deploy to environment with lifecycle actions | Deploy to named environment |
-| Value type | string or map | string or map | `{ name, url?, action? }` |
-| Limitations | no lifecycle actions | rich lifecycle (start/stop/verify) | portable subset + extensions |
-| Provider gap | no on_stop, no deployment_tier | no protection rules in YAML | — |
+| Aspect       | GitHub Actions                                    | GitLab CI                                    | Sverka (proposed)            |
+| ------------ | ------------------------------------------------- | -------------------------------------------- | ---------------------------- |
+| Construct    | `environment`                                     | `environment`                                | `environment` on Step        |
+| Semantics    | Deploy to named environment with protection rules | Deploy to environment with lifecycle actions | Deploy to named environment  |
+| Value type   | string or map                                     | string or map                                | `{ name, url?, action? }`    |
+| Limitations  | no lifecycle actions                              | rich lifecycle (start/stop/verify)           | portable subset + extensions |
+| Provider gap | no on_stop, no deployment_tier                    | no protection rules in YAML                  | —                            |
 
 ## GitHub Actions
 
@@ -64,7 +64,7 @@ interface EnvironmentSpec {
   readonly url?: string;
   readonly action?: "start" | "stop" | "verify";
   readonly tier?: "production" | "staging" | "testing" | "development";
-  readonly onStop?: string;  // step ID of the stop job (GitLab on_stop)
+  readonly onStop?: string; // step ID of the stop job (GitLab on_stop)
 }
 ```
 

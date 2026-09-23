@@ -49,11 +49,20 @@ runtime's job; remote discovery is a later wave (`runtime-remote`).
 ```typescript
 // src/index.ts — public exports
 
-export { type Planner, type DiscoverOptions, type ProjectContext,
-         type PlanProposal, type ProposedCheck, type LocalSignal,
-         type LocalSignalType, type DetectedLanguage,
-         type DetectedPackageManager, type MonorepoMarker,
-         type ChangedFile, type DiscoveryExplanation } from "./planner.js";
+export {
+  type Planner,
+  type DiscoverOptions,
+  type ProjectContext,
+  type PlanProposal,
+  type ProposedCheck,
+  type LocalSignal,
+  type LocalSignalType,
+  type DetectedLanguage,
+  type DetectedPackageManager,
+  type MonorepoMarker,
+  type ChangedFile,
+  type DiscoveryExplanation,
+} from "./planner.js";
 export { createPlanner } from "./planner.js";
 export { DiscoveryError, type DiscoveryErrorCode } from "./errors.js";
 ```
@@ -152,8 +161,21 @@ export interface DetectedLanguage {
  * A detected package manager.
  */
 export interface DetectedPackageManager {
-  name: "npm" | "yarn" | "pnpm" | "bun" | "pip" | "poetry" | "uv" |
-        "pipenv" | "cargo" | "go" | "maven" | "gradle" | "composer" | "other";
+  name:
+    | "npm"
+    | "yarn"
+    | "pnpm"
+    | "bun"
+    | "pip"
+    | "poetry"
+    | "uv"
+    | "pipenv"
+    | "cargo"
+    | "go"
+    | "maven"
+    | "gradle"
+    | "composer"
+    | "other";
   version: string | null;
   lockfile: string | null;
   evidence: string[];
@@ -166,8 +188,13 @@ export interface DetectedPackageManager {
  * Marker indicating a monorepo layout.
  */
 export interface MonorepoMarker {
-  tool: "nx" | "turborepo" | "lerna" | "pnpm-workspace" | "bun-workspace" |
-        "custom";
+  tool:
+    | "nx"
+    | "turborepo"
+    | "lerna"
+    | "pnpm-workspace"
+    | "bun-workspace"
+    | "custom";
   workspaces: readonly string[];
   evidence: string[];
 }
@@ -239,10 +266,7 @@ export class DiscoveryError extends Error {
 }
 
 export type DiscoveryErrorCode =
-  | "ROOT_NOT_FOUND"
-  | "GIT_UNAVAILABLE"
-  | "GIT_NOT_A_REPO"
-  | "TRAVERSAL_FAILED";
+  "ROOT_NOT_FOUND" | "GIT_UNAVAILABLE" | "GIT_NOT_A_REPO" | "TRAVERSAL_FAILED";
 ```
 
 ```typescript
@@ -265,7 +289,7 @@ export function createGitCli(): GitCli;
    not on PATH → `GIT_UNAVAILABLE`. If root is not inside a git repo →
    `GIT_NOT_A_REPO`.
 2. **Enumerate files via git** (`git ls-files` for tracked, `git status
-   --porcelain` for untracked). Git respects `.gitignore`, so no hand-rolled
+--porcelain` for untracked). Git respects `.gitignore`, so no hand-rolled
    gitignore matching. `maxDepth` filters the result set.
 3. **Collect local signals** by scanning the file list against detection
    rules (table below). Each match emits a `LocalSignal` with confidence.
@@ -278,15 +302,15 @@ export function createGitCli(): GitCli;
 
 ### Detection rules
 
-| Signal type | Detection rule | Confidence |
-|---|---|---|
-| `manifest` | `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`, `build.gradle`, `composer.json` present | 1.0 |
-| `lockfile` | `bun.lock`, `bun.lockb`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `Cargo.lock`, `go.sum` present | 1.0 |
-| `dockerfile` | file named `Dockerfile` or matching `*.Dockerfile` | 1.0 |
-| `docker-compose` | `docker-compose.yml` or `docker-compose.yaml` | 1.0 |
-| `ci-definition` | `.github/workflows/*.yml`, `.gitlab-ci.yml`, `.circleci/`, `azure-pipelines.yml`, `Jenkinsfile` | 1.0 |
-| `monorepo-marker` | `nx.json`, `turbo.json`, `lerna.json`, `pnpm-workspace.yaml`, or root `package.json` with a `workspaces` field | 1.0 |
-| `git-metadata` | `git rev-parse HEAD`, `git status --porcelain`, `git diff --name-status` | 1.0 |
+| Signal type       | Detection rule                                                                                                             | Confidence |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `manifest`        | `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`, `build.gradle`, `composer.json` present               | 1.0        |
+| `lockfile`        | `bun.lock`, `bun.lockb`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `Cargo.lock`, `go.sum` present | 1.0        |
+| `dockerfile`      | file named `Dockerfile` or matching `*.Dockerfile`                                                                         | 1.0        |
+| `docker-compose`  | `docker-compose.yml` or `docker-compose.yaml`                                                                              | 1.0        |
+| `ci-definition`   | `.github/workflows/*.yml`, `.gitlab-ci.yml`, `.circleci/`, `azure-pipelines.yml`, `Jenkinsfile`                            | 1.0        |
+| `monorepo-marker` | `nx.json`, `turbo.json`, `lerna.json`, `pnpm-workspace.yaml`, or root `package.json` with a `workspaces` field             | 1.0        |
+| `git-metadata`    | `git rev-parse HEAD`, `git status --porcelain`, `git diff --name-status`                                                   | 1.0        |
 
 ### Language detection
 
@@ -312,12 +336,12 @@ workspace paths that exist on disk.
 
 `plan(context)` proposes checks from detected languages and package managers:
 
-| Detected | Proposed check (`checkId`) | Reason |
-|---|---|---|
-| TypeScript/JavaScript + npm/bun/yarn/pnpm | `typecheck`, `lint`, `test` | Node project defaults |
-| Python + pip/poetry/uv | `lint`, `test` | Python project defaults |
-| Rust + cargo | `fmt-check`, `clippy`, `test` | Rust project defaults |
-| Go + go.mod | `vet`, `test` | Go project defaults |
+| Detected                                  | Proposed check (`checkId`)    | Reason                  |
+| ----------------------------------------- | ----------------------------- | ----------------------- |
+| TypeScript/JavaScript + npm/bun/yarn/pnpm | `typecheck`, `lint`, `test`   | Node project defaults   |
+| Python + pip/poetry/uv                    | `lint`, `test`                | Python project defaults |
+| Rust + cargo                              | `fmt-check`, `clippy`, `test` | Rust project defaults   |
+| Go + go.mod                               | `vet`, `test`                 | Go project defaults     |
 
 Each proposed check gets a stable `id` (`prop-<sha256 of checkId+reason>`), a
 `signalRef` pointing at the manifest/lockfile signal that triggered it (or

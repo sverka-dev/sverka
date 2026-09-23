@@ -32,6 +32,7 @@ Project: `beads`, `sverka-gh-stack`
 ## Keep going
 
 You do NOT stop after one wave. After a wave passes review:
+
 1. Close the wave epic.
 2. Immediately create the next wave's epic and dispatch it.
 3. Repeat until the project is done.

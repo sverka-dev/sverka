@@ -27,9 +27,7 @@ describe("component builder", () => {
   it("with no inputs → empty object", () => {
     const proj = new Project("test");
     const ci = pipeline(proj, "ci", {
-      steps: [
-        (pip) => component("deploy", "1.0.0").build(pip, "deploy"),
-      ],
+      steps: [(pip) => component("deploy", "1.0.0").build(pip, "deploy")],
     });
     const callStep = ci.node.children.find(
       (c) => c instanceof ComponentStep,
@@ -42,7 +40,10 @@ describe("component builder", () => {
     const ci = pipeline(proj, "ci", {
       steps: [
         (pip) =>
-          component("deploy", "1.0.0", { env: inputs.env! }).build(pip, "deploy"),
+          component("deploy", "1.0.0", { env: inputs.env! }).build(
+            pip,
+            "deploy",
+          ),
       ],
     });
     const callStep = ci.node.children.find(
