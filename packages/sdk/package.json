@@ -1,6 +1,6 @@
 {
   "name": "@sverka/sdk",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Sverka SDK — public TypeScript API for authoring and running workflows",
   "license": "MIT",
   "repository": {

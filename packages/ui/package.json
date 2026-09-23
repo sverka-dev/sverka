@@ -1,6 +1,6 @@
 {
   "name": "@sverka/ui",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Sverka UI — local web dashboard for viewing SARIF findings and run results",
   "license": "MIT",
   "repository": {

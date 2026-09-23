@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "sverka",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Composable workflow SDK, local CI runtime, and multi-target compiler for software verification — define checks once, plan locally, run anywhere. Ships the /sverka:sverka skill for driving the sverka CLI.",
   "author": {
     "name": "Petr Plenkov"
