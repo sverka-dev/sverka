@@ -15,8 +15,10 @@ afterEach(() => {
 });
 
 describe("detectCiSetup", () => {
-  it("returns undefined for a project with no Node signals", () => {
-    expect(detectCiSetup(dir)).toBeUndefined();
+  it("still disables credential persistence for a project with no Node signals", () => {
+    const cfg = detectCiSetup(dir);
+    expect(cfg.checkoutWith).toEqual({ "persist-credentials": false });
+    expect(cfg.setup).toBeUndefined();
   });
 
   it("detects bun from bun.lock", () => {
