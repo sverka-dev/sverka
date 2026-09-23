@@ -15,6 +15,13 @@ new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 export default proj;
 `;
 
+const BARE_PIPELINE_CONFIG = `import { Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const pipeline = new Pipeline("ci");
+new ShellStep(pipeline, "build", { command: "echo build" });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+export default pipeline;
+`;
+
 describe("plan command", () => {
   let dir: string;
 
@@ -43,6 +50,14 @@ describe("plan command", () => {
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("plan");
     expect(parsed.data.steps).toContain("ci/build");
+  });
+
+  it("accepts a config exporting a bare Pipeline (no Project)", async () => {
+    await writefile(dir, "sverka.config.ts", BARE_PIPELINE_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(["plan", "--root", dir], { output: out });
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("ci/build");
   });
 
   it("exits 2 when no config found", async () => {

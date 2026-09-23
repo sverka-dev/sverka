@@ -41,7 +41,12 @@ import { SynthesisError } from "./errors.js";
  * after callers and ensures call-step outputs are visible to reference
  * validation.
  */
-export function synthesize(project: Project): DefinitionGraph {
+export function synthesize(project: Project): DefinitionGraph;
+export function synthesize(pipeline: Pipeline): DefinitionGraph;
+export function synthesize(root: Project | Pipeline): DefinitionGraph {
+  // A bare Pipeline root is legal for single-pipeline configs — its scope is
+  // the auto-created default Project.
+  const project = root instanceof Pipeline ? (root.node.scope as Project) : root;
   const projectId = project.node.id;
   const pipelines: PipelineDefinition[] = [];
 

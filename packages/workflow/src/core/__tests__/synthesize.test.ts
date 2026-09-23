@@ -4,6 +4,16 @@ import type { Reference } from "../../cdk/index.js";
 import { synthesize, SynthesisError, type StepDefinition } from "../index.js";
 
 describe("synthesize — basic", () => {
+  it("bare Pipeline root synthesizes under the default project", () => {
+    const pipeline = new Pipeline("ci");
+    new ShellStep(pipeline, "build", { command: "npm run build" });
+    const graph = synthesize(pipeline);
+    expect(graph.project.id).toBe("default");
+    expect(graph.project.pipelines).toHaveLength(1);
+    expect(graph.project.pipelines[0]?.id).toBe("ci");
+    expect(graph.project.pipelines[0]?.steps[0]?.id).toBe("ci/build");
+  });
+
   it("empty Pipeline → DefinitionGraph with empty steps/entries", () => {
     const proj = new Project("myproj");
     new Pipeline(proj, "ci");

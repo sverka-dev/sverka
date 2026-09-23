@@ -59,6 +59,15 @@ function validateArtifactOutputs(
 // Project — root of the construct tree (scope = undefined).
 // ---------------------------------------------------------------------------
 
+/**
+ * Root of the construct tree. A Project contains one or more Pipelines.
+ *
+ * @example
+ * ```ts
+ * const proj = new Project("myproj");
+ * const ci = new Pipeline(proj, "ci");
+ * ```
+ */
 export class Project extends Construct {
   constructor(id: string) {
     // constructs.Construct accepts undefined scope at runtime for root.
@@ -72,6 +81,7 @@ export class Project extends Construct {
 
 export type PermissionLevel = "read" | "write" | "none";
 
+/** Props for constructing a Pipeline. */
 export interface PipelineProps {
   readonly inputs?: Readonly<Record<string, Input>>;
   readonly name?: string;
@@ -94,6 +104,65 @@ const PIPELINE_PROPS: ReadonlySet<string> = new Set([
   "includes",
 ]);
 
+/** PipelineProps with collection fields normalized to non-optional. */
+type NormalizedPipelineProps = PipelineProps & {
+  inputs: Readonly<Record<string, Input>>;
+  rules: ReadonlyArray<PipelineRule>;
+  includes: ReadonlyArray<IncludeRef>;
+};
+
+/** Resolve Pipeline's overloaded constructor arguments. */
+function resolvePipelineArgs(
+  scopeOrId: Project | string,
+  idOrProps: string | PipelineProps | undefined,
+  props: PipelineProps | undefined,
+): { scope: Project; id: string; pipelineProps: NormalizedPipelineProps } {
+  let scope: Project;
+  let id: string;
+  let raw: PipelineProps | undefined;
+  if (typeof scopeOrId === "string") {
+    scope = new Project("default");
+    id = scopeOrId;
+    raw = idOrProps as PipelineProps | undefined;
+  } else {
+    if (!(scopeOrId instanceof Project)) {
+      throw new ConstructError(
+        "INVALID_SCOPE",
+        "Pipeline must be created under a Project",
+      );
+    }
+    scope = scopeOrId;
+    id = idOrProps as string;
+    raw = props;
+  }
+  // Collection fields get defaults so the constructor stays branch-free;
+  // unknown keys pass through for warnUnknownProps.
+  return {
+    scope,
+    id,
+    pipelineProps: {
+      ...(raw ?? {}),
+      inputs: raw?.inputs ?? {},
+      rules: raw?.rules ?? [],
+      includes: raw?.includes ?? [],
+    },
+  };
+}
+
+/**
+ * A Pipeline contains Steps and Entries. It must be created under a Project —
+ * or pass just an id and a default Project is created implicitly.
+ *
+ * @example
+ * ```ts
+ * // Explicit Project (multi-pipeline project):
+ * const proj = new Project("myproj");
+ * const ci = new Pipeline(proj, "ci");
+ *
+ * // Implicit Project (single-pipeline configs):
+ * const ci = new Pipeline("ci");
+ * ```
+ */
 export class Pipeline extends Construct {
   readonly inputs: ReadonlyMap<string, Input>;
   readonly name?: string;
@@ -104,13 +173,18 @@ export class Pipeline extends Construct {
   readonly rules: ReadonlyArray<PipelineRule>;
   readonly includes: ReadonlyArray<IncludeRef>;
 
-  constructor(scope: Project, id: string, props?: PipelineProps) {
-    if (!(scope instanceof Project)) {
-      throw new ConstructError(
-        "INVALID_SCOPE",
-        "Pipeline must be created under a Project",
-      );
-    }
+  constructor(scope: Project, id: string, props?: PipelineProps);
+  constructor(id: string, props?: PipelineProps);
+  constructor(
+    scopeOrId: Project | string,
+    idOrProps?: string | PipelineProps,
+    props?: PipelineProps,
+  ) {
+    const { scope, id, pipelineProps } = resolvePipelineArgs(
+      scopeOrId,
+      idOrProps,
+      props,
+    );
     try {
       super(scope, id);
     } catch (err) {
@@ -119,29 +193,25 @@ export class Pipeline extends Construct {
       }
       throw err;
     }
-    this.inputs = props?.inputs
-      ? new Map(Object.entries(props.inputs))
-      : new Map();
-    if (props?.name !== undefined) {
-      this.name = props.name;
+    this.inputs = new Map(Object.entries(pipelineProps.inputs));
+    if (pipelineProps.name !== undefined) {
+      this.name = pipelineProps.name;
     }
-    if (props?.runName !== undefined) {
-      this.runName = props.runName;
+    if (pipelineProps.runName !== undefined) {
+      this.runName = pipelineProps.runName;
     }
-    if (props?.permissions !== undefined) {
-      this.permissions = props.permissions;
+    if (pipelineProps.permissions !== undefined) {
+      this.permissions = pipelineProps.permissions;
     }
-    if (props?.defaults !== undefined) {
-      this.defaults = props.defaults;
+    if (pipelineProps.defaults !== undefined) {
+      this.defaults = pipelineProps.defaults;
     }
-    if (props?.concurrency !== undefined) {
-      this.concurrency = props.concurrency;
+    if (pipelineProps.concurrency !== undefined) {
+      this.concurrency = pipelineProps.concurrency;
     }
-    this.rules = props?.rules ? [...props.rules] : [];
-    this.includes = props?.includes ? [...props.includes] : [];
-    if (props) {
-      warnUnknownProps(this, props, PIPELINE_PROPS);
-    }
+    this.rules = [...pipelineProps.rules];
+    this.includes = [...pipelineProps.includes];
+    warnUnknownProps(this, pipelineProps, PIPELINE_PROPS);
   }
 }
 

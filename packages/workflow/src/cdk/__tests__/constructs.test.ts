@@ -33,6 +33,26 @@ describe("Pipeline", () => {
     });
     expect(pipeline.inputs.get("version")?.type).toBe("string");
   });
+
+  it("creates pipeline without Project (string-form) with default project scope", () => {
+    const pipeline = new Pipeline("ci");
+    expect(pipeline.node.path).toBe("default/ci");
+    expect(pipeline.node.scope?.node.id).toBe("default");
+    expect(pipeline.inputs.size).toBe(0);
+  });
+
+  it("string-form pipeline forwards props", () => {
+    const pipeline = new Pipeline("ci", {
+      inputs: { version: { type: "string" } },
+    });
+    expect(pipeline.inputs.get("version")?.type).toBe("string");
+    expect(pipeline.node.path).toBe("default/ci");
+  });
+
+  it("rejects non-Project, non-string scope", () => {
+    // @ts-expect-error intentionally wrong scope type
+    expect(() => new Pipeline({}, "ci")).toThrow("Pipeline must be created under a Project");
+  });
 });
 
 describe("ShellStep", () => {
