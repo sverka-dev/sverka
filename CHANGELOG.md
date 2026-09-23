@@ -1,3 +1,14 @@
+## 0.1.6 (2026-09-23)
+
+### 🚀 Features
+
+- **workflow:** make Pipeline's Project scope optional ([#212](https://github.com/sverka-dev/sverka/pull/212))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.5 (2026-09-23)
 
 ### 🩹 Fixes
