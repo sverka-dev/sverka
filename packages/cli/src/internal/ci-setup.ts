@@ -11,18 +11,20 @@ import type { GithubStep, GithubTargetConfig } from "@sverka/compiler";
  * supports it: `bun-version` for bun, Corepack for pnpm/yarn (both read the
  * `packageManager` field), and an explicit global install for npm.
  *
- * Returns undefined when nothing was detected (non-Node project) — the
- * generated YAML then stays identical to the previous behavior.
+ * Always emits `checkoutWith` with `persist-credentials: false` —
+ * generated YAML never persists the GITHUB_TOKEN, even when nothing else
+ * was detected.
  */
-export function detectCiSetup(root: string): GithubTargetConfig | undefined {
+export function detectCiSetup(root: string): GithubTargetConfig {
   const setup = detectPackageManagerSetup(root);
+  // Least privilege on every generated workflow — persisted checkout
+  // credentials leave the GITHUB_TOKEN readable by later steps.
   const checkoutWith = existsSync(join(root, ".gitmodules"))
-    ? { submodules: "recursive" }
-    : undefined;
-  if (setup.length === 0 && checkoutWith === undefined) return undefined;
+    ? { "persist-credentials": false, submodules: "recursive" }
+    : { "persist-credentials": false };
   return {
     ...(setup.length > 0 ? { setup } : {}),
-    ...(checkoutWith ? { checkoutWith } : {}),
+    checkoutWith,
   };
 }
 
