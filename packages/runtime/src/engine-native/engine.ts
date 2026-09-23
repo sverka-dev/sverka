@@ -1014,7 +1014,8 @@ class NativeEngine implements Engine {
     ctx: RunContext,
     stepId: string,
   ): string {
-    return key.replace(/\$\{\{\s*([^}]+?)\s*\}\}/g, (whole, inner: string) => {
+    return key.replace(/\$\{\{([^{}]*)\}\}/g, (whole, inner: string) => {
+      inner = inner.trim();
       const dot = inner.lastIndexOf(".");
       if (dot === -1) return whole;
       const namespace = inner.slice(0, dot).trim();
