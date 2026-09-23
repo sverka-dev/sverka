@@ -170,9 +170,7 @@ export class Pipeline extends Construct {
       }
       throw err;
     }
-    this.inputs = pipelineProps?.inputs
-      ? new Map(Object.entries(pipelineProps.inputs))
-      : new Map();
+    this.inputs = new Map(Object.entries(pipelineProps?.inputs ?? {}));
     if (pipelineProps?.name !== undefined) {
       this.name = pipelineProps.name;
     }
@@ -188,11 +186,9 @@ export class Pipeline extends Construct {
     if (pipelineProps?.concurrency !== undefined) {
       this.concurrency = pipelineProps.concurrency;
     }
-    this.rules = pipelineProps?.rules ? [...pipelineProps.rules] : [];
-    this.includes = pipelineProps?.includes ? [...pipelineProps.includes] : [];
-    if (pipelineProps) {
-      warnUnknownProps(this, pipelineProps, PIPELINE_PROPS);
-    }
+    this.rules = [...(pipelineProps?.rules ?? [])];
+    this.includes = [...(pipelineProps?.includes ?? [])];
+    warnUnknownProps(this, pipelineProps ?? {}, PIPELINE_PROPS);
   }
 }
 
