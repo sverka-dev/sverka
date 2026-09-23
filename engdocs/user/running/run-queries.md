@@ -17,7 +17,11 @@ consuming the `RunEvent` stream.
 
 ```ts
 import { createEngine } from "@sverka/runtime";
-import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "@sverka/runtime";
+import type {
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+} from "@sverka/runtime";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -27,7 +31,11 @@ const driver: RuntimeDriver = {
   name: "shell",
   canExecute: () => true,
   executeShell: async (req: ShellExecuteRequest): Promise<ShellResult> => ({
-    exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false,
+    exitCode: 0,
+    stdout: "",
+    stderr: "",
+    durationMs: 1,
+    timedOut: false,
   }),
 };
 const engine = createEngine({ drivers: [driver] });
@@ -39,7 +47,11 @@ const engine = createEngine({ drivers: [driver] });
 // (Snippet is illustrative — replace `plan` with a real RunPlan before running.)
 const plan = {} as never; // placeholder — not a valid RunPlan
 
-const iter = engine.run({ plan, workspace: "./ws", artifactDir: join(testDir, "art") });
+const iter = engine.run({
+  plan,
+  workspace: "./ws",
+  artifactDir: join(testDir, "art"),
+});
 for await (const event of iter) {
   if (event.type === "run-started") {
     // Query is available immediately after run-started
@@ -58,7 +70,7 @@ for await (const event of iter) {
   }
   if (event.type === "step-succeeded") {
     const state = engine.query();
-    const step = state?.steps.find(s => s.stepId === event.stepId);
+    const step = state?.steps.find((s) => s.stepId === event.stepId);
     console.log(`${step?.stepId}: ${step?.state} (${step?.durationMs}ms)`);
   }
 }
@@ -74,7 +86,14 @@ interface RunState {
   startedAt: number;
   steps: Array<{
     stepId: string;
-    state: "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "skipped";
+    state:
+      | "pending"
+      | "ready"
+      | "running"
+      | "succeeded"
+      | "failed"
+      | "cancelled"
+      | "skipped";
     durationMs?: number;
   }>;
 }

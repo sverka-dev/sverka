@@ -50,14 +50,16 @@ export function aggregateMetrics(
       avgExecutionTimeMs: 0,
     };
   }
-  const sum = (f: (r: RunResult) => number) => filtered.reduce((a, r) => a + f(r), 0);
+  const sum = (f: (r: RunResult) => number) =>
+    filtered.reduce((a, r) => a + f(r), 0);
   return {
     totalTasks: n,
     successCount: filtered.filter((r) => r.success).length,
     avgInputTokens: Math.round(sum((r) => r.metrics.inputTokens) / n),
     avgOutputTokens: Math.round(sum((r) => r.metrics.outputTokens) / n),
     avgTotalTokens: Math.round(sum((r) => r.metrics.totalTokens) / n),
-    avgToolCalls: Math.round((sum((r) => r.metrics.toolCallCount) / n) * 100) / 100,
+    avgToolCalls:
+      Math.round((sum((r) => r.metrics.toolCallCount) / n) * 100) / 100,
     avgExecutionTimeMs: Math.round(sum((r) => r.metrics.executionTimeMs) / n),
   };
 }
@@ -182,7 +184,8 @@ function spawnAcpAgent(workspace: string, model: string): ChildProcess {
     workspace,
     plugins: [],
   });
-  return spawn("devin", ["acp", "--model", model], { // NOSONAR — PATH needed for devin binary
+  return spawn("devin", ["acp", "--model", model], {
+    // NOSONAR — PATH needed for devin binary
     cwd: workspace,
     stdio: ["pipe", "pipe", "inherit"],
     env,

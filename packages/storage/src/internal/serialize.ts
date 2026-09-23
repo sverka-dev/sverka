@@ -33,7 +33,10 @@ function parseJson(text: string): unknown {
   }
 }
 
-function validateScalarFields(obj: Record<string, unknown>, runId: string): void {
+function validateScalarFields(
+  obj: Record<string, unknown>,
+  runId: string,
+): void {
   validateStringField(obj, "runId");
   if (obj["runId"] !== runId) {
     throw new StorageError(
@@ -44,26 +47,48 @@ function validateScalarFields(obj: Record<string, unknown>, runId: string): void
   validateStringField(obj, "planId");
   validatePlanField(obj);
   if (!Array.isArray(obj["completedSteps"])) {
-    throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: completedSteps");
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "missing or invalid field: completedSteps",
+    );
   }
   validateStringField(obj, "suspendedStepId");
   if (obj["status"] !== "suspended") {
-    throw new StorageError("CORRUPT_SNAPSHOT", `expected status "suspended", got "${String(obj["status"])}"`);
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      `expected status "suspended", got "${String(obj["status"])}"`,
+    );
   }
   if (typeof obj["suspendedAt"] !== "number") {
-    throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: suspendedAt");
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "missing or invalid field: suspendedAt",
+    );
   }
 }
 
-function validateStringField(obj: Record<string, unknown>, field: string): void {
+function validateStringField(
+  obj: Record<string, unknown>,
+  field: string,
+): void {
   if (typeof obj[field] !== "string") {
-    throw new StorageError("CORRUPT_SNAPSHOT", `missing or invalid field: ${field}`);
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      `missing or invalid field: ${field}`,
+    );
   }
 }
 
 function validatePlanField(obj: Record<string, unknown>): void {
-  if (typeof obj["plan"] !== "object" || obj["plan"] === null || Array.isArray(obj["plan"])) {
-    throw new StorageError("CORRUPT_SNAPSHOT", "missing or invalid field: plan");
+  if (
+    typeof obj["plan"] !== "object" ||
+    obj["plan"] === null ||
+    Array.isArray(obj["plan"])
+  ) {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "missing or invalid field: plan",
+    );
   }
 }
 
@@ -72,14 +97,27 @@ function validateCompletedSteps(obj: Record<string, unknown>): void {
   for (let i = 0; i < steps.length; i++) {
     const entry = steps[i];
     if (typeof entry !== "object" || entry === null) {
-      throw new StorageError("CORRUPT_SNAPSHOT", `completedSteps[${i}] is not an object`);
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        `completedSteps[${i}] is not an object`,
+      );
     }
     const step = entry as Record<string, unknown>;
     if (typeof step["stepId"] !== "string") {
-      throw new StorageError("CORRUPT_SNAPSHOT", `completedSteps[${i}].stepId is missing or not a string`);
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        `completedSteps[${i}].stepId is missing or not a string`,
+      );
     }
-    if (typeof step["outputs"] !== "object" || step["outputs"] === null || Array.isArray(step["outputs"])) {
-      throw new StorageError("CORRUPT_SNAPSHOT", `completedSteps[${i}].outputs is missing or not an object`);
+    if (
+      typeof step["outputs"] !== "object" ||
+      step["outputs"] === null ||
+      Array.isArray(step["outputs"])
+    ) {
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        `completedSteps[${i}].outputs is missing or not an object`,
+      );
     }
   }
 }
@@ -91,8 +129,14 @@ function validateResumeSchema(obj: Record<string, unknown>): void {
   }
   const rs = obj["resumeSchema"] as Record<string, unknown>;
   if (rs["required"] !== undefined) {
-    if (!Array.isArray(rs["required"]) || !rs["required"].every((v) => typeof v === "string")) {
-      throw new StorageError("CORRUPT_SNAPSHOT", "resumeSchema.required is not an array of strings");
+    if (
+      !Array.isArray(rs["required"]) ||
+      !rs["required"].every((v) => typeof v === "string")
+    ) {
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        "resumeSchema.required is not an array of strings",
+      );
     }
   }
 }

@@ -27,12 +27,12 @@ import type { Finding, NormalizeContext, SarifLog } from "@sverka/verification";
 
 // Programmatic
 export interface SarifWebOptions {
-  sarif?: SarifLog;               // SARIF object
-  sarifPath?: string;             // path to .sarif file
-  findings?: readonly Finding[];  // pre-normalized findings
-  context?: NormalizeContext;     // for normalizeSarif; defaults to
-                                  // { root: cwd, checkIdPrefix: "", defaultConfidence: 0.5 }
-  outputPath: string;             // where to write the HTML file
+  sarif?: SarifLog; // SARIF object
+  sarifPath?: string; // path to .sarif file
+  findings?: readonly Finding[]; // pre-normalized findings
+  context?: NormalizeContext; // for normalizeSarif; defaults to
+  // { root: cwd, checkIdPrefix: "", defaultConfidence: 0.5 }
+  outputPath: string; // where to write the HTML file
 }
 
 export function renderSarifWeb(options: SarifWebOptions): Promise<void>;

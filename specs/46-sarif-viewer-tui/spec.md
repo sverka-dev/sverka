@@ -28,17 +28,19 @@ import type { Finding, NormalizeContext, SarifLog } from "@sverka/verification";
 
 // Programmatic
 export interface SarifTuiOptions {
-  sarif?: SarifLog;               // SARIF object
-  sarifPath?: string;             // path to .sarif file
-  findings?: readonly Finding[];  // pre-normalized findings
-  context?: NormalizeContext;     // for normalizeSarif; defaults to
-                                  // { root: cwd, checkIdPrefix: "", defaultConfidence: 0.5 }
+  sarif?: SarifLog; // SARIF object
+  sarifPath?: string; // path to .sarif file
+  findings?: readonly Finding[]; // pre-normalized findings
+  context?: NormalizeContext; // for normalizeSarif; defaults to
+  // { root: cwd, checkIdPrefix: "", defaultConfidence: 0.5 }
 }
 
 export function renderSarifTui(options: SarifTuiOptions): Promise<void>;
 
 // Component (for embedding in other Ink apps)
-export function SarifTuiApp(props: { findings: readonly Finding[] }): JSX.Element;
+export function SarifTuiApp(props: {
+  findings: readonly Finding[];
+}): JSX.Element;
 ```
 
 ### Input resolution

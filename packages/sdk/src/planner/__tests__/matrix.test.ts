@@ -3,7 +3,12 @@ import { expandMatrixSteps } from "../matrix.js";
 import { PlannerError } from "../errors.js";
 import type { StepDefinition, MatrixSpec } from "@sverka/workflow";
 
-function makeStep(id: string, matrix?: MatrixSpec, deps: string[] = [], inputs: StepDefinition["inputs"] = []): StepDefinition {
+function makeStep(
+  id: string,
+  matrix?: MatrixSpec,
+  deps: string[] = [],
+  inputs: StepDefinition["inputs"] = [],
+): StepDefinition {
   return {
     id,
     runtime: { mode: "host" },
@@ -35,7 +40,11 @@ describe("expandMatrixSteps", () => {
   });
 
   it("expands multi-dimension matrix (cross-product, sorted keys)", () => {
-    const steps = [makeStep("test", { dimensions: { node: [18, 20], os: ["ubuntu", "windows"] } })];
+    const steps = [
+      makeStep("test", {
+        dimensions: { node: [18, 20], os: ["ubuntu", "windows"] },
+      }),
+    ];
     const result = expandMatrixSteps(steps);
     expect(result).toHaveLength(4);
     const ids = result.map((s) => s.id);
@@ -95,7 +104,9 @@ describe("expandMatrixSteps", () => {
     const expanded = result.filter((s) => s.id.startsWith("test["));
     expect(expanded).toHaveLength(2);
     for (const step of expanded) {
-      expect(step.dependencies).toEqual([{ kind: "control", producer: "setup" }]);
+      expect(step.dependencies).toEqual([
+        { kind: "control", producer: "setup" },
+      ]);
     }
   });
 
@@ -141,9 +152,12 @@ describe("expandMatrixSteps", () => {
 
   it("rewires step inputs to expanded producer IDs", () => {
     const producer = makeStep("build", { dimensions: { node: [18, 20] } });
-    const consumer = makeStep("test", undefined, ["build"], [
-      { kind: "step", step: "build", output: "artifact", type: "artifact" },
-    ]);
+    const consumer = makeStep(
+      "test",
+      undefined,
+      ["build"],
+      [{ kind: "step", step: "build", output: "artifact", type: "artifact" }],
+    );
     const result = expandMatrixSteps([producer, consumer]);
     expect(result).toHaveLength(3); // 2 build + 1 test
     const testStep = result.find((s) => s.id === "test");

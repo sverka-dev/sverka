@@ -12,13 +12,13 @@ Typed inputs allow pipelines and reusable components to declare parameters with 
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `inputs` (workflow_dispatch, workflow_call) | `spec:inputs` | `inputs` on Pipeline |
-| Semantics | Declare typed parameters for workflow | Declare typed parameters for component/pipeline | Declare typed parameters |
-| Value type | map with type, description, required, default, options | map with type, default, description, options, regex, rules | map with type, description, required, default, options |
-| Limitations | limited types (string, boolean, choice, number, environment) | string, boolean, number, array, + regex validation | — |
-| Provider gap | no regex validation | no `environment` type | — |
+| Aspect       | GitHub Actions                                               | GitLab CI                                                  | Sverka (proposed)                                      |
+| ------------ | ------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------ |
+| Construct    | `inputs` (workflow_dispatch, workflow_call)                  | `spec:inputs`                                              | `inputs` on Pipeline                                   |
+| Semantics    | Declare typed parameters for workflow                        | Declare typed parameters for component/pipeline            | Declare typed parameters                               |
+| Value type   | map with type, description, required, default, options       | map with type, default, description, options, regex, rules | map with type, description, required, default, options |
+| Limitations  | limited types (string, boolean, choice, number, environment) | string, boolean, number, array, + regex validation         | —                                                      |
+| Provider gap | no regex validation                                          | no `environment` type                                      | —                                                      |
 
 ## GitHub Actions
 
@@ -65,12 +65,13 @@ GitLab `spec:inputs` supports `type` (string, boolean, number, array), `default`
 
 ```ts
 interface InputSpec {
-  readonly type: "string" | "boolean" | "number" | "choice" | "array" | "environment";
+  readonly type:
+    "string" | "boolean" | "number" | "choice" | "array" | "environment";
   readonly description?: string;
   readonly required?: boolean;
   readonly default?: string | boolean | number | readonly string[];
-  readonly options?: readonly string[];       // for choice type
-  readonly pattern?: string;                   // regex validation
+  readonly options?: readonly string[]; // for choice type
+  readonly pattern?: string; // regex validation
 }
 ```
 

@@ -34,7 +34,10 @@ describe("FindingsCollector", () => {
   it("reads SARIF from one step directory, normalizes, attributes to stepId", async () => {
     const stepDir = join(dir, "ci/lint");
     await mkdir(stepDir, { recursive: true });
-    await writeFile(join(stepDir, "results.sarif"), JSON.stringify(SAMPLE_SARIF));
+    await writeFile(
+      join(stepDir, "results.sarif"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
 
     const rows = await collectFindings({ artifactDir: dir });
     expect(rows).toHaveLength(1);
@@ -62,7 +65,9 @@ describe("FindingsCollector", () => {
     await mkdir(stepDir, { recursive: true });
     await writeFile(join(stepDir, "results.sarif"), "not valid json {{{");
 
-    await expect(collectFindings({ artifactDir: dir })).rejects.toThrow(ReporterError);
+    await expect(collectFindings({ artifactDir: dir })).rejects.toThrow(
+      ReporterError,
+    );
     try {
       await collectFindings({ artifactDir: dir });
     } catch (e) {
@@ -74,7 +79,10 @@ describe("FindingsCollector", () => {
   it("ignores files without .sarif extension", async () => {
     const stepDir = join(dir, "ci/lint");
     await mkdir(stepDir, { recursive: true });
-    await writeFile(join(stepDir, "results.json"), JSON.stringify(SAMPLE_SARIF));
+    await writeFile(
+      join(stepDir, "results.json"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
     await writeFile(join(stepDir, "log.txt"), "some log");
 
     const rows = await collectFindings({ artifactDir: dir });
@@ -84,7 +92,10 @@ describe("FindingsCollector", () => {
   it("reads .sarif.json extension too", async () => {
     const stepDir = join(dir, "ci/lint");
     await mkdir(stepDir, { recursive: true });
-    await writeFile(join(stepDir, "results.sarif.json"), JSON.stringify(SAMPLE_SARIF));
+    await writeFile(
+      join(stepDir, "results.sarif.json"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
 
     const rows = await collectFindings({ artifactDir: dir });
     expect(rows).toHaveLength(1);
@@ -93,7 +104,10 @@ describe("FindingsCollector", () => {
   it("handles empty SARIF (no results)", async () => {
     const stepDir = join(dir, "ci/lint");
     await mkdir(stepDir, { recursive: true });
-    await writeFile(join(stepDir, "results.sarif"), JSON.stringify(EMPTY_SARIF));
+    await writeFile(
+      join(stepDir, "results.sarif"),
+      JSON.stringify(EMPTY_SARIF),
+    );
 
     const rows = await collectFindings({ artifactDir: dir });
     expect(rows).toHaveLength(0);

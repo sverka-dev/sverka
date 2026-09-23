@@ -66,14 +66,7 @@ export interface StepRef {
 }
 
 export type ContextNamespace =
-  | "env"
-  | "secrets"
-  | "git"
-  | "change"
-  | "event"
-  | "run"
-  | "inputs"
-  | "matrix";
+  "env" | "secrets" | "git" | "change" | "event" | "run" | "inputs" | "matrix";
 
 export interface ContextRef {
   readonly kind: "context";
@@ -264,7 +257,8 @@ export type Condition = Reference | Expression | StatusCondition;
 // Continue-on-error (F-12)
 // ---------------------------------------------------------------------------
 
-export type ContinueOnError = boolean | { readonly exitCodes: readonly number[] };
+export type ContinueOnError =
+  boolean | { readonly exitCodes: readonly number[] };
 
 // ---------------------------------------------------------------------------
 // Retry policy (F-14)
@@ -315,7 +309,8 @@ export interface IdentitySpec {
 // Rules (§14.4 — F-41)
 // ---------------------------------------------------------------------------
 
-export type RuleWhen = "on_success" | "on_failure" | "always" | "never" | "manual";
+export type RuleWhen =
+  "on_success" | "on_failure" | "always" | "never" | "manual";
 
 export interface Rule {
   readonly if?: string;
@@ -389,7 +384,8 @@ export interface ServiceContainer {
 // ---------------------------------------------------------------------------
 
 export type EnvironmentAction = "start" | "stop" | "verify";
-export type EnvironmentTier = "production" | "staging" | "testing" | "development";
+export type EnvironmentTier =
+  "production" | "staging" | "testing" | "development";
 
 export interface EnvironmentSpec {
   readonly name: string;
@@ -426,8 +422,8 @@ export interface ConcurrencySpec {
 
 /** Declares what a step writes (e.g. a PR comment, a deployment, a push). */
 export interface WriteDeclaration {
-  readonly kind: string;        // e.g. "pull-request", "comment", "deploy", "push"
-  readonly target: string;      // e.g. "comment", "production", "main"
+  readonly kind: string; // e.g. "pull-request", "comment", "deploy", "push"
+  readonly target: string; // e.g. "comment", "production", "main"
   readonly description?: string;
 }
 
@@ -442,15 +438,15 @@ export interface StepPermissions {
 
 /** Reference to a tool exposed by a plugin (e.g. MCP). */
 export interface AgentToolRef {
-  readonly plugin: string;   // e.g. "mcp"
-  readonly tool: string;     // e.g. "github.create-pr"
+  readonly plugin: string; // e.g. "mcp"
+  readonly tool: string; // e.g. "github.create-pr"
 }
 
 /** Operation that runs an AI agent inside a step. */
 export interface AgentOperation {
   readonly kind: "agent";
-  readonly engine: string;           // e.g. "claude", "gpt-4", "copilot"
-  readonly model?: string;           // e.g. "claude-sonnet-4-5"
+  readonly engine: string; // e.g. "claude", "gpt-4", "copilot"
+  readonly model?: string; // e.g. "claude-sonnet-4-5"
   readonly prompt: string;
   readonly tools?: readonly AgentToolRef[];
   readonly maxTokens?: number;

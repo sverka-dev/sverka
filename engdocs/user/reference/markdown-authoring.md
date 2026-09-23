@@ -42,9 +42,9 @@ inputs:
 - command: npm run build
 - depends_on: lint
 - outputs:
-    dist:
-      type: artifact
-      path: ./dist
+  dist:
+  type: artifact
+  path: ./dist
 
 ## deploy
 
@@ -56,24 +56,24 @@ inputs:
 
 ## Frontmatter fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `pipeline` | `string` | Pipeline ID (required) |
+| Field      | Type                                                          | Description                                                                                                       |
+| ---------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `pipeline` | `string`                                                      | Pipeline ID (required)                                                                                            |
 | `triggers` | `Array<{ kind: string; branches?: string[]; cron?: string }>` | Trigger objects with `kind`: `push`, `changeRequest`, `manual`, `schedule` plus optional `branches`, `cron`, etc. |
-| `extends` | `string` | Path to a `.ts` config file (escape hatch) |
-| `inputs` | `Record<string, Input>` | Pipeline inputs with type and default |
+| `extends`  | `string`                                                      | Path to a `.ts` config file (escape hatch)                                                                        |
+| `inputs`   | `Record<string, Input>`                                       | Pipeline inputs with type and default                                                                             |
 
 ## Step syntax
 
 Each `## step-id` heading defines a step. Supported fields:
 
-| Field | Description |
-|-------|-------------|
-| `command` | Shell command (required) |
-| `depends_on` | Step ID or list of IDs |
-| `image` | Container image for this step |
-| `timeout` | Timeout in milliseconds |
-| `outputs` | Output declarations (artifact or scalar) |
+| Field        | Description                              |
+| ------------ | ---------------------------------------- |
+| `command`    | Shell command (required)                 |
+| `depends_on` | Step ID or list of IDs                   |
+| `image`      | Container image for this step            |
+| `timeout`    | Timeout in milliseconds                  |
+| `outputs`    | Output declarations (artifact or scalar) |
 
 ## CLI auto-discovery
 

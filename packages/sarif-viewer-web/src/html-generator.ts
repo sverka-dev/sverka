@@ -25,7 +25,9 @@ function toolName(findings: readonly Finding[]): string {
 }
 
 /** Count findings by severity for the summary header. Pure. */
-function severityBreakdown(findings: readonly Finding[]): Record<string, number> {
+function severityBreakdown(
+  findings: readonly Finding[],
+): Record<string, number> {
   const counts: Record<string, number> = {
     critical: 0,
     high: 0,

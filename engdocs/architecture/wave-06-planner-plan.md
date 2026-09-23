@@ -64,6 +64,7 @@ Implement local-only discovery + default plan synthesis for
 `node:fs`, `node:path`, `node:child_process`).
 
 **Out of scope (do NOT implement in this wave):**
+
 - **Remote discovery / cloud credentials.** Deferred to `runtime-remote`.
 - **Framework detection.** Deferred (no consumer).
 - **User workflow loading** (`sverka.config.ts`). Deferred to SDK wave (09).
@@ -136,7 +137,7 @@ packages/planner/src/
    on non-zero with stderr in cause). No unit test for the real spawn; it is
    mocked everywhere else.
 4. **`__tests__/helpers/fixtures.ts`.** Helper to create a temp dir, `git
-   init`, write files, `git add`/`commit`, optionally set a baseRef commit.
+init`, write files, `git add`/`commit`, optionally set a baseRef commit.
    Returns `{ root, git: GitCli-mock-or-real }`. Use the real git for an
    integration test (guarded) and a recorded mock for unit tests.
 5. **`detect.ts` + `discover.test.ts` (TDD).** Pure functions:
@@ -147,7 +148,7 @@ packages/planner/src/
    - `detectPackageManagers(files, packageJson?): DetectedPackageManager[]`
      — lockfile map + `packageManager` field override.
    - `detectMonorepo(files, packageJson?): MonorepoMarker | null`.
-   Write failing tests first (test plan 1-4), then implement.
+     Write failing tests first (test plan 1-4), then implement.
 6. **`explain.ts` + test.** `buildExplanation(signals): DiscoveryExplanation`
    — `signalCounts` per type + one-line summary. Test plan 6.
 7. **`planner.ts` discover() + tests.** Orchestrate: validate root (`fs`),
@@ -155,7 +156,7 @@ packages/planner/src/
    repo check (`git rev-parse --show-toplevel` → `GIT_NOT_A_REPO`), enumerate
    (`git ls-files`, `git status --porcelain`), apply `maxDepth`,
    call detect.*, collect git metadata (`rev-parse HEAD`, dirty, `diff
-   --name-status baseRef..HEAD` when baseRef set), assemble `ProjectContext`.
+--name-status baseRef..HEAD` when baseRef set), assemble `ProjectContext`.
    Test plan 5, 7, 9, 10.
 8. **`planner.ts` plan() + `plan.test.ts`.** Default-check table (spec §Plan
    synthesis). Stable `id = "prop-" + sha256(checkId+reason).slice(0,16)`.
@@ -166,7 +167,7 @@ packages/planner/src/
    list (types + `createPlanner` + `DiscoveryError`).
 10. **Gates.** `bun run test` (planner), `bun run typecheck`, `bun run lint`,
     `bun run build` for planner; then full monorepo `bun run test/typecheck/
-    lint/build` (16 projects) to catch entangled breakage.
+lint/build` (16 projects) to catch entangled breakage.
 
 ## 7. Edge cases
 
@@ -190,18 +191,18 @@ packages/planner/src/
 
 ## 8. Test plan → spec mapping
 
-| Spec test plan | File | Notes |
-|---|---|---|
-| 1 local signals | `discover.test.ts` | via fixtures |
-| 2 languages | `discover.test.ts` | extension counts |
-| 3 package managers | `discover.test.ts` | lockfile + `packageManager` override |
-| 4 monorepo | `discover.test.ts` | all tools + workspace resolution |
-| 5 git metadata | `discover.test.ts` | baseRef present + omitted |
-| 6 explainability | `discover.test.ts` | `signalCounts` + `summary` |
-| 7 determinism | `discover.test.ts` | two runs, deep-equal |
-| 8 plan synthesis | `plan.test.ts` | Node/Python/Rust/Go/empty |
-| 9 error cases | `errors.test.ts` + `discover.test.ts` | 4 codes |
-| 10 side-effect freedom | `discover.test.ts` | snapshot root before/after |
+| Spec test plan         | File                                  | Notes                                |
+| ---------------------- | ------------------------------------- | ------------------------------------ |
+| 1 local signals        | `discover.test.ts`                    | via fixtures                         |
+| 2 languages            | `discover.test.ts`                    | extension counts                     |
+| 3 package managers     | `discover.test.ts`                    | lockfile + `packageManager` override |
+| 4 monorepo             | `discover.test.ts`                    | all tools + workspace resolution     |
+| 5 git metadata         | `discover.test.ts`                    | baseRef present + omitted            |
+| 6 explainability       | `discover.test.ts`                    | `signalCounts` + `summary`           |
+| 7 determinism          | `discover.test.ts`                    | two runs, deep-equal                 |
+| 8 plan synthesis       | `plan.test.ts`                        | Node/Python/Rust/Go/empty            |
+| 9 error cases          | `errors.test.ts` + `discover.test.ts` | 4 codes                              |
+| 10 side-effect freedom | `discover.test.ts`                    | snapshot root before/after           |
 
 ## 9. Acceptance
 

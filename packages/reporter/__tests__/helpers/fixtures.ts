@@ -42,7 +42,11 @@ export function stepSucceeded(stepId: string, durationMs: number): RunEvent {
 }
 
 /** Create a step-failed event. */
-export function stepFailed(stepId: string, error: string, durationMs: number): RunEvent {
+export function stepFailed(
+  stepId: string,
+  error: string,
+  durationMs: number,
+): RunEvent {
   return { type: "step-failed", stepId, error, durationMs };
 }
 
@@ -62,17 +66,29 @@ export function stepCacheHit(stepId: string, key: string): RunEvent {
 }
 
 /** Create a step-retry event. */
-export function stepRetry(stepId: string, attempt: number, nextAttemptMs: number): RunEvent {
+export function stepRetry(
+  stepId: string,
+  attempt: number,
+  nextAttemptMs: number,
+): RunEvent {
   return { type: "step-retry", stepId, attempt, nextAttemptMs };
 }
 
 /** Create a run-completed event. */
-export function runCompleted(runId: string, status: "success" | "failure" | "cancelled", durationMs: number): RunEvent {
+export function runCompleted(
+  runId: string,
+  status: "success" | "failure" | "cancelled",
+  durationMs: number,
+): RunEvent {
   return { type: "run-completed", runId, status, durationMs };
 }
 
 /** Create a diagnostic event. */
-export function diagnostic(stepId: string, message: string, severity: "info" | "warn" | "error" = "info"): RunEvent {
+export function diagnostic(
+  stepId: string,
+  message: string,
+  severity: "info" | "warn" | "error" = "info",
+): RunEvent {
   return { type: "diagnostic", stepId, message, severity };
 }
 

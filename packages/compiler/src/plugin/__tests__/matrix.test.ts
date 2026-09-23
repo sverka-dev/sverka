@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import { detectCapabilities } from "../capabilities.js";
 import type { DefinitionGraph } from "@sverka/workflow";
 
-function makeGraph(steps: Array<{ matrix?: unknown; dependencies?: unknown[] }>): DefinitionGraph {
+function makeGraph(
+  steps: Array<{ matrix?: unknown; dependencies?: unknown[] }>,
+): DefinitionGraph {
   const graph = {
     project: {
       id: "test",
@@ -37,14 +39,18 @@ describe("Matrix capability detection", () => {
 
   it("detects matrix.include when include is present", () => {
     const caps = detectCapabilities(
-      makeGraph([{ matrix: { dimensions: { node: [18] }, include: [{ node: 22 }] } }]),
+      makeGraph([
+        { matrix: { dimensions: { node: [18] }, include: [{ node: 22 }] } },
+      ]),
     );
     expect(caps.has("matrix.include")).toBe(true);
   });
 
   it("detects matrix.exclude when exclude is present", () => {
     const caps = detectCapabilities(
-      makeGraph([{ matrix: { dimensions: { node: [18] }, exclude: [{ node: 18 }] } }]),
+      makeGraph([
+        { matrix: { dimensions: { node: [18] }, exclude: [{ node: 18 }] } },
+      ]),
     );
     expect(caps.has("matrix.exclude")).toBe(true);
   });
@@ -58,7 +64,9 @@ describe("Matrix capability detection", () => {
 
   it("does not detect include/exclude when arrays are empty", () => {
     const caps = detectCapabilities(
-      makeGraph([{ matrix: { dimensions: { node: [18] }, include: [], exclude: [] } }]),
+      makeGraph([
+        { matrix: { dimensions: { node: [18] }, include: [], exclude: [] } },
+      ]),
     );
     expect(caps.has("graph.matrix")).toBe(true);
     expect(caps.has("matrix.include")).toBe(false);

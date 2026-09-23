@@ -2,8 +2,22 @@
 // F-43 — reverse lowering. Spec §25.
 
 import { parse as parseYaml } from "yaml";
-import type { DefinitionGraph, ProjectDefinition, PipelineDefinition, StepDefinition, OperationDefinition, Dependency, EntryDefinition } from "@sverka/workflow";
-import type { Trigger, PipelineRule, Runtime, Rule, ReportType } from "@sverka/workflow";
+import type {
+  DefinitionGraph,
+  ProjectDefinition,
+  PipelineDefinition,
+  StepDefinition,
+  OperationDefinition,
+  Dependency,
+  EntryDefinition,
+} from "@sverka/workflow";
+import type {
+  Trigger,
+  PipelineRule,
+  Runtime,
+  Rule,
+  ReportType,
+} from "@sverka/workflow";
 import { GitlabTargetError } from "./errors.js";
 
 /**
@@ -43,8 +57,15 @@ export function importGitlabWithDiagnostics(source: string): ImportResult {
   extractWorkflowRules(doc, pipelineRules);
 
   const reservedKeys = new Set([
-    "stages", "variables", "workflow", "include", "image",
-    "before_script", "after_script", "cache", "services",
+    "stages",
+    "variables",
+    "workflow",
+    "include",
+    "image",
+    "before_script",
+    "after_script",
+    "cache",
+    "services",
     "default",
   ]);
 
@@ -53,7 +74,11 @@ export function importGitlabWithDiagnostics(source: string): ImportResult {
     // Skip hidden jobs (dot-prefixed keys like .base) — they are templates, not executable.
     if (key.startsWith(".")) continue;
     if (!value || typeof value !== "object") continue;
-    const step = convertJobToStep(key, value as Record<string, unknown>, diagnostics);
+    const step = convertJobToStep(
+      key,
+      value as Record<string, unknown>,
+      diagnostics,
+    );
     steps.push(step);
   }
 
@@ -93,7 +118,10 @@ function parseGitlabDoc(source: string): Record<string, unknown> {
     );
   }
   if (!doc || typeof doc !== "object") {
-    throw new GitlabTargetError("GitLab CI YAML is not a valid object", "IMPORT_FAILED");
+    throw new GitlabTargetError(
+      "GitLab CI YAML is not a valid object",
+      "IMPORT_FAILED",
+    );
   }
   return doc;
 }
@@ -101,8 +129,12 @@ function parseGitlabDoc(source: string): Record<string, unknown> {
 /**
  * Extract workflow:rules into pipeline rules.
  */
-function extractWorkflowRules(doc: Record<string, unknown>, pipelineRules: PipelineRule[]): void {
-  const workflow = doc.workflow as { rules?: readonly Record<string, unknown>[] } | undefined;
+function extractWorkflowRules(
+  doc: Record<string, unknown>,
+  pipelineRules: PipelineRule[],
+): void {
+  const workflow = doc.workflow as
+    { rules?: readonly Record<string, unknown>[] } | undefined;
   if (!workflow?.rules) return;
   for (const rule of workflow.rules) {
     pipelineRules.push(convertWorkflowRule(rule));
@@ -112,7 +144,9 @@ function extractWorkflowRules(doc: Record<string, unknown>, pipelineRules: Pipel
 /**
  * Extract string variables from a rule's `variables` field.
  */
-function extractRuleVariables(rule: Record<string, unknown>): Record<string, string> | undefined {
+function extractRuleVariables(
+  rule: Record<string, unknown>,
+): Record<string, string> | undefined {
   if (rule.variables && typeof rule.variables === "object") {
     return Object.fromEntries(
       Object.entries(rule.variables as Record<string, unknown>).filter(
@@ -124,9 +158,16 @@ function extractRuleVariables(rule: Record<string, unknown>): Record<string, str
 }
 
 function convertWorkflowRule(rule: Record<string, unknown>): PipelineRule {
-  const pr: { if?: string; changes?: readonly string[]; exists?: readonly string[]; variables?: Record<string, string>; when?: "always" | "never" } = {};
+  const pr: {
+    if?: string;
+    changes?: readonly string[];
+    exists?: readonly string[];
+    variables?: Record<string, string>;
+    when?: "always" | "never";
+  } = {};
   if (typeof rule.if === "string") pr.if = rule.if;
-  if (Array.isArray(rule.changes)) pr.changes = rule.changes as readonly string[];
+  if (Array.isArray(rule.changes))
+    pr.changes = rule.changes as readonly string[];
   if (Array.isArray(rule.exists)) pr.exists = rule.exists as readonly string[];
   const variables = extractRuleVariables(rule);
   if (variables) pr.variables = variables;
@@ -186,7 +227,10 @@ function convertJobToStep(
 /**
  * Convert `script` into shell operations.
  */
-function convertScript(job: Record<string, unknown>, operations: OperationDefinition[]): void {
+function convertScript(
+  job: Record<string, unknown>,
+  operations: OperationDefinition[],
+): void {
   if (typeof job.script === "string") {
     operations.push({ kind: "shell", command: job.script });
   } else if (Array.isArray(job.script)) {
@@ -201,12 +245,19 @@ function convertScript(job: Record<string, unknown>, operations: OperationDefini
 /**
  * Convert `needs` into dependencies.
  */
-function convertNeeds(job: Record<string, unknown>, dependencies: Dependency[]): void {
+function convertNeeds(
+  job: Record<string, unknown>,
+  dependencies: Dependency[],
+): void {
   if (Array.isArray(job.needs)) {
     for (const need of job.needs) {
       if (typeof need === "string") {
         dependencies.push({ kind: "control", producer: `ci/${need}` });
-      } else if (need && typeof need === "object" && typeof (need as Record<string, unknown>).job === "string") {
+      } else if (
+        need &&
+        typeof need === "object" &&
+        typeof (need as Record<string, unknown>).job === "string"
+      ) {
         const needJob = (need as Record<string, unknown>).job as string;
         dependencies.push({ kind: "control", producer: `ci/${needJob}` });
       }
@@ -250,29 +301,42 @@ function convertTrigger(
 /**
  * Convert `release` into a release operation.
  */
-function convertRelease(job: Record<string, unknown>, operations: OperationDefinition[]): void {
+function convertRelease(
+  job: Record<string, unknown>,
+  operations: OperationDefinition[],
+): void {
   if (!job.release || typeof job.release !== "object") return;
   const release = job.release as Record<string, unknown>;
-  const assets = release.assets as { links?: readonly { name?: string; url?: string }[] } | undefined;
+  const assets = release.assets as
+    { links?: readonly { name?: string; url?: string }[] } | undefined;
   operations.push({
     kind: "release",
     tag: typeof release.tag_name === "string" ? release.tag_name : "unknown",
     ...(typeof release.name === "string" ? { name: release.name } : {}),
-    ...(typeof release.description === "string" ? { description: release.description } : {}),
-    ...(assets?.links ? { assets: assets.links.map((l) => l.url ?? l.name ?? "unknown") } : {}),
+    ...(typeof release.description === "string"
+      ? { description: release.description }
+      : {}),
+    ...(assets?.links
+      ? { assets: assets.links.map((l) => l.url ?? l.name ?? "unknown") }
+      : {}),
   });
 }
 
 /**
  * Convert `pages` into a deployPages operation.
  */
-function convertPages(job: Record<string, unknown>, operations: OperationDefinition[]): void {
+function convertPages(
+  job: Record<string, unknown>,
+  operations: OperationDefinition[],
+): void {
   if (!job.pages || typeof job.pages !== "object") return;
   const pages = job.pages as Record<string, unknown>;
   operations.push({
     kind: "deployPages",
     path: typeof pages.publish === "string" ? pages.publish : "public/",
-    ...(typeof pages.path_prefix === "string" ? { prefix: pages.path_prefix } : {}),
+    ...(typeof pages.path_prefix === "string"
+      ? { prefix: pages.path_prefix }
+      : {}),
   });
 }
 
@@ -285,28 +349,53 @@ function recordUnmappableConstructs(
   diagnostics: ImportDiagnostic[],
 ): void {
   if (job.cache) {
-    diagnostics.push({ severity: "info", message: `job '${key}' has cache — not imported`, path: key });
+    diagnostics.push({
+      severity: "info",
+      message: `job '${key}' has cache — not imported`,
+      path: key,
+    });
   }
   if (job.services) {
-    diagnostics.push({ severity: "info", message: `job '${key}' has services — not imported`, path: key });
+    diagnostics.push({
+      severity: "info",
+      message: `job '${key}' has services — not imported`,
+      path: key,
+    });
   }
   if (job.matrix) {
-    diagnostics.push({ severity: "warn", message: `job '${key}' has matrix — not imported`, path: key });
+    diagnostics.push({
+      severity: "warn",
+      message: `job '${key}' has matrix — not imported`,
+      path: key,
+    });
   }
 }
 
 /**
  * Valid `when` values for job-level rules.
  */
-const JOB_RULE_WHEN_VALUES = new Set(["on_success", "on_failure", "always", "never", "manual"]);
+const JOB_RULE_WHEN_VALUES = new Set([
+  "on_success",
+  "on_failure",
+  "always",
+  "never",
+  "manual",
+]);
 
 /**
  * Convert a single raw rule object into a StepDefinition rule entry.
  */
 function convertJobRuleEntry(r: Record<string, unknown>): Rule {
-  const ruleEntry: { if?: string; changes?: readonly string[]; exists?: readonly string[]; when?: Rule["when"]; variables?: Record<string, string> } = {};
+  const ruleEntry: {
+    if?: string;
+    changes?: readonly string[];
+    exists?: readonly string[];
+    when?: Rule["when"];
+    variables?: Record<string, string>;
+  } = {};
   if (typeof r.if === "string") ruleEntry.if = r.if;
-  if (Array.isArray(r.changes)) ruleEntry.changes = r.changes as readonly string[];
+  if (Array.isArray(r.changes))
+    ruleEntry.changes = r.changes as readonly string[];
   if (Array.isArray(r.exists)) ruleEntry.exists = r.exists as readonly string[];
   if (typeof r.when === "string" && JOB_RULE_WHEN_VALUES.has(r.when)) {
     ruleEntry.when = r.when as Rule["when"];
@@ -332,7 +421,10 @@ function convertJobRules(job: Record<string, unknown>): readonly Rule[] {
 /**
  * Convert a script array field (before_script/after_script) from a job.
  */
-function convertScriptArray(job: Record<string, unknown>, field: string): readonly string[] | undefined {
+function convertScriptArray(
+  job: Record<string, unknown>,
+  field: string,
+): readonly string[] | undefined {
   const value = job[field];
   if (typeof value === "string") return [value];
   if (Array.isArray(value)) {
@@ -355,12 +447,19 @@ function convertDelay(job: Record<string, unknown>): string | undefined {
 /**
  * Convert artifact `paths` into exportArtifact operations.
  */
-function convertArtifactPaths(artifacts: Record<string, unknown>, operations: OperationDefinition[]): void {
+function convertArtifactPaths(
+  artifacts: Record<string, unknown>,
+  operations: OperationDefinition[],
+): void {
   const paths = artifacts.paths;
   if (!Array.isArray(paths)) return;
   for (const path of paths) {
     if (typeof path === "string") {
-      operations.push({ kind: "exportArtifact", name: path.split("/").pop() ?? path, path });
+      operations.push({
+        kind: "exportArtifact",
+        name: path.split("/").pop() ?? path,
+        path,
+      });
     }
   }
 }
@@ -372,17 +471,33 @@ function convertArtifactPaths(artifacts: Record<string, unknown>, operations: Op
  * graph nodes that violate the CDK report-type contract.
  */
 const SUPPORTED_REPORT_TYPES: ReadonlySet<string> = new Set([
-  "junit", "coverage", "dotenv", "sast", "dast",
-  "dependencyScanning", "containerScanning", "licenseScanning",
-  "performance", "metrics", "terraform", "quality", "sarif",
+  "junit",
+  "coverage",
+  "dotenv",
+  "sast",
+  "dast",
+  "dependencyScanning",
+  "containerScanning",
+  "licenseScanning",
+  "performance",
+  "metrics",
+  "terraform",
+  "quality",
+  "sarif",
 ]);
 
-function convertArtifactReports(artifacts: Record<string, unknown>, operations: OperationDefinition[]): void {
+function convertArtifactReports(
+  artifacts: Record<string, unknown>,
+  operations: OperationDefinition[],
+): void {
   if (!artifacts.reports || typeof artifacts.reports !== "object") return;
   const reports = artifacts.reports as Record<string, unknown>;
   for (const [type, value] of Object.entries(reports)) {
     if (typeof value === "string" && SUPPORTED_REPORT_TYPES.has(type)) {
-      operations.push({ kind: "report", spec: { type: type as ReportType, path: value } });
+      operations.push({
+        kind: "report",
+        spec: { type: type as ReportType, path: value },
+      });
     }
   }
 }
@@ -390,7 +505,10 @@ function convertArtifactReports(artifacts: Record<string, unknown>, operations: 
 /**
  * Convert `artifacts` into exportArtifact operations.
  */
-function convertArtifacts(job: Record<string, unknown>, operations: OperationDefinition[]): void {
+function convertArtifacts(
+  job: Record<string, unknown>,
+  operations: OperationDefinition[],
+): void {
   if (!job.artifacts || typeof job.artifacts !== "object") return;
   const artifacts = job.artifacts as Record<string, unknown>;
   convertArtifactPaths(artifacts, operations);

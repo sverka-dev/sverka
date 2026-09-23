@@ -43,18 +43,19 @@ Wave 1 adds an optional `backoff?: BackoffSpec` for exponential backoff
 ## Interfaces
 
 Model extension (`@sverka/workflow` cdk/model.ts):
+
 ```ts
 interface BackoffSpec {
   readonly baseMs: number;
-  readonly maxMs?: number;   // cap per delay; default: no cap
-  readonly factor?: number;  // default: 2
+  readonly maxMs?: number; // cap per delay; default: no cap
+  readonly factor?: number; // default: 2
 }
 
 interface RetryPolicy {
-  readonly max: number;        // max retries (total attempts = max + 1)
-  readonly when?: readonly RetryWhen[];   // default: any failure
+  readonly max: number; // max retries (total attempts = max + 1)
+  readonly when?: readonly RetryWhen[]; // default: any failure
   readonly exitCodes?: readonly number[]; // overrides `when` when set
-  readonly backoff?: BackoffSpec;         // NEW — default: immediate
+  readonly backoff?: BackoffSpec; // NEW — default: immediate
 }
 ```
 
@@ -68,15 +69,16 @@ No new public exports beyond `BackoffSpec` (re-exported from
 
 Result classification (`ShellResult` → `RetryWhen`):
 
-| Condition | RetryWhen |
-|---|---|
-| `timedOut === true` | `timeout` |
+| Condition                      | RetryWhen                                                                        |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `timedOut === true`            | `timeout`                                                                        |
 | driver threw (non-shell error) | `runner_system_failure` (thrown `Error`) or `unknown_failure` (thrown non-Error) |
-| `exitCode === 0` | (success — no retry) |
-| `exitCode !== 0` | `script_failure` |
-| any failure | `always` |
+| `exitCode === 0`               | (success — no retry)                                                             |
+| `exitCode !== 0`               | `script_failure`                                                                 |
+| any failure                    | `always`                                                                         |
 
 Retry decision:
+
 - If `exitCodes` set: retry iff `exitCode` ∈ `exitCodes` (ignores `when`).
 - Else if `when` set: retry iff the classified `RetryWhen` ∈ `when` or
   `when` includes `"always"`.

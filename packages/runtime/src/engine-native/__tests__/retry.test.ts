@@ -5,7 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEngine } from "../engine.js";
 import { createMockDriver } from "./helpers/mock-driver.js";
-import type { RuntimeDriver, ShellExecuteRequest, ShellResult, RunEvent } from "../types.js";
+import type {
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+  RunEvent,
+} from "../types.js";
 import type { RunPlan, StepDefinition, RetryPolicy } from "@sverka/workflow";
 
 function makeRetryPlan(retry: RetryPolicy, command = "echo hello"): RunPlan {
@@ -41,7 +46,9 @@ async function collectEvents(
 }
 
 /** Create a driver that fails `failCount` times then succeeds. */
-function createFlakyDriver(failCount: number): RuntimeDriver & { calls: number } {
+function createFlakyDriver(
+  failCount: number,
+): RuntimeDriver & { calls: number } {
   let calls = 0;
   const driver: RuntimeDriver & { calls: number } = {
     name: "flaky",
@@ -52,16 +59,30 @@ function createFlakyDriver(failCount: number): RuntimeDriver & { calls: number }
     executeShell: async (): Promise<ShellResult> => {
       calls++;
       if (calls <= failCount) {
-        return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "fail",
+          durationMs: 1,
+          timedOut: false,
+        };
       }
-      return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+      return {
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        durationMs: 1,
+        timedOut: false,
+      };
     },
   };
   return driver;
 }
 
 /** Create a driver with configurable result per call. */
-function createScriptedDriver(results: ShellResult[]): RuntimeDriver & { calls: number } {
+function createScriptedDriver(
+  results: ShellResult[],
+): RuntimeDriver & { calls: number } {
   let calls = 0;
   const driver: RuntimeDriver & { calls: number } = {
     name: "scripted",
@@ -101,7 +122,10 @@ describe("Engine — retry (Spec 20)", () => {
     });
     const retries = events.filter((e) => e.type === "step-retry");
     expect(retries).toHaveLength(2);
-    const completed = events.find((e) => e.type === "run-completed") as Extract<RunEvent, { type: "run-completed" }>;
+    const completed = events.find((e) => e.type === "run-completed") as Extract<
+      RunEvent,
+      { type: "run-completed" }
+    >;
     expect(completed.status).toBe("success");
     expect(driver.calls).toBe(3); // 2 failures + 1 success
   });
@@ -118,7 +142,10 @@ describe("Engine — retry (Spec 20)", () => {
     });
     const retries = events.filter((e) => e.type === "step-retry");
     expect(retries).toHaveLength(1);
-    const completed = events.find((e) => e.type === "run-completed") as Extract<RunEvent, { type: "run-completed" }>;
+    const completed = events.find((e) => e.type === "run-completed") as Extract<
+      RunEvent,
+      { type: "run-completed" }
+    >;
     expect(completed.status).toBe("failure");
     expect(driver.calls).toBe(2); // 1 initial + 1 retry
   });
@@ -126,7 +153,13 @@ describe("Engine — retry (Spec 20)", () => {
   // 3. when: ["timeout"]: a non-timeout failure (exitCode 1) is not retried.
   it("when:[timeout] — exitCode 1 not retried", async () => {
     const driver = createScriptedDriver([
-      { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false },
+      {
+        exitCode: 1,
+        stdout: "",
+        stderr: "fail",
+        durationMs: 1,
+        timedOut: false,
+      },
     ]);
     const engine = createEngine({ drivers: [driver] });
     const events = await collectEvents(engine, {
@@ -142,7 +175,13 @@ describe("Engine — retry (Spec 20)", () => {
   // 4. when: ["timeout"]: a timeout (timedOut: true) is retried.
   it("when:[timeout] — timeout is retried", async () => {
     const driver = createScriptedDriver([
-      { exitCode: 124, stdout: "", stderr: "timeout", durationMs: 1000, timedOut: true },
+      {
+        exitCode: 124,
+        stdout: "",
+        stderr: "timeout",
+        durationMs: 1000,
+        timedOut: true,
+      },
       { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false },
     ]);
     const engine = createEngine({ drivers: [driver] });
@@ -153,7 +192,10 @@ describe("Engine — retry (Spec 20)", () => {
     });
     const retries = events.filter((e) => e.type === "step-retry");
     expect(retries).toHaveLength(1);
-    const completed = events.find((e) => e.type === "run-completed") as Extract<RunEvent, { type: "run-completed" }>;
+    const completed = events.find((e) => e.type === "run-completed") as Extract<
+      RunEvent,
+      { type: "run-completed" }
+    >;
     expect(completed.status).toBe("success");
   });
 
@@ -180,11 +222,17 @@ describe("Engine — retry (Spec 20)", () => {
     const engine = createEngine({ drivers: [driver] });
     const sleepSpy = vi.spyOn(globalThis, "setTimeout");
     const events = await collectEvents(engine, {
-      plan: makeRetryPlan({ max: 2, backoff: { baseMs: 100, factor: 2, maxMs: 150 } }),
+      plan: makeRetryPlan({
+        max: 2,
+        backoff: { baseMs: 100, factor: 2, maxMs: 150 },
+      }),
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
-    const retries = events.filter((e) => e.type === "step-retry") as Extract<RunEvent, { type: "step-retry" }>[];
+    const retries = events.filter((e) => e.type === "step-retry") as Extract<
+      RunEvent,
+      { type: "step-retry" }
+    >[];
     expect(retries).toHaveLength(2);
     expect(retries[0]!.attempt).toBe(1);
     expect(retries[0]!.nextAttemptMs).toBe(100);
@@ -201,7 +249,10 @@ describe("Engine — retry (Spec 20)", () => {
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
-    const retries = events.filter((e) => e.type === "step-retry") as Extract<RunEvent, { type: "step-retry" }>[];
+    const retries = events.filter((e) => e.type === "step-retry") as Extract<
+      RunEvent,
+      { type: "step-retry" }
+    >[];
     expect(retries).toHaveLength(1);
     expect(retries[0]!.nextAttemptMs).toBe(0);
   });
@@ -230,7 +281,10 @@ describe("Engine — retry (Spec 20)", () => {
     expect(retries.length).toBeLessThanOrEqual(1);
     const cancelled = events.filter((e) => e.type === "step-cancelled");
     expect(cancelled.length).toBeGreaterThanOrEqual(0);
-    const completed = events.find((e) => e.type === "run-completed") as Extract<RunEvent, { type: "run-completed" }>;
+    const completed = events.find((e) => e.type === "run-completed") as Extract<
+      RunEvent,
+      { type: "run-completed" }
+    >;
     expect(completed.status).toBe("cancelled");
   });
 
@@ -276,9 +330,21 @@ describe("Engine — retry (Spec 20)", () => {
         // First attempt: succeed op1, but the step has 2 ops. We track shell calls.
         // On first attempt, fail. On second, succeed.
         if (shellCalls <= 1) {
-          return { exitCode: 1, stdout: "", stderr: "fail", durationMs: 1, timedOut: false };
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: "fail",
+            durationMs: 1,
+            timedOut: false,
+          };
         }
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     };
     const step: StepDefinition = {
@@ -314,7 +380,10 @@ describe("Engine — retry (Spec 20)", () => {
     // Actually: executeStep runs ops in order. op1 fails → step fails immediately (op2 not reached).
     // Retry: op1 succeeds, op2 succeeds. Total = 1 (fail) + 2 (success) = 3.
     expect(shellCalls).toBe(3);
-    const completed = events.find((e) => e.type === "run-completed") as Extract<RunEvent, { type: "run-completed" }>;
+    const completed = events.find((e) => e.type === "run-completed") as Extract<
+      RunEvent,
+      { type: "run-completed" }
+    >;
     expect(completed.status).toBe("success");
   });
 });

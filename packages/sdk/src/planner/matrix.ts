@@ -1,7 +1,13 @@
 // Matrix expansion — expands matrix steps into concrete step instances.
 // F-15 — plan-time expansion for the native engine.
 
-import type { StepDefinition, Dependency, MatrixSpec, MatrixValue, Reference } from "@sverka/workflow";
+import type {
+  StepDefinition,
+  Dependency,
+  MatrixSpec,
+  MatrixValue,
+  Reference,
+} from "@sverka/workflow";
 import { PlannerError } from "./errors.js";
 
 type MatrixCombination = Record<string, MatrixValue>;
@@ -75,7 +81,9 @@ function expandStep(step: StepDefinition): StepDefinition[] {
       matrixValues: combo,
       dependencies: step.dependencies,
       ...(spec.failFast !== undefined ? { matrixFailFast: spec.failFast } : {}),
-      ...(spec.maxParallel !== undefined ? { matrixMaxParallel: spec.maxParallel } : {}),
+      ...(spec.maxParallel !== undefined
+        ? { matrixMaxParallel: spec.maxParallel }
+        : {}),
     };
   });
 }
@@ -86,7 +94,10 @@ function computeCombinations(spec: MatrixSpec): readonly MatrixCombination[] {
     return (spec.include ?? []).map((e) => ({ ...e }));
   }
 
-  const combinations = applyExcludes(crossProduct(spec.dimensions, keys), spec.exclude ?? []);
+  const combinations = applyExcludes(
+    crossProduct(spec.dimensions, keys),
+    spec.exclude ?? [],
+  );
   return mergeIncludes(combinations, spec.include ?? []);
 }
 
@@ -134,7 +145,9 @@ function mergeIncludes(
 ): readonly MatrixCombination[] {
   const includeEntries = include.map((e) => ({ ...e }));
   const existingKeys = new Set(combinations.map(comboKey));
-  const uniqueIncludes = includeEntries.filter((e) => !existingKeys.has(comboKey(e)));
+  const uniqueIncludes = includeEntries.filter(
+    (e) => !existingKeys.has(comboKey(e)),
+  );
   return [...combinations, ...uniqueIncludes];
 }
 
@@ -173,8 +186,12 @@ function rewireDependencies(
   const hasInputs = step.inputs.length > 0;
   if (!hasDeps && !hasInputs) return step;
 
-  const newDeps = hasDeps ? rewireDeps(step.dependencies, expansionMap) : step.dependencies;
-  const newInputs = hasInputs ? rewireInputs(step.inputs, expansionMap) : step.inputs;
+  const newDeps = hasDeps
+    ? rewireDeps(step.dependencies, expansionMap)
+    : step.dependencies;
+  const newInputs = hasInputs
+    ? rewireInputs(step.inputs, expansionMap)
+    : step.inputs;
 
   return { ...step, dependencies: newDeps, inputs: newInputs };
 }

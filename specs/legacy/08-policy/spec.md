@@ -168,7 +168,7 @@ A finding triggers a `failOn` rule if `finding.severity >= rule.severity`.
 3. **Evaluate `failOn` rules** in order. For each rule:
    a. Filter findings by `checkIds` if specified (exact string match).
    b. If `onlyNew`, filter to findings whose `fingerprint` is not in the
-      baseline set.
+   baseline set.
    c. Filter to findings with `severity >= rule.severity`.
    d. If any findings remain, the rule is triggered (verdict `fail`).
 4. **Compute final verdict:**

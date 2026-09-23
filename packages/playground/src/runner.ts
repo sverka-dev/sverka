@@ -4,7 +4,12 @@
 import type { Project } from "./pipeline.js";
 import type { Pipeline } from "./pipeline.js";
 import type { Step } from "./pipeline.js";
-import type { Finding, PlaygroundFinding, PipelineResult, StepResult } from "./types.js";
+import type {
+  Finding,
+  PlaygroundFinding,
+  PipelineResult,
+  StepResult,
+} from "./types.js";
 
 /** Simple deterministic hash for fingerprint generation. Browser-safe. */
 function simpleHash(input: string): string {

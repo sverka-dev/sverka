@@ -27,7 +27,11 @@ export function readJsonFile(path: string, cb: Callback<unknown>): void {
 }
 
 /** Write JSON to a file — callback style. */
-export function writeJsonFile(path: string, data: unknown, cb: Callback<void>): void {
+export function writeJsonFile(
+  path: string,
+  data: unknown,
+  cb: Callback<void>,
+): void {
   try {
     const content = JSON.stringify(data, null, 2);
     fs.writeFile(path, content, "utf-8", (err) => {
@@ -43,10 +47,7 @@ export function writeJsonFile(path: string, data: unknown, cb: Callback<void>): 
 }
 
 /** Fetch data from multiple files and combine — callback style. */
-export function combineFiles(
-  paths: string[],
-  cb: Callback<unknown[]>,
-): void {
+export function combineFiles(paths: string[], cb: Callback<unknown[]>): void {
   const results: unknown[] = [];
   let done = 0;
   let failed = false;

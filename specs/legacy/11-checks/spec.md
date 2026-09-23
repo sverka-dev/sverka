@@ -3,8 +3,8 @@
 ## Overview
 
 The `checks` package bridges the planner's `ProposedCheck[]` and the IR
-`OperationSpec`. The planner proposes *what* category of check to run
-(`lint`, `typecheck`, `test`); the checks package resolves *how* to run it
+`OperationSpec`. The planner proposes _what_ category of check to run
+(`lint`, `typecheck`, `test`); the checks package resolves _how_ to run it
 (command, args, outputs) given the project's package managers and languages.
 It also extracts findings from SARIF artifacts after execution.
 
@@ -142,21 +142,21 @@ The built-in resolver maps `(checkId, packageManagerCategory)` to a command.
 When the project has multiple package managers, the first matching entry wins
 (in table order). When no entry matches, `resolve()` returns null.
 
-| checkId     | packageManager         | command   | args                         | outputs |
-|-------------|------------------------|-----------|------------------------------|---------|
-| `typecheck` | bun                    | `bun`     | `["run", "typecheck"]`       | `[]`    |
-| `typecheck` | npm/yarn/pnpm          | `npm`/`yarn`/`pnpm` | `["run", "typecheck"]` | `[]`    |
-| `lint`      | bun                    | `bun`     | `["run", "lint"]`            | `[]`    |
-| `lint`      | npm/yarn/pnpm          | `npm`/`yarn`/`pnpm` | `["run", "lint"]`      | `[]`    |
-| `lint`      | pip/poetry/uv/pipenv   | `ruff`    | `["check"]`                  | `[]`    |
-| `test`      | bun                    | `bun`     | `["run", "test"]`            | `[]`    |
-| `test`      | npm/yarn/pnpm          | `npm`/`yarn`/`pnpm` | `["run", "test"]`      | `[]`    |
-| `test`      | pip/poetry/uv/pipenv   | `pytest`  | `[]`                         | `[]`    |
-| `test`      | cargo                  | `cargo`   | `["test"]`                   | `[]`    |
-| `test`      | go                     | `go`      | `["test", "./..."]`          | `[]`    |
-| `clippy`    | cargo                  | `cargo`   | `["clippy"]`                 | `[]`    |
-| `fmt-check` | cargo                  | `cargo`   | `["fmt", "--check"]`         | `[]`    |
-| `vet`       | go                     | `go`      | `["vet", "./..."]`           | `[]`    |
+| checkId     | packageManager       | command             | args                   | outputs |
+| ----------- | -------------------- | ------------------- | ---------------------- | ------- |
+| `typecheck` | bun                  | `bun`               | `["run", "typecheck"]` | `[]`    |
+| `typecheck` | npm/yarn/pnpm        | `npm`/`yarn`/`pnpm` | `["run", "typecheck"]` | `[]`    |
+| `lint`      | bun                  | `bun`               | `["run", "lint"]`      | `[]`    |
+| `lint`      | npm/yarn/pnpm        | `npm`/`yarn`/`pnpm` | `["run", "lint"]`      | `[]`    |
+| `lint`      | pip/poetry/uv/pipenv | `ruff`              | `["check"]`            | `[]`    |
+| `test`      | bun                  | `bun`               | `["run", "test"]`      | `[]`    |
+| `test`      | npm/yarn/pnpm        | `npm`/`yarn`/`pnpm` | `["run", "test"]`      | `[]`    |
+| `test`      | pip/poetry/uv/pipenv | `pytest`            | `[]`                   | `[]`    |
+| `test`      | cargo                | `cargo`             | `["test"]`             | `[]`    |
+| `test`      | go                   | `go`                | `["test", "./..."]`    | `[]`    |
+| `clippy`    | cargo                | `cargo`             | `["clippy"]`           | `[]`    |
+| `fmt-check` | cargo                | `cargo`             | `["fmt", "--check"]`   | `[]`    |
+| `vet`       | go                   | `go`                | `["vet", "./..."]`     | `[]`    |
 
 Built-in checks declare `outputs: []` — the project's scripts may or may not
 emit SARIF. Findings extraction is exercised by custom resolvers that declare
@@ -166,14 +166,14 @@ SARIF outputs, and by the test suite with synthetic fixtures.
 
 The resolver constructs the `OperationSpec` from the `ProposedCheck`:
 
-| field        | source                              |
-|--------------|-------------------------------------|
-| `id`         | `check.id` (the ProposedCheck id)   |
-| `kind`       | `"check"`                           |
-| `name`       | `check.checkId`                     |
-| `command`    | from table                          |
-| `args`       | from table                          |
-| `description`| `check.reason`                      |
+| field         | source                            |
+| ------------- | --------------------------------- |
+| `id`          | `check.id` (the ProposedCheck id) |
+| `kind`        | `"check"`                         |
+| `name`        | `check.checkId`                   |
+| `command`     | from table                        |
+| `args`        | from table                        |
+| `description` | `check.reason`                    |
 
 No `image`, `dependsOn`, `env`, or `workingDir` is set by the built-in
 resolver (host execution, no dependencies, default working dir).

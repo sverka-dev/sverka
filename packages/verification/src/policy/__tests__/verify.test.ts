@@ -8,20 +8,22 @@ function makeGraph(stepIds: string[]): DefinitionGraph {
   return {
     project: {
       id: "test",
-      pipelines: [{
-        id: "ci",
-        inputs: {},
-        entries: [],
-        steps: stepIds.map((id) => ({
-          id,
-          runtime: { mode: "host" as const },
-          operations: [{ kind: "shell" as const, command: "echo hi" }],
-          inputs: [],
+      pipelines: [
+        {
+          id: "ci",
+          inputs: {},
+          entries: [],
+          steps: stepIds.map((id) => ({
+            id,
+            runtime: { mode: "host" as const },
+            operations: [{ kind: "shell" as const, command: "echo hi" }],
+            inputs: [],
+            outputs: [],
+            dependencies: [],
+          })),
           outputs: [],
-          dependencies: [],
-        })),
-        outputs: [],
-      }],
+        },
+      ],
     },
   };
 }

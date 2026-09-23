@@ -42,7 +42,12 @@ describe("benchmark dashboard files", () => {
 
   it("index.html contains comparison table structure", () => {
     const html = readHtml("index.html");
-    expectContains(html, 'id="results-table"', 'id="summary"', 'id="header-meta"');
+    expectContains(
+      html,
+      'id="results-table"',
+      'id="summary"',
+      'id="header-meta"',
+    );
   });
 
   it("index.html links to trace viewer", () => {
@@ -75,7 +80,13 @@ describe("benchmark dashboard files", () => {
   });
 
   it("trace data files exist for all 5 tasks", () => {
-    const taskIds = ["run-checks", "discover", "create-config", "compile-github", "multi-step"];
+    const taskIds = [
+      "run-checks",
+      "discover",
+      "create-config",
+      "compile-github",
+      "multi-step",
+    ];
     for (const taskId of taskIds) {
       const path = join(benchDir, "traces", taskId, "trace.json");
       expect(existsSync(path)).toBe(true);
@@ -104,7 +115,13 @@ describe("benchmark dashboard files", () => {
   });
 
   it("trace data shows sverka uses fewer LLM calls than raw-shell", () => {
-    const taskIds = ["run-checks", "discover", "create-config", "compile-github", "multi-step"];
+    const taskIds = [
+      "run-checks",
+      "discover",
+      "create-config",
+      "compile-github",
+      "multi-step",
+    ];
     for (const taskId of taskIds) {
       const path = join(benchDir, "traces", taskId, "trace.json");
       const data = JSON.parse(readFileSync(path, "utf-8"));
@@ -123,7 +140,7 @@ describe("benchmark dashboard files", () => {
 
   it("index.html uses dark theme", () => {
     const html = readHtml("index.html");
-    expect(html).toContain("data-theme=\"dark\"");
+    expect(html).toContain('data-theme="dark"');
     expect(html).toMatch(/--bg:\s*#0d1117/);
   });
 
@@ -140,15 +157,19 @@ describe("benchmark dashboard files", () => {
 
   it("sample-result.json summary averages match results", () => {
     const data = readJson("sample-result.json");
-    const rawResults = data.results.filter((r: any) => r.agentType === "raw-shell");
+    const rawResults = data.results.filter(
+      (r: any) => r.agentType === "raw-shell",
+    );
     const rawSummary = data.summary["raw-shell"];
     expect(rawSummary.totalTasks).toBe(rawResults.length);
     expect(rawSummary.successCount).toBe(
       rawResults.filter((r: any) => r.success).length,
     );
-    const avgTokens = rawResults.reduce(
-      (sum: number, r: any) => sum + r.metrics.totalTokens, 0,
-    ) / rawResults.length;
+    const avgTokens =
+      rawResults.reduce(
+        (sum: number, r: any) => sum + r.metrics.totalTokens,
+        0,
+      ) / rawResults.length;
     expect(rawSummary.avgTotalTokens).toBe(Math.round(avgTokens));
   });
 });
@@ -235,8 +256,12 @@ describe("arena sample result", () => {
       (r: any) => r.taskId === "fix-test" && r.pluginIds.includes("sverka"),
     );
     expect(fixTestSverka).toBeDefined();
-    expect(fixTestSverka.metrics.toolCallCount).toBeLessThan(fixTestRaw.metrics.toolCallCount);
-    expect(fixTestSverka.metrics.llmCallCount).toBeLessThan(fixTestRaw.metrics.llmCallCount);
+    expect(fixTestSverka.metrics.toolCallCount).toBeLessThan(
+      fixTestRaw.metrics.toolCallCount,
+    );
+    expect(fixTestSverka.metrics.llmCallCount).toBeLessThan(
+      fixTestRaw.metrics.llmCallCount,
+    );
   });
 });
 
@@ -279,7 +304,13 @@ describe("arena dashboard matrix view", () => {
   it("index.html maintains backward compatibility with classic format", () => {
     const html = readHtml("index.html");
     // Classic view elements still present
-    expectContains(html, 'id="results-table"', "renderTable", "renderSummary", "renderHeader");
+    expectContains(
+      html,
+      'id="results-table"',
+      "renderTable",
+      "renderSummary",
+      "renderHeader",
+    );
   });
 });
 
@@ -308,7 +339,13 @@ describe("arena trace viewer", () => {
 
   it("trace.html has expandable tool call details", () => {
     const html = readHtml("trace.html");
-    expectContains(html, "renderToolCalls", "tool-call", "functionName", "arguments");
+    expectContains(
+      html,
+      "renderToolCalls",
+      "tool-call",
+      "functionName",
+      "arguments",
+    );
   });
 
   it("trace.html has running token counter per step", () => {
@@ -341,17 +378,33 @@ describe("arena trace viewer", () => {
 describe("workbench case navigation", () => {
   it("index.html has sidebar for case list navigation", () => {
     const html = readHtml("index.html");
-    expectContains(html, 'id="sidebar"', 'id="case-list"', "case-item", "renderSidebar");
+    expectContains(
+      html,
+      'id="sidebar"',
+      'id="case-list"',
+      "case-item",
+      "renderSidebar",
+    );
   });
 
   it("index.html has case detail view container", () => {
     const html = readHtml("index.html");
-    expectContains(html, 'id="workbench-case"', 'id="case-detail"', "renderCaseDetail");
+    expectContains(
+      html,
+      'id="workbench-case"',
+      'id="case-detail"',
+      "renderCaseDetail",
+    );
   });
 
   it("index.html has overview view container", () => {
     const html = readHtml("index.html");
-    expectContains(html, 'id="workbench-overview"', 'id="case-cards"', "renderOverview");
+    expectContains(
+      html,
+      'id="workbench-overview"',
+      'id="case-cards"',
+      "renderOverview",
+    );
   });
 
   it("index.html uses hash-based routing for case navigation", () => {
@@ -390,7 +443,13 @@ describe("workbench case navigation", () => {
 describe("workbench AI report elements", () => {
   it("index.html has AI report section with judge verdicts", () => {
     const html = readHtml("index.html");
-    expectContains(html, "ai-report", "renderAIReport", "Judge Verdict", "judge-badge");
+    expectContains(
+      html,
+      "ai-report",
+      "renderAIReport",
+      "Judge Verdict",
+      "judge-badge",
+    );
   });
 
   it("index.html has comparison table for AI report", () => {
@@ -421,7 +480,12 @@ describe("workbench AI report elements", () => {
 
   it("index.html run cards show judge verdict with reasoning and issues", () => {
     const html = readHtml("index.html");
-    expectContains(html, "Judge Verdict", "run-verdict-reasoning", "run-verdict-issues");
+    expectContains(
+      html,
+      "Judge Verdict",
+      "run-verdict-reasoning",
+      "run-verdict-issues",
+    );
   });
 
   it("index.html run cards link to trace viewer with run param", () => {

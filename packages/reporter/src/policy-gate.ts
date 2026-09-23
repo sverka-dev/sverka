@@ -7,11 +7,9 @@ import type { PolicyGateOptions, PolicyGateResult } from "./types.js";
 export function evaluateGate(options: PolicyGateOptions): PolicyGateResult {
   const policy = options.policy ?? DEFAULT_POLICY;
   const baselineFingerprints = options.baselineFingerprints ?? [];
-  const result = evaluatePolicy(
-    [...options.findings],
-    policy,
-    [...baselineFingerprints],
-  );
+  const result = evaluatePolicy([...options.findings], policy, [
+    ...baselineFingerprints,
+  ]);
   return {
     result,
     exitCode: result.verdict === "pass" ? 0 : 1,

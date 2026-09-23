@@ -2,7 +2,14 @@
 // Spec 26 — items 1, 2, 3, 11.
 
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, Entry, type NetworkAllowlist, type Runtime } from "../index.js";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  Entry,
+  type NetworkAllowlist,
+  type Runtime,
+} from "../index.js";
 import { synthesize, SynthesisError } from "../../core/index.js";
 
 describe("NetworkAllowlist model (Spec 26 item 11)", () => {
@@ -12,7 +19,10 @@ describe("NetworkAllowlist model (Spec 26 item 11)", () => {
   });
 
   it("Runtime accepts network field", () => {
-    const runtime: Runtime = { mode: "container", network: { allowed: ["github.com"] } };
+    const runtime: Runtime = {
+      mode: "container",
+      network: { allowed: ["github.com"] },
+    };
     expect(runtime.network?.allowed).toEqual(["github.com"]);
   });
 
@@ -30,10 +40,15 @@ describe("NetworkAllowlist synthesis (Spec 26 items 1, 2, 3)", () => {
       runtime: { mode: "host", network: { allowed: ["registry.npmjs.org"] } },
       command: "echo hello",
     });
-    new Entry(pipeline, "main", { trigger: { kind: "push" }, roots: ["build"] });
+    new Entry(pipeline, "main", {
+      trigger: { kind: "push" },
+      roots: ["build"],
+    });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/build");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/build",
+    );
     expect(step).toBeDefined();
     expect(step!.runtime.network).toEqual({ allowed: ["registry.npmjs.org"] });
   });
@@ -45,10 +60,15 @@ describe("NetworkAllowlist synthesis (Spec 26 items 1, 2, 3)", () => {
       runtime: { mode: "host", network: { allowed: [] } },
       command: "echo hello",
     });
-    new Entry(pipeline, "main", { trigger: { kind: "push" }, roots: ["build"] });
+    new Entry(pipeline, "main", {
+      trigger: { kind: "push" },
+      roots: ["build"],
+    });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/build");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/build",
+    );
     expect(step!.runtime.network).toEqual({ allowed: [] });
   });
 
@@ -59,7 +79,10 @@ describe("NetworkAllowlist synthesis (Spec 26 items 1, 2, 3)", () => {
       runtime: { mode: "host", network: { allowed: [""] } },
       command: "echo hello",
     });
-    new Entry(pipeline, "main", { trigger: { kind: "push" }, roots: ["build"] });
+    new Entry(pipeline, "main", {
+      trigger: { kind: "push" },
+      roots: ["build"],
+    });
 
     expect(() => synthesize(project)).toThrow(SynthesisError);
     try {

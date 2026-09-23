@@ -38,8 +38,8 @@ pattern of the GitHub and GitLab targets.
 
 ```ts
 interface DroneTargetConfig {
-  readonly type?: "docker" | "kubernetes";  // default: "docker"
-  readonly image?: string;                   // default: "node:24"
+  readonly type?: "docker" | "kubernetes"; // default: "docker"
+  readonly image?: string; // default: "node:24"
 }
 
 function compileDrone(
@@ -82,23 +82,23 @@ trigger:
 
 ### Step → Drone mapping
 
-| Sverka | Drone |
-|---|---|
-| Step | `steps[]` entry with `name`, `image`, `commands` |
-| Dependency | `depends_on: [producer]` |
-| Shell operation | `commands: [cmd]` |
-| Runtime container | `image: <image>` |
-| Runtime host | `type: docker` + default image (emulated) |
-| Push trigger | `trigger.branch` |
-| ChangeRequest trigger | `trigger.event: [pull_request]` |
-| Manual trigger | `trigger.event: [custom]` + `trigger.custom` |
-| Schedule trigger | `trigger.cron: [expr]` |
-| Timeout | `timeout: <seconds>` |
-| Condition | Unsupported (diagnostic) |
-| Matrix | Unsupported (diagnostic) |
-| Scalar output | Unsupported (diagnostic) |
-| Artifact output | Partial (Drone artifacts via plugins) |
-| RetryPolicy | Unsupported (diagnostic) |
+| Sverka                | Drone                                            |
+| --------------------- | ------------------------------------------------ |
+| Step                  | `steps[]` entry with `name`, `image`, `commands` |
+| Dependency            | `depends_on: [producer]`                         |
+| Shell operation       | `commands: [cmd]`                                |
+| Runtime container     | `image: <image>`                                 |
+| Runtime host          | `type: docker` + default image (emulated)        |
+| Push trigger          | `trigger.branch`                                 |
+| ChangeRequest trigger | `trigger.event: [pull_request]`                  |
+| Manual trigger        | `trigger.event: [custom]` + `trigger.custom`     |
+| Schedule trigger      | `trigger.cron: [expr]`                           |
+| Timeout               | `timeout: <seconds>`                             |
+| Condition             | Unsupported (diagnostic)                         |
+| Matrix                | Unsupported (diagnostic)                         |
+| Scalar output         | Unsupported (diagnostic)                         |
+| Artifact output       | Partial (Drone artifacts via plugins)            |
+| RetryPolicy           | Unsupported (diagnostic)                         |
 
 ### Capability manifest
 
@@ -125,6 +125,7 @@ const droneCapabilities: CapabilityManifest = {
 ## Error handling
 
 `DroneTargetError` with `override readonly cause: unknown`. Codes:
+
 - `INVALID_GRAPH` — no pipelines or no entries.
 - `LOWER_FAILED` — step lowering error.
 - `EMIT_FAILED` — YAML generation error.

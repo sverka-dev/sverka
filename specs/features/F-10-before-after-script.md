@@ -12,13 +12,13 @@ GitLab CI supports `before_script` (runs before the main script) and `after_scri
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | (none — manual steps) | `before_script`, `after_script` | `beforeScript`, `afterScript` on Step |
-| Semantics | n/a | `before_script` runs before `script`; `after_script` runs after, even on failure | pre/post operations around main operations |
-| Value type | n/a | array of strings | array of operations |
-| Limitations | — | `after_script` always runs (even on failure) | — |
-| Provider gap | no equivalent | — | GitHub: lowered as first/last steps |
+| Aspect       | GitHub Actions        | GitLab CI                                                                        | Sverka (proposed)                          |
+| ------------ | --------------------- | -------------------------------------------------------------------------------- | ------------------------------------------ |
+| Construct    | (none — manual steps) | `before_script`, `after_script`                                                  | `beforeScript`, `afterScript` on Step      |
+| Semantics    | n/a                   | `before_script` runs before `script`; `after_script` runs after, even on failure | pre/post operations around main operations |
+| Value type   | n/a                   | array of strings                                                                 | array of operations                        |
+| Limitations  | —                     | `after_script` always runs (even on failure)                                     | —                                          |
+| Provider gap | no equivalent         | —                                                                                | GitHub: lowered as first/last steps        |
 
 ## GitHub Actions
 

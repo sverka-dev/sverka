@@ -97,7 +97,7 @@ no camelCase→kebab-case conversion).
    - Add `dependencies`: `"@sverka/ir": "workspace:*"`, `"yaml": "^2.9.0"`.
    - `devDependencies`: `tsdown`, `typescript`, `vitest` (already present).
    - `scripts`: already correct (`build: tsdown`, `test: vitest run`, `lint:
-     eslint src`, `typecheck: tsc --noEmit`).
+eslint src`, `typecheck: tsc --noEmit`).
 2. **`packages/compiler-gitlab/project.json`:**
    - Lint target: remove `--ext .ts` (ESLint 9 flat config). Change to
      `"command": "bun run eslint src"`.
@@ -120,7 +120,9 @@ that return valid minimal objects. Copy from compiler-github's fixtures
 ```typescript
 import type { Plan, PlanOperation } from "@sverka/ir";
 
-export function makeOperation(overrides: Partial<PlanOperation> = {}): PlanOperation {
+export function makeOperation(
+  overrides: Partial<PlanOperation> = {},
+): PlanOperation {
   return {
     id: "op-test",
     kind: "check",
@@ -221,7 +223,7 @@ export function compileGitlabCi(
         if (r.when !== undefined) entry.when = r.when;
         return entry;
       }),
-    "before_script": [`bun install -g sverka@${sverkaVersion}`],
+    before_script: [`bun install -g sverka@${sverkaVersion}`],
     script: ["sverka execute"],
     artifacts: { when: "always", paths: [".sverka/output/"] },
   };
@@ -296,8 +298,12 @@ describe("public API", () => {
   it("exports config types (type-only, checked via import)", async () => {
     expect(api).toBeDefined();
     // Reference both types so compilation fails if either export is removed.
-    const _config: import("../index.js").GitlabCompilerConfig = { image: "oven/bun:latest" };
-    const _rule: import("../index.js").GitlabRule = { if: '$CI_PIPELINE_SOURCE == "push"' };
+    const _config: import("../index.js").GitlabCompilerConfig = {
+      image: "oven/bun:latest",
+    };
+    const _rule: import("../index.js").GitlabRule = {
+      if: '$CI_PIPELINE_SOURCE == "push"',
+    };
     void _config;
     void _rule;
   });
@@ -310,10 +316,7 @@ describe("public API", () => {
 // @sverka/compiler-gitlab — public API
 
 export { compileGitlabCi } from "./compile.js";
-export type {
-  GitlabCompilerConfig,
-  GitlabRule,
-} from "./types.js";
+export type { GitlabCompilerConfig, GitlabRule } from "./types.js";
 ```
 
 ## 6. Edge cases and conventions
@@ -360,12 +363,14 @@ is a recurring drill finding.
 ## 8. Commit hygiene (for finalize)
 
 Stage ONLY:
+
 - `packages/compiler-gitlab/**`
 - `specs/13-compiler-gitlab/spec.md`
 - `engdocs/architecture/wave-13-compiler-gitlab-plan.md`
 - `bun.lock` (if `yaml` dep changes the lockfile)
 
 EXCLUDE:
+
 - `city.toml` / `city.toml.bak.*`
 - `agents/`
 - `.devin/` / `.gc/` / `.beads/` / `.evidence/` / `.opencode/`

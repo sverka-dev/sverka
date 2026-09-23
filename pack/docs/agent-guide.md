@@ -36,6 +36,7 @@ The pack provides four formulas in `pack/formulas/`:
 ### `wave`
 
 The standard implementation cycle:
+
 1. **design** (architect) — read spec, produce plan
 2. **implement** (builder) — TDD implementation
 3. **review** (reviewer) — gate quality
@@ -44,11 +45,13 @@ The standard implementation cycle:
 ### `address-review`
 
 The PR review loop:
+
 1. **address** (builder) — run `/act` on the wave PR, resolve all threads
 
 ### `bootstrap-sdd`
 
 The project bootstrap:
+
 1. **spec-tree** (architect) — create numbered spec tree
 2. **engdocs** (architect) — create engineering docs structure
 3. **monorepo** (builder) — scaffold monorepo
@@ -60,6 +63,7 @@ The project bootstrap:
 ### `merge-stack`
 
 The stacked PR merge cycle:
+
 1. **merge** (mayor) — merge the bottom PR, cascading the stack
 
 ## Project Context

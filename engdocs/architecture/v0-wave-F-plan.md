@@ -17,40 +17,40 @@
 
 ### engine-native (replaces runtime)
 
-| Old runtime file | Action | Reason |
-|---|---|---|
-| `scheduler.ts` (567 lines) | **Rebuild** | Operates on flat PlanOperation; new operates on StepDefinition with Dependency edges. Drop cache, retry, state-persist, resource-pool (all deferred from v0). |
-| `executor.ts` (46 lines) | **Rebuild** | Old Executor executes PlanOperation; new RuntimeDriver executes shell commands. Different interface. |
-| `result.ts` (44 lines) | **Rebuild** | Old OperationOutcome/ExecutionResult for flat plan; new RunEvent/RunStatus for step DAG. |
-| `errors.ts` | **Rebuild** | New EngineError hierarchy. |
-| `state-store.ts` | **Delete** | State persistence deferred from v0. |
-| `cache.ts` | **Delete** | Cache deferred from v0 (§32). |
-| `internal/topo.ts` | **Reuse concept, rewrite** | Same Kahn's algorithm, but edges come from StepDefinition.dependencies[].producer, not PlanOperation.dependsOn[]. |
-| `internal/resource-pool.ts` | **Delete** | Resource pools not v0. |
-| `internal/retry.ts` | **Delete** | Retry deferred (§32). |
-| `internal/state-persist.ts` | **Delete** | State persistence not v0. |
-| `internal/scheduler-helpers.ts` | **Delete** | Helpers for old scheduler. |
-| `internal/parse.ts` | **Delete** | CPU/memory parsing for resource pools. |
+| Old runtime file                | Action                     | Reason                                                                                                                                                        |
+| ------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scheduler.ts` (567 lines)      | **Rebuild**                | Operates on flat PlanOperation; new operates on StepDefinition with Dependency edges. Drop cache, retry, state-persist, resource-pool (all deferred from v0). |
+| `executor.ts` (46 lines)        | **Rebuild**                | Old Executor executes PlanOperation; new RuntimeDriver executes shell commands. Different interface.                                                          |
+| `result.ts` (44 lines)          | **Rebuild**                | Old OperationOutcome/ExecutionResult for flat plan; new RunEvent/RunStatus for step DAG.                                                                      |
+| `errors.ts`                     | **Rebuild**                | New EngineError hierarchy.                                                                                                                                    |
+| `state-store.ts`                | **Delete**                 | State persistence deferred from v0.                                                                                                                           |
+| `cache.ts`                      | **Delete**                 | Cache deferred from v0 (§32).                                                                                                                                 |
+| `internal/topo.ts`              | **Reuse concept, rewrite** | Same Kahn's algorithm, but edges come from StepDefinition.dependencies[].producer, not PlanOperation.dependsOn[].                                             |
+| `internal/resource-pool.ts`     | **Delete**                 | Resource pools not v0.                                                                                                                                        |
+| `internal/retry.ts`             | **Delete**                 | Retry deferred (§32).                                                                                                                                         |
+| `internal/state-persist.ts`     | **Delete**                 | State persistence not v0.                                                                                                                                     |
+| `internal/scheduler-helpers.ts` | **Delete**                 | Helpers for old scheduler.                                                                                                                                    |
+| `internal/parse.ts`             | **Delete**                 | CPU/memory parsing for resource pools.                                                                                                                        |
 
 ### runtime-host (adapted)
 
-| File | Action | Reason |
-|---|---|---|
+| File                           | Action                        | Reason                                                                                                                                                       |
+| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `host-executor.ts` (318 lines) | **Rebuild as host-driver.ts** | Old implements Executor (PlanOperation); new implements RuntimeDriver (ShellExecuteRequest). Reuse: spawn logic, env building, log truncation, timeout/kill. |
-| `allowlist.ts` | **Reuse unchanged** | Command allowlist is still needed. |
-| `config.ts` | **Adapt** | Remove runAsUid (deferred). |
-| `errors.ts` | **Reuse unchanged** | Same error classes. |
+| `allowlist.ts`                 | **Reuse unchanged**           | Command allowlist is still needed.                                                                                                                           |
+| `config.ts`                    | **Adapt**                     | Remove runAsUid (deferred).                                                                                                                                  |
+| `errors.ts`                    | **Reuse unchanged**           | Same error classes.                                                                                                                                          |
 
 ### runtime-docker (adapted)
 
-| File | Action | Reason |
-|---|---|---|
+| File                             | Action                          | Reason                                                                                                                                                          |
+| -------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `docker-executor.ts` (386 lines) | **Rebuild as docker-driver.ts** | Old implements Executor (PlanOperation); new implements RuntimeDriver (ShellExecuteRequest). Reuse: docker args building, container policy, image verification. |
-| `internal/docker-cli.ts` | **Reuse** | runDocker helper. |
-| `image.ts` | **Reuse** | Image digest verification. |
-| `cache.ts` | **Delete** | Cache deferred (§32). |
-| `config.ts` | **Adapt** | Remove cacheDir. |
-| `errors.ts` | **Reuse unchanged** | Same error classes. |
+| `internal/docker-cli.ts`         | **Reuse**                       | runDocker helper.                                                                                                                                               |
+| `image.ts`                       | **Reuse**                       | Image digest verification.                                                                                                                                      |
+| `cache.ts`                       | **Delete**                      | Cache deferred (§32).                                                                                                                                           |
+| `config.ts`                      | **Adapt**                       | Remove cacheDir.                                                                                                                                                |
+| `errors.ts`                      | **Reuse unchanged**             | Same error classes.                                                                                                                                             |
 
 ## File layout
 
@@ -129,6 +129,7 @@ Write failing tests. Implement `value-store.ts` (in-memory Map) and
 ### Step 4: StepExecutor
 
 Write failing tests with a mock driver. Implement `step-executor.ts`:
+
 - Creates per-step workspace + output dir
 - Sets SVERKA_OUTPUT_DIR env var
 - Runs operations in order
@@ -140,6 +141,7 @@ Write failing tests with a mock driver. Implement `step-executor.ts`:
 ### Step 5: Scheduler
 
 Write failing tests. Implement `scheduler.ts`:
+
 - Topological sort by StepDefinition.dependencies[].producer
 - Concurrent execution up to maxConcurrent
 - Failure propagation (cancel dependents)
@@ -148,6 +150,7 @@ Write failing tests. Implement `scheduler.ts`:
 ### Step 6: Engine
 
 Write failing tests with mock driver. Implement `engine.ts`:
+
 - `createEngine(config): Engine`
 - `run(request): AsyncIterable<RunEvent>` — async generator
 - `cancel(): Promise<void>`
@@ -162,6 +165,7 @@ with timeout.
 ### Step 8: Public API + gates
 
 Write `public-api.test.ts`. Implement `index.ts`. Run gates:
+
 ```text
 bun run test --filter @sverka/engine-native
 bun run typecheck --filter @sverka/engine-native
@@ -183,6 +187,7 @@ Run gates.
 ### Step 11: Full gates
 
 Run all three packages:
+
 ```text
 bun run test --filter @sverka/engine-native --filter @sverka/runtime-host --filter @sverka/runtime-docker
 bun run typecheck --filter @sverka/engine-native --filter @sverka/runtime-host --filter @sverka/runtime-docker

@@ -1,10 +1,14 @@
 // @sverka/ui — dashboard HTML generator.
 
 /** Render the dashboard page listing available SARIF files. */
-export function renderDashboard(artifactsDir: string, files: readonly string[]): string {
-  const fileList = files.length === 0
-    ? '<p class="empty">No SARIF files found. Run <code>sverka run --format sarif</code> to generate findings.</p>'
-    : `<ul class="file-list">
+export function renderDashboard(
+  artifactsDir: string,
+  files: readonly string[],
+): string {
+  const fileList =
+    files.length === 0
+      ? '<p class="empty">No SARIF files found. Run <code>sverka run --format sarif</code> to generate findings.</p>'
+      : `<ul class="file-list">
       ${files.map((f) => `<li><a href="/report/${encodeURIComponent(f)}">${escapeHtml(f)}</a></li>`).join("\n      ")}
     </ul>`;
 

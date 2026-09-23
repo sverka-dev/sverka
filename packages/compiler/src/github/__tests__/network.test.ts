@@ -8,7 +8,9 @@ import { GithubTarget } from "../target.js";
 import { githubCapabilities } from "../capabilities.js";
 import type { GithubTargetGraph } from "../types.js";
 
-function singleGraph(result: GithubTargetGraph | readonly GithubTargetGraph[]): GithubTargetGraph {
+function singleGraph(
+  result: GithubTargetGraph | readonly GithubTargetGraph[],
+): GithubTargetGraph {
   if ("jobs" in result) return result;
   return result[0]!;
 }
@@ -19,7 +21,10 @@ describe("GitHub network allowlist annotation (Spec 26 items 8-9)", () => {
     const pipeline = new Pipeline(project, "ci");
     new ShellStep(pipeline, "build", {
       command: "npm install",
-      runtime: { mode: "host", network: { allowed: ["registry.npmjs.org", "github.com"] } },
+      runtime: {
+        mode: "host",
+        network: { allowed: ["registry.npmjs.org", "github.com"] },
+      },
     });
     new Entry(pipeline, "main", { trigger: push(), roots: ["build"] });
 

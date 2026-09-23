@@ -1,7 +1,13 @@
 // @sverka/playground — web app entry point.
 // Loads Monaco editor, evaluates user pipeline code, runs checks, shows findings.
 
-import { Project, Pipeline, FunctionStep, Entry, runPipeline } from "./index.js";
+import {
+  Project,
+  Pipeline,
+  FunctionStep,
+  Entry,
+  runPipeline,
+} from "./index.js";
 import { generateSarifHtml } from "@sverka/sarif-viewer-web/html-generator";
 
 /** Default template shown in the editor. */
@@ -53,13 +59,15 @@ function escapeHtml(text: string): string {
  * JS-compatible code or use the `as any` escape hatch sparingly.
  */
 function preprocessCode(code: string): string {
-  return code
-    // Remove import statements
-    .replace(/^\s*import\s+.*?from\s+["'][^"']+["'];?\s*$/gm, "")
-    // Replace "export default" with "return"
-    .replace(/^\s*export\s+default\s+/m, "return ")
-    // Replace "export { ... }" with nothing (named exports not supported in playground)
-    .replace(/^\s*export\s+\{[^}]*\};?\s*$/gm, "");
+  return (
+    code
+      // Remove import statements
+      .replace(/^\s*import\s+.*?from\s+["'][^"']+["'];?\s*$/gm, "")
+      // Replace "export default" with "return"
+      .replace(/^\s*export\s+default\s+/m, "return ")
+      // Replace "export { ... }" with nothing (named exports not supported in playground)
+      .replace(/^\s*export\s+\{[^}]*\};?\s*$/gm, "")
+  );
 }
 
 /**
@@ -78,8 +86,12 @@ function evaluateUserCode(code: string): Project {
   // Dynamic code execution is intentional for the playground sandbox.
   // SonarCloud S1523: safe — user code runs in the browser sandbox with the
   // same trust model as a local REPL or `node -e` (see comment above).
-  const fn = new Function( // NOSONAR — intentional dynamic evaluation in sandbox
-    "Project", "Pipeline", "FunctionStep", "Entry",
+  const fn = new Function(
+    // NOSONAR — intentional dynamic evaluation in sandbox
+    "Project",
+    "Pipeline",
+    "FunctionStep",
+    "Entry",
     processed,
   );
   const result = fn(Project, Pipeline, FunctionStep, Entry); // NOSONAR
@@ -91,7 +103,9 @@ function evaluateUserCode(code: string): Project {
 
 /** Show findings HTML in the iframe. */
 function showFindings(html: string): void {
-  const frame = document.getElementById("findings-frame") as HTMLIFrameElement | null;
+  const frame = document.getElementById(
+    "findings-frame",
+  ) as HTMLIFrameElement | null;
   if (!frame) return;
   const doc = frame.contentDocument;
   if (!doc) return;
@@ -126,14 +140,24 @@ function setStatus(text: string, cls: string): void {
 async function loadMonaco(): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.min.js";
+    script.src =
+      "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.min.js";
     script.crossOrigin = "anonymous";
-    script.integrity = "sha384-tVClT0hDec4bpcWvHS/0jUInFR35FJlNXnR9k8H+Vj98DpbnGT3z81pNCQOM4bWo";
+    script.integrity =
+      "sha384-tVClT0hDec4bpcWvHS/0jUInFR35FJlNXnR9k8H+Vj98DpbnGT3z81pNCQOM4bWo";
     script.onload = () => {
       // Monaco loader is available as global require
-      const monacoRequire = (window as unknown as { require: (cfg: unknown, cb: (m: unknown) => void) => void }).require;
+      const monacoRequire = (
+        window as unknown as {
+          require: (cfg: unknown, cb: (m: unknown) => void) => void;
+        }
+      ).require;
       monacoRequire(
-        { paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs" } },
+        {
+          paths: {
+            vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs",
+          },
+        },
         () => {
           resolve();
         },
@@ -149,9 +173,15 @@ async function loadMonaco(): Promise<void> {
  * promise, the timeout ensures the UI recovers instead of staying
  * stuck in "Running" state forever.
  */
-async function runPipelineWithTimeout(project: Project, timeoutMs: number): Promise<Awaited<ReturnType<typeof runPipeline>>> {
+async function runPipelineWithTimeout(
+  project: Project,
+  timeoutMs: number,
+): Promise<Awaited<ReturnType<typeof runPipeline>>> {
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`Pipeline timed out after ${timeoutMs}ms`)), timeoutMs),
+    setTimeout(
+      () => reject(new Error(`Pipeline timed out after ${timeoutMs}ms`)),
+      timeoutMs,
+    ),
   );
   return Promise.race([runPipeline(project), timeoutPromise]);
 }
@@ -166,7 +196,18 @@ async function main(): Promise<void> {
     console.warn("Monaco failed to load, using textarea fallback");
   }
 
-  const monaco = (window as unknown as { monaco?: { editor: { create: (el: HTMLElement, opts: unknown) => { getValue: () => string } } } }).monaco;
+  const monaco = (
+    window as unknown as {
+      monaco?: {
+        editor: {
+          create: (
+            el: HTMLElement,
+            opts: unknown,
+          ) => { getValue: () => string };
+        };
+      };
+    }
+  ).monaco;
 
   let getCode: () => string;
 
@@ -192,7 +233,8 @@ async function main(): Promise<void> {
     // Textarea fallback
     const textarea = document.createElement("textarea");
     textarea.value = DEFAULT_CODE;
-    textarea.style.cssText = "width:100%;height:100%;background:#0d1117;color:#c9d1d9;border:none;font-family:monospace;font-size:13px;padding:1rem;resize:none;outline:none;";
+    textarea.style.cssText =
+      "width:100%;height:100%;background:#0d1117;color:#c9d1d9;border:none;font-family:monospace;font-size:13px;padding:1rem;resize:none;outline:none;";
     editorEl.appendChild(textarea);
     getCode = () => textarea.value;
   }
@@ -214,7 +256,9 @@ async function main(): Promise<void> {
       const result = await runPipelineWithTimeout(project, 30_000);
 
       if (result.findings.length === 0) {
-        showFindings(`<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#3fb950;font-family:monospace;padding:2rem;}</style></head><body><h2>No findings — all checks passed</h2><p>${result.steps.length} steps completed in ${result.totalDurationMs}ms</p></body></html>`);
+        showFindings(
+          `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#3fb950;font-family:monospace;padding:2rem;}</style></head><body><h2>No findings — all checks passed</h2><p>${result.steps.length} steps completed in ${result.totalDurationMs}ms</p></body></html>`,
+        );
       } else {
         const html = generateSarifHtml(result.findings);
         showFindings(html);
@@ -235,8 +279,12 @@ async function main(): Promise<void> {
 
   // Splitter drag
   const splitter = document.getElementById("splitter") as HTMLDivElement | null;
-  const editorPanel = document.querySelector(".editor-panel") as HTMLElement | null;
-  const findingsPanel = document.querySelector(".findings-panel") as HTMLElement | null;
+  const editorPanel = document.querySelector(
+    ".editor-panel",
+  ) as HTMLElement | null;
+  const findingsPanel = document.querySelector(
+    ".findings-panel",
+  ) as HTMLElement | null;
 
   if (splitter && editorPanel && findingsPanel) {
     let dragging = false;

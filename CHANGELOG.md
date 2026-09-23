@@ -151,7 +151,7 @@
 - **checks:** sanitize output.path in extractFindings to prevent path traversal ([9c3bc7c](https://github.com/sverka-dev/sverka/commit/9c3bc7c))
 - **checks:** wrap readFile in try/catch and skip only ENOENT ([cad0d00](https://github.com/sverka-dev/sverka/commit/cad0d00))
 - **checks:** address v0-j-checks review threads ([27853b9](https://github.com/sverka-dev/sverka/commit/27853b9))
-- **checks,sdk:** resolve Codacy findings on PR #25\n\n- extractFindings: use async readFile and extract path validation into\n  resolveSafeOutputPath helper.\n- sverka.ts: pass context directly instead of conditional spread. ([#25](https://github.com/sverka-dev/sverka/issues/25))
+- **checks,sdk:** resolve Codacy findings on PR #25\n\n- extractFindings: use async readFile and extract path validation into\n resolveSafeOutputPath helper.\n- sverka.ts: pass context directly instead of conditional spread. ([#25](https://github.com/sverka-dev/sverka/issues/25))
 - **checks,sdk:** resolve wave-11 review threads ([a75fe0e](https://github.com/sverka-dev/sverka/commit/a75fe0e))
 - **ci:** contents: write for nx fix-ci auto-apply ([8b87c26](https://github.com/sverka-dev/sverka/commit/8b87c26))
 - **ci:** pin all third-party actions to commit SHAs ([fbea33c](https://github.com/sverka-dev/sverka/commit/fbea33c))

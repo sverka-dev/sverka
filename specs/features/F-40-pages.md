@@ -12,13 +12,13 @@ Pages deploy static content to the provider's hosting service. GitHub uses `acti
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `actions/deploy-pages` | `pages` | `operation.deployPages` |
-| Semantics | Deploy static site to GitHub Pages | Deploy static site to GitLab Pages | Deploy static site |
-| Value type | action with artifact | map with publish, path_prefix, expire_in | `{ path }` |
-| Limitations | requires `pages: write`, `id-token: write` | special job named "pages" | — |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                             | GitLab CI                                | Sverka (proposed)       |
+| ------------ | ------------------------------------------ | ---------------------------------------- | ----------------------- |
+| Construct    | `actions/deploy-pages`                     | `pages`                                  | `operation.deployPages` |
+| Semantics    | Deploy static site to GitHub Pages         | Deploy static site to GitLab Pages       | Deploy static site      |
+| Value type   | action with artifact                       | map with publish, path_prefix, expire_in | `{ path }`              |
+| Limitations  | requires `pages: write`, `id-token: write` | special job named "pages"                | —                       |
+| Provider gap | —                                          | —                                        | —                       |
 
 ## GitHub Actions
 
@@ -62,8 +62,8 @@ GitLab requires the job to use the `pages` keyword. Modern GitLab no longer requ
 
 ```ts
 interface PagesSpec {
-  readonly path: string;          // directory containing static content
-  readonly prefix?: string;       // path prefix (GitLab)
+  readonly path: string; // directory containing static content
+  readonly prefix?: string; // path prefix (GitLab)
 }
 ```
 

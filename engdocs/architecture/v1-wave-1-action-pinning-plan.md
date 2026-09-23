@@ -9,21 +9,22 @@
 
 Pin third-party GitHub Actions to commit SHAs in the github native
 lowering target. New `pinning.ts` + bundled `pinned-actions.json` registry
-+ `pinning` config on `GithubTargetConfig` + `unpinned-action` diagnostic.
-No network at compile time (§31.3).
+
+- `pinning` config on `GithubTargetConfig` + `unpinned-action` diagnostic.
+  No network at compile time (§31.3).
 
 ## Files
 
-| File | Action |
-|---|---|
-| `packages/compiler/src/github/pinned-actions.json` | **New** — registry: `actions/checkout@v4` → sha, etc. Builder fetches SHAs once via `git ls-remote https://github.com/<org>/<repo> refs/tags/<tag>` or `gh api`. |
-| `packages/compiler/src/github/pinning.ts` | **New** — `PinRegistry`, `PinningConfig`, `pinActionRef`, `loadBundledRegistry`. |
-| `packages/compiler/src/github/types.ts` | **Edit** — add `GithubTargetConfig` interface (`pinning?: PinningConfig`) + `PinningConfig`/`PinRegistry` types. |
-| `packages/compiler/src/github/target.ts` | **Edit** — `GithubTarget` gains optional constructor `config?: GithubTargetConfig`; `analyze()` emits `unpinned-action` diagnostics; `emit()` routes `uses:` through `pinActionRef` when pinning on. |
-| `packages/compiler/src/github/emit.ts` | **Edit** — `GithubStep.uses` refs routed through `pinActionRef` (or do it in `target.ts` post-emit before stringify — prefer emit.ts so the YAML object is pinned before serialization). |
-| `packages/compiler/src/github/index.ts` | **Edit** — export `pinActionRef`, `loadBundledRegistry`, `PinRegistry`, `PinningConfig`. |
-| `packages/compiler/src/index.ts` | **Edit** — re-export pinning types from the package barrel. |
-| `packages/compiler/src/github/__tests__/pinning.test.ts` | **New** — `pinActionRef` unit tests (items 1–4, 8) + target integration (items 5–7, 9) + export (item 10). |
+| File                                                     | Action                                                                                                                                                                                               |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/compiler/src/github/pinned-actions.json`       | **New** — registry: `actions/checkout@v4` → sha, etc. Builder fetches SHAs once via `git ls-remote https://github.com/<org>/<repo> refs/tags/<tag>` or `gh api`.                                     |
+| `packages/compiler/src/github/pinning.ts`                | **New** — `PinRegistry`, `PinningConfig`, `pinActionRef`, `loadBundledRegistry`.                                                                                                                     |
+| `packages/compiler/src/github/types.ts`                  | **Edit** — add `GithubTargetConfig` interface (`pinning?: PinningConfig`) + `PinningConfig`/`PinRegistry` types.                                                                                     |
+| `packages/compiler/src/github/target.ts`                 | **Edit** — `GithubTarget` gains optional constructor `config?: GithubTargetConfig`; `analyze()` emits `unpinned-action` diagnostics; `emit()` routes `uses:` through `pinActionRef` when pinning on. |
+| `packages/compiler/src/github/emit.ts`                   | **Edit** — `GithubStep.uses` refs routed through `pinActionRef` (or do it in `target.ts` post-emit before stringify — prefer emit.ts so the YAML object is pinned before serialization).             |
+| `packages/compiler/src/github/index.ts`                  | **Edit** — export `pinActionRef`, `loadBundledRegistry`, `PinRegistry`, `PinningConfig`.                                                                                                             |
+| `packages/compiler/src/index.ts`                         | **Edit** — re-export pinning types from the package barrel.                                                                                                                                          |
+| `packages/compiler/src/github/__tests__/pinning.test.ts` | **New** — `pinActionRef` unit tests (items 1–4, 8) + target integration (items 5–7, 9) + export (item 10).                                                                                           |
 
 ## TDD steps
 

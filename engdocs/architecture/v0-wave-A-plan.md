@@ -49,6 +49,7 @@ src/
 ### Step 1: Scaffold packages
 
 Create `packages/constructs/` and rebuild `packages/core/` with:
+
 - `package.json` (name, type:module, main/module/types .mjs/.d.mts, exports, scripts)
 - `project.json` (nx targets: build/test/lint/typecheck)
 - `tsdown.config.ts` (entry, esm, dts, clean)
@@ -59,7 +60,7 @@ Add `constructs@10.8.1` to `packages/constructs/package.json` dependencies.
 Add `@sverka/cdk: "workspace:*"` to `packages/core/package.json` dependencies.
 
 Delete old `packages/core/src/` contents (composables, operation.ts, runtime.ts,
-errors.ts, internal/, __tests__/) — full rebuild.
+errors.ts, internal/, **tests**/) — full rebuild.
 
 **Verify:** `bun install` succeeds; `bun run build` emits dist for both packages.
 
@@ -88,6 +89,7 @@ Write `packages/constructs/src/__tests__/constructs.test.ts` (spec 01 tests
 1-4, 8-11).
 
 Key implementation details:
+
 - `SverkaConstruct extends Construct` — empty body, insulation layer.
 - `Project` — constructor takes `id: string`, passes `undefined` as scope.
 - `Pipeline` — validates `scope instanceof Project` in constructor.
@@ -175,8 +177,15 @@ Write `packages/core/src/__tests__/validate.test.ts` (spec 05 tests 9-12).
 Write `packages/core/src/index.ts`:
 
 ```ts
-export type { DefinitionGraph, ProjectDefinition, PipelineDefinition,
-  EntryDefinition, StepDefinition, OperationDefinition, Dependency } from "./graph.js";
+export type {
+  DefinitionGraph,
+  ProjectDefinition,
+  PipelineDefinition,
+  EntryDefinition,
+  StepDefinition,
+  OperationDefinition,
+  Dependency,
+} from "./graph.js";
 export { synthesize } from "./synthesize.js";
 export { SynthesisError, type SynthesisErrorCode } from "./errors.js";
 ```
@@ -213,6 +222,7 @@ Pipeline "ci"
 ```
 
 Expected graph:
+
 - `ci/build`: operations [shell, exportArtifact(dist), exportOutput(version)],
   no dependencies.
 - `ci/test`: operations [shell, importArtifact(dist from build)],

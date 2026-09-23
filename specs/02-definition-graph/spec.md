@@ -38,7 +38,12 @@ scheduling, dependencies, and data transfer.
 
 ```ts
 import type {
-  Reference, Trigger, Runtime, Input, OutputDeclaration, OutputType,
+  Reference,
+  Trigger,
+  Runtime,
+  Input,
+  OutputDeclaration,
+  OutputType,
 } from "@sverka/cdk";
 
 interface DefinitionGraph {
@@ -69,7 +74,7 @@ interface PipelineDefinition {
 interface EntryDefinition {
   id: string;
   trigger: Trigger;
-  roots: string[];             // StepDefinition ids
+  roots: string[]; // StepDefinition ids
 }
 
 interface StepDefinition {
@@ -79,7 +84,7 @@ interface StepDefinition {
   inputs: Reference[];
   outputs: OutputDefinition[];
   dependencies: Dependency[];
-  timeout?: number;            // milliseconds
+  timeout?: number; // milliseconds
   // §10 specifies Expression<boolean>; v0 narrows to a boolean-producing
   // Reference. Full expression DSL deferred (no consumer in Wave A).
   condition?: Reference;
@@ -90,7 +95,11 @@ type OperationDefinition =
   | { kind: "exportOutput"; name: string; type: OutputType }
   | { kind: "exportArtifact"; name: string; path: string }
   | { kind: "importArtifact"; name: string; from: string; output: string }
-  | { kind: "diagnostic"; message: string; severity: "info" | "warn" | "error" };
+  | {
+      kind: "diagnostic";
+      message: string;
+      severity: "info" | "warn" | "error";
+    };
 
 // §15 "shell command sequence" is represented as multiple ordered {kind:"shell"}
 // operations in the operations array. No separate sequence variant needed.
@@ -105,9 +114,15 @@ type Dependency =
 
 ```ts
 export type {
-  DefinitionGraph, ProjectDefinition, PipelineDefinition,
-  EntryDefinition, StepDefinition, OperationDefinition, Dependency,
-  OutputDefinition, PipelineOutputDefinition,
+  DefinitionGraph,
+  ProjectDefinition,
+  PipelineDefinition,
+  EntryDefinition,
+  StepDefinition,
+  OperationDefinition,
+  Dependency,
+  OutputDefinition,
+  PipelineOutputDefinition,
 };
 ```
 

@@ -59,30 +59,38 @@ describe("sarif-viewer-tui CLI", () => {
     expect(result.stderr).toContain("sarif-viewer-tui");
   });
 
-  it.skipIf(!binBuilt)("prints findings as text for a file argument without a TTY", () => {
-    const sarifPath = join(dir, "valid.sarif");
-    writeFileSync(sarifPath, VALID_SARIF_JSON);
-    const result = spawnSync("node", [BIN_PATH, sarifPath], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 60000,
-    });
-    // No TTY — the TUI cannot run, so findings print as plain text and
-    // the command exits 0 instead of crashing on Ink raw mode.
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("SARIF findings");
-    expect(result.stderr).not.toContain("Raw mode is not supported");
-  }, 90000);
+  it.skipIf(!binBuilt)(
+    "prints findings as text for a file argument without a TTY",
+    () => {
+      const sarifPath = join(dir, "valid.sarif");
+      writeFileSync(sarifPath, VALID_SARIF_JSON);
+      const result = spawnSync("node", [BIN_PATH, sarifPath], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 60000,
+      });
+      // No TTY — the TUI cannot run, so findings print as plain text and
+      // the command exits 0 instead of crashing on Ink raw mode.
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("SARIF findings");
+      expect(result.stderr).not.toContain("Raw mode is not supported");
+    },
+    90000,
+  );
 
-  it.skipIf(!binBuilt)("prints findings as text for piped stdin without a TTY", () => {
-    const result = spawnSync("node", [BIN_PATH], {
-      encoding: "utf8",
-      input: VALID_SARIF_JSON,
-      stdio: ["pipe", "pipe", "pipe"],
-      timeout: 60000,
-    });
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("SARIF findings");
-    expect(result.stderr).not.toContain("Raw mode is not supported");
-  }, 90000);
+  it.skipIf(!binBuilt)(
+    "prints findings as text for piped stdin without a TTY",
+    () => {
+      const result = spawnSync("node", [BIN_PATH], {
+        encoding: "utf8",
+        input: VALID_SARIF_JSON,
+        stdio: ["pipe", "pipe", "pipe"],
+        timeout: 60000,
+      });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("SARIF findings");
+      expect(result.stderr).not.toContain("Raw mode is not supported");
+    },
+    90000,
+  );
 });

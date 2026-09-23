@@ -12,13 +12,13 @@ Service containers provide databases, message brokers, or other dependencies dur
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `services` (map) | `services` (array) | `services` on Step |
-| Semantics | Service containers run alongside job | Service containers run alongside job | Service containers for step |
-| Value type | map of service definitions | array of service definitions | array of service definitions |
-| Limitations | no `command`/`entrypoint` on job container | no `volumes`/`ports` | — |
-| Provider gap | — | — | structural normalization (map vs array) |
+| Aspect       | GitHub Actions                             | GitLab CI                            | Sverka (proposed)                       |
+| ------------ | ------------------------------------------ | ------------------------------------ | --------------------------------------- |
+| Construct    | `services` (map)                           | `services` (array)                   | `services` on Step                      |
+| Semantics    | Service containers run alongside job       | Service containers run alongside job | Service containers for step             |
+| Value type   | map of service definitions                 | array of service definitions         | array of service definitions            |
+| Limitations  | no `command`/`entrypoint` on job container | no `volumes`/`ports`                 | —                                       |
+| Provider gap | —                                          | —                                    | structural normalization (map vs array) |
 
 ## GitHub Actions
 
@@ -66,7 +66,7 @@ Services are an array. Each service has `name`, `alias`, `entrypoint`, `command`
 
 ```ts
 interface ServiceContainer {
-  readonly name: string;       // service identifier
+  readonly name: string; // service identifier
   readonly image: string;
   readonly alias?: string;
   readonly env?: Record<string, string>;

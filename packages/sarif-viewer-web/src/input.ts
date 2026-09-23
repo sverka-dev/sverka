@@ -14,6 +14,8 @@ import type { SarifWebOptions } from "./types.js";
  * @throws {NormalizationError} when SARIF is invalid (propagated).
  * @throws {Error} when the file cannot be read or parsed.
  */
-export function resolveFindings(options: Omit<SarifWebOptions, "outputPath">): Finding[] {
+export function resolveFindings(
+  options: Omit<SarifWebOptions, "outputPath">,
+): Finding[] {
   return resolveSarifInput(options);
 }

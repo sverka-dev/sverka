@@ -13,7 +13,9 @@ describe("F-10: beforeScript/afterScript in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step?.beforeScript).toEqual(["echo setup"]);
   });
 
@@ -27,7 +29,9 @@ describe("F-10: beforeScript/afterScript in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step?.afterScript).toEqual(["echo cleanup"]);
   });
 
@@ -38,7 +42,9 @@ describe("F-10: beforeScript/afterScript in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step?.beforeScript).toBeUndefined();
     expect(step?.afterScript).toBeUndefined();
     expect("beforeScript" in step!).toBe(false);
@@ -57,7 +63,9 @@ describe("F-12: continueOnError in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step?.continueOnError).toBe(true);
   });
 
@@ -71,7 +79,9 @@ describe("F-12: continueOnError in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step?.continueOnError).toEqual({ exitCodes: [1, 2] });
   });
 });
@@ -87,7 +97,9 @@ describe("F-14: retry in synthesis", () => {
     new Entry(pipeline, "push", { trigger: push(), roots: ["test"] });
 
     const graph = synthesize(project);
-    const step = graph.project.pipelines[0]!.steps.find((s) => s.id === "ci/test");
+    const step = graph.project.pipelines[0]!.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(step?.retry).toEqual({ max: 3, when: ["timeout"] });
   });
 });

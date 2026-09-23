@@ -100,6 +100,7 @@ interface StepOptions {
 ### Step field values
 
 A `@step` field initializer can be:
+
 - `string` — leaf step with a shell command
 - `StepBuilder` (from `sh` tagged template) — composable step with outputs
 - `function` (method decorator) — returns a `StepBuilder` or uses the planning context `sh` for multiple shell operations
@@ -123,6 +124,7 @@ command, outputs, and dependencies.
 ## Error handling
 
 Custom error class `DecoratorError` with codes:
+
 - `INVALID_FIELD`: decorated field has an invalid value type
 - `MISSING_INITIALIZER`: `@step` field has no initializer
 - `INVALID_OPTIONS`: `@step(options)` has invalid options

@@ -7,12 +7,7 @@ import type { DefinitionGraph } from "@sverka/workflow";
 // ---------------------------------------------------------------------------
 
 export type CapabilitySupport =
-  | "native"
-  | "lowered"
-  | "emulated"
-  | "connector"
-  | "partial"
-  | "unsupported";
+  "native" | "lowered" | "emulated" | "connector" | "partial" | "unsupported";
 
 export interface CapabilityDetail {
   readonly support: CapabilitySupport;
@@ -20,7 +15,10 @@ export interface CapabilityDetail {
   readonly notes?: string;
 }
 
-export type CapabilityManifest = Record<string, CapabilitySupport | CapabilityDetail>;
+export type CapabilityManifest = Record<
+  string,
+  CapabilitySupport | CapabilityDetail
+>;
 
 export interface CapabilityDiagnostic {
   readonly capability: string;
@@ -55,7 +53,10 @@ export interface Target {
 }
 
 export interface CompilationResult {
-  readonly artifacts: readonly { readonly path: string; readonly content: string }[];
+  readonly artifacts: readonly {
+    readonly path: string;
+    readonly content: string;
+  }[];
   readonly diagnostics: readonly CapabilityDiagnostic[];
 }
 

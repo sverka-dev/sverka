@@ -67,7 +67,7 @@ const STATUS_ICONS: Record<string, string> = {
 
 /** Render the HTML head section. */
 function renderHead(): string {
-// nosemgrep: html-in-template-string
+  // nosemgrep: html-in-template-string
   return `<head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -77,8 +77,12 @@ function renderHead(): string {
 }
 
 /** Render the header with run summary. */
-function renderHeader(planId: string, status: string, duration: number): string {
-// nosemgrep: html-in-template-string
+function renderHeader(
+  planId: string,
+  status: string,
+  duration: number,
+): string {
+  // nosemgrep: html-in-template-string
   return `<header>
     <h1>Sverka Run Report</h1>
     <div class="run-summary">
@@ -90,8 +94,17 @@ function renderHeader(planId: string, status: string, duration: number): string 
 }
 
 /** Render the DAG section with ReactFlow container and noscript fallback. */
-function renderDagSection(dagLayout: { nodes: readonly { id: string; label: string; x: number; y: number; layer: number }[]; edges: readonly { source: string; target: string; label?: string }[] }): string {
-// nosemgrep: html-in-template-string
+function renderDagSection(dagLayout: {
+  nodes: readonly {
+    id: string;
+    label: string;
+    x: number;
+    y: number;
+    layer: number;
+  }[];
+  edges: readonly { source: string; target: string; label?: string }[];
+}): string {
+  // nosemgrep: html-in-template-string
   return `<section id="dag">
     <h2>Workflow DAG</h2>
     <div id="reactflow-container" style="width:100%;height:400px;"></div>
@@ -106,7 +119,7 @@ function renderDagSection(dagLayout: { nodes: readonly { id: string; label: stri
 
 /** Render the findings section with filter controls and table. */
 function renderFindingsSection(findingsHtml: string): string {
-// nosemgrep: html-in-template-string
+  // nosemgrep: html-in-template-string
   return `<section id="findings">
     <h2>Findings</h2>
     <div class="findings-controls">
@@ -139,7 +152,7 @@ function renderFindingsSection(findingsHtml: string): string {
 
 /** Render the script tags for React, ReactFlow, and inline data. */
 function renderScripts(dagData: string, findingsData: string): string {
-// nosemgrep: html-in-template-string
+  // nosemgrep: html-in-template-string
   return `<script>
     var __DAG_DATA__ = ${dagData};
     var __FINDINGS_DATA__ = ${findingsData};
@@ -155,7 +168,16 @@ function generateHtml(
   state: UIState,
   findings: readonly Finding[],
   verdict: PolicyResult | null,
-  dagLayout: { nodes: readonly { id: string; label: string; x: number; y: number; layer: number }[]; edges: readonly { source: string; target: string; label?: string }[] },
+  dagLayout: {
+    nodes: readonly {
+      id: string;
+      label: string;
+      x: number;
+      y: number;
+      layer: number;
+    }[];
+    edges: readonly { source: string; target: string; label?: string }[];
+  },
 ): string {
   const planId = state.planId ?? "unknown";
   const status = state.status ?? "unknown";
@@ -165,15 +187,19 @@ function generateHtml(
   const findingsHtml = renderFindings(findings);
   const verdictHtml = renderVerdict(verdict);
   const dagData = escapeScriptData(JSON.stringify(dagLayout));
-  const findingsData = escapeScriptData(JSON.stringify(findings.map((f) => ({
-    severity: f.severity,
-    checkId: f.checkId,
-    file: f.file,
-    startLine: f.startLine,
-    endLine: f.endLine,
-    message: f.message,
-    rule: f.rule,
-  }))));
+  const findingsData = escapeScriptData(
+    JSON.stringify(
+      findings.map((f) => ({
+        severity: f.severity,
+        checkId: f.checkId,
+        file: f.file,
+        startLine: f.startLine,
+        endLine: f.endLine,
+        message: f.message,
+        rule: f.rule,
+      })),
+    ),
+  );
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -213,9 +239,10 @@ function renderSteps(state: UIState): string {
       const errorHtml = step.error
         ? `<div class="step-error">${escapeHtml(step.error)}</div>` // nosemgrep: html-in-template-string
         : "";
-      const attemptHtml = step.attempt != null
-        ? `<div class="step-attempt">Attempt: ${step.attempt}</div>` // nosemgrep: html-in-template-string
-        : "";
+      const attemptHtml =
+        step.attempt != null
+          ? `<div class="step-attempt">Attempt: ${step.attempt}</div>` // nosemgrep: html-in-template-string
+          : "";
 
       return `      <details> // nosemgrep: html-in-template-string
         <summary><span class="step-icon">${icon}</span> ${escapeHtml(step.stepId)} <span class="step-state ${step.state}">${step.state}</span>${duration}</summary>
@@ -235,7 +262,9 @@ function renderFindings(findings: readonly Finding[]): string {
 
   return findings
     .map(
-      (f) => `        <tr data-severity="${escapeHtml(f.severity)}"> // nosemgrep: html-in-template-string
+      (
+        f,
+      ) => `        <tr data-severity="${escapeHtml(f.severity)}"> // nosemgrep: html-in-template-string
           <td class="severity-${escapeHtml(f.severity)}">${escapeHtml(f.severity)}</td>
           <td>${escapeHtml(f.checkId)}</td>
           <td>${escapeHtml(f.file)}</td>
@@ -252,7 +281,7 @@ function renderVerdict(verdict: PolicyResult | null): string {
   }
 
   const cls = verdict.verdict === "pass" ? "verdict-pass" : "verdict-fail";
-// nosemgrep: html-in-template-string
+  // nosemgrep: html-in-template-string
   return `<section id="verdict">
     <div class="verdict-banner ${cls}">
       Policy: ${escapeHtml(verdict.verdict.toUpperCase())} &mdash; ${escapeHtml(verdict.summary)}
@@ -265,7 +294,7 @@ function escapeHtml(text: string): string {
     .replaceAll("&", "\u0026amp;")
     .replaceAll("<", "\u0026lt;")
     .replaceAll(">", "\u0026gt;")
-    .replaceAll("\"", "\u0026quot;")
+    .replaceAll('"', "\u0026quot;")
     .replaceAll("'", "\u0026#39;");
 }
 

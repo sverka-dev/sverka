@@ -1,6 +1,12 @@
 // Plugin factory and registry. Spec 07 — §17.1.
 
-import type { SverkaPlugin, PluginOptions, PluginMeta, PluginRegistry, CapabilityManifest } from "./types.js";
+import type {
+  SverkaPlugin,
+  PluginOptions,
+  PluginMeta,
+  PluginRegistry,
+  CapabilityManifest,
+} from "./types.js";
 import { validateCapabilityManifest } from "./capabilities.js";
 import { PluginError } from "./errors.js";
 
@@ -52,7 +58,9 @@ function snapshotPlugin(plugin: SverkaPlugin): SverkaPlugin {
   return copy as unknown as SverkaPlugin;
 }
 
-function snapshotCapabilityManifest(manifest: CapabilityManifest): CapabilityManifest {
+function snapshotCapabilityManifest(
+  manifest: CapabilityManifest,
+): CapabilityManifest {
   const copy: CapabilityManifest = {};
   for (const [capability, value] of Object.entries(manifest)) {
     copy[capability] = typeof value === "string" ? value : { ...value };
@@ -68,7 +76,10 @@ function validatePlugin(plugin: SverkaPlugin): void {
     throw new PluginError("plugin must be an object", "INVALID_PLUGIN");
   }
   if (typeof plugin.name !== "string" || plugin.name.length === 0) {
-    throw new PluginError("plugin must have a non-empty name", "INVALID_PLUGIN");
+    throw new PluginError(
+      "plugin must have a non-empty name",
+      "INVALID_PLUGIN",
+    );
   }
   if (typeof plugin.apiVersion !== "string" || plugin.apiVersion.length === 0) {
     throw new PluginError("plugin must have an apiVersion", "INVALID_PLUGIN");
@@ -103,7 +114,9 @@ export function createPluginRegistry(): PluginRegistry {
     getCapabilities(): CapabilityManifest[] {
       return plugins
         .filter((p) => p.capabilities !== undefined)
-        .map((p) => snapshotCapabilityManifest(p.capabilities as CapabilityManifest));
+        .map((p) =>
+          snapshotCapabilityManifest(p.capabilities as CapabilityManifest),
+        );
     },
   };
 }

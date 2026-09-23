@@ -17,7 +17,8 @@ export function makeDockerOp(
     executor: {
       type: "docker",
       image: "busybox:latest",
-      imageDigest: "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      imageDigest:
+        "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
     },
     command: "echo",
     args: ["hello"],

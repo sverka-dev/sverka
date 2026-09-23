@@ -15,13 +15,13 @@ derives stages from dependency depth, and GitHub relies on `needs`.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | implicit via `needs` | `stages` (global) + `stage` (per job) | derived from dependency depth |
-| Semantics | jobs run when `needs` are met | jobs in same stage run in parallel; stages run sequentially | topological level = stage |
-| Value type | n/a | string array (`stages`) + string (`stage`) | computed `stage-N` |
-| Limitations | no visual stage grouping | fixed stage list | no user-defined stage names |
-| Provider gap | — | — | stage names are auto-generated (`build`, `stage-1`, ...) |
+| Aspect       | GitHub Actions                | GitLab CI                                                   | Sverka (proposed)                                        |
+| ------------ | ----------------------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
+| Construct    | implicit via `needs`          | `stages` (global) + `stage` (per job)                       | derived from dependency depth                            |
+| Semantics    | jobs run when `needs` are met | jobs in same stage run in parallel; stages run sequentially | topological level = stage                                |
+| Value type   | n/a                           | string array (`stages`) + string (`stage`)                  | computed `stage-N`                                       |
+| Limitations  | no visual stage grouping      | fixed stage list                                            | no user-defined stage names                              |
+| Provider gap | —                             | —                                                           | stage names are auto-generated (`build`, `stage-1`, ...) |
 
 ## GitHub Actions
 
@@ -78,8 +78,8 @@ No direct stage authoring — stages are implicit from dependencies:
 
 ```ts
 // SDK — stages emerge from dependsOn
-sh`echo build`.build(pipeline, "build")
-sh`echo test`.dependsOn(["build"]).build(pipeline, "test") // → stage-1
+sh`echo build`.build(pipeline, "build");
+sh`echo test`.dependsOn(["build"]).build(pipeline, "test"); // → stage-1
 
 // Construct — same
 new ShellStep(pipeline, "build", { command: "echo build" });

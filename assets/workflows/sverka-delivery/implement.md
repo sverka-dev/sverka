@@ -27,18 +27,21 @@ code from the phase plan, following TDD strictly.
 ## Phase-specific notes
 
 ### Phase 1 (CLI fixes)
+
 - Register `compile` command in `packages/cli/src/main.ts`
 - Make `synth` delegate to `compile` or become an alias
 - Verify `sverka compile --target github` produces YAML
 - Verify `sverka compile --target gitlab` produces YAML
 
 ### Phase 2 (Publishing)
+
 - Bump all packages from 0.0.0 to 0.1.0
 - Set up OIDC trusted publishing in CI (see npm-publish skill)
 - Verify `bun run build` produces correct dist outputs
 - Run `npm publish --dry-run` to verify package contents
 
 ### Phase 3 (Benchmark arena)
+
 - Create `packages/benchmark/` with:
   - `src/arena.ts` — spawns two agents, gives same task, collects metrics
   - `src/tasks/` — task scenario definitions (5-10 tasks of varying complexity)
@@ -57,6 +60,7 @@ code from the phase plan, following TDD strictly.
 - Metrics: input_tokens, output_tokens, tool_calls, execution_time_ms, success
 
 ### Phase 4 (Dashboard)
+
 - Create `packages/benchmark-dashboard/` with:
   - Loads benchmark results JSON
   - Renders comparison table + charts
@@ -65,6 +69,7 @@ code from the phase plan, following TDD strictly.
 - Can be Astro or static HTML + JS
 
 ### Phase 5 (Docs)
+
 - Update `engdocs/user/agent-integration/benchmark.md` with results
 - Add benchmark page to website
 - Update skill-cli.md with measured (not estimated) token numbers

@@ -2,7 +2,12 @@
 
 import type { RunEvent } from "@sverka/runtime";
 import type { Finding, PolicyResult } from "@sverka/verification";
-import type { Renderer, UIState, TextRendererOptions, TextWriter } from "./types.js";
+import type {
+  Renderer,
+  UIState,
+  TextRendererOptions,
+  TextWriter,
+} from "./types.js";
 import { createInitialState, reduceEvent } from "./reducer.js";
 
 /** Create a vitest-style text renderer. */
@@ -25,7 +30,9 @@ export function createTextRenderer(options: TextRendererOptions): Renderer {
     onVerdict(result: PolicyResult): void {
       if (!evaluateMode) return;
       writer.writeLine("");
-      writer.writeLine(`Policy: ${result.verdict.toUpperCase()} — ${result.summary}`);
+      writer.writeLine(
+        `Policy: ${result.verdict.toUpperCase()} — ${result.summary}`,
+      );
     },
 
     flush(): void {
@@ -53,7 +60,9 @@ function printRunEvent(event: RunEvent, writer: TextWriter): boolean {
       writer.writeLine(`\n\u25B6 run started (plan: ${event.planId})`);
       return true;
     case "run-completed":
-      writer.writeLine(`\n\u25A0 run completed: ${event.status} (${event.durationMs}ms)`);
+      writer.writeLine(
+        `\n\u25A0 run completed: ${event.status} (${event.durationMs}ms)`,
+      );
       return true;
     case "run-suspended":
       writer.writeLine(`\n\u25A0 run suspended (${event.durationMs}ms)`);
@@ -72,7 +81,9 @@ function printEvent(event: RunEvent, writer: TextWriter): void {
   const simple = STEP_GLYPHS[event.type];
   if (simple) {
     const stepId = (event as { stepId: string }).stepId;
-    writer.writeLine(`  ${simple.split(" ")[0]} ${stepId}  ${simple.split(" ")[1]}`);
+    writer.writeLine(
+      `  ${simple.split(" ")[0]} ${stepId}  ${simple.split(" ")[1]}`,
+    );
     return;
   }
 
@@ -82,16 +93,24 @@ function printEvent(event: RunEvent, writer: TextWriter): void {
   // Complex step events with additional fields
   switch (event.type) {
     case "step-succeeded":
-      writer.writeLine(`  \u2713 ${event.stepId}  succeeded (${event.durationMs}ms)`);
+      writer.writeLine(
+        `  \u2713 ${event.stepId}  succeeded (${event.durationMs}ms)`,
+      );
       break;
     case "step-failed":
-      writer.writeLine(`  \u2717 ${event.stepId}  failed (${event.durationMs}ms) \u2014 ${event.error}`);
+      writer.writeLine(
+        `  \u2717 ${event.stepId}  failed (${event.durationMs}ms) \u2014 ${event.error}`,
+      );
       break;
     case "step-retry":
-      writer.writeLine(`  \u21BA ${event.stepId}  retry (attempt ${event.attempt})`);
+      writer.writeLine(
+        `  \u21BA ${event.stepId}  retry (attempt ${event.attempt})`,
+      );
       break;
     case "step-compensated":
-      writer.writeLine(`  \u21BA ${event.stepId}  compensated: ${event.status}`);
+      writer.writeLine(
+        `  \u21BA ${event.stepId}  compensated: ${event.status}`,
+      );
       break;
     case "diagnostic":
       writer.writeLine(`  ! ${event.stepId}: ${event.message}`);

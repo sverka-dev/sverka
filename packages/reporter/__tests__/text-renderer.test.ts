@@ -2,8 +2,13 @@ import { describe, it, expect } from "vitest";
 import { createTextRenderer } from "../src/text-renderer.js";
 import { MockWriter } from "./helpers/fixtures.js";
 import {
-  runStarted, stepPending, stepStarted, stepSucceeded, stepFailed,
-  stepSkipped, runCompleted,
+  runStarted,
+  stepPending,
+  stepStarted,
+  stepSucceeded,
+  stepFailed,
+  stepSkipped,
+  runCompleted,
 } from "./helpers/fixtures.js";
 import type { Finding, PolicyResult } from "@sverka/verification";
 
@@ -38,11 +43,13 @@ const PASS_RESULT: PolicyResult = {
 
 const FAIL_RESULT: PolicyResult = {
   verdict: "fail",
-  triggered: [
-    { finding: makeFinding("high", "ci/lint"), ruleIndex: 0 },
-  ],
+  triggered: [{ finding: makeFinding("high", "ci/lint"), ruleIndex: 0 }],
   rules: [
-    { ruleIndex: 0, triggered: true, matched: [makeFinding("high", "ci/lint")] },
+    {
+      ruleIndex: 0,
+      triggered: true,
+      matched: [makeFinding("high", "ci/lint")],
+    },
   ],
   summary: "fail: 1 finding triggered 1 rule (1 high)",
 };

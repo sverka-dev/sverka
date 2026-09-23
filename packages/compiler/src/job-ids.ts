@@ -5,7 +5,9 @@ import type { StepDefinition } from "@sverka/workflow";
  * Build a mapping from full step IDs (e.g., "ci/lint") to CI-safe
  * job IDs (e.g., "lint"). If there are collisions, append a suffix.
  */
-export function buildJobIdMap(steps: readonly StepDefinition[]): Map<string, string> {
+export function buildJobIdMap(
+  steps: readonly StepDefinition[],
+): Map<string, string> {
   const map = new Map<string, string>();
   const used = new Set<string>();
 

@@ -27,8 +27,20 @@ export interface DetectedLanguage {
 }
 
 export type PackageManagerName =
-  | "npm" | "yarn" | "pnpm" | "bun" | "pip" | "poetry" | "uv"
-  | "pipenv" | "cargo" | "go" | "maven" | "gradle" | "composer" | "other";
+  | "npm"
+  | "yarn"
+  | "pnpm"
+  | "bun"
+  | "pip"
+  | "poetry"
+  | "uv"
+  | "pipenv"
+  | "cargo"
+  | "go"
+  | "maven"
+  | "gradle"
+  | "composer"
+  | "other";
 
 export interface DetectedPackageManager {
   name: PackageManagerName;
@@ -38,7 +50,7 @@ export interface DetectedPackageManager {
 }
 
 export type MonorepoTool =
-  | "nx" | "turborepo" | "lerna" | "pnpm-workspace" | "bun-workspace" | "custom";
+  "nx" | "turborepo" | "lerna" | "pnpm-workspace" | "bun-workspace" | "custom";
 
 export interface MonorepoMarker {
   tool: MonorepoTool;

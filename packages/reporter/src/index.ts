@@ -48,7 +48,13 @@ export { layoutDag } from "./dag-layout.js";
 export { createHtmlRenderer } from "./html-renderer.js";
 
 // TUI model (pure) — Spec 45
-export { stepGlyph, buildStepTree, filterFindings, searchFindings, FINDING_FILTERS } from "./tui-model.js";
+export {
+  stepGlyph,
+  buildStepTree,
+  filterFindings,
+  searchFindings,
+  FINDING_FILTERS,
+} from "./tui-model.js";
 
 // InkRenderer (I/O) — Spec 45
 export { createInkRenderer } from "./ink-renderer.js";

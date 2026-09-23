@@ -60,8 +60,9 @@ wave by wave, until all waves are complete. After a wave is finalized
 
 Never stand by idle when there is unstarted work. If you are waiting on a
 wave to complete, monitor it. Once it is finalized (review passed AND commit
-+ PR done), start the next wave immediately — do not wait for a human to
-prompt you.
+
+- PR done), start the next wave immediately — do not wait for a human to
+  prompt you.
 
 If a wave fails review, dispatch fix work to the builder and re-gate.
 
@@ -83,16 +84,21 @@ targets the previous wave's branch, not main.
 ### Procedure (after reviewer approves a wave):
 
 1. Create a branch for the wave, specifying the parent explicitly:
+
    ```
    git checkout -b wave-N-<package> wave-(N-1)-<prev-package>
    ```
+
    For Wave 1, base it on `main`:
+
    ```
    git checkout -b wave-1-<package> main
    ```
+
    Never let git infer the parent — always specify it explicitly.
 
 2. Verify commit completeness, then stage and commit all changes for this wave:
+
    ```
    git status --short
    git add packages/<package>/ specs/NN-<name>/ engdocs/ bun.lock
@@ -105,15 +111,18 @@ targets the previous wave's branch, not main.
    - reviewer approved
    </details>"
    ```
+
    Confirm `git status --short` shows no untracked wave files before committing.
    Exclude: `city.toml`, `agents/`, `.devin/`, `.gc/`, `.beads/`, `formulas/`.
 
 3. Push the branch:
+
    ```
    git push -u origin wave-N-<package>
    ```
 
 4. Create a stacked PR targeting the previous wave's branch:
+
    ```
    gh pr create --base wave-(N-1)-<prev-package> --head wave-N-<package> \
      --title "Wave N: <package>" \

@@ -72,7 +72,10 @@ describe("public API — types (compile-time check)", () => {
       summary: "",
     };
     const _config: PolicyConfig = {};
-    const _verification: PolicyVerification = { valid: true, unknownCheckIds: [] };
+    const _verification: PolicyVerification = {
+      valid: true,
+      unknownCheckIds: [],
+    };
     const _code: PolicyErrorCode = "INVALID_POLICY";
     // Touch all to avoid unused warnings.
     expect(_verdict).toBe("pass");

@@ -32,14 +32,23 @@ describe("synthesize — basic", () => {
     const graph = synthesize(proj);
     const step = graph.project.pipelines[0]?.steps[0];
     expect(step?.id).toBe("ci/build");
-    expect(step?.operations[0]).toEqual({ kind: "shell", command: "npm run build" });
+    expect(step?.operations[0]).toEqual({
+      kind: "shell",
+      command: "npm run build",
+    });
   });
 
   it("interruptible flag threads through to StepDefinition", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci");
-    new ShellStep(pipeline, "build", { command: "npm run build", interruptible: true });
-    new ShellStep(pipeline, "deploy", { command: "npm run deploy", interruptible: false });
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      interruptible: true,
+    });
+    new ShellStep(pipeline, "deploy", {
+      command: "npm run deploy",
+      interruptible: false,
+    });
     const graph = synthesize(proj);
     const steps = graph.project.pipelines[0]?.steps ?? [];
     expect(steps[0]?.interruptible).toBe(true);
@@ -100,7 +109,10 @@ describe("synthesize — basic", () => {
     new ShellStep(pipeline, "build", { command: "npm run build" });
     const graph = synthesize(proj);
     const inputs = graph.project.pipelines[0]?.inputs;
-    expect(inputs?.environment).toEqual({ type: "choice", options: ["staging", "production"] });
+    expect(inputs?.environment).toEqual({
+      type: "choice",
+      options: ["staging", "production"],
+    });
     expect(inputs?.version).toEqual({ type: "string", pattern: "^v\\d+$" });
   });
 
@@ -113,7 +125,10 @@ describe("synthesize — basic", () => {
     });
     const graph = synthesize(proj);
     const step = graph.project.pipelines[0]?.steps[0];
-    expect(step?.runner).toEqual({ labels: ["linux", "x64"], group: "my-group" });
+    expect(step?.runner).toEqual({
+      labels: ["linux", "x64"],
+      group: "my-group",
+    });
   });
 
   it("omitted runner leaves StepDefinition.runner undefined", () => {
@@ -130,7 +145,9 @@ describe("synthesize — basic", () => {
     const pipeline = new Pipeline(proj, "ci");
     new ShellStep(pipeline, "deploy", {
       command: "deploy",
-      identity: { tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } } },
+      identity: {
+        tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } },
+      },
     });
     const graph = synthesize(proj);
     const step = graph.project.pipelines[0]?.steps[0];
@@ -148,7 +165,9 @@ describe("synthesize — basic", () => {
     });
     const graph = synthesize(proj);
     const step = graph.project.pipelines[0]?.steps[0];
-    expect(step?.rules).toEqual([{ if: "$BRANCH == main", changes: ["src/**"] }]);
+    expect(step?.rules).toEqual([
+      { if: "$BRANCH == main", changes: ["src/**"] },
+    ]);
   });
 
   it("reports produce report operations in StepDefinition", () => {
@@ -160,7 +179,9 @@ describe("synthesize — basic", () => {
     });
     const graph = synthesize(proj);
     const step = graph.project.pipelines[0]?.steps[0];
-    expect(step?.reports).toEqual([{ type: "junit", path: "test-results.xml" }]);
+    expect(step?.reports).toEqual([
+      { type: "junit", path: "test-results.xml" },
+    ]);
     expect(step?.operations).toContainEqual({
       kind: "report",
       spec: { type: "junit", path: "test-results.xml" },
@@ -201,7 +222,14 @@ describe("synthesize — basic", () => {
     const pipeline = new Pipeline(proj, "ci");
     new ShellStep(pipeline, "build", {
       command: "make build",
-      outputs: { dist: { type: "artifact", path: "dist/", retention: "7d", access: "developer" } },
+      outputs: {
+        dist: {
+          type: "artifact",
+          path: "dist/",
+          retention: "7d",
+          access: "developer",
+        },
+      },
     });
     const graph = synthesize(proj);
     const op = graph.project.pipelines[0]?.steps[0]?.operations.find(
@@ -242,7 +270,10 @@ describe("synthesize — basic", () => {
     });
     const graph = synthesize(proj);
     const step = graph.project.pipelines[0]?.steps[0];
-    expect(step?.concurrency).toEqual({ group: "production", cancelInProgress: true });
+    expect(step?.concurrency).toEqual({
+      group: "production",
+      cancelInProgress: true,
+    });
   });
 
   it("pipeline-level concurrency threads through to PipelineDefinition", () => {
@@ -252,7 +283,9 @@ describe("synthesize — basic", () => {
     });
     new ShellStep(pipeline, "build", { command: "echo" });
     const graph = synthesize(proj);
-    expect(graph.project.pipelines[0]?.concurrency).toEqual({ group: "deploy-group" });
+    expect(graph.project.pipelines[0]?.concurrency).toEqual({
+      group: "deploy-group",
+    });
   });
 
   it("scalar output → exportOutput operation", () => {
@@ -296,10 +329,14 @@ describe("synthesize — basic", () => {
     });
     new ShellStep(pipeline, "test", {
       command: "npm test",
-      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+      inputs: [
+        { kind: "step", step: "build", output: "dist", type: "artifact" },
+      ],
     });
     const graph = synthesize(proj);
-    const testStep = graph.project.pipelines[0]?.steps.find((s) => s.id === "ci/test");
+    const testStep = graph.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(testStep?.operations).toContainEqual({
       kind: "importArtifact",
       name: "dist",
@@ -322,10 +359,14 @@ describe("synthesize — basic", () => {
     });
     new ShellStep(pipeline, "deploy", {
       command: "deploy",
-      inputs: [{ kind: "step", step: "build", output: "version", type: "string" }],
+      inputs: [
+        { kind: "step", step: "build", output: "version", type: "string" },
+      ],
     });
     const graph = synthesize(proj);
-    const deployStep = graph.project.pipelines[0]?.steps.find((s) => s.id === "ci/deploy");
+    const deployStep = graph.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/deploy",
+    );
     expect(deployStep?.dependencies).toContainEqual({
       kind: "value",
       producer: "ci/build",
@@ -342,7 +383,9 @@ describe("synthesize — basic", () => {
       dependsOn: ["build"],
     });
     const graph = synthesize(proj);
-    const testStep = graph.project.pipelines[0]?.steps.find((s) => s.id === "ci/test");
+    const testStep = graph.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(testStep?.dependencies).toContainEqual({
       kind: "control",
       producer: "ci/build",
@@ -358,10 +401,14 @@ describe("synthesize — basic", () => {
     });
     new ShellStep(pipeline, "test", {
       command: "npm test",
-      inputs: [{ kind: "step", step: "ci/build", output: "dist", type: "artifact" }],
+      inputs: [
+        { kind: "step", step: "ci/build", output: "dist", type: "artifact" },
+      ],
     });
     const graph = synthesize(proj);
-    const testStep = graph.project.pipelines[0]?.steps.find((s) => s.id === "ci/test");
+    const testStep = graph.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(testStep?.operations).toContainEqual({
       kind: "importArtifact",
       name: "dist",
@@ -393,7 +440,9 @@ describe("synthesize — basic", () => {
       ],
     });
     const graph = synthesize(proj);
-    const testStep = graph.project.pipelines[0]?.steps.find((s) => s.id === "ci/test");
+    const testStep = graph.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/test",
+    );
     // Two different outputs → two dependencies (artifact + value), not deduplicated.
     expect(testStep?.dependencies.length).toBe(2);
     // But referencing the same output twice should deduplicate.
@@ -411,7 +460,9 @@ describe("synthesize — basic", () => {
       ],
     });
     const graph2 = synthesize(proj2);
-    const testStep2 = graph2.project.pipelines[0]?.steps.find((s) => s.id === "ci/test");
+    const testStep2 = graph2.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/test",
+    );
     expect(testStep2?.dependencies.length).toBe(1);
   });
 });
@@ -431,13 +482,17 @@ describe("synthesize — conformance seed", () => {
 
     new ShellStep(pipeline, "test", {
       command: "npm test",
-      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+      inputs: [
+        { kind: "step", step: "build", output: "dist", type: "artifact" },
+      ],
       dependsOn: ["build"],
     });
 
     new ShellStep(pipeline, "deploy", {
       command: "deploy",
-      inputs: [{ kind: "step", step: "build", output: "version", type: "string" }],
+      inputs: [
+        { kind: "step", step: "build", output: "version", type: "string" },
+      ],
     });
 
     new Entry(pipeline, "on-push", {
@@ -499,7 +554,9 @@ describe("synthesize — determinism", () => {
       });
       new ShellStep(pipeline, "test", {
         command: "npm test",
-        inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+        inputs: [
+          { kind: "step", step: "build", output: "dist", type: "artifact" },
+        ],
         dependsOn: ["build"],
       });
       new Entry(pipeline, "on-push", { trigger: push(), roots: ["build"] });
@@ -572,9 +629,7 @@ describe("synthesize — step conditions", () => {
       condition: {
         kind: "expression",
         template: "${build.ok} == true",
-        refs: [
-          { kind: "step", step: "build", output: "ok", type: "boolean" },
-        ],
+        refs: [{ kind: "step", step: "build", output: "ok", type: "boolean" }],
       },
     });
     const graph = synthesize(proj);

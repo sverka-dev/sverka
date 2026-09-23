@@ -1,6 +1,9 @@
 // @sverka/sarif-viewer-tui — pure filter/search/sort helpers. Spec 46.
 
-import { filterBySeverity as sharedFilterBySeverity, searchFindings as sharedSearchFindings } from "@sverka/verification";
+import {
+  filterBySeverity as sharedFilterBySeverity,
+  searchFindings as sharedSearchFindings,
+} from "@sverka/verification";
 import type { Finding, Severity } from "@sverka/verification";
 import type { SortMode, ViewerFilter } from "./types.js";
 
@@ -59,7 +62,8 @@ export function sortFindings(
   switch (mode) {
     case "severity":
       indexed.sort(
-        (a, b) => severityRank(b.f.severity) - severityRank(a.f.severity) || a.i - b.i,
+        (a, b) =>
+          severityRank(b.f.severity) - severityRank(a.f.severity) || a.i - b.i,
       );
       break;
     case "file":

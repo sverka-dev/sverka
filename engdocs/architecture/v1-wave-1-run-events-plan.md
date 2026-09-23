@@ -21,10 +21,10 @@ complete and exported.
 
 ## Files
 
-| File | Action |
-|---|---|
-| `packages/runtime/src/engine-native/types.ts` | **Edit** (via specs 19/20) — `step-cache-hit`, `step-retry` members. |
-| `packages/runtime/src/engine-native/__tests__/run-events.test.ts` | **New** — protocol/ordering tests (items 1–6). |
+| File                                                              | Action                                                                            |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `packages/runtime/src/engine-native/types.ts`                     | **Edit** (via specs 19/20) — `step-cache-hit`, `step-retry` members.              |
+| `packages/runtime/src/engine-native/__tests__/run-events.test.ts` | **New** — protocol/ordering tests (items 1–6).                                    |
 | `packages/runtime/src/engine-native/__tests__/public-api.test.ts` | **Edit** — assert `RunEvent` (with new variants) + `RunStatus` exported (item 7). |
 
 ## TDD steps
@@ -42,11 +42,12 @@ complete and exported.
 7. Write item 6 (existing engine tests still pass) — run the full
    engine-native suite.
 8. Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
-    `bun run build`. All green.
+   `bun run build`. All green.
 
 ## Commit hygiene
 
 Stage ONLY `packages/runtime/src/engine-native/__tests__/run-events.test.ts`
-+ `packages/runtime/src/engine-native/__tests__/public-api.test.ts` +
-`specs/21-run-events/spec.md` + this plan. EXCLUDE city.toml, agents/,
-.devin/, .gc/, .beads/, formulas/, engdocs/adr/.
+
+- `packages/runtime/src/engine-native/__tests__/public-api.test.ts` +
+  `specs/21-run-events/spec.md` + this plan. EXCLUDE city.toml, agents/,
+  .devin/, .gc/, .beads/, formulas/, engdocs/adr/.

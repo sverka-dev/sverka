@@ -28,8 +28,14 @@ const proj = new Project("my-project");
 const checks = new Pipeline(proj, "checks");
 
 new ShellStep(checks, "typecheck", { command: "bun run typecheck" });
-new ShellStep(checks, "lint",      { command: "bun run lint", dependencies: [{ kind: "control", producer: "typecheck" }] });
-new ShellStep(checks, "test",      { command: "bun run test", dependencies: [{ kind: "control", producer: "lint" }] });
+new ShellStep(checks, "lint", {
+  command: "bun run lint",
+  dependencies: [{ kind: "control", producer: "typecheck" }],
+});
+new ShellStep(checks, "test", {
+  command: "bun run test",
+  dependencies: [{ kind: "control", producer: "lint" }],
+});
 
 new Entry(checks, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
 

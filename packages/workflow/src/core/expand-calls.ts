@@ -15,7 +15,13 @@ import type {
   OperationDefinition,
   Dependency,
 } from "./graph.js";
-import type { Reference, InputLiteral, Expression, StatusCondition, Condition } from "../cdk/index.js";
+import type {
+  Reference,
+  InputLiteral,
+  Expression,
+  StatusCondition,
+  Condition,
+} from "../cdk/index.js";
 import { resolveStepId } from "./validate.js";
 
 /**
@@ -75,9 +81,15 @@ function materializeEffectiveBindings(
   bindings: Readonly<Record<string, Reference | InputLiteral>>,
   callee: PipelineDefinition,
 ): Record<string, Reference | InputLiteral> {
-  const effectiveBindings: Record<string, Reference | InputLiteral> = { ...bindings };
+  const effectiveBindings: Record<string, Reference | InputLiteral> = {
+    ...bindings,
+  };
   for (const [name, input] of Object.entries(callee.inputs)) {
-    if (effectiveBindings[name] === undefined && input.default !== undefined && !input.secret) {
+    if (
+      effectiveBindings[name] === undefined &&
+      input.default !== undefined &&
+      !input.secret
+    ) {
       effectiveBindings[name] = input.default as InputLiteral;
     }
   }
@@ -128,7 +140,9 @@ function findCalleeRoots(callee: PipelineDefinition): Set<string> {
   const calleeStepIds = new Set(callee.steps.map((s) => s.id));
   return new Set(
     callee.steps
-      .filter((s) => s.dependencies.every((d) => !calleeStepIds.has(d.producer)))
+      .filter((s) =>
+        s.dependencies.every((d) => !calleeStepIds.has(d.producer)),
+      )
       .map((s) => s.id),
   );
 }
@@ -149,13 +163,21 @@ function expandCallStep(
   // Use the namespaced id as prefix (handles nested calls where the call
   // step's original id has been rewritten by the parent idMap).
   const prefix = parentIdMap.get(callStep.id) ?? callStep.id;
-  const effectiveBindings = materializeEffectiveBindings(callStep.call!.inputs, callee);
+  const effectiveBindings = materializeEffectiveBindings(
+    callStep.call!.inputs,
+    callee,
+  );
   const localIdMap = buildLocalIdMap(callee, prefix, parentIdMap);
   registerOutputRewrites(callee, prefix, localIdMap, refRewrite);
   const rootIds = findCalleeRoots(callee);
 
   // Expand callee steps recursively (for nested calls).
-  const expandedCalleeSteps = expandAll(callee.steps, byId, localIdMap, refRewrite);
+  const expandedCalleeSteps = expandAll(
+    callee.steps,
+    byId,
+    localIdMap,
+    refRewrite,
+  );
 
   // Apply input bindings + propagate call step deps/condition to roots.
   // The caller's pipeline id is the first segment of the call step's id
@@ -164,9 +186,15 @@ function expandCallStep(
 
   return expandedCalleeSteps.map((s) => {
     const originalCalleeId = reverseLookup(localIdMap, s.id);
-    const isRoot = originalCalleeId !== undefined && rootIds.has(originalCalleeId);
+    const isRoot =
+      originalCalleeId !== undefined && rootIds.has(originalCalleeId);
 
-    let rewritten = substituteInputBindings(s, effectiveBindings, localIdMap, callerPipelineId);
+    let rewritten = substituteInputBindings(
+      s,
+      effectiveBindings,
+      localIdMap,
+      callerPipelineId,
+    );
 
     if (isRoot) {
       rewritten = addCallStepDeps(rewritten, callStep);
@@ -179,7 +207,10 @@ function expandCallStep(
   });
 }
 
-function reverseLookup(idMap: Map<string, string>, expandedId: string): string | undefined {
+function reverseLookup(
+  idMap: Map<string, string>,
+  expandedId: string,
+): string | undefined {
   for (const [orig, expanded] of idMap) {
     if (expanded === expandedId) return orig;
   }
@@ -201,7 +232,9 @@ function rewriteInternalRefs(
   const newId = rewriteId(step.id);
 
   const inputs: Reference[] = step.inputs.map((ref) =>
-    ref.kind === "step" ? ({ ...ref, step: rewriteId(ref.step) } as Reference) : ref,
+    ref.kind === "step"
+      ? ({ ...ref, step: rewriteId(ref.step) } as Reference)
+      : ref,
   );
 
   const dependencies: Dependency[] = step.dependencies.map((d) => ({
@@ -215,7 +248,10 @@ function rewriteInternalRefs(
 
   const condition =
     step.condition?.kind === "step"
-      ? ({ ...step.condition, step: rewriteId(step.condition.step) } as Reference)
+      ? ({
+          ...step.condition,
+          step: rewriteId(step.condition.step),
+        } as Reference)
       : step.condition;
 
   return {
@@ -253,7 +289,12 @@ function substituteInputBindings(
   // (where substituteStepCondition returns undefined) clear the condition
   // instead of preserving a stale inputs.* reference.
   const { condition: _originalCondition, ...rest } = step;
-  return { ...rest, inputs, operations, ...(condition !== undefined ? { condition } : {}) };
+  return {
+    ...rest,
+    inputs,
+    operations,
+    ...(condition !== undefined ? { condition } : {}),
+  };
 }
 
 /**
@@ -267,12 +308,16 @@ function substituteCommandBindings(
 ): readonly OperationDefinition[] {
   return operations.map((op) => {
     if (op.kind !== "shell") return op;
-    const rewritten = op.command.replace(/\$\{inputs\.([^}]+)\}/g, (_, field: string) => {
-      const binding = bindings[field];
-      if (binding === undefined) return `\${inputs.${field}}`;
-      if (typeof binding === "object" && binding !== null) return `\${inputs.${field}}`;
-      return String(binding);
-    });
+    const rewritten = op.command.replace(
+      /\$\{inputs\.([^}]+)\}/g,
+      (_, field: string) => {
+        const binding = bindings[field];
+        if (binding === undefined) return `\${inputs.${field}}`;
+        if (typeof binding === "object" && binding !== null)
+          return `\${inputs.${field}}`;
+        return String(binding);
+      },
+    );
     return { ...op, command: rewritten };
   });
 }
@@ -304,7 +349,11 @@ function bindingToReference(
   idMap: Map<string, string>,
   callerPipelineId: string,
 ): Reference | undefined {
-  if (typeof binding === "object" && binding !== null && !Array.isArray(binding)) {
+  if (
+    typeof binding === "object" &&
+    binding !== null &&
+    !Array.isArray(binding)
+  ) {
     return resolveBinding(binding as Reference, idMap, callerPipelineId);
   }
   return undefined;
@@ -365,7 +414,9 @@ function addCallStepDeps(
   rootStep: StepDefinition,
   callStep: StepDefinition,
 ): StepDefinition {
-  const existingProducers = new Set(rootStep.dependencies.map((d) => d.producer));
+  const existingProducers = new Set(
+    rootStep.dependencies.map((d) => d.producer),
+  );
   const newDeps: Dependency[] = [...rootStep.dependencies];
   for (const dep of callStep.dependencies) {
     if (!existingProducers.has(dep.producer)) {
@@ -415,5 +466,11 @@ function rewriteCallOutputRefs(
   const condition =
     step.condition !== undefined ? rewriteRef(step.condition) : undefined;
 
-  return { ...step, inputs, dependencies, operations, ...(condition !== undefined ? { condition } : {}) };
+  return {
+    ...step,
+    inputs,
+    dependencies,
+    operations,
+    ...(condition !== undefined ? { condition } : {}),
+  };
 }

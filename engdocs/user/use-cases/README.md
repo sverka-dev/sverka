@@ -56,6 +56,7 @@ sverka run --format json
 ```
 
 One command. The agent gets structured JSON with:
+
 - Step status (success/failure/skipped)
 - Findings count by severity
 - Policy verdict (pass/fail)
@@ -105,10 +106,10 @@ same rules. No more "CI is stricter than local" — the policy is code.
 
 The same workflow compiles to multiple CI targets:
 
-| Target | Command | Status |
-|--------|---------|--------|
+| Target         | Command                          | Status      |
+| -------------- | -------------------------------- | ----------- |
 | GitHub Actions | `sverka compile --target github` | Implemented |
-| GitLab CI | `sverka compile --target gitlab` | Implemented |
+| GitLab CI      | `sverka compile --target gitlab` | Implemented |
 
 **Why this matters:** No lock-in. Define once, compile to any target.
 Switch CI providers without rewriting your checks.

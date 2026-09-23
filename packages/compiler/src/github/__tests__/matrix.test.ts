@@ -6,7 +6,9 @@ import { GithubTarget } from "../target.js";
 import { GithubTargetError } from "../errors.js";
 import type { GithubTargetGraph } from "../types.js";
 
-function singleGraph(result: GithubTargetGraph | readonly GithubTargetGraph[]): GithubTargetGraph {
+function singleGraph(
+  result: GithubTargetGraph | readonly GithubTargetGraph[],
+): GithubTargetGraph {
   if ("jobs" in result) return result;
   return result[0]!;
 }
@@ -15,7 +17,11 @@ function matrixRef(field: string): ContextRef {
   return { kind: "context", namespace: "matrix", field };
 }
 
-function makeGraphWithMatrix(matrixSpec: unknown, command = "make test", inputs: ContextRef[] = []) {
+function makeGraphWithMatrix(
+  matrixSpec: unknown,
+  command = "make test",
+  inputs: ContextRef[] = [],
+) {
   const project = new Project("gh-matrix-test");
   const pipeline = new Pipeline(project, "ci");
   new ShellStep(pipeline, "test", {

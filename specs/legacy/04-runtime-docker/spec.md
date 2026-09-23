@@ -52,10 +52,12 @@ layers for incremental execution.
 export { DockerExecutor } from "./docker-executor.js";
 export { type DockerExecutorConfig } from "./config.js";
 export { verifyImageDigest } from "./image.js";
-export { type CacheManager, DockerCacheManager }
-  from "./cache.js";
-export { DockerExecutorError, ImageDigestError, ContainerPolicyError }
-  from "./errors.js";
+export { type CacheManager, DockerCacheManager } from "./cache.js";
+export {
+  DockerExecutorError,
+  ImageDigestError,
+  ContainerPolicyError,
+} from "./errors.js";
 ```
 
 ```typescript
@@ -77,8 +79,7 @@ export interface DockerExecutorConfig {
 ```typescript
 // src/docker-executor.ts
 
-import type { Executor, ExecuteRequest, ExecuteResult }
-  from "@sverka/runtime";
+import type { Executor, ExecuteRequest, ExecuteResult } from "@sverka/runtime";
 import type { DockerExecutorConfig } from "./config.js";
 
 /**
@@ -157,25 +158,25 @@ docker run
 
 ### Policy enforcement table
 
-| Policy              | Enforcement                                      | Overridable by op |
-|---------------------|--------------------------------------------------|-------------------|
-| Workspace read-only | `--read-only` + `readonly` bind mount            | No                |
+| Policy              | Enforcement                                          | Overridable by op                    |
+| ------------------- | ---------------------------------------------------- | ------------------------------------ |
+| Workspace read-only | `--read-only` + `readonly` bind mount                | No                                   |
 | Network deny        | `--network none` (unless op declares `allow-egress`) | No (only widened to declared policy) |
-| Capabilities        | `--cap-drop ALL`                                 | No                |
-| Non-root user       | `--user <runAs>`                                 | No                |
-| CPU bounded         | `--cpus <resources.cpu>`                         | No                |
-| Memory bounded      | `--memory <resources.memory>`                    | No                |
-| Timeout mandatory   | `--timeout <timeoutSeconds>`; reject if missing  | No                |
-| Secrets allowlist   | only `credentials[].envVar` values are passed    | No                |
-| Docker socket deny  | socket never bind-mounted                        | No                |
+| Capabilities        | `--cap-drop ALL`                                     | No                                   |
+| Non-root user       | `--user <runAs>`                                     | No                                   |
+| CPU bounded         | `--cpus <resources.cpu>`                             | No                                   |
+| Memory bounded      | `--memory <resources.memory>`                        | No                                   |
+| Timeout mandatory   | `--timeout <timeoutSeconds>`; reject if missing      | No                                   |
+| Secrets allowlist   | only `credentials[].envVar` values are passed        | No                                   |
+| Docker socket deny  | socket never bind-mounted                            | No                                   |
 
 ### Network policy mapping
 
-| Plan `network`     | Docker flag                     |
-|--------------------|---------------------------------|
-| `deny`             | `--network none`                |
-| `allow-host`       | `--network host` (requires op declaration) |
-| `allow-egress`     | default Docker bridge network   |
+| Plan `network` | Docker flag                                |
+| -------------- | ------------------------------------------ |
+| `deny`         | `--network none`                           |
+| `allow-host`   | `--network host` (requires op declaration) |
+| `allow-egress` | default Docker bridge network              |
 
 ### Cache management
 

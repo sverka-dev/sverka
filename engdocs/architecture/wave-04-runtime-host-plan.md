@@ -45,10 +45,11 @@ Implement the host process executor for `@sverka/runtime-host`:
 `@sverka/ir` (PlanOperation). Both `workspace:*`.
 
 **Out of scope (do NOT implement in this wave):**
+
 - **Retry.** The scheduler owns retry (`maxAttempts`/`retryOn`/`backoffSeconds`,
   Wave 3 Slice E). The executor executes **once** and returns a result. Spec
   goal 7 ("support retry policies") is satisfied by returning `status:
-  "failure"` results that the scheduler can retry. Spec test plan item 10 is
+"failure"` results that the scheduler can retry. Spec test plan item 10 is
   an integration concern with the scheduler, not a host-executor unit test —
   exclude it from this package's suite.
 - **Actual setuid / privilege dropping.** The executor **validates**
@@ -94,6 +95,7 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
 ## 5. Implementation order (TDD: tests first, then impl)
 
 ### Slice A — Errors (foundation, no deps)
+
 1. `errors.test.ts` — `HostExecutorError` base (sets `name`, carries `code` +
    `context`), `HostTimeoutError` (`HOST_TIMEOUT`), `CommandNotAllowedError`
    (`COMMAND_NOT_ALLOWED`), `instanceof` chain. Mirror `runtime/src/errors.ts`
@@ -101,6 +103,7 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
 2. `errors.ts` — implement. Wire into `index.ts`.
 
 ### Slice B — Allowlist (security primitive, no deps)
+
 3. `allowlist.test.ts` — `createAllowlist(["node","/usr/bin/git"])`:
    `isAllowed("node")` true, `isAllowed("git")` false (bare name must match
    entry exactly), `isAllowed("/usr/bin/git")` true, `isAllowed("/bin/sh")`
@@ -111,11 +114,13 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
    command's basename. **No globs** (spec: deterministic matching).
 
 ### Slice C — Config + public API skeleton
+
 5. `config.ts` — `HostExecutorConfig` interface (per spec, post-amendment:
    no `workspace`/`artifactDir`).
 6. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
 
 ### Slice D — HostExecutor core (canExecute + spawn + output + exit code)
+
 7. `helpers/fixtures.ts` — `makeHostOp(overrides)` building a minimal
    `PlanOperation` with `executor.type: "host"`, `command`, `args`,
    `timeoutSeconds`; `makeRequest(op, overrides)` building an `ExecuteRequest`
@@ -123,7 +128,7 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
    `artifactDir`.
 8. `host-executor.test.ts` —
    - `canExecute`: false when `enabled: false`; true for `executor.type:
-     "host"` + allowed command + valid timeout; false for `type: "docker"`;
+"host"` + allowed command + valid timeout; false for `type: "docker"`;
      false when command not in allowlist; false when `timeoutSeconds` missing.
    - spawn `node -e "console.log('hello')"` → `status: "success"`,
      `exitCode: 0`, logs contain `hello`.
@@ -135,6 +140,7 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
    stdout+stderr, resolves `ExecuteResult`. Use `request.workspace` as cwd.
 
 ### Slice E — Timeout
+
 10. Extend `host-executor.test.ts` — `timeoutSeconds: 0.1` running
     `node -e "setTimeout(()=>{},5000)"` → killed, `status: "failure"`, error
     contains "timeout". Use **real** short timeouts (not fake timers — spawn
@@ -144,6 +150,7 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
     or <= 0.
 
 ### Slice F — Environment bounding
+
 12. Extend tests — spawn `node -e "console.log(process.env.FOO)"`:
     - host env var not in `envAllowlist` → absent from child.
     - `envAllowlist: ["PATH"]` → PATH present.
@@ -154,6 +161,7 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
     `request.credentials`, merge `request.env`.
 
 ### Slice G — Working directory constraint
+
 14. Extend tests —
     - cwd is `request.workspace` by default (spawn
       `node -e "console.log(process.cwd())"`).
@@ -165,12 +173,14 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
     `path.resolve` + startsWith check).
 
 ### Slice H — Privilege escalation prevention (construction-time)
+
 16. Extend tests — constructing `HostExecutor` with `runAsUid: 0` throws
     `HostExecutorError` (`PRIVILEGE_ESCALATION`); allowlist containing
     `sudo` or `su` throws at construction.
 17. Implement: validate in constructor; do not actually setuid.
 
 ### Slice I — Artifacts + log truncation
+
 18. Extend tests —
     - declared artifact (a file written under workspace) copied into
       `request.artifactDir`.
@@ -179,6 +189,7 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
 19. Implement: copy artifacts after process exit; truncate logs with notice.
 
 ### Slice J — Public API + gates
+
 20. Complete `index.ts` exports to match spec §Interfaces exactly.
 21. `public-api.test.ts` — every symbol importable + exercised.
 22. Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
@@ -217,15 +228,15 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
 
 ## 8. Error code map
 
-| Condition                | code                    | error class              |
-|--------------------------|-------------------------|--------------------------|
-| Executor disabled        | `EXECUTOR_DISABLED`     | `HostExecutorError`      |
-| Wrong executor type      | `WRONG_EXECUTOR_TYPE`   | `HostExecutorError`      |
-| Missing timeout          | `MISSING_TIMEOUT`       | `HostExecutorError`      |
-| Command not allowed      | `COMMAND_NOT_ALLOWED`   | `CommandNotAllowedError` |
-| Timeout exceeded         | `HOST_TIMEOUT`          | `HostTimeoutError`       |
-| Privilege escalation     | `PRIVILEGE_ESCALATION`  | `HostExecutorError`      |
-| Workdir outside workspace| `WORKDIR_OUTSIDE_WORKSPACE` | `HostExecutorError`   |
+| Condition                 | code                        | error class              |
+| ------------------------- | --------------------------- | ------------------------ |
+| Executor disabled         | `EXECUTOR_DISABLED`         | `HostExecutorError`      |
+| Wrong executor type       | `WRONG_EXECUTOR_TYPE`       | `HostExecutorError`      |
+| Missing timeout           | `MISSING_TIMEOUT`           | `HostExecutorError`      |
+| Command not allowed       | `COMMAND_NOT_ALLOWED`       | `CommandNotAllowedError` |
+| Timeout exceeded          | `HOST_TIMEOUT`              | `HostTimeoutError`       |
+| Privilege escalation      | `PRIVILEGE_ESCALATION`      | `HostExecutorError`      |
+| Workdir outside workspace | `WORKDIR_OUTSIDE_WORKSPACE` | `HostExecutorError`      |
 
 ## 9. Gates (reviewer runs these)
 

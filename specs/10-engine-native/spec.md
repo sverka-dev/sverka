@@ -50,11 +50,11 @@ import type { StepDefinition } from "@sverka/core";
 
 interface RunRequest {
   readonly plan: RunPlan;
-  readonly workspace: string;       // root workspace dir
-  readonly artifactDir: string;     // artifact store root
+  readonly workspace: string; // root workspace dir
+  readonly artifactDir: string; // artifact store root
   readonly secrets?: SecretProvider;
   readonly drivers?: readonly RuntimeDriver[];
-  readonly maxConcurrent?: number;  // default: 4
+  readonly maxConcurrent?: number; // default: 4
 }
 
 interface Engine {
@@ -65,16 +65,39 @@ interface Engine {
 // --- Run events (§22.2 step states) ---
 
 type RunEvent =
-  | { readonly type: "run-started"; readonly runId: string; readonly planId: string }
+  | {
+      readonly type: "run-started";
+      readonly runId: string;
+      readonly planId: string;
+    }
   | { readonly type: "step-pending"; readonly stepId: string }
   | { readonly type: "step-ready"; readonly stepId: string }
   | { readonly type: "step-started"; readonly stepId: string }
-  | { readonly type: "step-succeeded"; readonly stepId: string; readonly durationMs: number }
-  | { readonly type: "step-failed"; readonly stepId: string; readonly error: string; readonly durationMs: number }
+  | {
+      readonly type: "step-succeeded";
+      readonly stepId: string;
+      readonly durationMs: number;
+    }
+  | {
+      readonly type: "step-failed";
+      readonly stepId: string;
+      readonly error: string;
+      readonly durationMs: number;
+    }
   | { readonly type: "step-skipped"; readonly stepId: string }
   | { readonly type: "step-cancelled"; readonly stepId: string }
-  | { readonly type: "run-completed"; readonly runId: string; readonly status: RunStatus; readonly durationMs: number }
-  | { readonly type: "diagnostic"; readonly stepId: string; readonly message: string; readonly severity: "info" | "warn" | "error" };
+  | {
+      readonly type: "run-completed";
+      readonly runId: string;
+      readonly status: RunStatus;
+      readonly durationMs: number;
+    }
+  | {
+      readonly type: "diagnostic";
+      readonly stepId: string;
+      readonly message: string;
+      readonly severity: "info" | "warn" | "error";
+    };
 
 type RunStatus = "success" | "failure" | "cancelled";
 
@@ -93,10 +116,10 @@ interface ShellExecuteRequest {
   readonly env: Readonly<Record<string, string>>;
   readonly cwd?: string;
   readonly timeoutMs?: number;
-  readonly image?: string;        // OCI image ref (container drivers)
-  readonly imageDigest?: string;  // pinned digest to verify before running
+  readonly image?: string; // OCI image ref (container drivers)
+  readonly imageDigest?: string; // pinned digest to verify before running
   readonly mode?: "host" | "container";
-  readonly signal?: AbortSignal;  // propagate cancellation to the runtime
+  readonly signal?: AbortSignal; // propagate cancellation to the runtime
 }
 
 interface ShellResult {
@@ -117,8 +140,16 @@ interface ValueStore {
 // --- Artifact store (file/directory output transfer) ---
 
 interface ArtifactStore {
-  store(stepId: string, outputName: string, sourcePath: string): Promise<string>;
-  retrieve(stepId: string, outputName: string, destPath: string): Promise<string>;
+  store(
+    stepId: string,
+    outputName: string,
+    sourcePath: string,
+  ): Promise<string>;
+  retrieve(
+    stepId: string,
+    outputName: string,
+    destPath: string,
+  ): Promise<string>;
 }
 
 // --- Secret provider ---
@@ -146,9 +177,19 @@ function createArtifactStore(rootDir: string): ArtifactStore;
 ### Exports
 
 ```ts
-export type { Engine, RunRequest, RunEvent, RunStatus, RuntimeDriver,
-  ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore,
-  SecretProvider, EngineConfig };
+export type {
+  Engine,
+  RunRequest,
+  RunEvent,
+  RunStatus,
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+  ValueStore,
+  ArtifactStore,
+  SecretProvider,
+  EngineConfig,
+};
 export { createEngine, createValueStore, createArtifactStore };
 export { EngineError, SchedulerError, StepExecError };
 export type { EngineErrorCode };
@@ -165,6 +206,7 @@ available in the ValueStore/ArtifactStore.
 **Step execution**: The StepExecutor creates a per-step workspace directory
 under `request.workspace/<stepId>/`. It sets `SVERKA_OUTPUT_DIR` env var
 pointing to a per-step output directory. For each operation in order:
+
 - `shell`: call `driver.executeShell({ command, env, workspace, cwd, timeoutMs, image, imageDigest, mode, signal })`
 - `exportOutput`: read `$SVERKA_OUTPUT_DIR/<name>`, parse by type, store in
   ValueStore
@@ -196,8 +238,13 @@ class EngineError extends Error {
   readonly code: EngineErrorCode;
 }
 
-type EngineErrorCode = "SCHEDULER_ERROR" | "STEP_EXEC_ERROR" | "NO_DRIVER"
-  | "TIMEOUT" | "OUTPUT_CAPTURE_ERROR" | "ARTIFACT_ERROR";
+type EngineErrorCode =
+  | "SCHEDULER_ERROR"
+  | "STEP_EXEC_ERROR"
+  | "NO_DRIVER"
+  | "TIMEOUT"
+  | "OUTPUT_CAPTURE_ERROR"
+  | "ARTIFACT_ERROR";
 ```
 
 `SchedulerError`: cycle detected, invalid DAG.

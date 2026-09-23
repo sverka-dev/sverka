@@ -29,7 +29,7 @@ Inspired by Mastra suspend/resume.
 ## Goals
 
 - `SuspendOperation` added to `OperationDefinition` union: `{ kind:
-  "suspend"; output?: string; resumeSchema?: ResumeSchema }`.
+"suspend"; output?: string; resumeSchema?: ResumeSchema }`.
 - `SuspendStep` class in cdk (extends `Step`); `SuspendStepProps`.
 - `suspend()` SDK builder (returns `SuspendStepBuilder`).
 - `ResumeSchema`: `{ readonly required?: readonly string[] }` — minimal
@@ -64,7 +64,7 @@ Inspired by Mastra suspend/resume.
   follow-up; v1 resume is a programmatic `Engine.resume()` call.
 - GHA/GitLab native lowering of suspend (workflow_run / parent-child
   pipelines) — follow-up bead; v1 targets are `emulated` (run `sverka
-  execute`).
+execute`).
 - Resume data streaming / partial resume — v1 resume data is a single
   string payload.
 
@@ -74,12 +74,12 @@ Inspired by Mastra suspend/resume.
 
 ```ts
 export interface ResumeSchema {
-  readonly required?: readonly string[];   // top-level JSON keys that must be present
+  readonly required?: readonly string[]; // top-level JSON keys that must be present
 }
 
 export interface SuspendOperation {
   readonly kind: "suspend";
-  readonly output?: string;        // output name holding the resume data; default "resume"
+  readonly output?: string; // output name holding the resume data; default "resume"
   readonly resumeSchema?: ResumeSchema;
 }
 ```
@@ -88,7 +88,7 @@ export interface SuspendOperation {
 
 ```ts
 export interface SuspendStepProps extends StepProps {
-  readonly output?: string;         // default "resume"
+  readonly output?: string; // default "resume"
   readonly resumeSchema?: ResumeSchema;
 }
 
@@ -134,7 +134,7 @@ export interface RunSnapshot {
   }[];
   readonly suspendedStepId: string;
   readonly resumeSchema?: ResumeSchema;
-  readonly suspendedAt: number;        // epoch ms
+  readonly suspendedAt: number; // epoch ms
   readonly status: "suspended";
 }
 
@@ -150,7 +150,7 @@ export function createInMemorySnapshotStore(): SnapshotStore;
 ```ts
 export interface ResumeRequest {
   readonly runId: string;
-  readonly data: string;               // resume payload (JSON string when schema present)
+  readonly data: string; // resume payload (JSON string when schema present)
   readonly snapshotStore: SnapshotStore;
   readonly workspace: string;
   readonly artifactDir: string;

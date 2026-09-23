@@ -91,11 +91,11 @@ where `<producerId>` is the fully qualified step id (e.g. `ci/build`).
 
 ### Dependency inference
 
-| Source | Dependency kind |
-|---|---|
-| `StepRef` with `type: "artifact"` | `artifact` |
-| `StepRef` with scalar `type` | `value` |
-| `dependsOn: ["build"]` | `control` |
+| Source                            | Dependency kind |
+| --------------------------------- | --------------- |
+| `StepRef` with `type: "artifact"` | `artifact`      |
+| `StepRef` with scalar `type`      | `value`         |
+| `dependsOn: ["build"]`            | `control`       |
 
 Inferred dependencies are deduplicated. If a Step both references a producer's
 output and explicitly depends on it, the value/artifact dependency is kept
@@ -103,14 +103,14 @@ output and explicitly depends on it, the value/artifact dependency is kept
 
 ### Validation
 
-| Code | Condition |
-|---|---|
-| `CYCLE` | Dependency graph has a cycle (DFS detection) |
-| `UNKNOWN_PRODUCER` | StepRef or `dependsOn` references a step that doesn't exist in the Pipeline |
-| `OUTPUT_COLLISION` | Two outputs in a Step have the same name |
-| `INCOMPATIBLE_REFERENCE` | StepRef type doesn't match the producer's output type |
-| `INVALID_OUTPUT` | An artifact output is missing `path` |
-| `INVALID_SCOPE` | A Project or Pipeline contains an unexpected construct type |
+| Code                     | Condition                                                                   |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `CYCLE`                  | Dependency graph has a cycle (DFS detection)                                |
+| `UNKNOWN_PRODUCER`       | StepRef or `dependsOn` references a step that doesn't exist in the Pipeline |
+| `OUTPUT_COLLISION`       | Two outputs in a Step have the same name                                    |
+| `INCOMPATIBLE_REFERENCE` | StepRef type doesn't match the producer's output type                       |
+| `INVALID_OUTPUT`         | An artifact output is missing `path`                                        |
+| `INVALID_SCOPE`          | A Project or Pipeline contains an unexpected construct type                 |
 
 Validation runs after graph construction. First error thrown stops synthesis.
 

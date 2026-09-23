@@ -12,13 +12,13 @@ Artifact reports are typed artifacts that the provider understands — test resu
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | actions (various) | `artifacts:reports` | `report()` operation |
-| Semantics | Upload typed report via action | Declare typed report artifact | Export typed report |
-| Value type | action-specific | enum of report types | `{ type, path }` |
-| Limitations | no native YAML keyword | limited report types | — |
-| Provider gap | no native keyword | — | GitHub: emulated via actions |
+| Aspect       | GitHub Actions                 | GitLab CI                     | Sverka (proposed)            |
+| ------------ | ------------------------------ | ----------------------------- | ---------------------------- |
+| Construct    | actions (various)              | `artifacts:reports`           | `report()` operation         |
+| Semantics    | Upload typed report via action | Declare typed report artifact | Export typed report          |
+| Value type   | action-specific                | enum of report types          | `{ type, path }`             |
+| Limitations  | no native YAML keyword         | limited report types          | —                            |
+| Provider gap | no native keyword              | —                             | GitHub: emulated via actions |
 
 ## GitLab CI
 
@@ -81,7 +81,7 @@ type ReportType =
 interface ReportSpec {
   readonly type: ReportType;
   readonly path: string;
-  readonly format?: string;  // required for "coverage": "cobertura" | "jacoco"
+  readonly format?: string; // required for "coverage": "cobertura" | "jacoco"
 }
 ```
 

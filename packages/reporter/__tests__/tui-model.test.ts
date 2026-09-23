@@ -10,9 +10,7 @@ import type { StepState, UIState } from "../src/types.js";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { Finding } from "@sverka/verification";
 
-function makeGraph(
-  steps: { id: string; deps?: string[] }[],
-): DefinitionGraph {
+function makeGraph(steps: { id: string; deps?: string[] }[]): DefinitionGraph {
   return {
     project: {
       id: "proj",
@@ -40,9 +38,7 @@ function makeGraph(
 }
 
 function stateWith(stepIds: string[], state: StepState = "pending"): UIState {
-  const steps = new Map(
-    stepIds.map((id) => [id, { stepId: id, state }]),
-  );
+  const steps = new Map(stepIds.map((id) => [id, { stepId: id, state }]));
   return { ...createInitialState(), steps };
 }
 
@@ -97,10 +93,7 @@ describe("buildStepTree", () => {
   });
 
   it("3. dependency nests child under parent with └─ prefix and depth 1", () => {
-    const graph = makeGraph([
-      { id: "a" },
-      { id: "b", deps: ["a"] },
-    ]);
+    const graph = makeGraph([{ id: "a" }, { id: "b", deps: ["a"] }]);
     const rows = buildStepTree(graph, stateWith(["a", "b"]));
     expect(rows).toEqual([
       { stepId: "a", prefix: "", depth: 0 },
@@ -164,8 +157,11 @@ describe("filterFindings", () => {
       severity: "high",
       fingerprint: "f-err",
       source: {
-        tool: "t", version: null, format: "sarif",
-        originalRuleId: "r", originalSeverity: "error",
+        tool: "t",
+        version: null,
+        format: "sarif",
+        originalRuleId: "r",
+        originalSeverity: "error",
       },
     }),
   ];
@@ -177,7 +173,9 @@ describe("filterFindings", () => {
   });
 
   it("9. new excludes baseline fingerprints; no baseline → all pass", () => {
-    expect(filterFindings(findings, "new", ["f-high", "f-med"])).toHaveLength(2);
+    expect(filterFindings(findings, "new", ["f-high", "f-med"])).toHaveLength(
+      2,
+    );
     expect(filterFindings(findings, "new")).toHaveLength(4);
     expect(filterFindings(findings, "new", [])).toHaveLength(4);
   });

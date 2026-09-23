@@ -86,7 +86,9 @@ export function defaultContext(
  * Create a temp directory and return its path. Caller is responsible for
  * cleanup via `cleanupTempDir`.
  */
-export async function makeTempDir(prefix = "sverka-findings-"): Promise<string> {
+export async function makeTempDir(
+  prefix = "sverka-findings-",
+): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix));
 }
 

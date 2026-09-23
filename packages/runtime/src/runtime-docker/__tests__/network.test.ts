@@ -24,7 +24,9 @@ describe("Docker driver network allowlist (Spec 26 items 4-6)", () => {
       {},
       { allowed: ["registry.npmjs.org"] },
     );
-    expect(args).toContain("--label=sverka.network.allowlist=registry.npmjs.org");
+    expect(args).toContain(
+      "--label=sverka.network.allowlist=registry.npmjs.org",
+    );
     // Should use the configured network (not --network=none) since allowed is non-empty.
     expect(args).toContain("--network=bridge");
   });
@@ -39,7 +41,9 @@ describe("Docker driver network allowlist (Spec 26 items 4-6)", () => {
       {},
       { allowed: ["registry.npmjs.org", "github.com"] },
     );
-    expect(args).toContain("--label=sverka.network.allowlist=registry.npmjs.org,github.com");
+    expect(args).toContain(
+      "--label=sverka.network.allowlist=registry.npmjs.org,github.com",
+    );
   });
 
   it("item 5: no network field → --network=none (default deny)", () => {
@@ -53,7 +57,9 @@ describe("Docker driver network allowlist (Spec 26 items 4-6)", () => {
       undefined,
     );
     expect(args).toContain("--network=none");
-    expect(args.some((a) => a.startsWith("--label=sverka.network.allowlist"))).toBe(false);
+    expect(
+      args.some((a) => a.startsWith("--label=sverka.network.allowlist")),
+    ).toBe(false);
   });
 
   it("item 6: network.allowed: [] → --network=none", () => {
@@ -67,6 +73,8 @@ describe("Docker driver network allowlist (Spec 26 items 4-6)", () => {
       { allowed: [] },
     );
     expect(args).toContain("--network=none");
-    expect(args.some((a) => a.startsWith("--label=sverka.network.allowlist"))).toBe(false);
+    expect(
+      args.some((a) => a.startsWith("--label=sverka.network.allowlist")),
+    ).toBe(false);
   });
 });

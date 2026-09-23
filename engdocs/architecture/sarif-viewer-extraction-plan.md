@@ -149,6 +149,7 @@ package remains responsible for adapting run events to findings.
 ### CLI entry points
 
 Both packages include a `bin.mjs` for standalone CLI usage:
+
 - `@sverka/sarif-viewer-tui`: reads SARIF from stdin or file, renders TUI
 - `@sverka/sarif-viewer-web`: reads SARIF from file, writes HTML to file
 
@@ -160,15 +161,15 @@ validates this version.
 
 ## Wave Execution
 
-| Step | Agent | Task |
-|------|-------|------|
-| 1 | Architect | Spec 46 (TUI) + 47 (Web) + implementation plan |
-| 2 | Builder | Extract `@sverka/sarif-viewer-tui` from reporter, TDD |
-| 3 | Reviewer | Gate PR1: spec compliance, standalone usage, no workflow coupling |
-| 4 | Mayor | Finalize PR1, create stacked branch for PR2 |
-| 5 | Builder | Extract `@sverka/sarif-viewer-web` from reporter, TDD |
-| 6 | Reviewer | Gate PR2: spec compliance, standalone usage, no workflow coupling |
-| 7 | Mayor | Finalize PR2, create stacked PR targeting PR1 branch |
+| Step | Agent     | Task                                                              |
+| ---- | --------- | ----------------------------------------------------------------- |
+| 1    | Architect | Spec 46 (TUI) + 47 (Web) + implementation plan                    |
+| 2    | Builder   | Extract `@sverka/sarif-viewer-tui` from reporter, TDD             |
+| 3    | Reviewer  | Gate PR1: spec compliance, standalone usage, no workflow coupling |
+| 4    | Mayor     | Finalize PR1, create stacked branch for PR2                       |
+| 5    | Builder   | Extract `@sverka/sarif-viewer-web` from reporter, TDD             |
+| 6    | Reviewer  | Gate PR2: spec compliance, standalone usage, no workflow coupling |
+| 7    | Mayor     | Finalize PR2, create stacked PR targeting PR1 branch              |
 
 ## Success Criteria
 

@@ -31,7 +31,9 @@ async function main(): Promise<void> {
     try {
       options = { sarif: JSON.parse(raw) };
     } catch {
-      process.stderr.write("sarif-viewer-tui: failed to parse SARIF JSON from stdin.\n");
+      process.stderr.write(
+        "sarif-viewer-tui: failed to parse SARIF JSON from stdin.\n",
+      );
       process.exit(1);
     }
   }

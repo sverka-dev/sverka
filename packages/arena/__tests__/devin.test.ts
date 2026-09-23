@@ -6,8 +6,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
 
-import { DevinAdapter, installPlugins, transcriptDir, countLlmCalls } from "../src/adapters/devin.js";
-import type { AgentSpawnConfig, ModelConfig, PluginConfig } from "../src/types.js";
+import {
+  DevinAdapter,
+  installPlugins,
+  transcriptDir,
+  countLlmCalls,
+} from "../src/adapters/devin.js";
+import type {
+  AgentSpawnConfig,
+  ModelConfig,
+  PluginConfig,
+} from "../src/types.js";
 
 // ─── Mock child_process.spawn ────────────────────────────────────────
 //
@@ -38,7 +47,10 @@ function mockChild(): {
     stdin,
     stdout,
     stderr: process.stderr,
-    kill: (sig?: string) => { killed = true; emitter.emit("exit", 0, sig); },
+    kill: (sig?: string) => {
+      killed = true;
+      emitter.emit("exit", 0, sig);
+    },
     on: emitter.on.bind(emitter),
     emit: emitter.emit.bind(emitter),
     pid: 12345,
@@ -55,7 +67,11 @@ function mockChild(): {
 
 // ─── Fixtures ────────────────────────────────────────────────────────
 
-const model: ModelConfig = { id: "glm-5-2", name: "GLM-5.2", envVar: "DEVIN_MODEL" };
+const model: ModelConfig = {
+  id: "glm-5-2",
+  name: "GLM-5.2",
+  envVar: "DEVIN_MODEL",
+};
 
 const plugin = (id: string, enabled: boolean): PluginConfig => ({
   id,
@@ -186,7 +202,10 @@ describe("installPlugins", () => {
 
     await installPlugins(ws, plugins);
 
-    const copied = await readFile(join(ws, ".agents", "skills", "sverka", "SKILL.md"), "utf-8");
+    const copied = await readFile(
+      join(ws, ".agents", "skills", "sverka", "SKILL.md"),
+      "utf-8",
+    );
     expect(copied).toBe("# Skill\n");
 
     await rm(ws, { recursive: true, force: true });
@@ -206,7 +225,9 @@ describe("installPlugins", () => {
     await installPlugins(ws, plugins);
 
     // The directory should be removed.
-    await expect(readFile(join(skillDir, "SKILL.md"), "utf-8")).rejects.toThrow();
+    await expect(
+      readFile(join(skillDir, "SKILL.md"), "utf-8"),
+    ).rejects.toThrow();
 
     await rm(ws, { recursive: true, force: true });
   });
@@ -223,14 +244,24 @@ describe("installPlugins", () => {
 
     const plugins: PluginConfig[] = [
       { id: "a", name: "A", path: srcA, enabled: true },
-      { id: "disabled", name: "Disabled", path: "/tmp/disabled", enabled: false },
+      {
+        id: "disabled",
+        name: "Disabled",
+        path: "/tmp/disabled",
+        enabled: false,
+      },
     ];
 
     await installPlugins(ws, plugins);
 
-    const aContent = await readFile(join(ws, ".agents", "skills", "a", "SKILL.md"), "utf-8");
+    const aContent = await readFile(
+      join(ws, ".agents", "skills", "a", "SKILL.md"),
+      "utf-8",
+    );
     expect(aContent).toBe("# A\n");
-    await expect(readFile(join(disabledDir, "SKILL.md"), "utf-8")).rejects.toThrow();
+    await expect(
+      readFile(join(disabledDir, "SKILL.md"), "utf-8"),
+    ).rejects.toThrow();
 
     await rm(ws, { recursive: true, force: true });
     await rm(srcA, { recursive: true, force: true });
@@ -261,10 +292,34 @@ describe("countLlmCalls", () => {
         total_steps: 4,
       },
       steps: [
-        { step_id: 0, source: "user", message: "hi", timestamp: "t0", extra: null },
-        { step_id: 1, source: "agent", message: "thinking", timestamp: "t1", extra: { telemetry: { operation: "inference" } } },
-        { step_id: 2, source: "agent", message: "acting", timestamp: "t2", extra: { telemetry: { operation: "tool" } } },
-        { step_id: 3, source: "agent", message: "thinking2", timestamp: "t3", extra: { telemetry: { operation: "inference" } } },
+        {
+          step_id: 0,
+          source: "user",
+          message: "hi",
+          timestamp: "t0",
+          extra: null,
+        },
+        {
+          step_id: 1,
+          source: "agent",
+          message: "thinking",
+          timestamp: "t1",
+          extra: { telemetry: { operation: "inference" } },
+        },
+        {
+          step_id: 2,
+          source: "agent",
+          message: "acting",
+          timestamp: "t2",
+          extra: { telemetry: { operation: "tool" } },
+        },
+        {
+          step_id: 3,
+          source: "agent",
+          message: "thinking2",
+          timestamp: "t3",
+          extra: { telemetry: { operation: "inference" } },
+        },
       ],
     };
     expect(countLlmCalls(transcript)).toBe(2);
@@ -282,7 +337,13 @@ describe("countLlmCalls", () => {
         total_steps: 1,
       },
       steps: [
-        { step_id: 0, source: "user", message: "hi", timestamp: "t0", extra: null },
+        {
+          step_id: 0,
+          source: "user",
+          message: "hi",
+          timestamp: "t0",
+          extra: null,
+        },
       ],
     };
     expect(countLlmCalls(transcript)).toBe(0);

@@ -12,13 +12,13 @@ Config merging combines multiple config files into one. GitLab uses `include` (l
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `workflow_call` (call, not merge) | `include` (merge) | `include()` |
-| Semantics | Call reusable workflow as job | Merge included config into current | Include and merge config fragments |
-| Value type | workflow file ref | array of include refs | array of include refs |
-| Limitations | no config merging | deep merge with override rules | — |
-| Provider gap | no config merging | — | GitHub: unsupported, use reusable workflows |
+| Aspect       | GitHub Actions                    | GitLab CI                          | Sverka (proposed)                           |
+| ------------ | --------------------------------- | ---------------------------------- | ------------------------------------------- |
+| Construct    | `workflow_call` (call, not merge) | `include` (merge)                  | `include()`                                 |
+| Semantics    | Call reusable workflow as job     | Merge included config into current | Include and merge config fragments          |
+| Value type   | workflow file ref                 | array of include refs              | array of include refs                       |
+| Limitations  | no config merging                 | deep merge with override rules     | —                                           |
+| Provider gap | no config merging                 | —                                  | GitHub: unsupported, use reusable workflows |
 
 ## GitLab CI
 
@@ -56,7 +56,7 @@ jobs:
 
 ```ts
 interface IncludeRef {
-  readonly path: string;          // local file path
+  readonly path: string; // local file path
   readonly inputs?: Record<string, unknown>;
 }
 ```

@@ -25,16 +25,16 @@ The MCP SDK is already a dep of `@sverka/plugin-mcp` (Wave 2.1). For
 
 ## Files
 
-| File | Action |
-|---|---|
-| `packages/cli/src/commands/mcp-server.ts` | **New** — `mcpServerCommand`: starts MCP server, registers 5 tools, connects stdio transport. |
-| `packages/cli/src/internal/mcp-tools.ts` | **New** — `SverkaMcpTool` interface + 5 tool definitions mapping to CLI command handlers. |
-| `packages/cli/src/internal/buffering-writer.ts` | **New** — `BufferingOutputWriter` (captures structured output; logs to stderr, NOT stdout). |
-| `packages/cli/src/main.ts` | **Edit** — register `mcp-server` command in yargs + dispatch. |
-| `packages/cli/src/types.ts` | **Edit** — export `McpServerArgs` (if commands are typed). |
-| `packages/cli/package.json` | **Edit** — add `@modelcontextprotocol/sdk` dep. |
-| `packages/cli/src/__tests__/mcp-server.test.ts` | **New** — server lifecycle + tool tests (items 1–10). |
-| `bun.lock` | **Regenerate** — `bun install` after adding MCP SDK dep. |
+| File                                            | Action                                                                                        |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `packages/cli/src/commands/mcp-server.ts`       | **New** — `mcpServerCommand`: starts MCP server, registers 5 tools, connects stdio transport. |
+| `packages/cli/src/internal/mcp-tools.ts`        | **New** — `SverkaMcpTool` interface + 5 tool definitions mapping to CLI command handlers.     |
+| `packages/cli/src/internal/buffering-writer.ts` | **New** — `BufferingOutputWriter` (captures structured output; logs to stderr, NOT stdout).   |
+| `packages/cli/src/main.ts`                      | **Edit** — register `mcp-server` command in yargs + dispatch.                                 |
+| `packages/cli/src/types.ts`                     | **Edit** — export `McpServerArgs` (if commands are typed).                                    |
+| `packages/cli/package.json`                     | **Edit** — add `@modelcontextprotocol/sdk` dep.                                               |
+| `packages/cli/src/__tests__/mcp-server.test.ts` | **New** — server lifecycle + tool tests (items 1–10).                                         |
+| `bun.lock`                                      | **Regenerate** — `bun install` after adding MCP SDK dep.                                      |
 
 ## TDD steps
 
@@ -66,6 +66,7 @@ The MCP SDK is already a dep of `@sverka/plugin-mcp` (Wave 2.1). For
 ## Testing strategy
 
 Two options:
+
 - **Unit**: `vi.mock("@modelcontextprotocol/sdk/server/mcp.js")` — mock
   `McpServer` to capture registered tools and simulate `tools/call`. Fast,
   no subprocess.
@@ -88,7 +89,8 @@ version published ≥7 days ago.
 Stage ONLY `packages/cli/src/commands/mcp-server.ts` +
 `packages/cli/src/internal/mcp-tools.ts` +
 `packages/cli/src/internal/buffering-writer.ts` + `packages/cli/src/main.ts`
-+ `packages/cli/src/types.ts` + `packages/cli/src/__tests__/mcp-server.test.ts`
-+ `packages/cli/package.json` + `specs/28-mcp-server/spec.md` + this plan +
-`bun.lock`. EXCLUDE city.toml, agents/, .devin/, .gc/, .beads/, formulas/,
-engdocs/adr/.
+
+- `packages/cli/src/types.ts` + `packages/cli/src/__tests__/mcp-server.test.ts`
+- `packages/cli/package.json` + `specs/28-mcp-server/spec.md` + this plan +
+  `bun.lock`. EXCLUDE city.toml, agents/, .devin/, .gc/, .beads/, formulas/,
+  engdocs/adr/.

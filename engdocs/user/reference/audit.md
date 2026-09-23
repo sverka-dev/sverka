@@ -69,7 +69,8 @@ interface RunReport {
 
 interface StepReport {
   readonly stepId: string;
-  readonly status: "succeeded" | "failed" | "skipped" | "cancelled" | "cache-hit";
+  readonly status:
+    "succeeded" | "failed" | "skipped" | "cancelled" | "cache-hit";
   readonly durationMs: number;
   readonly cacheHit?: boolean;
   readonly cacheKey?: string;

@@ -12,7 +12,9 @@ export function cliVersion(): string {
   let dir = dirname(fileURLToPath(import.meta.url));
   while (true) {
     try {
-      const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as {
+      const pkg = JSON.parse(
+        readFileSync(join(dir, "package.json"), "utf8"),
+      ) as {
         name?: string;
         version?: string;
       };

@@ -58,7 +58,7 @@ callable from a Sverka workflow without a native TypeScript adapter.
 // packages/compiler/src/plugin/types.ts — NEW facet
 
 export interface ToolDefinition {
-  readonly name: string;          // "<server>.<tool>" — globally unique within plugin
+  readonly name: string; // "<server>.<tool>" — globally unique within plugin
   readonly description?: string;
   readonly inputSchema?: Readonly<Record<string, unknown>>; // JSON Schema
 }
@@ -71,11 +71,17 @@ export interface ToolResult {
 export type ToolResultContent =
   | { readonly type: "text"; readonly text: string }
   | { readonly type: "image"; readonly data: string; readonly mimeType: string }
-  | { readonly type: "resource"; readonly resource: { readonly uri: string; readonly mimeType?: string } };
+  | {
+      readonly type: "resource";
+      readonly resource: { readonly uri: string; readonly mimeType?: string };
+    };
 
 export interface ToolProvider {
   listTools(): Promise<readonly ToolDefinition[]>;
-  callTool(name: string, args?: Readonly<Record<string, unknown>>): Promise<ToolResult>;
+  callTool(
+    name: string,
+    args?: Readonly<Record<string, unknown>>,
+  ): Promise<ToolResult>;
   dispose?(): Promise<void>;
 }
 ```
@@ -88,17 +94,27 @@ export interface ToolProvider {
 // packages/plugin-mcp/src/index.ts
 
 export type MCPServerConfig =
-  | { readonly name: string; readonly transport: "stdio"; readonly command: string; readonly args?: readonly string[]; readonly env?: Readonly<Record<string, string>>; readonly cwd?: string }
+  | {
+      readonly name: string;
+      readonly transport: "stdio";
+      readonly command: string;
+      readonly args?: readonly string[];
+      readonly env?: Readonly<Record<string, string>>;
+      readonly cwd?: string;
+    }
   | { readonly name: string; readonly transport: "http"; readonly url: string };
 
 export interface MCPPluginConfig {
   readonly servers: readonly MCPServerConfig[];
 }
 
-function createMCPPlugin(config: MCPPluginConfig): SverkaPlugin & { readonly tools: ToolProvider };
+function createMCPPlugin(
+  config: MCPPluginConfig,
+): SverkaPlugin & { readonly tools: ToolProvider };
 ```
 
 The returned plugin:
+
 - `name`: `"mcp"` (or derived from config if single server).
 - `apiVersion`: `"sverka.dev/v1"`.
 - `capabilities`: `{ "mcp.tools.list": "native", "mcp.tools.call": "native" }`.

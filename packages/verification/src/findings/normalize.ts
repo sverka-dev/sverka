@@ -123,10 +123,7 @@ function validateSarifLog(sarif: unknown): asserts sarif is SarifLog {
  * Normalize a single SARIF run into Findings.
  * @throws {NormalizationError} INVALID_SARIF — missing driver or results.
  */
-function normalizeRun(
-  run: SarifRun,
-  context: NormalizeContext,
-): Finding[] {
+function normalizeRun(run: SarifRun, context: NormalizeContext): Finding[] {
   const driver = run?.tool?.driver;
   if (!driver || typeof driver.name !== "string" || !driver.name) {
     throw new NormalizationError(
@@ -147,7 +144,9 @@ function normalizeRun(
 
   const findings: Finding[] = [];
   for (const result of run.results) {
-    findings.push(...normalizeResult(result, context, toolName, toolVersion, rules));
+    findings.push(
+      ...normalizeResult(result, context, toolName, toolVersion, rules),
+    );
   }
   return findings;
 }
@@ -242,15 +241,23 @@ function buildFinding(
     originalSeverity: rc.originalSeverity,
   };
   const fingerprint = computeFingerprint({
-    rule: rc.ruleId, file: uri, startLine, endLine, checkId,
+    rule: rc.ruleId,
+    file: uri,
+    startLine,
+    endLine,
+    checkId,
   });
   return {
     id: `${checkId}:${fingerprint}`,
-    fingerprint, checkId,
+    fingerprint,
+    checkId,
     severity: rc.severity,
     confidence: context.defaultConfidence,
     message: result.message?.text ?? "",
-    rule: rc.ruleId, file: uri, startLine, endLine,
+    rule: rc.ruleId,
+    file: uri,
+    startLine,
+    endLine,
     source,
     ...optionalFields(region, rc.helpUrl),
   };
@@ -265,12 +272,13 @@ function optionalFields(
 ): Partial<Finding> {
   return {
     ...(region?.startColumn !== undefined
-      ? { startColumn: region.startColumn } : {}),
-    ...(region?.endColumn !== undefined
-      ? { endColumn: region.endColumn } : {}),
+      ? { startColumn: region.startColumn }
+      : {}),
+    ...(region?.endColumn !== undefined ? { endColumn: region.endColumn } : {}),
     ...(helpUrl !== undefined ? { helpUrl } : {}),
     ...(region?.snippet?.text !== undefined
-      ? { snippet: region.snippet.text } : {}),
+      ? { snippet: region.snippet.text }
+      : {}),
   };
 }
 

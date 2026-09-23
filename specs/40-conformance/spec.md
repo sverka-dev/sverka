@@ -88,6 +88,7 @@ same dependencies, same operations, same triggers).
 ### v1 feature conformance tests
 
 Each v1 feature gets a focused test that:
+
 1. Builds a graph using that feature.
 2. Synthesizes successfully (no errors).
 3. Compiles to all 6 targets (diagnostics OK, no throw).

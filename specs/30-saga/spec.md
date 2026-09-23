@@ -83,7 +83,7 @@ is valid for `compensation` in v1 (validated at synthesis).
 ```ts
 export interface StepBuilder {
   // ...existing methods...
-  compensate(command: string): StepBuilder;   // sets compensation: { kind: "shell", command }
+  compensate(command: string): StepBuilder; // sets compensation: { kind: "shell", command }
 }
 ```
 
@@ -127,7 +127,7 @@ invoked at the end of `executeRun` when the final status is `failure`.
      with the step's `runtime` (env, secrets, image, shell, network).
    - On success: emit `step-compensated { stepId, status: "succeeded", durationMs }`.
    - On failure: emit `step-compensated { stepId, status: "failed", durationMs }`
-     + a `diagnostic` (warn) — continue to the next compensation.
+     - a `diagnostic` (warn) — continue to the next compensation.
 5. Compensation is **serial** (one at a time, in reverse order). No
    concurrency.
 6. After all compensations, emit `run-completed { status: "failure" }`.

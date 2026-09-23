@@ -57,10 +57,9 @@ describe("init command", () => {
 
   it("--template minimal produces minimal config", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["init", "--root", dir, "--template", "minimal"],
-      { output: out },
-    );
+    const code = await main(["init", "--root", dir, "--template", "minimal"], {
+      output: out,
+    });
     expect(code).toBe(0);
     const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
     expect(content).toContain("lint");
@@ -70,10 +69,9 @@ describe("init command", () => {
 
   it("--template full produces a fuller config", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["init", "--root", dir, "--template", "full"],
-      { output: out },
-    );
+    const code = await main(["init", "--root", dir, "--template", "full"], {
+      output: out,
+    });
     expect(code).toBe(0);
     const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
     expect(content).toContain("Project");
@@ -95,10 +93,9 @@ describe("init command", () => {
     try {
       const absPath = join(absDir, "custom.config.ts");
       const out = new CaptureWriter();
-      const code = await main(
-        ["init", "--root", dir, "--config", absPath],
-        { output: out },
-      );
+      const code = await main(["init", "--root", dir, "--config", absPath], {
+        output: out,
+      });
       expect(code).toBe(0);
       expect(existsSync(absPath)).toBe(true);
       expect(existsSync(join(dir, "sverka.config.ts"))).toBe(false);
@@ -109,10 +106,9 @@ describe("init command", () => {
 
   it("--format json includes a numeric durationMs (not hardcoded 0)", async () => {
     const out = new CaptureWriter();
-    const code = await main(
-      ["init", "--format", "json", "--root", dir],
-      { output: out },
-    );
+    const code = await main(["init", "--format", "json", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     const parsed = JSON.parse(out.stdoutText.trim());
     expect(parsed.command).toBe("init");
@@ -146,14 +142,22 @@ describe("init command", () => {
     await writeFile(join(dir, "index.ts"), "export const x = 1;\n", "utf8");
 
     const out = new CaptureWriter();
-    const code = await main(["init", "--detect", "--root", dir], { output: out });
+    const code = await main(["init", "--detect", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("template: detect");
 
     const content = await readFile(join(dir, "sverka.config.ts"), "utf8");
-    expect(content).toMatch(/new ShellStep\(ci, "typecheck", \{ command: "npm run typecheck" \}\);/);
-    expect(content).toMatch(/new ShellStep\(ci, "lint", \{ command: "npm run lint" \}\);/);
-    expect(content).toMatch(/new ShellStep\(ci, "test", \{ command: "npm run test" \}\);/);
+    expect(content).toMatch(
+      /new ShellStep\(ci, "typecheck", \{ command: "npm run typecheck" \}\);/,
+    );
+    expect(content).toMatch(
+      /new ShellStep\(ci, "lint", \{ command: "npm run lint" \}\);/,
+    );
+    expect(content).toMatch(
+      /new ShellStep\(ci, "test", \{ command: "npm run test" \}\);/,
+    );
     expect(content).toContain('roots: ["typecheck", "lint", "test"]');
 
     // The generated config must load and validate with no warnings.
@@ -174,7 +178,9 @@ describe("init command", () => {
     );
 
     const out = new CaptureWriter();
-    const code = await main(["init", "--detect", "--root", dir], { output: out });
+    const code = await main(["init", "--detect", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
     expect(out.stdoutText).toContain("template: detect");
 
@@ -195,7 +201,9 @@ describe("init command", () => {
     );
 
     const out = new CaptureWriter();
-    const code = await main(["init", "--detect", "--root", dir], { output: out });
+    const code = await main(["init", "--detect", "--root", dir], {
+      output: out,
+    });
     expect(code).toBe(0);
 
     const content = await readFile(join(dir, "sverka.config.ts"), "utf8");

@@ -45,18 +45,16 @@ retry/timeout policy, a source context hash, and compiler metadata.
 ```typescript
 // src/index.ts — public exports
 
-export { type Plan, type PlanOperation, type PlanMetadata }
-  from "./plan.js";
-export { type PlanValidator, validatePlan, ValidationResult }
-  from "./validate.js";
-export { serializePlan, deserializePlan }
-  from "./serialize.js";
-export { computePlanId, computeOperationId }
-  from "./ids.js";
-export { IRError, ValidationError, SerializationError }
-  from "./errors.js";
-export { PLAN_SCHEMA_VERSION }
-  from "./version.js";
+export { type Plan, type PlanOperation, type PlanMetadata } from "./plan.js";
+export {
+  type PlanValidator,
+  validatePlan,
+  ValidationResult,
+} from "./validate.js";
+export { serializePlan, deserializePlan } from "./serialize.js";
+export { computePlanId, computeOperationId } from "./ids.js";
+export { IRError, ValidationError, SerializationError } from "./errors.js";
+export { PLAN_SCHEMA_VERSION } from "./version.js";
 ```
 
 ```typescript
@@ -75,16 +73,16 @@ import type { OperationKind } from "@sverka/core";
  */
 export interface Plan {
   readonly apiVersion: "sverka.dev/v1";
-  readonly id: string;                 // deterministic plan id
+  readonly id: string; // deterministic plan id
   readonly name: string;
-  readonly sourceContextHash: string;  // hash of source files + config
+  readonly sourceContextHash: string; // hash of source files + config
   readonly operations: readonly PlanOperation[];
   readonly metadata: PlanMetadata;
-  readonly createdAt: string;          // ISO 8601, informational only
+  readonly createdAt: string; // ISO 8601, informational only
 }
 
 export interface PlanOperation {
-  readonly id: string;                 // deterministic, stable across runs
+  readonly id: string; // deterministic, stable across runs
   readonly kind: OperationKind;
   readonly name: string;
   readonly description?: string;
@@ -94,7 +92,7 @@ export interface PlanOperation {
   readonly workingDir?: string;
 
   // Dependency graph
-  readonly dependsOn: readonly string[];   // ids of prerequisite operations
+  readonly dependsOn: readonly string[]; // ids of prerequisite operations
 
   // Execution target
   readonly executor: ExecutorSpec;
@@ -116,7 +114,7 @@ export interface PlanOperation {
 
   // Reliability
   readonly retry: RetryPolicy;
-  readonly timeoutSeconds: number;     // mandatory, must be > 0
+  readonly timeoutSeconds: number; // mandatory, must be > 0
 
   // Control flow
   readonly condition?: string;
@@ -129,7 +127,7 @@ export interface PlanOperation {
 export interface ExecutorSpec {
   readonly type: "docker" | "podman" | "host" | "remote";
   readonly image?: string;
-  readonly imageDigest?: string;       // sha256 digest, required for container types
+  readonly imageDigest?: string; // sha256 digest, required for container types
   readonly remote?: RemoteExecutorRef;
 }
 
@@ -139,8 +137,8 @@ export interface RemoteExecutorRef {
 }
 
 export interface ResourceLimits {
-  readonly cpu: string;                // e.g. "2", "0.5"
-  readonly memory: string;             // e.g. "512Mi", "2Gi"
+  readonly cpu: string; // e.g. "2", "0.5"
+  readonly memory: string; // e.g. "512Mi", "2Gi"
 }
 
 export type NetworkPolicy = "deny" | "allow-host" | "allow-egress";
@@ -154,7 +152,7 @@ export interface CredentialDeclaration {
 export interface CacheDeclaration {
   readonly inputs: readonly string[];
   readonly outputs: readonly string[];
-  readonly key: string;                // deterministic cache key
+  readonly key: string; // deterministic cache key
 }
 
 export interface ArtifactDeclaration {
@@ -164,8 +162,8 @@ export interface ArtifactDeclaration {
 }
 
 export interface RetryPolicy {
-  readonly maxAttempts: number;        // >= 1
-  readonly backoffSeconds: number;     // >= 0
+  readonly maxAttempts: number; // >= 1
+  readonly backoffSeconds: number; // >= 0
   readonly retryOn: readonly ("failure" | "timeout")[];
 }
 
@@ -191,9 +189,7 @@ export interface PlanMetadata {
  * dependency). The hash input is byte-stable because canonical JSON sorts
  * keys and emits no trailing whitespace.
  */
-export function computePlanId(
-  plan: Omit<Plan, "id" | "createdAt">,
-): string;
+export function computePlanId(plan: Omit<Plan, "id" | "createdAt">): string;
 
 /**
  * Compute a deterministic operation id from kind, name, and a context

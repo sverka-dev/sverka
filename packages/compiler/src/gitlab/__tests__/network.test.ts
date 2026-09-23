@@ -8,7 +8,9 @@ import { GitlabTarget } from "../target.js";
 import { gitlabCapabilities } from "../capabilities.js";
 import type { GitlabTargetGraph } from "../types.js";
 
-function singleGraph(result: GitlabTargetGraph | readonly GitlabTargetGraph[]): GitlabTargetGraph {
+function singleGraph(
+  result: GitlabTargetGraph | readonly GitlabTargetGraph[],
+): GitlabTargetGraph {
   if ("jobs" in result) return result;
   return result[0]!;
 }
@@ -19,7 +21,10 @@ describe("GitLab network allowlist variable (Spec 26 items 10, 12)", () => {
     const pipeline = new Pipeline(project, "ci");
     new ShellStep(pipeline, "build", {
       command: "npm install",
-      runtime: { mode: "host", network: { allowed: ["registry.npmjs.org", "github.com"] } },
+      runtime: {
+        mode: "host",
+        network: { allowed: ["registry.npmjs.org", "github.com"] },
+      },
     });
     new Entry(pipeline, "main", { trigger: push(), roots: ["build"] });
 
@@ -28,7 +33,9 @@ describe("GitLab network allowlist variable (Spec 26 items 10, 12)", () => {
     const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs[0]!;
     expect(job.variables).toBeDefined();
-    expect(job.variables!["SVERKA_NETWORK_ALLOWLIST"]).toBe("registry.npmjs.org,github.com");
+    expect(job.variables!["SVERKA_NETWORK_ALLOWLIST"]).toBe(
+      "registry.npmjs.org,github.com",
+    );
   });
 
   it("step without network → no SVERKA_NETWORK_ALLOWLIST variable", () => {

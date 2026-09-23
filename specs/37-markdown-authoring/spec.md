@@ -53,7 +53,7 @@ interface MarkdownTrigger {
   readonly branches?: readonly string[];
   readonly tags?: readonly string[];
   readonly paths?: readonly string[];
-  readonly cron?: string;  // schedule only
+  readonly cron?: string; // schedule only
 }
 
 interface MarkdownStep {
@@ -61,7 +61,7 @@ interface MarkdownStep {
   readonly command: string;
   readonly dependsOn?: readonly string[];
   readonly image?: string;
-  readonly timeout?: number;  // ms
+  readonly timeout?: number; // ms
   readonly outputs?: Readonly<Record<string, OutputDeclaration>>;
 }
 
@@ -90,17 +90,17 @@ inputs:
 
 ## build
 
- - command: bun run build
- - image: oven/bun:latest
- - outputs:
-     dist:
-       type: artifact
-       path: ./dist
+- command: bun run build
+- image: oven/bun:latest
+- outputs:
+  dist:
+  type: artifact
+  path: ./dist
 
 ## test
 
- - command: bun test
- - dependsOn: [build]
+- command: bun test
+- dependsOn: [build]
 ```
 
 ### Parsing pipeline
@@ -116,6 +116,7 @@ inputs:
 ## Error handling
 
 `MarkdownParseError` with `override readonly cause: unknown`. Codes:
+
 - `INVALID_FRONTMATTER` — YAML parse error or missing `pipeline` field.
 - `INVALID_STEP` — step block missing `command` or has invalid syntax.
 - `INVALID_TRIGGER` — unknown trigger kind or missing required field.

@@ -1,11 +1,84 @@
 // Definition Graph types — the canonical provider-neutral source of truth.
 // Spec 02 — §10, §11, §15.
 
-import type { Reference, Trigger, Runtime, NetworkAllowlist, Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, ArtifactAccess, MatrixSpec, Condition, ContinueOnError, RetryPolicy, BackoffSpec, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, CacheSpec, ConcurrencySpec, StepPermissions, WriteDeclaration, AgentToolRef, AgentOperation } from "../cdk/index.js";
+import type {
+  Reference,
+  Trigger,
+  Runtime,
+  NetworkAllowlist,
+  Input,
+  InputLiteral,
+  ComponentRef,
+  ChildPipelineTrigger,
+  DownstreamTrigger,
+  PipelineRule,
+  IncludeRef,
+  OutputDeclaration,
+  OutputType,
+  ArtifactAccess,
+  MatrixSpec,
+  Condition,
+  ContinueOnError,
+  RetryPolicy,
+  BackoffSpec,
+  PermissionLevel,
+  RunnerSpec,
+  IdentitySpec,
+  Rule,
+  PipelineDefaults,
+  ReportSpec,
+  ServiceContainer,
+  EnvironmentSpec,
+  CacheSpec,
+  ConcurrencySpec,
+  StepPermissions,
+  WriteDeclaration,
+  AgentToolRef,
+  AgentOperation,
+} from "../cdk/index.js";
 
 // Re-export types used in the graph schema so consumers can access them
 // from @sverka/core without depending on @sverka/cdk directly.
-export type { Input, InputLiteral, ComponentRef, ChildPipelineTrigger, DownstreamTrigger, PipelineRule, IncludeRef, OutputDeclaration, OutputType, Reference, Expression, Runtime, NetworkAllowlist, Trigger, MatrixSpec, MatrixValue, Condition, ContinueOnError, RetryPolicy, BackoffSpec, PermissionLevel, RunnerSpec, IdentitySpec, Rule, PipelineDefaults, ReportSpec, ServiceContainer, EnvironmentSpec, EnvironmentAction, EnvironmentTier, ArtifactAccess, CacheSpec, CachePolicy, ConcurrencySpec, StepPermissions, WriteDeclaration, AgentToolRef, AgentOperation } from "../cdk/index.js";
+export type {
+  Input,
+  InputLiteral,
+  ComponentRef,
+  ChildPipelineTrigger,
+  DownstreamTrigger,
+  PipelineRule,
+  IncludeRef,
+  OutputDeclaration,
+  OutputType,
+  Reference,
+  Expression,
+  Runtime,
+  NetworkAllowlist,
+  Trigger,
+  MatrixSpec,
+  MatrixValue,
+  Condition,
+  ContinueOnError,
+  RetryPolicy,
+  BackoffSpec,
+  PermissionLevel,
+  RunnerSpec,
+  IdentitySpec,
+  Rule,
+  PipelineDefaults,
+  ReportSpec,
+  ServiceContainer,
+  EnvironmentSpec,
+  EnvironmentAction,
+  EnvironmentTier,
+  ArtifactAccess,
+  CacheSpec,
+  CachePolicy,
+  ConcurrencySpec,
+  StepPermissions,
+  WriteDeclaration,
+  AgentToolRef,
+  AgentOperation,
+} from "../cdk/index.js";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;
@@ -88,9 +161,23 @@ export interface StepDefinition {
 }
 
 export type OperationDefinition =
-  | { readonly kind: "shell"; readonly command: string; readonly background?: boolean }
-  | { readonly kind: "exportOutput"; readonly name: string; readonly type: OutputType }
-  | { readonly kind: "exportArtifact"; readonly name: string; readonly path: string; readonly retention?: string; readonly access?: ArtifactAccess }
+  | {
+      readonly kind: "shell";
+      readonly command: string;
+      readonly background?: boolean;
+    }
+  | {
+      readonly kind: "exportOutput";
+      readonly name: string;
+      readonly type: OutputType;
+    }
+  | {
+      readonly kind: "exportArtifact";
+      readonly name: string;
+      readonly path: string;
+      readonly retention?: string;
+      readonly access?: ArtifactAccess;
+    }
   | { readonly kind: "exportStdout"; readonly name: string }
   | {
       readonly kind: "importArtifact";
@@ -125,5 +212,13 @@ export type OperationDefinition =
 
 export type Dependency =
   | { readonly kind: "control"; readonly producer: string }
-  | { readonly kind: "value"; readonly producer: string; readonly output: string }
-  | { readonly kind: "artifact"; readonly producer: string; readonly output: string };
+  | {
+      readonly kind: "value";
+      readonly producer: string;
+      readonly output: string;
+    }
+  | {
+      readonly kind: "artifact";
+      readonly producer: string;
+      readonly output: string;
+    };

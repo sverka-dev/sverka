@@ -15,6 +15,4 @@ export class PolicyError extends Error {
 
 /** Policy error codes. */
 export type PolicyErrorCode =
-  | "INVALID_POLICY"
-  | "INVALID_SEVERITY"
-  | "INVALID_RULE";
+  "INVALID_POLICY" | "INVALID_SEVERITY" | "INVALID_RULE";

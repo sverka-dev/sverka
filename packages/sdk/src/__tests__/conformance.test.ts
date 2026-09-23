@@ -29,7 +29,9 @@ function buildViaConstructAPI(): DefinitionGraph {
 
   new ShellStep(pip, "deploy", {
     command: "deploy",
-    inputs: [{ kind: "step", step: "build", output: "version", type: "string" }],
+    inputs: [
+      { kind: "step", step: "build", output: "version", type: "string" },
+    ],
   });
 
   new Entry(pip, "on-push", {
@@ -45,8 +47,18 @@ function buildViaSdkAPI(): DefinitionGraph {
   const proj = new Project("myproj");
 
   // Create references for interpolation — these match the Construct API inputs.
-  const buildDistRef = { kind: "step" as const, step: "build", output: "dist", type: "artifact" as const };
-  const buildVersionRef = { kind: "step" as const, step: "build", output: "version", type: "string" as const };
+  const buildDistRef = {
+    kind: "step" as const,
+    step: "build",
+    output: "dist",
+    type: "artifact" as const,
+  };
+  const buildVersionRef = {
+    kind: "step" as const,
+    step: "build",
+    output: "version",
+    type: "string" as const,
+  };
 
   pipeline(proj, "ci", {
     steps: [
@@ -62,10 +74,7 @@ function buildViaSdkAPI(): DefinitionGraph {
           .inputs([buildDistRef])
           .dependsOn(["build"])
           .build(pip, "test"),
-      (pip) =>
-        $`deploy`
-          .inputs([buildVersionRef])
-          .build(pip, "deploy"),
+      (pip) => $`deploy`.inputs([buildVersionRef]).build(pip, "deploy"),
     ],
     entries: [
       (pip) => new Entry(pip, "on-push", { trigger: push(), roots: ["build"] }),
@@ -84,7 +93,9 @@ describe("SDK conformance — same graph as Construct API", () => {
     expect(sdkGraph.project.id).toBe(constructGraph.project.id);
 
     // Same number of pipelines.
-    expect(sdkGraph.project.pipelines).toHaveLength(constructGraph.project.pipelines.length);
+    expect(sdkGraph.project.pipelines).toHaveLength(
+      constructGraph.project.pipelines.length,
+    );
 
     const sdkPip = sdkGraph.project.pipelines[0]!;
     const constructPip = constructGraph.project.pipelines[0]!;

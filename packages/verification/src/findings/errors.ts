@@ -5,11 +5,7 @@
 export class NormalizationError extends Error {
   readonly code: NormalizationErrorCode;
   override readonly cause: unknown;
-  constructor(
-    message: string,
-    code: NormalizationErrorCode,
-    cause?: unknown,
-  ) {
+  constructor(message: string, code: NormalizationErrorCode, cause?: unknown) {
     super(message);
     this.name = "NormalizationError";
     this.code = code;
@@ -18,9 +14,7 @@ export class NormalizationError extends Error {
 }
 
 export type NormalizationErrorCode =
-  | "INVALID_SARIF"
-  | "MISSING_LOCATION"
-  | "INVALID_FINGERPRINT_INPUT";
+  "INVALID_SARIF" | "MISSING_LOCATION" | "INVALID_FINGERPRINT_INPUT";
 
 /**
  * Base error class for baseline operation failures. All baseline I/O and
@@ -39,6 +33,4 @@ export class BaselineError extends Error {
 }
 
 export type BaselineErrorCode =
-  | "BASELINE_NOT_FOUND"
-  | "BASELINE_INVALID"
-  | "BASELINE_WRITE_FAILED";
+  "BASELINE_NOT_FOUND" | "BASELINE_INVALID" | "BASELINE_WRITE_FAILED";

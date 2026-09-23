@@ -33,7 +33,11 @@ function makePlan(steps: StepDefinition[], id = "rp-net"): RunPlan {
   };
 }
 
-function shellStep(id: string, command: string, extra?: Partial<StepDefinition>): StepDefinition {
+function shellStep(
+  id: string,
+  command: string,
+  extra?: Partial<StepDefinition>,
+): StepDefinition {
   return {
     id,
     runtime: {},
@@ -78,7 +82,9 @@ describe("Host driver network allowlist diagnostic (Spec 26 item 7)", () => {
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]!.type).toBe("diagnostic");
     if (diagnostics[0]!.type === "diagnostic") {
-      expect(diagnostics[0]!.message).toBe("network allowlist not enforced on host runtime");
+      expect(diagnostics[0]!.message).toBe(
+        "network allowlist not enforced on host runtime",
+      );
       expect(diagnostics[0]!.severity).toBe("info");
     }
   });

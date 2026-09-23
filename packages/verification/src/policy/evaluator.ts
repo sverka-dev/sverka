@@ -14,7 +14,10 @@ function normalizeCheckId(id: string): string {
 }
 
 /** Match a finding checkId against a policy checkId, allowing rule-qualified ids. */
-function matchesCheckId(findingCheckId: string, policyCheckId: string): boolean {
+function matchesCheckId(
+  findingCheckId: string,
+  policyCheckId: string,
+): boolean {
   const bareFinding = normalizeCheckId(findingCheckId);
   const barePolicy = normalizeCheckId(policyCheckId);
   if (bareFinding === barePolicy) return true;
@@ -40,10 +43,7 @@ function validatePolicy(policy: Policy): asserts policy is Policy {
     throw new PolicyError("Policy must be an object", "INVALID_POLICY");
   }
   if (!Array.isArray(policy.failOn)) {
-    throw new PolicyError(
-      "Policy failOn must be an array",
-      "INVALID_POLICY",
-    );
+    throw new PolicyError("Policy failOn must be an array", "INVALID_POLICY");
   }
   for (const rule of policy.failOn) {
     assertValidSeverity(rule.severity);
@@ -74,15 +74,19 @@ export function evaluatePolicy(
   for (let i = 0; i < policy.failOn.length; i++) {
     const rule = policy.failOn[i]!;
     const rawCheckIds = rule.checkIds as string | string[] | undefined | null;
-    const checkIds = rawCheckIds === undefined || rawCheckIds === null
-      ? []
-      : Array.isArray(rawCheckIds)
-        ? rawCheckIds
-        : [rawCheckIds];
+    const checkIds =
+      rawCheckIds === undefined || rawCheckIds === null
+        ? []
+        : Array.isArray(rawCheckIds)
+          ? rawCheckIds
+          : [rawCheckIds];
 
     let matched: Finding[] = findings.filter((f) => {
       // checkIds filter (supports bare, checks/ prefix, and rule-qualified ids)
-      if (checkIds.length > 0 && !checkIds.some((id) => matchesCheckId(f.checkId, id))) {
+      if (
+        checkIds.length > 0 &&
+        !checkIds.some((id) => matchesCheckId(f.checkId, id))
+      ) {
         return false;
       }
       // onlyNew filter

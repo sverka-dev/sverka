@@ -91,9 +91,9 @@ is decorated:
 ```typescript
 import { pipeline, step, fromClass } from "@sverka/decorators";
 
-@pipeline          // <-- required
+@pipeline // <-- required
 class CiPipeline {
-  @step build = "bun run build"
+  @step build = "bun run build";
 }
 
 export default fromClass(CiPipeline, "ci");

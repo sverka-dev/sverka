@@ -18,7 +18,7 @@ auditability: `actions/checkout@<sha> # v4`.
 ## Goals
 
 - `pinned-actions.json` registry: `{ "actions/checkout@v4": "<40-char-sha>",
-  ... }` bundled in the compiler package.
+... }` bundled in the compiler package.
 - `pinActionRef(ref, registry)` pure function: `actions/checkout@v4` →
   `actions/checkout@<sha> # v4`; local actions (`./.github/...`) and
   already-pinned refs (`@<40-hex>`) pass through unchanged.
@@ -52,11 +52,13 @@ auditability: `actions/checkout@<sha> # v4`.
 ```ts
 // packages/compiler/src/github/pinning.ts
 
-interface PinRegistry { readonly [ref: string]: string } // "actions/checkout@v4" → sha
+interface PinRegistry {
+  readonly [ref: string]: string;
+} // "actions/checkout@v4" → sha
 
 interface PinningConfig {
   readonly mode: "strict" | "off"; // default "off"
-  readonly registry?: PinRegistry;  // default: bundled pinned-actions.json
+  readonly registry?: PinRegistry; // default: bundled pinned-actions.json
 }
 
 /** Pin a single `uses:` ref. Local/already-pinned refs pass through. */
@@ -82,6 +84,7 @@ class GithubTarget implements Target {
 ## Data models
 
 `pinActionRef` rules:
+
 1. Ref starts with `./` (local action) → unchanged.
 2. Ref already matches `@<40 hex>` → unchanged (already pinned).
 3. Ref is `org/name@vN` and in registry → `org/name@<sha> # vN`.

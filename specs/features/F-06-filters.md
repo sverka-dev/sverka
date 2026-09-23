@@ -16,23 +16,23 @@ spec formalizes the portable model and flags the lowering gap.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `branches`, `tags`, `paths` (+ `-ignore`) | `rules:changes`, `rules:if` branch refs | `TriggerFilter.branches/tags/paths` |
-| Semantics | Glob match against ref or changed files | `rules:if` with `$CI_COMMIT_BRANCH`/`$CI_COMMIT_TAG`; `changes:paths` | filter arrays on trigger |
-| Value type | string arrays (globs) | string arrays / expressions | `readonly string[]` |
-| Limitations | `-ignore` variants for exclusion | no `-ignore` equivalent | no ignore variants in v0 |
-| Provider gap | — | — | lowering drops `tags` + `paths` |
+| Aspect       | GitHub Actions                            | GitLab CI                                                             | Sverka (proposed)                   |
+| ------------ | ----------------------------------------- | --------------------------------------------------------------------- | ----------------------------------- |
+| Construct    | `branches`, `tags`, `paths` (+ `-ignore`) | `rules:changes`, `rules:if` branch refs                               | `TriggerFilter.branches/tags/paths` |
+| Semantics    | Glob match against ref or changed files   | `rules:if` with `$CI_COMMIT_BRANCH`/`$CI_COMMIT_TAG`; `changes:paths` | filter arrays on trigger            |
+| Value type   | string arrays (globs)                     | string arrays / expressions                                           | `readonly string[]`                 |
+| Limitations  | `-ignore` variants for exclusion          | no `-ignore` equivalent                                               | no ignore variants in v0            |
+| Provider gap | —                                         | —                                                                     | lowering drops `tags` + `paths`     |
 
 ## GitHub Actions
 
 ```yaml
 on:
   push:
-    branches: [main, 'releases/**']
-    tags: ['v*']
-    paths: ['src/**']
-    paths-ignore: ['docs/**']
+    branches: [main, "releases/**"]
+    tags: ["v*"]
+    paths: ["src/**"]
+    paths-ignore: ["docs/**"]
 ```
 
 `branches`/`tags` use glob patterns (`*`, `**`, `?`, `+`, `[abc]`, `!`).
@@ -46,7 +46,7 @@ build:
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
       changes:
-        paths: ['src/**']
+        paths: ["src/**"]
 ```
 
 Branch filtering via `$CI_COMMIT_BRANCH`, tag filtering via `$CI_COMMIT_TAG`.

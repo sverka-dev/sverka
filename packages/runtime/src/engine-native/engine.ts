@@ -26,9 +26,20 @@ import type { AgentDriver } from "./agent-driver.js";
 import type { CacheStore } from "./cache-store.js";
 import { createValueStore } from "./value-store.js";
 import { createArtifactStore } from "./artifact-store.js";
-import { type StepExecOptions, interpolateCommand, resolveGitContext, resolveUnder, scopeSecretsForStep } from "./step-executor.js";
+import {
+  type StepExecOptions,
+  interpolateCommand,
+  resolveGitContext,
+  resolveUnder,
+  scopeSecretsForStep,
+} from "./step-executor.js";
 import { executeStepWithRetry } from "./retry.js";
-import { buildStepExecutionGraph, transitiveDependents, type StepState, type StepGraph } from "./scheduler.js";
+import {
+  buildStepExecutionGraph,
+  transitiveDependents,
+  type StepState,
+  type StepGraph,
+} from "./scheduler.js";
 import { stepPrefix } from "./refs.js";
 
 /** Create a native engine with the given drivers. */
@@ -65,7 +76,15 @@ interface RunContext {
 class NativeEngine implements Engine {
   private readonly config: EngineConfig;
   private activeRun: AbortController | undefined = undefined;
-  private currentRun: { runId: string; planId: string; startedAt: number; ctx: RunContext | null; status: "running" | import("./types.js").RunStatus } | undefined = undefined;
+  private currentRun:
+    | {
+        runId: string;
+        planId: string;
+        startedAt: number;
+        ctx: RunContext | null;
+        status: "running" | import("./types.js").RunStatus;
+      }
+    | undefined = undefined;
 
   constructor(config: EngineConfig) {
     this.config = config;
@@ -93,7 +112,9 @@ class NativeEngine implements Engine {
       steps: ctx.order.map((stepId) => {
         const state = ctx.states.get(stepId) ?? "pending";
         const durationMs = ctx.stepDurations.get(stepId);
-        return durationMs !== undefined ? { stepId, state, durationMs } : { stepId, state };
+        return durationMs !== undefined
+          ? { stepId, state, durationMs }
+          : { stepId, state };
       }),
     };
   }
@@ -109,8 +130,12 @@ class NativeEngine implements Engine {
   }
 
   /** Update currentRun status if it matches the given runId. */
-  private updateRunStatus(runId: string, status: "running" | import("./types.js").RunStatus): void {
-    if (this.currentRun?.runId === runId) this.currentRun = { ...this.currentRun, status };
+  private updateRunStatus(
+    runId: string,
+    status: "running" | import("./types.js").RunStatus,
+  ): void {
+    if (this.currentRun?.runId === runId)
+      this.currentRun = { ...this.currentRun, status };
   }
 
   async *run(request: RunRequest): AsyncIterable<RunEvent> {
@@ -162,7 +187,10 @@ class NativeEngine implements Engine {
       message: "Engine.resume() is not yet implemented",
       severity: "error",
     };
-    throw new EngineError("Engine.resume() is not yet implemented", "RESUME_NOT_IMPLEMENTED");
+    throw new EngineError(
+      "Engine.resume() is not yet implemented",
+      "RESUME_NOT_IMPLEMENTED",
+    );
   }
 
   private async *executeRun(
@@ -198,7 +226,13 @@ class NativeEngine implements Engine {
       stepDurations: new Map(),
       emit: () => undefined,
     };
-    this.currentRun = { runId, planId: request.plan.id, startedAt: start, ctx: preliminaryCtx, status: "running" };
+    this.currentRun = {
+      runId,
+      planId: request.plan.id,
+      startedAt: start,
+      ctx: preliminaryCtx,
+      status: "running",
+    };
 
     yield { type: "run-started", runId, planId: request.plan.id };
 
@@ -220,7 +254,13 @@ class NativeEngine implements Engine {
 
     // Update currentRun with the real context
     if (this.currentRun?.runId === runId) {
-      this.setCurrentRun({ runId, planId: request.plan.id, startedAt: start, ctx, status: "running" });
+      this.setCurrentRun({
+        runId,
+        planId: request.plan.id,
+        startedAt: start,
+        ctx,
+        status: "running",
+      });
     }
 
     class Deferred {
@@ -283,11 +323,24 @@ class NativeEngine implements Engine {
     runId: string,
     start: number,
     abort: AbortController,
-  ): AsyncGenerator<RunEvent, Omit<RunContext, "eventQueue" | "readyQueue" | "stepDurations" | "completionOrder" | "hasFailure" | "emit"> | null, void> {
+  ): AsyncGenerator<
+    RunEvent,
+    Omit<
+      RunContext,
+      | "eventQueue"
+      | "readyQueue"
+      | "stepDurations"
+      | "completionOrder"
+      | "hasFailure"
+      | "emit"
+    > | null,
+    void
+  > {
     const plan = request.plan;
     const drivers = request.drivers ?? this.config.drivers;
     const agentDrivers = request.agentDrivers ?? this.config.agentDrivers ?? [];
-    const maxConcurrent = request.maxConcurrent ?? this.config.maxConcurrent ?? 4;
+    const maxConcurrent =
+      request.maxConcurrent ?? this.config.maxConcurrent ?? 4;
     const cache = request.cache ?? this.config.cache;
 
     const setup = await this.resolveSetup(request, plan);
@@ -323,7 +376,11 @@ class NativeEngine implements Engine {
   private async resolveSetup(
     request: RunRequest,
     plan: RunPlan,
-  ): Promise<{ error: string | null; graph: StepGraph; secrets: Record<string, string> }> {
+  ): Promise<{
+    error: string | null;
+    graph: StepGraph;
+    secrets: Record<string, string>;
+  }> {
     const secretsResult = await resolveRunSecrets(request, plan);
     if ("error" in secretsResult) {
       return { error: secretsResult.error, graph: emptyGraph(), secrets: {} };
@@ -339,7 +396,11 @@ class NativeEngine implements Engine {
       return { error: wsError, graph: emptyGraph(), secrets: {} };
     }
 
-    return { error: null, graph: graphResult.graph, secrets: secretsResult.secrets };
+    return {
+      error: null,
+      graph: graphResult.graph,
+      secrets: secretsResult.secrets,
+    };
   }
 
   private *emitSetupFailure(
@@ -467,7 +528,10 @@ class NativeEngine implements Engine {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "pull" || policy === "pull-push") {
         const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
-        const restoreKeys = step.cache.restoreKeys?.map((k) => this.resolveCacheKey(k, ctx, step.id)) ?? [];
+        const restoreKeys =
+          step.cache.restoreKeys?.map((k) =>
+            this.resolveCacheKey(k, ctx, step.id),
+          ) ?? [];
         try {
           const hit = await ctx.cache.restore({
             key,
@@ -479,7 +543,11 @@ class NativeEngine implements Engine {
             ctx.states.set(step.id, "succeeded");
             ctx.stepDurations.set(step.id, 0);
             ctx.emit({ type: "step-cache-hit", stepId: step.id, key: hit.key });
-            ctx.emit({ type: "step-succeeded", stepId: step.id, durationMs: 0 });
+            ctx.emit({
+              type: "step-succeeded",
+              stepId: step.id,
+              durationMs: 0,
+            });
             // Cache-restored steps are not added to completionOrder —
             // they did not execute, so compensation should not run.
             this.onStepComplete(ctx, step.id);
@@ -519,12 +587,21 @@ class NativeEngine implements Engine {
     // Cache push: store declared paths after a successful execution
     // (policy push / pull-push). Best-effort — failures emit a warn diagnostic.
     // Spec 27: agent steps skip cache storage.
-    if (!isAgentStep && result.status === "succeeded" && step.cache && ctx.cache) {
+    if (
+      !isAgentStep &&
+      result.status === "succeeded" &&
+      step.cache &&
+      ctx.cache
+    ) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "push" || policy === "pull-push") {
         const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
         try {
-          await ctx.cache.store({ key, paths: step.cache.paths, sourceDir: ctx.request.workspace });
+          await ctx.cache.store({
+            key,
+            paths: step.cache.paths,
+            sourceDir: ctx.request.workspace,
+          });
         } catch (e) {
           ctx.emit({
             type: "diagnostic",
@@ -604,7 +681,8 @@ class NativeEngine implements Engine {
     step: StepDefinition,
   ): AsyncGenerator<RunEvent, void, void> {
     // v1: compensation is always kind "shell" (validated at synthesis).
-    const rawCommand = step.compensation?.kind === "shell" ? step.compensation.command : "";
+    const rawCommand =
+      step.compensation?.kind === "shell" ? step.compensation.command : "";
     if (!rawCommand) return;
 
     const driver = ctx.drivers.find((d) => d.canExecute(step));
@@ -637,7 +715,12 @@ class NativeEngine implements Engine {
         message: `compensation interpolation failed: ${e instanceof Error ? e.message : String(e)}`,
         severity: "warn",
       });
-      ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs: 0 });
+      ctx.emit({
+        type: "step-compensated",
+        stepId,
+        status: "failed",
+        durationMs: 0,
+      });
       yield* this.drainEvents(ctx);
       return;
     }
@@ -651,15 +734,30 @@ class NativeEngine implements Engine {
       const request = buildCompensationRequest(ctx, stepId, step, command);
       result = await driver.executeShell(request);
     } catch (e) {
-      this.emitCompensationFailure(ctx, stepId, Date.now() - compStart, `compensation failed: ${e instanceof Error ? e.message : String(e)}`);
+      this.emitCompensationFailure(
+        ctx,
+        stepId,
+        Date.now() - compStart,
+        `compensation failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
       yield* this.drainEvents(ctx);
       return;
     }
     const durationMs = Date.now() - compStart;
     if (result.exitCode === 0) {
-      ctx.emit({ type: "step-compensated", stepId, status: "succeeded", durationMs });
+      ctx.emit({
+        type: "step-compensated",
+        stepId,
+        status: "succeeded",
+        durationMs,
+      });
     } else {
-      this.emitCompensationFailure(ctx, stepId, durationMs, `compensation for step '${stepId}' failed with exit code ${result.exitCode}`);
+      this.emitCompensationFailure(
+        ctx,
+        stepId,
+        durationMs,
+        `compensation for step '${stepId}' failed with exit code ${result.exitCode}`,
+      );
     }
     yield* this.drainEvents(ctx);
   }
@@ -690,10 +788,13 @@ class NativeEngine implements Engine {
     const cached = plan.steps.filter((s) => (s.cache?.paths.length ?? 0) > 0);
     for (let i = 0; i < cached.length; i++) {
       for (let j = i + 1; j < cached.length; j++) {
-        const a = cached[i], b = cached[j];
+        const a = cached[i],
+          b = cached[j];
         if (a === undefined || b === undefined) continue;
         if (ancestors(a.id).has(b.id) || ancestors(b.id).has(a.id)) continue;
-        const shared = (a.cache?.paths ?? []).filter((p) => b.cache?.paths.includes(p));
+        const shared = (a.cache?.paths ?? []).filter((p) =>
+          b.cache?.paths.includes(p),
+        );
         if (shared.length === 0) continue;
         ctx.emit({
           type: "diagnostic",
@@ -708,8 +809,18 @@ class NativeEngine implements Engine {
   /**
    * Emit a failed compensation event + diagnostic.
    */
-  private emitCompensationFailure(ctx: RunContext, stepId: string, durationMs: number, message: string): void {
-    ctx.emit({ type: "step-compensated", stepId, status: "failed", durationMs });
+  private emitCompensationFailure(
+    ctx: RunContext,
+    stepId: string,
+    durationMs: number,
+    message: string,
+  ): void {
+    ctx.emit({
+      type: "step-compensated",
+      stepId,
+      status: "failed",
+      durationMs,
+    });
     ctx.emit({ type: "diagnostic", stepId, message, severity: "warn" });
   }
 
@@ -774,8 +885,11 @@ class NativeEngine implements Engine {
     }
     if (condition.kind === "context") {
       const key = `${condition.namespace}.${condition.field}`;
-      const value = ctx.plan.inputs?.[key] ?? ctx.plan.inputs?.[condition.field];
-      return value !== undefined && value !== false && value !== "" && value !== 0;
+      const value =
+        ctx.plan.inputs?.[key] ?? ctx.plan.inputs?.[condition.field];
+      return (
+        value !== undefined && value !== false && value !== "" && value !== 0
+      );
     }
     if (condition.kind === "step") {
       const prefix = stepPrefix(stepId);
@@ -788,7 +902,9 @@ class NativeEngine implements Engine {
         resolvedId = condition.step;
       }
       const value = ctx.valueStore.get(resolvedId, condition.output);
-      return value !== undefined && value !== false && value !== "" && value !== 0;
+      return (
+        value !== undefined && value !== false && value !== "" && value !== 0
+      );
     }
     if (condition.kind === "expression") {
       return this.evaluateExpressionCondition(condition, ctx, stepId);
@@ -807,7 +923,9 @@ class NativeEngine implements Engine {
     const step = ctx.stepMap.get(stepId);
     if (!step) return status === "success";
 
-    const depStates = step.dependencies.map((dep) => ctx.states.get(dep.producer));
+    const depStates = step.dependencies.map((dep) =>
+      ctx.states.get(dep.producer),
+    );
 
     if (status === "success") {
       return depStates.every((s) => s === "succeeded");
@@ -828,7 +946,10 @@ class NativeEngine implements Engine {
     let resolved = condition.template;
 
     for (const ref of condition.refs) {
-      const placeholder = ref.kind === "step" ? `\${${ref.step}.${ref.output}}` : `\${${ref.namespace}.${ref.field}}`;
+      const placeholder =
+        ref.kind === "step"
+          ? `\${${ref.step}.${ref.output}}`
+          : `\${${ref.namespace}.${ref.field}}`;
       const value = this.resolveConditionRef(ref, ctx, stepId);
       const replacement = formatRefValue(value);
       // Use a function replacement to avoid interpreting $&, $1, etc.
@@ -888,13 +1009,21 @@ class NativeEngine implements Engine {
    * step-output refs are disallowed in cache keys (validated at analyze time)
    * and left unresolved here. Unknown refs are replaced with an empty string.
    */
-  private resolveCacheKey(key: string, ctx: RunContext, stepId: string): string {
+  private resolveCacheKey(
+    key: string,
+    ctx: RunContext,
+    stepId: string,
+  ): string {
     return key.replace(/\$\{\{\s*([^}]+?)\s*\}\}/g, (whole, inner: string) => {
       const dot = inner.lastIndexOf(".");
       if (dot === -1) return whole;
       const namespace = inner.slice(0, dot).trim();
       const field = inner.slice(dot + 1).trim();
-      const ref = { kind: "context" as const, namespace: namespace as never, field };
+      const ref = {
+        kind: "context" as const,
+        namespace: namespace as never,
+        field,
+      };
       const value = this.resolveContextRef(ref, ctx, stepId);
       return value === undefined ? "" : String(value);
     });
@@ -931,8 +1060,10 @@ function resolveStepId(refStep: string, prefix: string | undefined): string {
  */
 function formatRefValue(value: unknown): string {
   if (value === undefined || value === null) return "";
-  if (typeof value === "string") return `"${value.replace(/[\\"\n\r\t]/g, (ch) => ESCAPES[ch] ?? ch)}"`;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "string")
+    return `"${value.replace(/[\\"\n\r\t]/g, (ch) => ESCAPES[ch] ?? ch)}"`;
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   // Use stable stringify so object key ordering is deterministic.
   return stableStringify(value);
 }
@@ -975,7 +1106,10 @@ function evalSimpleBoolean(expr: string): boolean {
 function parseOr(s: string): unknown {
   const parts = splitTop(s, "||");
   if (parts.length > 1) {
-    return parts.reduce((acc, p) => Boolean(acc) || Boolean(parseAnd(p)), false);
+    return parts.reduce(
+      (acc, p) => Boolean(acc) || Boolean(parseAnd(p)),
+      false,
+    );
   }
   return parseAnd(s);
 }
@@ -1057,7 +1191,10 @@ function unescapeString(s: string): string {
  * the current character is a backslash inside a string (caller should
  * skip the next character).
  */
-function advanceScan(state: { depth: number; inStr: string | null }, c: string): boolean {
+function advanceScan(
+  state: { depth: number; inStr: string | null },
+  c: string,
+): boolean {
   if (state.inStr) {
     if (c === "\\") return true;
     if (c === state.inStr) state.inStr = null;
@@ -1149,7 +1286,12 @@ function buildStepGraph(
 }
 
 function emptyGraph(): StepGraph {
-  return { order: [], stepMap: new Map(), dependents: new Map(), indegree: new Map() };
+  return {
+    order: [],
+    stepMap: new Map(),
+    dependents: new Map(),
+    indegree: new Map(),
+  };
 }
 
 async function ensureWorkspace(workspace: string): Promise<string | undefined> {
@@ -1204,9 +1346,10 @@ function buildCompensationRequest(
     command,
     workspace: ctx.request.workspace,
     env: buildCompensationEnv(step, scopeSecretsForStep(step, ctx.secrets)),
-    cwd: step.runtime.workingDir !== undefined
-      ? resolveUnder(ctx.request.workspace, step.runtime.workingDir)
-      : ctx.request.workspace,
+    cwd:
+      step.runtime.workingDir !== undefined
+        ? resolveUnder(ctx.request.workspace, step.runtime.workingDir)
+        : ctx.request.workspace,
     ...(step.timeout !== undefined ? { timeoutMs: step.timeout } : {}),
     ...(step.runtime.image ? { image: step.runtime.image } : {}),
     ...(step.runtime.mode ? { mode: step.runtime.mode } : {}),

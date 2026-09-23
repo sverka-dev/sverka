@@ -15,13 +15,13 @@ runtime driver.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `timeout-minutes` | `timeout` | `Step.timeout` (ms) |
-| Semantics | job killed after N minutes | job killed after duration string | step killed after N ms |
-| Value type | integer (minutes) | string (`"1h30m"`, `"45m"`) | number (milliseconds) |
-| Limitations | minimum 1 minute | format: `Nh`/`Nm`/`Ns` | ms precision, lowered to minutes |
-| Provider gap | — | — | sub-minute precision lost in lowering |
+| Aspect       | GitHub Actions             | GitLab CI                        | Sverka (proposed)                     |
+| ------------ | -------------------------- | -------------------------------- | ------------------------------------- |
+| Construct    | `timeout-minutes`          | `timeout`                        | `Step.timeout` (ms)                   |
+| Semantics    | job killed after N minutes | job killed after duration string | step killed after N ms                |
+| Value type   | integer (minutes)          | string (`"1h30m"`, `"45m"`)      | number (milliseconds)                 |
+| Limitations  | minimum 1 minute           | format: `Nh`/`Nm`/`Ns`           | ms precision, lowered to minutes      |
+| Provider gap | —                          | —                                | sub-minute precision lost in lowering |
 
 ## GitHub Actions
 

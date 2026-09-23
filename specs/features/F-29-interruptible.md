@@ -12,13 +12,13 @@ Interruptible jobs can be cancelled mid-run when a new pipeline starts, saving r
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `concurrency.cancel-in-progress` | `interruptible`, `workflow:auto_cancel` | `interruptible` on Step |
-| Semantics | Cancel running jobs in concurrency group on new run | Cancel job if new commit pushed and job is interruptible | Step can be cancelled on new run |
-| Value type | boolean | boolean (per-job) + enum (workflow) | boolean |
-| Limitations | tied to concurrency group | requires `workflow:auto_cancel: on_new_commit: interruptible` | — |
-| Provider gap | — | — | different mechanisms, same intent |
+| Aspect       | GitHub Actions                                      | GitLab CI                                                     | Sverka (proposed)                 |
+| ------------ | --------------------------------------------------- | ------------------------------------------------------------- | --------------------------------- |
+| Construct    | `concurrency.cancel-in-progress`                    | `interruptible`, `workflow:auto_cancel`                       | `interruptible` on Step           |
+| Semantics    | Cancel running jobs in concurrency group on new run | Cancel job if new commit pushed and job is interruptible      | Step can be cancelled on new run  |
+| Value type   | boolean                                             | boolean (per-job) + enum (workflow)                           | boolean                           |
+| Limitations  | tied to concurrency group                           | requires `workflow:auto_cancel: on_new_commit: interruptible` | —                                 |
+| Provider gap | —                                                   | —                                                             | different mechanisms, same intent |
 
 ## GitHub Actions
 
@@ -106,7 +106,7 @@ GitLab has fine-grained per-job interruptible control. GitHub only has workflow-
   provider (GitLab) and let the GitHub diagnostic explain the downgrade.
 - **Native engine:** no new cancellation signals. The engine already has
   `Engine.cancel(runId)` and `AbortController`-based step cancellation
-  (engine.ts:93, :400). `interruptible` is a *declaration* of cancellability,
+  (engine.ts:93, :400). `interruptible` is a _declaration_ of cancellability,
   not a new mechanism. A future "auto-cancel on new run" orchestrator can
   consult `step.interruptible` before calling `cancel()`. This wave only
   threads the field through the graph and lowering; engine behaviour change

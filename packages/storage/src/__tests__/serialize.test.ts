@@ -5,7 +5,10 @@ import { StorageError } from "../errors.js";
 import { makeSnapshot } from "./helpers/fixtures.js";
 
 /** Serialize a snapshot, apply a mutation to the JSON, then expect deserialization to throw CORRUPT_SNAPSHOT. */
-function expectCorruptSnapshot(mutate: (obj: Record<string, unknown>) => void, runId = "run-1"): void {
+function expectCorruptSnapshot(
+  mutate: (obj: Record<string, unknown>) => void,
+  runId = "run-1",
+): void {
   const snap = makeSnapshot();
   const parsed: unknown = JSON.parse(serialize(snap));
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -14,14 +17,18 @@ function expectCorruptSnapshot(mutate: (obj: Record<string, unknown>) => void, r
   const obj = parsed as Record<string, unknown>;
   mutate(obj);
   const text = JSON.stringify(obj);
-  expect(() => deserialize(text, runId)).toThrowError(expect.objectContaining({ code: "CORRUPT_SNAPSHOT" }));
+  expect(() => deserialize(text, runId)).toThrowError(
+    expect.objectContaining({ code: "CORRUPT_SNAPSHOT" }),
+  );
 }
 
 /** Serialize a snapshot, rename a field in the JSON string, then expect deserialization to throw CORRUPT_SNAPSHOT. */
 function expectCorruptByFieldRename(field: string): void {
   const snap = makeSnapshot();
   const text = serialize(snap).replace(`"${field}"`, `"x${field}"`);
-  expect(() => deserialize(text, "run-1")).toThrowError(expect.objectContaining({ code: "CORRUPT_SNAPSHOT" }));
+  expect(() => deserialize(text, "run-1")).toThrowError(
+    expect.objectContaining({ code: "CORRUPT_SNAPSHOT" }),
+  );
 }
 
 describe("serialize / deserialize", () => {
@@ -39,7 +46,9 @@ describe("serialize / deserialize", () => {
   });
 
   it("deserialize throws StorageError(CORRUPT_SNAPSHOT) for invalid JSON", () => {
-    expect(() => deserialize("{ not valid json", "run-1")).toThrow(StorageError);
+    expect(() => deserialize("{ not valid json", "run-1")).toThrow(
+      StorageError,
+    );
     try {
       deserialize("{ not valid json", "run-1");
     } catch (e) {
@@ -82,29 +91,44 @@ describe("serialize / deserialize", () => {
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry is not an object", () => {
-    expectCorruptSnapshot((obj) => { (obj.completedSteps as unknown[])[0] = null; });
+    expectCorruptSnapshot((obj) => {
+      (obj.completedSteps as unknown[])[0] = null;
+    });
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry has no stepId", () => {
-    expectCorruptSnapshot((obj) => { delete (obj.completedSteps as Record<string, unknown>[])[0]!.stepId; });
+    expectCorruptSnapshot((obj) => {
+      delete (obj.completedSteps as Record<string, unknown>[])[0]!.stepId;
+    });
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when completedSteps entry has no outputs", () => {
-    expectCorruptSnapshot((obj) => { delete (obj.completedSteps as Record<string, unknown>[])[0]!.outputs; });
+    expectCorruptSnapshot((obj) => {
+      delete (obj.completedSteps as Record<string, unknown>[])[0]!.outputs;
+    });
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when resumeSchema is not an object", () => {
-    expectCorruptSnapshot((obj) => { obj.resumeSchema = "bad"; });
+    expectCorruptSnapshot((obj) => {
+      obj.resumeSchema = "bad";
+    });
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when resumeSchema.required is not string array", () => {
-    expectCorruptSnapshot((obj) => { ((obj.resumeSchema as Record<string, unknown>).required as unknown[])[0] = 123; });
+    expectCorruptSnapshot((obj) => {
+      ((obj.resumeSchema as Record<string, unknown>).required as unknown[])[0] =
+        123;
+    });
   });
 
   it("deserialize accepts snapshot without resumeSchema", () => {
     const snap = makeSnapshot();
     const parsed: unknown = JSON.parse(serialize(snap));
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       throw new Error("serialized snapshot must be a JSON object");
     }
     const obj = parsed as Record<string, unknown>;

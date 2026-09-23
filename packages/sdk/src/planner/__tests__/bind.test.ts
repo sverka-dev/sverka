@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { bindRunPlan, computeReachableSteps } from "../bind.js";
 import { PlannerError } from "../errors.js";
-import type { DefinitionGraph, StepDefinition, Dependency } from "@sverka/workflow";
+import type {
+  DefinitionGraph,
+  StepDefinition,
+  Dependency,
+} from "@sverka/workflow";
 import { computeGraphId, computeRunPlanId } from "@sverka/workflow";
 
 function makeStep(id: string, deps: Dependency[] = []): StepDefinition {
@@ -19,19 +23,35 @@ function makeGraph(
   steps: StepDefinition[],
   opts?: {
     entries?: { id: string; trigger: { kind: "push" }; roots: string[] }[];
-    inputs?: Record<string, { type: "string" | "number" | "boolean"; default?: string | number | boolean; required?: boolean; secret?: boolean }>;
+    inputs?: Record<
+      string,
+      {
+        type: "string" | "number" | "boolean";
+        default?: string | number | boolean;
+        required?: boolean;
+        secret?: boolean;
+      }
+    >;
   },
 ): DefinitionGraph {
   return {
     project: {
       id: "test",
-      pipelines: [{
-        id: "ci",
-        inputs: opts?.inputs ?? {},
-        entries: opts?.entries ?? [{ id: "ci/on-push", trigger: { kind: "push" }, roots: steps.length > 0 ? [steps[0]!.id] : [] }],
-        steps,
-        outputs: [],
-      }],
+      pipelines: [
+        {
+          id: "ci",
+          inputs: opts?.inputs ?? {},
+          entries: opts?.entries ?? [
+            {
+              id: "ci/on-push",
+              trigger: { kind: "push" },
+              roots: steps.length > 0 ? [steps[0]!.id] : [],
+            },
+          ],
+          steps,
+          outputs: [],
+        },
+      ],
     },
   };
 }
@@ -47,11 +67,18 @@ describe("bindRunPlan", () => {
   });
 
   it("includes all reachable steps with dependencies", () => {
-    const graph = makeGraph([
-      makeStep("ci/build"),
-      makeStep("ci/test", [{ kind: "control", producer: "ci/build" }]),
-      makeStep("ci/deploy", [{ kind: "control", producer: "ci/test" }]),
-    ], { entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/deploy"] }] });
+    const graph = makeGraph(
+      [
+        makeStep("ci/build"),
+        makeStep("ci/test", [{ kind: "control", producer: "ci/build" }]),
+        makeStep("ci/deploy", [{ kind: "control", producer: "ci/test" }]),
+      ],
+      {
+        entries: [
+          { id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/deploy"] },
+        ],
+      },
+    );
     const plan = bindRunPlan({ graph, entryId: "ci/on-push" });
     expect(plan.steps).toHaveLength(3);
     const ids = plan.steps.map((s) => s.id);
@@ -61,11 +88,18 @@ describe("bindRunPlan", () => {
   });
 
   it("excludes unreachable steps", () => {
-    const graph = makeGraph([
-      makeStep("ci/build"),
-      makeStep("ci/test", [{ kind: "control", producer: "ci/build" }]),
-      makeStep("ci/unrelated"),
-    ], { entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/test"] }] });
+    const graph = makeGraph(
+      [
+        makeStep("ci/build"),
+        makeStep("ci/test", [{ kind: "control", producer: "ci/build" }]),
+        makeStep("ci/unrelated"),
+      ],
+      {
+        entries: [
+          { id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/test"] },
+        ],
+      },
+    );
     const plan = bindRunPlan({ graph, entryId: "ci/on-push" });
     expect(plan.steps).toHaveLength(2);
     const ids = plan.steps.map((s) => s.id);
@@ -86,7 +120,11 @@ describe("bindRunPlan", () => {
     const graph = makeGraph([makeStep("ci/build")], {
       inputs: { env: { type: "string", default: "production" } },
     });
-    const plan = bindRunPlan({ graph, entryId: "ci/on-push", inputs: { env: "staging" } });
+    const plan = bindRunPlan({
+      graph,
+      entryId: "ci/on-push",
+      inputs: { env: "staging" },
+    });
     expect(plan.inputs.env).toBe("staging");
   });
 
@@ -94,7 +132,9 @@ describe("bindRunPlan", () => {
     const graph = makeGraph([makeStep("ci/build")], {
       inputs: { env: { type: "string", required: true } },
     });
-    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(
+      PlannerError,
+    );
     try {
       bindRunPlan({ graph, entryId: "ci/on-push" });
     } catch (e) {
@@ -104,7 +144,9 @@ describe("bindRunPlan", () => {
 
   it("entry not found throws PlannerError(ENTRY_NOT_FOUND)", () => {
     const graph = makeGraph([makeStep("ci/build")]);
-    expect(() => bindRunPlan({ graph, entryId: "nonexistent" })).toThrow(PlannerError);
+    expect(() => bindRunPlan({ graph, entryId: "nonexistent" })).toThrow(
+      PlannerError,
+    );
     try {
       bindRunPlan({ graph, entryId: "nonexistent" });
     } catch (e) {
@@ -114,9 +156,13 @@ describe("bindRunPlan", () => {
 
   it("root not found throws PlannerError(ROOT_NOT_FOUND)", () => {
     const graph = makeGraph([makeStep("ci/build")], {
-      entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["nonexistent"] }],
+      entries: [
+        { id: "ci/on-push", trigger: { kind: "push" }, roots: ["nonexistent"] },
+      ],
     });
-    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(
+      PlannerError,
+    );
     try {
       bindRunPlan({ graph, entryId: "ci/on-push" });
     } catch (e) {
@@ -152,7 +198,9 @@ describe("bindRunPlan", () => {
       makeStep("ci/build", [{ kind: "control", producer: "ci/test" }]),
       makeStep("ci/test", [{ kind: "control", producer: "ci/build" }]),
     ]);
-    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(
+      PlannerError,
+    );
     try {
       bindRunPlan({ graph, entryId: "ci/on-push" });
     } catch (e) {
@@ -162,7 +210,9 @@ describe("bindRunPlan", () => {
 
   it("rejects malformed graphs with INVALID_GRAPH before dereferencing fields", () => {
     const graph = { project: {} } as unknown as DefinitionGraph;
-    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(
+      PlannerError,
+    );
     try {
       bindRunPlan({ graph, entryId: "ci/on-push" });
     } catch (e) {
@@ -174,7 +224,9 @@ describe("bindRunPlan", () => {
     const graph = makeGraph([makeStep("ci/build")], {
       inputs: { env: { type: "string" } },
     });
-    expect(() => bindRunPlan({ graph, entryId: "ci/on-push", inputs: { env: 123 } })).toThrow(PlannerError);
+    expect(() =>
+      bindRunPlan({ graph, entryId: "ci/on-push", inputs: { env: 123 } }),
+    ).toThrow(PlannerError);
     try {
       bindRunPlan({ graph, entryId: "ci/on-push", inputs: { env: 123 } });
     } catch (e) {
@@ -186,7 +238,9 @@ describe("bindRunPlan", () => {
     const graph = makeGraph([makeStep("ci/build")], {
       inputs: { token: { type: "invalid" as "string", secret: true } },
     });
-    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(
+      PlannerError,
+    );
     try {
       bindRunPlan({ graph, entryId: "ci/on-push" });
     } catch (e) {
@@ -198,7 +252,9 @@ describe("bindRunPlan", () => {
     const graph = makeGraph([makeStep("ci/build")], {
       inputs: { env: { type: "invalid" as "string", required: false } },
     });
-    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(
+      PlannerError,
+    );
     try {
       bindRunPlan({ graph, entryId: "ci/on-push" });
     } catch (e) {
@@ -210,7 +266,9 @@ describe("bindRunPlan", () => {
     const graph = makeGraph([makeStep("ci/build")], {
       inputs: { env: null as unknown as { type: "string" } },
     });
-    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(PlannerError);
+    expect(() => bindRunPlan({ graph, entryId: "ci/on-push" })).toThrow(
+      PlannerError,
+    );
     try {
       bindRunPlan({ graph, entryId: "ci/on-push" });
     } catch (e) {
@@ -244,7 +302,10 @@ describe("computeReachableSteps", () => {
       makeStep("a"),
       makeStep("b", [{ kind: "control", producer: "a" }]),
       makeStep("c", [{ kind: "control", producer: "a" }]),
-      makeStep("d", [{ kind: "control", producer: "b" }, { kind: "control", producer: "c" }]),
+      makeStep("d", [
+        { kind: "control", producer: "b" },
+        { kind: "control", producer: "c" },
+      ]),
     ];
     const result = computeReachableSteps(steps, ["d"]);
     expect(result).toHaveLength(4);
@@ -294,7 +355,13 @@ describe("bindRunPlan — pipeline call expansion", () => {
           {
             id: "ci",
             inputs: {},
-            entries: [{ id: "ci/on-push", trigger: { kind: "push" }, roots: ["ci/deploy-staging"] }],
+            entries: [
+              {
+                id: "ci/on-push",
+                trigger: { kind: "push" },
+                roots: ["ci/deploy-staging"],
+              },
+            ],
             steps: [
               {
                 id: "ci/build",

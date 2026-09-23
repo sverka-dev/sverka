@@ -9,7 +9,12 @@ describe("when", () => {
   });
 
   it("works with step references", () => {
-    const ref = { kind: "step" as const, step: "build", output: "success", type: "boolean" as const };
+    const ref = {
+      kind: "step" as const,
+      step: "build",
+      output: "success",
+      type: "boolean" as const,
+    };
     expect(when(ref)).toBe(ref);
   });
 });

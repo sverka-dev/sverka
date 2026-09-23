@@ -185,7 +185,12 @@ export async function loadConfig(
 export async function loadProjectGraph(global: {
   root: string;
   config: string | null;
-}): Promise<{ configPath: string; project: Project | Pipeline; graph: DefinitionGraph; warnings: string[] }> {
+}): Promise<{
+  configPath: string;
+  project: Project | Pipeline;
+  graph: DefinitionGraph;
+  warnings: string[];
+}> {
   const configPath = await resolveConfigPath(global);
   const project = await loadConfig(configPath);
   const warnings = collectConstructWarnings(project);
@@ -208,7 +213,10 @@ export function detectPackageManager(root: string): PmName {
 }
 
 function detectFromLockfile(root: string): PmName | undefined {
-  if (existsSync(join(root, "bun.lockb")) || existsSync(join(root, "bun.lock"))) {
+  if (
+    existsSync(join(root, "bun.lockb")) ||
+    existsSync(join(root, "bun.lock"))
+  ) {
     return "bun";
   }
   if (existsSync(join(root, "pnpm-lock.yaml"))) {
@@ -269,9 +277,14 @@ export async function ensureConstructsDependency(
   return declared;
 }
 
-async function loadPackageBase(pkgPath: string): Promise<Record<string, unknown>> {
+async function loadPackageBase(
+  pkgPath: string,
+): Promise<Record<string, unknown>> {
   try {
-    return JSON.parse(await readFile(pkgPath, "utf8")) as Record<string, unknown>;
+    return JSON.parse(await readFile(pkgPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") {
       return { name: "sverka-project", version: "0.0.0" };
@@ -309,8 +322,7 @@ function ensureConstructsDeclared(
   const devDeps =
     (pkg.devDependencies as Record<string, unknown> | undefined) ?? {};
 
-  const existing =
-    deps["@sverka/workflow"] ?? devDeps["@sverka/workflow"];
+  const existing = deps["@sverka/workflow"] ?? devDeps["@sverka/workflow"];
   if (typeof existing === "string") return existing;
   if (existing !== undefined) {
     // Malformed non-string value — unusable to any package manager.
@@ -392,7 +404,7 @@ function isLocalWorkspace(root: string): boolean {
     if (constructs.name !== "@sverka/workflow") return false;
     const patterns = Array.isArray(rootData.workspaces)
       ? rootData.workspaces
-      : rootData.workspaces?.packages ?? [];
+      : (rootData.workspaces?.packages ?? []);
     return patterns.some((pattern) => pattern.startsWith("packages"));
   } catch {
     return false;

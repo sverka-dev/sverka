@@ -55,11 +55,16 @@ function createShellProxy(prefix: string, shellOpt?: string): ShellProxy {
     // Tagged template: build the command.
     // $ validates interpolation values at runtime (throws INVALID_INTERPOLATION);
     // cast to satisfy its (string | Reference) signature.
-    const builder = $(stringsOrInterpreter, ...(values as readonly (string | Reference)[]));
+    const builder = $(
+      stringsOrInterpreter,
+      ...(values as readonly (string | Reference)[]),
+    );
 
     // Prepend command prefix if set (e.g. "git " for shell.git`push`).
     if (prefix) {
-      return wrapBuilder(builder, (step) => applyPrefixAndShell(step, prefix, shellOpt));
+      return wrapBuilder(builder, (step) =>
+        applyPrefixAndShell(step, prefix, shellOpt),
+      );
     }
 
     // No prefix — bare shell`command` or shell("bash")`command`.
@@ -74,7 +79,8 @@ function createShellProxy(prefix: string, shellOpt?: string): ShellProxy {
     get(_target, prop: string | symbol): ShellProxy | undefined {
       // Guard against thenable/introspection props (then, toJSON, etc.)
       if (typeof prop !== "string") return undefined;
-      if (prop === "then" || prop === "toJSON" || prop === "toString") return undefined;
+      if (prop === "then" || prop === "toJSON" || prop === "toString")
+        return undefined;
       const newPrefix = prefix ? `${prefix} ${prop}` : prop;
       return createShellProxy(newPrefix, shellOpt);
     },
@@ -116,19 +122,48 @@ function applyShell(
  */
 function wrapBuilder(
   builder: StepBuilder,
-  transform: (step: ReturnType<StepBuilder["build"]>) => ReturnType<StepBuilder["build"]>,
+  transform: (
+    step: ReturnType<StepBuilder["build"]>,
+  ) => ReturnType<StepBuilder["build"]>,
 ): StepBuilder {
   const origBuild = builder.build.bind(builder);
   const wrapped: StepBuilder = {
-    outputs(o) { builder.outputs(o); return wrapped; },
-    inputs(i) { builder.inputs(i); return wrapped; },
-    dependsOn(s) { builder.dependsOn(s); return wrapped; },
-    runtime(r) { builder.runtime(r); return wrapped; },
-    timeout(ms) { builder.timeout(ms); return wrapped; },
-    condition(ref) { builder.condition(ref); return wrapped; },
-    matrix(spec) { builder.matrix(spec); return wrapped; },
-    interruptible(value) { builder.interruptible(value); return wrapped; },
-    compensate(command) { builder.compensate(command); return wrapped; },
+    outputs(o) {
+      builder.outputs(o);
+      return wrapped;
+    },
+    inputs(i) {
+      builder.inputs(i);
+      return wrapped;
+    },
+    dependsOn(s) {
+      builder.dependsOn(s);
+      return wrapped;
+    },
+    runtime(r) {
+      builder.runtime(r);
+      return wrapped;
+    },
+    timeout(ms) {
+      builder.timeout(ms);
+      return wrapped;
+    },
+    condition(ref) {
+      builder.condition(ref);
+      return wrapped;
+    },
+    matrix(spec) {
+      builder.matrix(spec);
+      return wrapped;
+    },
+    interruptible(value) {
+      builder.interruptible(value);
+      return wrapped;
+    },
+    compensate(command) {
+      builder.compensate(command);
+      return wrapped;
+    },
     build(pipeline, id) {
       return transform(origBuild(pipeline, id));
     },

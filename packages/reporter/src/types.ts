@@ -127,13 +127,7 @@ export interface HtmlRendererOptions {
 
 /** Findings list filter selected via the filter bar. */
 export type FindingFilter =
-  | "all"
-  | "critical"
-  | "high"
-  | "medium"
-  | "low"
-  | "new"
-  | "error";
+  "all" | "critical" | "high" | "medium" | "low" | "new" | "error";
 
 /** Visual presentation of a step state in the tree. */
 export interface StepGlyph {

@@ -7,7 +7,10 @@ import { createFileCacheStore, type CacheStore } from "../cache-store.js";
 import { createMockDriver } from "./helpers/mock-driver.js";
 import type { RunPlan, StepDefinition } from "@sverka/workflow";
 
-function makeCacheablePlan(cacheSpec: StepDefinition["cache"], command = "echo build"): RunPlan {
+function makeCacheablePlan(
+  cacheSpec: StepDefinition["cache"],
+  command = "echo build",
+): RunPlan {
   const step: StepDefinition = {
     id: "ci/build",
     runtime: {},
@@ -28,8 +31,19 @@ function makeCacheablePlan(cacheSpec: StepDefinition["cache"], command = "echo b
   };
 }
 
-async function collectEvents(engine: ReturnType<typeof createEngine>, request: Parameters<ReturnType<typeof createEngine>["run"]>[0]) {
-  const events: { type: string; stepId?: string; key?: string; attempt?: number; nextAttemptMs?: number; message?: string; severity?: string }[] = [];
+async function collectEvents(
+  engine: ReturnType<typeof createEngine>,
+  request: Parameters<ReturnType<typeof createEngine>["run"]>[0],
+) {
+  const events: {
+    type: string;
+    stepId?: string;
+    key?: string;
+    attempt?: number;
+    nextAttemptMs?: number;
+    message?: string;
+    severity?: string;
+  }[] = [];
   for await (const event of engine.run(request)) {
     events.push(event as never);
   }
@@ -56,13 +70,23 @@ describe("Engine — cache integration", () => {
     const seedDir = join(testDir, "seed");
     await mkdir(join(seedDir, "dist"), { recursive: true });
     await writeFile(join(seedDir, "dist", "out.txt"), "cached");
-    await cache.store({ key: "build-key", paths: ["dist"], sourceDir: seedDir });
+    await cache.store({
+      key: "build-key",
+      paths: ["dist"],
+      sourceDir: seedDir,
+    });
 
     let executed = false;
     const driver = createMockDriver({
       executeFn: async () => {
         executed = true;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const engine = createEngine({ drivers: [driver], cache });
@@ -79,7 +103,9 @@ describe("Engine — cache integration", () => {
     expect(types).not.toContain("step-started");
     expect(types).not.toContain("step-ready");
     expect(types).toContain("step-succeeded");
-    const completed = events.find((e) => e.type === "run-completed") as never as { status: string };
+    const completed = events.find(
+      (e) => e.type === "run-completed",
+    ) as never as { status: string };
     expect(completed.status).toBe("success");
   });
 
@@ -95,7 +121,10 @@ describe("Engine — cache integration", () => {
     const engine = createEngine({ drivers: [driver], cache });
 
     const events = await collectEvents(engine, {
-      plan: makeCacheablePlan({ paths: ["dist"], key: "build-key" }, "echo build"),
+      plan: makeCacheablePlan(
+        { paths: ["dist"], key: "build-key" },
+        "echo build",
+      ),
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
@@ -165,7 +194,10 @@ describe("Engine — cache integration", () => {
       };
       const engine = createEngine({ drivers: [createMockDriver()], cache });
       await collectEvents(engine, {
-        plan: makeCacheablePlan({ paths: ["dist"], key: "build-${{ env.NODE_VERSION }}" }),
+        plan: makeCacheablePlan({
+          paths: ["dist"],
+          key: "build-${{ env.NODE_VERSION }}",
+        }),
         workspace: join(testDir, "ws"),
         artifactDir: join(testDir, "art"),
       });
@@ -186,7 +218,13 @@ describe("Engine — cache integration", () => {
     const driver = createMockDriver({
       executeFn: async () => {
         executed = true;
-        return { exitCode: 0, stdout: "", stderr: "", durationMs: 1, timedOut: false };
+        return {
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          durationMs: 1,
+          timedOut: false,
+        };
       },
     });
     const engine = createEngine({ drivers: [driver], cache });
@@ -196,7 +234,9 @@ describe("Engine — cache integration", () => {
       artifactDir: join(testDir, "art"),
     });
     expect(executed).toBe(true);
-    const diag = events.find((e) => e.type === "diagnostic" && e.severity === "warn");
+    const diag = events.find(
+      (e) => e.type === "diagnostic" && e.severity === "warn",
+    );
     expect(diag).toBeDefined();
     expect(diag?.message).toContain("cache restore failed");
   });
@@ -214,10 +254,14 @@ describe("Engine — cache integration", () => {
       workspace: join(testDir, "ws"),
       artifactDir: join(testDir, "art"),
     });
-    const diag = events.find((e) => e.type === "diagnostic" && e.severity === "warn");
+    const diag = events.find(
+      (e) => e.type === "diagnostic" && e.severity === "warn",
+    );
     expect(diag).toBeDefined();
     expect(diag?.message).toContain("cache store failed");
-    const completed = events.find((e) => e.type === "run-completed") as never as { status: string };
+    const completed = events.find(
+      (e) => e.type === "run-completed",
+    ) as never as { status: string };
     expect(completed.status).toBe("success");
   });
 });

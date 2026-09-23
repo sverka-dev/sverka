@@ -58,7 +58,7 @@ export const gitlabCapabilities: CapabilityManifest = {
   "deployment.environment.tier": "native",
   "artifact.retention": "native",
   "artifact.access": "native",
-  "cache": "native",
+  cache: "native",
   "cache.policy": "native",
   "cache.fallbackKeys": "native",
   "concurrency.group": "native",

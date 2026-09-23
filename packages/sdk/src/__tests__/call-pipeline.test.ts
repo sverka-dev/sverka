@@ -26,9 +26,7 @@ describe("callPipeline builder", () => {
   it("with no callInputs → empty map", () => {
     const proj = new Project("test");
     const ci = pipeline(proj, "ci", {
-      steps: [
-        (pip) => callPipeline("deploy").build(pip, "deploy"),
-      ],
+      steps: [(pip) => callPipeline("deploy").build(pip, "deploy")],
     });
     const callStep = ci.node.children.find(
       (c) => c instanceof PipelineCallStep,
@@ -48,7 +46,11 @@ describe("callPipeline builder", () => {
       (c) => c instanceof PipelineCallStep,
     ) as PipelineCallStep;
     const envBinding = callStep.callInputs.get("env");
-    expect(envBinding).toEqual({ kind: "context", namespace: "inputs", field: "env" });
+    expect(envBinding).toEqual({
+      kind: "context",
+      namespace: "inputs",
+      field: "env",
+    });
   });
 
   it("full two-pipeline project synthesizes correctly", () => {
@@ -57,7 +59,10 @@ describe("callPipeline builder", () => {
     pipeline(proj, "deploy", {
       inputs: { env: { type: "string", required: true } },
       steps: [
-        (pip) => $`deploy ${inputs.env!}`.outputs({ url: { type: "string" } }).build(pip, "deploy"),
+        (pip) =>
+          $`deploy ${inputs.env!}`
+            .outputs({ url: { type: "string" } })
+            .build(pip, "deploy"),
       ],
     });
     // Caller pipeline.
@@ -70,7 +75,8 @@ describe("callPipeline builder", () => {
             .build(pip, "deploy-staging"),
       ],
       entries: [
-        (pip) => new Entry(pip, "on-push", { trigger: push(), roots: ["build"] }),
+        (pip) =>
+          new Entry(pip, "on-push", { trigger: push(), roots: ["build"] }),
       ],
     });
 

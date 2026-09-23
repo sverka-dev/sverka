@@ -7,6 +7,9 @@ describe("artifact", () => {
   });
 
   it("creates an artifact with absolute path", () => {
-    expect(artifact("/build/output")).toEqual({ type: "artifact", path: "/build/output" });
+    expect(artifact("/build/output")).toEqual({
+      type: "artifact",
+      path: "/build/output",
+    });
   });
 });

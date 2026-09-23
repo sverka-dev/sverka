@@ -18,7 +18,9 @@ describe("serializeGraph → deserializeGraph round-trip", () => {
     const parsed = deserializeGraph(json);
     expect(parsed.apiVersion).toBe("sverka.dev/v1graph");
     expect(parsed.graph.project.id).toBe(graph.project.id);
-    expect(parsed.graph.project.pipelines).toHaveLength(graph.project.pipelines.length);
+    expect(parsed.graph.project.pipelines).toHaveLength(
+      graph.project.pipelines.length,
+    );
   });
 
   it("produces an id matching computeGraphId", () => {
@@ -53,7 +55,10 @@ describe("deserializeGraph error handling", () => {
 
   it("rejects wrong apiVersion → ValidationError", () => {
     const graph = makeSampleGraph();
-    const json = serializeGraph(graph).replace("sverka.dev/v1graph", "sverka.dev/v0");
+    const json = serializeGraph(graph).replace(
+      "sverka.dev/v1graph",
+      "sverka.dev/v0",
+    );
     expect(() => deserializeGraph(json)).toThrow(ValidationError);
   });
 
@@ -61,14 +66,18 @@ describe("deserializeGraph error handling", () => {
     const graph = makeSampleGraph();
     const obj = JSON.parse(serializeGraph(graph));
     delete obj.id;
-    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(ValidationError);
+    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(
+      ValidationError,
+    );
   });
 
   it("rejects missing graph → ValidationError", () => {
     const graph = makeSampleGraph();
     const obj = JSON.parse(serializeGraph(graph));
     delete obj.graph;
-    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(ValidationError);
+    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(
+      ValidationError,
+    );
   });
 
   it("rejects invalid graph structure → ValidationError", () => {
@@ -125,7 +134,9 @@ describe("deserializeGraph error handling", () => {
     const graph = makeSampleGraph();
     const obj = JSON.parse(serializeGraph(graph));
     obj.id = "graph-tampered";
-    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(ValidationError);
+    expect(() => deserializeGraph(JSON.stringify(obj))).toThrow(
+      ValidationError,
+    );
   });
 
   it("rejects graph with malformed entry → ValidationError", () => {
@@ -189,7 +200,10 @@ describe("deserializeRunPlan error handling", () => {
 
   it("rejects wrong apiVersion → ValidationError", () => {
     const plan = makeSampleRunPlan(makeSampleGraph());
-    const json = serializeRunPlan(plan).replace("sverka.dev/v1run", "sverka.dev/v0");
+    const json = serializeRunPlan(plan).replace(
+      "sverka.dev/v1run",
+      "sverka.dev/v0",
+    );
     expect(() => deserializeRunPlan(json)).toThrow(ValidationError);
   });
 
@@ -197,34 +211,44 @@ describe("deserializeRunPlan error handling", () => {
     const plan = makeSampleRunPlan(makeSampleGraph());
     const obj = JSON.parse(serializeRunPlan(plan));
     delete obj.entry;
-    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(
+      ValidationError,
+    );
   });
 
   it("rejects missing steps → ValidationError", () => {
     const plan = makeSampleRunPlan(makeSampleGraph());
     const obj = JSON.parse(serializeRunPlan(plan));
     delete obj.steps;
-    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(
+      ValidationError,
+    );
   });
 
   it("rejects invalid trigger kind → ValidationError", () => {
     const plan = makeSampleRunPlan(makeSampleGraph());
     const obj = JSON.parse(serializeRunPlan(plan));
     obj.entry.trigger.kind = "unknown";
-    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(
+      ValidationError,
+    );
   });
 
   it("rejects run plan with mismatched content-addressed id → ValidationError", () => {
     const plan = makeSampleRunPlan(makeSampleGraph());
     const obj = JSON.parse(serializeRunPlan(plan));
     obj.id = "rp-tampered";
-    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(
+      ValidationError,
+    );
   });
 
   it("rejects non-scalar inputs → ValidationError", () => {
     const plan = makeSampleRunPlan(makeSampleGraph());
     const obj = JSON.parse(serializeRunPlan(plan));
     obj.inputs = { env: { nested: true } };
-    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(ValidationError);
+    expect(() => deserializeRunPlan(JSON.stringify(obj))).toThrow(
+      ValidationError,
+    );
   });
 });

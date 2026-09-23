@@ -68,15 +68,19 @@ v1 — the interface is the seam; concrete adapters are follow-up beads.
 import type { SnapshotStore, RunSnapshot } from "@sverka/runtime";
 
 export interface FileSnapshotStoreConfig {
-  readonly root?: string;   // default process.cwd(); snapshot written to <root>/.sverka/runs/<runId>/snapshot.json
+  readonly root?: string; // default process.cwd(); snapshot written to <root>/.sverka/runs/<runId>/snapshot.json
 }
 
 export interface SqliteSnapshotStoreConfig {
-  readonly path?: string;   // default ".sverka/runs.db"; ":memory:" for in-process
+  readonly path?: string; // default ".sverka/runs.db"; ":memory:" for in-process
 }
 
-export function createFileSnapshotStore(config?: FileSnapshotStoreConfig): SnapshotStore;
-export function createSqliteSnapshotStore(config?: SqliteSnapshotStoreConfig): SnapshotStore;
+export function createFileSnapshotStore(
+  config?: FileSnapshotStoreConfig,
+): SnapshotStore;
+export function createSqliteSnapshotStore(
+  config?: SqliteSnapshotStoreConfig,
+): SnapshotStore;
 
 export class StorageError extends Error {
   readonly code: StorageErrorCode;

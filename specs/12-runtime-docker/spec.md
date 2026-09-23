@@ -40,7 +40,7 @@ interface DockerDriverConfig {
   readonly dockerHost?: string;
   readonly runAs?: string;
   readonly maxLogBytes?: number;
-  readonly network?: string;  // default: "none"
+  readonly network?: string; // default: "none"
 }
 
 function createDockerDriver(config: DockerDriverConfig): RuntimeDriver;

@@ -12,13 +12,13 @@ Releases publish versioned artifacts (binaries, packages, changelogs) to the pro
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `softprops/action-gh-release` (action) | `release` (keyword) | `operation.release` |
-| Semantics | Create GitHub release with tag, assets | Create GitLab release with tag, assets | Create release with tag and assets |
-| Value type | action with inputs | map with tag_name, name, description, assets | `{ tag, name?, description?, assets? }` |
-| Limitations | requires third-party action | native keyword | — |
-| Provider gap | no native keyword | — | — |
+| Aspect       | GitHub Actions                         | GitLab CI                                    | Sverka (proposed)                       |
+| ------------ | -------------------------------------- | -------------------------------------------- | --------------------------------------- |
+| Construct    | `softprops/action-gh-release` (action) | `release` (keyword)                          | `operation.release`                     |
+| Semantics    | Create GitHub release with tag, assets | Create GitLab release with tag, assets       | Create release with tag and assets      |
+| Value type   | action with inputs                     | map with tag_name, name, description, assets | `{ tag, name?, description?, assets? }` |
+| Limitations  | requires third-party action            | native keyword                               | —                                       |
+| Provider gap | no native keyword                      | —                                            | —                                       |
 
 ## GitHub Actions
 
@@ -62,7 +62,7 @@ interface ReleaseSpec {
   readonly tag: string;
   readonly name?: string;
   readonly description?: string;
-  readonly assets?: readonly string[];  // file paths (GitHub) or URLs (GitLab)
+  readonly assets?: readonly string[]; // file paths (GitHub) or URLs (GitLab)
   readonly draft?: boolean;
   readonly prerelease?: boolean;
 }

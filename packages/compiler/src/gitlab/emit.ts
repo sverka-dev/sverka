@@ -32,7 +32,9 @@ const RESERVED_TOP_LEVEL_KEYS = new Set([
  * Emit a GitlabTargetGraph as YAML artifacts.
  * Produces one .gitlab-ci.yml file.
  */
-export function emitGitlab(targetGraph: GitlabTargetGraph): readonly GeneratedArtifact[] {
+export function emitGitlab(
+  targetGraph: GitlabTargetGraph,
+): readonly GeneratedArtifact[] {
   const yaml = stringifyTargetGraph(targetGraph);
   return [
     {
@@ -99,9 +101,12 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
 /**
  * Convert a GitlabDefault to a YAML-compatible object.
  */
-function defaultToYaml(def: NonNullable<GitlabTargetGraph["default"]>): Record<string, unknown> {
+function defaultToYaml(
+  def: NonNullable<GitlabTargetGraph["default"]>,
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  if (def.beforeScript !== undefined) result.before_script = [...def.beforeScript];
+  if (def.beforeScript !== undefined)
+    result.before_script = [...def.beforeScript];
   if (def.afterScript !== undefined) result.after_script = [...def.afterScript];
   if (def.timeout !== undefined) result.timeout = def.timeout;
   if (def.retry !== undefined) {
@@ -130,7 +135,9 @@ function collectIncludes(graph: GitlabTargetGraph): Record<string, unknown>[] {
     for (const inc of graph.localIncludes) {
       allIncludes.push({
         local: inc.local,
-        ...(inc.inputs && Object.keys(inc.inputs).length > 0 ? { inputs: inc.inputs } : {}),
+        ...(inc.inputs && Object.keys(inc.inputs).length > 0
+          ? { inputs: inc.inputs }
+          : {}),
       });
     }
   }
@@ -140,7 +147,9 @@ function collectIncludes(graph: GitlabTargetGraph): Record<string, unknown>[] {
 /**
  * Convert a workflow rule to a YAML-compatible object.
  */
-function workflowRuleToYaml(rule: NonNullable<GitlabTargetGraph["workflowRules"]>[number]): Record<string, unknown> {
+function workflowRuleToYaml(
+  rule: NonNullable<GitlabTargetGraph["workflowRules"]>[number],
+): Record<string, unknown> {
   const r: Record<string, unknown> = {};
   if (rule.if) r.if = rule.if;
   if (rule.changes) r.changes = rule.changes;
@@ -182,7 +191,10 @@ function jobToYaml(job: GitlabJob): Record<string, unknown> {
 }
 
 /** Add artifacts, variables, and rules fields to the result object. */
-function assignJobArtifactsVarsRules(result: Record<string, unknown>, job: GitlabJob): void {
+function assignJobArtifactsVarsRules(
+  result: Record<string, unknown>,
+  job: GitlabJob,
+): void {
   if (job.artifacts) {
     result.artifacts = artifactsToYaml(job.artifacts);
   }
@@ -195,7 +207,10 @@ function assignJobArtifactsVarsRules(result: Record<string, unknown>, job: Gitla
 }
 
 /** Add parallel/matrix field to the result object. */
-function assignJobParallel(result: Record<string, unknown>, job: GitlabJob): void {
+function assignJobParallel(
+  result: Record<string, unknown>,
+  job: GitlabJob,
+): void {
   if (job.parallel?.matrix) {
     // GitLab parallel:matrix requires each variable value to be an array.
     result.parallel = {
@@ -213,7 +228,10 @@ function assignJobParallel(result: Record<string, unknown>, job: GitlabJob): voi
 }
 
 /** Add tags, id_tokens, services, environment, and cache fields. */
-function assignJobContainerFields(result: Record<string, unknown>, job: GitlabJob): void {
+function assignJobContainerFields(
+  result: Record<string, unknown>,
+  job: GitlabJob,
+): void {
   if (job.tags && job.tags.length > 0) {
     result.tags = [...job.tags];
   }
@@ -232,7 +250,10 @@ function assignJobContainerFields(result: Record<string, unknown>, job: GitlabJo
 }
 
 /** Add fields requiring transformation to the result object. */
-function addComplexJobFields(result: Record<string, unknown>, job: GitlabJob): void {
+function addComplexJobFields(
+  result: Record<string, unknown>,
+  job: GitlabJob,
+): void {
   if (job.needs.length > 0) {
     result.needs = [...job.needs];
   }
@@ -285,14 +306,17 @@ function assignRetry(
   // GitLab enforces a maximum of 2 retries.
   const retry: Record<string, unknown> = { max: Math.min(value.max, 2) };
   if (value.when && value.when.length > 0) retry.when = [...value.when];
-  if (value.exitCodes && value.exitCodes.length > 0) retry.exit_codes = [...value.exitCodes];
+  if (value.exitCodes && value.exitCodes.length > 0)
+    retry.exit_codes = [...value.exitCodes];
   result.retry = retry;
 }
 
 /**
  * Convert an artifacts spec to a YAML-compatible object.
  */
-function artifactsToYaml(artifacts: NonNullable<GitlabJob["artifacts"]>): Record<string, unknown> {
+function artifactsToYaml(
+  artifacts: NonNullable<GitlabJob["artifacts"]>,
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   if (artifacts.paths !== undefined) result.paths = [...artifacts.paths];
   if (artifacts.reports !== undefined) result.reports = artifacts.reports;
@@ -318,7 +342,9 @@ function ruleToYaml(rule: GitlabRule): Record<string, unknown> {
 /**
  * Convert id tokens to a YAML-compatible object.
  */
-function idTokensToYaml(idTokens: NonNullable<GitlabJob["idTokens"]>): Record<string, { aud: string }> {
+function idTokensToYaml(
+  idTokens: NonNullable<GitlabJob["idTokens"]>,
+): Record<string, { aud: string }> {
   const result: Record<string, { aud: string }> = {};
   for (const [name, spec] of Object.entries(idTokens)) {
     result[name] = { aud: spec.aud };
@@ -345,7 +371,8 @@ function environmentToYaml(env: GitlabEnvironment): Record<string, unknown> {
   const result: Record<string, unknown> = { name: env.name };
   if (env.url !== undefined) result.url = env.url;
   if (env.action !== undefined) result.action = env.action;
-  if (env.deploymentTier !== undefined) result.deployment_tier = env.deploymentTier;
+  if (env.deploymentTier !== undefined)
+    result.deployment_tier = env.deploymentTier;
   if (env.onStop !== undefined) result.on_stop = env.onStop;
   return result;
 }
@@ -359,6 +386,7 @@ function cacheToYaml(cache: GitlabCache): Record<string, unknown> {
     key: cache.key,
   };
   if (cache.policy !== undefined) result.policy = cache.policy;
-  if (cache.fallbackKeys !== undefined) result.fallback_keys = [...cache.fallbackKeys];
+  if (cache.fallbackKeys !== undefined)
+    result.fallback_keys = [...cache.fallbackKeys];
   return result;
 }

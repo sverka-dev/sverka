@@ -71,10 +71,19 @@ export type { Planner, BindRunPlanOptions };
 export { PlannerError };
 export type { PlannerErrorCode };
 // Re-exported from existing planner:
-export type { DiscoverOptions, ProjectContext, PlanProposal,
-  ProposedCheck, LocalSignal, LocalSignalType, DetectedLanguage,
-  DetectedPackageManager, MonorepoMarker, ChangedFile,
-  DiscoveryExplanation };
+export type {
+  DiscoverOptions,
+  ProjectContext,
+  PlanProposal,
+  ProposedCheck,
+  LocalSignal,
+  LocalSignalType,
+  DetectedLanguage,
+  DetectedPackageManager,
+  MonorepoMarker,
+  ChangedFile,
+  DiscoveryExplanation,
+};
 export { DiscoveryError };
 export type { DiscoveryErrorCode };
 ```
@@ -93,6 +102,7 @@ Type-mismatched user values or defaults cause an `INVALID_INPUT` error. The
 bound inputs become `RunPlan.inputs` as a `Record<string, InputValue>`.
 
 **Run Plan construction**:
+
 1. Structurally validate the graph so malformed values produce `INVALID_GRAPH`
    instead of runtime TypeError.
 2. Find the Entry by `entryId` in the graph's pipeline entries.

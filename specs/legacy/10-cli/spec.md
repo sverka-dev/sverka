@@ -115,27 +115,27 @@ export type CliErrorCode =
 
 ### Command set
 
-| Command | Description | Key flags |
-|---|---|---|
-| `init` | Create a `sverka.config.ts` with sensible defaults. | `--template`, `--force` |
-| `inspect` | Discover and display project context. | (global flags only) |
-| `plan` | Discover context and synthesize a plan without executing. | `--only-new` |
-| `execute` / `run` | Execute the workflow locally and report findings. | `--executor`, `--only-new`, `--baseline` |
-| `validate` | Validate a `sverka.config.ts` without executing. | (global flags only) |
-| `baseline` | Manage the findings baseline. | Subcommands: `create`, `update`, `show`, `clear` |
-| `doctor` | Diagnose environment and dependencies. | (global flags only) |
+| Command           | Description                                               | Key flags                                        |
+| ----------------- | --------------------------------------------------------- | ------------------------------------------------ |
+| `init`            | Create a `sverka.config.ts` with sensible defaults.       | `--template`, `--force`                          |
+| `inspect`         | Discover and display project context.                     | (global flags only)                              |
+| `plan`            | Discover context and synthesize a plan without executing. | `--only-new`                                     |
+| `execute` / `run` | Execute the workflow locally and report findings.         | `--executor`, `--only-new`, `--baseline`         |
+| `validate`        | Validate a `sverka.config.ts` without executing.          | (global flags only)                              |
+| `baseline`        | Manage the findings baseline.                             | Subcommands: `create`, `update`, `show`, `clear` |
+| `doctor`          | Diagnose environment and dependencies.                    | (global flags only)                              |
 
 ### Global flags
 
 All commands accept these global flags:
 
-| Flag | Short | Type | Default | Description |
-|---|---|---|---|---|
-| `--format` | `-f` | `string` | `human` | Output format: `human` or `json` |
-| `--config` | `-c` | `string` | auto | Path to `sverka.config.ts` |
-| `--root` | `-r` | `string` | `cwd` | Root directory |
-| `--quiet` | `-q` | `boolean` | `false` | Suppress non-error output |
-| `--verbose` | `-v` | `boolean` | `false` | Enable debug output |
+| Flag        | Short | Type      | Default | Description                      |
+| ----------- | ----- | --------- | ------- | -------------------------------- |
+| `--format`  | `-f`  | `string`  | `human` | Output format: `human` or `json` |
+| `--config`  | `-c`  | `string`  | auto    | Path to `sverka.config.ts`       |
+| `--root`    | `-r`  | `string`  | `cwd`   | Root directory                   |
+| `--quiet`   | `-q`  | `boolean` | `false` | Suppress non-error output        |
+| `--verbose` | `-v`  | `boolean` | `false` | Enable debug output              |
 
 ### Output formats
 
@@ -160,12 +160,12 @@ always includes:
 
 ### Exit codes
 
-| Code | Meaning | When |
-|---|---|---|
-| 0 | Success | Command completed and policy verdict is `pass` (or N/A). |
-| 1 | Policy fail | Command completed but policy verdict is `fail`. |
-| 2 | Usage error | Invalid arguments, unknown command, missing required flag. |
-| 3 | Runtime error | Unexpected error during execution (crash, unhandled exception). |
+| Code | Meaning       | When                                                            |
+| ---- | ------------- | --------------------------------------------------------------- |
+| 0    | Success       | Command completed and policy verdict is `pass` (or N/A).        |
+| 1    | Policy fail   | Command completed but policy verdict is `fail`.                 |
+| 2    | Usage error   | Invalid arguments, unknown command, missing required flag.      |
+| 3    | Runtime error | Unexpected error during execution (crash, unhandled exception). |
 
 For commands that do not involve policy evaluation (`init`, `inspect`,
 `plan`, `validate`, `baseline`, `doctor`), exit code 1 is never used.
@@ -221,6 +221,7 @@ fails.
 #### `baseline`
 
 Subcommands:
+
 - `create` — Run `execute()` and save findings as a new baseline via
   `saveBaseline()`.
 - `update` — Run `execute()`, load existing baseline via `loadBaseline()`,

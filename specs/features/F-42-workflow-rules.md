@@ -12,13 +12,13 @@ Workflow-level rules control whether an entire pipeline runs. GitLab uses `workf
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | trigger filters (approximate) | `workflow:rules` | `rules` on Pipeline |
-| Semantics | Filter when workflow triggers | Determine if pipeline should run | Gate pipeline execution |
-| Value type | trigger filter maps | array of rule objects | array of rule objects |
-| Limitations | no workflow-level if | — | GitHub: emulated via trigger filters |
-| Provider gap | no workflow-level rules | — | — |
+| Aspect       | GitHub Actions                | GitLab CI                        | Sverka (proposed)                    |
+| ------------ | ----------------------------- | -------------------------------- | ------------------------------------ |
+| Construct    | trigger filters (approximate) | `workflow:rules`                 | `rules` on Pipeline                  |
+| Semantics    | Filter when workflow triggers | Determine if pipeline should run | Gate pipeline execution              |
+| Value type   | trigger filter maps           | array of rule objects            | array of rule objects                |
+| Limitations  | no workflow-level if          | —                                | GitHub: emulated via trigger filters |
+| Provider gap | no workflow-level rules       | —                                | —                                    |
 
 ## GitLab CI
 

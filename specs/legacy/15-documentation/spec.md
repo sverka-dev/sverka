@@ -389,28 +389,33 @@ specs/
 # ADR-NNNN: Title
 
 ## Status
+
 Proposed | Accepted | Deprecated | Superseded by ADR-XXXX
 
 ## Context
+
 (Why this decision is needed)
 
 ## Decision
+
 (What was decided)
 
 ## Consequences
+
 (Positive and negative impacts)
 
 ## Alternatives Considered
+
 (What else was on the table)
 ```
 
 ### Generated documentation sources
 
-| Doc page                  | Source package         | Generator                |
-|--------------------------|------------------------|--------------------------|
-| CLI reference             | `packages/cli`         | Extracted from command defs |
-| Workflow API operations   | `packages/core`        | Extracted from TypeScript types |
-| Check provider list       | `packages/checks`      | Extracted from provider metadata |
+| Doc page                | Source package    | Generator                        |
+| ----------------------- | ----------------- | -------------------------------- |
+| CLI reference           | `packages/cli`    | Extracted from command defs      |
+| Workflow API operations | `packages/core`   | Extracted from TypeScript types  |
+| Check provider list     | `packages/checks` | Extracted from provider metadata |
 
 Generated docs are produced by a build script (`bun run docs:generate`)
 and committed to the repository so they are readable by agents without

@@ -7,19 +7,19 @@ model. Source: `packages/findings/src/`.
 
 Every finding has:
 
-| Field         | Type     | Description                              |
-|---------------|----------|------------------------------------------|
-| `id`          | `string` | `{checkId}:{fingerprint}`                |
-| `fingerprint` | `string` | SHA-256 of `checkId\|rule\|file\|lines`   |
-| `checkId`     | `string` | Check that produced the finding          |
-| `severity`    | `Severity` | `info`, `low`, `medium`, `high`, `critical` |
-| `confidence`  | `number`  | 0.0–1.0 (default 0.5 for SARIF)        |
-| `message`     | `string`  | Human-readable description             |
-| `rule`        | `string`  | Rule ID from the originating tool      |
-| `file`        | `string`  | Path relative to project root          |
-| `startLine`   | `number`  | Start line (1-based)                   |
-| `endLine`     | `number`  | End line (1-based, inclusive)          |
-| `source`      | `FindingSource` | Tool name, version, format       |
+| Field         | Type            | Description                                 |
+| ------------- | --------------- | ------------------------------------------- |
+| `id`          | `string`        | `{checkId}:{fingerprint}`                   |
+| `fingerprint` | `string`        | SHA-256 of `checkId\|rule\|file\|lines`     |
+| `checkId`     | `string`        | Check that produced the finding             |
+| `severity`    | `Severity`      | `info`, `low`, `medium`, `high`, `critical` |
+| `confidence`  | `number`        | 0.0–1.0 (default 0.5 for SARIF)             |
+| `message`     | `string`        | Human-readable description                  |
+| `rule`        | `string`        | Rule ID from the originating tool           |
+| `file`        | `string`        | Path relative to project root               |
+| `startLine`   | `number`        | Start line (1-based)                        |
+| `endLine`     | `number`        | End line (1-based, inclusive)               |
+| `source`      | `FindingSource` | Tool name, version, format                  |
 
 ## `normalizeSarif(sarif, context)`
 

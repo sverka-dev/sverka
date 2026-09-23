@@ -73,6 +73,7 @@ Each spec contains: Overview, Goals, Non-goals, Interfaces, Data models, Error h
    ```
 
    Confirm no untracked wave files remain before staging.
+
 3. Stage only wave files:
 
    ```bash

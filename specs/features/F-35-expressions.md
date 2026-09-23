@@ -12,13 +12,13 @@ Expressions allow dynamic values in pipeline configuration — referencing git c
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `${{ }}` + contexts | `$CI_*` vars + `$[[ ]]` | `expr()` template literal |
-| Semantics | Evaluate expression in context | Variable interpolation + input interpolation | Portable expression evaluation |
-| Value type | expression string | variable reference | expression string |
-| Limitations | GitHub-specific syntax | GitLab-specific variables | translation needed |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                 | GitLab CI                                    | Sverka (proposed)              |
+| ------------ | ------------------------------ | -------------------------------------------- | ------------------------------ |
+| Construct    | `${{ }}` + contexts            | `$CI_*` vars + `$[[ ]]`                      | `expr()` template literal      |
+| Semantics    | Evaluate expression in context | Variable interpolation + input interpolation | Portable expression evaluation |
+| Value type   | expression string              | variable reference                           | expression string              |
+| Limitations  | GitHub-specific syntax         | GitLab-specific variables                    | translation needed             |
+| Provider gap | —                              | —                                            | —                              |
 
 ## GitHub Actions
 
@@ -54,15 +54,15 @@ Sverka uses tagged template `expr()` for expressions with typed context namespac
 
 ```ts
 // Context namespaces
-const env = context.env;        // environment variables
+const env = context.env; // environment variables
 const secrets = context.secrets; // secrets
-const git = context.git;        // git context (branch, tag, ref, sha)
-const change = context.change;  // PR/MR context
-const event = context.event;    // event context
-const run = context.run;        // run context
-const inputs = context.inputs;  // workflow inputs
-const steps = context.steps;    // step outputs
-const needs = context.needs;    // dependency outputs
+const git = context.git; // git context (branch, tag, ref, sha)
+const change = context.change; // PR/MR context
+const event = context.event; // event context
+const run = context.run; // run context
+const inputs = context.inputs; // workflow inputs
+const steps = context.steps; // step outputs
+const needs = context.needs; // dependency outputs
 ```
 
 ### Authoring API
@@ -104,8 +104,8 @@ This is the most complex portability surface. GitHub and GitLab have completely 
 ```ts
 export interface Expression {
   readonly kind: "expression";
-  readonly template: string;              // e.g. '${git.branch} == "main"'
-  readonly refs: readonly Reference[];    // collected references for dep inference
+  readonly template: string; // e.g. '${git.branch} == "main"'
+  readonly refs: readonly Reference[]; // collected references for dep inference
 }
 ```
 
@@ -119,7 +119,7 @@ inference and target translation.
 export function expr(
   strings: TemplateStringsArray,
   ...values: readonly (string | number | boolean | Reference)[]
-): Expression
+): Expression;
 ```
 
 Same interpolation pattern as `sh()`: string/number/boolean values are
@@ -129,6 +129,7 @@ collected into `refs`. Returns an `Expression`.
 ### Condition model update
 
 `condition?: Reference` → `condition?: Reference | Expression` in:
+
 - `constructs.ts` StepProps + Step
 - `core/graph.ts` StepDefinition
 - `sdk/sh.ts` StepBuilder.condition()
@@ -143,47 +144,48 @@ dynamic namespaces (env, secrets, inputs) use a prefix rule.
 
 **GitHub:**
 
-| namespace.field | GitHub context ref |
-|-----------------|--------------------|
-| git.sha | github.sha |
-| git.branch | github.ref_name |
-| git.tag | github.ref_name |
-| change.id | github.event.pull_request.number |
-| change.source | github.event_name |
-| change.target | github.base_ref |
-| change.draft | github.event.pull_request.draft |
-| event.type | github.event_name |
-| run.id | github.run_id |
-| run.attempt | github.run_attempt |
-| env.X | env.X |
-| secrets.X | secrets.X |
-| inputs.X | inputs.X |
+| namespace.field | GitHub context ref               |
+| --------------- | -------------------------------- |
+| git.sha         | github.sha                       |
+| git.branch      | github.ref_name                  |
+| git.tag         | github.ref_name                  |
+| change.id       | github.event.pull_request.number |
+| change.source   | github.event_name                |
+| change.target   | github.base_ref                  |
+| change.draft    | github.event.pull_request.draft  |
+| event.type      | github.event_name                |
+| run.id          | github.run_id                    |
+| run.attempt     | github.run_attempt               |
+| env.X           | env.X                            |
+| secrets.X       | secrets.X                        |
+| inputs.X        | inputs.X                         |
 
 Step refs: `${step.output}` → `${{ steps.<jobId>.outputs.<output> }}`
 
 **GitLab:**
 
-| namespace.field | GitLab variable |
-|-----------------|-----------------|
-| git.sha | CI_COMMIT_SHA |
-| git.branch | CI_COMMIT_BRANCH |
-| git.tag | CI_COMMIT_TAG |
-| change.id | CI_MERGE_REQUEST_IID |
-| change.source | CI_PIPELINE_SOURCE |
-| change.target | CI_MERGE_REQUEST_TARGET_BRANCH_NAME |
-| change.draft | CI_MERGE_REQUEST_DRAFT |
-| event.type | CI_PIPELINE_SOURCE |
-| run.id | CI_PIPELINE_ID |
-| run.attempt | (no equivalent — left as $run_attempt) |
-| env.X | X |
-| secrets.X | X |
-| inputs.X | X |
+| namespace.field | GitLab variable                        |
+| --------------- | -------------------------------------- |
+| git.sha         | CI_COMMIT_SHA                          |
+| git.branch      | CI_COMMIT_BRANCH                       |
+| git.tag         | CI_COMMIT_TAG                          |
+| change.id       | CI_MERGE_REQUEST_IID                   |
+| change.source   | CI_PIPELINE_SOURCE                     |
+| change.target   | CI_MERGE_REQUEST_TARGET_BRANCH_NAME    |
+| change.draft    | CI_MERGE_REQUEST_DRAFT                 |
+| event.type      | CI_PIPELINE_SOURCE                     |
+| run.id          | CI_PIPELINE_ID                         |
+| run.attempt     | (no equivalent — left as $run_attempt) |
+| env.X           | X                                      |
+| secrets.X       | X                                      |
+| inputs.X        | X                                      |
 
 Step refs: `${step.output}` → `$<output>` (from dotenv artifact)
 
 ### Command string translation (both targets)
 
 Parse `${...}` placeholders in command strings. For each placeholder:
+
 1. Match against the step's `inputs` array (ContextRef or StepRef)
 2. If context ref → replace with provider context syntax
 3. If step ref → replace with provider step output syntax (using jobIdMap)
@@ -194,6 +196,7 @@ This reuses the existing `inputs` array — no new data structures needed.
 ### Expression lowering (both targets)
 
 For `Expression` conditions:
+
 - **GitHub:** translate each `${X}` to the GitHub context ref (e.g.
   `github.ref_name`), then wrap the whole expression in `${{ }}`.
   `if: ${{ github.ref_name == "main" }}`
@@ -202,6 +205,7 @@ For `Expression` conditions:
   `rules: [{ if: '$CI_COMMIT_BRANCH == "main"' }]`
 
 For `Reference` conditions (backward compat):
+
 - **GitHub:** `if: ${{ <context_ref> }}` (truthiness check)
 - **GitLab:** `rules: [{ if: '<variable>' }]` (truthiness check)
 
@@ -209,6 +213,7 @@ For `Reference` conditions (backward compat):
 
 Extend `interpolateCommand` in `step-executor.ts` to resolve context refs
 before trying step outputs:
+
 - `env.X` → `process.env.X`
 - `secrets.X` → from secret provider
 - `git.sha` → from git state (rev-parse HEAD)

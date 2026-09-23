@@ -10,7 +10,10 @@ describe("Spec 30 — StepBuilder.compensate()", () => {
     const proj = new Project("saga-sdk");
     const pipeline = new Pipeline(proj, "ci");
     const step = $`deploy`.compensate("rollback.sh").build(pipeline, "deploy");
-    expect(step.compensation).toEqual({ kind: "shell", command: "rollback.sh" });
+    expect(step.compensation).toEqual({
+      kind: "shell",
+      command: "rollback.sh",
+    });
   });
 
   it("item 2: compensation undefined when .compensate() not called", () => {
@@ -28,20 +31,30 @@ describe("Spec 30 — StepBuilder.compensate()", () => {
     // Same object (chainable)
     expect(returned).toBe(builder);
     const step = builder.build(pipeline, "deploy");
-    expect(step.compensation).toEqual({ kind: "shell", command: "rollback.sh" });
+    expect(step.compensation).toEqual({
+      kind: "shell",
+      command: "rollback.sh",
+    });
   });
 
   it("item 2: .compensate() works through the shell proxy wrapper", () => {
     const proj = new Project("saga-sdk-shell-proxy");
     const pipeline = new Pipeline(proj, "ci");
-    const step = shell`deploy`.compensate("rollback.sh").build(pipeline, "deploy");
-    expect(step.compensation).toEqual({ kind: "shell", command: "rollback.sh" });
+    const step = shell`deploy`
+      .compensate("rollback.sh")
+      .build(pipeline, "deploy");
+    expect(step.compensation).toEqual({
+      kind: "shell",
+      command: "rollback.sh",
+    });
   });
 
   it("item 2: .compensate() works through shell proxy with interpreter", () => {
     const proj = new Project("saga-sdk-shell-bash");
     const pipeline = new Pipeline(proj, "ci");
-    const step = shell("bash")`deploy.sh`.compensate("cleanup.sh").build(pipeline, "deploy");
+    const step = shell("bash")`deploy.sh`
+      .compensate("cleanup.sh")
+      .build(pipeline, "deploy");
     expect(step.compensation).toEqual({ kind: "shell", command: "cleanup.sh" });
     expect(step.runtime.shell).toBe("bash");
   });

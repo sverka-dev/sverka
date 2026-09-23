@@ -2,7 +2,14 @@
 // Spec 03 — §9.2, §15. Architecture spec §9.2.
 
 import { ShellStep, Pipeline } from "@sverka/workflow";
-import type { Reference, Runtime, OutputDeclaration, MatrixSpec, Condition, OperationDefinition } from "@sverka/workflow";
+import type {
+  Reference,
+  Runtime,
+  OutputDeclaration,
+  MatrixSpec,
+  Condition,
+  OperationDefinition,
+} from "@sverka/workflow";
 import { SdkError } from "./errors.js";
 import { isReference } from "./internal/is-reference.js";
 
@@ -82,10 +89,16 @@ function createBuilder(state: StepBuilderState): StepBuilder {
         ...(state.dependsOn ? { dependsOn: state.dependsOn } : {}),
         ...(state.runtime ? { runtime: state.runtime } : {}),
         ...(state.timeout !== undefined ? { timeout: state.timeout } : {}),
-        ...(state.condition !== undefined ? { condition: state.condition } : {}),
+        ...(state.condition !== undefined
+          ? { condition: state.condition }
+          : {}),
         ...(state.matrix !== undefined ? { matrix: state.matrix } : {}),
-        ...(state.interruptible !== undefined ? { interruptible: state.interruptible } : {}),
-        ...(state.compensation !== undefined ? { compensation: state.compensation } : {}),
+        ...(state.interruptible !== undefined
+          ? { interruptible: state.interruptible }
+          : {}),
+        ...(state.compensation !== undefined
+          ? { compensation: state.compensation }
+          : {}),
       });
     },
   };

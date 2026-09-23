@@ -18,12 +18,7 @@ export interface SarifTuiOptions {
 
 /** Severity filter cycled by the `f` key. */
 export type ViewerFilter =
-  | "all"
-  | "critical"
-  | "high"
-  | "medium"
-  | "low"
-  | "info";
+  "all" | "critical" | "high" | "medium" | "low" | "info";
 
 /** Sort mode cycled by the `s` key. */
 export type SortMode = "none" | "severity" | "file" | "rule";

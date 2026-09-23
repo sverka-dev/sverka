@@ -50,7 +50,8 @@ interface RunReport {
 
 interface StepReport {
   readonly stepId: string;
-  readonly status: "succeeded" | "failed" | "skipped" | "cancelled" | "cache-hit";
+  readonly status:
+    "succeeded" | "failed" | "skipped" | "cancelled" | "cache-hit";
   readonly durationMs: number;
   readonly cacheHit?: boolean;
   readonly cacheKey?: string;
@@ -89,17 +90,17 @@ Exported from `@sverka/runtime`. CLI: `sverka audit [runId] [--format json|human
 The engine's `run()` method already emits RunEvents. A report collector
 subscribes to the event stream and builds the report:
 
-| Event | Report action |
-|---|---|
-| `run-started` | Record `startedAt`, `runId`, `planId` |
-| `step-started` | Record step start time |
-| `step-succeeded` | Record duration, status=succeeded |
-| `step-failed` | Record duration, status=failed, error |
-| `step-skipped` | Record status=skipped |
-| `step-cancelled` | Record status=cancelled |
+| Event            | Report action                                    |
+| ---------------- | ------------------------------------------------ |
+| `run-started`    | Record `startedAt`, `runId`, `planId`            |
+| `step-started`   | Record step start time                           |
+| `step-succeeded` | Record duration, status=succeeded                |
+| `step-failed`    | Record duration, status=failed, error            |
+| `step-skipped`   | Record status=skipped                            |
+| `step-cancelled` | Record status=cancelled                          |
 | `step-cache-hit` | Record cacheHit=true, cacheKey, status=cache-hit |
-| `step-retry` | Increment retries counter |
-| `run-completed` | Record `completedAt`, status, write report.json |
+| `step-retry`     | Increment retries counter                        |
+| `run-completed`  | Record `completedAt`, status, write report.json  |
 
 Agent reports are populated from `AgentResult.usage` (already in the
 agent driver interface, Spec 27).
@@ -108,14 +109,14 @@ agent driver interface, Spec 27).
 
 Hardcoded rate table (per 1M tokens):
 
-| Model | Input $/1M | Output $/1M |
-|---|---|---|
-| claude-sonnet-4-5 | 3.00 | 15.00 |
-| claude-opus-4 | 15.00 | 75.00 |
-| gpt-4o | 2.50 | 10.00 |
-| gpt-4-turbo | 10.00 | 30.00 |
-| gemini-2-pro | 1.25 | 5.00 |
-| default | 5.00 | 15.00 |
+| Model             | Input $/1M | Output $/1M |
+| ----------------- | ---------- | ----------- |
+| claude-sonnet-4-5 | 3.00       | 15.00       |
+| claude-opus-4     | 15.00      | 75.00       |
+| gpt-4o            | 2.50       | 10.00       |
+| gpt-4-turbo       | 10.00      | 30.00       |
+| gemini-2-pro      | 1.25       | 5.00        |
+| default           | 5.00       | 15.00       |
 
 `estimatedCostUsd = (inputTokens/1M * inputRate) + (outputTokens/1M * outputRate)`.
 

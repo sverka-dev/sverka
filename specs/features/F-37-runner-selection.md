@@ -12,13 +12,13 @@ Runner selection controls which machine executes a job. GitHub uses `runs-on` wi
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `runs-on` | `tags` | `runner` on Step |
-| Semantics | Select runner by label(s) | Select runner by tag(s) | Select runner by label(s) |
-| Value type | string, array, or object with `group`/`labels` | array of strings | `{ labels: string[] }` |
-| Limitations | label must match available runner | tags are case-sensitive | — |
-| Provider gap | — | — | label/tag normalization |
+| Aspect       | GitHub Actions                                 | GitLab CI               | Sverka (proposed)         |
+| ------------ | ---------------------------------------------- | ----------------------- | ------------------------- |
+| Construct    | `runs-on`                                      | `tags`                  | `runner` on Step          |
+| Semantics    | Select runner by label(s)                      | Select runner by tag(s) | Select runner by label(s) |
+| Value type   | string, array, or object with `group`/`labels` | array of strings        | `{ labels: string[] }`    |
+| Limitations  | label must match available runner              | tags are case-sensitive | —                         |
+| Provider gap | —                                              | —                       | label/tag normalization   |
 
 ## GitHub Actions
 
@@ -55,7 +55,7 @@ Tags are case-sensitive. Runner must have all specified tags to pick up the job.
 ```ts
 interface RunnerSpec {
   readonly labels: readonly string[];
-  readonly group?: string;  // GitHub runner group
+  readonly group?: string; // GitHub runner group
 }
 ```
 

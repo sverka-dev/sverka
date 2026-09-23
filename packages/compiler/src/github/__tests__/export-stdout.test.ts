@@ -28,11 +28,10 @@ describe("compileGithub — exportStdout", () => {
     };
     const job = yaml.jobs["lint-sarif"];
     expect(job).toBeDefined();
-    const runStep = job!.steps.find(
-      (s) =>
-        s.run?.includes(
-          "bunx eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
-        ),
+    const runStep = job!.steps.find((s) =>
+      s.run?.includes(
+        "bunx eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
+      ),
     );
     expect(runStep).toBeDefined();
     // stdout is redirected into the artifact file, replayed to the log, and

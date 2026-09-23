@@ -46,25 +46,25 @@ import type { Trigger } from "@sverka/cdk";
 
 interface SerializableGraph {
   apiVersion: "sverka.dev/v1graph";
-  id: string;                    // graph-<64hex>, content-addressed
+  id: string; // graph-<64hex>, content-addressed
   graph: DefinitionGraph;
-  createdAt: string;             // ISO 8601, informational
+  createdAt: string; // ISO 8601, informational
 }
 
 // --- Run Plan ---
 
 interface RunPlan {
   apiVersion: "sverka.dev/v1run";
-  id: string;                    // rp-<64hex>, content-addressed
-  graphId: string;               // source Definition Graph id
+  id: string; // rp-<64hex>, content-addressed
+  graphId: string; // source Definition Graph id
   entry: BoundEntry;
   inputs: Readonly<Record<string, InputValue>>;
-  steps: readonly StepDefinition[];  // reachable from entry roots
-  createdAt: string;             // ISO 8601, informational
+  steps: readonly StepDefinition[]; // reachable from entry roots
+  createdAt: string; // ISO 8601, informational
 }
 
 interface BoundEntry {
-  id: string;                    // EntryDefinition id
+  id: string; // EntryDefinition id
   trigger: Trigger;
 }
 
@@ -85,7 +85,9 @@ function computeGraphId(graph: DefinitionGraph): string;
 function computeRunPlanId(plan: Omit<RunPlan, "id" | "createdAt">): string;
 
 // Validation (throw-on-error)
-function validateGraphSchema(value: unknown): asserts value is SerializableGraph;
+function validateGraphSchema(
+  value: unknown,
+): asserts value is SerializableGraph;
 function validateRunPlanSchema(value: unknown): asserts value is RunPlan;
 ```
 
@@ -94,12 +96,19 @@ function validateRunPlanSchema(value: unknown): asserts value is RunPlan;
 ```ts
 export type { SerializableGraph, RunPlan, BoundEntry, InputValue };
 export {
-  serializeGraph, deserializeGraph,
-  serializeRunPlan, deserializeRunPlan,
-  computeGraphId, computeRunPlanId,
-  validateGraphSchema, validateRunPlanSchema,
-  IRError, ValidationError, SerializationError,
-  GRAPH_SCHEMA_VERSION, RUN_PLAN_SCHEMA_VERSION,
+  serializeGraph,
+  deserializeGraph,
+  serializeRunPlan,
+  deserializeRunPlan,
+  computeGraphId,
+  computeRunPlanId,
+  validateGraphSchema,
+  validateRunPlanSchema,
+  IRError,
+  ValidationError,
+  SerializationError,
+  GRAPH_SCHEMA_VERSION,
+  RUN_PLAN_SCHEMA_VERSION,
 };
 ```
 
@@ -131,8 +140,12 @@ class IRError extends Error {
 
 type IRErrorCode = "VALIDATION_ERROR" | "SERIALIZATION_ERROR";
 
-class ValidationError extends IRError { code: "VALIDATION_ERROR" }
-class SerializationError extends IRError { code: "SERIALIZATION_ERROR" }
+class ValidationError extends IRError {
+  code: "VALIDATION_ERROR";
+}
+class SerializationError extends IRError {
+  code: "SERIALIZATION_ERROR";
+}
 ```
 
 `ValidationError`: schema or semantic validation failure on deserialization.

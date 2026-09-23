@@ -65,6 +65,7 @@ packages/sdk/
 Create `packages/sdk/` with `package.json`, `project.json`, `tsconfig.json`,
 `tsdown.config.ts`. Add workspace deps (all 8 packages above). Fix
 scaffolding per wave 6/7/8 lessons:
+
 - `package.json` dist: `.mjs` / `.d.mts` (not `.js` / `.d.ts`)
 - `project.json` lint: `eslint src` (no `--ext .ts`)
 - `tsconfig.json`: extends root, strict, ESM
@@ -79,6 +80,7 @@ Add `packages/sdk` to nx `~workspace` project graph if needed.
 Write `re-exports.test.ts` and `public-api.test.ts` FIRST (TDD).
 
 Test that importing `@sverka/sdk` gives:
+
 - Composables: `pipeline`, `run`, `parallel`, `when`, `matrix`, `workflow` (callable)
 - Core types: `Operation`, `OperationSpec`, `Workflow`, etc. (typeof check)
 - IR: `validatePlan`, `computePlanId` (callable)
@@ -95,6 +97,7 @@ functions are `export`.
 ### Step 3: `task` helper
 
 Write `task.test.ts`:
+
 - `task("lint", run({...}))` returns an `Operation`
 - The operation's spec has `name: "lint"`
 - Equivalent to `run({...}).named("lint")`
@@ -112,6 +115,7 @@ export function task(name: string, op: Operation): Operation {
 ### Step 4: `defineWorkflow`
 
 Write `define-workflow.test.ts`:
+
 - Returns the same object passed in (identity)
 - Has the correct shape
 
@@ -128,12 +132,14 @@ export function defineWorkflow(d: WorkflowDefinition): WorkflowDefinition {
 ### Step 5: `findConfig`
 
 Write `find-config.test.ts`:
+
 - Finds `sverka.config.ts` in root
 - Finds in parent directory (create temp dir structure)
 - Falls back to `sverka.config.js`
 - Returns `null` after 5 levels
 
 Implement `src/config.ts`:
+
 - Walk upward from `root`, up to 5 parents
 - For each dir: check `sverka.config.ts`, then `sverka.config.js`
 - Use `node:fs` `existsSync`, `node:path` `resolve`/`dirname`
@@ -144,6 +150,7 @@ Implement `src/config.ts`:
 ### Step 6: `loadWorkflow`
 
 Write `load-workflow.test.ts`:
+
 - Loads a valid `sverka.config.ts` (create temp file with `defineWorkflow`)
 - Returns `WorkflowDefinition` with correct shape
 - Throws `SdkError` with `CONFIG_INVALID` when default export is malformed (not an object, missing `name` or `workflow`)
@@ -151,6 +158,7 @@ Write `load-workflow.test.ts`:
 - Throws `SdkError` with `CONFIG_NOT_FOUND` when file doesn't exist
 
 Implement in `src/config.ts`:
+
 - `await import(path)` (use `pathToFileURL` from `node:url` for Windows compat)
 - Check `module.default` exists and is an object with `name: string` and `workflow` having `roots`
 - Wrap import errors in `SdkError(CONFIG_LOAD_FAILED, ..., originalError)`
@@ -161,6 +169,7 @@ Implement in `src/config.ts`:
 ### Step 7: `OperationSpec[] → Plan` conversion
 
 Write `convert.test.ts`:
+
 - Convert a simple `OperationSpec[]` (from `workflow.plan(planRuntime)`) to a `Plan`
 - All required `PlanOperation` fields are filled with defaults
 - `validatePlan(plan)` returns `{ valid: true }`
@@ -171,6 +180,7 @@ Write `convert.test.ts`:
 - `dependsOn` defaults to `[]`
 
 Implement `src/convert.ts`:
+
 - `convertToPlan(operations: readonly OperationSpec[], opts: { name: string, executor: "host" | "docker", context?: ProjectContext }): Plan`
 - Map each `OperationSpec` → `PlanOperation` per the table in spec
 - Assemble `Plan` with `computePlanId`, `createdAt`, `metadata`
@@ -181,16 +191,19 @@ Implement `src/convert.ts`:
 ### Step 8: Plan-mode `Runtime` + `plan()` function
 
 Write `plan-mode.test.ts`:
+
 - Auto-discovery: `plan()` with no config → `PlanResult` with `context`, `proposal`, `operations: []`
 - With config: `plan({ configPath })` → `PlanResult` with `context`, `operations` (from graph), `proposal: null`
 - No side effects (no commands executed)
 
 Implement `src/internal/plan-runtime.ts`:
+
 - `PlanRuntime` implements `Runtime` with `mode: "plan"`
 - `evaluate(op)`: records the `OperationSpec`, returns `{ status: "planned", operationId, durationMs: 0 }`
 - `finalize()`: returns `{ mode: "plan", operations: recorded, durationMs }`
 
 Implement `src/sverka.ts`:
+
 - `createSverka(defaultOptions?)`: returns `Sverka`
 - `sverka.plan(options?)`:
   1. Resolve options (merge defaults)
@@ -205,6 +218,7 @@ Implement `src/sverka.ts`:
 ### Step 9: `execute()` function
 
 Write `execute-mode.test.ts`:
+
 - `execute()` with a simple config (one `run` command) → `ExecutionResult`
 - `status` is `"success"` when command succeeds, `"failure"` when it fails
 - `findings` is `[]`
@@ -215,6 +229,7 @@ Write `execute-mode.test.ts`:
 - `execute()` wraps runtime errors in `SdkError(EXECUTION_FAILED)`
 
 Implement in `src/sverka.ts`:
+
 - `sverka.execute(options?)`:
   1. Resolve options
   2. Discover context
@@ -239,6 +254,7 @@ Implement in `src/sverka.ts`:
 ### Step 10: Error handling + `createSverka` defaults
 
 Write `errors.test.ts`:
+
 - `CONFIG_INVALID` for malformed default export
 - `CONFIG_LOAD_FAILED` preserves cause
 - `CONFIG_NOT_FOUND` when no config and no proposal
@@ -269,12 +285,14 @@ bun run build                      # all packages build
 ## Commit hygiene (for finalize)
 
 Stage ONLY:
+
 - `packages/sdk/**`
 - `specs/09-sdk/spec.md`
 - `engdocs/architecture/wave-09-sdk-plan.md`
 - `bun.lock` (if workspace deps changed it)
 
 EXCLUDE:
+
 - `city.toml`
 - `agents/`
 - `.devin/`

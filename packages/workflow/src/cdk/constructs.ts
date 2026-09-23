@@ -37,7 +37,9 @@ import type {
 import type { OperationDefinition } from "../core/graph.js";
 
 function isDuplicateConstructError(err: unknown): boolean {
-  return err instanceof Error && err.message.includes("There is already a Construct");
+  return (
+    err instanceof Error && err.message.includes("There is already a Construct")
+  );
 }
 
 function validateArtifactOutputs(
@@ -189,7 +191,11 @@ export class Pipeline extends Construct {
       super(scope, id);
     } catch (err) {
       if (isDuplicateConstructError(err)) {
-        throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Project`, err);
+        throw new ConstructError(
+          "DUPLICATE_ID",
+          `Duplicate id '${id}' in Project`,
+          err,
+        );
       }
       throw err;
     }
@@ -306,7 +312,10 @@ export function collectConstructWarnings(root: Construct): string[] {
   const out: string[] = [];
   for (const c of root.node.findAll()) {
     for (const entry of c.node.metadata) {
-      if (entry.type === WARNING_METADATA_TYPE && typeof entry.data === "string") {
+      if (
+        entry.type === WARNING_METADATA_TYPE &&
+        typeof entry.data === "string"
+      ) {
         out.push(`${c.node.path}: ${entry.data}`);
       }
     }
@@ -367,7 +376,11 @@ export abstract class Step extends Construct {
       super(scope, id);
     } catch (err) {
       if (isDuplicateConstructError(err)) {
-        throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Pipeline`, err);
+        throw new ConstructError(
+          "DUPLICATE_ID",
+          `Duplicate id '${id}' in Pipeline`,
+          err,
+        );
       }
       throw err;
     }
@@ -545,7 +558,11 @@ export class AgentStep extends Step {
     if (props.maxTokens !== undefined) {
       this.maxTokens = props.maxTokens;
     }
-    warnUnknownProps(this, props, knownProps("engine", "model", "prompt", "tools", "maxTokens"));
+    warnUnknownProps(
+      this,
+      props,
+      knownProps("engine", "model", "prompt", "tools", "maxTokens"),
+    );
   }
 }
 
@@ -573,7 +590,11 @@ export class Entry extends Construct {
       super(scope, id);
     } catch (err) {
       if (isDuplicateConstructError(err)) {
-        throw new ConstructError("DUPLICATE_ID", `Duplicate id '${id}' in Pipeline`, err);
+        throw new ConstructError(
+          "DUPLICATE_ID",
+          `Duplicate id '${id}' in Pipeline`,
+          err,
+        );
       }
       throw err;
     }

@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, Entry, push } from "../../cdk/index.js";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  ComponentStep,
+  ChildPipelineStep,
+  DownstreamStep,
+  ReleaseStep,
+  PagesStep,
+  Entry,
+  push,
+} from "../../cdk/index.js";
 import { synthesize, type StepDefinition } from "../index.js";
 
 describe("component synthesis", () => {
@@ -8,7 +19,11 @@ describe("component synthesis", () => {
     const ci = new Pipeline(proj, "ci");
     new ShellStep(ci, "build", { command: "make build" });
     new ComponentStep(ci, "deploy", {
-      component: { name: "deploy", version: "1.0.0", inputs: { env: "staging" } },
+      component: {
+        name: "deploy",
+        version: "1.0.0",
+        inputs: { env: "staging" },
+      },
       dependsOn: ["build"],
     });
     new Entry(ci, "on-push", { trigger: push(), roots: ["deploy"] });
@@ -37,7 +52,12 @@ describe("component synthesis", () => {
         name: "deploy",
         version: "1.0.0",
         inputs: {
-          version: { kind: "step", step: "build", output: "version", type: "string" },
+          version: {
+            kind: "step",
+            step: "build",
+            output: "version",
+            type: "string",
+          },
         },
       },
       dependsOn: ["build"],
@@ -92,7 +112,9 @@ describe("child pipeline synthesis", () => {
 
     const graph = synthesize(proj);
     const ciPipeline = graph.project.pipelines.find((p) => p.id === "ci")!;
-    const triggerStep = ciPipeline.steps.find((s) => s.id === "ci/trigger-child");
+    const triggerStep = ciPipeline.steps.find(
+      (s) => s.id === "ci/trigger-child",
+    );
     expect(triggerStep).toBeDefined();
     expect(triggerStep!.childPipeline).toBeDefined();
     expect(triggerStep!.childPipeline!.generator).toBe("generate");
@@ -129,14 +151,23 @@ describe("downstream synthesis", () => {
     const ci = new Pipeline(proj, "ci");
     new ShellStep(ci, "build", { command: "make build" });
     new DownstreamStep(ci, "trigger-downstream", {
-      downstream: { project: "group/other-project", branch: "main", inputs: { env: "staging" } },
+      downstream: {
+        project: "group/other-project",
+        branch: "main",
+        inputs: { env: "staging" },
+      },
       dependsOn: ["build"],
     });
-    new Entry(ci, "on-push", { trigger: push(), roots: ["trigger-downstream"] });
+    new Entry(ci, "on-push", {
+      trigger: push(),
+      roots: ["trigger-downstream"],
+    });
 
     const graph = synthesize(proj);
     const ciPipeline = graph.project.pipelines.find((p) => p.id === "ci")!;
-    const dsStep = ciPipeline.steps.find((s) => s.id === "ci/trigger-downstream");
+    const dsStep = ciPipeline.steps.find(
+      (s) => s.id === "ci/trigger-downstream",
+    );
     expect(dsStep).toBeDefined();
     expect(dsStep!.downstream).toBeDefined();
     expect(dsStep!.downstream!.project).toBe("group/other-project");
@@ -207,7 +238,10 @@ describe("workflow rules synthesis (F-42)", () => {
     const proj = new Project("test");
     const ci = new Pipeline(proj, "ci", {
       rules: [
-        { if: "$CI_COMMIT_BRANCH == \"main\"", variables: { DEPLOY_TARGET: "production" } },
+        {
+          if: '$CI_COMMIT_BRANCH == "main"',
+          variables: { DEPLOY_TARGET: "production" },
+        },
         { when: "never" },
       ],
     });
@@ -218,7 +252,7 @@ describe("workflow rules synthesis (F-42)", () => {
     const ciPipeline = graph.project.pipelines.find((p) => p.id === "ci")!;
     expect(ciPipeline.rules).toBeDefined();
     expect(ciPipeline.rules).toHaveLength(2);
-    expect(ciPipeline.rules![0]!.if).toBe("$CI_COMMIT_BRANCH == \"main\"");
+    expect(ciPipeline.rules![0]!.if).toBe('$CI_COMMIT_BRANCH == "main"');
     expect(ciPipeline.rules![1]!.when).toBe("never");
   });
 
@@ -238,9 +272,7 @@ describe("includes synthesis (F-44)", () => {
   it("synthesizes pipeline includes into PipelineDefinition", () => {
     const proj = new Project("test");
     const ci = new Pipeline(proj, "ci", {
-      includes: [
-        { path: "templates/build.yml", inputs: { image: "node:24" } },
-      ],
+      includes: [{ path: "templates/build.yml", inputs: { image: "node:24" } }],
     });
     new ShellStep(ci, "build", { command: "make build" });
     new Entry(ci, "on-push", { trigger: push(), roots: ["build"] });
@@ -295,7 +327,10 @@ describe("background execution synthesis (F-49)", () => {
   it("synthesizes background shell operation", () => {
     const proj = new Project("test");
     const ci = new Pipeline(proj, "ci");
-    new ShellStep(ci, "start-server", { command: "npm start", background: true });
+    new ShellStep(ci, "start-server", {
+      command: "npm start",
+      background: true,
+    });
     new Entry(ci, "on-push", { trigger: push(), roots: ["start-server"] });
 
     const graph = synthesize(proj);

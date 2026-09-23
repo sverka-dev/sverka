@@ -45,9 +45,13 @@ export async function runCommand(
   // --format html or --output (without sarif/web) implies HTML format
   const isSarif = global.format === "sarif";
   const isWeb = global.format === "web";
-  const isHtml = global.format === "html" || (args.output !== undefined && !isSarif && !isWeb);
+  const isHtml =
+    global.format === "html" ||
+    (args.output !== undefined && !isSarif && !isWeb);
   const evaluate = args.evaluate || isHtml || isSarif || isWeb;
-  output.debug(`run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"} format=${global.format}`);
+  output.debug(
+    `run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"} format=${global.format}`,
+  );
 
   assertExecutorAvailable(executor);
 
@@ -71,20 +75,38 @@ export async function runCommand(
   });
 
   const { events, runStatus, renderer } = await consumeEvents(
-    engine, plan, { workspace, artifactDir }, global, output, graph, args,
+    engine,
+    plan,
+    { workspace, artifactDir },
+    global,
+    output,
+    graph,
+    args,
   );
 
   const durationMs = Date.now() - start;
 
   // If --evaluate (or --format html), collect findings and run policy gate
   let policyExitCode = 0;
-  let evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null = null;
+  let evalResult: {
+    findings: readonly Finding[];
+    verdict: string;
+    summary: string;
+  } | null = null;
   let collectionFailed = false;
   if (evaluate) {
-    const result = await runEvaluation(artifactDir, global, output, events, renderer, args);
+    const result = await runEvaluation(
+      artifactDir,
+      global,
+      output,
+      events,
+      renderer,
+      args,
+    );
     policyExitCode = result.exitCode;
     evalResult = result.summary;
-    collectionFailed = result.summary === null && result.exitCode === ExitCode.RuntimeError;
+    collectionFailed =
+      result.summary === null && result.exitCode === ExitCode.RuntimeError;
   }
 
   // Flush the renderer (HtmlRenderer writes the file on flush)
@@ -92,7 +114,8 @@ export async function runCommand(
 
   // Tell the user where the HTML report went (sarif/web print their own).
   if (isHtml && renderer) {
-    const reportPath = args.output ?? join(global.root, ".sverka", "report.html");
+    const reportPath =
+      args.output ?? join(global.root, ".sverka", "report.html");
     output.writeLine(`Wrote HTML report to ${reportPath}`);
   }
 
@@ -107,7 +130,15 @@ export async function runCommand(
     return policyExitCode;
   }
 
-  writeRunOutput(plan.id, runStatus, events, durationMs, global, output, evalResult);
+  writeRunOutput(
+    plan.id,
+    runStatus,
+    events,
+    durationMs,
+    global,
+    output,
+    evalResult,
+  );
 
   // When --evaluate is set, policy exit code takes precedence
   if (evaluate && policyExitCode !== 0) {
@@ -130,7 +161,11 @@ function assertExecutorAvailable(executor: "host" | "docker"): void {
 function resolveEntryId(graph: DefinitionGraph, entryId?: string): string {
   const resolved = entryId ?? resolveDefaultEntryId(graph);
   if (!resolved) {
-    throw new CliError("no entries in graph", "MISSING_ARG", ExitCode.UsageError);
+    throw new CliError(
+      "no entries in graph",
+      "MISSING_ARG",
+      ExitCode.UsageError,
+    );
   }
   if (!entryExists(graph, resolved)) {
     throw new CliError(
@@ -188,7 +223,11 @@ async function consumeEvents(
   output: OutputWriter,
   graph: DefinitionGraph,
   args: RunArgs,
-): Promise<{ events: RunEvent[]; runStatus: string; renderer: Renderer | null }> {
+): Promise<{
+  events: RunEvent[];
+  runStatus: string;
+  renderer: Renderer | null;
+}> {
   const events: RunEvent[] = [];
   let runStatus = "failure";
 
@@ -200,7 +239,9 @@ async function consumeEvents(
   // --output flag implies HTML format (unless sarif/web format is explicit)
   const isSarif = global.format === "sarif";
   const isWeb = global.format === "web";
-  const isHtml = global.format === "html" || (args.output !== undefined && !isSarif && !isWeb);
+  const isHtml =
+    global.format === "html" ||
+    (args.output !== undefined && !isSarif && !isWeb);
 
   // TUI auto-detect: stdout TTY + no explicit --format, unless --no-tui.
   // --tui forces it on; any explicit --format forces it off.
@@ -222,11 +263,16 @@ async function consumeEvents(
   } else if (global.format === "text" && !isHtml) {
     renderer = createTextRenderer({ writer: output });
   } else if (isHtml) {
-    const outputPath = args.output ?? join(global.root, ".sverka", "report.html");
+    const outputPath =
+      args.output ?? join(global.root, ".sverka", "report.html");
     renderer = createHtmlRenderer({ outputPath, graph });
   }
 
-  for await (const event of engine.run({ plan, workspace: ctx.workspace, artifactDir: ctx.artifactDir })) {
+  for await (const event of engine.run({
+    plan,
+    workspace: ctx.workspace,
+    artifactDir: ctx.artifactDir,
+  })) {
     events.push(event);
     renderer?.onEvent(event);
     if ((event as { type: string }).type === "run-completed") {
@@ -244,21 +290,29 @@ async function runEvaluation(
   _events: readonly RunEvent[],
   renderer: Renderer | null,
   args: RunArgs,
-): Promise<{ exitCode: number; summary: { findings: readonly Finding[]; verdict: string; summary: string } | null }> {
-  const { collectFindings, evaluateGate, ReporterError } = await import(
-    "@sverka/reporter"
-  );
+): Promise<{
+  exitCode: number;
+  summary: {
+    findings: readonly Finding[];
+    verdict: string;
+    summary: string;
+  } | null;
+}> {
+  const { collectFindings, evaluateGate, ReporterError } =
+    await import("@sverka/reporter");
   let rows: readonly FindingRow[];
   try {
     rows = await collectFindings({ artifactDir });
   } catch (e) {
     if (e instanceof ReporterError) {
       if (global.format === "json") {
-        output.writeLine(JSON.stringify({
-          command: "run",
-          error: "COLLECTION_FAILED",
-          message: e.message,
-        }));
+        output.writeLine(
+          JSON.stringify({
+            command: "run",
+            error: "COLLECTION_FAILED",
+            message: e.message,
+          }),
+        );
       } else {
         output.writeLine(`Collection failed: ${e.message}`);
       }
@@ -282,7 +336,8 @@ async function runEvaluation(
 
   // --format sarif: serialize findings to SARIF and write to file
   if (global.format === "sarif") {
-    const sarifPath = args.output ?? join(global.root, ".sverka", "findings.sarif");
+    const sarifPath =
+      args.output ?? join(global.root, ".sverka", "findings.sarif");
     const sarifLog = serializeSarif(findings);
     mkdirSync(dirname(sarifPath), { recursive: true });
     writeFileSync(sarifPath, JSON.stringify(sarifLog, null, 2), "utf-8");
@@ -302,7 +357,10 @@ async function runEvaluation(
       output.errorLine(
         `sverka run: failed to generate web report: ${e instanceof Error ? e.message : String(e)}`,
       );
-      return { exitCode: 1, summary: { findings, verdict: result.verdict, summary: result.summary } };
+      return {
+        exitCode: 1,
+        summary: { findings, verdict: result.verdict, summary: result.summary },
+      };
     }
   }
 
@@ -360,7 +418,13 @@ function capturedOutputFields(event: {
 
 interface StepSummary {
   readonly stepId: string;
-  readonly status: "succeeded" | "failed" | "skipped" | "cancelled" | "suspended" | "cache-hit";
+  readonly status:
+    | "succeeded"
+    | "failed"
+    | "skipped"
+    | "cancelled"
+    | "suspended"
+    | "cache-hit";
   readonly durationMs?: number;
   readonly error?: string;
   readonly cacheKey?: string;
@@ -376,7 +440,11 @@ function writeRunOutput(
   durationMs: number,
   global: GlobalFlags,
   output: OutputWriter,
-  evalResult: { findings: readonly Finding[]; verdict: string; summary: string } | null,
+  evalResult: {
+    findings: readonly Finding[];
+    verdict: string;
+    summary: string;
+  } | null,
 ): void {
   if (global.format === "json") {
     const steps = summarizeSteps(events);
@@ -387,11 +455,13 @@ function writeRunOutput(
           planId,
           status: runStatus,
           steps,
-          ...(evalResult ? {
-            findings: evalResult.findings.length,
-            verdict: evalResult.verdict,
-            summary: evalResult.summary,
-          } : {}),
+          ...(evalResult
+            ? {
+                findings: evalResult.findings.length,
+                verdict: evalResult.verdict,
+                summary: evalResult.summary,
+              }
+            : {}),
         },
         durationMs,
       }),

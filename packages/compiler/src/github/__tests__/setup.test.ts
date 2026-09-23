@@ -28,19 +28,29 @@ const SETUP = {
 };
 
 interface YamlJob {
-  steps: { name?: string; uses?: string; run?: string; with?: Record<string, unknown> }[];
+  steps: {
+    name?: string;
+    uses?: string;
+    run?: string;
+    with?: Record<string, unknown>;
+  }[];
 }
 
 describe("compileGithub — setup injection", () => {
   it("injects setup steps after Checkout in every job", () => {
     const result = compileGithub(makeGraph(), SETUP);
-    const yaml = parse(result.artifacts[0]!.content) as { jobs: Record<string, YamlJob> };
+    const yaml = parse(result.artifacts[0]!.content) as {
+      jobs: Record<string, YamlJob>;
+    };
     for (const job of Object.values(yaml.jobs)) {
       expect(job.steps[0]).toMatchObject({
         uses: "actions/checkout@v4",
         with: { submodules: "recursive" },
       });
-      expect(job.steps[1]).toMatchObject({ name: "Setup Bun", uses: "oven-sh/setup-bun@v2" });
+      expect(job.steps[1]).toMatchObject({
+        name: "Setup Bun",
+        uses: "oven-sh/setup-bun@v2",
+      });
       expect(job.steps[2]).toMatchObject({
         name: "Install dependencies",
         run: "bun install --frozen-lockfile",
@@ -62,7 +72,9 @@ describe("compileGithub — setup injection", () => {
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj), SETUP);
-    const yaml = parse(result.artifacts[0]!.content) as { jobs: Record<string, YamlJob> };
+    const yaml = parse(result.artifacts[0]!.content) as {
+      jobs: Record<string, YamlJob>;
+    };
     const runs = yaml.jobs["build"]!.steps.map((s) => s.run).filter(Boolean);
     expect(runs[0]).toBe("bun install --frozen-lockfile");
     expect(runs[1]).toBe("bun run prepare");
@@ -77,7 +89,9 @@ describe("compileGithub — setup injection", () => {
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const result = compileGithub(synthesize(proj), SETUP);
-    const yaml = parse(result.artifacts[0]!.content) as { jobs: Record<string, YamlJob> };
+    const yaml = parse(result.artifacts[0]!.content) as {
+      jobs: Record<string, YamlJob>;
+    };
     const steps = yaml.jobs["deploy"]!.steps;
     expect(steps[0]).toMatchObject({ uses: "actions/checkout@v4" });
     expect(steps[1]).toMatchObject({ uses: "oven-sh/setup-bun@v2" });
@@ -87,16 +101,29 @@ describe("compileGithub — setup injection", () => {
   it("continueOnError does not leak into injected setup", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "bun run build", continueOnError: true });
+    new ShellStep(p, "build", {
+      command: "bun run build",
+      continueOnError: true,
+    });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj), SETUP);
     const yaml = parse(result.artifacts[0]!.content) as {
-      jobs: Record<string, { steps: (YamlJob["steps"][number] & { "continue-on-error"?: boolean })[] }>;
+      jobs: Record<
+        string,
+        {
+          steps: (YamlJob["steps"][number] & {
+            "continue-on-error"?: boolean;
+          })[];
+        }
+      >;
     };
     const steps = yaml.jobs["build"]!.steps;
     expect(steps[1]).toMatchObject({ uses: "oven-sh/setup-bun@v2" });
     expect(steps[2]).not.toHaveProperty("continue-on-error");
-    expect(steps[3]).toMatchObject({ run: "bun run build", "continue-on-error": true });
+    expect(steps[3]).toMatchObject({
+      run: "bun run build",
+      "continue-on-error": true,
+    });
   });
 
   it("delay sleeps after setup, not before", () => {
@@ -105,7 +132,9 @@ describe("compileGithub — setup injection", () => {
     new ShellStep(p, "build", { command: "bun run build", delay: "30s" });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj), SETUP);
-    const yaml = parse(result.artifacts[0]!.content) as { jobs: Record<string, YamlJob> };
+    const yaml = parse(result.artifacts[0]!.content) as {
+      jobs: Record<string, YamlJob>;
+    };
     const steps = yaml.jobs["build"]!.steps;
     expect(steps[1]).toMatchObject({ uses: "oven-sh/setup-bun@v2" });
     expect(steps[3]).toMatchObject({ run: "sleep 30" });
@@ -130,7 +159,9 @@ describe("compileGithub — setup injection", () => {
 
   it("omits setup when config not provided (backward compat)", () => {
     const result = compileGithub(makeGraph());
-    const yaml = parse(result.artifacts[0]!.content) as { jobs: Record<string, YamlJob> };
+    const yaml = parse(result.artifacts[0]!.content) as {
+      jobs: Record<string, YamlJob>;
+    };
     for (const job of Object.values(yaml.jobs)) {
       expect(job.steps[0]).toMatchObject({ uses: "actions/checkout@v4" });
       expect(job.steps[0]).not.toHaveProperty("with");

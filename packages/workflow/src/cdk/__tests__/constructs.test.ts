@@ -51,7 +51,9 @@ describe("Pipeline", () => {
 
   it("rejects non-Project, non-string scope", () => {
     // @ts-expect-error intentionally wrong scope type
-    expect(() => new Pipeline({}, "ci")).toThrow("Pipeline must be created under a Project");
+    expect(() => new Pipeline({}, "ci")).toThrow(
+      "Pipeline must be created under a Project",
+    );
   });
 });
 
@@ -120,7 +122,10 @@ describe("Pipeline — permissions", () => {
     const pipeline = new Pipeline(proj, "ci", {
       permissions: { contents: "read", "id-token": "write" },
     });
-    expect(pipeline.permissions).toEqual({ contents: "read", "id-token": "write" });
+    expect(pipeline.permissions).toEqual({
+      contents: "read",
+      "id-token": "write",
+    });
   });
 
   it("leaves permissions undefined when omitted", () => {
@@ -134,7 +139,11 @@ describe("Pipeline — defaults", () => {
   it("stores defaults when set", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci", {
-      defaults: { shell: "bash", workdir: "./src", beforeScript: ["install-deps"] },
+      defaults: {
+        shell: "bash",
+        workdir: "./src",
+        beforeScript: ["install-deps"],
+      },
     });
     expect(pipeline.defaults).toEqual({
       shell: "bash",
@@ -237,7 +246,9 @@ describe("ShellStep — identity", () => {
     const pipeline = new Pipeline(proj, "ci");
     const step = new ShellStep(pipeline, "deploy", {
       command: "deploy",
-      identity: { tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } } },
+      identity: {
+        tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } },
+      },
     });
     expect(step.identity).toEqual({
       tokens: { AWS_TOKEN: { audience: "https://sts.amazonaws.com" } },
@@ -309,12 +320,22 @@ describe("ShellStep — services", () => {
     const step = new ShellStep(pipeline, "test", {
       command: "make test",
       services: [
-        { name: "postgres", image: "postgres:16", env: { POSTGRES_PASSWORD: "secret" }, ports: [5432] },
+        {
+          name: "postgres",
+          image: "postgres:16",
+          env: { POSTGRES_PASSWORD: "secret" },
+          ports: [5432],
+        },
         { name: "redis", image: "redis:7", ports: [6379] },
       ],
     });
     expect(step.services).toEqual([
-      { name: "postgres", image: "postgres:16", env: { POSTGRES_PASSWORD: "secret" }, ports: [5432] },
+      {
+        name: "postgres",
+        image: "postgres:16",
+        env: { POSTGRES_PASSWORD: "secret" },
+        ports: [5432],
+      },
       { name: "redis", image: "redis:7", ports: [6379] },
     ]);
   });
@@ -333,7 +354,11 @@ describe("ShellStep — environment", () => {
     const pipeline = new Pipeline(proj, "ci");
     const step = new ShellStep(pipeline, "deploy", {
       command: "deploy",
-      environment: { name: "production", url: "https://app.example.com", tier: "production" },
+      environment: {
+        name: "production",
+        url: "https://app.example.com",
+        tier: "production",
+      },
     });
     expect(step.environment).toEqual({
       name: "production",
@@ -387,7 +412,10 @@ describe("ShellStep — concurrency", () => {
       command: "deploy",
       concurrency: { group: "production", cancelInProgress: true },
     });
-    expect(step.concurrency).toEqual({ group: "production", cancelInProgress: true });
+    expect(step.concurrency).toEqual({
+      group: "production",
+      cancelInProgress: true,
+    });
   });
 
   it("leaves concurrency undefined when omitted", () => {
@@ -402,9 +430,15 @@ describe("Pipeline — concurrency", () => {
   it("stores pipeline-level concurrency when set", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci", {
-      concurrency: { group: "deploy-${{ git.branch }}", cancelInProgress: true },
+      concurrency: {
+        group: "deploy-${{ git.branch }}",
+        cancelInProgress: true,
+      },
     });
-    expect(pipeline.concurrency).toEqual({ group: "deploy-${{ git.branch }}", cancelInProgress: true });
+    expect(pipeline.concurrency).toEqual({
+      group: "deploy-${{ git.branch }}",
+      cancelInProgress: true,
+    });
   });
 
   it("leaves pipeline concurrency undefined when omitted", () => {
@@ -440,8 +474,12 @@ describe("Construct tree traversal", () => {
     expect(proj.node.children[0]).toBeInstanceOf(Pipeline);
 
     expect(pipeline.node.children.length).toBe(3);
-    expect(pipeline.node.children.filter((c) => c instanceof ShellStep).length).toBe(2);
-    expect(pipeline.node.children.filter((c) => c instanceof Entry).length).toBe(1);
+    expect(
+      pipeline.node.children.filter((c) => c instanceof ShellStep).length,
+    ).toBe(2);
+    expect(
+      pipeline.node.children.filter((c) => c instanceof Entry).length,
+    ).toBe(1);
   });
 });
 
@@ -460,11 +498,16 @@ describe("Error handling", () => {
 
   it("Step under Project (wrong scope) throws ConstructError(INVALID_SCOPE)", () => {
     const proj = new Project("myproj");
-    expect(() =>
-      new ShellStep(proj as unknown as Pipeline, "build", { command: "echo hi" }),
+    expect(
+      () =>
+        new ShellStep(proj as unknown as Pipeline, "build", {
+          command: "echo hi",
+        }),
     ).toThrow(ConstructError);
     try {
-      new ShellStep(proj as unknown as Pipeline, "build", { command: "echo hi" });
+      new ShellStep(proj as unknown as Pipeline, "build", {
+        command: "echo hi",
+      });
     } catch (err) {
       expect((err as ConstructError).code).toBe("INVALID_SCOPE");
     }
@@ -473,19 +516,20 @@ describe("Error handling", () => {
   it("Pipeline under non-Project throws ConstructError(INVALID_SCOPE)", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci");
-    expect(() =>
-      new Pipeline(pipeline as unknown as Project, "nested"),
+    expect(
+      () => new Pipeline(pipeline as unknown as Project, "nested"),
     ).toThrow(ConstructError);
   });
 
   it("artifact output without path throws ConstructError(INVALID_OUTPUT)", () => {
     const proj = new Project("myproj");
     const pipeline = new Pipeline(proj, "ci");
-    expect(() =>
-      new ShellStep(pipeline, "build", {
-        command: "npm run build",
-        outputs: { dist: { type: "artifact" } },
-      }),
+    expect(
+      () =>
+        new ShellStep(pipeline, "build", {
+          command: "npm run build",
+          outputs: { dist: { type: "artifact" } },
+        }),
     ).toThrow(ConstructError);
     try {
       new ShellStep(pipeline, "build2", {
@@ -502,7 +546,14 @@ describe("Error handling", () => {
     const pipeline = new Pipeline(proj, "ci");
     const step = new ShellStep(pipeline, "build", {
       command: "npm run build",
-      outputs: { dist: { type: "artifact", path: "dist/", retention: "7d", access: "developer" } },
+      outputs: {
+        dist: {
+          type: "artifact",
+          path: "dist/",
+          retention: "7d",
+          access: "developer",
+        },
+      },
     });
     expect(step.outputs.get("dist")?.retention).toBe("7d");
     expect(step.outputs.get("dist")?.access).toBe("developer");

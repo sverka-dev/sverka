@@ -65,7 +65,8 @@ export interface GitlabJob {
   readonly trigger?: GitlabTrigger;
   readonly release?: GitlabRelease;
   readonly pages?: GitlabPages;
-  readonly when?: "on_success" | "on_failure" | "always" | "manual" | "delayed" | "never";
+  readonly when?:
+    "on_success" | "on_failure" | "always" | "manual" | "delayed" | "never";
   readonly start_in?: string;
 }
 
@@ -102,7 +103,9 @@ export interface GitlabRelease {
   readonly tag_name: string;
   readonly name?: string;
   readonly description?: string;
-  readonly assets?: { readonly links: readonly { readonly name: string; readonly url: string }[] };
+  readonly assets?: {
+    readonly links: readonly { readonly name: string; readonly url: string }[];
+  };
   readonly draft?: boolean;
 }
 

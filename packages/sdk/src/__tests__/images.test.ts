@@ -22,7 +22,9 @@ describe("images", () => {
 
 describe("image()", () => {
   it("creates an ImageRef from a raw OCI reference", () => {
-    expect(image("ghcr.io/acme/build:2026-08")).toEqual({ ref: "ghcr.io/acme/build:2026-08" });
+    expect(image("ghcr.io/acme/build:2026-08")).toEqual({
+      ref: "ghcr.io/acme/build:2026-08",
+    });
   });
 
   it("throws SdkError for empty string", () => {

@@ -35,13 +35,14 @@ hard limit). Synthesis rejects deeper chains. Hardcoded constant in core.
 
 **D4 — GitLab lowering.** **v1 inlines** callee steps as namespaced jobs in
 `.gitlab-ci.yml` (reuses `expandPipelineCalls`). Rationale: GitLab `include:`
-+ `spec:inputs` cannot namespace job names per call-site, so true file-reuse
-across multiple call sites of the same callee produces job-name collisions.
-Inlining preserves the runtime semantics (same-context execution, which is
-what `include:` merge does too) — §5.6 governs behavior, not file layout.
-`include:` (true file reuse) and `trigger:include` (separate-context child
-pipelines) are **deferred** — file-reuse to a follow-up bead, `trigger:include`
-to F-33.
+
+- `spec:inputs` cannot namespace job names per call-site, so true file-reuse
+  across multiple call sites of the same callee produces job-name collisions.
+  Inlining preserves the runtime semantics (same-context execution, which is
+  what `include:` merge does too) — §5.6 governs behavior, not file layout.
+  `include:` (true file reuse) and `trigger:include` (separate-context child
+  pipelines) are **deferred** — file-reuse to a follow-up bead, `trigger:include`
+  to F-33.
 
 **D5 — GitHub lowering.** GitHub has no inline option — reusable workflows are
 always separate files. Callee → separate workflow file with
@@ -50,7 +51,7 @@ always separate files. Callee → separate workflow file with
 `secrets: inherit`. GitHub handles per-call-site namespacing via the calling
 job's id, so one callee file serves N call sites (unlike GitLab).
 
-**D6 — F-47 dependency is weak.** F-31 needs the *plumbing* (declare inputs on
+**D6 — F-47 dependency is weak.** F-31 needs the _plumbing_ (declare inputs on
 a pipeline — already exists; bind inputs at call site — new; propagate outputs
 — new). It does NOT need F-47's extended type validators (`choice`/`array`/
 `pattern`/`options`). F-31 uses the existing `Input` (`string`|`number`|
@@ -78,12 +79,12 @@ export type InputLiteral = string | number | boolean;
 
 // core/graph.ts
 export interface PipelineCall {
-  readonly callee: string;                              // callee pipeline id
+  readonly callee: string; // callee pipeline id
   readonly inputs: Readonly<Record<string, Reference | InputLiteral>>;
 }
 export interface StepDefinition {
   // ...existing fields...
-  readonly call?: PipelineCall;                         // present ⇒ pipeline-call step
+  readonly call?: PipelineCall; // present ⇒ pipeline-call step
 }
 ```
 
@@ -95,7 +96,9 @@ pipeline outputs (copied at synthesis, producer = call step id).
 ```ts
 // packages/sdk/src/call.ts (new)
 export interface CallBuilder {
-  inputs(inputs: Readonly<Record<string, Reference | InputLiteral>>): CallBuilder;
+  inputs(
+    inputs: Readonly<Record<string, Reference | InputLiteral>>,
+  ): CallBuilder;
   build(pipeline: Pipeline, id: string): PipelineCallStep;
 }
 export function callPipeline(callee: string): CallBuilder;
@@ -104,9 +107,18 @@ export function callPipeline(callee: string): CallBuilder;
 pipeline(project, "ci", {
   steps: [
     (p) => sh`make build`.build(p, "build"),
-    (p) => callPipeline("deploy").inputs({ env: inputs.environment }).build(p, "deploy-staging"),
+    (p) =>
+      callPipeline("deploy")
+        .inputs({ env: inputs.environment })
+        .build(p, "deploy-staging"),
   ],
-  entries: [(p) => entry(p, "on-push", { trigger: push(), roots: ["build", "deploy-staging"] })],
+  entries: [
+    (p) =>
+      entry(p, "on-push", {
+        trigger: push(),
+        roots: ["build", "deploy-staging"],
+      }),
+  ],
 });
 pipeline(project, "deploy", {
   inputs: { env: { type: "string", required: true } },
@@ -119,6 +131,7 @@ pipeline(project, "deploy", {
 ### Step 1: constructs — PipelineCallStep + InputLiteral
 
 **Files:**
+
 - `packages/constructs/src/model.ts` — add `InputLiteral = string | number | boolean`
 - `packages/constructs/src/constructs.ts` — add `PipelineCallStepProps` (`callee`,
   `callInputs`) + `PipelineCallStep extends Step` (stores `callee`, `callInputs`;
@@ -127,6 +140,7 @@ pipeline(project, "deploy", {
   `InputLiteral`
 
 **Test first (`packages/constructs/src/__tests__/constructs.test.ts`):**
+
 - `PipelineCallStep` constructed under a Pipeline stores `callee` + `callInputs`
 - Inherits `Step` invariants (INVALID_SCOPE if not under Pipeline, DUPLICATE_ID)
 - `InputLiteral` accepts string/number/boolean
@@ -134,16 +148,19 @@ pipeline(project, "deploy", {
 ### Step 2: core graph — PipelineCall field + types
 
 **Files:**
+
 - `packages/core/src/graph.ts` — add `PipelineCall` interface; `StepDefinition.call?`
 - `packages/core/src/index.ts` — re-export `PipelineCall`, `InputLiteral`
 
 **Test first (`packages/core/src/__tests__/graph.test.ts` or new `call.test.ts`):**
+
 - `StepDefinition` with `call` round-trips through serialization
 - `PipelineCall.inputs` accepts `Reference` and `InputLiteral` values
 
 ### Step 3: core synthesize — two-pass: synthesize all pipelines, then resolve calls
 
 **Files:**
+
 - `packages/core/src/synthesize.ts`:
   - **Two-pass** (callee may be defined after the caller in the tree):
     - Pass 1: synthesize each pipeline's steps/entries/outputs WITHOUT
@@ -168,6 +185,7 @@ pipeline(project, "deploy", {
   cycle + depth check (pipeline-level DFS, not step-level)
 
 **Test first (`packages/core/src/__tests__/synthesize.test.ts` + new `calls.test.ts`):**
+
 - Two-pipeline project: `ci` calls `deploy`; graph has 2 pipelines; call step
   has `call` + callee's outputs copied (regardless of declaration order —
   test callee defined both before AND after caller)
@@ -184,6 +202,7 @@ pipeline(project, "deploy", {
 ### Step 4: core — expandPipelineCalls (pure graph transform for the engine path)
 
 **Files:**
+
 - `packages/core/src/expand-calls.ts` (new):
   ```ts
   export function expandPipelineCalls(
@@ -206,6 +225,7 @@ pipeline(project, "deploy", {
 - `packages/core/src/index.ts` — export `expandPipelineCalls`
 
 **Test first (`packages/core/src/__tests__/expand-calls.test.ts`):**
+
 - `ci` calls `deploy` (1 step); expansion yields `ci/build`, `ci/deploy-staging/deploy`
 - Callee `inputs.env` bound to caller literal `"staging"` → expanded step has
   no `inputs.env` ref (literal substituted into command via the existing
@@ -230,6 +250,7 @@ where the call step's outputs are materialized as explicit
 ### Step 5: planner — bindRunPlan expands calls
 
 **Files:**
+
 - `packages/planner/src/bind.ts` — after `computeReachableSteps`, call
   `expandPipelineCalls(graph, reachableSteps)` before building the `RunPlan`.
   Bound user inputs (top-level pipeline inputs) flow as today; call-site
@@ -237,6 +258,7 @@ where the call step's outputs are materialized as explicit
 - No `RunPlan` schema change (still `steps: StepDefinition[]`, now flat-expanded).
 
 **Test first (`packages/planner/src/__tests__/bind.test.ts`):**
+
 - Bind a graph with a call step → RunPlan.steps is the expanded flat list
 - RunPlan id is deterministic for the same graph + entry + inputs
 - Existing single-pipeline bind tests still pass
@@ -244,12 +266,14 @@ where the call step's outputs are materialized as explicit
 ### Step 6: SDK — callPipeline builder
 
 **Files:**
+
 - `packages/sdk/src/call.ts` (new) — `callPipeline(callee): CallBuilder` with
   `.inputs(...)` + `.build(pipeline, id)` → `new PipelineCallStep(pipeline, id, { callee, callInputs, ... })`
 - `packages/sdk/src/index.ts` — export `callPipeline`, `CallBuilder`,
   `PipelineCallStep`, `PipelineCallStepProps` (re-export from constructs)
 
 **Test first (`packages/sdk/src/__tests__/call.test.ts`):**
+
 - `callPipeline("deploy").inputs({ env: "staging" }).build(p, "deploy-staging")`
   produces a `PipelineCallStep` with correct callee + callInputs
 - `callPipeline("deploy").build(p, "d")` with no inputs → empty callInputs
@@ -258,6 +282,7 @@ where the call step's outputs are materialized as explicit
 ### Step 7: GitHub target — separate reusable workflow file + uses job
 
 **Files:**
+
 - `packages/github/src/lower.ts`:
   - Lift the `multi-pipeline` rejection. Emit one workflow file per pipeline
     that has entries OR is referenced by a call step:
@@ -269,18 +294,19 @@ where the call step's outputs are materialized as explicit
     `secret: true` → `secrets` block, not `inputs`). Jobs = callee's reachable
     steps (all steps reachable in a reusable workflow — no entries needed).
   - Call step in a root pipeline → `GithubJob` with `steps: [{ uses:
-    "./.github/workflows/<callee>.yml", with: <bound inputs>, secrets: "inherit" }]`,
+"./.github/workflows/<callee>.yml", with: <bound inputs>, secrets: "inherit" }]`,
     `needs:` from the call step's dependencies.
 - `packages/github/src/emit.ts` — emit one `GeneratedArtifact` per target graph
   (`.github/workflows/<pipelineId>.yml` each). Return `CompilationResult` with
   all artifacts.
 - `packages/github/src/types.ts` — `GithubTriggers` add `workflow_call?:
-  { inputs?: Record<string, ...>; secrets?: Record<string, ...> }` (or
+{ inputs?: Record<string, ...>; secrets?: Record<string, ...> }` (or
   `workflow_call: null` for no-input case). `GithubStep` already has `uses`/`with`.
 - `packages/github/src/capabilities.ts` — add `"reusable.pipeline": "native"`,
   `"reusable.pipeline.inputs": "native"`, `"reusable.pipeline.outputs": "native"`.
 
 **Test first (`packages/github/src/__tests__/target.test.ts`):**
+
 - Two-pipeline graph (ci with entries calls deploy with no entries) → 2
   artifacts: `ci.yml` (on: push) + `deploy.yml` (on: workflow_call + inputs)
 - `deploy.yml` has `on: workflow_call` + `inputs` from callee's `Input`s
@@ -295,6 +321,7 @@ where the call step's outputs are materialized as explicit
 ### Step 8: GitLab target — inline callee steps (v1)
 
 **Files:**
+
 - `packages/gitlab/src/lower.ts`:
   - Lift the `multi-pipeline` rejection. For each root pipeline (has entries),
     call `expandPipelineCalls(graph, reachableSteps)` to inline call steps into
@@ -310,6 +337,7 @@ where the call step's outputs are materialized as explicit
   `"reusable.pipeline.outputs": "native"`.
 
 **Test first (`packages/gitlab/src/__tests__/target.test.ts`):**
+
 - Two-pipeline graph (ci calls deploy) → ONE `.gitlab-ci.yml` with namespaced
   jobs `ci/build`, `ci/deploy-staging/deploy`; no `include:` key
 - Callee `inputs.env` bound to literal → substituted into the inlined job's
@@ -322,6 +350,7 @@ where the call step's outputs are materialized as explicit
 ### Step 9: conformance — reusable pipeline fixture across 3 authoring surfaces
 
 **Files:**
+
 - `packages/conformance/src/seed.ts` — add a reusable-pipeline seed: a `deploy`
   pipeline (callable, 1 input, 1 step, 1 output) called from a `ci` pipeline
   (build → deploy-staging). Authored via Construct, SDK, Decorator → must
@@ -334,12 +363,14 @@ where the call step's outputs are materialized as explicit
   - Native engine runs the expanded plan end-to-end (build → deploy)
 
 **Test first:**
+
 - Seed + assertions before impl (impl lands in steps 1-8; this step verifies
   integration). Write the expected-graph fixture first.
 
 ### Step 10: docs + capability manifest + spec Open Questions resolution
 
 **Files:**
+
 - `specs/features/F-31-reusable-workflows.md` — fill Open Questions with D1-D8
 - `engdocs/user/` — add a reusable-workflows section to `workflow-api/overview.md`
   (or a new page) showing `callPipeline` usage + GitHub/GitLab lowering output

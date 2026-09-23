@@ -12,13 +12,13 @@ Concurrency control prevents multiple pipeline runs from executing simultaneousl
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `concurrency` | `resource_group` | `concurrency` on Step/Pipeline |
-| Semantics | Only one job per group runs at a time | Only one job per resource group across pipelines | Mutual exclusion per group |
-| Value type | map with `group`, `cancel-in-progress`, `queue` | string | `{ group, cancelInProgress? }` |
-| Limitations | — | no cancel-in-progress | — |
-| Provider gap | — | no cancel, no queue | cancel/queue is GitHub-only |
+| Aspect       | GitHub Actions                                  | GitLab CI                                        | Sverka (proposed)              |
+| ------------ | ----------------------------------------------- | ------------------------------------------------ | ------------------------------ |
+| Construct    | `concurrency`                                   | `resource_group`                                 | `concurrency` on Step/Pipeline |
+| Semantics    | Only one job per group runs at a time           | Only one job per resource group across pipelines | Mutual exclusion per group     |
+| Value type   | map with `group`, `cancel-in-progress`, `queue` | string                                           | `{ group, cancelInProgress? }` |
+| Limitations  | —                                               | no cancel-in-progress                            | —                              |
+| Provider gap | —                                               | no cancel, no queue                              | cancel/queue is GitHub-only    |
 
 ## GitHub Actions
 
@@ -47,7 +47,7 @@ deploy:
 ```ts
 interface ConcurrencySpec {
   readonly group: string;
-  readonly cancelInProgress?: boolean;  // default: false
+  readonly cancelInProgress?: boolean; // default: false
 }
 ```
 

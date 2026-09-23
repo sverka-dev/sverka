@@ -4,7 +4,14 @@
 import type { StepDefinition, Dependency } from "@sverka/workflow";
 import { SchedulerError } from "./errors.js";
 
-export type StepState = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "skipped";
+export type StepState =
+  | "pending"
+  | "ready"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "skipped";
 
 export interface SchedulerEntry {
   readonly step: StepDefinition;
@@ -127,7 +134,9 @@ function assertNoCycle(
  * Topologically sort steps by their dependency edges.
  * Returns the sorted order, or throws SchedulerError on cycle or unknown producer.
  */
-export function topoSortSteps(steps: readonly StepDefinition[]): readonly string[] {
+export function topoSortSteps(
+  steps: readonly StepDefinition[],
+): readonly string[] {
   return buildStepExecutionGraph(steps).order;
 }
 
@@ -135,12 +144,17 @@ export function topoSortSteps(steps: readonly StepDefinition[]): readonly string
  * Compute the transitive set of dependents of a step (steps that depend on
  * it, directly or transitively). Used for cancellation on failure.
  */
-export function transitiveDependents(steps: readonly StepDefinition[], id: string): Set<string> {
+export function transitiveDependents(
+  steps: readonly StepDefinition[],
+  id: string,
+): Set<string> {
   const depMap = buildDependentMap(steps);
   return collectTransitiveDependents(depMap, id);
 }
 
-function buildDependentMap(steps: readonly StepDefinition[]): Map<string, string[]> {
+function buildDependentMap(
+  steps: readonly StepDefinition[],
+): Map<string, string[]> {
   const depMap = new Map<string, string[]>();
   for (const s of steps) {
     for (const dep of s.dependencies as readonly Dependency[]) {
@@ -150,7 +164,10 @@ function buildDependentMap(steps: readonly StepDefinition[]): Map<string, string
   return depMap;
 }
 
-function collectTransitiveDependents(depMap: Map<string, string[]>, id: string): Set<string> {
+function collectTransitiveDependents(
+  depMap: Map<string, string[]>,
+  id: string,
+): Set<string> {
   const result = new Set<string>();
   const queue: string[] = [...(depMap.get(id) ?? [])];
   while (queue.length > 0) {

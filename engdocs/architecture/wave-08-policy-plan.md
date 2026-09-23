@@ -53,6 +53,7 @@ Implement severity-based policy evaluation for `@sverka/policy`:
 (first intra-monorepo dependency). Does NOT re-export them.
 
 **Out of scope (do NOT implement in this wave):**
+
 - Custom TypeScript predicate rules.
 - `paths` glob filtering.
 - Suppression filtering (caller's job).
@@ -109,7 +110,7 @@ packages/policy/src/
 - **Severity ordering.** `info < low < medium < high < critical`. Implement
   as a rank map: `{ info: 0, low: 1, medium: 2, high: 3, critical: 4 }`.
   A finding triggers a failOn rule if `rank(finding.severity) >=
-  rank(rule.severity)`.
+rank(rule.severity)`.
 
 ## 6. Implementation steps (builder, TDD — tests first)
 
@@ -127,7 +128,7 @@ packages/policy/src/
    - `SEVERITY_RANK` map + `severityRank(s)` helper.
    - `DEFAULT_POLICY` (frozen): name "default", default "pass", failOn
      `[{ severity: "high", onlyNew: false }, { severity: "medium",
-     onlyNew: true }]`.
+onlyNew: true }]`.
    - `createPolicy(config)`: merge config with defaults. Validate
      failOn severities → `INVALID_SEVERITY`. Validate failOn is array →
      `INVALID_POLICY`. Fill missing fields from defaults.
@@ -135,20 +136,20 @@ packages/policy/src/
 5. **`evaluator.ts` + `evaluator.test.ts` (TDD).**
    - `evaluatePolicy(findings, policy, baselineFingerprints)`:
      a. Validate policy: `failOn` must be array, each severity valid.
-        Throw `INVALID_POLICY` / `INVALID_SEVERITY`.
+     Throw `INVALID_POLICY` / `INVALID_SEVERITY`.
      b. Build baseline `Set<string>` from `baselineFingerprints`.
      c. For each `failOn` rule (in order):
-        - Filter by `checkIds` if specified (exact match on `finding.checkId`).
-        - If `onlyNew`: filter to findings whose `fingerprint` NOT in
-          baseline set.
-        - Filter to `severityRank(finding.severity) >=
-          severityRank(rule.severity)`.
-        - If any remain: rule triggered. Record `RuleResult` +
-          `TriggeredFinding` per finding.
-     d. Compute final verdict: "fail" if any rule triggered, else
-        `policy.default`.
-     e. Build summary: `"fail: N findings triggered M rules (X high, Y
-        medium, ...)"` or `"pass: no findings triggered any rule"`.
+     - Filter by `checkIds` if specified (exact match on `finding.checkId`).
+     - If `onlyNew`: filter to findings whose `fingerprint` NOT in
+       baseline set.
+     - Filter to `severityRank(finding.severity) >=
+severityRank(rule.severity)`.
+     - If any remain: rule triggered. Record `RuleResult` +
+       `TriggeredFinding` per finding.
+       d. Compute final verdict: "fail" if any rule triggered, else
+       `policy.default`.
+       e. Build summary: `"fail: N findings triggered M rules (X high, Y
+medium, ...)"` or `"pass: no findings triggered any rule"`.
    - Write failing tests first (test plan 1-3, 5-8), then implement.
 6. **`__tests__/helpers/fixtures.ts`.** Finding builders using
    `@sverka/findings` types. Keep minimal — inline Finding objects in
@@ -181,16 +182,16 @@ packages/policy/src/
 
 ## 8. Test plan → spec mapping
 
-| Spec test plan | File | Notes |
-|---|---|---|
-| 1 default policy | `evaluator.test.ts` | no/low/medium/high/critical, baseline interactions |
-| 2 failOn rules | `evaluator.test.ts` | severity thresholds, onlyNew, checkIds, multiple rules |
-| 3 verdict computation | `evaluator.test.ts` | multiple fail → single fail, no trigger → default, default=fail |
-| 4 createPolicy | `policy.test.ts` | merge defaults, invalid severity |
-| 5 determinism | `evaluator.test.ts` | identical input → identical result |
-| 6 summary output | `evaluator.test.ts` | counts by severity, rule count, pass summary |
-| 7 error cases | `evaluator.test.ts` + `policy.test.ts` | INVALID_POLICY, INVALID_SEVERITY |
-| 8 edge cases | `evaluator.test.ts` | empty findings, empty baseline, threshold boundary |
+| Spec test plan        | File                                   | Notes                                                           |
+| --------------------- | -------------------------------------- | --------------------------------------------------------------- |
+| 1 default policy      | `evaluator.test.ts`                    | no/low/medium/high/critical, baseline interactions              |
+| 2 failOn rules        | `evaluator.test.ts`                    | severity thresholds, onlyNew, checkIds, multiple rules          |
+| 3 verdict computation | `evaluator.test.ts`                    | multiple fail → single fail, no trigger → default, default=fail |
+| 4 createPolicy        | `policy.test.ts`                       | merge defaults, invalid severity                                |
+| 5 determinism         | `evaluator.test.ts`                    | identical input → identical result                              |
+| 6 summary output      | `evaluator.test.ts`                    | counts by severity, rule count, pass summary                    |
+| 7 error cases         | `evaluator.test.ts` + `policy.test.ts` | INVALID_POLICY, INVALID_SEVERITY                                |
+| 8 edge cases          | `evaluator.test.ts`                    | empty findings, empty baseline, threshold boundary              |
 
 ## 9. Acceptance
 

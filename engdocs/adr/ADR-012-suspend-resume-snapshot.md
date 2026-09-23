@@ -47,7 +47,7 @@ Two design axes:
 
 5. **Engine-native only.** The legacy `runtime/` scheduler is not extended
    (ADR-011). CI targets emulate: the compiled workflow runs `sverka
-   execute`, which uses the native engine for suspend/resume at runtime.
+execute`, which uses the native engine for suspend/resume at runtime.
 
 ## Rationale
 

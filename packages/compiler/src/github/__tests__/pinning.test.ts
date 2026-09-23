@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { Project, Pipeline, ShellStep, ReleaseStep, Entry } from "@sverka/workflow";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  ReleaseStep,
+  Entry,
+} from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import {
   pinActionRef,
@@ -39,9 +45,13 @@ describe("pinActionRef — unit (spec 22 items 1–4)", () => {
   });
 
   it("does not add a comment for refs without a vN suffix", () => {
-    const reg: PinRegistry = { "acme/tool@latest": "deadbeefcafebabe00000000000000000000beef" };
+    const reg: PinRegistry = {
+      "acme/tool@latest": "deadbeefcafebabe00000000000000000000beef",
+    };
     const out = pinActionRef("acme/tool@latest", reg);
-    expect(out).toBe("acme/tool@deadbeefcafebabe00000000000000000000beef # latest");
+    expect(out).toBe(
+      "acme/tool@deadbeefcafebabe00000000000000000000beef # latest",
+    );
   });
 });
 
@@ -84,8 +94,8 @@ describe("GithubTarget pinning — strict mode (spec 22 items 5, 6)", () => {
     const target = new GithubTarget({ pinning: { mode: "strict" } });
     const result = target.compile(makeCheckoutGraph());
     const yaml = parse(result.artifacts[0]!.content);
-    const checkoutStep = yaml.jobs.build.steps.find(
-      (s: { uses?: string }) => s.uses?.includes("checkout"),
+    const checkoutStep = yaml.jobs.build.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("checkout"),
     );
     expect(checkoutStep).toBeDefined();
     // ` # v4` is a real YAML comment — GitHub resolves only the ref part.
@@ -100,7 +110,9 @@ describe("GithubTarget pinning — strict mode (spec 22 items 5, 6)", () => {
       pinning: { mode: "strict", registry: {} },
     });
     const result = target.compile(makeCheckoutGraph());
-    const diag = result.diagnostics.find((d) => d.capability === "unpinned-action");
+    const diag = result.diagnostics.find(
+      (d) => d.capability === "unpinned-action",
+    );
     expect(diag).toBeDefined();
     expect(diag?.severity).toBe("error");
     expect(diag?.message).toContain("actions/checkout@v4");
@@ -114,11 +126,13 @@ describe("GithubTarget pinning — off mode (spec 22 item 7)", () => {
     });
     const result = target.compile(makeCheckoutGraph());
     const yaml = parse(result.artifacts[0]!.content);
-    const checkoutStep = yaml.jobs.build.steps.find(
-      (s: { uses?: string }) => s.uses?.includes("checkout"),
+    const checkoutStep = yaml.jobs.build.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("checkout"),
     );
     expect(checkoutStep.uses).toBe("actions/checkout@v4");
-    const diag = result.diagnostics.find((d) => d.capability === "unpinned-action");
+    const diag = result.diagnostics.find(
+      (d) => d.capability === "unpinned-action",
+    );
     expect(diag).toBeDefined();
     expect(diag?.severity).toBe("warning");
   });
@@ -179,8 +193,8 @@ describe("GithubTarget pinning — release step pins composite actions", () => {
     const target = new GithubTarget({ pinning: { mode: "strict" } });
     const result = target.compile(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    const releaseStep = yaml.jobs.release.steps.find(
-      (s: { uses?: string }) => s.uses?.includes("action-gh-release"),
+    const releaseStep = yaml.jobs.release.steps.find((s: { uses?: string }) =>
+      s.uses?.includes("action-gh-release"),
     );
     const sha = BUNDLED["softprops/action-gh-release@v2"]!;
     expect(releaseStep.uses).toBe(`softprops/action-gh-release@${sha} # v2`);

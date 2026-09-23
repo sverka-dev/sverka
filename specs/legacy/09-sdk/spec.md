@@ -69,16 +69,17 @@ export type {
 export { CoreError, PlanningError, CompositionError } from "@sverka/core";
 
 // ── Re-exports: IR types ──────────────────────────────────────────
-export type { Plan, PlanOperation, PlanMetadata, ExecutorSpec } from "@sverka/ir";
+export type {
+  Plan,
+  PlanOperation,
+  PlanMetadata,
+  ExecutorSpec,
+} from "@sverka/ir";
 export { validatePlan, computePlanId } from "@sverka/ir";
 
 // ── Re-exports: runtime ───────────────────────────────────────────
 export { Scheduler, type SchedulerConfig } from "@sverka/runtime";
-export type {
-  Executor,
-  ExecuteRequest,
-  ExecuteResult,
-} from "@sverka/runtime";
+export type { Executor, ExecuteRequest, ExecuteResult } from "@sverka/runtime";
 export type {
   ExecutionResult as RuntimeExecutionResult,
   OperationOutcome as RuntimeOperationOutcome,
@@ -123,7 +124,9 @@ export function task(name: string, op: Operation): Operation;
 /**
  * Type-safe helper for sverka.config.ts. Identity function.
  */
-export function defineWorkflow(definition: WorkflowDefinition): WorkflowDefinition;
+export function defineWorkflow(
+  definition: WorkflowDefinition,
+): WorkflowDefinition;
 
 export interface WorkflowDefinition {
   /** Workflow name. */
@@ -304,23 +307,24 @@ throw `SdkError` with code `CONFIG_NOT_FOUND`.
 
 The SDK maps each `OperationSpec` to a `PlanOperation` with defaults:
 
-| PlanOperation field | Source |
-|---|---|
-| `id` | `spec.id` |
-| `kind`, `name`, `description`, `command`, `args`, `env`, `workingDir` | direct copy |
-| `dependsOn` | `spec.dependsOn ?? []` |
-| `executor` | `{ type: options.executor ?? "host" }` plus `image` and `imageDigest` when present on the spec |
-| `resources` | `{ cpu: spec.cpuLimit ?? "1", memory: spec.memoryLimit ?? "512Mi" }` |
-| `network` | `spec.network ?? "deny"` |
-| `credentials` | `spec.credentials ?? []` |
-| `cache` | `spec.cache` (if present, fill defaults for optional fields) |
-| `artifacts` | `spec.artifacts ?? []` (fill `retain: false` default) |
-| `retry` | `{ maxAttempts: Math.max(1, spec.retries ?? 1), backoffSeconds: 0, retryOn: ["failure", "timeout"] }` |
-| `timeoutSeconds` | `spec.timeoutSeconds ?? 300` |
-| `condition` | `spec.condition` |
-| `continueOnError` | `spec.continueOnError ?? false` |
+| PlanOperation field                                                   | Source                                                                                                |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `id`                                                                  | `spec.id`                                                                                             |
+| `kind`, `name`, `description`, `command`, `args`, `env`, `workingDir` | direct copy                                                                                           |
+| `dependsOn`                                                           | `spec.dependsOn ?? []`                                                                                |
+| `executor`                                                            | `{ type: options.executor ?? "host" }` plus `image` and `imageDigest` when present on the spec        |
+| `resources`                                                           | `{ cpu: spec.cpuLimit ?? "1", memory: spec.memoryLimit ?? "512Mi" }`                                  |
+| `network`                                                             | `spec.network ?? "deny"`                                                                              |
+| `credentials`                                                         | `spec.credentials ?? []`                                                                              |
+| `cache`                                                               | `spec.cache` (if present, fill defaults for optional fields)                                          |
+| `artifacts`                                                           | `spec.artifacts ?? []` (fill `retain: false` default)                                                 |
+| `retry`                                                               | `{ maxAttempts: Math.max(1, spec.retries ?? 1), backoffSeconds: 0, retryOn: ["failure", "timeout"] }` |
+| `timeoutSeconds`                                                      | `spec.timeoutSeconds ?? 300`                                                                          |
+| `condition`                                                           | `spec.condition`                                                                                      |
+| `continueOnError`                                                     | `spec.continueOnError ?? false`                                                                       |
 
 Plan-level fields:
+
 - `apiVersion`: `"sverka.dev/v1"`
 - `id`: `computePlanId(plan without id/createdAt)`
 - `name`: from `WorkflowDefinition.name` or `"sverka-plan"`

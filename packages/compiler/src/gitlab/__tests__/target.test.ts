@@ -1,12 +1,30 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { Project, Pipeline, ShellStep, PipelineCallStep, ComponentStep, ChildPipelineStep, DownstreamStep, ReleaseStep, PagesStep, Entry } from "@sverka/workflow";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  PipelineCallStep,
+  ComponentStep,
+  ChildPipelineStep,
+  DownstreamStep,
+  ReleaseStep,
+  PagesStep,
+  Entry,
+} from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
 import type { DefinitionGraph } from "@sverka/workflow";
-import { GitlabTarget, compileGitlab, GitlabTargetError, type GitlabJob } from "../index.js";
+import {
+  GitlabTarget,
+  compileGitlab,
+  GitlabTargetError,
+  type GitlabJob,
+} from "../index.js";
 import type { GitlabTargetGraph } from "../types.js";
 
-function singleGraph(result: GitlabTargetGraph | readonly GitlabTargetGraph[]): GitlabTargetGraph {
+function singleGraph(
+  result: GitlabTargetGraph | readonly GitlabTargetGraph[],
+): GitlabTargetGraph {
   if ("jobs" in result) return result;
   return result[0]!;
 }
@@ -97,7 +115,10 @@ describe("compileGitlab — trigger mapping", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-pr", { trigger: { kind: "changeRequest" }, roots: ["build"] });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest" },
+      roots: ["build"],
+    });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.build.rules[0].if).toContain("merge_request_event");
@@ -107,7 +128,10 @@ describe("compileGitlab — trigger mapping", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi" });
-    new Entry(p, "on-manual", { trigger: { kind: "manual" }, roots: ["build"] });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["build"],
+    });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.build.rules[0].if).toContain('"web"');
@@ -119,7 +143,10 @@ describe("compileGitlab — trigger mapping", () => {
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo hi" });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
-    new Entry(p, "on-pr", { trigger: { kind: "changeRequest" }, roots: ["build"] });
+    new Entry(p, "on-pr", {
+      trigger: { kind: "changeRequest" },
+      roots: ["build"],
+    });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.build.rules).toHaveLength(2);
@@ -221,7 +248,11 @@ describe("compileGitlab — interruptible", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "echo", interruptible: true });
-    new ShellStep(p, "deploy", { command: "echo", dependsOn: ["build"], interruptible: false });
+    new ShellStep(p, "deploy", {
+      command: "echo",
+      dependsOn: ["build"],
+      interruptible: false,
+    });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
@@ -241,7 +272,9 @@ describe("compileGitlab — permissions", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const target = new GitlabTarget();
     const diags = target.analyze(synthesize(proj));
-    const permDiag = diags.find((d) => d.capability === "environment.permissions");
+    const permDiag = diags.find(
+      (d) => d.capability === "environment.permissions",
+    );
     expect(permDiag).toBeDefined();
     expect(permDiag?.support).toBe("unsupported");
     expect(permDiag?.severity).toBe("error");
@@ -312,7 +345,9 @@ describe("compileGitlab — defaults", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const target = new GitlabTarget();
     const diags = target.analyze(synthesize(proj));
-    const shellDiag = diags.find((d) => d.capability === "workflow.defaults.shell");
+    const shellDiag = diags.find(
+      (d) => d.capability === "workflow.defaults.shell",
+    );
     expect(shellDiag).toBeDefined();
     expect(shellDiag?.support).toBe("unsupported");
   });
@@ -322,7 +357,10 @@ describe("compileGitlab — runner", () => {
   it("emits tags from runner.labels", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
-    new ShellStep(p, "build", { command: "echo", runner: { labels: ["linux", "x64"] } });
+    new ShellStep(p, "build", {
+      command: "echo",
+      runner: { labels: ["linux", "x64"] },
+    });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
@@ -373,8 +411,12 @@ describe("compileGitlab — identity (OIDC)", () => {
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.deploy.id_tokens).toBeDefined();
-    expect(yaml.deploy.id_tokens.AWS_TOKEN.aud).toBe("https://sts.amazonaws.com");
-    expect(yaml.deploy.id_tokens.VAULT_TOKEN.aud).toBe("https://vault.example.com");
+    expect(yaml.deploy.id_tokens.AWS_TOKEN.aud).toBe(
+      "https://sts.amazonaws.com",
+    );
+    expect(yaml.deploy.id_tokens.VAULT_TOKEN.aud).toBe(
+      "https://vault.example.com",
+    );
   });
 
   it("omits id_tokens when no identity", () => {
@@ -418,9 +460,7 @@ describe("compileGitlab — rules", () => {
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
       command: "echo",
-      rules: [
-        { exists: ["Makefile"], variables: { ENV: "prod" } },
-      ],
+      rules: [{ exists: ["Makefile"], variables: { ENV: "prod" } }],
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGitlab(synthesize(proj));
@@ -443,7 +483,9 @@ describe("compileGitlab — rules", () => {
     expect(yaml.build.rules).toBeDefined();
     const rules = yaml.build.rules as Record<string, unknown>[];
     // Only trigger rules, no step-level rules
-    const stepRule = rules.find((r) => r.exists !== undefined || r.changes !== undefined);
+    const stepRule = rules.find(
+      (r) => r.exists !== undefined || r.changes !== undefined,
+    );
     expect(stepRule).toBeUndefined();
   });
 });
@@ -469,14 +511,20 @@ describe("compileGitlab — reports", () => {
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "test", {
       command: "make test",
-      reports: [{ type: "coverage", path: "coverage.xml", format: "cobertura" }],
+      reports: [
+        { type: "coverage", path: "coverage.xml", format: "cobertura" },
+      ],
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.test.artifacts.reports.coverage_report).toBeDefined();
-    expect(yaml.test.artifacts.reports.coverage_report.coverage_format).toBe("cobertura");
-    expect(yaml.test.artifacts.reports.coverage_report.path).toBe("coverage.xml");
+    expect(yaml.test.artifacts.reports.coverage_report.coverage_format).toBe(
+      "cobertura",
+    );
+    expect(yaml.test.artifacts.reports.coverage_report.path).toBe(
+      "coverage.xml",
+    );
   });
 
   it("maps sarif to sast report", () => {
@@ -517,7 +565,10 @@ describe("compileGitlab — typed inputs", () => {
     expect(yaml.spec.inputs).toBeDefined();
     // choice → string with options
     expect(yaml.spec.inputs.environment.type).toBe("string");
-    expect(yaml.spec.inputs.environment.options).toEqual(["staging", "production"]);
+    expect(yaml.spec.inputs.environment.options).toEqual([
+      "staging",
+      "production",
+    ]);
     // GitLab spec:inputs without a default are mandatory; no `required` field is emitted.
     expect(yaml.spec.inputs.environment.required).toBeUndefined();
     // pattern → regex (GitLab spec:inputs uses `regex`, not `pattern`)
@@ -556,7 +607,12 @@ describe("compileGitlab — services", () => {
     new ShellStep(p, "test", {
       command: "make test",
       services: [
-        { name: "postgres", image: "postgres:16", alias: "pg", env: { POSTGRES_PASSWORD: "secret" } },
+        {
+          name: "postgres",
+          image: "postgres:16",
+          alias: "pg",
+          env: { POSTGRES_PASSWORD: "secret" },
+        },
         { name: "redis", image: "redis:7" },
       ],
     });
@@ -581,7 +637,9 @@ describe("compileGitlab — services", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
     const target = new GitlabTarget();
     const diags = target.analyze(synthesize(proj));
-    const portsDiag = diags.find((d) => d.capability === "environment.services.ports");
+    const portsDiag = diags.find(
+      (d) => d.capability === "environment.services.ports",
+    );
     expect(portsDiag).toBeDefined();
     expect(portsDiag?.support).toBe("unsupported");
   });
@@ -627,7 +685,10 @@ describe("compileGitlab — environment", () => {
       command: "stop",
       environment: { name: "production", action: "stop" },
     });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["stop-deploy"] });
+    new Entry(p, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["stop-deploy"],
+    });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml["stop-deploy"].environment.action).toBe("stop");
@@ -650,7 +711,14 @@ describe("compileGitlab — artifact retention and access", () => {
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
       command: "make build",
-      outputs: { dist: { type: "artifact", path: "dist/", retention: "7d", access: "developer" } },
+      outputs: {
+        dist: {
+          type: "artifact",
+          path: "dist/",
+          retention: "7d",
+          access: "developer",
+        },
+      },
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGitlab(synthesize(proj));
@@ -664,7 +732,9 @@ describe("compileGitlab — artifact retention and access", () => {
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
       command: "make build",
-      outputs: { dist: { type: "artifact", path: "dist/", retention: "never" } },
+      outputs: {
+        dist: { type: "artifact", path: "dist/", retention: "never" },
+      },
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGitlab(synthesize(proj));
@@ -742,7 +812,10 @@ describe("compileGitlab — concurrency", () => {
     });
     new ShellStep(p, "build", { command: "echo" });
     new ShellStep(p, "test", { command: "make test" });
-    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build", "test"] });
+    new Entry(p, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["build", "test"],
+    });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.build.resource_group).toBe("deploy-group");
@@ -759,7 +832,9 @@ describe("compileGitlab — concurrency", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const target = new GitlabTarget();
     const diags = target.analyze(synthesize(proj));
-    const cancelDiag = diags.find((d) => d.capability === "concurrency.cancelInProgress");
+    const cancelDiag = diags.find(
+      (d) => d.capability === "concurrency.cancelInProgress",
+    );
     expect(cancelDiag).toBeDefined();
     expect(cancelDiag?.support).toBe("unsupported");
   });
@@ -864,30 +939,43 @@ describe("compileGitlab — artifact imports", () => {
     const graph: DefinitionGraph = {
       project: {
         id: "test",
-        pipelines: [{
-          id: "ci",
-          inputs: {},
-          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["deploy"] }],
-          steps: [
-            {
-              id: "build",
-              runtime: { mode: "host" },
-              operations: [{ kind: "exportArtifact", name: "dist", path: "dist" }],
-              inputs: [],
-              outputs: [],
-              dependencies: [],
-            },
-            {
-              id: "deploy",
-              runtime: { mode: "host" },
-              operations: [{ kind: "importArtifact", name: "dist", from: "build", output: "dist" }],
-              inputs: [],
-              outputs: [],
-              dependencies: [],
-            },
-          ],
-          outputs: [],
-        }],
+        pipelines: [
+          {
+            id: "ci",
+            inputs: {},
+            entries: [
+              { id: "on-push", trigger: { kind: "push" }, roots: ["deploy"] },
+            ],
+            steps: [
+              {
+                id: "build",
+                runtime: { mode: "host" },
+                operations: [
+                  { kind: "exportArtifact", name: "dist", path: "dist" },
+                ],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+              {
+                id: "deploy",
+                runtime: { mode: "host" },
+                operations: [
+                  {
+                    kind: "importArtifact",
+                    name: "dist",
+                    from: "build",
+                    output: "dist",
+                  },
+                ],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+            ],
+            outputs: [],
+          },
+        ],
       },
     };
     const result = compileGitlab(graph);
@@ -900,20 +988,33 @@ describe("compileGitlab — artifact imports", () => {
     const graph: DefinitionGraph = {
       project: {
         id: "test",
-        pipelines: [{
-          id: "ci",
-          inputs: {},
-          entries: [{ id: "on-push", trigger: { kind: "push" }, roots: ["deploy"] }],
-          steps: [{
-            id: "deploy",
-            runtime: { mode: "host" },
-            operations: [{ kind: "importArtifact", name: "dist", from: "missing", output: "dist" }],
-            inputs: [],
+        pipelines: [
+          {
+            id: "ci",
+            inputs: {},
+            entries: [
+              { id: "on-push", trigger: { kind: "push" }, roots: ["deploy"] },
+            ],
+            steps: [
+              {
+                id: "deploy",
+                runtime: { mode: "host" },
+                operations: [
+                  {
+                    kind: "importArtifact",
+                    name: "dist",
+                    from: "missing",
+                    output: "dist",
+                  },
+                ],
+                inputs: [],
+                outputs: [],
+                dependencies: [],
+              },
+            ],
             outputs: [],
-            dependencies: [],
-          }],
-          outputs: [],
-        }],
+          },
+        ],
       },
     };
     expect(() => compileGitlab(graph)).toThrow(GitlabTargetError);
@@ -952,7 +1053,10 @@ describe("compileGitlab — environment variables (F-20)", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.build.variables).toEqual({ NODE_ENV: "production", CI: "true" });
+    expect(yaml.build.variables).toEqual({
+      NODE_ENV: "production",
+      CI: "true",
+    });
   });
 
   it("lowers pipeline input defaults to global variables", () => {
@@ -1013,7 +1117,9 @@ describe("compileGitlab — scalar outputs (F-23)", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGitlab(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.build.script).toContainEqual('echo "build_version=${version}" >> sverka.env');
+    expect(yaml.build.script).toContainEqual(
+      'echo "build_version=${version}" >> sverka.env',
+    );
     expect(yaml.build.artifacts.reports.dotenv).toBe("sverka.env");
   });
 });
@@ -1045,7 +1151,9 @@ describe("compileGitlab — artifact import (F-25)", () => {
     });
     new ShellStep(p, "deploy", {
       command: "ls dist/",
-      inputs: [{ kind: "step", step: "build", output: "dist", type: "artifact" }],
+      inputs: [
+        { kind: "step", step: "build", output: "dist", type: "artifact" },
+      ],
     });
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const result = compileGitlab(synthesize(proj));
@@ -1068,7 +1176,10 @@ describe("compileGitlab — reusable pipelines inlined (F-31)", () => {
       callInputs: { env: "staging" },
       dependsOn: ["build"],
     });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-staging"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["deploy-staging"],
+    });
     return synthesize(proj);
   }
 
@@ -1102,7 +1213,11 @@ describe("compileGitlab — components (F-32)", () => {
     const ci = new Pipeline(proj, "ci");
     new ShellStep(ci, "build", { command: "make build" });
     new ComponentStep(ci, "deploy", {
-      component: { name: "gitlab.com/group/deploy", version: "1.0.0", inputs: { env: "staging" } },
+      component: {
+        name: "gitlab.com/group/deploy",
+        version: "1.0.0",
+        inputs: { env: "staging" },
+      },
       dependsOn: ["build"],
     });
     new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
@@ -1135,7 +1250,10 @@ describe("compileGitlab — child pipelines (F-33)", () => {
       childPipeline: { generator: "generate", artifact: "child-pipeline" },
       dependsOn: ["generate"],
     });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["trigger-child"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["trigger-child"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGitlab(graph);
@@ -1157,10 +1275,17 @@ describe("compileGitlab — downstream projects (F-34)", () => {
     const ci = new Pipeline(proj, "ci");
     new ShellStep(ci, "build", { command: "make build" });
     new DownstreamStep(ci, "trigger-downstream", {
-      downstream: { project: "group/other-project", branch: "main", inputs: { env: "staging" } },
+      downstream: {
+        project: "group/other-project",
+        branch: "main",
+        inputs: { env: "staging" },
+      },
       dependsOn: ["build"],
     });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["trigger-downstream"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["trigger-downstream"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGitlab(graph);
@@ -1217,7 +1342,10 @@ describe("compileGitlab — pages (F-40)", () => {
       pages: { path: "dist/", prefix: "project-name" },
       dependsOn: ["build"],
     });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["deploy-pages"] });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["deploy-pages"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGitlab(graph);
@@ -1235,7 +1363,10 @@ describe("compileGitlab — workflow rules (F-42)", () => {
     const proj = new Project("test");
     const ci = new Pipeline(proj, "ci", {
       rules: [
-        { if: "$CI_COMMIT_BRANCH == \"main\"", variables: { DEPLOY_TARGET: "production" } },
+        {
+          if: '$CI_COMMIT_BRANCH == "main"',
+          variables: { DEPLOY_TARGET: "production" },
+        },
         { when: "never" },
       ],
     });
@@ -1247,7 +1378,7 @@ describe("compileGitlab — workflow rules (F-42)", () => {
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.workflow).toBeDefined();
     expect(yaml.workflow.rules).toHaveLength(2);
-    expect(yaml.workflow.rules[0].if).toBe("$CI_COMMIT_BRANCH == \"main\"");
+    expect(yaml.workflow.rules[0].if).toBe('$CI_COMMIT_BRANCH == "main"');
     expect(yaml.workflow.rules[0].variables.DEPLOY_TARGET).toBe("production");
     expect(yaml.workflow.rules[1].when).toBe("never");
   });
@@ -1257,9 +1388,7 @@ describe("compileGitlab — includes (F-44)", () => {
   it("emits include: with local: for pipeline includes", () => {
     const proj = new Project("test");
     const ci = new Pipeline(proj, "ci", {
-      includes: [
-        { path: "templates/build.yml", inputs: { image: "node:24" } },
-      ],
+      includes: [{ path: "templates/build.yml", inputs: { image: "node:24" } }],
     });
     new ShellStep(ci, "build", { command: "make build" });
     new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
@@ -1268,7 +1397,9 @@ describe("compileGitlab — includes (F-44)", () => {
     const result = compileGitlab(graph);
     const yaml = parse(result.artifacts[0]!.content);
     expect(yaml.include).toBeDefined();
-    const localInc = yaml.include.find((inc: { local?: string }) => inc.local === "templates/build.yml");
+    const localInc = yaml.include.find(
+      (inc: { local?: string }) => inc.local === "templates/build.yml",
+    );
     expect(localInc).toBeDefined();
     expect(localInc.inputs.image).toBe("node:24");
   });
@@ -1295,8 +1426,14 @@ describe("compileGitlab — background execution (F-49)", () => {
   it("appends & to background shell commands", () => {
     const proj = new Project("test");
     const ci = new Pipeline(proj, "ci");
-    new ShellStep(ci, "start-server", { command: "npm start", background: true });
-    new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["start-server"] });
+    new ShellStep(ci, "start-server", {
+      command: "npm start",
+      background: true,
+    });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["start-server"],
+    });
     const graph = synthesize(proj);
 
     const result = compileGitlab(graph);

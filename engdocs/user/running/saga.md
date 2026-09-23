@@ -22,7 +22,10 @@ const p = new Pipeline(proj, "ci");
 
 new ShellStep(p, "deploy", {
   command: "kubectl apply -f deploy.yaml",
-  compensation: { kind: "shell", command: "kubectl rollout undo deployment/my-app" },
+  compensation: {
+    kind: "shell",
+    command: "kubectl rollout undo deployment/my-app",
+  },
 });
 
 new ShellStep(p, "notify", {
@@ -48,10 +51,10 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["notify"] });
 
 ## Events
 
-| Event | When |
-|-------|------|
-| `step-compensating` | A compensation is about to run (carries `command`) |
-| `step-compensated` | A compensation finished (carries `status: "succeeded" \| "failed"` and `durationMs`) |
+| Event               | When                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `step-compensating` | A compensation is about to run (carries `command`)                                   |
+| `step-compensated`  | A compensation finished (carries `status: "succeeded" \| "failed"` and `durationMs`) |
 
 ## Limitations (v1)
 

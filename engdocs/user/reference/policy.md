@@ -55,23 +55,23 @@ const policy = createPolicy({
 
 Each rule in `failOn` specifies:
 
-| Field      | Type       | Description                                    |
-|------------|------------|------------------------------------------------|
-| `severity` | `Severity` | Minimum severity that triggers (inclusive)    |
-| `onlyNew`  | `boolean`  | Only consider findings not in the baseline    |
-| `checkIds` | `string[]?` | Restrict to these check IDs (all if absent)   |
+| Field      | Type        | Description                                 |
+| ---------- | ----------- | ------------------------------------------- |
+| `severity` | `Severity`  | Minimum severity that triggers (inclusive)  |
+| `onlyNew`  | `boolean`   | Only consider findings not in the baseline  |
+| `checkIds` | `string[]?` | Restrict to these check IDs (all if absent) |
 
 A finding triggers a rule if its severity rank is >= the rule's threshold
 and (when `onlyNew` is true) its fingerprint is not in the baseline.
 
 ## `PolicyResult`
 
-| Field        | Type                | Description                        |
-|--------------|---------------------|------------------------------------|
-| `verdict`    | `Verdict`           | `"pass"` or `"fail"`              |
-| `triggered`  | `TriggeredFinding[]`| Findings that caused failure      |
-| `rules`      | `RuleResult[]`      | Per-rule outcomes                  |
-| `summary`    | `string`            | Human-readable summary             |
+| Field       | Type                 | Description                  |
+| ----------- | -------------------- | ---------------------------- |
+| `verdict`   | `Verdict`            | `"pass"` or `"fail"`         |
+| `triggered` | `TriggeredFinding[]` | Findings that caused failure |
+| `rules`     | `RuleResult[]`       | Per-rule outcomes            |
+| `summary`   | `string`             | Human-readable summary       |
 
 ## `Verdict`
 

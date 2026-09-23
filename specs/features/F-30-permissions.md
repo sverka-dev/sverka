@@ -12,13 +12,13 @@ GitHub Actions uses `permissions` to control what the `GITHUB_TOKEN` can do — 
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `permissions` | (none in YAML) | `permissions` (GitHub extension) |
-| Semantics | Controls GITHUB_TOKEN access scopes | RBAC via project settings | Declare required token scopes |
-| Value type | map of scope→read/write/none, or `read-all`/`write-all`/`{}` | n/a | map of scope→permission |
-| Limitations | — | — | GitLab: unsupported, emit info diagnostic |
-| Provider gap | — | no YAML equivalent | — |
+| Aspect       | GitHub Actions                                               | GitLab CI                 | Sverka (proposed)                         |
+| ------------ | ------------------------------------------------------------ | ------------------------- | ----------------------------------------- |
+| Construct    | `permissions`                                                | (none in YAML)            | `permissions` (GitHub extension)          |
+| Semantics    | Controls GITHUB_TOKEN access scopes                          | RBAC via project settings | Declare required token scopes             |
+| Value type   | map of scope→read/write/none, or `read-all`/`write-all`/`{}` | n/a                       | map of scope→permission                   |
+| Limitations  | —                                                            | —                         | GitLab: unsupported, emit info diagnostic |
+| Provider gap | —                                                            | no YAML equivalent        | —                                         |
 
 ## GitHub Actions
 
@@ -35,6 +35,7 @@ Scopes: `actions`, `attestations`, `checks`, `contents`, `deployments`, `discuss
 ## GitLab CI
 
 No YAML equivalent. Permissions are managed via:
+
 - Project/group member roles
 - Protected environments
 - Protected variables

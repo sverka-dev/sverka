@@ -64,7 +64,9 @@ describe("resolveFindings", () => {
   it("throws when more than one input provided", () => {
     const findings = [makeFinding()];
     const sarif = makeSarif() as never;
-    expect(() => resolveFindings({ findings, sarif })).toThrow("provide only one");
+    expect(() => resolveFindings({ findings, sarif })).toThrow(
+      "provide only one",
+    );
   });
 
   it("throws when sarifPath and findings both provided", () => {

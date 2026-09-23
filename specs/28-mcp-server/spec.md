@@ -73,7 +73,7 @@ Registered in `main.ts` as `.command("mcp-server", "Expose Sverka as an MCP serv
 
 ```ts
 interface SverkaMcpTool {
-  readonly name: string;          // "sverka.validate", "sverka.plan", etc.
+  readonly name: string; // "sverka.validate", "sverka.plan", etc.
   readonly description: string;
   readonly inputSchema: Readonly<Record<string, unknown>>; // JSON Schema
   run(args: Readonly<Record<string, unknown>>): Promise<unknown>; // returns structured result
@@ -82,13 +82,13 @@ interface SverkaMcpTool {
 
 The 5 tools:
 
-| Tool | Input schema | Output |
-|---|---|---|
-| `sverka.validate` | `{ root?: string }` | `{ valid: boolean, errors: string[] }` |
-| `sverka.plan` | `{ root?: string, entryId?: string }` | `{ planId: string, steps: number }` |
-| `sverka.graph` | `{ root?: string }` | `{ pipelines: string[], steps: number, edges: number }` |
-| `sverka.run` | `{ root?: string, entryId?: string, executor?: "host"\|"docker" }` | `{ status: "success"\|"failure"\|"cancelled", durationMs: number }` |
-| `sverka.synth` | `{ root?: string, target: "github"\|"gitlab" }` | `{ artifacts: { path: string }[] }` |
+| Tool              | Input schema                                                       | Output                                                              |
+| ----------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `sverka.validate` | `{ root?: string }`                                                | `{ valid: boolean, errors: string[] }`                              |
+| `sverka.plan`     | `{ root?: string, entryId?: string }`                              | `{ planId: string, steps: number }`                                 |
+| `sverka.graph`    | `{ root?: string }`                                                | `{ pipelines: string[], steps: number, edges: number }`             |
+| `sverka.run`      | `{ root?: string, entryId?: string, executor?: "host"\|"docker" }` | `{ status: "success"\|"failure"\|"cancelled", durationMs: number }` |
+| `sverka.synth`    | `{ root?: string, target: "github"\|"gitlab" }`                    | `{ artifacts: { path: string }[] }`                                 |
 
 ### MCP SDK usage
 

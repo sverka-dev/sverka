@@ -92,7 +92,9 @@ export function deserializeRunPlan(json: string): RunPlan {
   validateRunPlanSchema(parsed);
   const { id: _id, createdAt: _createdAt, ...body } = parsed;
   if (parsed.id !== computeRunPlanId(body)) {
-    throw new ValidationError("run plan id does not match content-addressed hash");
+    throw new ValidationError(
+      "run plan id does not match content-addressed hash",
+    );
   }
   return parsed;
 }

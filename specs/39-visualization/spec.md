@@ -71,11 +71,11 @@ flowchart TD
 
 ### Edge mapping
 
-| Dependency kind | Mermaid arrow |
-|---|---|
-| control | `-->` (solid) |
-| value | `-.-> ` (dashed) |
-| artifact | `==>` (thick) |
+| Dependency kind | Mermaid arrow    |
+| --------------- | ---------------- |
+| control         | `-->` (solid)    |
+| value           | `-.-> ` (dashed) |
+| artifact        | `==>` (thick)    |
 
 ### Trigger rendering
 

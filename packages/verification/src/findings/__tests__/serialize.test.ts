@@ -22,8 +22,26 @@ describe("serializeSarif", () => {
 
   it("groups findings by tool into separate runs", () => {
     const findings = [
-      makeFinding({ id: "a", source: { tool: "eslint", version: null, format: "sarif", originalRuleId: "r1", originalSeverity: null } }),
-      makeFinding({ id: "b", source: { tool: "semgrep", version: null, format: "sarif", originalRuleId: "r2", originalSeverity: null } }),
+      makeFinding({
+        id: "a",
+        source: {
+          tool: "eslint",
+          version: null,
+          format: "sarif",
+          originalRuleId: "r1",
+          originalSeverity: null,
+        },
+      }),
+      makeFinding({
+        id: "b",
+        source: {
+          tool: "semgrep",
+          version: null,
+          format: "sarif",
+          originalRuleId: "r2",
+          originalSeverity: null,
+        },
+      }),
     ];
     const log = serializeSarif(findings);
     expect(log.runs).toHaveLength(2);
@@ -63,7 +81,9 @@ describe("serializeSarif", () => {
   });
 
   it("includes location with file, startLine, endLine", () => {
-    const log = serializeSarif([makeFinding({ file: "src/foo.ts", startLine: 5, endLine: 8 })]);
+    const log = serializeSarif([
+      makeFinding({ file: "src/foo.ts", startLine: 5, endLine: 8 }),
+    ]);
     const loc = log.runs[0]!.results[0]!.locations[0]!;
     expect(loc.physicalLocation.artifactLocation.uri).toBe("src/foo.ts");
     expect(loc.physicalLocation.region?.startLine).toBe(5);
@@ -74,7 +94,8 @@ describe("serializeSarif", () => {
     const log = serializeSarif([
       makeFinding({ startColumn: 3, endColumn: 10, snippet: "const x = 1;" }),
     ]);
-    const region = log.runs[0]!.results[0]!.locations[0]!.physicalLocation.region;
+    const region =
+      log.runs[0]!.results[0]!.locations[0]!.physicalLocation.region;
     expect(region?.startColumn).toBe(3);
     expect(region?.endColumn).toBe(10);
     expect(region?.snippet?.text).toBe("const x = 1;");
@@ -86,13 +107,25 @@ describe("serializeSarif", () => {
   });
 
   it("includes helpUri in rules when helpUrl is present", () => {
-    const log = serializeSarif([makeFinding({ helpUrl: "https://docs.example.com/rule" })]);
-    expect(log.runs[0]!.tool.driver.rules?.[0]!.helpUri).toBe("https://docs.example.com/rule");
+    const log = serializeSarif([
+      makeFinding({ helpUrl: "https://docs.example.com/rule" }),
+    ]);
+    expect(log.runs[0]!.tool.driver.rules?.[0]!.helpUri).toBe(
+      "https://docs.example.com/rule",
+    );
   });
 
   it("includes tool version when available", () => {
     const log = serializeSarif([
-      makeFinding({ source: { tool: "eslint", version: "9.0.0", format: "sarif", originalRuleId: "r1", originalSeverity: null } }),
+      makeFinding({
+        source: {
+          tool: "eslint",
+          version: "9.0.0",
+          format: "sarif",
+          originalRuleId: "r1",
+          originalSeverity: null,
+        },
+      }),
     ]);
     expect(log.runs[0]!.tool.driver.version).toBe("9.0.0");
   });
@@ -101,8 +134,22 @@ describe("serializeSarif", () => {
     // This is a key property: serialize then normalize should be lossless
     // for the core fields.
     const original = [
-      makeFinding({ id: "a", rule: "test-rule", file: "src/a.ts", startLine: 1, endLine: 1, message: "msg a" }),
-      makeFinding({ id: "b", rule: "test-rule", file: "src/b.ts", startLine: 5, endLine: 7, message: "msg b" }),
+      makeFinding({
+        id: "a",
+        rule: "test-rule",
+        file: "src/a.ts",
+        startLine: 1,
+        endLine: 1,
+        message: "msg a",
+      }),
+      makeFinding({
+        id: "b",
+        rule: "test-rule",
+        file: "src/b.ts",
+        startLine: 5,
+        endLine: 7,
+        message: "msg b",
+      }),
     ];
     const sarif = serializeSarif(original);
     const sarifJson = JSON.stringify(sarif);

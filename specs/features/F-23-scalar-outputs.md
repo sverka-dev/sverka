@@ -16,13 +16,13 @@ transferred in-memory by the native engine's `ValueStore`.
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `$GITHUB_OUTPUT` file | `artifacts:reports:dotenv` | `OutputDeclaration` (type: string/number/boolean) |
-| Semantics | step writes `key=value` to file, read by downstream jobs | job writes dotenv file, passed via artifacts | step writes to `$SVERKA_OUTPUT_DIR`, engine reads + stores |
-| Value type | string (untyped) | string (dotenv) | typed: string/number/boolean |
-| Limitations | no type info | dotenv format only | typed parsing in engine |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                                           | GitLab CI                                    | Sverka (proposed)                                          |
+| ------------ | -------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------- |
+| Construct    | `$GITHUB_OUTPUT` file                                    | `artifacts:reports:dotenv`                   | `OutputDeclaration` (type: string/number/boolean)          |
+| Semantics    | step writes `key=value` to file, read by downstream jobs | job writes dotenv file, passed via artifacts | step writes to `$SVERKA_OUTPUT_DIR`, engine reads + stores |
+| Value type   | string (untyped)                                         | string (dotenv)                              | typed: string/number/boolean                               |
+| Limitations  | no type info                                             | dotenv format only                           | typed parsing in engine                                    |
+| Provider gap | —                                                        | —                                            | —                                                          |
 
 ## GitHub Actions
 

@@ -20,7 +20,10 @@ export async function loadPersistedState(
   resume: boolean,
   planId: string,
 ): Promise<
-  | { completed: readonly string[]; outcomes: ReadonlyMap<string, OperationOutcome> }
+  | {
+      completed: readonly string[];
+      outcomes: ReadonlyMap<string, OperationOutcome>;
+    }
   | undefined
 > {
   if (!stateStore || !resume) return undefined;

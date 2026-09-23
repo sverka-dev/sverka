@@ -32,13 +32,16 @@ export async function graphCommand(
       output.writeLine(`  Pipeline: ${pipeline.id}`);
       output.writeLine(`    entries:`);
       for (const entry of pipeline.entries) {
-        output.writeLine(`      ${entry.id} (trigger: ${entry.trigger.kind}, roots: ${entry.roots.join(", ")})`);
+        output.writeLine(
+          `      ${entry.id} (trigger: ${entry.trigger.kind}, roots: ${entry.roots.join(", ")})`,
+        );
       }
       output.writeLine(`    steps:`);
       for (const step of pipeline.steps) {
-        const deps = step.dependencies.length > 0
-          ? ` → [${step.dependencies.map((d) => `${d.kind}:${d.producer}`).join(", ")}]`
-          : "";
+        const deps =
+          step.dependencies.length > 0
+            ? ` → [${step.dependencies.map((d) => `${d.kind}:${d.producer}`).join(", ")}]`
+            : "";
         output.writeLine(`      ${step.id}${deps}`);
       }
     }

@@ -3,7 +3,11 @@
 
 import { isAbsolute, normalize, relative } from "node:path";
 import type { StepDefinition, NetworkAllowlist } from "@sverka/workflow";
-import type { RuntimeDriver, ShellExecuteRequest, ShellResult } from "../engine-native/index.js";
+import type {
+  RuntimeDriver,
+  ShellExecuteRequest,
+  ShellResult,
+} from "../engine-native/index.js";
 import type { DockerDriverConfig } from "./config.js";
 import { DockerExecutorError, ContainerPolicyError } from "./errors.js";
 import { runDocker } from "./internal/docker-cli.js";
@@ -36,15 +40,34 @@ export function createDockerDriver(config: DockerDriverConfig): RuntimeDriver {
       validateEnv(request.env);
 
       if (request.imageDigest) {
-        await verifyImageDigest(image, request.imageDigest, { ...config, cacheDir: "" });
+        await verifyImageDigest(image, request.imageDigest, {
+          ...config,
+          cacheDir: "",
+        });
       }
 
-      const containerCwd = toContainerPath(request.cwd ?? request.workspace, request.workspace);
+      const containerCwd = toContainerPath(
+        request.cwd ?? request.workspace,
+        request.workspace,
+      );
       const containerEnv = buildContainerEnv(request.env, request.workspace);
 
-      const args = buildDockerArgs(request, runAs, network, image, containerCwd, containerEnv, request.network);
+      const args = buildDockerArgs(
+        request,
+        runAs,
+        network,
+        image,
+        containerCwd,
+        containerEnv,
+        request.network,
+      );
       const start = Date.now();
-      const runDockerOptions = buildRunDockerOptions(config, request, dockerPath, maxLogBytes);
+      const runDockerOptions = buildRunDockerOptions(
+        config,
+        request,
+        dockerPath,
+        maxLogBytes,
+      );
       const result = await runDocker(args, runDockerOptions);
 
       return {
@@ -76,10 +99,13 @@ export function buildDockerArgs(
   containerEnv?: Readonly<Record<string, string>>,
   networkAllowlist?: NetworkAllowlist,
 ): string[] {
-  const cwd = containerCwd ?? toContainerPath(request.cwd ?? request.workspace, request.workspace);
+  const cwd =
+    containerCwd ??
+    toContainerPath(request.cwd ?? request.workspace, request.workspace);
   const env = containerEnv ?? buildContainerEnv(request.env, request.workspace);
 
-  const hasAllowed = networkAllowlist !== undefined && networkAllowlist.allowed.length > 0;
+  const hasAllowed =
+    networkAllowlist !== undefined && networkAllowlist.allowed.length > 0;
   const effectiveNetwork = hasAllowed ? network : "none";
 
   const args: string[] = [
@@ -89,12 +115,16 @@ export function buildDockerArgs(
     "--cap-drop=ALL",
     `--user=${runAs}`,
     `--network=${effectiveNetwork}`,
-    "-v", `${request.workspace}:${CONTAINER_WORKSPACE}`,
-    "-w", cwd,
+    "-v",
+    `${request.workspace}:${CONTAINER_WORKSPACE}`,
+    "-w",
+    cwd,
   ];
 
   if (hasAllowed) {
-    args.push(`--label=sverka.network.allowlist=${networkAllowlist!.allowed.join(",")}`);
+    args.push(
+      `--label=sverka.network.allowlist=${networkAllowlist!.allowed.join(",")}`,
+    );
   }
 
   for (const [k, v] of Object.entries(env)) {
@@ -116,7 +146,10 @@ export function buildDockerArgs(
 
 function requireImage(image: string | undefined): string {
   if (!image) {
-    throw new DockerExecutorError("no image specified for container execution", "NO_IMAGE");
+    throw new DockerExecutorError(
+      "no image specified for container execution",
+      "NO_IMAGE",
+    );
   }
   return image;
 }
@@ -143,7 +176,9 @@ function buildRunDockerOptions(
   dockerHost?: string;
   signal?: AbortSignal;
 } {
-  const timeoutSeconds = Math.ceil((request.timeoutMs ?? DEFAULT_TIMEOUT_MS) / 1000);
+  const timeoutSeconds = Math.ceil(
+    (request.timeoutMs ?? DEFAULT_TIMEOUT_MS) / 1000,
+  );
   const options: {
     timeoutSeconds: number;
     dockerPath: string;
@@ -167,13 +202,25 @@ function buildRunDockerOptions(
 function validateEnv(env: Readonly<Record<string, string>>): void {
   for (const [k, v] of Object.entries(env)) {
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) {
-      throw new ContainerPolicyError(`invalid environment variable name: ${k}`, undefined, "INVALID_ENV");
+      throw new ContainerPolicyError(
+        `invalid environment variable name: ${k}`,
+        undefined,
+        "INVALID_ENV",
+      );
     }
     if (k.includes("\n") || k.includes("\r")) {
-      throw new ContainerPolicyError(`environment variable name contains newline: ${k}`, undefined, "INVALID_ENV");
+      throw new ContainerPolicyError(
+        `environment variable name contains newline: ${k}`,
+        undefined,
+        "INVALID_ENV",
+      );
     }
     if (v.includes("\n") || v.includes("\r") || v.includes("\0")) {
-      throw new ContainerPolicyError(`environment variable contains unsafe character: ${k}`, undefined, "INVALID_ENV");
+      throw new ContainerPolicyError(
+        `environment variable contains unsafe character: ${k}`,
+        undefined,
+        "INVALID_ENV",
+      );
     }
   }
 }

@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, PipelineCallStep, Entry, push } from "../../cdk/index.js";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  PipelineCallStep,
+  Entry,
+  push,
+} from "../../cdk/index.js";
 import type { Reference } from "../../cdk/index.js";
 import { synthesize, SynthesisError } from "../index.js";
 
@@ -57,7 +64,10 @@ describe("synthesize — pipeline calls", () => {
     const deploy = graph.project.pipelines.find((p) => p.id === "deploy")!;
 
     const callStep = ci.steps.find((s) => s.id === "ci/deploy-staging")!;
-    expect(callStep.call).toEqual({ callee: "deploy", inputs: { env: "staging" } });
+    expect(callStep.call).toEqual({
+      callee: "deploy",
+      inputs: { env: "staging" },
+    });
     // Callee's outputs copied onto the call step.
     expect(callStep.outputs).toEqual([{ name: "url", type: "string" }]);
     // No shell operations on a call step.
@@ -65,7 +75,11 @@ describe("synthesize — pipeline calls", () => {
 
     // Callee pipeline is intact.
     expect(deploy.steps[0]?.id).toBe("deploy/deploy");
-    expect(deploy.outputs[0]).toEqual({ name: "url", type: "string", stepId: "deploy/deploy" });
+    expect(deploy.outputs[0]).toEqual({
+      name: "url",
+      type: "string",
+      stepId: "deploy/deploy",
+    });
   });
 
   it("callee defined AFTER caller — two-pass resolves correctly", () => {

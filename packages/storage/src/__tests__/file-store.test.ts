@@ -5,17 +5,29 @@ import { join } from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { createFileSnapshotStore } from "../file-store.js";
 import { StorageError } from "../errors.js";
-import { makeSnapshot, makeTempDir, cleanupTempDir } from "./helpers/fixtures.js";
+import {
+  makeSnapshot,
+  makeTempDir,
+  cleanupTempDir,
+} from "./helpers/fixtures.js";
 
 /** Write a file at <dir>/.sverka/runs/<runId>/snapshot.json with the given content. */
-async function writeSnapshotFile(dir: string, runId: string, content: string): Promise<void> {
+async function writeSnapshotFile(
+  dir: string,
+  runId: string,
+  content: string,
+): Promise<void> {
   const snapDir = join(dir, ".sverka", "runs", runId);
   await mkdir(snapDir, { recursive: true });
   await writeFile(join(snapDir, "snapshot.json"), content);
 }
 
 /** Expect store.load(runId) to reject with a StorageError having the given code. */
-async function expectLoadError(dir: string, runId: string, code: string): Promise<void> {
+async function expectLoadError(
+  dir: string,
+  runId: string,
+  code: string,
+): Promise<void> {
   const store = createFileSnapshotStore({ root: dir });
   await expect(store.load(runId)).rejects.toThrow(StorageError);
   try {
@@ -65,7 +77,13 @@ describe("FileSnapshotStore", () => {
     const store = createFileSnapshotStore({ root: dir });
     const snap = makeSnapshot("run-nested");
     await store.save(snap);
-    const snapPath = join(dir, ".sverka", "runs", "run-nested", "snapshot.json");
+    const snapPath = join(
+      dir,
+      ".sverka",
+      "runs",
+      "run-nested",
+      "snapshot.json",
+    );
     expect(existsSync(snapPath)).toBe(true);
   });
 
@@ -146,7 +164,9 @@ describe("FileSnapshotStore", () => {
     await store.save(snap);
     const runDir = join(dir, ".sverka", "runs", "run-atomic");
     const entries = readdirSync(runDir);
-    const tmpFiles = entries.filter((f) => f.startsWith(".snapshot.") && f.endsWith(".tmp"));
+    const tmpFiles = entries.filter(
+      (f) => f.startsWith(".snapshot.") && f.endsWith(".tmp"),
+    );
     expect(tmpFiles).toEqual([]);
     const finalPath = join(runDir, "snapshot.json");
     expect(existsSync(finalPath)).toBe(true);

@@ -23,7 +23,11 @@ export function expr(
     template += strings[i];
     if (i < values.length) {
       const v = values[i]!;
-      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+      if (
+        typeof v === "string" ||
+        typeof v === "number" ||
+        typeof v === "boolean"
+      ) {
         template += String(v);
       } else if (isReference(v)) {
         refs.push(v);

@@ -82,7 +82,10 @@ describe("updateBaseline", () => {
   it("adds new fingerprints", () => {
     const existing = createBaseline([makeFinding({ fingerprint: "fp-a" })]);
     const updated = updateBaseline(
-      [makeFinding({ fingerprint: "fp-a" }), makeFinding({ fingerprint: "fp-b" })],
+      [
+        makeFinding({ fingerprint: "fp-a" }),
+        makeFinding({ fingerprint: "fp-b" }),
+      ],
       existing,
     );
     expect(updated.fingerprints).toContain("fp-b");
@@ -117,7 +120,10 @@ describe("updateBaseline", () => {
   it("preserves createdAt and refreshes updatedAt", () => {
     const existing = createBaseline([makeFinding({ fingerprint: "fp-a" })]);
     const originalCreatedAt = existing.createdAt;
-    const updated = updateBaseline([makeFinding({ fingerprint: "fp-a" })], existing);
+    const updated = updateBaseline(
+      [makeFinding({ fingerprint: "fp-a" })],
+      existing,
+    );
     expect(updated.createdAt).toBe(originalCreatedAt);
     // updatedAt may or may not differ, but should be valid ISO 8601.
     expect(() => new Date(updated.updatedAt).toISOString()).not.toThrow();
@@ -128,7 +134,10 @@ describe("compareBaseline", () => {
   it("returns newFindings not in baseline", () => {
     const baseline = createBaseline([makeFinding({ fingerprint: "fp-a" })]);
     const diff = compareBaseline(
-      [makeFinding({ fingerprint: "fp-a" }), makeFinding({ fingerprint: "fp-b" })],
+      [
+        makeFinding({ fingerprint: "fp-a" }),
+        makeFinding({ fingerprint: "fp-b" }),
+      ],
       baseline,
     );
     expect(diff.newFindings).toHaveLength(1);
@@ -212,7 +221,9 @@ describe("Baseline I/O", () => {
   });
 
   it("loadBaseline throws BASELINE_NOT_FOUND for missing file", async () => {
-    await expect(loadBaseline(`${dir}/nope.json`)).rejects.toThrow(BaselineError);
+    await expect(loadBaseline(`${dir}/nope.json`)).rejects.toThrow(
+      BaselineError,
+    );
     try {
       await loadBaseline(`${dir}/nope.json`);
     } catch (e) {
@@ -222,7 +233,9 @@ describe("Baseline I/O", () => {
 
   it("loadBaseline throws BASELINE_INVALID for invalid JSON", async () => {
     await writeTempFile(dir, "bad.json", "{not valid json");
-    await expect(loadBaseline(`${dir}/bad.json`)).rejects.toThrow(BaselineError);
+    await expect(loadBaseline(`${dir}/bad.json`)).rejects.toThrow(
+      BaselineError,
+    );
     try {
       await loadBaseline(`${dir}/bad.json`);
     } catch (e) {
@@ -236,7 +249,9 @@ describe("Baseline I/O", () => {
       "wrong.json",
       JSON.stringify({ version: 99, fingerprints: [], suppressions: [] }),
     );
-    await expect(loadBaseline(`${dir}/wrong.json`)).rejects.toThrow(BaselineError);
+    await expect(loadBaseline(`${dir}/wrong.json`)).rejects.toThrow(
+      BaselineError,
+    );
     try {
       await loadBaseline(`${dir}/wrong.json`);
     } catch (e) {
@@ -250,7 +265,9 @@ describe("Baseline I/O", () => {
       "badfp.json",
       JSON.stringify({ version: 1, fingerprints: "oops", suppressions: [] }),
     );
-    await expect(loadBaseline(`${dir}/badfp.json`)).rejects.toThrow(BaselineError);
+    await expect(loadBaseline(`${dir}/badfp.json`)).rejects.toThrow(
+      BaselineError,
+    );
   });
 
   it("saveBaseline throws BASELINE_WRITE_FAILED for unwritable path", async () => {

@@ -59,6 +59,7 @@ packages/reporter/
 and policy verdict.
 
 **Scope:**
+
 - `Renderer` interface: `onEvent(RunEvent): void`, `onFindings(Finding[]): void`,
   `onVerdict(Verdict): void`, `flush(): void`
 - `EventReducer` — pure function: accumulates RunEvents into UIState
@@ -83,6 +84,7 @@ and policy verdict.
 self-contained HTML file with ReactFlow DAG, findings table, per-step logs.
 
 **Scope:**
+
 - `DagLayout` — pure: DefinitionGraph → { nodes: DagNode[], edges: DagEdge[] }
   with topological positions
 - `HtmlRenderer` — generates self-contained HTML:
@@ -105,6 +107,7 @@ self-contained HTML file with ReactFlow DAG, findings table, per-step logs.
 **Goal:** `sverka run --tui` (default when TTY) shows live interactive TUI.
 
 **Scope:**
+
 - `InkRenderer` — ink + react:
   - Step tree with live status (✓ green, ✗ red, ● yellow spinner, ○ gray)
   - Findings list with filter bar: [all] [high] [medium] [low] [new] [error]
@@ -118,13 +121,14 @@ self-contained HTML file with ReactFlow DAG, findings table, per-step logs.
 
 **Files:** ~600 lines impl + ~200 lines tests
 **Deps:** ink (^5.0.0), react (^18.0.0) — runtime deps of @sverka/reporter
-         (only loaded when TUI mode is active; tree-shakeable for HTML/text)
+(only loaded when TUI mode is active; tree-shakeable for HTML/text)
 
 ### Phase 4: Web server (FUTURE — not in this wave)
 
 **Goal:** `sverka serve` — HTTP server with live run streaming.
 
 **Scope (deferred):**
+
 - Hono/Express server
 - WebSocket for live RunEvent streaming
 - REST API: POST /run, GET /run/:id, GET /run/:id/state
@@ -172,13 +176,13 @@ sverka run [--format text|json|html] [--output <path>] [--tui|--no-tui]
 
 ## Dependencies
 
-| Package | Dep | Type | Justification |
-|---------|-----|------|---------------|
-| @sverka/reporter | @sverka/runtime | workspace | RunEvent, DefinitionGraph types |
-| @sverka/reporter | @sverka/verification | workspace | normalizeSarif, evaluatePolicy |
-| @sverka/reporter | ink ^5.0.0 | runtime | TUI renderer (tree-shakeable) |
-| @sverka/reporter | react ^18.0.0 | runtime | ink peer dep |
-| @sverka/reporter | reactflow ^11.0.0 | dev | UMD bundle inlined at build time |
+| Package          | Dep                  | Type      | Justification                    |
+| ---------------- | -------------------- | --------- | -------------------------------- |
+| @sverka/reporter | @sverka/runtime      | workspace | RunEvent, DefinitionGraph types  |
+| @sverka/reporter | @sverka/verification | workspace | normalizeSarif, evaluatePolicy   |
+| @sverka/reporter | ink ^5.0.0           | runtime   | TUI renderer (tree-shakeable)    |
+| @sverka/reporter | react ^18.0.0        | runtime   | ink peer dep                     |
+| @sverka/reporter | reactflow ^11.0.0    | dev       | UMD bundle inlined at build time |
 
 ink + react are ~45KB gzipped together. reactflow UMD is ~200KB inlined into
 HTML template at build time, not a runtime dep of the package.
@@ -201,6 +205,7 @@ HTML template at build time, not a runtime dep of the package.
 ## Wave structure
 
 3 stacked PRs:
+
 - PR 1 (base: main): `@sverka/reporter` package — types, reducer, findings
   collector, policy gate, text renderer, CLI wiring. Spec 43.
 - PR 2 (base: PR 1): HTML renderer + DAG layout + ReactFlow. Spec 44.

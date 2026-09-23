@@ -12,17 +12,18 @@ Importers read existing GitHub Actions workflows or GitLab CI configs and conver
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `.github/workflows/*.yml` | `.gitlab-ci.yml` | `importGitHub()` / `importGitLab()` |
-| Semantics | Parse YAML → Definition Graph | Parse YAML → Definition Graph | Reverse lowering |
-| Value type | YAML file | YAML file | `DefinitionGraph` |
-| Limitations | not all GitHub features map | not all GitLab features map | lossy import for unsupported features |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                | GitLab CI                     | Sverka (proposed)                     |
+| ------------ | ----------------------------- | ----------------------------- | ------------------------------------- |
+| Construct    | `.github/workflows/*.yml`     | `.gitlab-ci.yml`              | `importGitHub()` / `importGitLab()`   |
+| Semantics    | Parse YAML → Definition Graph | Parse YAML → Definition Graph | Reverse lowering                      |
+| Value type   | YAML file                     | YAML file                     | `DefinitionGraph`                     |
+| Limitations  | not all GitHub features map   | not all GitLab features map   | lossy import for unsupported features |
+| Provider gap | —                             | —                             | —                                     |
 
 ## GitHub Actions
 
 Importing a GitHub workflow requires:
+
 1. Parse the YAML file.
 2. Extract triggers → Entry nodes.
 3. Extract jobs → Step nodes.
@@ -35,6 +36,7 @@ Importing a GitHub workflow requires:
 ## GitLab CI
 
 Importing a GitLab CI config requires:
+
 1. Parse the YAML file.
 2. Resolve `include` directives via an injected, allowlisted resolver. Local includes are anchored to the repository root. Remote and cross-project includes are disabled by default (network access off) and produce diagnostics. Only source-controlled local YAML targets are resolved.
 3. Extract `workflow:rules` → pipeline rules.
@@ -51,7 +53,10 @@ Importing a GitLab CI config requires:
 ```ts
 interface Importer {
   import(source: string): DefinitionGraph;
-  importWithDiagnostics(source: string): { graph: DefinitionGraph; diagnostics: Diagnostic[] };
+  importWithDiagnostics(source: string): {
+    graph: DefinitionGraph;
+    diagnostics: Diagnostic[];
+  };
 }
 
 const githubImporter: Importer = createGithubImporter();

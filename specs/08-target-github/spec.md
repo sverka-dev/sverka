@@ -119,8 +119,13 @@ interface CompilationResult {
 ```ts
 export { GithubTarget, compileGithub };
 export type {
-  GithubTargetGraph, GithubTriggers, GithubJob, GithubStep,
-  GeneratedArtifact, TargetDiagnostic, CompilationResult,
+  GithubTargetGraph,
+  GithubTriggers,
+  GithubJob,
+  GithubStep,
+  GeneratedArtifact,
+  TargetDiagnostic,
+  CompilationResult,
 };
 ```
 
@@ -128,28 +133,28 @@ export type {
 
 ### Trigger mapping
 
-| Sverka Trigger | GitHub Trigger |
-|---|---|
-| `push` | `push` (with branch filter) |
+| Sverka Trigger  | GitHub Trigger                      |
+| --------------- | ----------------------------------- |
+| `push`          | `push` (with branch filter)         |
 | `changeRequest` | `pull_request` (with branch filter) |
-| `manual` | `workflow_dispatch` |
+| `manual`        | `workflow_dispatch`                 |
 
 ### Runtime mapping
 
-| Sverka Runtime | GitHub Job |
-|---|---|
-| `host` (default) | `runs-on: ubuntu-latest` |
+| Sverka Runtime         | GitHub Job                                      |
+| ---------------------- | ----------------------------------------------- |
+| `host` (default)       | `runs-on: ubuntu-latest`                        |
 | `container` with image | `runs-on: ubuntu-latest` + `container: <image>` |
 
 ### Operation mapping
 
-| Sverka Operation | GitHub Step |
-|---|---|
-| `shell` | `{ run: <command> }` |
-| `exportArtifact` | `uses: actions/upload-artifact` with `path` |
-| `importArtifact` | `uses: actions/download-artifact` with `name` |
-| `exportOutput` | `{ run: echo "name=value" >> $GITHUB_OUTPUT }` |
-| `diagnostic` | `{ run: echo "::notice\|warning\|error::message" }` |
+| Sverka Operation | GitHub Step                                         |
+| ---------------- | --------------------------------------------------- |
+| `shell`          | `{ run: <command> }`                                |
+| `exportArtifact` | `uses: actions/upload-artifact` with `path`         |
+| `importArtifact` | `uses: actions/download-artifact` with `name`       |
+| `exportOutput`   | `{ run: echo "name=value" >> $GITHUB_OUTPUT }`      |
+| `diagnostic`     | `{ run: echo "::notice\|warning\|error::message" }` |
 
 ### Dependency mapping
 
@@ -176,6 +181,7 @@ const githubCapabilities: CapabilityManifest = {
 ## Error handling
 
 Custom error class `GithubTargetError` with codes:
+
 - `INVALID_GRAPH`: graph has no pipelines or invalid structure
 - `UNSUPPORTED_TRIGGER`: trigger kind not supported
 - `LOWER_FAILED`: lowering failed

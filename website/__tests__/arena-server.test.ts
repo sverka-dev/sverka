@@ -25,24 +25,40 @@ beforeAll(async () => {
   CONFIG_FILE = join(TEST_DIR, "config.json");
 
   // Seed initial data
-  await writeFile(CASES_FILE, JSON.stringify([
-    {
-      id: "seed-case",
-      name: "Seed Case",
-      prompt: "Test prompt",
-      fixture: "fixtures/test",
-      timeoutMs: 60000,
-      checks: [{ id: "test", command: "echo ok", description: "test" }],
-      createdAt: "2026-01-01T00:00:00Z",
-      updatedAt: "2026-01-01T00:00:00Z",
-    },
-  ], null, 2));
+  await writeFile(
+    CASES_FILE,
+    JSON.stringify(
+      [
+        {
+          id: "seed-case",
+          name: "Seed Case",
+          prompt: "Test prompt",
+          fixture: "fixtures/test",
+          timeoutMs: 60000,
+          checks: [{ id: "test", command: "echo ok", description: "test" }],
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+      null,
+      2,
+    ),
+  );
 
-  await writeFile(CONFIG_FILE, JSON.stringify({
-    models: [{ id: "test-model", name: "Test Model" }],
-    plugins: [{ id: "test-plugin", name: "Test Plugin", path: "/tmp/test" }],
-    repetitions: 1,
-  }, null, 2));
+  await writeFile(
+    CONFIG_FILE,
+    JSON.stringify(
+      {
+        models: [{ id: "test-model", name: "Test Model" }],
+        plugins: [
+          { id: "test-plugin", name: "Test Plugin", path: "/tmp/test" },
+        ],
+        repetitions: 1,
+      },
+      null,
+      2,
+    ),
+  );
 
   // Inline server for testing
   const PUBLIC_DIR = join(process.cwd(), "website/public/benchmark");
@@ -81,11 +97,13 @@ beforeAll(async () => {
         if (method === "GET") return json(200, await loadCases());
         if (method === "POST") {
           const body = JSON.parse(await req.text());
-          if (!body.id || !/^[a-z0-9-]+$/.test(body.id)) return error(400, "invalid id");
+          if (!body.id || !/^[a-z0-9-]+$/.test(body.id))
+            return error(400, "invalid id");
           if (!body.name) return error(400, "name required");
           if (!body.prompt) return error(400, "prompt required");
           const cases = await loadCases();
-          if (cases.some((c: any) => c.id === body.id)) return error(409, "exists");
+          if (cases.some((c: any) => c.id === body.id))
+            return error(409, "exists");
           const now = new Date().toISOString();
           const newCase = { ...body, createdAt: now, updatedAt: now };
           cases.push(newCase);
@@ -103,7 +121,11 @@ beforeAll(async () => {
         if (method === "GET") return json(200, cases[idx]);
         if (method === "PUT") {
           const body = JSON.parse(await req.text());
-          cases[idx] = { ...cases[idx], ...body, updatedAt: new Date().toISOString() };
+          cases[idx] = {
+            ...cases[idx],
+            ...body,
+            updatedAt: new Date().toISOString(),
+          };
           await saveCases(cases);
           return json(200, cases[idx]);
         }
@@ -222,7 +244,9 @@ describe("arena-server CRUD API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: "delete-me", name: "Delete", prompt: "p" }),
     });
-    const resp = await fetch(`${BASE}/api/cases/delete-me`, { method: "DELETE" });
+    const resp = await fetch(`${BASE}/api/cases/delete-me`, {
+      method: "DELETE",
+    });
     expect(resp.ok).toBe(true);
     const result = await resp.json();
     expect(result.deleted).toBe("delete-me");

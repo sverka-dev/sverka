@@ -15,7 +15,9 @@ export async function validateCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  output.debug(`validate: root=${global.root} config=${global.config ?? "(auto)"}`);
+  output.debug(
+    `validate: root=${global.root} config=${global.config ?? "(auto)"}`,
+  );
 
   const { configPath, graph, warnings } = await loadProjectGraph(global);
   validateGraph(graph);
@@ -25,7 +27,12 @@ export async function validateCommand(
     output.writeLine(
       JSON.stringify({
         command: "validate",
-        data: { path: configPath, valid: true, pipelines: graph.project.pipelines.length, warnings },
+        data: {
+          path: configPath,
+          valid: true,
+          pipelines: graph.project.pipelines.length,
+          warnings,
+        },
         durationMs,
       }),
     );
@@ -36,7 +43,9 @@ export async function validateCommand(
     output.writeLine(`Config valid: ${configPath}`);
     output.writeLine(`  pipelines: ${graph.project.pipelines.length}`);
     for (const pipeline of graph.project.pipelines) {
-      output.writeLine(`    ${pipeline.id}: ${pipeline.steps.length} steps, ${pipeline.entries.length} entries`);
+      output.writeLine(
+        `    ${pipeline.id}: ${pipeline.steps.length} steps, ${pipeline.entries.length} entries`,
+      );
     }
   }
 

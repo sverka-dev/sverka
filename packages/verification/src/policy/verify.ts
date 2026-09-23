@@ -35,7 +35,10 @@ export function verifyPolicyAgainstGraph(
 
   const knownCheckIds = collectKnownCheckIds(graph);
   const referencedCheckIds = collectReferencedCheckIds(policy);
-  const unknownCheckIds = findUnknownCheckIds(referencedCheckIds, knownCheckIds);
+  const unknownCheckIds = findUnknownCheckIds(
+    referencedCheckIds,
+    knownCheckIds,
+  );
 
   return {
     valid: unknownCheckIds.length === 0,
@@ -43,14 +46,21 @@ export function verifyPolicyAgainstGraph(
   };
 }
 
-function collectValidationErrors(policy: Policy, graph: DefinitionGraph): string[] {
+function collectValidationErrors(
+  policy: Policy,
+  graph: DefinitionGraph,
+): string[] {
   const errors: string[] = [];
   if (!policy || typeof policy !== "object") {
     errors.push("invalid policy: expected object");
   } else if (!Array.isArray(policy.failOn)) {
     errors.push("invalid policy: failOn must be an array");
   }
-  if (!graph || typeof graph !== "object" || !Array.isArray(graph.project?.pipelines)) {
+  if (
+    !graph ||
+    typeof graph !== "object" ||
+    !Array.isArray(graph.project?.pipelines)
+  ) {
     errors.push("invalid graph: project.pipelines must be an array");
   }
   return errors;
@@ -74,7 +84,9 @@ function collectReferencedCheckIds(policy: Policy): Set<string> {
   for (const rule of policy.failOn) {
     const raw = (rule as { checkIds?: unknown }).checkIds;
     if (raw === undefined || raw === null) continue;
-    const ids: string[] = Array.isArray(raw) ? (raw as string[]) : [String(raw)];
+    const ids: string[] = Array.isArray(raw)
+      ? (raw as string[])
+      : [String(raw)];
     for (const id of ids) {
       if (typeof id === "string") referencedCheckIds.add(id);
     }
@@ -82,7 +94,10 @@ function collectReferencedCheckIds(policy: Policy): Set<string> {
   return referencedCheckIds;
 }
 
-function findUnknownCheckIds(referenced: Set<string>, known: Set<string>): string[] {
+function findUnknownCheckIds(
+  referenced: Set<string>,
+  known: Set<string>,
+): string[] {
   const unknown: string[] = [];
   for (const id of referenced) {
     if (!known.has(normalizeCheckId(id))) {

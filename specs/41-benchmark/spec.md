@@ -85,7 +85,10 @@ interface BenchmarkConfig {
 function runBenchmark(config: BenchmarkConfig): Promise<BenchmarkResult>;
 
 /** Write benchmark results to a JSON file. */
-function writeReport(result: BenchmarkResult, outputPath: string): Promise<void>;
+function writeReport(
+  result: BenchmarkResult,
+  outputPath: string,
+): Promise<void>;
 
 /** Built-in task scenarios (5 tasks). */
 const BENCHMARK_TASKS: Task[];
@@ -98,7 +101,15 @@ const DEFAULT_AGENTS: AgentConfig[];
 
 ```typescript
 export { runBenchmark, writeReport, BENCHMARK_TASKS, DEFAULT_AGENTS };
-export type { Task, AgentConfig, RunMetrics, RunResult, AggregateMetrics, BenchmarkResult, BenchmarkConfig };
+export type {
+  Task,
+  AgentConfig,
+  RunMetrics,
+  RunResult,
+  AggregateMetrics,
+  BenchmarkResult,
+  BenchmarkConfig,
+};
 ```
 
 ## Architecture

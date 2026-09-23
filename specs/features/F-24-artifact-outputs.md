@@ -17,13 +17,13 @@ GitLab uses `artifacts:paths`. Sverka models artifact outputs as
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `actions/upload-artifact@v4` | `artifacts:paths` | `OutputDeclaration` (type: artifact, path) |
-| Semantics | action uploads files to GitHub storage | job artifacts stored by GitLab | step writes files, engine copies to ArtifactStore |
-| Value type | action `with` (name, path) | string array (paths) | typed: artifact + path |
-| Limitations | 14-day retention default | `expire_in` configurable | no expiry in v0 |
-| Provider gap | — | — | — |
+| Aspect       | GitHub Actions                         | GitLab CI                      | Sverka (proposed)                                 |
+| ------------ | -------------------------------------- | ------------------------------ | ------------------------------------------------- |
+| Construct    | `actions/upload-artifact@v4`           | `artifacts:paths`              | `OutputDeclaration` (type: artifact, path)        |
+| Semantics    | action uploads files to GitHub storage | job artifacts stored by GitLab | step writes files, engine copies to ArtifactStore |
+| Value type   | action `with` (name, path)             | string array (paths)           | typed: artifact + path                            |
+| Limitations  | 14-day retention default               | `expire_in` configurable       | no expiry in v0                                   |
+| Provider gap | —                                      | —                              | —                                                 |
 
 ## GitHub Actions
 

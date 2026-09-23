@@ -58,12 +58,20 @@ describe("OperationDefinition variants", () => {
   });
 
   it("exportOutput operation", () => {
-    const op: OperationDefinition = { kind: "exportOutput", name: "version", type: "string" };
+    const op: OperationDefinition = {
+      kind: "exportOutput",
+      name: "version",
+      type: "string",
+    };
     expect(op.kind).toBe("exportOutput");
   });
 
   it("exportArtifact operation", () => {
-    const op: OperationDefinition = { kind: "exportArtifact", name: "dist", path: "./dist" };
+    const op: OperationDefinition = {
+      kind: "exportArtifact",
+      name: "dist",
+      path: "./dist",
+    };
     expect(op.kind).toBe("exportArtifact");
   });
 
@@ -78,7 +86,11 @@ describe("OperationDefinition variants", () => {
   });
 
   it("diagnostic operation", () => {
-    const op: OperationDefinition = { kind: "diagnostic", message: "hello", severity: "info" };
+    const op: OperationDefinition = {
+      kind: "diagnostic",
+      message: "hello",
+      severity: "info",
+    };
     expect(op.kind).toBe("diagnostic");
   });
 });
@@ -91,13 +103,21 @@ describe("Dependency variants", () => {
   });
 
   it("value dependency (output + scalar type)", () => {
-    const dep: Dependency = { kind: "value", producer: "ci/build", output: "version" };
+    const dep: Dependency = {
+      kind: "value",
+      producer: "ci/build",
+      output: "version",
+    };
     expect(dep.kind).toBe("value");
     expect(dep.output).toBe("version");
   });
 
   it("artifact dependency (output + artifact type)", () => {
-    const dep: Dependency = { kind: "artifact", producer: "ci/build", output: "dist" };
+    const dep: Dependency = {
+      kind: "artifact",
+      producer: "ci/build",
+      output: "dist",
+    };
     expect(dep.kind).toBe("artifact");
     expect(dep.output).toBe("dist");
   });

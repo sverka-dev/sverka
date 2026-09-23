@@ -9,12 +9,18 @@ describe("Spec 30 — compensation field on Step (cdk)", () => {
   it("stores compensation on ShellStep", () => {
     const project = new Project("saga-cdk-store");
     const pipeline = new Pipeline(project, "ci");
-    const compensation: OperationDefinition = { kind: "shell", command: "rollback.sh" };
+    const compensation: OperationDefinition = {
+      kind: "shell",
+      command: "rollback.sh",
+    };
     const step = new ShellStep(pipeline, "deploy", {
       command: "deploy.sh",
       compensation,
     });
-    expect(step.compensation).toEqual({ kind: "shell", command: "rollback.sh" });
+    expect(step.compensation).toEqual({
+      kind: "shell",
+      command: "rollback.sh",
+    });
   });
 
   it("compensation is undefined when not provided", () => {

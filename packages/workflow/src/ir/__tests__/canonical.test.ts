@@ -7,7 +7,9 @@ describe("canonicalStringify", () => {
   });
 
   it("omits undefined object fields", () => {
-    expect(canonicalStringify({ a: 1, b: undefined, c: 3 })).toBe('{"a":1,"c":3}');
+    expect(canonicalStringify({ a: 1, b: undefined, c: 3 })).toBe(
+      '{"a":1,"c":3}',
+    );
   });
 
   it("preserves array order", () => {
@@ -35,15 +37,21 @@ describe("canonicalStringify", () => {
 
   it("emits ISO string for Date", () => {
     const d = new Date("2026-01-15T00:00:00.000Z");
-    expect(canonicalStringify({ created: d })).toBe('{"created":"2026-01-15T00:00:00.000Z"}');
+    expect(canonicalStringify({ created: d })).toBe(
+      '{"created":"2026-01-15T00:00:00.000Z"}',
+    );
   });
 
   it("sorts keys case-sensitively (UTF-16 code-unit order)", () => {
-    expect(canonicalStringify({ a: 1, B: 2, A: 3 })).toBe('{"A":3,"B":2,"a":1}');
+    expect(canonicalStringify({ a: 1, B: 2, A: 3 })).toBe(
+      '{"A":3,"B":2,"a":1}',
+    );
   });
 
   it("handles nested objects", () => {
-    expect(canonicalStringify({ z: { y: 1, x: 2 } })).toBe('{"z":{"x":2,"y":1}}');
+    expect(canonicalStringify({ z: { y: 1, x: 2 } })).toBe(
+      '{"z":{"x":2,"y":1}}',
+    );
   });
 
   it("handles null", () => {

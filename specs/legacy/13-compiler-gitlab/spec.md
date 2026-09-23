@@ -94,10 +94,10 @@ sverka:
 
 ### Default config
 
-| Field           | Default                                                              |
-|-----------------|----------------------------------------------------------------------|
-| `image`         | `"oven/bun:latest"`                                                  |
-| `sverkaVersion` | `"latest"`                                                           |
+| Field           | Default                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| `image`         | `"oven/bun:latest"`                                                                                 |
+| `sverkaVersion` | `"latest"`                                                                                          |
 | `rules`         | `[{ if: '$CI_PIPELINE_SOURCE == "push"' }, { if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }]` |
 
 ### YAML serialization
@@ -117,7 +117,7 @@ well-formed input), the native `Error` propagates.
 1. **Minimal plan, default config:** YAML contains `stages: [verify]`,
    `sverka` job with `stage: verify`, `image: oven/bun:latest`, default rules
    (push + merge_request_event), `before_script: bun install -g
-   sverka@latest`, `script: sverka execute`,
+sverka@latest`, `script: sverka execute`,
    `artifacts: when: always, paths: [.sverka/output/]`.
 2. **Custom config:** custom image and sverkaVersion reflected in YAML.
    Custom image should provide Bun so `bun install` succeeds.

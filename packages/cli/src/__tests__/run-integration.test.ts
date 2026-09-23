@@ -130,10 +130,9 @@ describe("run command — format and evaluate", () => {
     await writefile(dir, "sverka.config.ts", SARIF_CONFIG);
 
     const out = new CaptureWriter();
-    const code = await main(
-      ["run", "--root", dir, "--evaluate"],
-      { output: out },
-    );
+    const code = await main(["run", "--root", dir, "--evaluate"], {
+      output: out,
+    });
 
     expect(code).toBe(1);
   });
@@ -149,7 +148,9 @@ describe("run command — format and evaluate", () => {
 
     expect(code).toBe(0);
     const json = JSON.parse(out.stdoutText);
-    const build = json.data.steps.find((s: { stepId: string }) => s.stepId === "ci/build");
+    const build = json.data.steps.find(
+      (s: { stepId: string }) => s.stepId === "ci/build",
+    );
     expect(build.status).toBe("succeeded");
     expect(build.stdout).toContain("build");
     expect(build.exitCode).toBe(0);
@@ -174,7 +175,9 @@ export default proj;
 
     expect(code).toBe(1);
     const json = JSON.parse(out.stdoutText);
-    const step = json.data.steps.find((s: { stepId: string }) => s.stepId === "ci/test");
+    const step = json.data.steps.find(
+      (s: { stepId: string }) => s.stepId === "ci/test",
+    );
     expect(step.status).toBe("failed");
     expect(step.exitCode).toBe(3);
     expect(step.stdout).toContain("partial-out");
@@ -250,10 +253,9 @@ describe("run command — --format html", () => {
     await writefile(dir, "sverka.config.ts", SARIF_CLEAN_CONFIG);
 
     const out = new CaptureWriter();
-    const code = await main(
-      ["run", "--root", dir, "--format", "html"],
-      { output: out },
-    );
+    const code = await main(["run", "--root", dir, "--format", "html"], {
+      output: out,
+    });
 
     expect(code).toBe(0);
     const defaultPath = join(dir, ".sverka", "report.html");
@@ -273,7 +275,9 @@ describe("run command — --format html", () => {
 
     expect(code).toBe(0);
     expect(existsSync(sarifPath)).toBe(true);
-    const sarif = JSON.parse(await readFile(sarifPath, "utf-8")) as { version: string };
+    const sarif = JSON.parse(await readFile(sarifPath, "utf-8")) as {
+      version: string;
+    };
     expect(sarif.version).toBe("2.1.0");
   });
 

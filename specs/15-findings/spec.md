@@ -36,16 +36,34 @@ consumes, which in turn calls `normalizeSarif` from this package).
 Unchanged from existing implementation:
 
 ```ts
-function normalizeSarif(log: SarifLog, ctx: NormalizeContext): readonly Finding[];
+function normalizeSarif(
+  log: SarifLog,
+  ctx: NormalizeContext,
+): readonly Finding[];
 function computeFingerprint(input: FingerprintInput): string;
 function createBaseline(findings: readonly Finding[]): Baseline;
-function updateBaseline(baseline: Baseline, findings: readonly Finding[]): Baseline;
-function compareBaseline(findings: readonly Finding[], baseline: Baseline): BaselineDiff;
+function updateBaseline(
+  baseline: Baseline,
+  findings: readonly Finding[],
+): Baseline;
+function compareBaseline(
+  findings: readonly Finding[],
+  baseline: Baseline,
+): BaselineDiff;
 function loadBaseline(path: string): Promise<Baseline>;
 function saveBaseline(baseline: Baseline, path: string): Promise<void>;
-function isSuppressed(finding: Finding, suppressions: readonly Suppression[]): boolean;
-function filterSuppressed(findings: readonly Finding[], suppressions: readonly Suppression[]): readonly Finding[];
-function filterOnlyNew(findings: readonly Finding[], baseline: Baseline): readonly Finding[];
+function isSuppressed(
+  finding: Finding,
+  suppressions: readonly Suppression[],
+): boolean;
+function filterSuppressed(
+  findings: readonly Finding[],
+  suppressions: readonly Suppression[],
+): readonly Finding[];
+function filterOnlyNew(
+  findings: readonly Finding[],
+  baseline: Baseline,
+): readonly Finding[];
 ```
 
 ## Test plan

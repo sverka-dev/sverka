@@ -1,8 +1,28 @@
 // Native lowering: Definition Graph → GithubTargetGraph[].
 // Spec 08 — §18.1, §19. F-31: multi-pipeline reusable workflows.
 
-import type { DefinitionGraph, PipelineDefinition, StepDefinition, EntryDefinition, OperationDefinition, Dependency, Reference, Expression, Input } from "@sverka/workflow";
-import type { Trigger, MatrixSpec, StepRef, StatusCondition, PipelineDefaults, ReportSpec, ServiceContainer, CacheSpec, Rule } from "@sverka/workflow";
+import type {
+  DefinitionGraph,
+  PipelineDefinition,
+  StepDefinition,
+  EntryDefinition,
+  OperationDefinition,
+  Dependency,
+  Reference,
+  Expression,
+  Input,
+} from "@sverka/workflow";
+import type {
+  Trigger,
+  MatrixSpec,
+  StepRef,
+  StatusCondition,
+  PipelineDefaults,
+  ReportSpec,
+  ServiceContainer,
+  CacheSpec,
+  Rule,
+} from "@sverka/workflow";
 import type {
   GithubTargetGraph,
   GithubTriggers,
@@ -81,7 +101,12 @@ function lowerSinglePipeline(
   const jobIdMap = buildJobIdMap(reachableSteps);
 
   const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
-  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id, config);
+  const jobs = lowerStepsWithCalls(
+    reachableSteps,
+    jobIdMap,
+    pipeline.id,
+    config,
+  );
 
   return assemblePipelineTarget(pipeline, triggers, jobs);
 }
@@ -117,8 +142,12 @@ function assemblePipelineTarget(
     jobs: jobsWithPermissions,
     env: collectEnv(pipeline),
     ...(pipeline.permissions !== undefined ? { permissions: {} } : {}),
-    ...(pipeline.defaults !== undefined ? { defaults: lowerDefaults(pipeline.defaults) } : {}),
-    ...(pipeline.concurrency !== undefined ? { concurrency: pipeline.concurrency } : {}),
+    ...(pipeline.defaults !== undefined
+      ? { defaults: lowerDefaults(pipeline.defaults) }
+      : {}),
+    ...(pipeline.concurrency !== undefined
+      ? { concurrency: pipeline.concurrency }
+      : {}),
   };
 }
 
@@ -128,7 +157,9 @@ function assemblePipelineTarget(
 function lowerDefaults(defaults: PipelineDefaults): GithubDefaults {
   const run: GithubDefaultsRun = {
     ...(defaults.shell !== undefined ? { shell: defaults.shell } : {}),
-    ...(defaults.workdir !== undefined ? { "working-directory": defaults.workdir } : {}),
+    ...(defaults.workdir !== undefined
+      ? { "working-directory": defaults.workdir }
+      : {}),
   };
   return { run };
 }
@@ -146,7 +177,11 @@ function lowerMultiPipeline(
 
   const result: GithubTargetGraph[] = [];
   for (const pipeline of pipelines) {
-    const target = lowerPipelineInGraph(pipeline, calledPipelineIds.has(pipeline.id), config);
+    const target = lowerPipelineInGraph(
+      pipeline,
+      calledPipelineIds.has(pipeline.id),
+      config,
+    );
     if (target !== undefined) result.push(target);
   }
   return result;
@@ -155,7 +190,9 @@ function lowerMultiPipeline(
 /**
  * Collect the set of pipeline IDs that are referenced by at least one call step.
  */
-function collectCalledPipelineIds(pipelines: readonly PipelineDefinition[]): Set<string> {
+function collectCalledPipelineIds(
+  pipelines: readonly PipelineDefinition[],
+): Set<string> {
   const called = new Set<string>();
   for (const p of pipelines) {
     for (const step of p.steps) {
@@ -181,7 +218,9 @@ function lowerPipelineInGraph(
 
   // For callees, all steps are reachable (no entries needed).
   // For roots, filter by entry reachability.
-  const reachableSteps = hasEntries ? filterReachableSteps(pipeline) : pipeline.steps;
+  const reachableSteps = hasEntries
+    ? filterReachableSteps(pipeline)
+    : pipeline.steps;
   const jobIdMap = buildJobIdMap(reachableSteps);
 
   // Triggers: root triggers + workflow_call if called.
@@ -190,7 +229,12 @@ function lowerPipelineInGraph(
     triggers = addWorkflowCall(triggers, pipeline.inputs);
   }
 
-  const jobs = lowerStepsWithCalls(reachableSteps, jobIdMap, pipeline.id, config);
+  const jobs = lowerStepsWithCalls(
+    reachableSteps,
+    jobIdMap,
+    pipeline.id,
+    config,
+  );
   return assemblePipelineTarget(pipeline, triggers, jobs);
 }
 
@@ -335,7 +379,13 @@ function lowerTriggers(
     const t = entry.trigger;
     switch (t.kind) {
       case "push":
-        collectFilters(t, pushBranches, pushTags, pushPaths, () => (pushAll = true));
+        collectFilters(
+          t,
+          pushBranches,
+          pushTags,
+          pushPaths,
+          () => (pushAll = true),
+        );
         break;
       case "changeRequest":
         collectFilters(t, prBranches, undefined, prPaths, () => (prAll = true));
@@ -431,15 +481,23 @@ function assembleTriggers(f: TriggerFilters): GithubTriggers {
   if (pr) triggers.pull_request = pr;
   if (f.hasManual) {
     const loweredInputs = lowerInputs(f.inputs);
-    triggers.workflow_dispatch = loweredInputs !== undefined ? { inputs: loweredInputs } : null;
+    triggers.workflow_dispatch =
+      loweredInputs !== undefined ? { inputs: loweredInputs } : null;
   }
   if (f.scheduleEntries.length > 0) triggers.schedule = f.scheduleEntries;
   return triggers as GithubTriggers;
 }
 
-function assemblePushTrigger(f: TriggerFilters): Record<string, string[]> | null {
+function assemblePushTrigger(
+  f: TriggerFilters,
+): Record<string, string[]> | null {
   if (f.pushAll) return {};
-  if (f.pushBranches.size === 0 && f.pushTags.size === 0 && f.pushPaths.size === 0) return null;
+  if (
+    f.pushBranches.size === 0 &&
+    f.pushTags.size === 0 &&
+    f.pushPaths.size === 0
+  )
+    return null;
   const push: Record<string, string[]> = {};
   if (f.pushBranches.size > 0) push.branches = [...f.pushBranches];
   if (f.pushTags.size > 0) push.tags = [...f.pushTags];
@@ -447,7 +505,9 @@ function assemblePushTrigger(f: TriggerFilters): Record<string, string[]> | null
   return push;
 }
 
-function assemblePullRequestTrigger(f: TriggerFilters): Record<string, string[]> | null {
+function assemblePullRequestTrigger(
+  f: TriggerFilters,
+): Record<string, string[]> | null {
   if (f.prAll) return {};
   if (f.prBranches.size === 0 && f.prPaths.size === 0) return null;
   const pr: Record<string, string[]> = {};
@@ -470,7 +530,9 @@ function lowerInputs(
   for (const [name, input] of Object.entries(inputs)) {
     const ghInput: GithubInput = {
       type: input.type === "array" ? "string" : input.type,
-      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.description !== undefined
+        ? { description: input.description }
+        : {}),
       ...(input.required !== undefined ? { required: input.required } : {}),
       ...(input.default !== undefined && typeof input.default !== "object"
         ? { default: input.default as string | number | boolean }
@@ -531,7 +593,12 @@ function lowerReferenceExpr(
   jobIdMap: Map<string, string>,
   forWithInput = false,
 ): string | undefined {
-  if (typeof value === "object" && value !== null && !Array.isArray(value) && "kind" in value) {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    "kind" in value
+  ) {
     const ref = value as Reference;
     if (ref.kind === "step") {
       const producerJobId = jobIdMap.get(ref.step) ?? ref.step;
@@ -714,7 +781,10 @@ function lowerStep(
   const rawSteps = lowerOperations(step, jobIdMap, config);
 
   // GitHub only supports boolean continue-on-error, not exit-code mapping.
-  if (step.continueOnError !== undefined && typeof step.continueOnError !== "boolean") {
+  if (
+    step.continueOnError !== undefined &&
+    typeof step.continueOnError !== "boolean"
+  ) {
     throw new GithubTargetError(
       "GitHub does not support exit-code continueOnError; use a boolean value",
       "UNSUPPORTED_FEATURE",
@@ -731,7 +801,16 @@ function lowerStep(
   const container = resolveContainer(step, mode);
   const jobEnv = collectJobEnv(runtime);
 
-  return assembleGithubJob({ jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap });
+  return assembleGithubJob({
+    jobId,
+    steps,
+    needs,
+    step,
+    runsOn,
+    container,
+    jobEnv,
+    jobIdMap,
+  });
 }
 
 /**
@@ -745,11 +824,15 @@ function applyContinueOnError(
 ): GithubStep[] {
   const infraSteps = new Set<GithubStep>(setupSteps(config));
   return rawSteps.map((s) =>
-    step.continueOnError !== undefined && s.run !== undefined && !infraSteps.has(s)
+    step.continueOnError !== undefined &&
+    s.run !== undefined &&
+    !infraSteps.has(s)
       ? {
           ...s,
           continueOnError:
-            typeof step.continueOnError === "boolean" ? step.continueOnError : true,
+            typeof step.continueOnError === "boolean"
+              ? step.continueOnError
+              : true,
         }
       : s,
   );
@@ -788,7 +871,10 @@ function collectJobOutputs(step: StepDefinition): Record<string, string> {
  * Build the job's `steps` array, inserting a cache step after checkout when
  * caching is enabled. Checkout is always the first step.
  */
-function resolveJobSteps(steps: GithubStep[], step: StepDefinition): GithubStep[] {
+function resolveJobSteps(
+  steps: GithubStep[],
+  step: StepDefinition,
+): GithubStep[] {
   if (step.cache === undefined) return steps;
   // Cache step goes after checkout (always first) and before other steps.
   return [steps[0]!, lowerCacheStep(step.cache), ...steps.slice(1)];
@@ -826,17 +912,17 @@ function resolveJobIf(
  */
 const WRITE_KIND_TO_GHA_PERMISSION: Readonly<Record<string, string>> = {
   "pull-request": "pull-requests: write",
-  "comment": "issues: write",
-  "deploy": "deployments: write",
-  "push": "contents: write",
+  comment: "issues: write",
+  deploy: "deployments: write",
+  push: "contents: write",
   "id-token": "id-token: write",
-  "pages": "pages: write",
+  pages: "pages: write",
 };
 
 function resolveJobPermissions(step: StepDefinition): Record<string, unknown> {
   if (step.operations.some((op) => op.kind === "deployPages")) {
     return {
-      permissions: { "pages": "write", "id-token": "write" },
+      permissions: { pages: "write", "id-token": "write" },
       environment: { name: "github-pages" },
     };
   }
@@ -886,7 +972,8 @@ interface GithubJobParts {
  * Assemble the final GithubJob object from its constituent parts.
  */
 function assembleGithubJob(parts: GithubJobParts): GithubJob {
-  const { jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap } = parts;
+  const { jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap } =
+    parts;
   const jobOutputs = collectJobOutputs(step);
   const jobIf = resolveJobIf(step, jobIdMap);
   const jobPermissions = resolveJobPermissions(step);
@@ -903,12 +990,16 @@ function assembleGithubJob(parts: GithubJobParts): GithubJob {
       : {}),
     ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
     ...(container ? { container } : {}),
-    ...(step.matrix !== undefined ? { strategy: lowerStrategy(step.matrix) } : {}),
+    ...(step.matrix !== undefined
+      ? { strategy: lowerStrategy(step.matrix) }
+      : {}),
     ...jobIf,
     ...jobPermissions,
     ...resolveJobServices(step),
     ...resolveJobEnvironment(step),
-    ...(step.concurrency !== undefined ? { concurrency: step.concurrency } : {}),
+    ...(step.concurrency !== undefined
+      ? { concurrency: step.concurrency }
+      : {}),
   };
 }
 
@@ -924,7 +1015,9 @@ function resolveJobEnvironment(step: StepDefinition): Partial<GithubJob> {
   return {
     environment: {
       name: step.environment.name,
-      ...(step.environment.url !== undefined ? { url: step.environment.url } : {}),
+      ...(step.environment.url !== undefined
+        ? { url: step.environment.url }
+        : {}),
     },
   };
 }
@@ -948,7 +1041,10 @@ function lowerCacheStep(cache: CacheSpec): GithubStep {
     key: cache.key,
   };
   if (cache.restoreKeys !== undefined && cache.restoreKeys.length > 0) {
-    withMap["restore-keys"] = cache.restoreKeys.length === 1 ? cache.restoreKeys[0] : cache.restoreKeys.join("\n");
+    withMap["restore-keys"] =
+      cache.restoreKeys.length === 1
+        ? cache.restoreKeys[0]
+        : cache.restoreKeys.join("\n");
   }
   return {
     name: "Restore cache",
@@ -960,7 +1056,9 @@ function lowerCacheStep(cache: CacheSpec): GithubStep {
 /**
  * Lower service containers to GitHub services map (keyed by name).
  */
-function lowerServices(services: readonly ServiceContainer[]): Readonly<Record<string, GithubService>> {
+function lowerServices(
+  services: readonly ServiceContainer[],
+): Readonly<Record<string, GithubService>> {
   const result: Record<string, GithubService> = {};
   for (const svc of services) {
     // GitHub Actions does not support `entrypoint` or `command` on services.
@@ -972,7 +1070,9 @@ function lowerServices(services: readonly ServiceContainer[]): Readonly<Record<s
     const service: GithubService = {
       image: svc.image,
       ...(svc.env !== undefined ? { env: { ...svc.env } } : {}),
-      ...(svc.ports !== undefined ? { ports: svc.ports.map((p) => `${p}:${p}`) } : {}),
+      ...(svc.ports !== undefined
+        ? { ports: svc.ports.map((p) => `${p}:${p}`) }
+        : {}),
       ...(options.length > 0 ? { options: options.join(" ") } : {}),
     };
     result[svc.name] = service;
@@ -1026,7 +1126,9 @@ function resolveContainer(
   return mode === "container" ? step.runtime.image : undefined;
 }
 
-function collectJobEnv(runtime: StepDefinition["runtime"]): Record<string, string> {
+function collectJobEnv(
+  runtime: StepDefinition["runtime"],
+): Record<string, string> {
   const jobEnv: Record<string, string> = {};
   if (runtime.env) {
     Object.assign(jobEnv, runtime.env);
@@ -1072,7 +1174,9 @@ function lowerOperations(
   config?: GithubTargetConfig,
 ): readonly GithubStep[] {
   const steps: GithubStep[] = [];
-  const shortStepId = step.id.includes("/") ? step.id.split("/").pop()! : step.id;
+  const shortStepId = step.id.includes("/")
+    ? step.id.split("/").pop()!
+    : step.id;
 
   // Every job needs the repository checked out, then toolchain/dependency
   // setup runs before everything else.
@@ -1125,7 +1229,9 @@ function lowerOperations(
       // Give the step an id when it contains exportOutput so job-level outputs can reference it.
       ...(runHasOutput ? { id: "output" } : {}),
       run: translated,
-      ...(step.runtime.workingDir ? { workingDirectory: step.runtime.workingDir } : {}),
+      ...(step.runtime.workingDir
+        ? { workingDirectory: step.runtime.workingDir }
+        : {}),
       ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
     });
     for (const name of stdoutUploadNames) {
@@ -1223,7 +1329,9 @@ function lowerOperation(
         with: {
           name: artifactName(shortStepId, op.name),
           path: op.path,
-          ...(op.retention !== undefined ? { "retention-days": parseRetentionDays(op.retention) } : {}),
+          ...(op.retention !== undefined
+            ? { "retention-days": parseRetentionDays(op.retention) }
+            : {}),
         },
       });
       break;
@@ -1301,7 +1409,11 @@ function lowerDeployPages(
   );
 }
 
-function lowerImportArtifact(op: Extract<OperationDefinition, { kind: "importArtifact" }>, steps: GithubStep[], flushRun: () => void): void {
+function lowerImportArtifact(
+  op: Extract<OperationDefinition, { kind: "importArtifact" }>,
+  steps: GithubStep[],
+  flushRun: () => void,
+): void {
   flushRun();
   const fromShort = op.from.includes("/") ? op.from.split("/").pop()! : op.from;
   steps.push({
@@ -1311,7 +1423,11 @@ function lowerImportArtifact(op: Extract<OperationDefinition, { kind: "importArt
   });
 }
 
-function lowerDiagnostic(op: Extract<OperationDefinition, { kind: "diagnostic" }>, steps: GithubStep[], flushRun: () => void): void {
+function lowerDiagnostic(
+  op: Extract<OperationDefinition, { kind: "diagnostic" }>,
+  steps: GithubStep[],
+  flushRun: () => void,
+): void {
   flushRun();
   const severityFlag = severityFlagFor(op.severity);
   const escapedMessage = op.message
@@ -1473,7 +1589,12 @@ const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
  * In conditions, secrets are not supported by GitHub's if: context and are
  * emitted as env var references instead.
  */
-function translateContextRef(namespace: string, field: string, inCondition = false, forWithInput = false): string {
+function translateContextRef(
+  namespace: string,
+  field: string,
+  inCondition = false,
+  forWithInput = false,
+): string {
   const key = `${namespace}.${field}`;
   const mapped = GITHUB_CONTEXT_MAP[key];
   if (mapped) return `\${{ ${mapped} }}`;
@@ -1524,7 +1645,9 @@ function translateStepRef(ref: StepRef, jobIdMap: Map<string, string>): string {
  * Build a lookup map from placeholder key ("namespace.field" or "step.output")
  * to the Reference from the step's inputs array.
  */
-function buildInputLookup(inputs: readonly Reference[]): Map<string, Reference> {
+function buildInputLookup(
+  inputs: readonly Reference[],
+): Map<string, Reference> {
   const map = new Map<string, Reference>();
   for (const ref of inputs) {
     if (ref.kind === "context") {
@@ -1602,14 +1725,17 @@ function lowerCondition(
   }
   // Expression — translate each ${...} placeholder
   const lookup = buildInputLookup(condition.refs);
-  const translated = condition.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
-    const ref = lookup.get(key);
-    if (ref === undefined) return `\${${key}}`;
-    if (ref.kind === "context") {
-      return stripBraces(translateContextRef(ref.namespace, ref.field, true));
-    }
-    return stripBraces(translateStepRef(ref, jobIdMap));
-  });
+  const translated = condition.template.replace(
+    /\$\{([^{}]+)\}/g,
+    (_, key: string) => {
+      const ref = lookup.get(key);
+      if (ref === undefined) return `\${${key}}`;
+      if (ref.kind === "context") {
+        return stripBraces(translateContextRef(ref.namespace, ref.field, true));
+      }
+      return stripBraces(translateStepRef(ref, jobIdMap));
+    },
+  );
   return `\${{ ${translated} }}`;
 }
 

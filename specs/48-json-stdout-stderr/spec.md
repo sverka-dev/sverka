@@ -152,7 +152,13 @@ events.
 ```typescript
 interface StepSummary {
   readonly stepId: string;
-  readonly status: "succeeded" | "failed" | "skipped" | "cancelled" | "suspended" | "cache-hit";
+  readonly status:
+    | "succeeded"
+    | "failed"
+    | "skipped"
+    | "cancelled"
+    | "suspended"
+    | "cache-hit";
   readonly durationMs?: number;
   readonly error?: string;
   readonly cacheKey?: string;
@@ -164,13 +170,13 @@ interface StepSummary {
 
 ## Files
 
-| File | Change |
-|------|--------|
-| `packages/runtime/src/engine-native/errors.ts` | Add `stdout?`, `stderr?` to `StepExecError` |
-| `packages/runtime/src/engine-native/step-executor.ts` | Capture stdout/stderr in `executeShellOperation`, propagate through `executeStep`, truncate |
-| `packages/runtime/src/engine-native/types.ts` | Add `stdout?`, `stderr?`, `exitCode?` to `step-succeeded` and `step-failed` RunEvent variants |
-| `packages/runtime/src/engine-native/engine.ts` | Emit stdout/stderr/exitCode in `step-succeeded` and `step-failed` events |
-| `packages/cli/src/commands/run.ts` | Add `stdout?`, `stderr?`, `exitCode?` to `StepSummary` and `summarizeSteps` |
+| File                                                  | Change                                                                                        |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `packages/runtime/src/engine-native/errors.ts`        | Add `stdout?`, `stderr?` to `StepExecError`                                                   |
+| `packages/runtime/src/engine-native/step-executor.ts` | Capture stdout/stderr in `executeShellOperation`, propagate through `executeStep`, truncate   |
+| `packages/runtime/src/engine-native/types.ts`         | Add `stdout?`, `stderr?`, `exitCode?` to `step-succeeded` and `step-failed` RunEvent variants |
+| `packages/runtime/src/engine-native/engine.ts`        | Emit stdout/stderr/exitCode in `step-succeeded` and `step-failed` events                      |
+| `packages/cli/src/commands/run.ts`                    | Add `stdout?`, `stderr?`, `exitCode?` to `StepSummary` and `summarizeSteps`                   |
 
 No new packages. No new dependencies. All changes are additive (optional fields).
 

@@ -52,18 +52,41 @@ reaches policy evaluation or the CLI output layer.
 ```typescript
 // src/index.ts — public exports
 
-export { type Finding, type Severity, type FindingSource,
-         type NormalizeContext, type FingerprintInput } from "./types.js";
-export { type Baseline, type Suppression, type BaselineDiff } from "./baseline.js";
-export { type SarifLog, type SarifRun, type SarifRule,
-         type SarifResult, type SarifLocation } from "./normalize.js";
+export {
+  type Finding,
+  type Severity,
+  type FindingSource,
+  type NormalizeContext,
+  type FingerprintInput,
+} from "./types.js";
+export {
+  type Baseline,
+  type Suppression,
+  type BaselineDiff,
+} from "./baseline.js";
+export {
+  type SarifLog,
+  type SarifRun,
+  type SarifRule,
+  type SarifResult,
+  type SarifLocation,
+} from "./normalize.js";
 export { normalizeSarif } from "./normalize.js";
 export { computeFingerprint } from "./fingerprint.js";
-export { createBaseline, updateBaseline, compareBaseline,
-         loadBaseline, saveBaseline } from "./baseline.js";
+export {
+  createBaseline,
+  updateBaseline,
+  compareBaseline,
+  loadBaseline,
+  saveBaseline,
+} from "./baseline.js";
 export { isSuppressed, filterSuppressed, filterOnlyNew } from "./suppress.js";
-export { NormalizationError, type NormalizationErrorCode,
-         BaselineError, type BaselineErrorCode } from "./errors.js";
+export {
+  NormalizationError,
+  type NormalizationErrorCode,
+  BaselineError,
+  type BaselineErrorCode,
+} from "./errors.js";
 ```
 
 ```typescript
@@ -377,9 +400,7 @@ export class NormalizationError extends Error {
 }
 
 export type NormalizationErrorCode =
-  | "INVALID_SARIF"
-  | "MISSING_LOCATION"
-  | "INVALID_FINGERPRINT_INPUT";
+  "INVALID_SARIF" | "MISSING_LOCATION" | "INVALID_FINGERPRINT_INPUT";
 
 export class BaselineError extends Error {
   readonly code: BaselineErrorCode;
@@ -393,9 +414,7 @@ export class BaselineError extends Error {
 }
 
 export type BaselineErrorCode =
-  | "BASELINE_NOT_FOUND"
-  | "BASELINE_INVALID"
-  | "BASELINE_WRITE_FAILED";
+  "BASELINE_NOT_FOUND" | "BASELINE_INVALID" | "BASELINE_WRITE_FAILED";
 ```
 
 ## Data models
@@ -421,12 +440,12 @@ export type BaselineErrorCode =
 ### SARIF level-to-severity mapping
 
 | SARIF level | Sverka severity |
-|---|---|
-| `error` | `high` |
-| `warning` | `medium` |
-| `note` | `low` |
-| `none` | `info` |
-| (absent) | `info` |
+| ----------- | --------------- |
+| `error`     | `high`          |
+| `warning`   | `medium`        |
+| `note`      | `low`           |
+| `none`      | `info`          |
+| (absent)    | `info`          |
 
 If a SARIF rule has `defaultConfiguration.level`, that level is used when the
 result does not specify its own `level`.

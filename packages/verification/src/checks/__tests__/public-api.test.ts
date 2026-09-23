@@ -27,6 +27,11 @@ describe("public API", () => {
 
   it("does not export unexpected runtime values", () => {
     const runtimeKeys = Object.keys(api).sort();
-    expect(runtimeKeys).toEqual(["CheckError", "createBuiltinResolver", "extractFindings", "synthesizeCheckSteps"]);
+    expect(runtimeKeys).toEqual([
+      "CheckError",
+      "createBuiltinResolver",
+      "extractFindings",
+      "synthesizeCheckSteps",
+    ]);
   });
 });

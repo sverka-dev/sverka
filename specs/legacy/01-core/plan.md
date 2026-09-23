@@ -212,8 +212,8 @@ This is the core engine. It is called by `workflow().plan()`.
         - **Plan mode:** pass the operation to `runtime.evaluate` with
           its `condition` unchanged so the plan records all operations
           regardless of condition outcome.
-        This preserves false-conditioned operations in Compile and Plan
-        modes while keeping Execution mode simple.
+          This preserves false-conditioned operations in Compile and Plan
+          modes while keeping Execution mode simple.
      8. **Evaluate** — for each non-skipped node in topo order, call
         `runtime.evaluate(spec)`. Collect `OperationOutcome`s.
      9. **Finalize** — call `runtime.finalize()`, merge with planner
@@ -290,6 +290,7 @@ bun run tsdown              # build produces dist/
 ```
 
 From repo root:
+
 ```bash
 bun run test                # nx run-many --target=test --all (Vitest via Nx)
 bun run typecheck
@@ -299,12 +300,12 @@ bun run build
 
 ## Acceptance criteria mapping
 
-| Spec criterion | Verified by |
-|---|---|
-| Public symbols importable with coverage | `public-api.test.ts` |
-| Laziness (no fs/process/network) | `laziness.test.ts` |
+| Spec criterion                                         | Verified by                                    |
+| ------------------------------------------------------ | ---------------------------------------------- |
+| Public symbols importable with coverage                | `public-api.test.ts`                           |
+| Laziness (no fs/process/network)                       | `laziness.test.ts`                             |
 | Composition (pipeline/parallel/when/matrix/after/with) | `composition.test.ts`, `composables/*.test.ts` |
-| DAG validation (cycles, duplicate ids) | `dag.test.ts` |
-| Three Runtime modes | `runtime-modes.test.ts` |
-| bun run test/typecheck/lint/build green | verification gates |
-| No `any`, no `@ts-ignore` | typecheck + lint |
+| DAG validation (cycles, duplicate ids)                 | `dag.test.ts`                                  |
+| Three Runtime modes                                    | `runtime-modes.test.ts`                        |
+| bun run test/typecheck/lint/build green                | verification gates                             |
+| No `any`, no `@ts-ignore`                              | typecheck + lint                               |

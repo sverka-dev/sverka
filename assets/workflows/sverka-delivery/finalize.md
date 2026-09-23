@@ -16,7 +16,7 @@ You are the mayor finalizing a completed delivery phase. The reviewer has approv
    - Commit the staged changes.
    - Push: `git push -u origin <branch>`
    - Create PR: `gh pr create --base <prev-phase-branch-or-main> --head <branch>
-     --title "Delivery Phase {{phase_num}}: {{phase_name}}" --body "..."`
+--title "Delivery Phase {{phase_num}}: {{phase_name}}" --body "..."`
 5. Run `bd dolt push` to sync beads (if authorized).
 6. Send mail to human: "Delivery Phase {{phase_num}} complete: {{phase_name}}"
    with summary including what was delivered and benchmark metrics (if Phase 3+).
@@ -38,6 +38,7 @@ main
 ## Phase dispatch sequence
 
 After finalizing each phase, check the megaplan dependency graph:
+
 - Phase 1 → dispatch Phase 2 (publishing depends on CLI fixes)
 - Phase 2 → dispatch Phase 3 (benchmark needs installable packages)
 - Phase 3 → dispatch Phase 4 (dashboard needs benchmark results)
@@ -52,6 +53,7 @@ to the human for explicit authorization.
 ## When all phases are done
 
 When Phase 5 is finalized:
+
 1. Send a final summary to the human with all benchmark results.
 2. Update the website with the benchmark page.
 3. Close the delivery mega-epic bead.

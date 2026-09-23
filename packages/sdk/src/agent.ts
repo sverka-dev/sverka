@@ -2,12 +2,18 @@
 // Spec 27 — §9.2 (SDK). Mirrors $ for shell, but creates an AgentStep.
 
 import { AgentStep, Pipeline } from "@sverka/workflow";
-import type { Reference, OutputDeclaration, AgentToolRef } from "@sverka/workflow";
+import type {
+  Reference,
+  OutputDeclaration,
+  AgentToolRef,
+} from "@sverka/workflow";
 import { SdkError } from "./errors.js";
 import { isReference } from "./internal/is-reference.js";
 
 export interface AgentStepBuilder {
-  outputs(outputs: Readonly<Record<string, OutputDeclaration>>): AgentStepBuilder;
+  outputs(
+    outputs: Readonly<Record<string, OutputDeclaration>>,
+  ): AgentStepBuilder;
   inputs(inputs: readonly Reference[]): AgentStepBuilder;
   dependsOn(steps: readonly string[]): AgentStepBuilder;
   tools(...tools: readonly AgentToolRef[]): AgentStepBuilder;
@@ -31,7 +37,9 @@ interface AgentBuilderState {
 
 function createAgentBuilder(state: AgentBuilderState): AgentStepBuilder {
   const builder: AgentStepBuilder = {
-    outputs(outputs: Readonly<Record<string, OutputDeclaration>>): AgentStepBuilder {
+    outputs(
+      outputs: Readonly<Record<string, OutputDeclaration>>,
+    ): AgentStepBuilder {
       state.outputs = outputs;
       return builder;
     },
@@ -67,7 +75,9 @@ function createAgentBuilder(state: AgentBuilderState): AgentStepBuilder {
         prompt: state.prompt,
         ...(state.model !== undefined ? { model: state.model } : {}),
         ...(state.tools.length > 0 ? { tools: state.tools } : {}),
-        ...(state.maxTokens !== undefined ? { maxTokens: state.maxTokens } : {}),
+        ...(state.maxTokens !== undefined
+          ? { maxTokens: state.maxTokens }
+          : {}),
         ...(state.outputs ? { outputs: state.outputs } : {}),
         ...(allInputs.length > 0 ? { inputs: allInputs } : {}),
         ...(state.dependsOn ? { dependsOn: state.dependsOn } : {}),
@@ -113,5 +123,10 @@ export function agent(
     }
   }
 
-  return createAgentBuilder({ prompt, engine: "default", tools: [], collectedInputs });
+  return createAgentBuilder({
+    prompt,
+    engine: "default",
+    tools: [],
+    collectedInputs,
+  });
 }

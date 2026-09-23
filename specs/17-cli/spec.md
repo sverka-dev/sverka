@@ -40,14 +40,50 @@ post-execution analysis.
 
 ```ts
 // Commands
-function validateCommand(global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
-function planCommand(args: PlanArgs, global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
-function graphCommand(global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
-function runCommand(args: RunArgs, global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
-function discoverCommand(global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
-function checkCommand(global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
-function policyCommand(args: PolicyArgs, global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
-function synthCommand(args: SynthArgs, global: GlobalFlags, output: OutputWriter, start: number): Promise<number>;
+function validateCommand(
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number>;
+function planCommand(
+  args: PlanArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number>;
+function graphCommand(
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number>;
+function runCommand(
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number>;
+function discoverCommand(
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number>;
+function checkCommand(
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number>;
+function policyCommand(
+  args: PolicyArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number>;
+function synthCommand(
+  args: SynthArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number>;
 
 // Entry point
 function main(argv: string[], deps?: MainDeps): Promise<number>;
@@ -56,10 +92,20 @@ function main(argv: string[], deps?: MainDeps): Promise<number>;
 ### Args
 
 ```ts
-interface PlanArgs { entryId?: string; }
-interface RunArgs { entryId?: string; executor?: "host" | "docker"; }
-interface PolicyArgs { findings: string; baseline?: string; }
-interface SynthArgs { target: "github" | "gitlab"; }
+interface PlanArgs {
+  entryId?: string;
+}
+interface RunArgs {
+  entryId?: string;
+  executor?: "host" | "docker";
+}
+interface PolicyArgs {
+  findings: string;
+  baseline?: string;
+}
+interface SynthArgs {
+  target: "github" | "gitlab";
+}
 ```
 
 ### Exports
@@ -67,7 +113,12 @@ interface SynthArgs { target: "github" | "gitlab"; }
 ```ts
 export { main, type MainDeps };
 export * from "./types.js";
-export { ConsoleOutputWriter, createOutputWriter, wrapOutputWriter, type WriteSink };
+export {
+  ConsoleOutputWriter,
+  createOutputWriter,
+  wrapOutputWriter,
+  type WriteSink,
+};
 ```
 
 ## Data models
@@ -108,6 +159,7 @@ ExitCode.UsageError. This will be replaced in Waves H/I.
 ## Error handling
 
 Reuses existing `CliError` with codes:
+
 - `UNKNOWN_COMMAND`, `MISSING_ARG`, `INVALID_FLAG`
 - `CONFIG_EXISTS` (init)
 - `RUNTIME_NOT_AVAILABLE` (docker not on PATH)

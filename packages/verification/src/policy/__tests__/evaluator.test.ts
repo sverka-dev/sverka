@@ -125,7 +125,9 @@ describe("failOn rules", () => {
   it("checkIds filter accepts checks/ prefix", () => {
     const f = makeFinding({ checkId: "check-a:rule-1", severity: "high" });
     const policy = createPolicy({
-      failOn: [{ severity: "high", onlyNew: false, checkIds: ["checks/check-a"] }],
+      failOn: [
+        { severity: "high", onlyNew: false, checkIds: ["checks/check-a"] },
+      ],
     });
     const r = evaluatePolicy([f], policy, []);
     expect(r.verdict).toBe("fail");
@@ -216,7 +218,11 @@ describe("summary output", () => {
     const r = evaluatePolicy(
       [
         makeFinding({ severity: "high", fingerprint: "fp-h1", id: "c:fp-h1" }),
-        makeFinding({ severity: "medium", fingerprint: "fp-m1", id: "c:fp-m1" }),
+        makeFinding({
+          severity: "medium",
+          fingerprint: "fp-m1",
+          id: "c:fp-m1",
+        }),
         makeFinding({ severity: "high", fingerprint: "fp-h2", id: "c:fp-h2" }),
       ],
       policy,
@@ -224,7 +230,9 @@ describe("summary output", () => {
     );
     expect(r.verdict).toBe("fail");
     // 3 findings triggered 1 rule (2 high, 1 medium)
-    expect(r.summary).toBe("fail: 3 findings triggered 1 rule (2 high, 1 medium)");
+    expect(r.summary).toBe(
+      "fail: 3 findings triggered 1 rule (2 high, 1 medium)",
+    );
   });
 
   it("counts multiple triggered rules", () => {

@@ -40,7 +40,7 @@ from Dagger.
 
 ```ts
 interface DaggerTargetConfig {
-  readonly moduleName?: string;  // default: pipeline id
+  readonly moduleName?: string; // default: pipeline id
 }
 
 function compileDagger(
@@ -72,7 +72,9 @@ export class SverkaPipeline {
   async entrypoint(): Promise<string> {
     // Base image defaults to the first step's runtime.image, or "node:24".
     // Use a Bun-capable image (e.g. "oven/bun:1") if steps invoke bun.
-    let ctx = dag.container().from("node:24")
+    let ctx = dag
+      .container()
+      .from("node:24")
       .withMountedDirectory("/src", dag.git(".").tree())
       .withWorkdir("/src");
     // Step: build
@@ -86,19 +88,19 @@ export class SverkaPipeline {
 
 ### Step → Dagger mapping
 
-| Sverka | Dagger |
-|---|---|
-| Shell operation | `Container.withExec(["sh", "-c", command])` |
-| Dependency (control) | Chain on same `Container` |
+| Sverka                | Dagger                                                             |
+| --------------------- | ------------------------------------------------------------------ |
+| Shell operation       | `Container.withExec(["sh", "-c", command])`                        |
+| Dependency (control)  | Chain on same `Container`                                          |
 | Dependency (artifact) | Shared mount on same `Container` (build output persists in `/src`) |
-| Condition | `if`/`else` in generated function |
-| Matrix | `for` loop with parallel `withExec` calls |
-| RetryPolicy | TypeScript retry wrapper around `withExec` |
-| Timeout | `Container.withTimeout()` |
-| Runtime container | Native (Dagger IS container execution) |
-| Runtime host | Unsupported (diagnostic) |
-| Scalar output | `container.stdout()` |
-| Artifact output | `Directory.export()` |
+| Condition             | `if`/`else` in generated function                                  |
+| Matrix                | `for` loop with parallel `withExec` calls                          |
+| RetryPolicy           | TypeScript retry wrapper around `withExec`                         |
+| Timeout               | `Container.withTimeout()`                                          |
+| Runtime container     | Native (Dagger IS container execution)                             |
+| Runtime host          | Unsupported (diagnostic)                                           |
+| Scalar output         | `container.stdout()`                                               |
+| Artifact output       | `Directory.export()`                                               |
 
 ### Capability manifest
 
@@ -125,6 +127,7 @@ const daggerCapabilities: CapabilityManifest = {
 ## Error handling
 
 `DaggerTargetError` with `override readonly cause: unknown`. Codes:
+
 - `INVALID_GRAPH` — no pipelines or no entries.
 - `LOWER_FAILED` — step lowering error.
 - `EMIT_FAILED` — code generation error.

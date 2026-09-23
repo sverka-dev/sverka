@@ -11,7 +11,11 @@ export interface PipelineConfig {
 }
 
 /** Create a Pipeline, run step functions, then entry functions. */
-export function pipeline(project: Project, id: string, config: PipelineConfig): Pipeline {
+export function pipeline(
+  project: Project,
+  id: string,
+  config: PipelineConfig,
+): Pipeline {
   const p = new Pipeline(project, id, {
     ...(config.inputs ? { inputs: config.inputs } : {}),
   });

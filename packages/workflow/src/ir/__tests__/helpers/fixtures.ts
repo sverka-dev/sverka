@@ -1,5 +1,11 @@
 // Shared test fixtures for @sverka/ir tests.
-import { Project, Pipeline, ShellStep, Entry, push } from "../../../cdk/index.js";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  Entry,
+  push,
+} from "../../../cdk/index.js";
 import { synthesize } from "../../../core/index.js";
 import type { DefinitionGraph } from "../../../core/index.js";
 import { computeGraphId, computeRunPlanId } from "../../ids.js";
@@ -22,7 +28,9 @@ export function makeSampleGraph(): DefinitionGraph {
   });
   new ShellStep(pipeline, "deploy", {
     command: "deploy",
-    inputs: [{ kind: "step", step: "build", output: "version", type: "string" }],
+    inputs: [
+      { kind: "step", step: "build", output: "version", type: "string" },
+    ],
     dependsOn: ["test"],
   });
   new Entry(pipeline, "on-push", {
@@ -53,4 +61,3 @@ export function makeSampleRunPlan(graph: DefinitionGraph): RunPlan {
     createdAt: "2026-08-13T00:00:00.000Z",
   };
 }
-

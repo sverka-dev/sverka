@@ -87,10 +87,7 @@ export function transcriptDir(): string {
 }
 
 /** Read a transcript JSON file by session ID. */
-export function readTranscript(
-  sessionId: string,
-  dir?: string,
-): Transcript {
+export function readTranscript(sessionId: string, dir?: string): Transcript {
   const path = join(dir ?? transcriptDir(), `${sessionId}.json`);
   if (!existsSync(path)) {
     throw new Error(`Transcript not found: ${path}`);
@@ -101,8 +98,7 @@ export function readTranscript(
 /** Transform a raw transcript step to a trace step. */
 export function transformStep(step: TranscriptStep): TraceStep {
   const isLlmCall =
-    step.source === "agent" &&
-    step.extra?.telemetry?.operation === "inference";
+    step.source === "agent" && step.extra?.telemetry?.operation === "inference";
   return {
     stepId: step.step_id,
     source: step.source,
@@ -116,8 +112,7 @@ export function transformStep(step: TranscriptStep): TraceStep {
 export function countLlmCalls(transcript: Transcript): number {
   return transcript.steps.filter(
     (s) =>
-      s.source === "agent" &&
-      s.extra?.telemetry?.operation === "inference",
+      s.source === "agent" && s.extra?.telemetry?.operation === "inference",
   ).length;
 }
 
@@ -166,7 +161,11 @@ export async function writeTraceData(
   outputDir: string,
 ): Promise<string> {
   // Reject path traversal in taskId to prevent writing outside outputDir
-  if (trace.taskId.includes("..") || trace.taskId.includes("/") || trace.taskId.includes("\\")) {
+  if (
+    trace.taskId.includes("..") ||
+    trace.taskId.includes("/") ||
+    trace.taskId.includes("\\")
+  ) {
     throw new Error(`Invalid taskId for trace output: ${trace.taskId}`);
   }
   const taskDir = join(outputDir, trace.taskId);

@@ -89,7 +89,9 @@ build:
 `;
     const result = importGitlabWithDiagnostics(yaml);
     expect(result.diagnostics.length).toBeGreaterThan(0);
-    const cacheDiag = result.diagnostics.find((d) => d.message.includes("cache"));
+    const cacheDiag = result.diagnostics.find((d) =>
+      d.message.includes("cache"),
+    );
     expect(cacheDiag).toBeDefined();
   });
 

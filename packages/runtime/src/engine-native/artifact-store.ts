@@ -11,7 +11,11 @@ export function createArtifactStore(rootDir: string): ArtifactStore {
   const safeRoot = normalize(rootDir);
 
   return {
-    async store(stepId: string, outputName: string, sourcePath: string): Promise<string> {
+    async store(
+      stepId: string,
+      outputName: string,
+      sourcePath: string,
+    ): Promise<string> {
       const destDir = resolveStepDir(safeRoot, stepId);
       assertSafeFileName(outputName);
       const destPath = join(destDir, outputName);
@@ -28,7 +32,11 @@ export function createArtifactStore(rootDir: string): ArtifactStore {
       }
     },
 
-    async retrieve(stepId: string, outputName: string, destPath: string): Promise<string> {
+    async retrieve(
+      stepId: string,
+      outputName: string,
+      destPath: string,
+    ): Promise<string> {
       const srcDir = resolveStepDir(safeRoot, stepId);
       assertSafeFileName(outputName);
       const srcPath = join(srcDir, outputName);
@@ -49,12 +57,18 @@ export function createArtifactStore(rootDir: string): ArtifactStore {
 
 function resolveStepDir(root: string, stepId: string): string {
   if (isAbsolute(stepId)) {
-    throw new EngineError(`step id must be relative: '${stepId}'`, "ARTIFACT_ERROR");
+    throw new EngineError(
+      `step id must be relative: '${stepId}'`,
+      "ARTIFACT_ERROR",
+    );
   }
   const resolved = normalize(join(root, stepId));
   const rel = relative(root, resolved);
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
-    throw new EngineError(`step id escapes artifact root: '${stepId}'`, "ARTIFACT_ERROR");
+    throw new EngineError(
+      `step id escapes artifact root: '${stepId}'`,
+      "ARTIFACT_ERROR",
+    );
   }
   return resolved;
 }
@@ -64,7 +78,10 @@ function assertSafeFileName(name: string): void {
     throw new EngineError(`invalid artifact name: '${name}'`, "ARTIFACT_ERROR");
   }
   if (isAbsolute(name) || name.includes("/") || name.includes("\\")) {
-    throw new EngineError(`artifact name must be a base name: '${name}'`, "ARTIFACT_ERROR");
+    throw new EngineError(
+      `artifact name must be a base name: '${name}'`,
+      "ARTIFACT_ERROR",
+    );
   }
 }
 
@@ -72,7 +89,10 @@ function assertSafeFileName(name: string): void {
 async function copyRecursive(src: string, dest: string): Promise<void> {
   const s = await lstat(src);
   if (s.isSymbolicLink()) {
-    throw new EngineError(`refusing to follow symlink: '${src}'`, "ARTIFACT_ERROR");
+    throw new EngineError(
+      `refusing to follow symlink: '${src}'`,
+      "ARTIFACT_ERROR",
+    );
   }
   if (s.isDirectory()) {
     await mkdir(dest, { recursive: true });

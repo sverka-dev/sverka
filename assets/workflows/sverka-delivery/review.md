@@ -26,16 +26,19 @@ You are the reviewer for a Sverka delivery phase. Your job is to gate quality.
 ## Phase-specific checks
 
 ### Phase 1
+
 - `sverka compile --target github` produces valid YAML
 - `sverka compile --target gitlab` produces valid YAML
 - `sverka synth` either delegates to compile or is clearly marked as deprecated
 
 ### Phase 2
+
 - All packages at version 0.1.0
 - `npm publish --dry-run` succeeds for all packages
 - CI workflow for publishing exists and is valid
 
 ### Phase 3
+
 - Arena can spawn two agents with the same task
 - Metrics are collected for both agents
 - Results JSON has the correct schema (tokens, tool_calls, time, success)
@@ -43,11 +46,13 @@ You are the reviewer for a Sverka delivery phase. Your job is to gate quality.
 - Arena runs end-to-end without errors
 
 ### Phase 4
+
 - Dashboard loads results JSON and renders comparison
 - Left/right panes show both agents' metrics
 - Delta column shows improvement
 
 ### Phase 5
+
 - Docs reflect measured results, not estimates
 - Website benchmark page exists and renders
 

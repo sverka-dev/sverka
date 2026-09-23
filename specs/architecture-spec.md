@@ -114,47 +114,47 @@ Provider-specific nodes MUST be tagged with their owning plugin. They may be pre
 
 The following terms are normative.
 
-| Term | Definition |
-|---|---|
-| **Project** | Root of the Sverka construct tree. A Project may contain multiple Pipelines. |
-| **Pipeline** | Static provider-neutral definition of an automated process. |
-| **Composite** | Reusable construct subtree with typed inputs, outputs, and child Steps. |
-| **Entry** | A binding between a Trigger and one or more root Steps. |
-| **Trigger** | External event that may create a Run. |
-| **Step** | Independently schedulable execution unit in a Pipeline. |
-| **Operation** | Ordered executable operation inside a Step. |
-| **Runtime** | Execution environment required by a Step. |
-| **Image** | OCI container image used by a Runtime. |
-| **Source** | Repository or source revision made available to a Run. |
-| **Workspace** | Filesystem view used by a Step. |
-| **Input** | Typed external value accepted by a Pipeline or Entry. |
-| **Output** | Typed value produced by a Step or Pipeline. |
-| **Reference** | Symbolic typed reference to an Input, Output, context value, or resource. |
-| **Artifact** | File or directory payload transferred between Steps or exported from a Run. |
-| **Dependency** | Directed edge between Steps. |
-| **Condition** | Symbolic expression controlling inclusion or execution. |
-| **Definition Graph** | Static provider-neutral graph produced by synthesis. |
-| **Run Plan** | Concrete execution graph produced after binding a Trigger, Inputs, context, and expansions. |
-| **Run** | One execution instance of a Run Plan. |
-| **Target** | Deterministic compiler from a Definition Graph to provider artifacts. |
-| **Importer** | Parser from provider configuration into a Definition Graph. |
-| **Engine** | Executor of a Run Plan or emitted provider configuration. |
-| **Connector** | Integration with an external platform API. |
-| **Plugin** | Package that contributes targets, engines, importers, connectors, validators, transforms, capabilities, or model extensions. |
+| Term                 | Definition                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Project**          | Root of the Sverka construct tree. A Project may contain multiple Pipelines.                                                 |
+| **Pipeline**         | Static provider-neutral definition of an automated process.                                                                  |
+| **Composite**        | Reusable construct subtree with typed inputs, outputs, and child Steps.                                                      |
+| **Entry**            | A binding between a Trigger and one or more root Steps.                                                                      |
+| **Trigger**          | External event that may create a Run.                                                                                        |
+| **Step**             | Independently schedulable execution unit in a Pipeline.                                                                      |
+| **Operation**        | Ordered executable operation inside a Step.                                                                                  |
+| **Runtime**          | Execution environment required by a Step.                                                                                    |
+| **Image**            | OCI container image used by a Runtime.                                                                                       |
+| **Source**           | Repository or source revision made available to a Run.                                                                       |
+| **Workspace**        | Filesystem view used by a Step.                                                                                              |
+| **Input**            | Typed external value accepted by a Pipeline or Entry.                                                                        |
+| **Output**           | Typed value produced by a Step or Pipeline.                                                                                  |
+| **Reference**        | Symbolic typed reference to an Input, Output, context value, or resource.                                                    |
+| **Artifact**         | File or directory payload transferred between Steps or exported from a Run.                                                  |
+| **Dependency**       | Directed edge between Steps.                                                                                                 |
+| **Condition**        | Symbolic expression controlling inclusion or execution.                                                                      |
+| **Definition Graph** | Static provider-neutral graph produced by synthesis.                                                                         |
+| **Run Plan**         | Concrete execution graph produced after binding a Trigger, Inputs, context, and expansions.                                  |
+| **Run**              | One execution instance of a Run Plan.                                                                                        |
+| **Target**           | Deterministic compiler from a Definition Graph to provider artifacts.                                                        |
+| **Importer**         | Parser from provider configuration into a Definition Graph.                                                                  |
+| **Engine**           | Executor of a Run Plan or emitted provider configuration.                                                                    |
+| **Connector**        | Integration with an external platform API.                                                                                   |
+| **Plugin**           | Package that contributes targets, engines, importers, connectors, validators, transforms, capabilities, or model extensions. |
 
 ### 6.1 Provider mapping
 
-| Sverka | GitHub Actions | GitLab CI |
-|---|---|---|
-| Pipeline | Workflow | Pipeline configuration |
-| Entry and Trigger | `on` and reachable jobs | pipeline source, workflow rules, and reachable jobs |
-| Step | Job | Job |
-| Operation | Workflow step | script or run item |
-| Runtime | `runs-on` and container | image and tags |
-| Dependency | `needs` | `needs` |
-| Scalar Output | Job output | dotenv value or equivalent lowering |
-| Artifact | Uploaded/downloaded artifact | Job artifact |
-| ChangeRequest | Pull request | Merge request |
+| Sverka            | GitHub Actions               | GitLab CI                                           |
+| ----------------- | ---------------------------- | --------------------------------------------------- |
+| Pipeline          | Workflow                     | Pipeline configuration                              |
+| Entry and Trigger | `on` and reachable jobs      | pipeline source, workflow rules, and reachable jobs |
+| Step              | Job                          | Job                                                 |
+| Operation         | Workflow step                | script or run item                                  |
+| Runtime           | `runs-on` and container      | image and tags                                      |
+| Dependency        | `needs`                      | `needs`                                             |
+| Scalar Output     | Job output                   | dotenv value or equivalent lowering                 |
+| Artifact          | Uploaded/downloaded artifact | Job artifact                                        |
+| ChangeRequest     | Pull request                 | Merge request                                       |
 
 The terms `workflow`, `job`, `stage`, `runner`, `action`, `uses`, `pull_request`, `merge_request`, and `resource_group` are provider terms and MUST NOT appear in the core Definition Graph.
 
@@ -554,23 +554,23 @@ Outputs MUST be addressable through TypeScript properties when declared through 
 The provider-neutral SDK SHOULD expose property-based namespaces:
 
 ```ts
-env.CI_TRACE
-secrets.NPM_TOKEN
+env.CI_TRACE;
+secrets.NPM_TOKEN;
 
-git.sha
-git.branch
-git.tag
+git.sha;
+git.branch;
+git.tag;
 
-change.id
-change.source
-change.target
-change.draft
+change.id;
+change.source;
+change.target;
+change.draft;
 
-event.type
-run.id
-run.attempt
+event.type;
+run.id;
+run.attempt;
 
-inputs.environment
+inputs.environment;
 ```
 
 The guiding rule is:
@@ -584,8 +584,8 @@ String-based lookup MAY exist as a dynamic escape hatch but SHOULD NOT be the pr
 Provider plugins MAY expose namespaced context:
 
 ```ts
-github.event
-gitlab.pipeline
+github.event;
+gitlab.pipeline;
 ```
 
 Using a provider-specific reference marks the containing Step or Pipeline as requiring that provider capability.
@@ -665,14 +665,14 @@ The Definition Graph normalizes this to `step.runtime.image`.
 Images SHOULD be represented by typed values where possible:
 
 ```ts
-images.ubuntu.latest
-images.node[22]
+images.ubuntu.latest;
+images.node[22];
 ```
 
 A raw OCI reference string remains a valid low-level value:
 
 ```ts
-image("ghcr.io/acme/build:2026-08")
+image("ghcr.io/acme/build:2026-08");
 ```
 
 ### 14.3 Source
@@ -1147,42 +1147,42 @@ Legend:
 - **P** — partial support or semantic restrictions;
 - **U** — unsupported.
 
-| Capability | Milestone | GitHub | GitLab | Native engine |
-|---|---:|---:|---:|---:|
-| Push Trigger | M0 | N | N | N |
-| ChangeRequest Trigger | M0 | N | N | N/P |
-| Manual Trigger | M0 | N | N/C | N |
-| Branch, tag, path filters | M0 | N | L/N | N |
-| Step DAG | M0 | N | N | N |
-| Shell Operations | M0 | N | N | N |
-| Source Workspace | M0 | L | N/L | N |
-| Host Runtime | M0 | N | N/P | N |
-| Container Image | M0 | N | N | N |
-| Environment References | M0 | N | N | N |
-| Secret References | M0 | N/C | N/C | N |
-| Scalar Outputs | M0 | N | L | N |
-| Artifact Outputs | M0 | L | N | N |
-| Working Directory | M0 | N | L/N | N |
-| Timeout | M0 | N | N | N |
-| Step Conditions | M1 | N | L/P | N |
-| Matrix Expansion | M1 | N | N/P | N |
-| Cache | M1 | L | N | N |
-| Services | M1 | N | N | N |
-| Schedule Trigger | M1 | N | C | N/C |
-| Retry Policy | M1 | E/P | N | N |
-| Concurrency Group | M1 | N | P | N |
-| Deployment Environment | M1 | N/C | N/C | P/plugin |
-| Provider-native Operation | M1 | N | N | E/plugin |
-| `act` delegated engine | M1 | N | U | U |
-| `gitlab-ci-local` delegated engine | M1 | U | N | U |
-| Reusable Pipeline | M2 | N/P | N/P | N |
-| Dynamic Child Graph | M2 | E/P | N | N |
-| GitHub Importer | M2 | N | — | imported subset |
-| GitLab Importer | M2 | — | N | imported subset |
-| Cross-provider Compilation | M2 | target | target | direct |
-| Same-provider Round Trip | M2 | P | P | — |
-| Hosted Native Engine | M3 | C/E | C/E | N |
-| Distributed Execution | M3 | C/agents | C/agents | N |
+| Capability                         | Milestone |   GitHub |   GitLab |   Native engine |
+| ---------------------------------- | --------: | -------: | -------: | --------------: |
+| Push Trigger                       |        M0 |        N |        N |               N |
+| ChangeRequest Trigger              |        M0 |        N |        N |             N/P |
+| Manual Trigger                     |        M0 |        N |      N/C |               N |
+| Branch, tag, path filters          |        M0 |        N |      L/N |               N |
+| Step DAG                           |        M0 |        N |        N |               N |
+| Shell Operations                   |        M0 |        N |        N |               N |
+| Source Workspace                   |        M0 |        L |      N/L |               N |
+| Host Runtime                       |        M0 |        N |      N/P |               N |
+| Container Image                    |        M0 |        N |        N |               N |
+| Environment References             |        M0 |        N |        N |               N |
+| Secret References                  |        M0 |      N/C |      N/C |               N |
+| Scalar Outputs                     |        M0 |        N |        L |               N |
+| Artifact Outputs                   |        M0 |        L |        N |               N |
+| Working Directory                  |        M0 |        N |      L/N |               N |
+| Timeout                            |        M0 |        N |        N |               N |
+| Step Conditions                    |        M1 |        N |      L/P |               N |
+| Matrix Expansion                   |        M1 |        N |      N/P |               N |
+| Cache                              |        M1 |        L |        N |               N |
+| Services                           |        M1 |        N |        N |               N |
+| Schedule Trigger                   |        M1 |        N |        C |             N/C |
+| Retry Policy                       |        M1 |      E/P |        N |               N |
+| Concurrency Group                  |        M1 |        N |        P |               N |
+| Deployment Environment             |        M1 |      N/C |      N/C |        P/plugin |
+| Provider-native Operation          |        M1 |        N |        N |        E/plugin |
+| `act` delegated engine             |        M1 |        N |        U |               U |
+| `gitlab-ci-local` delegated engine |        M1 |        U |        N |               U |
+| Reusable Pipeline                  |        M2 |      N/P |      N/P |               N |
+| Dynamic Child Graph                |        M2 |      E/P |        N |               N |
+| GitHub Importer                    |        M2 |        N |        — | imported subset |
+| GitLab Importer                    |        M2 |        — |        N | imported subset |
+| Cross-provider Compilation         |        M2 |   target |   target |          direct |
+| Same-provider Round Trip           |        M2 |        P |        P |               — |
+| Hosted Native Engine               |        M3 |      C/E |      C/E |               N |
+| Distributed Execution              |        M3 | C/agents | C/agents |               N |
 
 This matrix describes the intended architecture and roadmap. It is not a promise of identical semantics across providers.
 

@@ -24,25 +24,25 @@ No new external deps. The stub driver needs no AI SDK. Real driver packages
 
 ## Files
 
-| File | Action |
-|---|---|
-| `packages/workflow/src/cdk/model.ts` | **Edit** — add `AgentToolRef`, `AgentOperation` interfaces. |
-| `packages/workflow/src/cdk/constructs.ts` | **Edit** — add `AgentStepProps`, `AgentStep` class (extends `Step`). |
-| `packages/workflow/src/cdk/index.ts` | **Edit** — export `AgentToolRef`, `AgentOperation`, `AgentStepProps`, `AgentStep`. |
-| `packages/workflow/src/core/graph.ts` | **Edit** — add `AgentOperation` to `OperationDefinition` union; re-export types. |
-| `packages/workflow/src/core/synthesize.ts` | **Edit** — `AgentStep` → `StepDefinition` with `agent` operation. |
-| `packages/sdk/src/agent.ts` | **New** — `agent` tagged template + `AgentStepBuilder`. |
-| `packages/sdk/src/index.ts` | **Edit** — export `agent`, `AgentStepBuilder`. |
-| `packages/runtime/src/engine-native/types.ts` | **Edit** — add `AgentDriver`, `AgentExecuteRequest`, `AgentResult`, `AgentUsage` interfaces; add `agentDrivers?` to `EngineConfig`. |
-| `packages/runtime/src/engine-native/agent-driver.ts` | **New** — `createStubAgentDriver`. |
-| `packages/runtime/src/engine-native/step-executor.ts` | **Edit** — handle `op.kind === "agent"`: select driver, execute, save artifact, skip cache. |
-| `packages/runtime/src/engine-native/errors.ts` | **Edit** — add `AgentDriverError` (`AGENT_EXECUTION_FAILED`). |
-| `packages/runtime/src/engine-native/index.ts` | **Edit** — export `AgentDriver`, `AgentExecuteRequest`, `AgentResult`, `AgentUsage`, `createStubAgentDriver`, `AgentDriverError`. |
-| `packages/compiler/src/github/capabilities.ts` | **Edit** — add `agent.step: emulated`. |
-| `packages/compiler/src/gitlab/capabilities.ts` | **Edit** — add `agent.step: emulated`. |
-| `packages/workflow/src/cdk/__tests__/agent-step.test.ts` | **New** — model/synthesize tests (items 1–4, 11). |
-| `packages/sdk/src/__tests__/agent.test.ts` | **New** — SDK builder tests (items 2–4, 12). |
-| `packages/runtime/src/engine-native/__tests__/agent.test.ts` | **New** — engine execution tests (items 5–10, 13). |
+| File                                                         | Action                                                                                                                              |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/workflow/src/cdk/model.ts`                         | **Edit** — add `AgentToolRef`, `AgentOperation` interfaces.                                                                         |
+| `packages/workflow/src/cdk/constructs.ts`                    | **Edit** — add `AgentStepProps`, `AgentStep` class (extends `Step`).                                                                |
+| `packages/workflow/src/cdk/index.ts`                         | **Edit** — export `AgentToolRef`, `AgentOperation`, `AgentStepProps`, `AgentStep`.                                                  |
+| `packages/workflow/src/core/graph.ts`                        | **Edit** — add `AgentOperation` to `OperationDefinition` union; re-export types.                                                    |
+| `packages/workflow/src/core/synthesize.ts`                   | **Edit** — `AgentStep` → `StepDefinition` with `agent` operation.                                                                   |
+| `packages/sdk/src/agent.ts`                                  | **New** — `agent` tagged template + `AgentStepBuilder`.                                                                             |
+| `packages/sdk/src/index.ts`                                  | **Edit** — export `agent`, `AgentStepBuilder`.                                                                                      |
+| `packages/runtime/src/engine-native/types.ts`                | **Edit** — add `AgentDriver`, `AgentExecuteRequest`, `AgentResult`, `AgentUsage` interfaces; add `agentDrivers?` to `EngineConfig`. |
+| `packages/runtime/src/engine-native/agent-driver.ts`         | **New** — `createStubAgentDriver`.                                                                                                  |
+| `packages/runtime/src/engine-native/step-executor.ts`        | **Edit** — handle `op.kind === "agent"`: select driver, execute, save artifact, skip cache.                                         |
+| `packages/runtime/src/engine-native/errors.ts`               | **Edit** — add `AgentDriverError` (`AGENT_EXECUTION_FAILED`).                                                                       |
+| `packages/runtime/src/engine-native/index.ts`                | **Edit** — export `AgentDriver`, `AgentExecuteRequest`, `AgentResult`, `AgentUsage`, `createStubAgentDriver`, `AgentDriverError`.   |
+| `packages/compiler/src/github/capabilities.ts`               | **Edit** — add `agent.step: emulated`.                                                                                              |
+| `packages/compiler/src/gitlab/capabilities.ts`               | **Edit** — add `agent.step: emulated`.                                                                                              |
+| `packages/workflow/src/cdk/__tests__/agent-step.test.ts`     | **New** — model/synthesize tests (items 1–4, 11).                                                                                   |
+| `packages/sdk/src/__tests__/agent.test.ts`                   | **New** — SDK builder tests (items 2–4, 12).                                                                                        |
+| `packages/runtime/src/engine-native/__tests__/agent.test.ts` | **New** — engine execution tests (items 5–10, 13).                                                                                  |
 
 ## TDD steps
 

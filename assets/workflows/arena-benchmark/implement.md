@@ -73,6 +73,7 @@ bun run build         # builds successfully
 ## Report
 
 When done, report to mayor via mail:
+
 - Test counts (passing/total)
 - Gate status (test/typecheck/lint/build)
 - Files created/modified

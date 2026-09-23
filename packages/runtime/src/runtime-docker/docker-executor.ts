@@ -1,6 +1,14 @@
 import { realpathSync } from "node:fs";
 import { copyFile, mkdir } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  normalize,
+  relative,
+  resolve,
+} from "node:path";
 import type { Executor, ExecuteRequest, ExecuteResult } from "../index.js";
 import type { PlanOperation } from "@sverka/workflow";
 import type { DockerExecutorConfig } from "./config.js";
@@ -101,7 +109,10 @@ export class DockerExecutor implements Executor {
     ];
   }
 
-  private buildMountArgs(request: ExecuteRequest, cachePath?: string): string[] {
+  private buildMountArgs(
+    request: ExecuteRequest,
+    cachePath?: string,
+  ): string[] {
     const workspaceMount = `type=bind,source=${request.workspace},target=/workspace,readonly`;
     const cacheSource = cachePath ?? request.cacheDir;
     const cacheMount = `type=bind,source=${cacheSource},target=/cache`;
@@ -189,7 +200,11 @@ export class DockerExecutor implements Executor {
     const result = await this.runContainer(args, op);
 
     if (op.cache && this.cacheManager && cachePath !== undefined) {
-      await this.cacheManager.collect(op.cache.outputs, cachePath, op.cache.key);
+      await this.cacheManager.collect(
+        op.cache.outputs,
+        cachePath,
+        op.cache.key,
+      );
     }
 
     return this.finalizeResult(result, op, request, start);
@@ -237,8 +252,7 @@ export class DockerExecutor implements Executor {
         : {}),
     });
     const durationMs = Date.now() - start;
-    const rawLogs =
-      result.stdout + (result.stderr ? "\n" + result.stderr : "");
+    const rawLogs = result.stdout + (result.stderr ? "\n" + result.stderr : "");
     const logs = this.truncateLogs(rawLogs);
     if (result.timedOut === true) {
       return {
@@ -270,7 +284,9 @@ export class DockerExecutor implements Executor {
       durationMs,
       logs,
       artifacts: [],
-      ...(status === "failure" ? { error: `exit code ${result.exitCode}` } : {}),
+      ...(status === "failure"
+        ? { error: `exit code ${result.exitCode}` }
+        : {}),
     };
   }
 
@@ -352,9 +368,7 @@ export class DockerExecutor implements Executor {
 
     for (const artifact of op.artifacts) {
       if (isAbsolute(artifact.path)) {
-        errors.push(
-          `artifact path must not be absolute: ${artifact.path}`,
-        );
+        errors.push(`artifact path must not be absolute: ${artifact.path}`);
         continue;
       }
       const src = join(workspace, artifact.path);

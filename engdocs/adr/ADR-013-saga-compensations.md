@@ -54,7 +54,7 @@ Three design axes:
 
 5. **Compensation failure is non-fatal.** A compensation that fails (exit
    ≠ 0) emits a `warn` diagnostic and `step-compensated { status: "failed"
-   }` but does not abort the compensation phase. The run already failed;
+}` but does not abort the compensation phase. The run already failed;
    a failed rollback should not prevent other rollbacks. (If a rollback
    must be reliable, the command itself implements retry.)
 
@@ -64,7 +64,7 @@ Three design axes:
 
 7. **Native engine only; targets emulated.** Consistent with ADR-012
    (suspend/resume). The compiled GHA/GitLab workflow runs `sverka
-   execute`, which uses the native engine for compensation at runtime.
+execute`, which uses the native engine for compensation at runtime.
    Native `if: failure()` / `when: on_failure` lowering is a follow-up
    bead — it requires computing transitive dependents at lower time to
    express "compensate when a downstream job fails" in `needs`/`if`, which

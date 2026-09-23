@@ -12,13 +12,13 @@ Delayed execution starts a job after a specified wait time. GitLab supports this
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | (none — sleep step) | `when: delayed` + `start_in` | `delay` on Step |
-| Semantics | n/a | Job starts after specified duration | Step starts after delay |
-| Value type | n/a | `start_in` duration string | `delay: string` (duration) |
-| Limitations | no native support | max 1 hour | — |
-| Provider gap | no equivalent | — | GitHub: emulated via sleep |
+| Aspect       | GitHub Actions      | GitLab CI                           | Sverka (proposed)          |
+| ------------ | ------------------- | ----------------------------------- | -------------------------- |
+| Construct    | (none — sleep step) | `when: delayed` + `start_in`        | `delay` on Step            |
+| Semantics    | n/a                 | Job starts after specified duration | Step starts after delay    |
+| Value type   | n/a                 | `start_in` duration string          | `delay: string` (duration) |
+| Limitations  | no native support   | max 1 hour                          | —                          |
+| Provider gap | no equivalent       | —                                   | GitHub: emulated via sleep |
 
 ## GitLab CI
 

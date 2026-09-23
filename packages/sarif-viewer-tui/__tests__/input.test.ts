@@ -22,7 +22,12 @@ describe("input — resolveFindings", () => {
 
   it("sarif provided: normalizes internally", () => {
     const sarif = makeSarif([
-      { ruleId: "no-undef", message: "undefined var", file: "a.ts", startLine: 5 },
+      {
+        ruleId: "no-undef",
+        message: "undefined var",
+        file: "a.ts",
+        startLine: 5,
+      },
     ]);
     const result = resolveFindings({ sarif: sarif as never });
     expect(result).toHaveLength(1);
@@ -52,9 +57,9 @@ describe("input — resolveFindings", () => {
   it("throws when more than one input provided", () => {
     const findings = [makeFinding()];
     const sarif = makeSarif([]);
-    expect(() =>
-      resolveFindings({ findings, sarif: sarif as never }),
-    ).toThrow(/only one/i);
+    expect(() => resolveFindings({ findings, sarif: sarif as never })).toThrow(
+      /only one/i,
+    );
   });
 
   it("throws when sarifPath and findings both provided", () => {
@@ -70,7 +75,11 @@ describe("input — resolveFindings", () => {
     ]);
     const result = resolveFindings({
       sarif: sarif as never,
-      context: { root: "/custom", checkIdPrefix: "tool", defaultConfidence: 0.9 },
+      context: {
+        root: "/custom",
+        checkIdPrefix: "tool",
+        defaultConfidence: 0.9,
+      },
     });
     expect(result[0]!.checkId).toContain("tool");
     expect(result[0]!.confidence).toBe(0.9);

@@ -10,7 +10,11 @@ describe("expr tagged template", () => {
     expect(e.kind).toBe("expression");
     expect(e.template).toBe("${git.branch}");
     expect(e.refs).toHaveLength(1);
-    expect(e.refs[0]).toEqual({ kind: "context", namespace: "git", field: "branch" });
+    expect(e.refs[0]).toEqual({
+      kind: "context",
+      namespace: "git",
+      field: "branch",
+    });
   });
 
   it("includes literal text in template", () => {
@@ -30,8 +34,16 @@ describe("expr tagged template", () => {
     const e = expr`${git.branch} && ${deployEnv}`;
     expect(e.template).toBe("${git.branch} && ${env.DEPLOY}");
     expect(e.refs).toHaveLength(2);
-    expect(e.refs[0]).toEqual({ kind: "context", namespace: "git", field: "branch" });
-    expect(e.refs[1]).toEqual({ kind: "context", namespace: "env", field: "DEPLOY" });
+    expect(e.refs[0]).toEqual({
+      kind: "context",
+      namespace: "git",
+      field: "branch",
+    });
+    expect(e.refs[1]).toEqual({
+      kind: "context",
+      namespace: "env",
+      field: "DEPLOY",
+    });
   });
 
   it("inlines string values", () => {
@@ -54,7 +66,12 @@ describe("expr tagged template", () => {
   });
 
   it("collects step refs", () => {
-    const ref = { kind: "step" as const, step: "build", output: "ok", type: "boolean" as const };
+    const ref = {
+      kind: "step" as const,
+      step: "build",
+      output: "ok",
+      type: "boolean" as const,
+    };
     const e = expr`${ref}`;
     expect(e.template).toBe("${build.ok}");
     expect(e.refs).toHaveLength(1);
@@ -62,8 +79,12 @@ describe("expr tagged template", () => {
   });
 
   it("throws SdkError for non-primitive non-Reference values", () => {
-    expect(() => expr`${{ foo: "bar" } as unknown as string}`).toThrow(SdkError);
-    expect(() => expr`${{ foo: "bar" } as unknown as string}`).toThrow(/invalid interpolation/);
+    expect(() => expr`${{ foo: "bar" } as unknown as string}`).toThrow(
+      SdkError,
+    );
+    expect(() => expr`${{ foo: "bar" } as unknown as string}`).toThrow(
+      /invalid interpolation/,
+    );
   });
 
   it("returns a frozen-looking Expression (readonly fields)", () => {

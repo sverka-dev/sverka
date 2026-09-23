@@ -7,7 +7,9 @@ import type { DefinitionGraph } from "@sverka/workflow";
  * Return the id of the first entry found across all pipelines.
  * Returns `undefined` when the graph contains no entries.
  */
-export function resolveDefaultEntryId(graph: DefinitionGraph): string | undefined {
+export function resolveDefaultEntryId(
+  graph: DefinitionGraph,
+): string | undefined {
   for (const pipeline of graph.project.pipelines) {
     const entry = pipeline.entries[0];
     if (entry) return entry.id;

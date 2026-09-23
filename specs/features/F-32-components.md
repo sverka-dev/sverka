@@ -12,13 +12,13 @@ Components are versioned, distributable reusable units with typed inputs and out
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | composite actions | CI/CD components | `component()` |
-| Semantics | Reusable action with steps, inputs, outputs | Reusable config with typed inputs | Versioned reusable unit |
-| Value type | action.yml file | component ref + inputs | component ref + inputs |
-| Limitations | no versioning in repo | versioned via catalog | — |
-| Provider gap | — | — | different distribution models |
+| Aspect       | GitHub Actions                              | GitLab CI                         | Sverka (proposed)             |
+| ------------ | ------------------------------------------- | --------------------------------- | ----------------------------- |
+| Construct    | composite actions                           | CI/CD components                  | `component()`                 |
+| Semantics    | Reusable action with steps, inputs, outputs | Reusable config with typed inputs | Versioned reusable unit       |
+| Value type   | action.yml file                             | component ref + inputs            | component ref + inputs        |
+| Limitations  | no versioning in repo                       | versioned via catalog             | —                             |
+| Provider gap | —                                           | —                                 | different distribution models |
 
 ## GitHub Actions
 

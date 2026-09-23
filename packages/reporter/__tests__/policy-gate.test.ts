@@ -3,7 +3,11 @@ import { evaluateGate } from "../src/policy-gate.js";
 import { DEFAULT_POLICY, createPolicy } from "@sverka/verification";
 import type { Finding } from "@sverka/verification";
 
-function makeFinding(severity: string, fingerprint: string, checkId = "test"): Finding {
+function makeFinding(
+  severity: string,
+  fingerprint: string,
+  checkId = "test",
+): Finding {
   return {
     id: `${checkId}:${fingerprint}`,
     fingerprint,

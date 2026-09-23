@@ -41,12 +41,18 @@ export async function discoverCommand(
     output.writeLine(`Project: ${ctx.root}`);
     output.writeLine(`  commit: ${ctx.commit || "(none)"}`);
     output.writeLine(`  dirty: ${ctx.dirty}`);
-    output.writeLine(`  languages: ${ctx.languages.map((l: { name: string }) => l.name).join(", ") || "(none)"}`);
-    output.writeLine(`  package managers: ${ctx.packageManagers.map((p: { name: string }) => p.name).join(", ") || "(none)"}`);
+    output.writeLine(
+      `  languages: ${ctx.languages.map((l: { name: string }) => l.name).join(", ") || "(none)"}`,
+    );
+    output.writeLine(
+      `  package managers: ${ctx.packageManagers.map((p: { name: string }) => p.name).join(", ") || "(none)"}`,
+    );
     output.writeLine(`  container build: ${ctx.hasContainerBuild}`);
     output.writeLine(`  CI definition: ${ctx.hasCiDefinition}`);
     if (ctx.monorepo) {
-      output.writeLine(`  monorepo: ${ctx.monorepo.tool} (${ctx.monorepo.workspaces.length} workspaces)`);
+      output.writeLine(
+        `  monorepo: ${ctx.monorepo.tool} (${ctx.monorepo.workspaces.length} workspaces)`,
+      );
     }
     output.writeLine(`  changed files: ${ctx.changedFiles.length}`);
   }

@@ -39,7 +39,9 @@ function buildGlobalFlags(parsed: Arguments): GlobalFlags {
 }
 
 /** Resolve the format string from parsed yargs. */
-function resolveFormat(format: unknown): "text" | "json" | "html" | "sarif" | "web" {
+function resolveFormat(
+  format: unknown,
+): "text" | "json" | "html" | "sarif" | "web" {
   if (format === "json") return "json";
   if (format === "html") return "html";
   if (format === "sarif") return "sarif";
@@ -64,16 +66,19 @@ function resolveOutputWriter(
 
 /** Configure the init subcommand options. */
 function addInitCommand(y: Argv): Argv {
-  return y.option("template", {
-    type: "string",
-    default: "minimal",
-    choices: ["minimal", "full"],
-  }).option("force", { type: "boolean", default: false })
-   .option("detect", {
-     type: "boolean",
-     default: false,
-     describe: "Generate config from detected project checks (overrides --template)",
-   });
+  return y
+    .option("template", {
+      type: "string",
+      default: "minimal",
+      choices: ["minimal", "full"],
+    })
+    .option("force", { type: "boolean", default: false })
+    .option("detect", {
+      type: "boolean",
+      default: false,
+      describe:
+        "Generate config from detected project checks (overrides --template)",
+    });
 }
 
 /** Configure the run subcommand options. */
@@ -156,7 +161,8 @@ function addViewCommand(y: Argv): Argv {
     .option("output", {
       type: "string",
       alias: "o",
-      describe: "Output HTML file path (for --format web, default: sarif-report.html)",
+      describe:
+        "Output HTML file path (for --format web, default: sarif-report.html)",
     });
 }
 
@@ -196,11 +202,19 @@ function buildParser(): Argv {
     .command("discover", "Discover and display project context")
     .command("check", "Resolve proposed checks → StepDefinitions")
     .command("policy", "Evaluate findings against policy", addPolicyCommand)
-    .command("synth", "Alias for compile — compile to a target CI YAML", addSynthCommand)
+    .command(
+      "synth",
+      "Alias for compile — compile to a target CI YAML",
+      addSynthCommand,
+    )
     .command("compile", "Compile to a target CI YAML", addCompileCommand)
     .command("mcp-server", "Expose Sverka as an MCP server (stdio)")
     .command("doctor", "Diagnose environment and dependencies")
-    .command("view [file]", "View SARIF findings in TUI or generate HTML report", addViewCommand)
+    .command(
+      "view [file]",
+      "View SARIF findings in TUI or generate HTML report",
+      addViewCommand,
+    )
     .command("ui", "Start local web dashboard server", addUiCommand)
     .demandCommand(1, "No command given")
     .strict()
@@ -264,7 +278,8 @@ function dispatchInit(
 ): Promise<number> {
   return initCommand(
     {
-      template: typeof parsed.template === "string" ? parsed.template : undefined,
+      template:
+        typeof parsed.template === "string" ? parsed.template : undefined,
       force: Boolean(parsed.force),
       detect: Boolean(parsed.detect),
     },
@@ -345,8 +360,7 @@ function dispatchView(
   start: number,
 ): Promise<number> {
   const args: ViewArgs = {
-    format:
-      parsed.format === "web" || parsed.format === "html" ? "web" : "tui",
+    format: parsed.format === "web" || parsed.format === "html" ? "web" : "tui",
   };
   if (typeof parsed.file === "string") args.file = parsed.file;
   if (typeof parsed.output === "string") args.output = parsed.output;
@@ -370,16 +384,19 @@ function dispatchUi(
  * @param argv Command-line arguments (excluding node and script path).
  * @returns Exit code (0 = success, 1 = policy fail, 2 = usage error, 3 = runtime error).
  */
-export async function main(
-  argv: string[],
-  deps?: MainDeps,
-): Promise<number> {
+export async function main(argv: string[], deps?: MainDeps): Promise<number> {
   const start = Date.now();
 
   const output =
     deps?.output ??
     createOutputWriter(
-      { format: "text", config: null, root: process.cwd(), quiet: false, verbose: false },
+      {
+        format: "text",
+        config: null,
+        root: process.cwd(),
+        quiet: false,
+        verbose: false,
+      },
       (s) => process.stdout.write(s),
       (s) => process.stderr.write(s),
     );
@@ -395,7 +412,9 @@ export async function main(
   const realOutput = resolveOutputWriter(global, deps);
   const command = String(parsed._[0] ?? "");
 
-  realOutput.debug(`sverka: command=${command} root=${global.root} format=${global.format}`);
+  realOutput.debug(
+    `sverka: command=${command} root=${global.root} format=${global.format}`,
+  );
 
   try {
     return await dispatch(command, parsed, global, realOutput, start);
@@ -404,11 +423,7 @@ export async function main(
   }
 }
 
-function handleError(
-  e: unknown,
-  output: OutputWriter,
-  _start: number,
-): number {
+function handleError(e: unknown, output: OutputWriter, _start: number): number {
   const hint = missingBuildHint(e);
   if (e instanceof CliError) {
     output.errorLine(`error: ${e.message}`);

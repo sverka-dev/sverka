@@ -3,14 +3,23 @@ import { mkdtempSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
-import type { OperationSpec, Workflow, Operation, ArtifactDeclaration } from "@sverka/workflow";
+import type {
+  OperationSpec,
+  Workflow,
+  Operation,
+  ArtifactDeclaration,
+} from "@sverka/workflow";
 import { workflow } from "@sverka/workflow";
 import type { Plan } from "@sverka/workflow";
 import { validatePlan } from "@sverka/workflow";
 import type { OperationOutcome } from "@sverka/runtime";
 import { createPlanner } from "./planner/index.js";
 import type { ProjectContext } from "./planner/index.js";
-import { DEFAULT_POLICY, createPolicy, evaluatePolicy } from "@sverka/verification";
+import {
+  DEFAULT_POLICY,
+  createPolicy,
+  evaluatePolicy,
+} from "@sverka/verification";
 import type { Policy } from "@sverka/verification";
 import { loadBaseline, filterOnlyNew } from "@sverka/verification";
 import type { Finding } from "@sverka/verification";
@@ -74,7 +83,9 @@ export async function toPlan(options?: SverkaOptions): Promise<Plan> {
 }
 
 /** Top-level execute convenience function. */
-export async function execute(options?: SverkaOptions): Promise<ExecutionResult> {
+export async function execute(
+  options?: SverkaOptions,
+): Promise<ExecutionResult> {
   return doExecute(options ?? {});
 }
 
@@ -164,7 +175,12 @@ async function doExecute(options: SverkaOptions): Promise<ExecutionResult> {
     context,
     executorType,
   );
-  const plan = buildAndValidatePlan(operations, planName, executorType, context);
+  const plan = buildAndValidatePlan(
+    operations,
+    planName,
+    executorType,
+    context,
+  );
   const { runtimeResult, findings } = await runPlan(
     plan,
     resolvedChecks,
@@ -180,7 +196,12 @@ async function resolveOperations(
   root: string,
   context: ProjectContext,
   executorType: "host" | "docker",
-): Promise<{ def: WorkflowDefinition | null; operations: readonly OperationSpec[]; resolvedChecks: readonly ResolvedCheck[]; planName: string }> {
+): Promise<{
+  def: WorkflowDefinition | null;
+  operations: readonly OperationSpec[];
+  resolvedChecks: readonly ResolvedCheck[];
+  planName: string;
+}> {
   const configPath = await resolveConfigPath(options, root);
 
   if (configPath !== null) {
@@ -201,7 +222,10 @@ async function resolveOperations(
     }
   }
 
-  if (executorType === "docker" && tmpChecks.some((r) => r.operation.image === undefined)) {
+  if (
+    executorType === "docker" &&
+    tmpChecks.some((r) => r.operation.image === undefined)
+  ) {
     throw new SdkError(
       "docker executor requires container images; every operation must declare an image",
       "EXECUTION_FAILED",
@@ -216,7 +240,12 @@ async function resolveOperations(
     );
   }
 
-  return { def: null, operations, resolvedChecks: tmpChecks, planName: "sverka-plan" };
+  return {
+    def: null,
+    operations,
+    resolvedChecks: tmpChecks,
+    planName: "sverka-plan",
+  };
 }
 
 /** Convert operations into a Plan and validate it. */
@@ -252,7 +281,10 @@ async function runPlan(
   resolvedChecks: readonly ResolvedCheck[],
   root: string,
   executorType: "host" | "docker",
-): Promise<{ runtimeResult: RuntimeExecutionResult; findings: readonly Finding[] }> {
+): Promise<{
+  runtimeResult: RuntimeExecutionResult;
+  findings: readonly Finding[];
+}> {
   const artifactDir = mkdtempSync(join(tmpdir(), "sverka-artifacts-"));
   const cacheDir = mkdtempSync(join(tmpdir(), "sverka-cache-"));
 
@@ -260,7 +292,11 @@ async function runPlan(
     // Lazy import: @sverka/runtime may not exist on later waves (replaced
     // by @sverka/engine-native). The execute path dynamically imports it.
     const { Scheduler } = await import("@sverka/runtime");
-    const executor = await createExecutor(executorType, cacheDir, plan.operations);
+    const executor = await createExecutor(
+      executorType,
+      cacheDir,
+      plan.operations,
+    );
     const scheduler: Scheduler = new Scheduler({
       executors: [executor],
       maxConcurrent: 4,
@@ -272,8 +308,13 @@ async function runPlan(
     } as unknown as ConstructorParameters<typeof Scheduler>[0]);
 
     try {
-      const runtimeResult = await scheduler.execute(plan) as RuntimeExecutionResult;
-      const findings = await extractResolvedFindings(resolvedChecks, artifactDir);
+      const runtimeResult = (await scheduler.execute(
+        plan,
+      )) as RuntimeExecutionResult;
+      const findings = await extractResolvedFindings(
+        resolvedChecks,
+        artifactDir,
+      );
       return { runtimeResult, findings };
     } catch (e) {
       throw new SdkError(
@@ -326,11 +367,14 @@ async function buildExecutionResult(
   const policy: Policy = def?.policy
     ? createPolicy(def.policy)
     : DEFAULT_POLICY;
-  const policyResult = evaluatePolicy(filteredFindings, policy, baselineFingerprints);
+  const policyResult = evaluatePolicy(
+    filteredFindings,
+    policy,
+    baselineFingerprints,
+  );
 
-  const verdict = runtimeResult.status === "success"
-    ? policyResult.verdict
-    : "fail";
+  const verdict =
+    runtimeResult.status === "success" ? policyResult.verdict : "fail";
 
   return {
     findings: filteredFindings,

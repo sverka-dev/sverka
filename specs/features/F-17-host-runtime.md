@@ -15,13 +15,13 @@ runner's default environment. Sverka models host as `Runtime.mode: "host"`
 
 ## Provider matrix
 
-| Aspect | GitHub Actions | GitLab CI | Sverka (proposed) |
-|--------|---------------|-----------|-------------------|
-| Construct | `runs-on: ubuntu-latest` | no `image` key | `Runtime.mode: "host"` (default) |
-| Semantics | job runs on a GitHub-hosted or self-hosted runner | job runs on runner default | step runs on host process |
-| Value type | string or array of labels | n/a (implicit) | `"host"` enum |
-| Limitations | runner image is fixed by label | runner environment varies | no runner labels in v0 |
-| Provider gap | — | — | GitHub always emits `ubuntu-latest` (hardcoded) |
+| Aspect       | GitHub Actions                                    | GitLab CI                  | Sverka (proposed)                               |
+| ------------ | ------------------------------------------------- | -------------------------- | ----------------------------------------------- |
+| Construct    | `runs-on: ubuntu-latest`                          | no `image` key             | `Runtime.mode: "host"` (default)                |
+| Semantics    | job runs on a GitHub-hosted or self-hosted runner | job runs on runner default | step runs on host process                       |
+| Value type   | string or array of labels                         | n/a (implicit)             | `"host"` enum                                   |
+| Limitations  | runner image is fixed by label                    | runner environment varies  | no runner labels in v0                          |
+| Provider gap | —                                                 | —                          | GitHub always emits `ubuntu-latest` (hardcoded) |
 
 ## GitHub Actions
 

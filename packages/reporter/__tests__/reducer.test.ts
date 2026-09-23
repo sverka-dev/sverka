@@ -1,9 +1,18 @@
 import { describe, it, expect } from "vitest";
 import { createInitialState, reduceEvent } from "../src/reducer.js";
 import {
-  runStarted, stepPending, stepReady, stepStarted, stepSucceeded,
-  stepFailed, stepSkipped, stepCancelled, stepCacheHit, stepRetry,
-  runCompleted, diagnostic,
+  runStarted,
+  stepPending,
+  stepReady,
+  stepStarted,
+  stepSucceeded,
+  stepFailed,
+  stepSkipped,
+  stepCancelled,
+  stepCacheHit,
+  stepRetry,
+  runCompleted,
+  diagnostic,
 } from "./helpers/fixtures.js";
 
 describe("EventReducer", () => {
@@ -18,7 +27,10 @@ describe("EventReducer", () => {
   });
 
   it("run-started sets runId and planId", () => {
-    const state = reduceEvent(createInitialState(), runStarted("run-1", "plan-abc"));
+    const state = reduceEvent(
+      createInitialState(),
+      runStarted("run-1", "plan-abc"),
+    );
     expect(state.runId).toBe("run-1");
     expect(state.planId).toBe("plan-abc");
   });
@@ -81,7 +93,10 @@ describe("EventReducer", () => {
 
   it("diagnostic appends to diagnostics array", () => {
     let state = createInitialState();
-    state = reduceEvent(state, diagnostic("ci/lint", "something happened", "warn"));
+    state = reduceEvent(
+      state,
+      diagnostic("ci/lint", "something happened", "warn"),
+    );
     expect(state.diagnostics).toHaveLength(1);
     expect(state.diagnostics[0]).toEqual({
       stepId: "ci/lint",
@@ -92,7 +107,11 @@ describe("EventReducer", () => {
 
   it("reduceEvent does not mutate the input state (pure)", () => {
     const initial = createInitialState();
-    const frozen = { ...initial, steps: new Map(initial.steps), diagnostics: [...initial.diagnostics] };
+    const frozen = {
+      ...initial,
+      steps: new Map(initial.steps),
+      diagnostics: [...initial.diagnostics],
+    };
     reduceEvent(initial, stepPending("ci/lint"));
     // Original state should be unchanged
     expect(initial.steps.size).toBe(frozen.steps.size);

@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { join } from "node:path";
-import { runBenchmark, writeReport, BENCHMARK_TASKS, DEFAULT_AGENTS } from "./index.js";
+import {
+  runBenchmark,
+  writeReport,
+  BENCHMARK_TASKS,
+  DEFAULT_AGENTS,
+} from "./index.js";
 
 async function main(): Promise<number> {
   const model = process.env.DEVIN_MODEL ?? "glm-5-2";
@@ -25,13 +30,19 @@ async function main(): Promise<number> {
 
   process.stderr.write(`\nReport written to: ${outputPath}\n`);
   process.stderr.write(`\nSummary:\n`);
-  process.stderr.write(`  raw-shell: ${result.summary["raw-shell"].successCount}/${result.summary["raw-shell"].totalTasks} pass, avg ${result.summary["raw-shell"].avgTotalTokens} tokens\n`);
-  process.stderr.write(`  sverka:    ${result.summary.sverka.successCount}/${result.summary.sverka.totalTasks} pass, avg ${result.summary.sverka.avgTotalTokens} tokens\n`);
+  process.stderr.write(
+    `  raw-shell: ${result.summary["raw-shell"].successCount}/${result.summary["raw-shell"].totalTasks} pass, avg ${result.summary["raw-shell"].avgTotalTokens} tokens\n`,
+  );
+  process.stderr.write(
+    `  sverka:    ${result.summary.sverka.successCount}/${result.summary.sverka.totalTasks} pass, avg ${result.summary.sverka.avgTotalTokens} tokens\n`,
+  );
 
   return 0;
 }
 
-main().then(process.exit).catch((err) => {
-  process.stderr.write(`Fatal: ${err}\n`);
-  process.exit(1);
-});
+main()
+  .then(process.exit)
+  .catch((err) => {
+    process.stderr.write(`Fatal: ${err}\n`);
+    process.exit(1);
+  });

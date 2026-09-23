@@ -14,7 +14,9 @@ describe("createBuiltinResolver — Node (bun)", () => {
     expect(r!.step.id).toBe("checks/typecheck");
     expect(r!.step.operations).toHaveLength(1);
     expect(r!.step.operations[0]!.kind).toBe("shell");
-    expect((r!.step.operations[0] as { command: string }).command).toBe("bun run typecheck");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "bun run typecheck",
+    );
     expect(r!.step.runtime.mode).toBe("host");
     expect(r!.step.runtime.workingDir).toBe(ctx.root);
   });
@@ -22,13 +24,17 @@ describe("createBuiltinResolver — Node (bun)", () => {
   it("resolves lint to bun run lint", () => {
     const r = resolver.resolve(makeCheck("lint"), ctx);
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("bun run lint");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "bun run lint",
+    );
   });
 
   it("resolves test to bun run test", () => {
     const r = resolver.resolve(makeCheck("test"), ctx);
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("bun run test");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "bun run test",
+    );
   });
 });
 
@@ -36,19 +42,25 @@ describe("createBuiltinResolver — Node (npm/yarn/pnpm)", () => {
   it("resolves typecheck with npm", () => {
     const r = resolver.resolve(makeCheck("typecheck"), makeContext(["npm"]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("npm run typecheck");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "npm run typecheck",
+    );
   });
 
   it("resolves lint with yarn", () => {
     const r = resolver.resolve(makeCheck("lint"), makeContext(["yarn"]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("yarn run lint");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "yarn run lint",
+    );
   });
 
   it("resolves test with pnpm", () => {
     const r = resolver.resolve(makeCheck("test"), makeContext(["pnpm"]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("pnpm run test");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "pnpm run test",
+    );
   });
 });
 
@@ -56,8 +68,13 @@ describe("createBuiltinResolver — Python", () => {
   it("resolves lint to ruff check with SARIF stdout output", () => {
     const r = resolver.resolve(makeCheck("lint"), makeContext(["poetry"]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("ruff check --output-format=sarif");
-    expect(r!.step.operations[1]).toEqual({ kind: "exportStdout", name: "results.sarif" });
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "ruff check --output-format=sarif",
+    );
+    expect(r!.step.operations[1]).toEqual({
+      kind: "exportStdout",
+      name: "results.sarif",
+    });
     expect(r!.outputs).toEqual([{ path: "results.sarif", format: "sarif" }]);
     // Legacy Plan path: stdout SARIF is redirected to the artifact file
     // through `sh -c` because HostExecutor spawns without a shell.
@@ -78,7 +95,9 @@ describe("createBuiltinResolver — Python", () => {
   it("resolves test to pytest", () => {
     const r = resolver.resolve(makeCheck("test"), makeContext(["pip"]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("pytest");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "pytest",
+    );
   });
 });
 
@@ -88,19 +107,25 @@ describe("createBuiltinResolver — Rust", () => {
   it("resolves clippy to cargo clippy", () => {
     const r = resolver.resolve(makeCheck("clippy"), ctx);
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("cargo clippy");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "cargo clippy",
+    );
   });
 
   it("resolves fmt-check to cargo fmt --check", () => {
     const r = resolver.resolve(makeCheck("fmt-check"), ctx);
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("cargo fmt --check");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "cargo fmt --check",
+    );
   });
 
   it("resolves test to cargo test", () => {
     const r = resolver.resolve(makeCheck("test"), ctx);
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("cargo test");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "cargo test",
+    );
   });
 });
 
@@ -110,13 +135,17 @@ describe("createBuiltinResolver — Go", () => {
   it("resolves vet to go vet ./...", () => {
     const r = resolver.resolve(makeCheck("vet"), ctx);
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("go vet ./...");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "go vet ./...",
+    );
   });
 
   it("resolves test to go test ./...", () => {
     const r = resolver.resolve(makeCheck("test"), ctx);
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("go test ./...");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "go test ./...",
+    );
   });
 });
 
@@ -134,17 +163,24 @@ describe("createBuiltinResolver — unknown / unmatched", () => {
 
 describe("createBuiltinResolver — multiple package managers", () => {
   it("first matching entry in table order wins (bun before cargo)", () => {
-    const r = resolver.resolve(makeCheck("test"), makeContext(["cargo", "bun"]));
+    const r = resolver.resolve(
+      makeCheck("test"),
+      makeContext(["cargo", "bun"]),
+    );
     expect(r).not.toBeNull();
     // Node entries come before cargo in table order, so bun wins.
-    expect((r!.step.operations[0] as { command: string }).command).toBe("bun run test");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "bun run test",
+    );
   });
 
   it("honours proposal reason over table order in polyglot projects", () => {
     const rustCheck = makeCheck("test", "Rust project defaults");
     const r = resolver.resolve(rustCheck, makeContext(["cargo", "bun"]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("cargo test");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "cargo test",
+    );
   });
 });
 
@@ -178,7 +214,9 @@ describe("custom CheckResolver", () => {
           step: {
             id: "checks/custom",
             runtime: { mode: "host" },
-            operations: [{ kind: "shell", command: "my-tool --sarif out.sarif" }],
+            operations: [
+              { kind: "shell", command: "my-tool --sarif out.sarif" },
+            ],
             inputs: [],
             outputs: [],
             dependencies: [],
@@ -195,7 +233,9 @@ describe("custom CheckResolver", () => {
     };
     const r = custom.resolve(makeCheck("custom"), makeContext([]));
     expect(r).not.toBeNull();
-    expect((r!.step.operations[0] as { command: string }).command).toBe("my-tool --sarif out.sarif");
+    expect((r!.step.operations[0] as { command: string }).command).toBe(
+      "my-tool --sarif out.sarif",
+    );
     expect(r!.outputs).toHaveLength(1);
     expect(r!.outputs[0]!.format).toBe("sarif");
   });

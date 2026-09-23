@@ -62,7 +62,11 @@ describe("public API — exports", () => {
     expect(_artifact.path).toBe("test.yml");
     expect(_diag.capability).toBe("x");
     expect(_result.artifacts).toHaveLength(0);
-    const validCodes: GithubTargetErrorCode[] = ["INVALID_GRAPH", "UNSUPPORTED_TRIGGER", "LOWERING_ERROR"];
+    const validCodes: GithubTargetErrorCode[] = [
+      "INVALID_GRAPH",
+      "UNSUPPORTED_TRIGGER",
+      "LOWERING_ERROR",
+    ];
     expect(validCodes).toContain(_code);
   });
 });

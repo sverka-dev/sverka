@@ -38,7 +38,7 @@ Implement the Docker executor for `@sverka/runtime-docker`:
 - `DockerExecutorConfig` (runAs, cacheDir, dockerPath?, dockerHost?,
   maxLogBytes?).
 - `verifyImageDigest` function (image digest verification via `docker
-  inspect`/`docker pull`).
+inspect`/`docker pull`).
 - `CacheManager` interface + `DockerCacheManager` (filesystem cache
   prepare/collect).
 - Error hierarchy: `DockerExecutorError` → `ImageDigestError`,
@@ -50,10 +50,11 @@ Implement the Docker executor for `@sverka/runtime-docker`:
 `@sverka/ir` (PlanOperation). Both `workspace:*`.
 
 **Out of scope (do NOT implement in this wave):**
+
 - **Retry.** The scheduler owns retry (`maxAttempts`/`retryOn`/`backoffSeconds`,
   Wave 3). The executor executes **once** and returns a result. Spec goal 6
   ("support retry and timeout policies") is satisfied by returning `status:
-  "failure"` results that the scheduler can retry.
+"failure"` results that the scheduler can retry.
 - **Docker daemon lifecycle.** Assumed available (spec non-goal).
 - **Image building/publishing.** Spec non-goal.
 - **Podman.** Handled by `runtime-podman`.
@@ -116,6 +117,7 @@ The executor separates **pure logic** from **side effects**:
   via `vi.mock`. Integration tests use the real implementation.
 
 `DockerCommandResult` (defined in `internal/docker-cli.ts`, not exported):
+
 ```typescript
 interface DockerCommandResult {
   readonly stdout: string;
@@ -128,26 +130,30 @@ interface DockerCommandResult {
 ## 6. Implementation order (TDD: tests first, then impl)
 
 ### Slice A — Errors (foundation, no deps)
+
 1. `errors.test.ts` — `DockerExecutorError` base (sets `name`, carries `code`
-   + `context`), `ImageDigestError` (`IMAGE_DIGEST_MISMATCH`),
-   `ContainerPolicyError` (`CONTAINER_POLICY_VIOLATION`), `instanceof` chain.
-   Mirror `runtime-host/src/errors.ts` constructor pattern exactly.
+   - `context`), `ImageDigestError` (`IMAGE_DIGEST_MISMATCH`),
+     `ContainerPolicyError` (`CONTAINER_POLICY_VIOLATION`), `instanceof` chain.
+     Mirror `runtime-host/src/errors.ts` constructor pattern exactly.
 2. `errors.ts` — implement. Wire into `index.ts`.
 
 ### Slice B — Config + public API skeleton
+
 3. `config.ts` — `DockerExecutorConfig` interface (post-amendment: no
    `workspace`/`artifactDir`).
 4. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
 
 ### Slice C — Docker CLI seam
+
 5. `internal/docker-cli.ts` — `runDocker(args, opts)` wrapping `spawn("docker",
-   [...args])`. Capture stdout/stderr, resolve exitCode, handle timeout via
+[...args])`. Capture stdout/stderr, resolve exitCode, handle timeout via
    `setTimeout` + SIGTERM + SIGKILL grace (mirror `host-executor.ts`
    `spawnProcess` pattern). Return `DockerCommandResult`. No test file of its
    own — covered by `docker-executor.test.ts` via mock, and
    `integration.test.ts` via real Docker.
 
 ### Slice D — canExecute + command construction (pure, no mock)
+
 6. `helpers/fixtures.ts` — `makeDockerOp(overrides)` building a minimal
    `PlanOperation` with `executor.type: "docker"`, `executor.image`,
    `executor.imageDigest`, `command`, `args`, `timeoutSeconds`, `resources`,
@@ -168,6 +174,7 @@ interface DockerCommandResult {
    the arg array per spec §Container execution policy.
 
 ### Slice E — Network policy mapping (pure)
+
 9. Extend `docker-executor.test.ts` —
    - `network: "deny"` → `--network none`.
    - `network: "allow-egress"` → no `--network none` (default bridge).
@@ -176,6 +183,7 @@ interface DockerCommandResult {
     `buildDockerArgs`.
 
 ### Slice F — Timeout enforcement (validation + mocked timeout)
+
 11. Extend tests —
     - Operation without `timeoutSeconds` (or <= 0) → `ContainerPolicyError`
       (`MISSING_TIMEOUT`), no container started.
@@ -185,6 +193,7 @@ interface DockerCommandResult {
     to failure with timeout error message.
 
 ### Slice G — Image digest verification (mocked CLI)
+
 13. `image.test.ts` — mock `internal/docker-cli.ts`:
     - `verifyImageDigest` with matching digest → resolves.
     - `verifyImageDigest` with mismatched digest → throws `ImageDigestError`
@@ -198,6 +207,7 @@ interface DockerCommandResult {
     `ContainerPolicyError` (`MISSING_DIGEST`), no container started.
 
 ### Slice H — Secrets allowlist + env building (pure)
+
 16. Extend `docker-executor.test.ts` — `buildEnv`:
     - Only env vars declared in `operation.credentials` get values from
       `request.credentials`.
@@ -213,6 +223,7 @@ interface DockerCommandResult {
     Socket detection: check for `docker.sock` in mount sources and env values.
 
 ### Slice I — Cache management (filesystem, no Docker)
+
 18. `cache.test.ts` — `DockerCacheManager`:
     - `prepare(inputs, key)` creates `<cacheDir>/<key>` and
       copies/symlinks declared inputs.
@@ -223,6 +234,7 @@ interface DockerCommandResult {
     Use `node:fs/promises` (`mkdir`, `copyFile`, `symlink`). No Docker.
 
 ### Slice J — Logs, artifacts, log truncation
+
 20. Extend `docker-executor.test.ts` —
     - Mock `runDocker` returning stdout/stderr → `ExecuteResult.logs`
       contains both.
@@ -236,6 +248,7 @@ interface DockerCommandResult {
     `request.workspace` and `request.artifactDir`.
 
 ### Slice K — Integration tests (skippable)
+
 22. `integration.test.ts` — `describe.skipIf(!process.env.SVERKA_DOCKER)`:
     - Run `echo hello` in `busybox@<digest>` → `status: "success"`, logs
       contain `hello`.
@@ -243,6 +256,7 @@ interface DockerCommandResult {
     - These require a real Docker daemon; skipped by default.
 
 ### Slice L — Public API + gates
+
 23. Complete `index.ts` exports to match spec §Interfaces exactly:
     `DockerExecutor`, `DockerExecutorConfig`, `verifyImageDigest`,
     `CacheManager`, `DockerCacheManager`, `DockerExecutorError`,
@@ -289,14 +303,14 @@ interface DockerCommandResult {
 
 ## 9. Error code map
 
-| Condition                | code                       | error class              |
-|--------------------------|----------------------------|--------------------------|
-| Wrong executor type      | `WRONG_EXECUTOR_TYPE`      | `ContainerPolicyError`   |
-| Missing timeout          | `MISSING_TIMEOUT`          | `ContainerPolicyError`   |
-| Missing digest           | `MISSING_DIGEST`           | `ContainerPolicyError`   |
-| Image digest mismatch    | `IMAGE_DIGEST_MISMATCH`    | `ImageDigestError`       |
-| Undeclared secret        | `UNDECLARED_SECRET`        | `ContainerPolicyError`   |
-| Docker socket denied     | `DOCKER_SOCKET_DENIED`     | `ContainerPolicyError`   |
+| Condition             | code                    | error class            |
+| --------------------- | ----------------------- | ---------------------- |
+| Wrong executor type   | `WRONG_EXECUTOR_TYPE`   | `ContainerPolicyError` |
+| Missing timeout       | `MISSING_TIMEOUT`       | `ContainerPolicyError` |
+| Missing digest        | `MISSING_DIGEST`        | `ContainerPolicyError` |
+| Image digest mismatch | `IMAGE_DIGEST_MISMATCH` | `ImageDigestError`     |
+| Undeclared secret     | `UNDECLARED_SECRET`     | `ContainerPolicyError` |
+| Docker socket denied  | `DOCKER_SOCKET_DENIED`  | `ContainerPolicyError` |
 
 ## 10. Gates (reviewer runs these)
 

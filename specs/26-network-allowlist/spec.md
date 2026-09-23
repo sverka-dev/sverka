@@ -22,7 +22,7 @@ Inspired by gh-aw AWF firewall. Makes network access explicit and auditable.
 ## Goals
 
 - `NetworkAllowlist` added to `Runtime` (cdk/model.ts): `{ allowed: readonly
-  string[] }`.
+string[] }`.
 - `Runtime` gains `readonly network?: NetworkAllowlist`.
 - `StepDefinition.runtime.network` propagated by `synthesize()`.
 - Docker driver: `network.allowed` → `--network` flag + DNS-level filtering
@@ -33,7 +33,7 @@ Inspired by gh-aw AWF firewall. Makes network access explicit and auditable.
 - GHA target: emits a `# sverka:network-allowlist: <domains>` comment
   annotation on the job (no native per-job egress control in GHA).
 - GitLab target: emits a `variables: { SVERKA_NETWORK_ALLOWLIST: "<domains>"
-  }` annotation on the job.
+}` annotation on the job.
 - `runtime.network` capability declared in target manifests: GHA
   `emulated` (annotation only), GitLab `emulated` (annotation only),
   native engine `native` (docker) / `partial` (host — not enforced).
@@ -112,6 +112,7 @@ match. Empty `allowed` = deny all.
 ### Docker network isolation
 
 For `allowed: ["registry.npmjs.org"]`:
+
 - `--network none` is NOT used (need DNS resolution).
 - Instead: run with default bridge network + `--add-host` entries that map
   known-common blocked domains to `127.0.0.1`. **Pragmatic limitation**: a
@@ -138,12 +139,12 @@ are in place, but actual enforcement in the docker driver is declarative
 1. `Runtime` with `network: { allowed: ["registry.npmjs.org"] }`
    synthesizes onto `StepDefinition.runtime.network`.
 2. `Runtime` with `network: { allowed: [""] }` → `SynthesisError(
-   INVALID_NETWORK_ALLOWLIST)`.
+INVALID_NETWORK_ALLOWLIST)`.
 3. `Runtime` with `network: { allowed: [] }` synthesizes (empty = deny all,
    valid).
 4. Docker driver: step with `network.allowed: ["registry.npmjs.org"]` →
    `buildDockerArgs` includes `--label
-   sverka.network.allowlist=registry.npmjs.org` (declarative).
+sverka.network.allowlist=registry.npmjs.org` (declarative).
 5. Docker driver: step with no `network` → `--network none` (default deny).
 6. Docker driver: step with `network.allowed: []` → `--network none`.
 7. Host driver: step with `network.allowed` set → emits `diagnostic` (info)

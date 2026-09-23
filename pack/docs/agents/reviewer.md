@@ -10,17 +10,17 @@ On-demand gatekeeper. Activated by the mayor to review completed work and gate q
 
 ## Skills
 
-| Skill | When |
-| --- | --- |
-| `review-methodology` | Structured review approach |
-| `two-axis-review` | Review both correctness AND minimalism |
-| `critical-thinking` | Challenge implementation assumptions |
-| `minimalist` | Audit for over-engineering, bloat |
-| `evidence` | Require proof that tests pass, build succeeds |
-| `sourcegraph` | Verify code matches what's in the repo |
-| `deepwiki` | Check if a dependency is used correctly |
-| `sverka-review` | Gate commands, finding classification |
-| `sverka-wave` | Understanding the wave cycle |
+| Skill                | When                                          |
+| -------------------- | --------------------------------------------- |
+| `review-methodology` | Structured review approach                    |
+| `two-axis-review`    | Review both correctness AND minimalism        |
+| `critical-thinking`  | Challenge implementation assumptions          |
+| `minimalist`         | Audit for over-engineering, bloat             |
+| `evidence`           | Require proof that tests pass, build succeeds |
+| `sourcegraph`        | Verify code matches what's in the repo        |
+| `deepwiki`           | Check if a dependency is used correctly       |
+| `sverka-review`      | Gate commands, finding classification         |
+| `sverka-wave`        | Understanding the wave cycle                  |
 
 ## Responsibilities
 
@@ -44,20 +44,20 @@ bun run build --skip-nx-cache
 
 ## Two-axis review
 
-| Axis | Question |
-| --- | --- |
+| Axis      | Question                                                   |
+| --------- | ---------------------------------------------------------- |
 | Standards | Does code follow repo conventions + Fowler smell baseline? |
-| Spec | Does code faithfully implement the spec? |
+| Spec      | Does code faithfully implement the spec?                   |
 
 Both must pass. Clean code implementing wrong thing = reject. Right thing with messy code = reject.
 
 ## Finding classification
 
-| Class | Action |
-| --- | --- |
-| BLOCKING | Must fix — spec violation or broken gate |
-| NIT | Note, don't block — non-blocking style or edge case |
-| DECLINE | Explain why — reviewer disagrees with suggestion |
+| Class    | Action                                              |
+| -------- | --------------------------------------------------- |
+| BLOCKING | Must fix — spec violation or broken gate            |
+| NIT      | Note, don't block — non-blocking style or edge case |
+| DECLINE  | Explain why — reviewer disagrees with suggestion    |
 
 ## Checklist
 

@@ -43,6 +43,7 @@ suppression filtering for `@sverka/findings`:
 `node:fs`, `node:path`).
 
 **Out of scope (do NOT implement in this wave):**
+
 - Non-SARIF normalizers (ESLint JSON, Semgrep JSON, text).
 - Pluggable normalizer registry / `FindingNormalizer` interface.
 - Inline source-code suppressions (`// sverka-ignore-next-line`).
@@ -207,18 +208,18 @@ packages/findings/src/
 
 ## 8. Test plan → spec mapping
 
-| Spec test plan | File | Notes |
-|---|---|---|
-| 1 SARIF normalization | `normalize.test.ts` | levels, rules, ruleIndex, multi-location, checkId, id |
-| 2 fingerprint | `fingerprint.test.ts` | determinism, discrimination, backslash, empty fields, hex format |
-| 3 baseline create | `baseline.test.ts` | fingerprints, timestamps, version, no suppressions |
-| 4 baseline update | `baseline.test.ts` | add new, remove resolved, remove stale suppressions, preserve createdAt |
-| 5 baseline compare | `baseline.test.ts` | new/resolved/unchanged, empty current, empty baseline |
-| 6 suppression | `suppress.test.ts` | filterSuppressed true/false, expired, isSuppressed |
-| 7 only-new filtering | `suppress.test.ts` | filterOnlyNew excludes baseline + suppressed |
-| 8 baseline I/O | `baseline.test.ts` | load/save, not found, invalid JSON, wrong version, write failed |
-| 9 error cases (norm) | `normalize.test.ts` | INVALID_SARIF, MISSING_LOCATION, INVALID_FINGERPRINT_INPUT |
-| 10 determinism | `normalize.test.ts` | identical SARIF + context → identical Finding[] |
+| Spec test plan        | File                  | Notes                                                                   |
+| --------------------- | --------------------- | ----------------------------------------------------------------------- |
+| 1 SARIF normalization | `normalize.test.ts`   | levels, rules, ruleIndex, multi-location, checkId, id                   |
+| 2 fingerprint         | `fingerprint.test.ts` | determinism, discrimination, backslash, empty fields, hex format        |
+| 3 baseline create     | `baseline.test.ts`    | fingerprints, timestamps, version, no suppressions                      |
+| 4 baseline update     | `baseline.test.ts`    | add new, remove resolved, remove stale suppressions, preserve createdAt |
+| 5 baseline compare    | `baseline.test.ts`    | new/resolved/unchanged, empty current, empty baseline                   |
+| 6 suppression         | `suppress.test.ts`    | filterSuppressed true/false, expired, isSuppressed                      |
+| 7 only-new filtering  | `suppress.test.ts`    | filterOnlyNew excludes baseline + suppressed                            |
+| 8 baseline I/O        | `baseline.test.ts`    | load/save, not found, invalid JSON, wrong version, write failed         |
+| 9 error cases (norm)  | `normalize.test.ts`   | INVALID_SARIF, MISSING_LOCATION, INVALID_FINGERPRINT_INPUT              |
+| 10 determinism        | `normalize.test.ts`   | identical SARIF + context → identical Finding[]                         |
 
 ## 9. Acceptance
 

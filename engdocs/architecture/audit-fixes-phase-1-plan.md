@@ -25,13 +25,14 @@ preserves them on the instance.
   (exported, internal use).
 - Change `executeShellOperation` return type from `Promise<void>` to
   `Promise<ShellOutput>`. Return `{ stdout: result.stdout, stderr:
-  result.stderr, exitCode: result.exitCode }` on success.
+result.stderr, exitCode: result.exitCode }` on success.
 - On failure (exitCode !== 0), pass `result.stdout` and `result.stderr` to
   the `StepExecError` constructor.
 - Change `executeOperation` return type from `Promise<void>` to
   `Promise<ShellOutput | undefined>`. Return `undefined` for non-shell ops.
 
 **Test:** `step-executor.test.ts` — add tests:
+
 - Shell success → `executeOperation` returns `{stdout, stderr, exitCode}`.
 - Shell failure → throws `StepExecError` with `stdout`, `stderr` set.
 
@@ -50,11 +51,15 @@ preserves them on the instance.
   ```typescript
   function truncateOutput(s: string): string {
     if (s.length <= MAX_OUTPUT_LENGTH) return s;
-    return s.slice(0, MAX_OUTPUT_LENGTH) + `\n... (truncated, ${s.length} bytes total)`;
+    return (
+      s.slice(0, MAX_OUTPUT_LENGTH) +
+      `\n... (truncated, ${s.length} bytes total)`
+    );
   }
   ```
 
 **Test:** `step-executor.test.ts` — add tests:
+
 - Step with shell op → `StepExecResult` has `stdout`, `stderr`, `exitCode`.
 - Step with only export ops → `StepExecResult` has no `stdout`/`stderr`.
 - Step with failing shell op → `StepExecResult` has failing op's `stdout`/`stderr`/`exitCode`.
@@ -81,6 +86,7 @@ Also update the "no driver" `step-failed` emission — it has no shell output,
 so no stdout/stderr/exitCode (already correct, just verify).
 
 **Test:** `run-events.test.ts` — add tests:
+
 - `step-succeeded` event for shell step includes `stdout`, `stderr`, `exitCode`.
 - `step-failed` event includes `stdout`, `stderr`, `exitCode` from failing command.
 - Cache-hit `step-succeeded` does NOT include `stdout`/`stderr`/`exitCode`.
@@ -94,6 +100,7 @@ so no stdout/stderr/exitCode (already correct, just verify).
   events using conditional spread.
 
 **Test:** `run-integration.test.ts` — add tests:
+
 - Failing step → JSON `steps[]` entry has `stdout`, `stderr`, `exitCode`.
 - Succeeding step → JSON `steps[]` entry has `stdout`, `exitCode: 0`.
 
@@ -124,6 +131,7 @@ bun run test && bun run typecheck && bun run lint && bun run build
 ## Commit hygiene
 
 Stage ONLY:
+
 - `packages/runtime/src/engine-native/errors.ts`
 - `packages/runtime/src/engine-native/step-executor.ts`
 - `packages/runtime/src/engine-native/types.ts`

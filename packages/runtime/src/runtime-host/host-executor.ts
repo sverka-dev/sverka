@@ -4,10 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import type { Executor, ExecuteRequest, ExecuteResult } from "../index.js";
 import type { PlanOperation } from "@sverka/workflow";
 import type { HostExecutorConfig } from "./config.js";
-import {
-  HostExecutorError,
-  CommandNotAllowedError,
-} from "./errors.js";
+import { HostExecutorError, CommandNotAllowedError } from "./errors.js";
 
 const DEFAULT_MAX_LOG_BYTES = 10 * 1024 * 1024; // 10 MiB
 const GRACE_PERIOD_MS = 2000;
@@ -52,7 +49,10 @@ export class HostExecutor implements Executor {
     if (operation.executor.type !== "host") return false;
     const command = operation.command ?? "";
     if (!this.config.allowlist.isAllowed(command)) return false;
-    if (operation.timeoutSeconds === undefined || operation.timeoutSeconds <= 0) {
+    if (
+      operation.timeoutSeconds === undefined ||
+      operation.timeoutSeconds <= 0
+    ) {
       return false;
     }
     return true;
@@ -79,7 +79,10 @@ export class HostExecutor implements Executor {
   /** Validate enabled, executor type, timeout, and allowlist. Returns command. */
   private validateRequest(op: PlanOperation): string {
     if (!this.config.enabled) {
-      throw new HostExecutorError("host executor is disabled", "EXECUTOR_DISABLED");
+      throw new HostExecutorError(
+        "host executor is disabled",
+        "EXECUTOR_DISABLED",
+      );
     }
     if (op.executor.type !== "host") {
       throw new HostExecutorError(
@@ -125,7 +128,9 @@ export class HostExecutor implements Executor {
         ...result,
         durationMs,
         artifacts: artifacts.collected,
-        error: existingError ? `${existingError}; ${artifactError}` : artifactError,
+        error: existingError
+          ? `${existingError}; ${artifactError}`
+          : artifactError,
       };
     }
     return { ...result, durationMs, artifacts: artifacts.collected };
@@ -242,7 +247,16 @@ export class HostExecutor implements Executor {
         }
         clearTimeout(timer);
         resolvePromise(
-          this.buildExecuteResult(operationId, start, stdout, stderr, code, signal, timedOut, timeoutSeconds),
+          this.buildExecuteResult(
+            operationId,
+            start,
+            stdout,
+            stderr,
+            code,
+            signal,
+            timedOut,
+            timeoutSeconds,
+          ),
         );
       });
     });
@@ -260,10 +274,20 @@ export class HostExecutor implements Executor {
   ): ExecuteResult {
     const durationMs = Date.now() - start;
     const logs = this.truncateLogs(stdout + (stderr ? "\n" + stderr : ""));
-    const base = { operationId, status: "failure" as const, durationMs, logs, artifacts: [] as const };
+    const base = {
+      operationId,
+      status: "failure" as const,
+      durationMs,
+      logs,
+      artifacts: [] as const,
+    };
 
     if (timedOut) {
-      return { ...base, ...(code !== null ? { exitCode: code } : {}), error: `timeout after ${timeoutSeconds}s` };
+      return {
+        ...base,
+        ...(code !== null ? { exitCode: code } : {}),
+        error: `timeout after ${timeoutSeconds}s`,
+      };
     }
 
     if (signal !== null) {
@@ -271,7 +295,11 @@ export class HostExecutor implements Executor {
     }
 
     if (code === null || code < 0) {
-      return { ...base, error: `spawn error: exit code ${code}`, runtimeFailure: true };
+      return {
+        ...base,
+        error: `spawn error: exit code ${code}`,
+        runtimeFailure: true,
+      };
     }
 
     const status = code === 0 ? "success" : "failure";

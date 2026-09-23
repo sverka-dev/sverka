@@ -14,15 +14,15 @@ key resolution.
 
 ## Files
 
-| File | Action |
-|---|---|
-| `packages/runtime/src/engine-native/cache-store.ts` | **New** — `CacheStore` interface, request/result types, `createFileCacheStore`. |
-| `packages/runtime/src/engine-native/types.ts` | **Edit** — add `cache?: CacheStore` to `EngineConfig` and `RunRequest`; add `step-cache-hit` to `RunEvent`. |
-| `packages/runtime/src/engine-native/engine.ts` | **Edit** — in `runStep`: pull before execute (policy pull/pull-push), push after success (policy push/pull-push); emit `step-cache-hit`; resolve context refs in key. |
-| `packages/runtime/src/engine-native/index.ts` | **Edit** — export `CacheStore`, `FileCacheStoreConfig`, `createFileCacheStore`, `CacheRestoreRequest`, `CacheRestoreResult`, `CacheStoreRequest`. |
-| `packages/runtime/src/engine-native/__tests__/cache-store.test.ts` | **New** — FileCacheStore unit tests (items 1–3, 9–10). |
-| `packages/runtime/src/engine-native/__tests__/engine-cache.test.ts` | **New** — engine integration tests (items 4–8). |
-| `packages/runtime/src/engine-native/__tests__/public-api.test.ts` | **Edit** — assert new exports (item 11). |
+| File                                                                | Action                                                                                                                                                                |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/runtime/src/engine-native/cache-store.ts`                 | **New** — `CacheStore` interface, request/result types, `createFileCacheStore`.                                                                                       |
+| `packages/runtime/src/engine-native/types.ts`                       | **Edit** — add `cache?: CacheStore` to `EngineConfig` and `RunRequest`; add `step-cache-hit` to `RunEvent`.                                                           |
+| `packages/runtime/src/engine-native/engine.ts`                      | **Edit** — in `runStep`: pull before execute (policy pull/pull-push), push after success (policy push/pull-push); emit `step-cache-hit`; resolve context refs in key. |
+| `packages/runtime/src/engine-native/index.ts`                       | **Edit** — export `CacheStore`, `FileCacheStoreConfig`, `createFileCacheStore`, `CacheRestoreRequest`, `CacheRestoreResult`, `CacheStoreRequest`.                     |
+| `packages/runtime/src/engine-native/__tests__/cache-store.test.ts`  | **New** — FileCacheStore unit tests (items 1–3, 9–10).                                                                                                                |
+| `packages/runtime/src/engine-native/__tests__/engine-cache.test.ts` | **New** — engine integration tests (items 4–8).                                                                                                                       |
+| `packages/runtime/src/engine-native/__tests__/public-api.test.ts`   | **Edit** — assert new exports (item 11).                                                                                                                              |
 
 ## TDD steps
 

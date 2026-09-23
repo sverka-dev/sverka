@@ -64,8 +64,8 @@ interface StepProps {
   runtime?: Runtime;
   outputs?: Record<string, OutputDeclaration>;
   inputs?: Reference[];
-  dependsOn?: string[];      // explicit control deps (step names)
-  timeout?: number;          // milliseconds
+  dependsOn?: string[]; // explicit control deps (step names)
+  timeout?: number; // milliseconds
 }
 abstract class Step extends SverkaConstruct {
   readonly runtime: Runtime;
@@ -88,7 +88,7 @@ class ShellStep extends Step {
 // Binds a Trigger to root Steps (§13).
 interface EntryProps {
   trigger: Trigger;
-  roots: string[];           // step names within the same Pipeline
+  roots: string[]; // step names within the same Pipeline
 }
 class Entry extends SverkaConstruct {
   readonly trigger: Trigger;
@@ -107,9 +107,18 @@ interface TriggerFilter {
   tags?: string[];
   paths?: string[];
 }
-interface Push         { kind: "push"; filter?: TriggerFilter }
-interface ChangeRequest { kind: "changeRequest"; filter?: TriggerFilter }
-interface Manual        { kind: "manual"; filter?: TriggerFilter }
+interface Push {
+  kind: "push";
+  filter?: TriggerFilter;
+}
+interface ChangeRequest {
+  kind: "changeRequest";
+  filter?: TriggerFilter;
+}
+interface Manual {
+  kind: "manual";
+  filter?: TriggerFilter;
+}
 function push(filter?: TriggerFilter): Push;
 function changeRequest(filter?: TriggerFilter): ChangeRequest;
 function manual(filter?: TriggerFilter): Manual;
@@ -118,9 +127,9 @@ function manual(filter?: TriggerFilter): Manual;
 type Reference = StepRef | ContextRef;
 interface StepRef {
   kind: "step";
-  step: string;              // producing step name
-  output: string;            // output name
-  type: OutputType;          // "artifact" → artifact dependency
+  step: string; // producing step name
+  output: string; // output name
+  type: OutputType; // "artifact" → artifact dependency
 }
 interface ContextRef {
   kind: "context";
@@ -132,7 +141,7 @@ interface ContextRef {
 type OutputType = "string" | "number" | "boolean" | "artifact";
 interface OutputDeclaration {
   type: OutputType;
-  path?: string;             // required for artifact outputs
+  path?: string; // required for artifact outputs
   description?: string;
 }
 
@@ -153,7 +162,7 @@ interface Input {
 // in Wave A; native engine Wave F will add if needed).
 interface Runtime {
   mode?: "host" | "container";
-  image?: string;            // OCI reference
+  image?: string; // OCI reference
   env?: Record<string, string>;
   secrets?: string[];
   workingDir?: string;

@@ -42,7 +42,10 @@ new ShellStep(p, "test", {
   dependsOn: ["lint"],
 });
 
-new Entry(p, "on-push", { trigger: push(), roots: ["lint", "typecheck", "test"] });
+new Entry(p, "on-push", {
+  trigger: push(),
+  roots: ["lint", "typecheck", "test"],
+});
 
 export default proj;
 ```
@@ -150,15 +153,15 @@ devin plugins install sverka-dev/sverka
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| `@sverka/workflow` | Workflow definition: Construct API, Definition Graph, Plan IR, validation |
-| `@sverka/runtime` | Execution runtime: scheduler, native engine, host & Docker drivers |
-| `@sverka/compiler` | Target compilation: GitHub Actions, GitLab CI, Temporal, Dagger, Inngest, Drone |
-| `@sverka/sdk` | Public TypeScript API (createSverka), planner |
-| `@sverka/verification` | Optional profile: findings, policy, built-in checks |
-| `@sverka/cli` | Command-line interface (includes `sverka mcp-server`) |
-| `@sverka/plugin-mcp` | MCP plugin: load external MCP servers as Sverka plugins |
+| Package                | Description                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| `@sverka/workflow`     | Workflow definition: Construct API, Definition Graph, Plan IR, validation       |
+| `@sverka/runtime`      | Execution runtime: scheduler, native engine, host & Docker drivers              |
+| `@sverka/compiler`     | Target compilation: GitHub Actions, GitLab CI, Temporal, Dagger, Inngest, Drone |
+| `@sverka/sdk`          | Public TypeScript API (createSverka), planner                                   |
+| `@sverka/verification` | Optional profile: findings, policy, built-in checks                             |
+| `@sverka/cli`          | Command-line interface (includes `sverka mcp-server`)                           |
+| `@sverka/plugin-mcp`   | MCP plugin: load external MCP servers as Sverka plugins                         |
 
 ## Development
 

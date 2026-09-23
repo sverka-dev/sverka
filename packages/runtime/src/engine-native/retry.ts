@@ -4,7 +4,11 @@
 
 import type { RetryPolicy, BackoffSpec, RetryWhen } from "@sverka/workflow";
 import type { RunEvent } from "./types.js";
-import { executeStep, type StepExecOptions, type StepExecResult } from "./step-executor.js";
+import {
+  executeStep,
+  type StepExecOptions,
+  type StepExecResult,
+} from "./step-executor.js";
 
 /**
  * Classify a failed StepExecResult into a RetryWhen category.
@@ -12,7 +16,8 @@ import { executeStep, type StepExecOptions, type StepExecResult } from "./step-e
  */
 export function classifyRetryWhen(result: StepExecResult): RetryWhen {
   if (result.timedOut) return "timeout";
-  if (result.exitCode !== undefined && result.exitCode !== 0) return "script_failure";
+  if (result.exitCode !== undefined && result.exitCode !== 0)
+    return "script_failure";
   return "unknown_failure";
 }
 
@@ -21,7 +26,10 @@ export function classifyRetryWhen(result: StepExecResult): RetryWhen {
  * delay = min(baseMs * factor^(n-1), maxMs ?? Infinity).
  * Returns 0 when backoff is omitted (immediate retry).
  */
-export function computeBackoffDelay(backoff: BackoffSpec | undefined, retryNumber: number): number {
+export function computeBackoffDelay(
+  backoff: BackoffSpec | undefined,
+  retryNumber: number,
+): number {
   if (!backoff) return 0;
   const factor = backoff.factor ?? 2;
   const raw = backoff.baseMs * Math.pow(factor, retryNumber - 1);
@@ -32,7 +40,10 @@ export function computeBackoffDelay(backoff: BackoffSpec | undefined, retryNumbe
  * Sleep that resolves early when the abort signal fires.
  * Returns true if the sleep was interrupted by cancellation.
  */
-export async function cancellableSleep(ms: number, signal: AbortSignal): Promise<boolean> {
+export async function cancellableSleep(
+  ms: number,
+  signal: AbortSignal,
+): Promise<boolean> {
   if (ms <= 0 || signal.aborted) return signal.aborted;
   return new Promise<boolean>((resolve) => {
     const timer = setTimeout(() => {
@@ -58,7 +69,9 @@ export function shouldRetry(
   retry: RetryPolicy,
 ): boolean {
   if (retry.exitCodes !== undefined) {
-    return result.exitCode !== undefined && retry.exitCodes.includes(result.exitCode);
+    return (
+      result.exitCode !== undefined && retry.exitCodes.includes(result.exitCode)
+    );
   }
   if (retry.when !== undefined) {
     if (retry.when.includes("always")) return true;
@@ -96,7 +109,12 @@ export async function executeStepWithRetry(
 
     attempt++;
     const delay = computeBackoffDelay(retry.backoff, attempt);
-    emit({ type: "step-retry", stepId: step.id, attempt, nextAttemptMs: delay });
+    emit({
+      type: "step-retry",
+      stepId: step.id,
+      attempt,
+      nextAttemptMs: delay,
+    });
 
     if (delay > 0) {
       const cancelled = await cancellableSleep(delay, signal);

@@ -28,11 +28,11 @@ builder). No trusting builder claims.
 
 ## Finding Classification
 
-| Class   | Meaning                        | Action          |
-| ------- | ------------------------------ | --------------- |
-| BLOCKING | Spec violation or broken gate | Must fix        |
-| NIT     | Non-blocking style or edge case | Note, don't block |
-| DECLINE | Reviewer disagrees with suggestion | Explain why    |
+| Class    | Meaning                            | Action            |
+| -------- | ---------------------------------- | ----------------- |
+| BLOCKING | Spec violation or broken gate      | Must fix          |
+| NIT      | Non-blocking style or edge case    | Note, don't block |
+| DECLINE  | Reviewer disagrees with suggestion | Explain why       |
 
 ## Minimalism Audit
 

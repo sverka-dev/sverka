@@ -15,7 +15,10 @@ import type { Transcript, TranscriptStep } from "../src/collector.js";
 /** Create a temp transcript file for testing. */
 function makeTempTranscript(transcript: Transcript): string {
   const dir = mkdtempSync(join(tmpdir(), "sverka-test-"));
-  writeFileSync(join(dir, `${transcript.session_id}.json`), JSON.stringify(transcript));
+  writeFileSync(
+    join(dir, `${transcript.session_id}.json`),
+    JSON.stringify(transcript),
+  );
   return dir;
 }
 
@@ -46,7 +49,9 @@ function makeTranscript(
 
 describe("readTranscript", () => {
   it("reads a transcript JSON file by session ID", () => {
-    const t = makeTranscript("test-read", [{ source: "agent", message: "hello" }]);
+    const t = makeTranscript("test-read", [
+      { source: "agent", message: "hello" },
+    ]);
     const dir = makeTempTranscript(t);
     const result = readTranscript("test-read", dir);
     expect(result.session_id).toBe("test-read");
@@ -67,7 +72,10 @@ describe("transformStep", () => {
       source: "agent",
       message: "thinking...",
       timestamp: "2026-09-04T09:00:00Z",
-      extra: { generation_model: "glm-5-2", telemetry: { source: "assistant", operation: "inference" } },
+      extra: {
+        generation_model: "glm-5-2",
+        telemetry: { source: "assistant", operation: "inference" },
+      },
     };
     const result = transformStep(step);
     expect(result.isLlmCall).toBe(true);
@@ -137,8 +145,16 @@ describe("transformTranscript", () => {
   it("transforms a full transcript to trace agent data", () => {
     const t = makeTranscript("test-transform", [
       { source: "system", extra: { telemetry: { operation: "unknown" } } },
-      { source: "agent", message: "step 1", extra: { telemetry: { operation: "inference" } } },
-      { source: "agent", message: "step 2", extra: { telemetry: { operation: "inference" } } },
+      {
+        source: "agent",
+        message: "step 1",
+        extra: { telemetry: { operation: "inference" } },
+      },
+      {
+        source: "agent",
+        message: "step 2",
+        extra: { telemetry: { operation: "inference" } },
+      },
     ]);
     const result = transformTranscript(t, "raw-shell");
     expect(result.sessionId).toBe("test-transform");
@@ -166,7 +182,13 @@ describe("buildTraceData", () => {
     // Both in same dir for buildTraceData
     writeFileSync(join(rawDir, "sverka-session.json"), JSON.stringify(sverkaT));
 
-    const trace = buildTraceData("run-checks", "Run checks", "raw-session", "sverka-session", rawDir);
+    const trace = buildTraceData(
+      "run-checks",
+      "Run checks",
+      "raw-session",
+      "sverka-session",
+      rawDir,
+    );
     expect(trace.taskId).toBe("run-checks");
     expect(trace.prompt).toBe("Run checks");
     expect(trace.agents["raw-shell"]?.llmCallCount).toBe(2);
@@ -184,7 +206,12 @@ describe("writeTraceData", () => {
         "raw-shell": {
           sessionId: "raw",
           model: "GLM-5.2 High",
-          finalMetrics: { totalPromptTokens: 100, totalCompletionTokens: 10, totalCachedTokens: 50, totalSteps: 5 },
+          finalMetrics: {
+            totalPromptTokens: 100,
+            totalCompletionTokens: 10,
+            totalCachedTokens: 50,
+            totalSteps: 5,
+          },
           llmCallCount: 3,
           steps: [],
         },

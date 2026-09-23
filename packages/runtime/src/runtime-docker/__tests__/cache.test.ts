@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, mkdir, writeFile, readFile, rm, access } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  rm,
+  access,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DockerCacheManager } from "../cache.js";
@@ -37,10 +44,7 @@ describe("DockerCacheManager", () => {
   it("prepare copies declared inputs into the cache directory", async () => {
     await writeFile(join(sourceDir, "input.txt"), "hello");
     const mgr = new DockerCacheManager(cacheDir);
-    const prepared = await mgr.prepare(
-      [join(sourceDir, "input.txt")],
-      "key-2",
-    );
+    const prepared = await mgr.prepare([join(sourceDir, "input.txt")], "key-2");
     const copied = await readFile(join(prepared, "input.txt"), "utf8");
     expect(copied).toBe("hello");
   });
@@ -63,11 +67,7 @@ describe("DockerCacheManager", () => {
     await mkdir(join(sourceDir, "out"), { recursive: true });
     await writeFile(join(sourceDir, "out", "result.txt"), "result");
     const mgr = new DockerCacheManager(cacheDir);
-    await mgr.collect(
-      [join(sourceDir, "out", "result.txt")],
-      sourceDir,
-      ".",
-    );
+    await mgr.collect([join(sourceDir, "out", "result.txt")], sourceDir, ".");
     // collect should copy outputs into cacheDir preserving relative structure.
     const collected = await readFile(
       join(cacheDir, "out", "result.txt"),
@@ -97,12 +97,18 @@ describe("DockerCacheManager", () => {
     const mgr = new DockerCacheManager(cacheDir);
     await expect(
       mgr.collect(
-        [join(sourceDir, "out", "found.txt"), join(sourceDir, "out", "missing.txt")],
+        [
+          join(sourceDir, "out", "found.txt"),
+          join(sourceDir, "out", "missing.txt"),
+        ],
         sourceDir,
         ".",
       ),
     ).resolves.not.toThrow();
-    const collected = await readFile(join(cacheDir, "out", "found.txt"), "utf8");
+    const collected = await readFile(
+      join(cacheDir, "out", "found.txt"),
+      "utf8",
+    );
     expect(collected).toBe("yes");
   });
 
@@ -119,10 +125,7 @@ describe("DockerCacheManager", () => {
     await mgr.prepare([join(sourceDir, "input.txt")], "key-3");
     // Remove the source input; second prepare should restore from cache.
     await rm(join(sourceDir, "input.txt"));
-    const prepared = await mgr.prepare(
-      [join(sourceDir, "input.txt")],
-      "key-3",
-    );
+    const prepared = await mgr.prepare([join(sourceDir, "input.txt")], "key-3");
     // The cached copy should still be present in the prepared dir.
     const restored = await readFile(join(prepared, "input.txt"), "utf8");
     expect(restored).toBe("v1");

@@ -4,7 +4,13 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { OutputWriter } from "../../index.js";
 
-const PKG_ROOT = resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..");
+const PKG_ROOT = resolve(
+  fileURLToPath(import.meta.url),
+  "..",
+  "..",
+  "..",
+  "..",
+);
 
 /**
  * Create a temporary directory inside the package's __tests__/.tmp/ dir.
