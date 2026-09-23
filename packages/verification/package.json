@@ -1,6 +1,6 @@
 {
   "name": "@sverka/verification",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Sverka verification — findings normalization, policy evaluation, checks resolution",
   "license": "MIT",
   "repository": {
