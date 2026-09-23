@@ -56,7 +56,7 @@ describe("validate command", () => {
     const out = new CaptureWriter();
     const code = await main(["validate", "--root", dir], { output: out });
     expect(code).toBe(3);
-    expect(out.stderrText).toContain("Project instance");
+    expect(out.stderrText).toContain("Project or Pipeline instance");
   });
 
   it("missing config exits with 2", async () => {

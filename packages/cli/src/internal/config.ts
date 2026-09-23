@@ -7,7 +7,7 @@ import { register } from "node:module";
 import * as nodeModule from "node:module";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { join, resolve, isAbsolute, dirname, sep } from "node:path";
-import type { Project } from "@sverka/workflow";
+import type { Pipeline, Project } from "@sverka/workflow";
 import { synthesize, collectConstructWarnings } from "@sverka/workflow";
 import type { DefinitionGraph } from "@sverka/workflow";
 import { resolveUnderRoot } from "./paths.js";
@@ -105,12 +105,16 @@ export async function resolveConfigPath(global: {
 
 /**
  * Structural check that avoids `instanceof` across package boundaries.
- * A Project-like object has a `node` with an `id` string and `children` array.
+ * A construct-like object (Project or bare Pipeline — single-pipeline
+ * configs may skip the Project) has a `node` with an `id` string and a
+ * `children` array.
  */
-function assertProjectLike(value: unknown): asserts value is Project {
+function assertConstructLike(
+  value: unknown,
+): asserts value is Project | Pipeline {
   if (value === null || typeof value !== "object") {
     throw new CliError(
-      "config must export a Project instance (default or named 'project')",
+      "config must export a Project or Pipeline instance (default or named 'project')",
       "SDK_ERROR",
       ExitCode.RuntimeError,
     );
@@ -124,7 +128,7 @@ function assertProjectLike(value: unknown): asserts value is Project {
     typeof (node as { findAll?: unknown }).findAll !== "function"
   ) {
     throw new CliError(
-      "config must export a Project instance (default or named 'project')",
+      "config must export a Project or Pipeline instance (default or named 'project')",
       "SDK_ERROR",
       ExitCode.RuntimeError,
     );
@@ -138,7 +142,9 @@ function assertProjectLike(value: unknown): asserts value is Project {
  *
  * @throws CliError if the config cannot be loaded or doesn't export a Project.
  */
-export async function loadConfig(configPath: string): Promise<Project> {
+export async function loadConfig(
+  configPath: string,
+): Promise<Project | Pipeline> {
   const absPath = isAbsolute(configPath)
     ? configPath
     : resolve(process.cwd(), configPath);
@@ -167,10 +173,10 @@ export async function loadConfig(configPath: string): Promise<Project> {
   // Prefer the named `project` export, then fall back to `default`.
   // This avoids selecting an unrelated default export when a valid
   // named `project` export exists.
-  const project = mod.project ?? mod.default;
-  assertProjectLike(project);
+  const construct = mod.project ?? mod.default;
+  assertConstructLike(construct);
 
-  return project;
+  return construct;
 }
 
 /**
@@ -179,7 +185,7 @@ export async function loadConfig(configPath: string): Promise<Project> {
 export async function loadProjectGraph(global: {
   root: string;
   config: string | null;
-}): Promise<{ configPath: string; project: Project; graph: DefinitionGraph; warnings: string[] }> {
+}): Promise<{ configPath: string; project: Project | Pipeline; graph: DefinitionGraph; warnings: string[] }> {
   const configPath = await resolveConfigPath(global);
   const project = await loadConfig(configPath);
   const warnings = collectConstructWarnings(project);
