@@ -17,7 +17,7 @@ import type { GithubStep, GithubTargetConfig } from "@sverka/compiler";
 export function detectCiSetup(root: string): GithubTargetConfig | undefined {
   const setup = detectPackageManagerSetup(root);
   const checkoutWith = existsSync(join(root, ".gitmodules"))
-    ? { submodules: "recursive" }
+    ? { submodules: "recursive", "persist-credentials": false }
     : undefined;
   if (setup.length === 0 && checkoutWith === undefined) return undefined;
   return {

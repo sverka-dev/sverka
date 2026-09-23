@@ -71,7 +71,10 @@ describe("detectCiSetup", () => {
   it("emits recursive submodule checkout when .gitmodules exists", () => {
     writeFileSync(join(dir, ".gitmodules"), "[submodule]");
     const cfg = detectCiSetup(dir);
-    expect(cfg?.checkoutWith).toEqual({ submodules: "recursive" });
+    expect(cfg?.checkoutWith).toEqual({
+      submodules: "recursive",
+      "persist-credentials": false,
+    });
     expect(cfg?.setup).toBeUndefined();
   });
 });
