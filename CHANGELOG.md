@@ -1,3 +1,15 @@
+## 0.1.8 (2026-09-23)
+
+### 🩹 Fixes
+
+- replace backtracking step-ref regex with linear pattern ([#216](https://github.com/sverka-dev/sverka/pull/216))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+- ThePlenkov
+
 ## 0.1.7 (2026-09-23)
 
 ### 🩹 Fixes
