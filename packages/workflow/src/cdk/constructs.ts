@@ -104,6 +104,28 @@ const PIPELINE_PROPS: ReadonlySet<string> = new Set([
   "includes",
 ]);
 
+/** Resolve Pipeline's overloaded constructor arguments. */
+function resolvePipelineArgs(
+  scopeOrId: Project | string,
+  idOrProps: string | PipelineProps | undefined,
+  props: PipelineProps | undefined,
+): { scope: Project; id: string; pipelineProps: PipelineProps | undefined } {
+  if (typeof scopeOrId === "string") {
+    return {
+      scope: new Project("default"),
+      id: scopeOrId,
+      pipelineProps: idOrProps as PipelineProps | undefined,
+    };
+  }
+  if (!(scopeOrId instanceof Project)) {
+    throw new ConstructError(
+      "INVALID_SCOPE",
+      "Pipeline must be created under a Project",
+    );
+  }
+  return { scope: scopeOrId, id: idOrProps as string, pipelineProps: props };
+}
+
 /**
  * A Pipeline contains Steps and Entries. It must be created under a Project —
  * or pass just an id and a default Project is created implicitly.
@@ -135,24 +157,11 @@ export class Pipeline extends Construct {
     idOrProps?: string | PipelineProps,
     props?: PipelineProps,
   ) {
-    let scope: Project;
-    let id: string;
-    let pipelineProps: PipelineProps | undefined;
-    if (typeof scopeOrId === "string") {
-      scope = new Project("default");
-      id = scopeOrId;
-      pipelineProps = idOrProps as PipelineProps | undefined;
-    } else {
-      if (!(scopeOrId instanceof Project)) {
-        throw new ConstructError(
-          "INVALID_SCOPE",
-          "Pipeline must be created under a Project",
-        );
-      }
-      scope = scopeOrId;
-      id = idOrProps as string;
-      pipelineProps = props;
-    }
+    const { scope, id, pipelineProps } = resolvePipelineArgs(
+      scopeOrId,
+      idOrProps,
+      props,
+    );
     try {
       super(scope, id);
     } catch (err) {

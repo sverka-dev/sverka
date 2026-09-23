@@ -9,7 +9,7 @@ describe("synthesize — basic", () => {
     new ShellStep(pipeline, "build", { command: "npm run build" });
     const graph = synthesize(pipeline);
     expect(graph.project.id).toBe("default");
-    expect(graph.project.pipelines.length).toBe(1);
+    expect(graph.project.pipelines).toHaveLength(1);
     expect(graph.project.pipelines[0]?.id).toBe("ci");
     expect(graph.project.pipelines[0]?.steps[0]?.id).toBe("ci/build");
   });

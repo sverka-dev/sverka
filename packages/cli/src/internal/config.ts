@@ -109,15 +109,19 @@ export async function resolveConfigPath(global: {
  * configs may skip the Project) has a `node` with an `id` string and a
  * `children` array.
  */
+function notConstructError(): CliError {
+  return new CliError(
+    "config must export a Project or Pipeline instance (default or named 'project')",
+    "SDK_ERROR",
+    ExitCode.RuntimeError,
+  );
+}
+
 function assertConstructLike(
   value: unknown,
 ): asserts value is Project | Pipeline {
   if (value === null || typeof value !== "object") {
-    throw new CliError(
-      "config must export a Project or Pipeline instance (default or named 'project')",
-      "SDK_ERROR",
-      ExitCode.RuntimeError,
-    );
+    throw notConstructError();
   }
   const node = (value as { node?: unknown }).node;
   if (
@@ -127,11 +131,7 @@ function assertConstructLike(
     !Array.isArray((node as { children?: unknown }).children) ||
     typeof (node as { findAll?: unknown }).findAll !== "function"
   ) {
-    throw new CliError(
-      "config must export a Project or Pipeline instance (default or named 'project')",
-      "SDK_ERROR",
-      ExitCode.RuntimeError,
-    );
+    throw notConstructError();
   }
 }
 
