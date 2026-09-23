@@ -140,7 +140,12 @@ function resolvePipelineArgs(
   return {
     scope,
     id,
-    pipelineProps: { inputs: {}, rules: [], includes: [], ...(raw ?? {}) },
+    pipelineProps: {
+      ...(raw ?? {}),
+      inputs: raw?.inputs ?? {},
+      rules: raw?.rules ?? [],
+      includes: raw?.includes ?? [],
+    },
   };
 }
 
