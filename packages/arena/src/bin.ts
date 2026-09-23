@@ -35,6 +35,21 @@ commands:
   doctor   [--config <path>]            [--format json|text]
 `;
 
+function flagValue(argv: readonly string[], i: number): string {
+  const val = argv[i + 1];
+  if (val === undefined || val.startsWith("--")) {
+    throw new ArenaError(`${argv[i]} requires a value`, "CONFIG_INVALID");
+  }
+  return val;
+}
+
+function parseFormat(val: string): "text" | "json" {
+  if (val !== "json" && val !== "text") {
+    throw new ArenaError(`invalid --format '${val}'`, "CONFIG_INVALID");
+  }
+  return val;
+}
+
 function parseArgs(argv: readonly string[]): ParsedArgs {
   const positional: string[] = [];
   let config = "arena.config.ts";
@@ -43,19 +58,26 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let command: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    if (arg === "--config" || arg === "--out" || arg === "--format") {
-      const val = argv[++i];
-      if (val === undefined || val.startsWith("--")) {
-        throw new ArenaError(`${arg} requires a value`, "CONFIG_INVALID");
-      }
-      if (arg === "--config") config = val;
-      else if (arg === "--out") out = val;
-      else if (val === "json" || val === "text") format = val;
-      else throw new ArenaError(`invalid --format '${val}'`, "CONFIG_INVALID");
-    } else if (arg.startsWith("--")) {
-      throw new ArenaError(`unknown option '${arg}'`, "CONFIG_INVALID");
-    } else if (command === undefined) command = arg;
-    else positional.push(arg);
+    switch (arg) {
+      case "--config":
+        config = flagValue(argv, i);
+        i += 1;
+        break;
+      case "--out":
+        out = flagValue(argv, i);
+        i += 1;
+        break;
+      case "--format":
+        format = parseFormat(flagValue(argv, i));
+        i += 1;
+        break;
+      default:
+        if (arg.startsWith("--")) {
+          throw new ArenaError(`unknown option '${arg}'`, "CONFIG_INVALID");
+        }
+        if (command === undefined) command = arg;
+        else positional.push(arg);
+    }
   }
   return { command, positional, config, out, format };
 }
