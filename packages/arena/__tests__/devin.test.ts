@@ -12,6 +12,7 @@ import {
   installPlugins,
   transcriptDir,
   countLlmCalls,
+  readSessionTranscript,
 } from "../src/adapters/devin.js";
 import type {
   AgentSpawnConfig,
@@ -406,6 +407,83 @@ describe("countLlmCalls", () => {
       ],
     };
     expect(countLlmCalls(transcript)).toBe(2);
+  });
+
+  it("synthesizes a transcript from the session DB with per-call metrics", async () => {
+    const { DatabaseSync } = await import("node:sqlite");
+    const dir = await mkdtemp(join(tmpdir(), "arena-db-"));
+    const dbPath = join(dir, "sessions.db");
+    const db = new DatabaseSync(dbPath);
+    db.exec(`CREATE TABLE sessions (id TEXT PRIMARY KEY, model TEXT);
+             CREATE TABLE message_nodes (row_id INTEGER PRIMARY KEY,
+               session_id TEXT NOT NULL, node_id INTEGER NOT NULL,
+               parent_node_id INTEGER, chat_message TEXT NOT NULL,
+               created_at INTEGER NOT NULL, metadata TEXT)`);
+    db.prepare("INSERT INTO sessions (id, model) VALUES (?, ?)").run(
+      "s1",
+      "swe-2-medium",
+    );
+    const ins = db.prepare(
+      "INSERT INTO message_nodes (session_id, node_id, chat_message, created_at) VALUES (?, ?, ?, ?)",
+    );
+    ins.run("s1", 0, JSON.stringify({ role: "user", content: "hi" }), 1000);
+    ins.run(
+      "s1",
+      1,
+      JSON.stringify({
+        role: "assistant",
+        content: "",
+        thinking: { thinking: "let me look" },
+        tool_calls: [{ id: "c1", name: "exec" }],
+        metadata: {
+          metrics: {
+            input_tokens: 100,
+            output_tokens: 50,
+            cache_read_tokens: 10,
+          },
+        },
+      }),
+      2000,
+    );
+    ins.run(
+      "s1",
+      2,
+      JSON.stringify({ role: "tool", content: "tool output" }),
+      3000,
+    );
+    ins.run(
+      "s1",
+      3,
+      JSON.stringify({
+        role: "assistant",
+        content: "done",
+        metadata: {
+          metrics: {
+            input_tokens: 200,
+            output_tokens: 20,
+            cache_read_tokens: null,
+          },
+        },
+      }),
+      4000,
+    );
+    db.close();
+
+    const t = readSessionTranscript("s1", dbPath);
+    expect(t).toBeDefined();
+    expect(t?.agent.model_name).toBe("swe-2-medium");
+    expect(t?.steps).toHaveLength(4);
+    expect(t?.steps[1]?.message).toBe("let me look");
+    expect(countLlmCalls(t!)).toBe(2);
+    expect(t?.final_metrics).toEqual({
+      total_prompt_tokens: 300,
+      total_completion_tokens: 70,
+      total_cached_tokens: 10,
+      total_steps: 2,
+    });
+
+    expect(readSessionTranscript("missing", dbPath)).toBeUndefined();
+    await rm(dir, { recursive: true, force: true });
   });
 
   it("returns 0 when no agent inference steps exist", () => {
