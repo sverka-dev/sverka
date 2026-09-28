@@ -54,6 +54,13 @@ export default defineConfig({
       favicon: "/favicon.svg",
       social: [
         {
+          icon: "heart",
+          label: "Pipeline status",
+          // public-adjacent route — Starlight doesn't base-prefix social
+          // hrefs, so prepend the configured base ourselves.
+          href: `${basePath}/pipeline/`,
+        },
+        {
           icon: "github",
           label: "GitHub",
           href: "https://github.com/sverka-dev/sverka",
