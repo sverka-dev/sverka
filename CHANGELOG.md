@@ -1,3 +1,13 @@
+## 0.1.12 (2026-09-28)
+
+### 🩹 Fixes
+
+- **arena:** read llmCallCount from the session DB ([#224](https://github.com/sverka-dev/sverka/pull/224))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.11 (2026-09-28)
 
 ### 🩹 Fixes
