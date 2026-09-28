@@ -10,10 +10,10 @@
  */
 
 import { spawn, execSync, type ChildProcess } from "node:child_process";
-import { mkdir, cp, rm, readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { mkdir, cp, rm, readFile, writeFile } from "node:fs/promises";
+import { existsSync, mkdtempSync, mkdirSync, cpSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 
 import type {
   PromptResponse,
@@ -196,6 +196,14 @@ export async function installPlugins(
 ): Promise<void> {
   const skillsDir = join(workspace, ".agents", "skills");
 
+  // Forbid every installed plugin at the repo level. Devin resolves plugin
+  // authority enterprise > org > repo > user, and a repo-level wildcard
+  // forbid blocks all user/managed installs (higher-authority "required"
+  // plugins still load — they're a constant baseline across cells).
+  // .agents/skills copies below are workspace content, not plugins, so
+  // plugin-on cells are unaffected.
+  await writeForbidManifest(workspace);
+
   // Nuke any existing skills directory — we start from a clean slate.
   // This prevents host skill contamination.
   await rm(skillsDir, { recursive: true, force: true });
@@ -220,6 +228,58 @@ export async function installPlugins(
   }
 }
 
+/**
+ * Write (or merge into) `<workspace>/.devin/config.json` with
+ * `forbiddenPlugins: ["*"]`. Preserves other keys the fixture may ship,
+ * including `requiredPlugins` (same-manifest requireds are exempt from
+ * its own forbids, so plugin fixtures still work).
+ */
+async function writeForbidManifest(workspace: string): Promise<void> {
+  const devinDir = join(workspace, ".devin");
+  const manifestPath = join(devinDir, "config.json");
+  let manifest: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(await readFile(manifestPath, "utf8"));
+    if (typeof parsed === "object" && parsed !== null) {
+      manifest = parsed as Record<string, unknown>;
+    }
+  } catch {
+    // No existing manifest (or unreadable) — start fresh.
+  }
+  manifest.forbiddenPlugins = ["*"];
+  await mkdir(devinDir, { recursive: true });
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+/**
+ * Create a fresh XDG home for the spawned agent and point `env` at it:
+ * - `XDG_CONFIG_HOME` — drops global user skills, hooks, MCP config, and
+ *   user-level `AGENTS.md` so all cells share the builtin baseline.
+ * - `XDG_DATA_HOME` — fresh plugin/session store; seeded with the host's
+ *   `devin/credentials.toml` so the agent stays authenticated without
+ *   writing session state into the user's real Devin data dir.
+ *
+ * Returns the env-home path — the caller must delete it after the run.
+ */
+function isolateAgentEnv(env: Record<string, string>): string {
+  const envHome = mkdtempSync(join(tmpdir(), "arena-env-"));
+  const configDir = join(envHome, "config");
+  const dataDir = join(envHome, "data");
+  mkdirSync(join(dataDir, "devin"), { recursive: true });
+  mkdirSync(configDir, { recursive: true });
+
+  const hostDataHome =
+    process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
+  const creds = join(hostDataHome, "devin", "credentials.toml");
+  if (existsSync(creds)) {
+    cpSync(creds, join(dataDir, "devin", "credentials.toml"));
+  }
+
+  env.XDG_CONFIG_HOME = configDir;
+  env.XDG_DATA_HOME = dataDir;
+  return envHome;
+}
+
 // ─── Adapter ─────────────────────────────────────────────────────────
 
 /**
@@ -237,16 +297,34 @@ export class DevinAdapter implements AgentAdapter {
   readonly id = "devin";
 
   spawn(config: AgentSpawnConfig): AgentProcess {
-    const proc = spawnDevin(config);
+    const { proc, envHome } = spawnDevin(config);
     let killed = false;
+    let cleaned = false;
+    const cleanup = (): void => {
+      if (cleaned) return;
+      cleaned = true;
+      rm(envHome, { recursive: true, force: true }).catch(() => {});
+    };
 
     return {
-      run: (prompt: string, timeoutMs: number): Promise<RunResult> =>
-        runDevinSession(proc, config, prompt, timeoutMs),
+      run: async (prompt: string, timeoutMs: number): Promise<RunResult> => {
+        try {
+          return await runDevinSession(
+            proc,
+            config,
+            prompt,
+            timeoutMs,
+            envHome,
+          );
+        } finally {
+          cleanup();
+        }
+      },
       kill: (): void => {
         if (killed) return;
         killed = true;
         proc.kill("SIGTERM");
+        cleanup();
       },
     };
   }
@@ -264,15 +342,29 @@ function resolveDevinBinary(): string {
   }
 }
 
-/** Spawn `devin acp --model <model.id>` as a subprocess in the workspace. */
-function spawnDevin(config: AgentSpawnConfig): ChildProcess {
+/**
+ * Spawn `devin acp --model <model.id>` as a subprocess in the workspace,
+ * in an isolated XDG env (see {@link isolateAgentEnv}). Returns the child
+ * process and the env-home path the caller must clean up.
+ */
+function spawnDevin(config: AgentSpawnConfig): {
+  proc: ChildProcess;
+  envHome: string;
+} {
   const env = sanitizeEnv(config);
+  const envHome = isolateAgentEnv(env);
   const devinBin = resolveDevinBinary();
-  return spawn(devinBin, ["acp", "--model", config.model.id], {
-    cwd: config.workspace,
-    stdio: ["pipe", "pipe", "inherit"],
-    env,
-  });
+  try {
+    const proc = spawn(devinBin, ["acp", "--model", config.model.id], {
+      cwd: config.workspace,
+      stdio: ["pipe", "pipe", "inherit"],
+      env,
+    });
+    return { proc, envHome };
+  } catch (error) {
+    rm(envHome, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
 }
 
 /** Mutable collection state + callbacks for gathering ACP tool calls and observations. */
@@ -368,6 +460,7 @@ async function runDevinSession(
   config: AgentSpawnConfig,
   prompt: string,
   timeoutMs: number,
+  envHome: string,
 ): Promise<RunResult> {
   const startTime = Date.now();
   const model = config.model;
@@ -393,6 +486,7 @@ async function runDevinSession(
       model,
       collector.collectedToolCalls,
       collector.observationsByCallId,
+      join(envHome, "data", "devin", "cli", "transcripts"),
     );
     const llmCallCount = trace.steps.filter((s) => s.isLlmCall).length;
     const metrics = buildMetrics(
@@ -435,10 +529,11 @@ async function buildTraceFromTranscript(
   sessionId: string,
   collectedToolCalls: ToolCall[],
   observationsByCallId: Map<string, Observation>,
+  dir?: string,
 ): Promise<TraceData | undefined> {
   if (!sessionId) return undefined;
   try {
-    const transcript = await readTranscript(sessionId);
+    const transcript = await readTranscript(sessionId, dir);
     const steps = transcript.steps.map(buildTraceStep);
     attachToolCallsToSteps(steps, collectedToolCalls, observationsByCallId);
     return {
@@ -538,12 +633,14 @@ async function buildTrace(
   model: ModelConfig,
   collectedToolCalls: ToolCall[],
   observationsByCallId: Map<string, Observation>,
+  dir?: string,
 ): Promise<TraceData> {
   return (
     (await buildTraceFromTranscript(
       sessionId,
       collectedToolCalls,
       observationsByCallId,
+      dir,
     )) ??
     buildTraceFallback(
       sessionId,
