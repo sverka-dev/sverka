@@ -242,31 +242,8 @@ async function executeRun(
   combo: PluginConfig[],
   tempWorkspace: string,
 ): Promise<RunResult> {
-  if (task.setup) {
-    for (const command of task.setup) {
-      let shell: { output: string; exitCode: number };
-      try {
-        shell = await execShell(tempWorkspace, command);
-      } catch (error) {
-        return errorResult(
-          task,
-          model,
-          combo,
-          error instanceof Error ? error : new Error(String(error)),
-        );
-      }
-      if (shell.exitCode !== 0) {
-        return errorResult(
-          task,
-          model,
-          combo,
-          new Error(
-            `setup command failed (exit ${shell.exitCode}): ${command}\n${shell.output.trim()}`,
-          ),
-        );
-      }
-    }
-  }
+  const setupError = await runSetup(tempWorkspace, task.setup);
+  if (setupError) return errorResult(task, model, combo, setupError);
   const proc = agent.spawn({
     model,
     workspace: tempWorkspace,
@@ -289,6 +266,26 @@ async function executeRun(
   } finally {
     proc.kill();
   }
+}
+
+/** Run a task's setup commands; returns the failure, or null on success. */
+async function runSetup(
+  workspace: string,
+  setup: string[] | undefined,
+): Promise<Error | null> {
+  for (const command of setup ?? []) {
+    try {
+      const { output, exitCode } = await execShell(workspace, command);
+      if (exitCode !== 0) {
+        return new Error(
+          `setup command failed (exit ${exitCode}): ${command}\n${output.trim()}`,
+        );
+      }
+    } catch (error) {
+      return error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  return null;
 }
 
 /** Build a zeroed {@link RunResult} for a failed run. */
