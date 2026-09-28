@@ -1,0 +1,14 @@
+{
+  "name": "example-all-green",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "bun test",
+    "build": "bun build src/index.ts --outdir dist"
+  },
+  "devDependencies": {
+    "@sverka/cli": "0.1.12",
+    "@sverka/workflow": "0.1.12"
+  }
+}

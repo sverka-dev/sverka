@@ -28,6 +28,15 @@ jobs:
           bun-version: "1.4.0"
           no-cache: true
 
+      # The /pipeline/ page runs the repo's own `sverka run` from source
+      # during the site build — needs root deps installed and workspace
+      # packages built (the pipeline's own steps rebuild them anyway).
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Build workspace packages
+        run: bun run build:nx-plugins && bun run build
+
       - name: Install website dependencies
         run: bun --cwd=${{ github.workspace }}/website install --frozen-lockfile
 

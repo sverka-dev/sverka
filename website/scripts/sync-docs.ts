@@ -521,6 +521,9 @@ async function writeSidebarConfig(entries: FileEntry[]) {
   const sidebar: unknown[] = [
     { slug: "index" },
     { label: "User documentation", collapsed: false, items: userItems },
+    // Standalone page (src/pages/pipeline.astro) — rendered outside the
+    // docs collection, so it needs an explicit link entry.
+    { label: "Pipeline", link: "/pipeline/" },
   ];
 
   // Generated TypeDoc pages land in docs/api (gitignored). The build runs

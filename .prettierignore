@@ -12,6 +12,9 @@ vendor/
 
 # Generated/build-time content
 website/.astro/
+website/sidebar.generated.mjs
+website/src/generated/
+website/src/content/docs/
 website/public/
 .sverka/
 

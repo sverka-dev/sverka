@@ -7,3 +7,4 @@ src/content/docs/*
 !src/content/docs/.gitignore
 public/mermaid.min.js
 public/robots.txt
+src/generated/
