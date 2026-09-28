@@ -248,8 +248,7 @@ async function writeForbidManifest(workspace: string): Promise<void> {
   }
   manifest.forbiddenPlugins = ["*"];
   await mkdir(devinDir, { recursive: true });
-  // codeql[js/insecure-temporary-file] — inside a private mkdtemp (0700) workspace, not a predictable shared temp file
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`); // codeql[js/insecure-temporary-file] — inside a private mkdtemp (0700) workspace, not a predictable shared temp file
 }
 
 /**
