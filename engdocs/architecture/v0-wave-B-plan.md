@@ -6,7 +6,7 @@
 
 ## Package dependency
 
-```
+```text
 @sverka/ir     →  @sverka/core  (DefinitionGraph types + validateGraph)
 @sverka/core   →  @sverka/cdk  (unchanged from Wave A)
 ```
@@ -40,7 +40,7 @@ No new external dependencies. Uses `node:crypto` (built-in).
 
 ### `packages/ir/`
 
-```
+```text
 src/
   index.ts          # public exports + schema version constants
   canonical.ts      # canonicalStringify (internal, not exported)
@@ -61,7 +61,7 @@ src/
 
 ### `packages/core/` (modified)
 
-```
+```text
 src/
   validate.ts       # + validateGraph() function
   index.ts          # + export validateGraph
@@ -201,7 +201,7 @@ Verify: `bun run test --filter @sverka/ir`, `bun run typecheck --filter @sverka/
 
 Run all four gates on IR + core:
 
-```
+```bash
 bun run test --filter @sverka/ir --filter @sverka/core
 bun run typecheck --filter @sverka/ir --filter @sverka/core
 bun run lint --filter @sverka/ir --filter @sverka/core

@@ -48,6 +48,7 @@ result.stderr, exitCode: result.exitCode }` on success.
   (if it's a `StepExecError`), fallback to `lastShellOutput`.
 - Add `MAX_OUTPUT_LENGTH = 10000` constant. Truncate stdout/stderr before
   building the result:
+
   ```typescript
   function truncateOutput(s: string): string {
     if (s.length <= MAX_OUTPUT_LENGTH) return s;

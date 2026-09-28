@@ -132,5 +132,5 @@ GitLab has native retry with rich failure-type filtering. GitHub has no native s
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#retry
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#retry>
 - Architecture spec: §25, §32 (deferred)

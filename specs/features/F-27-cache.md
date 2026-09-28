@@ -131,6 +131,6 @@ GitHub uses an action; GitLab uses a keyword. GitLab has native policy control; 
 
 ## References
 
-- GitHub: https://github.com/actions/cache
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#cache
+- GitHub: <https://github.com/actions/cache>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#cache>
 - Architecture spec: §25, §32 (deferred)

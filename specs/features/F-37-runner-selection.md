@@ -118,6 +118,6 @@ GitHub uses `runs-on` with labels and optional groups. GitLab uses `tags`. Both 
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idruns-on
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#tags
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idruns-on>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#tags>
 - Architecture spec: §25, §32 (deferred)

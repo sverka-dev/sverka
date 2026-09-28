@@ -113,7 +113,7 @@ GitHub has retention but no YAML-level access control. GitLab has both. Sverka l
 
 ## References
 
-- GitHub: https://github.com/actions/upload-artifact#retention-period
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#artifactsexpire_in
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#artifactsaccess
+- GitHub: <https://github.com/actions/upload-artifact#retention-period>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#artifactsexpire_in>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#artifactsaccess>
 - Architecture spec: §25, §32 (deferred)

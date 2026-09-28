@@ -90,7 +90,7 @@ Implement local-only discovery + default plan synthesis for
 
 Mirror `runtime-host` (one module per concern, `__tests__/` co-located):
 
-```
+```text
 packages/planner/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   errors.ts             # DiscoveryError, DiscoveryErrorCode

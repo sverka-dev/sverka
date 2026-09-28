@@ -61,7 +61,7 @@ The builder must run `bun install` once after pulling the new
 Mirror `core`/`ir` layout (one module per concern, `__tests__/` co-located,
 internal helpers under `internal/`):
 
-```
+```text
 packages/runtime/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   errors.ts             # RuntimeExecutionError, SchedulerError, ExecutorError
@@ -103,39 +103,39 @@ The builder writes tests before each module. Suggested commit-sized slices:
 
 ### Slice B — Type-only modules (no runtime)
 
-4. `executor.ts` — `Executor`, `ExecuteRequest`, `ExecuteResult` interfaces.
+1. `executor.ts` — `Executor`, `ExecuteRequest`, `ExecuteResult` interfaces.
    `import type { PlanOperation } from "@sverka/ir"`.
-5. `result.ts` — `OperationOutcome`, `ExecutionResult`, `ExecutionState`.
-6. `state-store.ts` — `StateStore` interface (`import type { ExecutionState }`).
-7. `cache.ts` — `CacheBackend`, `CacheKey`, `CacheEntry`.
-8. Export all from `index.ts`.
-9. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
+2. `result.ts` — `OperationOutcome`, `ExecutionResult`, `ExecutionState`.
+3. `state-store.ts` — `StateStore` interface (`import type { ExecutionState }`).
+4. `cache.ts` — `CacheBackend`, `CacheKey`, `CacheEntry`.
+5. Export all from `index.ts`.
+6. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
 
 ### Slice C — Internal helpers
 
-10. `internal/parse.ts` — `parseCpu(s: string): number` (handles "2", "0.5",
+1.  `internal/parse.ts` — `parseCpu(s: string): number` (handles "2", "0.5",
     "1.5"), `parseMemory(s: string): number` (handles "512Mi", "2Gi", "1Ti",
     bare bytes). **Test first:** each format parses to the right byte count.
-11. `internal/topo.ts` — `topoSort(ops): string[] | { cycle: string[] }`
+2.  `internal/topo.ts` — `topoSort(ops): string[] | { cycle: string[] }`
     (returns sorted ids or a cycle path), `dependentsOf(ops, id): Set<string>`
     (transitive dependents for cancellation). **Test first:** linear, diamond,
     independent, cycle.
-12. `internal/resource-pool.ts` — `ResourcePool` class with
+3.  `internal/resource-pool.ts` — `ResourcePool` class with
     `tryAcquire(cpu, memory): boolean`, `release(cpu, memory): void`,
     `availableCpu`, `availableMemory`. Uses `parseCpu`/`parseMemory`.
     **Test first:** acquire/release accounting, over-request returns false.
 
 ### Slice D — Scheduler core (topo + concurrency + failure)
 
-13. `helpers/fixtures.ts` — `makePlan(overrides)`, `mockExecutor` (records
+1.  `helpers/fixtures.ts` — `makePlan(overrides)`, `mockExecutor` (records
     calls, configurable `canExecute` + canned `ExecuteResult`), helpers to
     build a minimal valid `Plan` (reuse `@sverka/ir` `computePlanId`).
-14. `scheduler.test.ts` — topological scheduling (linear, diamond,
+2.  `scheduler.test.ts` — topological scheduling (linear, diamond,
     independent), concurrency (`maxConcurrent` 1 vs 2), failure cancellation
     (fatal failure cancels dependents), `continueOnError` (independent
     branch proceeds, dependents still cancelled), `cancel()` → partial,
     executor routing + `NO_EXECUTOR`, logs/artifacts collected.
-15. `scheduler.ts` — implement the core loop:
+3.  `scheduler.ts` — implement the core loop:
     - Build ready set from topo sort.
     - Run up to `maxConcurrent` concurrently; when one finishes, schedule
       the next ready op whose deps are all satisfied.
@@ -153,10 +153,10 @@ The builder writes tests before each module. Suggested commit-sized slices:
 
 ### Slice E — Retry policy
 
-16. Extend `scheduler.test.ts` — `maxAttempts: 3` fail-twice-then-succeed →
+1.  Extend `scheduler.test.ts` — `maxAttempts: 3` fail-twice-then-succeed →
     success; fail-all → failure; `retryOn: ["timeout"]` no retry on
     non-timeout; `backoffSeconds` delays (use vi fake timers).
-17. Implement retry in `scheduler.ts`: loop up to `maxAttempts`, sleep
+2.  Implement retry in `scheduler.ts`: loop up to `maxAttempts`, sleep
     `backoffSeconds` between attempts (use a cancellable sleep — if
     `cancel()` fires during backoff, abort). Only retry if the failure
     kind matches `retryOn` (the executor reports timeout via `error`
@@ -165,36 +165,36 @@ The builder writes tests before each module. Suggested commit-sized slices:
 
 ### Slice F — Resource limits (optional)
 
-18. Extend `scheduler.test.ts` — `totalCpu: 4`, two ops requesting 4 CPU run
+1.  Extend `scheduler.test.ts` — `totalCpu: 4`, two ops requesting 4 CPU run
     sequentially; two ops requesting 2 CPU run concurrently; op requesting
     more than `totalCpu` → `INSUFFICIENT_RESOURCES`.
-19. Wire `ResourcePool` into the scheduler: when `totalCpu`/`totalMemory`
+2.  Wire `ResourcePool` into the scheduler: when `totalCpu`/`totalMemory`
     set, acquire before execute, release after. When not set, skip pool
     entirely (only `maxConcurrent` limits).
 
 ### Slice G — State persistence + resume (optional)
 
-20. `state-store.test.ts` — after running `a`+`b`, mock store has both
+1.  `state-store.test.ts` — after running `a`+`b`, mock store has both
     completed; resumed run skips them; "running" ops re-run on resume;
     `load` failure → `STATE_LOAD_ERROR`; no store configured → no persistence.
-21. Wire `StateStore` into scheduler: after each op completes, call
+2.  Wire `StateStore` into scheduler: after each op completes, call
     `stateStore.save` (best-effort, catch + log). On `execute()` start, if
     `resume && stateStore`, call `load`; on throw → `STATE_LOAD_ERROR`.
     Skip already-completed ops; re-run "running" ops.
 
 ### Slice H — Cache reuse (optional)
 
-22. `cache.test.ts` — cache hit → `fromCache: true`, not executed; miss →
+1.  `cache.test.ts` — cache hit → `fromCache: true`, not executed; miss →
     executed + `store` called; no cache configured → all `fromCache: false`.
-23. Wire `CacheBackend`: before executing an op with `cache` declared, call
+2.  Wire `CacheBackend`: before executing an op with `cache` declared, call
     `cache.get`; on hit, `cache.restore` + mark success/fromCache. On miss,
     execute then `cache.store` + `cache.put`.
 
 ### Slice I — Public API + gates
 
-24. Complete `index.ts` exports to match spec §Interfaces exactly.
-25. `public-api.test.ts` — every symbol importable + exercised.
-26. Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
+1.  Complete `index.ts` exports to match spec §Interfaces exactly.
+2.  `public-api.test.ts` — every symbol importable + exercised.
+3.  Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
     `bun run build`. All must be green.
 
 ## 5. Convention checklist (enforced by reviewer)

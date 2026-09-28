@@ -17,6 +17,7 @@ website/src/generated/
 website/src/content/docs/
 website/public/
 .sverka/
+**/.tmp/
 
 # Arena fixtures — deliberately broken formatting is the test data
 packages/arena/fixtures/

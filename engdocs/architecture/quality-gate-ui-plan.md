@@ -9,7 +9,7 @@ gate, and produces a shareable HTML report — all without touching CI.
 
 Three renderers share one event stream:
 
-```
+```text
 engine.run() → AsyncIterable<RunEvent>
                     │
           ┌─────────┼──────────┐
@@ -25,7 +25,7 @@ findings collector, all three renderers. Depends on `@sverka/runtime` (events,
 types) and `@sverka/verification` (findings, policy). No dependency on CLI —
 CLI imports from reporter.
 
-```
+```text
 packages/reporter/
   src/
     types.ts           # Renderer interface, UIState, FindingRow
@@ -154,7 +154,7 @@ This is backward-compatible (optional field, existing consumers ignore it).
 
 ## CLI integration
 
-```
+```bash
 sverka run [--format text|json|html] [--output <path>] [--tui|--no-tui]
            [--config <path>] [--entry <id>] [--executor host|docker]
            [--evaluate]  # collect findings + run policy after execution

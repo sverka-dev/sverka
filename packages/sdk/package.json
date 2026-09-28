@@ -35,8 +35,7 @@
   "dependencies": {
     "@sverka/workflow": "workspace:*",
     "@sverka/runtime": "workspace:*",
-    "@sverka/verification": "workspace:*",
-    "@sverka/compiler": "workspace:*"
+    "@sverka/verification": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.23.0",

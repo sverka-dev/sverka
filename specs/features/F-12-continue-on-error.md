@@ -101,6 +101,6 @@ Exit-code filtering is GitLab-only. On GitHub, Sverka emits an unsupported diagn
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontinue-on-error
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#allow_failure
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontinue-on-error>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#allow_failure>
 - Architecture spec: §25, §32 (deferred)

@@ -144,7 +144,7 @@ is acceptable because provider shells treat everything as strings.
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idoutputs
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#artifactsreportsdotenv
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idoutputs>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#artifactsreportsdotenv>
 - Architecture spec: §12.2, §15
 - Source: `packages/cdk/src/model.ts:77-81`, `packages/core/src/graph.ts:65`, `packages/core/src/synthesize.ts:127-146`, `packages/github/src/lower.ts:370-373`, `packages/gitlab/src/lower.ts:494-500`, `packages/engine-native/src/step-executor.ts:134-154`, `packages/engine-native/src/value-store.ts:1-24`

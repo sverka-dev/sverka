@@ -105,7 +105,7 @@ export interface SnapshotStore {
 
 ### File layout
 
-```
+```text
 <root>/.sverka/runs/<runId>/snapshot.json
 ```
 

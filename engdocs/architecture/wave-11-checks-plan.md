@@ -62,7 +62,7 @@ Implement the `@sverka/checks` package:
 
 ## 3. File layout
 
-```
+```text
 packages/checks/src/
 ├── index.ts              # public exports
 ├── resolver.ts           # CheckResolver, ResolvedCheck, CheckOutput, createBuiltinResolver

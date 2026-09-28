@@ -4,7 +4,7 @@
 
 Report security vulnerabilities privately. Do NOT open a public GitHub issue.
 
-- Email: security@sverka.dev
+- Email: <security@sverka.dev>
 - Response time: 48 hours
 - Disclosure: coordinated, after fix is released
 

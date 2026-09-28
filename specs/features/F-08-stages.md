@@ -124,7 +124,7 @@ generated names (`build`, `stage-1`, `stage-2`) are functional but opaque.
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idneeds
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#stages
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idneeds>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#stages>
 - Architecture spec: §16, §18.2
 - Source: `packages/gitlab/src/lower.ts:205-263`, `packages/gitlab/src/lower.ts:243-245`

@@ -10,7 +10,7 @@ columns. Deployed at sverka.dev/benchmark.
 
 ### Files
 
-```
+```text
 website/public/benchmark/
   index.html         — dashboard page (vanilla JS, no framework)
   sample-result.json — sample BenchmarkResult for demo/preview

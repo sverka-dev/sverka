@@ -103,6 +103,6 @@ new Entry(pipeline, { trigger: { kind: "changeRequest", activityTypes: ["opened"
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpull_requestpull_request_targetpathspaths-ignore
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#rulesif
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpull_requestpull_request_targetpathspaths-ignore>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#rulesif>
 - Architecture spec: §25, §31.3

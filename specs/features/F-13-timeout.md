@@ -125,7 +125,7 @@ preserves full ms precision.
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idtimeout-minutes
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#timeout
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idtimeout-minutes>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#timeout>
 - Architecture spec: §15
 - Source: `packages/constructs/src/constructs.ts:86,95`, `packages/core/src/graph.ts:60`, `packages/sdk/src/sh.ts:55-57`, `packages/decorators/src/types.ts:7`, `packages/github/src/lower.ts:308-309`, `packages/gitlab/src/lower.ts:467-468`, `packages/engine-native/src/step-executor.ts:116`, `packages/runtime-host/src/host-driver.ts:124-148`, `packages/runtime-docker/src/docker-driver.ts:91-93`

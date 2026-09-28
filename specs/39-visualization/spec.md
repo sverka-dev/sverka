@@ -36,7 +36,7 @@ Mermaid renders in any markdown viewer (GitHub, GitLab, VS Code).
 
 No new public API. CLI flag enhancement only:
 
-```
+```bash
 sverka graph [--format tree|json|mermaid] [--output <path>]
 ```
 
@@ -71,11 +71,11 @@ flowchart TD
 
 ### Edge mapping
 
-| Dependency kind | Mermaid arrow    |
-| --------------- | ---------------- |
-| control         | `-->` (solid)    |
-| value           | `-.-> ` (dashed) |
-| artifact        | `==>` (thick)    |
+| Dependency kind | Mermaid arrow   |
+| --------------- | --------------- |
+| control         | `-->` (solid)   |
+| value           | `-.->` (dashed) |
+| artifact        | `==>` (thick)   |
 
 ### Trigger rendering
 

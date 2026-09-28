@@ -109,5 +109,5 @@ These are GitHub-only features. On GitLab, they are dropped with an info diagnos
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast>
 - Architecture spec: §25, §32 (deferred)

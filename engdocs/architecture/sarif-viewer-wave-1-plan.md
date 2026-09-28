@@ -41,7 +41,7 @@ workflow-coupled parts as adapters.
 
 ### Structure
 
-```
+```text
 packages/sarif-viewer-tui/
   src/
     index.ts           — public API: renderSarifTui, SarifTuiApp, SarifTuiOptions
@@ -135,7 +135,7 @@ no input, 0 on quit.
 
 ### Structure
 
-```
+```text
 packages/sarif-viewer-web/
   src/
     index.ts           — public API: renderSarifWeb, generateSarifHtml, SarifWebOptions

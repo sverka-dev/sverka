@@ -103,9 +103,11 @@ Shell output can be very large (test suites, build logs). Define
 building `StepExecResult`, truncate `stdout` and `stderr` if they exceed
 the limit:
 
-```
+```ts
 if (stdout.length > MAX_OUTPUT_LENGTH) {
-  stdout = stdout.slice(0, MAX_OUTPUT_LENGTH) + `\n... (truncated, ${stdout.length} bytes total)`;
+  stdout =
+    stdout.slice(0, MAX_OUTPUT_LENGTH) +
+    `\n... (truncated, ${stdout.length} bytes total)`;
 }
 ```
 

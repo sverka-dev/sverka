@@ -95,7 +95,7 @@ Verify: `bun run build` produces `dist/404.html`.
 
 Create `public/robots.txt`:
 
-```
+```text
 User-agent: *
 Allow: /
 

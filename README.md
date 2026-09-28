@@ -2,7 +2,7 @@
 
 # Sverka
 
-## Define checks once. Run locally. Compile anywhere.
+## Define checks once. Run locally. Compile anywhere
 
 A local-first workflow runtime for code-defined checks. Author your
 lint, typecheck, test, and build steps as a single TypeScript config.

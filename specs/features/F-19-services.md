@@ -135,6 +135,6 @@ GitHub uses a map (keyed by name); GitLab uses an array (with `alias` for hostna
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idservices
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#services
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idservices>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#services>
 - Architecture spec: §25, §32 (deferred)

@@ -117,6 +117,6 @@ Both providers have Pages hosting but with different APIs. GitHub uses actions +
 
 ## References
 
-- GitHub: https://github.com/actions/deploy-pages
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#pages
+- GitHub: <https://github.com/actions/deploy-pages>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#pages>
 - Architecture spec: §25, §32 (deferred)

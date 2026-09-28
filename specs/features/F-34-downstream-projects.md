@@ -103,6 +103,6 @@ GitLab has native multi-project pipeline support. GitHub requires an API call vi
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#triggerproject
-- GitHub: https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#repository_dispatch
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#triggerproject>
+- GitHub: <https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#repository_dispatch>
 - Architecture spec: §25, §32 (deferred)

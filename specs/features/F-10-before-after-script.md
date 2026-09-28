@@ -107,6 +107,6 @@ GitLab has native support with a specific semantic: `after_script` runs in a fre
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#before_script
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#after_script
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#before_script>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#after_script>
 - Architecture spec: §25, §32 (deferred)

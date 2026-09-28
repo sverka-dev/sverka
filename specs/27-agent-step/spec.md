@@ -120,7 +120,7 @@ export function agent(
 ): AgentStepBuilder;
 ```
 
-`agent\`Build and test the project\``creates an`AgentStepBuilder`with`engine: "default"`. The builder's `.engine("claude")` method sets the
+`agent\`Build and test the project\``creates an`AgentStepBuilder`with`engine: "default"`. The builder's`.engine("claude")` method sets the
 engine (or pass via a config object — see alternatives).
 
 ### Engine (`@sverka/runtime` engine-native)

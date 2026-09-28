@@ -1,4 +1,11 @@
-import { Project, Pipeline, ShellStep, Entry, push } from "@sverka/workflow";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  Entry,
+  push,
+  manual,
+} from "@sverka/workflow";
 
 const proj = new Project("sverka");
 
@@ -87,6 +94,82 @@ const drift = new ShellStep(ci, "workflow-drift", {
   beforeScript: [...nxPlugins, "bun run build"],
 });
 
+// Docs gate — markdownlint over engdocs/specs/website/root docs.
+// markdownlint-cli2 and .markdownlint.json were already in the repo;
+// this step is what makes them a gate instead of decoration.
+const docs = new ShellStep(ci, "docs", {
+  command: "bun run lint:md",
+});
+
+// CLI dogfood — every read-only command must work on this repo.
+const cliSmoke = new ShellStep(ci, "cli-smoke", {
+  command:
+    "bun packages/cli/src/bin.ts validate && bun packages/cli/src/bin.ts plan --format json && bun packages/cli/src/bin.ts discover --format json && bun packages/cli/src/bin.ts graph && bun packages/cli/src/bin.ts check --format json",
+  runtime: { shell: "sh" },
+  beforeScript: [...nxPlugins, "bun run build"],
+});
+
+// Dependency boundary — UI frameworks (ink/react/web servers) must stay
+// out of the core packages; reporter is the only place they may live.
+const depBoundary = new ShellStep(ci, "dep-boundary", {
+  command:
+    "! grep -rE 'from \"(ink|react|react-dom|express|fastify|ws)\"' packages/cli/src packages/sdk/src packages/runtime/src packages/workflow/src packages/verification/src packages/compiler/src packages/storage/src && ! grep -E '\"(ink|react|react-dom|express|fastify)\":' packages/cli/package.json packages/sdk/package.json packages/runtime/package.json packages/workflow/package.json packages/verification/package.json packages/compiler/package.json packages/storage/package.json",
+  runtime: { shell: "sh" },
+});
+
+// Spelling gate — cspell with the project dictionary in cspell.json
+// (Sverka/SARIF domain vocabulary is whitelisted there, not disabled).
+const spell = new ShellStep(ci, "spell", {
+  command: "bun run lint:spell",
+});
+
+// Secret scanning — secretlint recommend preset; .secretlintignore scopes
+// out vendor, lockfiles and generated output.
+const secrets = new ShellStep(ci, "secrets", {
+  command: "bun run lint:secrets",
+});
+
+// Dead code / dependency hygiene — knip.json scopes out vendor, generated
+// output, fixtures and the intentional compat surface. Configuration
+// hints are advisory; findings fail the gate.
+const deps = new ShellStep(ci, "deps", {
+  command: "bun run lint:deps",
+});
+
+// Package metadata gate — publint over every publishable package. CI jobs
+// are isolated runners, so beforeScript rebuilds dist/ in-job. Suggestions
+// (e.g. missing sideEffects) don't fail; errors do.
+const packlint = new ShellStep(ci, "packlint", {
+  command:
+    'for d in packages/*/; do echo "== $d"; (cd "$d" && ../../node_modules/.bin/publint) || exit 1; done',
+  runtime: { shell: "sh" },
+  beforeScript: [...nxPlugins, "bun run build"],
+});
+
+// Workflow lint — actionlint checks the hand-written workflows AND the
+// generated sverka.yml. Installed from source at a pinned tag; Go is
+// preinstalled on GitHub runners and in the devenv image.
+const actionlint = new ShellStep(ci, "actionlint", {
+  command:
+    'go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && "$(go env GOPATH)/bin/actionlint" .github/workflows/*.yml',
+  runtime: { shell: "sh" },
+});
+
+// Recursive dogfood — sverka runs itself inside CI. The inner run targets
+// the manual self-demo entry below (never this step — no recursion) and
+// exercises the whole local engine in one job: scheduling → step exec →
+// artifact export → findings collection → policy verdict → HTML report.
+// The report is uploaded as a CI artifact (outputs → upload-artifact).
+const selfRun = new ShellStep(ci, "self-run", {
+  command:
+    "bun packages/cli/src/bin.ts run --entry ci/self-demo --format html --output .sverka/report.html",
+  runtime: { shell: "sh" },
+  outputs: {
+    "sverka-report": { type: "artifact", path: ".sverka/report.html" },
+  },
+  beforeScript: [...nxPlugins, "bun run build"],
+});
+
 export const onPush = new Entry(ci, "on-push", {
   trigger: push(),
   roots: [
@@ -96,7 +179,24 @@ export const onPush = new Entry(ci, "on-push", {
     format.node.id,
     doctor.node.id,
     drift.node.id,
+    docs.node.id,
+    cliSmoke.node.id,
+    depBoundary.node.id,
+    spell.node.id,
+    secrets.node.id,
+    deps.node.id,
+    packlint.node.id,
+    actionlint.node.id,
+    selfRun.node.id,
   ],
+});
+
+// Manual entry — adds workflow_dispatch to the compiled workflow and is the
+// inner target of the self-run step. Roots are cheap steps only: lint-sarif
+// feeds the findings/policy path, dep-boundary exercises multi-step runs.
+export const selfDemo = new Entry(ci, "self-demo", {
+  trigger: manual(),
+  roots: [lintSarif.node.id, depBoundary.node.id],
 });
 
 export default proj;

@@ -193,7 +193,7 @@ pass, `1` for fail.
 
 ### New flags
 
-```
+```bash
 sverka run [--format text|json] [--evaluate] [--executor host|docker] [--entry <id>]
 ```
 
@@ -205,7 +205,7 @@ sverka run [--format text|json] [--evaluate] [--executor host|docker] [--entry <
 
 ### TextRenderer output format
 
-```
+```text
 ▶ run started (plan: <planId>)
 
   ○ ci/lint        pending
@@ -235,11 +235,11 @@ run status.
 
 ## Dependencies
 
-| Package              | Dep             | Type                                                                         | Justification             |
-| -------------------- | --------------- | ---------------------------------------------------------------------------- | ------------------------- |
-| @sverka/reporter     | @sverka/runtime | workspace                                                                    | RunEvent, RunStatus types |
-| @sverka/verification | workspace       | normalizeSarif, evaluatePolicy, filterOnlyNew, Finding, Policy, PolicyResult |
-| @sverka/workflow     | workspace       | DefinitionGraph (type-only, for future DAG layout)                           |
+| Package          | Dep                  | Type      | Justification                                                                |
+| ---------------- | -------------------- | --------- | ---------------------------------------------------------------------------- |
+| @sverka/reporter | @sverka/runtime      | workspace | RunEvent, RunStatus types                                                    |
+| @sverka/reporter | @sverka/verification | workspace | normalizeSarif, evaluatePolicy, filterOnlyNew, Finding, Policy, PolicyResult |
+| @sverka/reporter | @sverka/workflow     | workspace | DefinitionGraph (type-only, for future DAG layout)                           |
 
 No new external dependencies in Phase 1.
 

@@ -54,7 +54,7 @@ spec as the target and maps the existing code onto it.
 
 ## 4. New package layout (spec §29)
 
-```
+```text
 packages/
   constructs/          # NEW — construct tree wrapping `constructs` package
   core/                # REBUILD — Definition Graph model + synthesis

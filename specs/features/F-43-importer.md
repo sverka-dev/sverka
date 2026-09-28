@@ -115,6 +115,6 @@ Import is inherently provider-specific. Each importer understands one provider's
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/>
 - Architecture spec: §25, §32 (deferred — GitHub Importer, GitLab Importer)

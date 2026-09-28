@@ -168,7 +168,7 @@ caller, which falls back to `TextRenderer`.
 
 ### Layout
 
-```
+```text
 ┌ sverka run — <planId> ────────────────
 │ Steps
 │  ✓ ci/checkout        120ms
@@ -211,7 +211,7 @@ viewport.
 
 ### New flags
 
-```
+```bash
 sverka run [--tui] [--no-tui] [--format text|json|html]
 ```
 
@@ -250,7 +250,7 @@ tick on `useState` + interval); `ink-spinner` is not needed.
    with `└─` prefix and depth 1.
 4. **buildStepTree — sibling order**: siblings sorted by step id;
    intermediate nodes use `├─`, last uses `└─`, ancestors contribute
-   `│  ` / `   ` continuation prefixes.
+   `│` / `   ` continuation prefixes.
 5. **buildStepTree — shared dependency**: a step with two producers
    appears once.
 6. **buildStepTree — no graph**: falls back to flat, id-sorted root rows

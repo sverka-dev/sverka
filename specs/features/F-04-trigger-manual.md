@@ -123,6 +123,6 @@ GitHub has typed inputs at the workflow level. GitLab has per-job `when: manual`
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#when
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatchinputs>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#when>
 - Architecture spec: §25, §31.3

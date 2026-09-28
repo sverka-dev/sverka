@@ -854,9 +854,3 @@ async function buildTrace(
     )
   );
 }
-
-/** Check whether a transcript file exists for a given session id. */
-export function transcriptExists(sessionId: string, dir?: string): boolean {
-  if (!sessionId) return false;
-  return existsSync(join(dir ?? transcriptDir(), `${sessionId}.json`));
-}

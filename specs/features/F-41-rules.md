@@ -135,6 +135,6 @@ GitLab's `rules` is much richer than GitHub's `if:`. Sverka supports the full ru
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#rules
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idif
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#rules>
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idif>
 - Architecture spec: §25, §31.3

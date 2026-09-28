@@ -137,6 +137,6 @@ GitLab has richer environment lifecycle (actions, on_stop, auto_stop, tiers). Gi
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idenvironment
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#environment
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idenvironment>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#environment>
 - Architecture spec: §25, §32 (deferred)

@@ -59,7 +59,6 @@ export type {
   Condition,
   ContinueOnError,
   RetryPolicy,
-  BackoffSpec,
   PermissionLevel,
   RunnerSpec,
   IdentitySpec,
@@ -75,10 +74,12 @@ export type {
   CachePolicy,
   ConcurrencySpec,
   StepPermissions,
-  WriteDeclaration,
   AgentToolRef,
   AgentOperation,
 } from "../cdk/index.js";
+
+/** @public Spec 20 item 12 (retry backoff) / Spec 25 item 12 (safe-outputs) */
+export type { BackoffSpec, WriteDeclaration } from "../cdk/index.js";
 
 export interface DefinitionGraph {
   readonly project: ProjectDefinition;

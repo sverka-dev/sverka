@@ -112,5 +112,5 @@ GitLab merges configs natively. GitHub doesn't merge at all. Sverka's approach: 
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#include
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#include>
 - Architecture spec: §25, §32 (deferred)
