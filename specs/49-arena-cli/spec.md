@@ -93,7 +93,7 @@ export async function loadArenaConfig(path: string): Promise<ArenaConfig>;
 
 ### Commands
 
-```
+```bash
 sverka-arena run     [--config <path>] [--out <dir>] [--format json|text]
 sverka-arena report  <results.json>   [--format json|text]
 sverka-arena doctor  [--config <path>] [--format json|text]
