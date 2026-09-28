@@ -65,6 +65,7 @@ export interface ArenaConfig {
   agent: AgentAdapter;
   models: ModelConfig[];
   plugins: PluginConfig[];
+  /** Base dir for the per-run isolated workspaces (default: system temp). */
   workspace?: string;
   repetitions?: number;
   outputDir: string;

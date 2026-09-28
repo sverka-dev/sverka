@@ -6,7 +6,7 @@
 
 import { z } from "zod";
 import { pathToFileURL } from "node:url";
-import { isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 
 import type { AgentAdapter, ArenaConfig, ModelConfig } from "./types.js";
 import { DevinAdapter } from "./adapters/devin.js";
@@ -143,13 +143,22 @@ export async function loadArenaConfig(
 
   const file = parsed.data;
   const agent = resolveAdapter(file.agent);
+
+  // Paths in the config file resolve relative to the config file's
+  // directory, so `sverka-arena` can be invoked from anywhere.
+  const dir = dirname(absPath);
+  const rel = (p: string): string => (isAbsolute(p) ? p : resolve(dir, p));
+
   return {
     agent,
     models: file.models as ModelConfig[],
-    plugins: (file.plugins ?? []) as ArenaConfig["plugins"],
+    plugins: (file.plugins ?? []).map((p) => ({
+      ...p,
+      path: rel(p.path),
+    })) as ArenaConfig["plugins"],
     tasks: file.tasks as ArenaConfig["tasks"],
-    outputDir: file.outputDir,
-    ...(file.workspace !== undefined ? { workspace: file.workspace } : {}),
+    outputDir: rel(file.outputDir),
+    ...(file.workspace !== undefined ? { workspace: rel(file.workspace) } : {}),
     ...(file.repetitions !== undefined
       ? { repetitions: file.repetitions }
       : {}),
