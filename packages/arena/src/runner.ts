@@ -334,12 +334,12 @@ function execShell(
   command: string,
 ): Promise<{ output: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const proc = spawn("bash", ["-c", command], {
-      // NOSONAR — fixture-defined shell commands, config-author trust level
+    const opts = {
       cwd: workspace,
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"] as const,
       env: { ...process.env, CI: "true" },
-    });
+    };
+    const proc = spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
     // Cap captured output — a noisy command must not grow memory without
     // bound. 256 KiB keeps tail diagnostics while bounding the worst case.
     const MAX_OUTPUT = 256 * 1024;
