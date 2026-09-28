@@ -328,7 +328,7 @@ function execShell(
 ): Promise<{ output: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
     const proc = spawn("bash", ["-c", command], {
-      // NOSONAR — PATH needed for check commands
+      // NOSONAR — fixture-defined shell commands, config-author trust level
       cwd: workspace,
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, CI: "true" },
@@ -340,8 +340,9 @@ function execShell(
     proc.stderr?.on("data", (d: Buffer) => {
       stdout += d.toString();
     });
-    proc.on("close", (code: number) => {
-      resolve({ output: stdout, exitCode: code });
+    proc.on("close", (code: number | null) => {
+      // null = killed by signal; treat as failure, not a crash source.
+      resolve({ output: stdout, exitCode: code ?? -1 });
     });
     proc.on("error", reject);
   });
