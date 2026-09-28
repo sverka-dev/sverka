@@ -16,8 +16,9 @@ export default {
   agent: "devin",
   models: [
     // `devin acp --model <id>` accepts fuzzy names (family slug or alias).
-    { id: "opus", name: "Claude Opus" },
-    { id: "sonnet", name: "Claude Sonnet" },
+    // SWE-2 tiers are free — prefer them for benchmarks (see `devin models list`).
+    { id: "swe-2-max", name: "SWE-2 Max" },
+    { id: "swe-2-medium", name: "SWE-2 Medium" },
   ],
   plugins: [
     // The variable under test: the sverka agent skill from this repo.
