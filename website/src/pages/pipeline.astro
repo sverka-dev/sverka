@@ -40,12 +40,12 @@ try {
 
 const fmtMs = (ms?: number): string =>
   ms === undefined ? "—" : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
-const chip = (status?: string): string =>
-  status === "succeeded" || status === "success"
-    ? "ok"
-    : status === "skipped"
-      ? "skip"
-      : "fail";
+const chip = (status?: string): string => {
+  if (status === "succeeded" || status === "success") return "ok";
+  if (status === "failed" || status === "failure" || status === "error")
+    return "fail";
+  return "skip"; // skipped, cancelled, unknown — neutral
+};
 const overall = (c: Capture): string =>
   c.run?.data?.status ?? (c.exitCode === 0 ? "success" : "failure");
 ---

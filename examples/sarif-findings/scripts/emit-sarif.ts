@@ -32,7 +32,7 @@ const sarif = {
             {
               physicalLocation: {
                 artifactLocation: { uri: "src/index.ts" },
-                region: { startLine: 3 },
+                region: { startLine: 2 },
               },
             },
           ],
@@ -45,7 +45,7 @@ const sarif = {
             {
               physicalLocation: {
                 artifactLocation: { uri: "src/index.ts" },
-                region: { startLine: 6 },
+                region: { startLine: 4 },
               },
             },
           ],
