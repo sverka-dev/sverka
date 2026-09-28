@@ -1,3 +1,18 @@
+## 0.1.10 (2026-09-28)
+
+### 🚀 Features
+
+- **arena:** dogfood config + user docs for sverka-arena ([#219](https://github.com/sverka-dev/sverka/pull/219))
+
+### 🩹 Fixes
+
+- **arena:** anchor fixture paths to the config file's directory ([#220](https://github.com/sverka-dev/sverka/pull/220))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.9 (2026-09-23)
 
 ### 🚀 Features
