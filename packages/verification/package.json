@@ -3,6 +3,7 @@
   "version": "0.1.13",
   "description": "Sverka verification — findings normalization, policy evaluation, checks resolution",
   "license": "MIT",
+  "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sverka-dev/sverka.git",

@@ -3,6 +3,7 @@
   "version": "0.1.13",
   "description": "Sverka storage — file and SQLite snapshot stores for run persistence",
   "license": "MIT",
+  "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sverka-dev/sverka.git",

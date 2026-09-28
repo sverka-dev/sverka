@@ -3,6 +3,7 @@
   "version": "0.1.13",
   "description": "Sverka MCP plugin — expose external MCP servers as Sverka tool providers",
   "license": "MIT",
+  "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sverka-dev/sverka.git",

@@ -3,6 +3,7 @@
   "version": "0.1.13",
   "description": "Sverka CLI — validate, plan, run, and compile workflows",
   "license": "MIT",
+  "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sverka-dev/sverka.git",
