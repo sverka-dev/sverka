@@ -40,6 +40,53 @@ export default {
         },
       ],
     },
+    {
+      id: "verify-and-fix",
+      name: "Run verification suite and fix failures",
+      // The real dogfood: the fixture ships a sverka.config.ts wiring five
+      // checks (format/lint/typecheck/test/build) with planted failures in
+      // four of them. With the skill, one `sverka run --format json` finds
+      // them all; without it the agent runs each check by hand.
+      prompt:
+        "This project has a verification suite defined in sverka.config.ts " +
+        "(see also the package.json scripts). Run all the checks, find " +
+        "every failure, and fix the source code so the entire suite " +
+        "passes. Do not modify test files, sverka.config.ts, or any " +
+        "check configuration (.oxlintrc.json, tsconfig.json).",
+      fixture: "fixtures/verify-and-fix",
+      setup: ["bun install"],
+      timeoutMs: 300_000,
+      successCriteria:
+        "Every check passes (format, lint, typecheck, test, build) and " +
+        "no test or config file was modified",
+      checks: [
+        {
+          id: "tests-pass",
+          command: "bun test",
+          description: "unit tests pass",
+        },
+        {
+          id: "typecheck",
+          command: "bunx tsc --noEmit",
+          description: "no type errors",
+        },
+        {
+          id: "lint",
+          command: "bunx oxlint .",
+          description: "no lint errors",
+        },
+        {
+          id: "format",
+          command: "bunx prettier --check .",
+          description: "formatting is clean",
+        },
+        {
+          id: "build",
+          command: "bun run build",
+          description: "build succeeds",
+        },
+      ],
+    },
   ],
   repetitions: 1,
   outputDir: ".arena",

@@ -48,6 +48,10 @@ export interface Task {
    * use) — `loadArenaConfig` anchors them to the config file's directory.
    * If omitted, the runner uses an empty temp directory. */
   fixture?: string;
+  /** Shell commands run in the workspace before the agent spawns —
+   * e.g. dependency installs a fixture needs (`bun install`). A failed
+   * setup command fails the run before the agent starts. */
+  setup?: string[];
   /** Optional deterministic checks to run after the agent finishes.
    * Each check is a shell command; exit 0 = pass, non-zero = fail. */
   checks?: DeterministicCheck[];

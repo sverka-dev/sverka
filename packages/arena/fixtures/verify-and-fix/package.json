@@ -1,0 +1,20 @@
+{
+  "name": "verify-and-fix",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint .",
+    "format": "prettier --check .",
+    "build": "bun build src/index.ts --outdir dist"
+  },
+  "devDependencies": {
+    "@sverka/cli": "0.1.12",
+    "@sverka/workflow": "0.1.12",
+    "oxlint": "^1.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  }
+}

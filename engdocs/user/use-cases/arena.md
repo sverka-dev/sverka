@@ -50,16 +50,16 @@ use paths relative to the `@sverka/arena` package root.)
 
 ### Config fields
 
-| Field         | Type                                                           | Notes                                                                                                     |
-| ------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `agent`       | string                                                         | Adapter name. Currently `"devin"`.                                                                        |
-| `models[]`    | `{id, name, envVar?}`                                          | `id` is passed to `devin acp --model` (fuzzy names ok). `envVar` names an env var `doctor` should verify. |
-| `plugins[]`   | `{id, name, path, enabled?}`                                   | `path` = skill dir copied into the workspace when the plugin is enabled.                                  |
-| `tasks[]`     | `Task`                                                         | `prompt`, optional `fixture`, `checks`, `successCriteria`.                                                |
-| `workspace`   | string                                                         | Base dir for per-run isolated workspaces (default: system temp).                                          |
-| `repetitions` | number                                                         | Runs per cell of the matrix (default 1).                                                                  |
-| `outputDir`   | string                                                         | Where `results.json` and traces land.                                                                     |
-| `judge`       | `{model, agent?, repetitions?, revealPlugins?, systemPrompt?}` | Optional blind evaluation; judge defaults to the same agent adapter.                                      |
+| Field         | Type                                                           | Notes                                                                                                            |
+| ------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `agent`       | string                                                         | Adapter name. Currently `"devin"`.                                                                               |
+| `models[]`    | `{id, name, envVar?}`                                          | `id` is passed to `devin acp --model` (fuzzy names ok). `envVar` names an env var `doctor` should verify.        |
+| `plugins[]`   | `{id, name, path, enabled?}`                                   | `path` = skill dir copied into the workspace when the plugin is enabled.                                         |
+| `tasks[]`     | `Task`                                                         | `prompt`, optional `fixture`, `setup` (pre-run shell commands, e.g. `bun install`), `checks`, `successCriteria`. |
+| `workspace`   | string                                                         | Base dir for per-run isolated workspaces (default: system temp).                                                 |
+| `repetitions` | number                                                         | Runs per cell of the matrix (default 1).                                                                         |
+| `outputDir`   | string                                                         | Where `results.json` and traces land.                                                                            |
+| `judge`       | `{model, agent?, repetitions?, revealPlugins?, systemPrompt?}` | Optional blind evaluation; judge defaults to the same agent adapter.                                             |
 
 ## The matrix
 

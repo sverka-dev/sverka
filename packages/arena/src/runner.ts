@@ -242,6 +242,21 @@ async function executeRun(
   combo: PluginConfig[],
   tempWorkspace: string,
 ): Promise<RunResult> {
+  if (task.setup) {
+    for (const command of task.setup) {
+      const { output, exitCode } = await execShell(tempWorkspace, command);
+      if (exitCode !== 0) {
+        return errorResult(
+          task,
+          model,
+          combo,
+          new Error(
+            `setup command failed (exit ${exitCode}): ${command}\n${output.trim()}`,
+          ),
+        );
+      }
+    }
+  }
   const proc = agent.spawn({
     model,
     workspace: tempWorkspace,
@@ -306,6 +321,32 @@ function errorResult(
   };
 }
 
+/** Run a shell command in the workspace, capturing combined output. */
+function execShell(
+  workspace: string,
+  command: string,
+): Promise<{ output: string; exitCode: number }> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("bash", ["-c", command], {
+      // NOSONAR — PATH needed for check commands
+      cwd: workspace,
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, CI: "true" },
+    });
+    let stdout = "";
+    proc.stdout?.on("data", (d: Buffer) => {
+      stdout += d.toString();
+    });
+    proc.stderr?.on("data", (d: Buffer) => {
+      stdout += d.toString();
+    });
+    proc.on("close", (code: number) => {
+      resolve({ output: stdout, exitCode: code });
+    });
+    proc.on("error", reject);
+  });
+}
+
 /** Run deterministic checks in the workspace. */
 async function runChecks(
   workspace: string,
@@ -315,28 +356,7 @@ async function runChecks(
   const results: CheckResult[] = [];
   for (const check of checks) {
     try {
-      const { output, exitCode } = await new Promise<{
-        output: string;
-        exitCode: number;
-      }>((resolve, reject) => {
-        const proc = spawn("bash", ["-c", check.command], {
-          // NOSONAR — PATH needed for check commands
-          cwd: workspace,
-          stdio: ["pipe", "pipe", "pipe"],
-          env: { ...process.env, CI: "true" },
-        });
-        let stdout = "";
-        proc.stdout?.on("data", (d: Buffer) => {
-          stdout += d.toString();
-        });
-        proc.stderr?.on("data", (d: Buffer) => {
-          stdout += d.toString();
-        });
-        proc.on("close", (code: number) => {
-          resolve({ output: stdout, exitCode: code });
-        });
-        proc.on("error", reject);
-      });
+      const { output, exitCode } = await execShell(workspace, check.command);
       results.push({
         checkId: check.id,
         passed: exitCode === 0,
