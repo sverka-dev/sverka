@@ -10,6 +10,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -62,9 +63,14 @@ const self = capture(
   "bun packages/cli/src/bin.ts run --format json",
 );
 
-const entries = await readdir(join(repoRoot, "examples"), {
-  withFileTypes: true,
-});
+let entries: Dirent[] = [];
+try {
+  entries = await readdir(join(repoRoot, "examples"), {
+    withFileTypes: true,
+  });
+} catch {
+  // No examples dir — the page renders the self pipeline alone.
+}
 const examples: RunCapture[] = [];
 for (const entry of entries.filter((e) => e.isDirectory())) {
   const dir = join(repoRoot, "examples", entry.name);
