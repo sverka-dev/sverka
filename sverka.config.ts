@@ -146,6 +146,14 @@ const packlint = new ShellStep(ci, "packlint", {
   beforeScript: [...nxPlugins, "bun run build"],
 });
 
+// Types-in-package gate — attw validates that published types actually
+// resolve under the esm-only profile (all packages are "type": "module";
+// the CJS matrix is deliberately out of scope). Rebuilds dist/ in-job.
+const typelint = new ShellStep(ci, "typelint", {
+  command: "bun run lint:attw",
+  beforeScript: [...nxPlugins, "bun run build"],
+});
+
 // Workflow lint — actionlint checks the hand-written workflows AND the
 // generated sverka.yml. Installed from source at a pinned tag; Go is
 // preinstalled on GitHub runners and in the devenv image.
@@ -186,6 +194,7 @@ export const onPush = new Entry(ci, "on-push", {
     secrets.node.id,
     deps.node.id,
     packlint.node.id,
+    typelint.node.id,
     actionlint.node.id,
     selfRun.node.id,
   ],

@@ -19,9 +19,11 @@
     "docs:api": "typedoc --options typedoc.json && bun scripts/fix-api-docs.ts",
     "lint:spell": "cspell lint --no-progress",
     "lint:secrets": "secretlint \"**/*\"",
-    "lint:deps": "knip"
+    "lint:deps": "knip",
+    "lint:attw": "for d in packages/*/; do echo \"== $d\"; (cd \"$d\" && attw --pack . --profile esm-only --format table) || exit 1; done"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
     "@microsoft/eslint-formatter-sarif": "3.1.0",
     "@nx-devkit/prepare-for-release": "file:./vendor/nx.ts/packages/prepare-for-release",
     "@nx-devkit/skill": "file:./vendor/nx.ts/packages/skill",
