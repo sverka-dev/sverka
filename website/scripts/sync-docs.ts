@@ -520,10 +520,6 @@ async function writeSidebarConfig(entries: FileEntry[]) {
 
   const sidebar: unknown[] = [
     { slug: "index" },
-    // Standalone page (src/pages/pipeline.astro) — rendered outside the
-    // docs collection, so it needs an explicit link entry. Keep it near
-    // the top so the live status isn't buried below the docs tree.
-    { label: "Pipeline", link: "/pipeline/" },
     { label: "User documentation", collapsed: false, items: userItems },
   ];
 

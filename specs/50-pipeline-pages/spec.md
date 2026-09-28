@@ -24,9 +24,10 @@ Publish a `/pipeline/` page on the docs site that visualizes real
   `src/generated/pipelines.json` (gitignored). Never exits non-zero on a
   failed pipeline — failure IS the data. Only exits non-zero when no data
   could be produced at all.
-- `website/src/pages/pipeline.astro` — static page: status badge, commit
-  sha, duration, per-step chips (succeeded/failed/skipped), expandable
-  stdout/stderr on failures, plus a `full report →` link per pipeline.
+- `website/src/pages/pipeline.astro` — thin index page: one table row
+  per pipeline (name, status badge, duration) linking to the full
+  report. No step-level rendering — the standalone report already shows
+  the DAG and findings.
 - Full reports — for every capture the generator also runs
   `sverka run --format html --output public/pipeline-reports/<id>.html`,
   producing the standalone run report (DAG + SARIF findings table). Files
@@ -36,8 +37,9 @@ Publish a `/pipeline/` page on the docs site that visualizes real
   (`@sverka/cli` + `@sverka/workflow` devDeps) and its own lockfile.
 - `deploy-website.yml` — root `bun install` + `bun run build` so the
   source CLI can run the self pipeline; examples use `bunx @sverka/cli`.
-- Sidebar entry "Pipeline" added inside `sync-docs.ts` (generated file is
-  rewritten each build — the link must be emitted there).
+- Entry points: header social link (manually base-prefixed — Starlight
+  doesn't touch social hrefs) and a homepage hero action. Deliberately
+  no sidebar entry — the page is a reports index, not docs.
 
 ## Non-goals
 
