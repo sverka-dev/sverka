@@ -8,7 +8,7 @@
  */
 
 import { writeFile, mkdir, cp, rm } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -215,8 +215,14 @@ async function createTempWorkspace(
   await mkdir(tempWorkspace, { recursive: true });
   if (task.fixture) {
     const fixturePath = resolve(PKG_ROOT, task.fixture);
-    // Prevent path traversal: fixture must stay under PKG_ROOT
-    if (!fixturePath.startsWith(PKG_ROOT + sep) && fixturePath !== PKG_ROOT) {
+    // Prevent path traversal: relative fixtures must stay under PKG_ROOT.
+    // Absolute paths (e.g. anchored to the config file by loadArenaConfig)
+    // are trusted as intentional.
+    if (
+      !isAbsolute(task.fixture) &&
+      !fixturePath.startsWith(PKG_ROOT + sep) &&
+      fixturePath !== PKG_ROOT
+    ) {
       throw new Error(`Fixture path escapes package root: ${task.fixture}`);
     }
     await cp(fixturePath, tempWorkspace, { recursive: true });

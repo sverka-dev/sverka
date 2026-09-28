@@ -47,7 +47,9 @@ describe("loadArenaConfig", () => {
         agent: "devin",
         models: [{ id: "m1", name: "Model 1" }],
         plugins: [{ id: "sverka", name: "Sverka", path: "plugins/sverka" }],
-        tasks: [{ id: "t1", name: "Task", prompt: "p" }],
+        tasks: [
+          { id: "t1", name: "Task", prompt: "p", fixture: "fixtures/x" },
+        ],
         outputDir: ".arena",
       };`,
     );
@@ -57,6 +59,7 @@ describe("loadArenaConfig", () => {
     // Paths anchor to the config file's directory, not the process cwd.
     expect(cfg.outputDir).toBe(join(dir, ".arena"));
     expect(cfg.plugins[0]?.path).toBe(join(dir, "plugins/sverka"));
+    expect(cfg.tasks[0]?.fixture).toBe(join(dir, "fixtures/x"));
   });
 
   it("wires judge agent from the same registry", async () => {

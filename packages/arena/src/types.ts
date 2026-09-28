@@ -44,7 +44,8 @@ export interface Task {
   /** Optional expected output for deterministic comparison */
   expectedOutput?: string;
   /** Fixture project to copy into the workspace for this task.
-   * Path relative to the arena package root (e.g. "fixtures/ts-fix-test").
+   * Relative paths resolve against the arena package root (programmatic
+   * use) — `loadArenaConfig` anchors them to the config file's directory.
    * If omitted, the runner uses an empty temp directory. */
   fixture?: string;
   /** Optional deterministic checks to run after the agent finishes.
