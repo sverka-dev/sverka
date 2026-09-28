@@ -101,7 +101,7 @@ aggregate table. Exit `0` on completion, `2` on config/usage errors,
 Re-renders a saved run without re-spawning agents:
 
 ```bash
-sverka-arena report .arena/<timestamp>/results.json
+sverka-arena report .arena/results.json
 sverka-arena report results.json --format json
 ```
 
