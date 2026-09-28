@@ -21,6 +21,7 @@ interface Capture {
   exitCode: number;
   run?: { data?: RunData; durationMs?: number };
   outputTail?: string;
+  reportFile?: string;
 }
 interface PipelineData {
   generatedAt: string;
@@ -48,6 +49,12 @@ const chip = (status?: string): string => {
 };
 const overall = (c: Capture): string =>
   c.run?.data?.status ?? (c.exitCode === 0 ? "success" : "failure");
+// Reports are plain files in public/pipeline-reports/ — prefix with the
+// configured base (Starlight only prefixes its own routes).
+const reportHref = (c: Capture): string | undefined =>
+  c.reportFile
+    ? `${import.meta.env.BASE_URL}pipeline-reports/${c.reportFile}`
+    : undefined;
 ---
 
 <StarlightPage frontmatter={{ title: "Pipeline status" }}>
@@ -77,6 +84,9 @@ const overall = (c: Capture): string =>
         <span class={`badge ${chip(overall(c))}`}>{overall(c)}</span>
         <strong>{c.id}</strong>
         <span class="meta">{fmtMs(c.run?.durationMs)}</span>
+        {reportHref(c) ? (
+          <a class="meta" href={reportHref(c)}>full report →</a>
+        ) : null}
       </header>
       {c.run?.data?.steps ? (
         <ol class="steps">
@@ -113,6 +123,9 @@ const overall = (c: Capture): string =>
         <span class={`badge ${chip(overall(c))}`}>{overall(c)}</span>
         <strong>examples/{c.id}</strong>
         <span class="meta">{fmtMs(c.run?.durationMs)}</span>
+        {reportHref(c) ? (
+          <a class="meta" href={reportHref(c)}>full report →</a>
+        ) : null}
       </header>
       {c.run?.data?.steps ? (
         <ol class="steps">

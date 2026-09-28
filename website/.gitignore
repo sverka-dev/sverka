@@ -8,3 +8,4 @@ src/content/docs/*
 public/mermaid.min.js
 public/robots.txt
 src/generated/
+public/pipeline-reports/
