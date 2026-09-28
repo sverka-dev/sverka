@@ -1,3 +1,17 @@
+## 0.1.14 (2026-09-28)
+
+### 🚀 Features
+
+- **ci:** supply-chain quality gates + dogfood self-run ([#228](https://github.com/sverka-dev/sverka/pull/228))
+- **website:** live pipeline status page with real sverka runs ([#227](https://github.com/sverka-dev/sverka/pull/227))
+- **website:** full HTML run reports on /pipeline/ ([#229](https://github.com/sverka-dev/sverka/pull/229))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+- ThePlenkov
+
 ## 0.1.13 (2026-09-28)
 
 ### 🚀 Features
