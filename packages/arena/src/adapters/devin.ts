@@ -123,6 +123,58 @@ interface SessionNodeMessage {
   } | null;
 }
 
+/** One parsed session-DB node: a trace step plus its token metrics (inference calls only). */
+interface ParsedNode {
+  step: TranscriptStep;
+  tokens: { prompt: number; completion: number; cached: number } | null;
+}
+
+/**
+ * Map a message_nodes row to a {@link ParsedNode}. Returns `undefined`
+ * for non-step roles (e.g. `tool` results — their content arrives via
+ * ACP-collected observations; as steps they'd mislabel tool output as
+ * agent output).
+ */
+function parseNode(row: SessionNodeRow): ParsedNode | undefined {
+  const node = JSON.parse(row.chat_message) as SessionNodeMessage;
+  if (
+    node.role !== "system" &&
+    node.role !== "user" &&
+    node.role !== "assistant"
+  ) {
+    return undefined;
+  }
+  const isInference = node.role === "assistant";
+  const toolNames = (node.tool_calls ?? [])
+    .map((t) => t.name)
+    .filter(Boolean)
+    .join(", ");
+  const message = (
+    node.content?.trim() ||
+    node.thinking?.thinking?.trim() ||
+    toolNames
+  ).slice(0, 4000);
+  const m = node.metadata?.metrics;
+  return {
+    step: {
+      step_id: row.node_id,
+      timestamp: new Date(row.created_at).toISOString(),
+      source: isInference ? "agent" : (node.role as "system" | "user"),
+      message,
+      extra: isInference
+        ? { telemetry: { source: "assistant", operation: "inference" } }
+        : null,
+    },
+    tokens: isInference
+      ? {
+          prompt: m?.input_tokens ?? 0,
+          completion: m?.output_tokens ?? 0,
+          cached: m?.cache_read_tokens ?? 0,
+        }
+      : null,
+  };
+}
+
 /**
  * Build a {@link Transcript} from the Devin session DB. `devin acp` never
  * writes transcript JSON files, but every message (incl. per-call token
@@ -156,46 +208,16 @@ export function readSessionTranscript(
       total_cached_tokens: 0,
       total_steps: 0,
     };
-
     for (const row of rows) {
-      const node = JSON.parse(row.chat_message) as SessionNodeMessage;
-      // Tool-result nodes are not steps — their content arrives via
-      // ACP-collected observations; mapping them to "agent" steps would
-      // mislabel tool output as agent output.
-      if (
-        node.role !== "system" &&
-        node.role !== "user" &&
-        node.role !== "assistant"
-      ) {
-        continue;
-      }
-      const source = node.role === "assistant" ? "agent" : node.role;
-      const message =
-        node.content?.trim() ||
-        node.thinking?.thinking?.trim() ||
-        (node.tool_calls ?? [])
-          .map((t) => t.name)
-          .filter(Boolean)
-          .join(", ");
-
-      const isInference = node.role === "assistant";
-      if (isInference) {
-        const m = node.metadata?.metrics;
-        metrics.total_prompt_tokens += m?.input_tokens ?? 0;
-        metrics.total_completion_tokens += m?.output_tokens ?? 0;
-        metrics.total_cached_tokens += m?.cache_read_tokens ?? 0;
+      const parsed = parseNode(row);
+      if (!parsed) continue;
+      steps.push(parsed.step);
+      if (parsed.tokens) {
+        metrics.total_prompt_tokens += parsed.tokens.prompt;
+        metrics.total_completion_tokens += parsed.tokens.completion;
+        metrics.total_cached_tokens += parsed.tokens.cached;
         metrics.total_steps += 1;
       }
-
-      steps.push({
-        step_id: row.node_id,
-        timestamp: new Date(row.created_at).toISOString(),
-        source,
-        message: message.slice(0, 4000),
-        extra: isInference
-          ? { telemetry: { source: "assistant", operation: "inference" } }
-          : null,
-      });
     }
 
     return {
