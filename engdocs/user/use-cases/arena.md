@@ -79,9 +79,10 @@ another channel. Every run therefore gets:
   plugins still load — higher authority always wins — but they're a constant
   baseline across all cells;
 - fresh `XDG_CONFIG_HOME`/`XDG_DATA_HOME` — drops global skills, hooks, and
-  MCP config so every cell shares the same builtin baseline, and keeps
-  benchmark sessions out of your real Devin session history. Your
-  `credentials.toml` is copied in so the agent stays authenticated.
+  MCP config so every cell shares the same builtin baseline. Your
+  `credentials.toml` is copied in so the agent stays authenticated. Note:
+  the Devin session DB (`sessions.db`) ignores XDG and still records runs
+  on the host — arena reads per-call token metrics from it there.
 
 Plugin-on cells are unaffected by the forbid: arena skills are copied into
 `.agents/skills/` as workspace content, not installed as plugins.

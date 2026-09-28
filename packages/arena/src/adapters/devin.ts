@@ -14,6 +14,7 @@ import { mkdir, cp, rm, readFile, writeFile } from "node:fs/promises";
 import { existsSync, mkdtempSync, mkdirSync, cpSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, tmpdir } from "node:os";
+import { DatabaseSync } from "node:sqlite";
 
 import type {
   PromptResponse,
@@ -82,6 +83,14 @@ export function transcriptDir(): string {
   return join(homedir(), ".local", "share", "devin", "cli", "transcripts");
 }
 
+/**
+ * Devin CLI session DB. It lives on the host at a fixed path — it does
+ * NOT follow XDG_DATA_HOME, so isolated runs still write here.
+ */
+export function sessionDbPath(): string {
+  return join(homedir(), ".local", "share", "devin", "cli", "sessions.db");
+}
+
 /** Read a transcript JSON file by session ID. Throws if not found. */
 async function readTranscript(
   sessionId: string,
@@ -90,6 +99,176 @@ async function readTranscript(
   const path = join(dir ?? transcriptDir(), `${sessionId}.json`);
   const content = await readFile(path, "utf-8");
   return JSON.parse(content) as Transcript;
+}
+
+/** A message_nodes row: chat_message is a JSON-encoded chat message. */
+interface SessionNodeRow {
+  node_id: number;
+  created_at: number;
+  chat_message: string;
+}
+
+/** Parsed fields of a session-DB chat message we care about. */
+interface SessionNodeMessage {
+  role: string;
+  content?: string;
+  thinking?: { thinking?: string } | null;
+  tool_calls?: { id?: string; name?: string }[] | null;
+  metadata?: {
+    metrics?: {
+      input_tokens?: number | null;
+      output_tokens?: number | null;
+      cache_read_tokens?: number | null;
+    } | null;
+  } | null;
+}
+
+/** One parsed session-DB node: a trace step plus its token metrics (inference calls only). */
+interface ParsedNode {
+  step: TranscriptStep;
+  tokens: { prompt: number; completion: number; cached: number } | null;
+}
+
+/**
+ * Map a message_nodes row to a {@link ParsedNode}. Returns `undefined`
+ * for non-step roles (e.g. `tool` results — their content arrives via
+ * ACP-collected observations; as steps they'd mislabel tool output as
+ * agent output).
+ */
+function parseNode(row: SessionNodeRow): ParsedNode | undefined {
+  const node = JSON.parse(row.chat_message) as SessionNodeMessage;
+  if (
+    node.role !== "system" &&
+    node.role !== "user" &&
+    node.role !== "assistant"
+  ) {
+    return undefined;
+  }
+  const isInference = node.role === "assistant";
+  const toolNames = (node.tool_calls ?? [])
+    .map((t) => t.name)
+    .filter(Boolean)
+    .join(", ");
+  const message = (
+    node.content?.trim() ||
+    node.thinking?.thinking?.trim() ||
+    toolNames
+  ).slice(0, 4000);
+  const m = node.metadata?.metrics;
+  return {
+    step: {
+      step_id: row.node_id,
+      timestamp: new Date(row.created_at).toISOString(),
+      source: isInference ? "agent" : (node.role as "system" | "user"),
+      message,
+      extra: isInference
+        ? { telemetry: { source: "assistant", operation: "inference" } }
+        : null,
+    },
+    tokens: isInference
+      ? {
+          prompt: m?.input_tokens ?? 0,
+          completion: m?.output_tokens ?? 0,
+          cached: m?.cache_read_tokens ?? 0,
+        }
+      : null,
+  };
+}
+
+/** Accumulate one inference call's token counts into transcript totals. */
+function addTokens(
+  metrics: TranscriptMetrics,
+  tokens: NonNullable<ParsedNode["tokens"]>,
+): void {
+  metrics.total_prompt_tokens += tokens.prompt;
+  metrics.total_completion_tokens += tokens.completion;
+  metrics.total_cached_tokens += tokens.cached;
+  metrics.total_steps += 1;
+}
+
+/**
+ * Build a {@link Transcript} from the Devin session DB. `devin acp` never
+ * writes transcript JSON files, but every message (incl. per-call token
+ * metrics) lands in `message_nodes` — each `assistant` node is one LLM
+ * inference call. Returns `undefined` when the session has no rows yet.
+ */
+export function readSessionTranscript(
+  sessionId: string,
+  dbPath?: string,
+): Transcript | undefined {
+  const path = dbPath ?? sessionDbPath();
+  if (!existsSync(path)) return undefined;
+
+  const db = new DatabaseSync(path, { readOnly: true });
+  try {
+    const rows = db
+      .prepare(
+        "SELECT node_id, created_at, chat_message FROM message_nodes WHERE session_id = ? ORDER BY node_id",
+      )
+      .all(sessionId) as unknown as SessionNodeRow[];
+    if (rows.length === 0) return undefined;
+
+    const sessionRow = db
+      .prepare("SELECT model FROM sessions WHERE id = ?")
+      .get(sessionId) as { model?: string } | undefined;
+
+    const steps: TranscriptStep[] = [];
+    const metrics: TranscriptMetrics = {
+      total_prompt_tokens: 0,
+      total_completion_tokens: 0,
+      total_cached_tokens: 0,
+      total_steps: 0,
+    };
+    for (const row of rows) {
+      const parsed = parseNode(row);
+      if (!parsed) continue;
+      steps.push(parsed.step);
+      if (parsed.tokens) addTokens(metrics, parsed.tokens);
+    }
+
+    return {
+      session_id: sessionId,
+      schema_version: "session-db",
+      agent: {
+        name: "devin",
+        version: "",
+        model_name: sessionRow?.model ?? "",
+      },
+      final_metrics: metrics,
+      steps,
+    };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Load a transcript for the session — session DB first (that's where
+ * `devin acp` actually writes), then the transcript file as a fallback.
+ * The DB write can lag `session/prompt` completion, so retry once.
+ */
+async function loadTranscript(
+  sessionId: string,
+  dir?: string,
+): Promise<Transcript | undefined> {
+  const tryDb = (): Transcript | undefined => {
+    try {
+      return readSessionTranscript(sessionId);
+    } catch {
+      return undefined;
+    }
+  };
+  const fromDb =
+    tryDb() ??
+    (await new Promise<Transcript | undefined>((resolve) =>
+      setTimeout(() => resolve(tryDb()), 400),
+    ));
+  if (fromDb) return fromDb;
+  try {
+    return await readTranscript(sessionId, dir);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Count LLM inference calls in a transcript (agent steps with telemetry.operation === "inference"). */
@@ -557,7 +736,8 @@ async function buildTraceFromTranscript(
 ): Promise<TraceData | undefined> {
   if (!sessionId) return undefined;
   try {
-    const transcript = await readTranscript(sessionId, dir);
+    const transcript = await loadTranscript(sessionId, dir);
+    if (!transcript) return undefined;
     const steps = transcript.steps.map(buildTraceStep);
     attachToolCallsToSteps(steps, collectedToolCalls, observationsByCallId);
     return {
