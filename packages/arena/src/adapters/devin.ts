@@ -11,7 +11,7 @@
 
 import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { mkdir, cp, rm, readFile, writeFile } from "node:fs/promises";
-import { existsSync, mkdtempSync, mkdirSync, cpSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, cpSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, tmpdir } from "node:os";
 
@@ -264,21 +264,26 @@ async function writeForbidManifest(workspace: string): Promise<void> {
  */
 function isolateAgentEnv(env: Record<string, string>): string {
   const envHome = mkdtempSync(join(tmpdir(), "arena-env-"));
-  const configDir = join(envHome, "config");
-  const dataDir = join(envHome, "data");
-  mkdirSync(join(dataDir, "devin"), { recursive: true });
-  mkdirSync(configDir, { recursive: true });
+  try {
+    const configDir = join(envHome, "config");
+    const dataDir = join(envHome, "data");
+    mkdirSync(join(dataDir, "devin"), { recursive: true });
+    mkdirSync(configDir, { recursive: true });
 
-  const hostDataHome =
-    process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
-  const creds = join(hostDataHome, "devin", "credentials.toml");
-  if (existsSync(creds)) {
-    cpSync(creds, join(dataDir, "devin", "credentials.toml"));
+    const hostDataHome =
+      process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
+    const creds = join(hostDataHome, "devin", "credentials.toml");
+    if (existsSync(creds)) {
+      cpSync(creds, join(dataDir, "devin", "credentials.toml"));
+    }
+
+    env.XDG_CONFIG_HOME = configDir;
+    env.XDG_DATA_HOME = dataDir;
+    return envHome;
+  } catch (error) {
+    rmSync(envHome, { recursive: true, force: true });
+    throw error;
   }
-
-  env.XDG_CONFIG_HOME = configDir;
-  env.XDG_DATA_HOME = dataDir;
-  return envHome;
 }
 
 // ─── Adapter ─────────────────────────────────────────────────────────

@@ -152,33 +152,37 @@ describe("DevinAdapter", () => {
     expect(opts.env["DEVIN_PERMISSION_MODE"]).toBe("accept-edits");
   });
 
+  /** Spawn the adapter and return the AgentProcess + the isolated env home dir. */
+  function spawnWithEnvHome(adapter: DevinAdapter): {
+    proc: ReturnType<DevinAdapter["spawn"]>;
+    envHome: string;
+  } {
+    const proc = adapter.spawn({ model, workspace: "/tmp/ws", plugins: [] });
+    const opts = vi.mocked(spawnMock).mock.calls.at(-1)?.[2] as {
+      env: Record<string, string>;
+    };
+    return {
+      proc,
+      envHome: dirname(opts.env["XDG_CONFIG_HOME"] ?? ""),
+    };
+  }
+
   it("spawns in an isolated XDG env so host skills/plugins don't leak", () => {
     const mock = mockChild();
     vi.mocked(spawnMock).mockReturnValue(mock.child as never);
 
-    const adapter = new DevinAdapter();
-    adapter.spawn({ model, workspace: "/tmp/ws", plugins: [] });
+    const { envHome } = spawnWithEnvHome(new DevinAdapter());
 
-    const opts = vi.mocked(spawnMock).mock.calls[0]?.[2] as {
-      env: Record<string, string>;
-    };
-    expect(opts.env["XDG_CONFIG_HOME"]).toMatch(/arena-env-/);
-    expect(opts.env["XDG_DATA_HOME"]).toMatch(/arena-env-/);
-    expect(opts.env["XDG_CONFIG_HOME"]).not.toBe(process.env.XDG_CONFIG_HOME);
-    expect(opts.env["XDG_DATA_HOME"]).not.toBe(process.env.XDG_DATA_HOME);
+    expect(envHome).toMatch(/arena-env-/);
+    expect(envHome).not.toBe(dirname(process.env.XDG_CONFIG_HOME ?? ""));
+    expect(envHome).not.toBe(dirname(process.env.XDG_DATA_HOME ?? ""));
   });
 
   it("kill removes the isolated env home", async () => {
     const mock = mockChild();
     vi.mocked(spawnMock).mockReturnValue(mock.child as never);
 
-    const adapter = new DevinAdapter();
-    const proc = adapter.spawn({ model, workspace: "/tmp/ws", plugins: [] });
-
-    const opts = vi.mocked(spawnMock).mock.calls[0]?.[2] as {
-      env: Record<string, string>;
-    };
-    const envHome = dirname(opts.env["XDG_CONFIG_HOME"] ?? "");
+    const { proc, envHome } = spawnWithEnvHome(new DevinAdapter());
     expect(existsSync(envHome)).toBe(true);
 
     proc.kill();
@@ -189,15 +193,9 @@ describe("DevinAdapter", () => {
     const mock = mockChild();
     vi.mocked(spawnMock).mockReturnValue(mock.child as never);
 
-    const adapter = new DevinAdapter();
-    const proc = adapter.spawn({ model, workspace: "/tmp/ws", plugins: [] });
-
-    const opts = vi.mocked(spawnMock).mock.calls[0]?.[2] as {
-      env: Record<string, string>;
-    };
-    const envHome = dirname(opts.env["XDG_CONFIG_HOME"] ?? "");
-
+    const { proc, envHome } = spawnWithEnvHome(new DevinAdapter());
     mock.stdout.push(null);
+
     await proc.run("hello", 5000);
     await vi.waitFor(() => expect(existsSync(envHome)).toBe(false));
   });
