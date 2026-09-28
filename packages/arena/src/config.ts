@@ -156,7 +156,10 @@ export async function loadArenaConfig(
       ...p,
       path: rel(p.path),
     })) as ArenaConfig["plugins"],
-    tasks: file.tasks as ArenaConfig["tasks"],
+    tasks: file.tasks.map((t) => ({
+      ...t,
+      ...(t.fixture !== undefined ? { fixture: rel(t.fixture) } : {}),
+    })) as ArenaConfig["tasks"],
     outputDir: rel(file.outputDir),
     ...(file.workspace !== undefined ? { workspace: rel(file.workspace) } : {}),
     ...(file.repetitions !== undefined

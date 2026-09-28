@@ -44,10 +44,9 @@ export default defineConfig({
 });
 ```
 
-All paths in the config resolve relative to the config file's directory —
-except `fixture`, which resolves relative to the `@sverka/arena` package
-root. The repo's own fixtures live under `packages/arena/fixtures/`; they
-aren't published to npm, so `fixture` is only useful for in-repo runs today.
+All paths in the config file — including `fixture` — resolve relative to
+the config file's directory. (Programmatic `ArenaConfig` callers can still
+use paths relative to the `@sverka/arena` package root.)
 
 ### Config fields
 
