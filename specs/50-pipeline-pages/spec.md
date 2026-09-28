@@ -38,7 +38,7 @@ Publish a `/pipeline/` page on the docs site that visualizes real
 - `deploy-website.yml` — root `bun install` + `bun run build` so the
   source CLI can run the self pipeline; examples use `bunx @sverka/cli`.
 - Entry points: header social link (manually base-prefixed — Starlight
-  doesn't touch social hrefs) and a homepage hero action. Deliberately
+  doesn't rewrite social links) and a homepage hero action. Deliberately
   no sidebar entry — the page is a reports index, not docs.
 
 ## Non-goals
