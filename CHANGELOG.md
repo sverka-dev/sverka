@@ -1,3 +1,13 @@
+## 0.1.11 (2026-09-28)
+
+### 🩹 Fixes
+
+- **arena:** isolate agent env so plugin-off cells are truly off ([#223](https://github.com/sverka-dev/sverka/pull/223))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.10 (2026-09-28)
 
 ### 🚀 Features
