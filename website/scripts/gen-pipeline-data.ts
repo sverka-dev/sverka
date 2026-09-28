@@ -7,11 +7,11 @@
  * A failed pipeline is data, not an error — the script only throws when
  * nothing could be produced. Outputs (gitignored, rebuilt every deploy):
  *   - src/generated/pipelines.json — status data for the /pipeline/ page
- *   - public/pipeline-reports/<id>.html — full standalone run reports
- *     (DAG + SARIF findings) deep-linked from each pipeline section
+ *   - public/pipeline-reports/{,examples/}<id>.html — full standalone
+ *     run reports (DAG + SARIF findings) linked from each section
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { dirname, join } from "node:path";
@@ -29,23 +29,40 @@ interface RunCapture {
   run?: unknown;
   /** Tail of raw output for the failure path. */
   outputTail: string;
-  /** Basename of the full HTML report in public/pipeline-reports/. */
+  /** Report path relative to public/pipeline-reports/, if produced. */
   reportFile?: string;
 }
 
 /**
- * Run `sverka run --format html --output <reportDir>/<id>.html` so the
- * page can deep-link to the full standalone report (DAG + findings).
- * Returns the filename on success.
+ * Run `sverka run --format html --output <reportDir>/<scope>/<id>.html`
+ * so the page can deep-link to the full standalone report (DAG +
+ * findings). `scope` namespaces reports ("" = self, "examples" = demos)
+ * so an example named `sverka` can't clobber the self report. argv form —
+ * no shell — and any previous file is removed first, so a failed run
+ * can't resurrect a stale report. Returns the path relative to
+ * reportDir on success.
  */
-function report(id: string, cwd: string, cli: string): string | undefined {
-  const file = `${id}.html`;
-  capture(
-    `${id}:report`,
-    cwd,
-    `${cli} run --format html --output ${join(reportDir, file)}`,
+function report(
+  scope: string,
+  id: string,
+  cwd: string,
+  cliArgv: string[],
+): string | undefined {
+  const rel = join(scope, `${id}.html`);
+  const out = join(reportDir, rel);
+  rmSync(out, { force: true });
+  mkdirSync(dirname(out), { recursive: true });
+  spawnSync(
+    cliArgv[0]!,
+    [...cliArgv.slice(1), "run", "--format", "html", "--output", out],
+    {
+      cwd,
+      encoding: "utf-8",
+      env: { ...process.env, CI: "true" },
+      timeout: 600_000,
+    },
   );
-  return existsSync(join(reportDir, file)) ? file : undefined;
+  return existsSync(out) ? rel : undefined;
 }
 
 function capture(id: string, cwd: string, command: string): RunCapture {
@@ -85,7 +102,10 @@ const self = capture(
   repoRoot,
   "bun packages/cli/src/bin.ts run --format json",
 );
-self.reportFile = report("sverka", repoRoot, "bun packages/cli/src/bin.ts");
+self.reportFile = report("", "sverka", repoRoot, [
+  "bun",
+  "packages/cli/src/bin.ts",
+]);
 
 let entries: Dirent[] = [];
 try {
@@ -100,7 +120,7 @@ for (const entry of entries.filter((e) => e.isDirectory())) {
   const dir = join(repoRoot, "examples", entry.name);
   capture(`${entry.name}:install`, dir, "bun install --silent");
   const c = capture(entry.name, dir, "bunx sverka run --format json");
-  c.reportFile = report(entry.name, dir, "bunx sverka");
+  c.reportFile = report("examples", entry.name, dir, ["bunx", "sverka"]);
   examples.push(c);
 }
 
