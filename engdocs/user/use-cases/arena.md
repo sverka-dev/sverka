@@ -68,6 +68,24 @@ every combination of plugins on and off. For 1 plugin that means each task
 runs once with the skill installed and once with a clean workspace
 (`.agents/skills/` is wiped before each run to prevent contamination).
 
+## Isolation
+
+"Plugin off" is only meaningful if the agent can't see the skill through
+another channel. Every run therefore gets:
+
+- a repo-level `.devin/config.json` with `forbiddenPlugins: ["*"]` in the
+  workspace — blocks all user/managed Devin plugin installs (including a
+  globally installed copy of the plugin under test). Org/enterprise-required
+  plugins still load — higher authority always wins — but they're a constant
+  baseline across all cells;
+- fresh `XDG_CONFIG_HOME`/`XDG_DATA_HOME` — drops global skills, hooks, and
+  MCP config so every cell shares the same builtin baseline, and keeps
+  benchmark sessions out of your real Devin session history. Your
+  `credentials.toml` is copied in so the agent stays authenticated.
+
+Plugin-on cells are unaffected by the forbid: arena skills are copied into
+`.agents/skills/` as workspace content, not installed as plugins.
+
 Deterministic `checks` run as shell commands after the agent finishes
 (exit 0 = pass). If `judge` is configured, each run's output is also scored
 0–100 by the judge model without being told which plugins were active.

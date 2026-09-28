@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { EventEmitter } from "node:events";
 import { Writable, Readable } from "node:stream";
 import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
 
 import {
@@ -52,6 +53,7 @@ function mockChild(): {
       emitter.emit("exit", 0, sig);
     },
     on: emitter.on.bind(emitter),
+    once: emitter.once.bind(emitter),
     emit: emitter.emit.bind(emitter),
     pid: 12345,
     isKilled: () => killed,
@@ -148,6 +150,54 @@ describe("DevinAdapter", () => {
       env: Record<string, string>;
     };
     expect(opts.env["DEVIN_PERMISSION_MODE"]).toBe("accept-edits");
+  });
+
+  /** Spawn the adapter and return the AgentProcess + the isolated env home dir. */
+  function spawnWithEnvHome(adapter: DevinAdapter): {
+    proc: ReturnType<DevinAdapter["spawn"]>;
+    envHome: string;
+  } {
+    const proc = adapter.spawn({ model, workspace: "/tmp/ws", plugins: [] });
+    const opts = vi.mocked(spawnMock).mock.calls.at(-1)?.[2] as {
+      env: Record<string, string>;
+    };
+    return {
+      proc,
+      envHome: dirname(opts.env["XDG_CONFIG_HOME"] ?? ""),
+    };
+  }
+
+  it("spawns in an isolated XDG env so host skills/plugins don't leak", () => {
+    const mock = mockChild();
+    vi.mocked(spawnMock).mockReturnValue(mock.child as never);
+
+    const { envHome } = spawnWithEnvHome(new DevinAdapter());
+
+    expect(envHome).toMatch(/arena-env-/);
+    expect(envHome).not.toBe(dirname(process.env.XDG_CONFIG_HOME ?? ""));
+    expect(envHome).not.toBe(dirname(process.env.XDG_DATA_HOME ?? ""));
+  });
+
+  it("kill removes the isolated env home", async () => {
+    const mock = mockChild();
+    vi.mocked(spawnMock).mockReturnValue(mock.child as never);
+
+    const { proc, envHome } = spawnWithEnvHome(new DevinAdapter());
+    expect(existsSync(envHome)).toBe(true);
+
+    proc.kill();
+    await vi.waitFor(() => expect(existsSync(envHome)).toBe(false));
+  });
+
+  it("run removes the isolated env home after the session", async () => {
+    const mock = mockChild();
+    vi.mocked(spawnMock).mockReturnValue(mock.child as never);
+
+    const { proc, envHome } = spawnWithEnvHome(new DevinAdapter());
+    mock.stdout.push(null);
+
+    await proc.run("hello", 5000);
+    await vi.waitFor(() => expect(existsSync(envHome)).toBe(false));
   });
 
   it("kill terminates the spawned process", () => {
@@ -265,6 +315,39 @@ describe("installPlugins", () => {
 
     await rm(ws, { recursive: true, force: true });
     await rm(srcA, { recursive: true, force: true });
+  });
+
+  it("writes .devin/config.json with forbiddenPlugins ['*']", async () => {
+    const ws = await mkdtemp(join(tmpdir(), "arena-plugin-"));
+
+    await installPlugins(ws, []);
+
+    const manifest = JSON.parse(
+      await readFile(join(ws, ".devin", "config.json"), "utf-8"),
+    ) as Record<string, unknown>;
+    expect(manifest["forbiddenPlugins"]).toEqual(["*"]);
+
+    await rm(ws, { recursive: true, force: true });
+  });
+
+  it("preserves existing keys when merging the forbid manifest", async () => {
+    const ws = await mkdtemp(join(tmpdir(), "arena-plugin-"));
+    await mkdir(join(ws, ".devin"), { recursive: true });
+    await writeFile(
+      join(ws, ".devin", "config.json"),
+      JSON.stringify({ requiredPlugins: ["org-mandated"], model: "x" }),
+    );
+
+    await installPlugins(ws, []);
+
+    const manifest = JSON.parse(
+      await readFile(join(ws, ".devin", "config.json"), "utf-8"),
+    ) as Record<string, unknown>;
+    expect(manifest["forbiddenPlugins"]).toEqual(["*"]);
+    expect(manifest["requiredPlugins"]).toEqual(["org-mandated"]);
+    expect(manifest["model"]).toBe("x");
+
+    await rm(ws, { recursive: true, force: true });
   });
 });
 
