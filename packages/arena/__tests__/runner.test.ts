@@ -302,6 +302,72 @@ describe("runArena", () => {
     await rm(outDir, { recursive: true, force: true });
   });
 
+  it("runs task.setup before the agent and gates on setup failure", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "arena-test-"));
+    let spawned = 0;
+    const mockAdapter: AgentAdapter = {
+      id: "mock",
+      spawn: (): AgentProcess => {
+        spawned++;
+        return {
+          run: async () => runResult({ success: true }),
+          kill: () => {},
+        };
+      },
+    };
+    const base: ArenaConfig = {
+      tasks: [],
+      agent: mockAdapter,
+      models: [{ id: "m1", name: "M" }],
+      plugins: [],
+      repetitions: 1,
+      outputDir: outDir,
+    };
+
+    // Failing setup → run fails without spawning the agent.
+    const failed = await runArena({
+      ...base,
+      tasks: [
+        {
+          id: "t1",
+          name: "T",
+          prompt: "p",
+          setup: ["echo setup-broke && exit 3"],
+        },
+      ],
+    });
+    expect(failed.results[0]!.success).toBe(false);
+    expect(failed.results[0]!.error).toContain("setup command failed");
+    expect(failed.results[0]!.error).toContain("exit 3");
+    expect(spawned).toBe(0);
+
+    // Successful setup runs in the workspace before the agent — a file it
+    // creates is visible to the post-run deterministic check.
+    const ok = await runArena({
+      ...base,
+      tasks: [
+        {
+          id: "t2",
+          name: "T",
+          prompt: "p",
+          setup: ["touch setup.marker"],
+          checks: [
+            {
+              id: "setup-ran",
+              command: "test -f setup.marker",
+              description: "setup ran in workspace",
+            },
+          ],
+        },
+      ],
+    });
+    expect(spawned).toBe(1);
+    expect(ok.results[0]!.checkResults[0]!.passed).toBe(true);
+    expect(ok.results[0]!.success).toBe(true);
+
+    await rm(outDir, { recursive: true, force: true });
+  });
+
   it("handles zero plugins as a single combination", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "arena-test-"));
     const mockAdapter: AgentAdapter = {

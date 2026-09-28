@@ -10,7 +10,7 @@
 import { writeFile, mkdir, cp, rm, realpath } from "node:fs/promises";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
-import { spawn } from "node:child_process";
+import { spawn, type SpawnOptions } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import type {
@@ -242,6 +242,8 @@ async function executeRun(
   combo: PluginConfig[],
   tempWorkspace: string,
 ): Promise<RunResult> {
+  const setupError = await runSetup(tempWorkspace, task.setup);
+  if (setupError) return errorResult(task, model, combo, setupError);
   const proc = agent.spawn({
     model,
     workspace: tempWorkspace,
@@ -264,6 +266,26 @@ async function executeRun(
   } finally {
     proc.kill();
   }
+}
+
+/** Run a task's setup commands; returns the failure, or null on success. */
+async function runSetup(
+  workspace: string,
+  setup: string[] | undefined,
+): Promise<Error | null> {
+  for (const command of setup ?? []) {
+    try {
+      const { output, exitCode } = await execShell(workspace, command);
+      if (exitCode !== 0) {
+        return new Error(
+          `setup command failed (exit ${exitCode}): ${command}\n${output.trim()}`,
+        );
+      }
+    } catch (error) {
+      return error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  return null;
 }
 
 /** Build a zeroed {@link RunResult} for a failed run. */
@@ -306,6 +328,35 @@ function errorResult(
   };
 }
 
+/** Run a shell command in the workspace, capturing combined output. */
+function execShell(
+  workspace: string,
+  command: string,
+): Promise<{ output: string; exitCode: number }> {
+  return new Promise((resolve, reject) => {
+    const opts: SpawnOptions = {
+      cwd: workspace,
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, CI: "true" },
+    };
+    const proc = spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
+    // Cap captured output — a noisy command must not grow memory without
+    // bound. 256 KiB keeps tail diagnostics while bounding the worst case.
+    const MAX_OUTPUT = 256 * 1024;
+    let stdout = "";
+    const append = (d: Buffer): void => {
+      if (stdout.length < MAX_OUTPUT) stdout += d.toString();
+    };
+    proc.stdout?.on("data", append);
+    proc.stderr?.on("data", append);
+    proc.on("close", (code: number | null) => {
+      // null = killed by signal; treat as failure, not a crash source.
+      resolve({ output: stdout, exitCode: code ?? -1 });
+    });
+    proc.on("error", reject);
+  });
+}
+
 /** Run deterministic checks in the workspace. */
 async function runChecks(
   workspace: string,
@@ -315,28 +366,7 @@ async function runChecks(
   const results: CheckResult[] = [];
   for (const check of checks) {
     try {
-      const { output, exitCode } = await new Promise<{
-        output: string;
-        exitCode: number;
-      }>((resolve, reject) => {
-        const proc = spawn("bash", ["-c", check.command], {
-          // NOSONAR — PATH needed for check commands
-          cwd: workspace,
-          stdio: ["pipe", "pipe", "pipe"],
-          env: { ...process.env, CI: "true" },
-        });
-        let stdout = "";
-        proc.stdout?.on("data", (d: Buffer) => {
-          stdout += d.toString();
-        });
-        proc.stderr?.on("data", (d: Buffer) => {
-          stdout += d.toString();
-        });
-        proc.on("close", (code: number) => {
-          resolve({ output: stdout, exitCode: code });
-        });
-        proc.on("error", reject);
-      });
+      const { output, exitCode } = await execShell(workspace, check.command);
       results.push({
         checkId: check.id,
         passed: exitCode === 0,

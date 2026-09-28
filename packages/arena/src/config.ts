@@ -67,6 +67,7 @@ const taskSchema = z.object({
   successCriteria: z.string().optional(),
   expectedOutput: z.string().optional(),
   fixture: z.string().optional(),
+  setup: z.array(z.string()).optional(),
   checks: z.array(checkSchema).optional(),
 });
 

@@ -15,6 +15,9 @@ website/.astro/
 website/public/
 .sverka/
 
+# Arena fixtures — deliberately broken formatting is the test data
+packages/arena/fixtures/
+
 # Tool-managed directories
 .beads/
 .codacy/

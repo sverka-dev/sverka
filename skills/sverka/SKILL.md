@@ -69,11 +69,17 @@ Key rules:
 - Use `npm run <script>` for package.json scripts, `npx <tool>` for standalone tools
 - Import from `@sverka/workflow`, NOT `@sverka/cdk` (that is an empty package)
 
-### Step 3: Install dependency
+### Step 3: Install dependencies
+
+The config needs `@sverka/workflow`; the `sverka` binary comes from
+`@sverka/cli` (there is no unscoped `sverka` npm package — `npx sverka`
+resolves the locally installed bin):
 
 ```bash
-npm install --save-dev @sverka/workflow
+npm install --save-dev @sverka/workflow @sverka/cli
 ```
+
+Or install the CLI globally once: `bun add -g @sverka/cli`.
 
 ### Step 4: Run everything
 
