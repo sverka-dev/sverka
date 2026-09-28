@@ -10,7 +10,7 @@
 import { writeFile, mkdir, cp, rm, realpath } from "node:fs/promises";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
-import { spawn } from "node:child_process";
+import { spawn, type SpawnOptions } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import type {
@@ -334,9 +334,9 @@ function execShell(
   command: string,
 ): Promise<{ output: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const opts = {
+    const opts: SpawnOptions = {
       cwd: workspace,
-      stdio: ["pipe", "pipe", "pipe"] as const,
+      stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, CI: "true" },
     };
     const proc = spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
