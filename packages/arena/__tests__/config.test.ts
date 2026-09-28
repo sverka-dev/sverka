@@ -54,8 +54,9 @@ describe("loadArenaConfig", () => {
     const cfg = await loadArenaConfig(join(dir, "good.config.ts"));
     expect(cfg.agent.id).toBe("devin");
     expect(cfg.models[0]?.id).toBe("m1");
-    expect(cfg.outputDir).toBe(".arena");
-    expect(cfg.plugins[0]?.id).toBe("sverka");
+    // Paths anchor to the config file's directory, not the process cwd.
+    expect(cfg.outputDir).toBe(join(dir, ".arena"));
+    expect(cfg.plugins[0]?.path).toBe(join(dir, "plugins/sverka"));
   });
 
   it("wires judge agent from the same registry", async () => {

@@ -114,6 +114,22 @@ The same workflow compiles to multiple CI targets:
 **Why this matters:** No lock-in. Define once, compile to any target.
 Switch CI providers without rewriting your checks.
 
+## 7. Agent benchmarking
+
+`@sverka/arena` runs agents against tasks with and without a plugin, then
+measures tokens, tool calls, wall time, and a blind judge score.
+
+```bash
+sverka-arena doctor    # verify the environment
+sverka-arena run       # run the matrix (models × plugins × repetitions)
+sverka-arena report .arena/<run>/results.json
+```
+
+**Why this matters:** "Does this skill help?" is measurable. Arena puts a
+number on plugin impact instead of guessing.
+
+See [Arena — benchmarking agents](arena.md) for config and command details.
+
 ## Next steps
 
 - [Concepts](../concepts/README.md) — design principles and architecture.
