@@ -1,26 +1,10 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
 
-interface Step {
-  stepId: string;
-  status: string;
-  durationMs?: number;
-  error?: string;
-  stdout?: string;
-  stderr?: string;
-  exitCode?: number;
-}
-interface RunData {
-  status: string;
-  planId?: string;
-  steps?: Step[];
-  durationMs?: number;
-}
 interface Capture {
   id: string;
   exitCode: number;
-  run?: { data?: RunData; durationMs?: number };
-  outputTail?: string;
+  run?: { data?: { status: string }; durationMs?: number };
   reportFile?: string;
 }
 interface PipelineData {
@@ -55,9 +39,13 @@ const reportHref = (c: Capture): string | undefined =>
   c.reportFile
     ? `${import.meta.env.BASE_URL}pipeline-reports/${c.reportFile}`
     : undefined;
+const captures = (d: PipelineData): { label: string; c: Capture }[] => [
+  { label: "sverka (this repo)", c: d.self },
+  ...d.examples.map((c) => ({ label: `examples/${c.id}`, c })),
+];
 ---
 
-<StarlightPage frontmatter={{ title: "Pipeline status" }}>
+<StarlightPage frontmatter={{ title: "Pipeline reports" }}>
   {
     data === null ? (
       <p class="meta">
@@ -70,85 +58,36 @@ const reportHref = (c: Capture): string | undefined =>
   <>
   <p class="meta">
     Generated {new Date(data.generatedAt).toUTCString()} · commit
-    <code>{data.commit || "local"}</code>
+    <code>{data.commit || "local"}</code>. Each report is a real
+    <code>sverka run</code> executed during the site deploy — the full
+    report includes the workflow DAG and SARIF findings.
   </p>
-
-  <h2>This repository</h2>
-  <p class="meta">
-    Live <code>sverka run --format json</code> of the repo's own
-    <code>sverka.config.ts</code>, executed during the site deploy.
-  </p>
-  {[data.self].map((c) => (
-    <section class={`pipeline ${chip(overall(c))}`}>
-      <header>
-        <span class={`badge ${chip(overall(c))}`}>{overall(c)}</span>
-        <strong>{c.id}</strong>
-        <span class="meta">{fmtMs(c.run?.durationMs)}</span>
-        {reportHref(c) ? (
-          <a class="meta" href={reportHref(c)}>full report →</a>
-        ) : null}
-      </header>
-      {c.run?.data?.steps ? (
-        <ol class="steps">
-          {c.run.data.steps.map((s) => (
-            <li class={`step ${chip(s.status)}`}>
-              <span class={`dot ${chip(s.status)}`} />
-              <code>{s.stepId}</code>
-              <span class="meta">{fmtMs(s.durationMs)}</span>
-              {s.error || s.stdout || s.stderr ? (
-                <details>
-                  <summary>{s.error ?? "output"}</summary>
-                  {s.stdout ? <pre>{s.stdout}</pre> : null}
-                  {s.stderr ? <pre class="err">{s.stderr}</pre> : null}
-                </details>
-              ) : null}
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <pre class="err">{c.outputTail || "no output captured"}</pre>
-      )}
-    </section>
-  ))}
-
-  <h2>Examples</h2>
-  <p class="meta">
-    Real <code>sverka run</code> against the projects in
-    <code>examples/</code> via the published <code>@sverka/cli</code> — each
-    is designed to produce a known pipeline state.
-  </p>
-  {data.examples.map((c) => (
-    <section class={`pipeline ${chip(overall(c))}`}>
-      <header>
-        <span class={`badge ${chip(overall(c))}`}>{overall(c)}</span>
-        <strong>examples/{c.id}</strong>
-        <span class="meta">{fmtMs(c.run?.durationMs)}</span>
-        {reportHref(c) ? (
-          <a class="meta" href={reportHref(c)}>full report →</a>
-        ) : null}
-      </header>
-      {c.run?.data?.steps ? (
-        <ol class="steps">
-          {c.run.data.steps.map((s) => (
-            <li class={`step ${chip(s.status)}`}>
-              <span class={`dot ${chip(s.status)}`} />
-              <code>{s.stepId}</code>
-              <span class="meta">{fmtMs(s.durationMs)}</span>
-              {s.error || s.stdout || s.stderr ? (
-                <details>
-                  <summary>{s.error ?? "output"}</summary>
-                  {s.stdout ? <pre>{s.stdout}</pre> : null}
-                  {s.stderr ? <pre class="err">{s.stderr}</pre> : null}
-                </details>
-              ) : null}
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <pre class="err">{c.outputTail || "no output captured"}</pre>
-      )}
-    </section>
-  ))}
+  <table>
+    <thead>
+      <tr>
+        <th>Pipeline</th>
+        <th>Status</th>
+        <th>Duration</th>
+        <th>Report</th>
+      </tr>
+    </thead>
+    <tbody>
+      {captures(data).map(({ label, c }) => (
+        <tr>
+          <td><code>{label}</code></td>
+          <td><span class={`badge ${chip(overall(c))}`}>{overall(c)}</span></td>
+          <td class="meta">{fmtMs(c.run?.durationMs)}</td>
+          <td>
+            {reportHref(c) ? (
+              <a href={reportHref(c)}>open report →</a>
+            ) : (
+              <span class="meta">not produced</span>
+            )}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
   </>
   )}
 </StarlightPage>
@@ -157,23 +96,6 @@ const reportHref = (c: Capture): string | undefined =>
   .meta {
     color: var(--sl-color-gray-3);
     font-size: 0.875rem;
-  }
-  .pipeline {
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 0.5rem;
-    padding: 0.75rem 1rem;
-    margin: 0.75rem 0 1.5rem;
-  }
-  .pipeline.ok {
-    border-left: 4px solid var(--sl-color-green);
-  }
-  .pipeline.fail {
-    border-left: 4px solid var(--sl-color-red);
-  }
-  .pipeline header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
   }
   .badge {
     border-radius: 999px;
@@ -193,48 +115,5 @@ const reportHref = (c: Capture): string | undefined =>
   .badge.skip {
     background: var(--sl-color-gray-6);
     color: var(--sl-color-gray-2);
-  }
-  .steps {
-    list-style: none;
-    padding-left: 0;
-    margin-top: 0.75rem;
-  }
-  .step {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    padding: 0.2rem 0;
-    flex-wrap: wrap;
-  }
-  .dot {
-    width: 0.6rem;
-    height: 0.6rem;
-    border-radius: 50%;
-    flex: none;
-  }
-  .dot.ok {
-    background: var(--sl-color-green);
-  }
-  .dot.fail {
-    background: var(--sl-color-red);
-  }
-  .dot.skip {
-    background: var(--sl-color-gray-4);
-  }
-  .step details {
-    flex-basis: 100%;
-  }
-  .step summary {
-    color: var(--sl-color-red-high);
-    cursor: pointer;
-    font-size: 0.8rem;
-  }
-  .step pre {
-    font-size: 0.75rem;
-    max-height: 16rem;
-    overflow: auto;
-  }
-  .step pre.err {
-    color: var(--sl-color-red-high);
   }
 </style>

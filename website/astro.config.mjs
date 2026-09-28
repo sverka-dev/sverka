@@ -55,7 +55,7 @@ export default defineConfig({
       social: [
         {
           icon: "heart",
-          label: "Pipeline status",
+          label: "Pipeline reports",
           // public-adjacent route — Starlight doesn't base-prefix social
           // hrefs, so prepend the configured base ourselves.
           href: `${basePath}/pipeline/`,
