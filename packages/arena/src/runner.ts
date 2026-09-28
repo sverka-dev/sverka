@@ -7,7 +7,7 @@
  * and kills the agent. Results are aggregated into {@link ArenaResult}.
  */
 
-import { writeFile, mkdir, cp, rm } from "node:fs/promises";
+import { writeFile, mkdir, cp, rm, realpath } from "node:fs/promises";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
@@ -217,13 +217,14 @@ async function createTempWorkspace(
     const fixturePath = resolve(PKG_ROOT, task.fixture);
     // Prevent path traversal: relative fixtures must stay under PKG_ROOT.
     // Absolute paths (e.g. anchored to the config file by loadArenaConfig)
-    // are trusted as intentional.
-    if (
-      !isAbsolute(task.fixture) &&
-      !fixturePath.startsWith(PKG_ROOT + sep) &&
-      fixturePath !== PKG_ROOT
-    ) {
-      throw new Error(`Fixture path escapes package root: ${task.fixture}`);
+    // are trusted as intentional. realpath() catches a fixture dir that is
+    // itself a symlink escaping the root.
+    if (!isAbsolute(task.fixture)) {
+      const real = await realpath(fixturePath);
+      const realRoot = await realpath(PKG_ROOT);
+      if (!real.startsWith(realRoot + sep) && real !== realRoot) {
+        throw new Error(`Fixture path escapes package root: ${task.fixture}`);
+      }
     }
     await cp(fixturePath, tempWorkspace, { recursive: true });
   }
