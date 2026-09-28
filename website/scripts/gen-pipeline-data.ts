@@ -85,6 +85,14 @@ const commit = (
   }).stdout ?? ""
 ).trim();
 
+// A page with zero parsed runs is meaningless — fail the build loudly
+// instead of rendering a page full of "no output captured".
+if (![self, ...examples].some((c) => c.run)) {
+  throw new Error(
+    "no sverka run produced JSON output — check CLI availability",
+  );
+}
+
 await mkdir(dirname(outFile), { recursive: true });
 await writeFile(
   outFile,
