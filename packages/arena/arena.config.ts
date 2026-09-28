@@ -5,7 +5,7 @@
  * From the repo root:
  *   sverka-arena doctor --config packages/arena/arena.config.ts
  *   sverka-arena run    --config packages/arena/arena.config.ts
- *   sverka-arena report packages/arena/.arena/<run>/results.json
+ *   sverka-arena report packages/arena/.arena/results.json
  * (paths inside this file resolve relative to the file itself, so the
  * --config path is the only cwd-dependent piece)
  *

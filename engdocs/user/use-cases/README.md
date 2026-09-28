@@ -122,7 +122,7 @@ measures tokens, tool calls, wall time, and (optionally) a blind judge score.
 ```bash
 sverka-arena doctor    # verify the environment
 sverka-arena run       # run the matrix (models × plugins × repetitions)
-sverka-arena report .arena/<run>/results.json
+sverka-arena report .arena/results.json
 ```
 
 **Why this matters:** "Does this skill help?" is measurable. Arena puts a
