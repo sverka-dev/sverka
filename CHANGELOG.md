@@ -1,3 +1,14 @@
+## 0.1.13 (2026-09-28)
+
+### 🚀 Features
+
+- **arena:** verification-suite dogfood fixture + task setup hook ([#226](https://github.com/sverka-dev/sverka/pull/226))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.12 (2026-09-28)
 
 ### 🩹 Fixes
