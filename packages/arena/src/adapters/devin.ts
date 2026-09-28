@@ -175,6 +175,17 @@ function parseNode(row: SessionNodeRow): ParsedNode | undefined {
   };
 }
 
+/** Accumulate one inference call's token counts into transcript totals. */
+function addTokens(
+  metrics: TranscriptMetrics,
+  tokens: NonNullable<ParsedNode["tokens"]>,
+): void {
+  metrics.total_prompt_tokens += tokens.prompt;
+  metrics.total_completion_tokens += tokens.completion;
+  metrics.total_cached_tokens += tokens.cached;
+  metrics.total_steps += 1;
+}
+
 /**
  * Build a {@link Transcript} from the Devin session DB. `devin acp` never
  * writes transcript JSON files, but every message (incl. per-call token
@@ -212,12 +223,7 @@ export function readSessionTranscript(
       const parsed = parseNode(row);
       if (!parsed) continue;
       steps.push(parsed.step);
-      if (parsed.tokens) {
-        metrics.total_prompt_tokens += parsed.tokens.prompt;
-        metrics.total_completion_tokens += parsed.tokens.completion;
-        metrics.total_cached_tokens += parsed.tokens.cached;
-        metrics.total_steps += 1;
-      }
+      if (parsed.tokens) addTokens(metrics, parsed.tokens);
     }
 
     return {
