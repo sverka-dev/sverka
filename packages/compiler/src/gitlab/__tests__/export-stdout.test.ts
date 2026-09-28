@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { compileGitlab } from "../index.js";
+import { compileGitlab } from "../../index.js";
 import {
   makeStdoutArtifactGraph,
   makeDoubleStdoutArtifactGraph,

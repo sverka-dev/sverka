@@ -19,7 +19,7 @@ import {
   compileGitlab,
   GitlabTargetError,
   type GitlabJob,
-} from "../index.js";
+} from "../../index.js";
 import type { GitlabTargetGraph } from "../types.js";
 
 function singleGraph(

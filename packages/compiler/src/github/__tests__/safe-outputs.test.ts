@@ -8,7 +8,7 @@ import {
   Entry,
 } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
-import { compileGithub, githubCapabilities } from "../index.js";
+import { compileGithub, githubCapabilities } from "../../index.js";
 
 function makeGraphWithPermissions(
   writeDecls: readonly { kind: string; target: string; description?: string }[],

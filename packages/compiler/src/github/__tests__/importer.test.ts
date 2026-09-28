@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { importGithub, importGithubWithDiagnostics } from "../index.js";
+import { importGithub, importGithubWithDiagnostics } from "../../index.js";
 
 describe("importGithub", () => {
   it("imports a simple GitHub workflow with a shell step", () => {

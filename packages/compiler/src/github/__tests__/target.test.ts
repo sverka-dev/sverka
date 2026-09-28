@@ -20,7 +20,7 @@ import {
   GithubTargetError,
   type GithubTargetGraph,
   type GithubJob,
-} from "../index.js";
+} from "../../index.js";
 
 function makeSimpleGraph(): ReturnType<typeof synthesize> {
   const proj = new Project("test");

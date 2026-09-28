@@ -15,7 +15,7 @@ import {
   compileGithub,
   type PinRegistry,
   type PinningConfig,
-} from "../index.js";
+} from "../../index.js";
 
 const BUNDLED = loadBundledRegistry();
 const CHECKOUT_SHA = BUNDLED["actions/checkout@v4"]!;
