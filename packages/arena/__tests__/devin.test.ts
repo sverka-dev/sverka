@@ -53,6 +53,7 @@ function mockChild(): {
       emitter.emit("exit", 0, sig);
     },
     on: emitter.on.bind(emitter),
+    once: emitter.once.bind(emitter),
     emit: emitter.emit.bind(emitter),
     pid: 12345,
     isKilled: () => killed,

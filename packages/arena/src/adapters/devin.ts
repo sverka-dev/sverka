@@ -248,6 +248,7 @@ async function writeForbidManifest(workspace: string): Promise<void> {
   }
   manifest.forbiddenPlugins = ["*"];
   await mkdir(devinDir, { recursive: true });
+  // codeql[js/insecure-temporary-file] — inside a private mkdtemp (0700) workspace, not a predictable shared temp file
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
@@ -303,7 +304,27 @@ export class DevinAdapter implements AgentAdapter {
     const cleanup = (): void => {
       if (cleaned) return;
       cleaned = true;
-      rm(envHome, { recursive: true, force: true }).catch(() => {});
+      rm(envHome, { recursive: true, force: true }).catch((err: unknown) => {
+        console.warn(
+          `[arena] failed to remove isolated env ${envHome}: ${String(err)}`,
+        );
+      });
+    };
+
+    // SIGTERM, wait for exit (SIGKILL fallback), then remove envHome —
+    // the child may still be writing session data/transcripts into it.
+    const terminate = (): void => {
+      if (proc.exitCode != null || proc.signalCode != null) {
+        cleanup();
+        return;
+      }
+      proc.once("exit", cleanup);
+      const force = setTimeout(() => {
+        proc.kill("SIGKILL");
+        cleanup();
+      }, 5_000);
+      force.unref();
+      proc.kill("SIGTERM");
     };
 
     return {
@@ -317,14 +338,13 @@ export class DevinAdapter implements AgentAdapter {
             envHome,
           );
         } finally {
-          cleanup();
+          terminate();
         }
       },
       kill: (): void => {
         if (killed) return;
         killed = true;
-        proc.kill("SIGTERM");
-        cleanup();
+        terminate();
       },
     };
   }
