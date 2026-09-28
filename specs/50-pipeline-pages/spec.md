@@ -26,7 +26,12 @@ Publish a `/pipeline/` page on the docs site that visualizes real
   could be produced at all.
 - `website/src/pages/pipeline.astro` — static page: status badge, commit
   sha, duration, per-step chips (succeeded/failed/skipped), expandable
-  stdout/stderr on failures.
+  stdout/stderr on failures, plus a `full report →` link per pipeline.
+- Full reports — for every capture the generator also runs
+  `sverka run --format html --output public/pipeline-reports/<id>.html`,
+  producing the standalone run report (DAG + SARIF findings table). Files
+  are gitignored build output; the page links to them with a base-prefixed
+  href (public assets are not routed through Starlight's base handling).
 - `examples/` — self-contained projects, each with `package.json`
   (`@sverka/cli` + `@sverka/workflow` devDeps) and its own lockfile.
 - `deploy-website.yml` — root `bun install` + `bun run build` so the
