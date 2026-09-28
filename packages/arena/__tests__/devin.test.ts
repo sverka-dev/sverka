@@ -472,7 +472,8 @@ describe("countLlmCalls", () => {
     const t = readSessionTranscript("s1", dbPath);
     expect(t).toBeDefined();
     expect(t?.agent.model_name).toBe("swe-2-medium");
-    expect(t?.steps).toHaveLength(4);
+    // tool-role nodes are skipped — their content arrives via ACP observations
+    expect(t?.steps).toHaveLength(3);
     expect(t?.steps[1]?.message).toBe("let me look");
     expect(countLlmCalls(t!)).toBe(2);
     expect(t?.final_metrics).toEqual({

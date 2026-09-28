@@ -159,12 +159,17 @@ export function readSessionTranscript(
 
     for (const row of rows) {
       const node = JSON.parse(row.chat_message) as SessionNodeMessage;
-      const source =
-        node.role === "assistant"
-          ? "agent"
-          : node.role === "system" || node.role === "user"
-            ? node.role
-            : "agent";
+      // Tool-result nodes are not steps — their content arrives via
+      // ACP-collected observations; mapping them to "agent" steps would
+      // mislabel tool output as agent output.
+      if (
+        node.role !== "system" &&
+        node.role !== "user" &&
+        node.role !== "assistant"
+      ) {
+        continue;
+      }
+      const source = node.role === "assistant" ? "agent" : node.role;
       const message =
         node.content?.trim() ||
         node.thinking?.thinking?.trim() ||
@@ -218,10 +223,17 @@ async function loadTranscript(
   sessionId: string,
   dir?: string,
 ): Promise<Transcript | undefined> {
+  const tryDb = (): Transcript | undefined => {
+    try {
+      return readSessionTranscript(sessionId);
+    } catch {
+      return undefined;
+    }
+  };
   const fromDb =
-    readSessionTranscript(sessionId) ??
+    tryDb() ??
     (await new Promise<Transcript | undefined>((resolve) =>
-      setTimeout(() => resolve(readSessionTranscript(sessionId)), 400),
+      setTimeout(() => resolve(tryDb()), 400),
     ));
   if (fromDb) return fromDb;
   try {
