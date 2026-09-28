@@ -21,7 +21,7 @@ import { defineConfig } from "@sverka/arena";
 
 export default defineConfig({
   agent: "devin",
-  models: [{ id: "opus", name: "Claude Opus" }],
+  models: [{ id: "swe-2-max", name: "SWE-2 Max" }], // free tier
   plugins: [
     // The variable under test — a skill directory copied into
     // <workspace>/.agents/skills/<id>/ when enabled.
