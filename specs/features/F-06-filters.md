@@ -133,7 +133,7 @@ support glob branch matching in `rules:if`).
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpush_branchespush_branches-ignorepathspaths-ignore
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#ruleschanges
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpush_branchespush_branches-ignorepathspaths-ignore>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#ruleschanges>
 - Architecture spec: §13, §31.3
 - Source: `packages/cdk/src/model.ts:8-12`, `packages/github/src/lower.ts:198-237`, `packages/gitlab/src/lower.ts:300-347`

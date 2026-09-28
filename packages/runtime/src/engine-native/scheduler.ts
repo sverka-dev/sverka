@@ -13,13 +13,6 @@ export type StepState =
   | "cancelled"
   | "skipped";
 
-export interface SchedulerEntry {
-  readonly step: StepDefinition;
-  state: StepState;
-  error?: string;
-  durationMs?: number;
-}
-
 export interface StepGraph {
   readonly order: readonly string[];
   readonly stepMap: ReadonlyMap<string, StepDefinition>;

@@ -144,7 +144,7 @@ lowering shortens it to the job ID for artifact naming.
 
 ## References
 
-- GitHub: https://github.com/actions/download-artifact
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#needs
+- GitHub: <https://github.com/actions/download-artifact>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#needs>
 - Architecture spec: §12.2, §15, §11.4
 - Source: `packages/core/src/graph.ts:67-72`, `packages/core/src/synthesize.ts:148-178`, `packages/github/src/lower.ts:396-404`, `packages/gitlab/src/lower.ts:505-509`, `packages/engine-native/src/step-executor.ts:167-178`

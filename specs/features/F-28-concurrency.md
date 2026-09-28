@@ -122,6 +122,6 @@ GitHub has richer concurrency control (cancel, queue). GitLab only has mutual ex
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrency
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#resource_group
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrency>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#resource_group>
 - Architecture spec: §25, §32 (deferred)

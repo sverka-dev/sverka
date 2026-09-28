@@ -128,6 +128,6 @@ No provider has native background execution support. Both use shell `&` as a wor
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#script
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#script>
 - Architecture spec: §25, §32 (deferred)

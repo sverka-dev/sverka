@@ -100,6 +100,6 @@ This is the starkest provider divergence in the trigger space. GitHub is YAML-na
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onschedule
-- GitLab: https://docs.gitlab.com/ee/ci/pipelines/schedules.html
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onschedule>
+- GitLab: <https://docs.gitlab.com/ee/ci/pipelines/schedules.html>
 - Architecture spec: §25, §32 (deferred)

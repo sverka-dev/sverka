@@ -121,6 +121,6 @@ class CI { ... }
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#name
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#workflowname
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#name>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#workflowname>
 - Architecture spec: §25 (Feature Matrix)

@@ -69,7 +69,7 @@ suppression filtering for `@sverka/findings`:
 Mirror `planner` / `runtime-host` (one module per concern, `__tests__/`
 co-located):
 
-```
+```text
 packages/findings/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   types.ts              # Finding, Severity, FindingSource, NormalizeContext, FingerprintInput

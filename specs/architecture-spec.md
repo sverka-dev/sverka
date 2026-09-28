@@ -4,7 +4,7 @@
 **Version:** 0.1  
 **Date:** 2026-08-12
 
-### Normative language
+## Normative language
 
 The terms **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are used to distinguish required behavior from recommendations and optional extensions.
 

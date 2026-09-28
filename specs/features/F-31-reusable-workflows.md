@@ -154,7 +154,7 @@ GitHub calls reusable workflows as jobs (separate execution context). GitLab mer
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/reusing-workflows
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#include
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#trigger
+- GitHub: <https://docs.github.com/en/actions/using-workflows/reusing-workflows>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#include>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#trigger>
 - Architecture spec: §25, §32 (deferred)

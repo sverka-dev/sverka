@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile, rm, readdir, stat } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import type { GitCli } from "../../internal/git-cli.js";
@@ -131,6 +131,3 @@ export async function listFiles(root: string): Promise<string[]> {
   out.sort();
   return out;
 }
-
-/** Read a file under root as UTF-8 text (for asserting contents). */
-export { stat };

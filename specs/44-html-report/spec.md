@@ -118,26 +118,32 @@ Reuses `ReporterError` with code `"RENDER_ERROR"` (already defined in spec 43).
 
 ### HTML structure
 
-```
+```html
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sverka Run Report</title>
-  <style>/* inline dark theme CSS */</style>
-</head>
-<body>
-  <header><!-- run summary: planId, status, duration --></header>
-  <section id="verdict"><!-- policy verdict banner --></section>
-  <section id="dag"><!-- ReactFlow container + noscript SVG fallback --></section>
-  <section id="findings"><!-- filterable findings table --></section>
-  <section id="steps"><!-- per-step collapsible details --></section>
-  <script src="react-cdn"></script>
-  <script src="reactdom-cdn"></script>
-  <script src="reactflow-cdn"></script>
-  <script>/* inline data + ReactFlow init + findings table JS */</script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sverka Run Report</title>
+    <style>
+      /* inline dark theme CSS */
+    </style>
+  </head>
+  <body>
+    <header><!-- run summary: planId, status, duration --></header>
+    <section id="verdict"><!-- policy verdict banner --></section>
+    <section id="dag">
+      <!-- ReactFlow container + noscript SVG fallback -->
+    </section>
+    <section id="findings"><!-- filterable findings table --></section>
+    <section id="steps"><!-- per-step collapsible details --></section>
+    <script src="react-cdn"></script>
+    <script src="reactdom-cdn"></script>
+    <script src="reactflow-cdn"></script>
+    <script>
+      /* inline data + ReactFlow init + findings table JS */
+    </script>
+  </body>
 </html>
 ```
 
@@ -167,7 +173,7 @@ Each step from `UIState.steps` gets a `<details>` element:
 
 ### New flags
 
-```
+```bash
 sverka run [--format text|json|html] [--output <path>] [--evaluate]
 ```
 

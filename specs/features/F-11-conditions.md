@@ -109,6 +109,6 @@ Status-based conditions map cleanly. Expression-based conditions require transla
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idif
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#ruleswhen
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idif>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#ruleswhen>
 - Architecture spec: §25, §32 (deferred)

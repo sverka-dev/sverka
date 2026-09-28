@@ -115,7 +115,7 @@ GitLab has fine-grained per-job interruptible control. GitHub only has workflow-
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#interruptible
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancel
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrencycancel-in-progress
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#interruptible>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancel>
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrencycancel-in-progress>
 - Architecture spec: §25, §32 (deferred)

@@ -128,7 +128,7 @@ provider's own container isolation.
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainer
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#image
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainer>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#image>
 - Architecture spec: §14.1, §22.4
 - Source: `packages/cdk/src/model.ts:101-106`, `packages/sdk/src/images.ts:1-36`, `packages/github/src/lower.ts:279-290`, `packages/gitlab/src/lower.ts:409-422`, `packages/runtime-docker/src/docker-driver.ts:19-101`

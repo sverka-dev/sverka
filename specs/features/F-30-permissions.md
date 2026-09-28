@@ -116,5 +116,5 @@ Permissions are entirely GitHub-specific. GitLab manages access through project 
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions>
 - Architecture spec: §25, §32 (deferred)

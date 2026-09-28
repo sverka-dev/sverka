@@ -23,7 +23,7 @@
 
 ### Markdown (`@sverka/sdk`)
 
-```
+```text
 packages/sdk/src/markdown/
   parser.ts       — parseMarkdown() + loadMarkdownFile()
   types.ts        — MarkdownFrontmatter, MarkdownTrigger, MarkdownStep
@@ -37,7 +37,7 @@ packages/sdk/src/markdown/
 
 ### Observability (`@sverka/runtime` + `@sverka/cli`)
 
-```
+```text
 packages/runtime/src/engine-native/
   report.ts       — RunReport types + collectReport() + writeReport()
   (modify engine.ts — wire report collection into run())
@@ -53,7 +53,7 @@ packages/cli/src/commands/
 
 ### Visualization (`@sverka/cli`)
 
-```
+```text
 packages/cli/src/commands/
   (modify graph.ts — add --format mermaid + --output)
   __tests__/
@@ -62,7 +62,7 @@ packages/cli/src/commands/
 
 ### Conformance (`@sverka/conformance`)
 
-```
+```text
 packages/conformance/
   package.json    (test-only: vitest, no main/exports)
   tsconfig.json

@@ -20,7 +20,7 @@ No new external deps. Workspace deps: `@sverka/runtime`, `@sverka/verification`.
 
 ## File layout
 
-```
+```text
 packages/reporter/
   package.json
   project.json
@@ -46,7 +46,7 @@ packages/reporter/
 
 ## CLI changes
 
-```
+```text
 packages/cli/src/
   types.ts                # format: "text" | "json" (rename "human" → "text")
   commands/run.ts         # wire TextRenderer + FindingsCollector + PolicyGate

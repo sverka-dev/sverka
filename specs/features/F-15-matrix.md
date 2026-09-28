@@ -120,6 +120,6 @@ GitHub has include/exclude; GitLab doesn't. Sverka handles exclude by filtering 
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrix
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#parallelmatrix
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrix>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#parallelmatrix>
 - Architecture spec: §25, §32 (deferred)

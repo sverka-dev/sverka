@@ -97,7 +97,7 @@ interface CacheSpec {
 
 FileCacheStore on-disk layout:
 
-```
+```text
 <cacheDir>/<sha256(key)>/
   manifest.json   // { key, paths, createdAt }
   <path[0]>       // copied tree(s)

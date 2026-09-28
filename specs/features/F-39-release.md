@@ -121,6 +121,6 @@ GitLab has a native `release` keyword. GitHub requires a third-party action. Ass
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#release
-- GitHub: https://github.com/softprops/action-gh-release
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#release>
+- GitHub: <https://github.com/softprops/action-gh-release>
 - Architecture spec: §25, §32 (deferred)

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["sverka.config.ts", "scripts/**/*.ts"],
+      "project": ["scripts/**/*.ts", "sverka.config.ts"],
+      "ignoreDependencies": [
+        "@nx/js",
+        "@secretlint/secretlint-rule-preset-recommend"
+      ]
+    },
+    "packages/*": {
+      "entry": ["src/index.ts!", "src/bin.ts!"],
+      "project": ["src/**/*.ts", "src/**/*.tsx"]
+    }
+  },
+  "ignore": [
+    "vendor/**",
+    "website/**",
+    "packages/arena/fixtures/**",
+    "**/__tests__/fixtures/**",
+    "packages/sdk/src/compat/**",
+    "packages/workflow/src/ir/compat/**",
+    "packages/compiler/src/github/index.ts",
+    "packages/compiler/src/gitlab/index.ts"
+  ],
+  "ignoreBinaries": ["devin", "make", "deploy", "deploy.sh"],
+  "ignoreExportsUsedInFile": true
+}

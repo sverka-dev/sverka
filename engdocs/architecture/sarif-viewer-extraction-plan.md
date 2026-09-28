@@ -21,7 +21,7 @@ npx @sverka/sarif-viewer-web scan.sarif --open
 
 ## PR Stack
 
-```
+```text
 main
   └── feat/sarif-viewer-tui   (PR #N+1)
         └── feat/sarif-viewer-web  (PR #N+2)
@@ -62,7 +62,7 @@ await renderSarifTui({ findings: findings });
 
 ### Structure
 
-```
+```text
 packages/sarif-viewer-tui/
   src/
     index.ts           — public API: renderSarifTui, SarifTuiApp
@@ -113,7 +113,7 @@ await renderSarifWeb({ findings: findings, outputPath: "report.html" });
 
 ### Structure
 
-```
+```text
 packages/sarif-viewer-web/
   src/
     index.ts           — public API: renderSarifWeb, generateSarifHtml

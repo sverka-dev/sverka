@@ -148,6 +148,6 @@ GitHub's `defaults` is narrow (shell, workdir only). GitLab's `default` is broad
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#defaults
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#default
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#defaults>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#default>
 - Architecture spec: §25, §32 (deferred)

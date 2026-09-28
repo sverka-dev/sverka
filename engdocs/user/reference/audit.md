@@ -27,7 +27,7 @@ sverka audit --format json
 
 ## Report contents
 
-```
+```text
 Run: run-abc123
 Plan: rp-ci-pipeline
 Status: success

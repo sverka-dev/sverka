@@ -202,7 +202,7 @@ interface ArenaResult {
 
 The runner executes a full matrix:
 
-```
+```text
 for each task:
   for each model:
     for each plugin combination (on/off):
@@ -277,7 +277,7 @@ counts against the live ACP usage events.
 
 ## CLI
 
-```
+```bash
 arena run --config arena.config.ts
 ```
 

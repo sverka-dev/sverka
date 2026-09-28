@@ -72,7 +72,7 @@ Implement the `@sverka/compiler-gitlab` package:
 
 ## 3. File layout
 
-```
+```text
 packages/compiler-gitlab/src/
 ├── index.ts              # public exports
 ├── types.ts              # GitlabCompilerConfig, GitlabRule

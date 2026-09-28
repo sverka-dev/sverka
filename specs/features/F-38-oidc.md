@@ -128,7 +128,7 @@ Both providers support OIDC but with different APIs. GitHub provides request URL
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#id_tokens
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#identity
+- GitHub: <https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#id_tokens>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#identity>
 - Architecture spec: §25, §32 (deferred)

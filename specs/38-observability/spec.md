@@ -122,7 +122,7 @@ Hardcoded rate table (per 1M tokens):
 
 ### `sverka audit` output (human format)
 
-```
+```text
 Run: abc-123 (plan: plan-def)
 Status: success | Duration: 45.2s | Cost: $0.0234
 

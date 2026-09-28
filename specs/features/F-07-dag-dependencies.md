@@ -142,7 +142,7 @@ handled by output/artifact operations, not the dependency edge itself.
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idneeds
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#needs
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idneeds>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#needs>
 - Architecture spec: §11.4, §16
 - Source: `packages/core/src/graph.ts:79-82`, `packages/core/src/synthesize.ts:148-205`, `packages/github/src/lower.ts:309-326`, `packages/gitlab/src/lower.ts:395-468`

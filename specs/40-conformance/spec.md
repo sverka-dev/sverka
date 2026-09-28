@@ -52,7 +52,7 @@ depends on all Sverka packages and runs cross-cutting acceptance tests.
 
 ### Test structure
 
-```
+```text
 packages/conformance/
   package.json         (test-only: vitest, no main/exports)
   tsconfig.json

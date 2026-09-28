@@ -116,5 +116,5 @@ GitLab's `workflow:rules` is a pipeline-level gate. GitHub has no equivalent —
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#workflowrules
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#workflowrules>
 - Architecture spec: §25, §32 (deferred)

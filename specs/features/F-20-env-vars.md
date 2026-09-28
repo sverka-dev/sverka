@@ -128,7 +128,7 @@ F-35 for the expression lowering gap.
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#env
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#variables
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#env>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#variables>
 - Architecture spec: §14.1, §12.3
 - Source: `packages/cdk/src/model.ts:101-107`, `packages/github/src/lower.ts:292-303`, `packages/gitlab/src/lower.ts:409-435`, `packages/engine-native/src/step-executor.ts:193-224`

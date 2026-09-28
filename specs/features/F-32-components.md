@@ -112,6 +112,6 @@ GitHub uses composite actions (GitHub Marketplace or repo). GitLab uses CI/CD Ca
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/creating-actions/creating-a-composite-action
-- GitLab: https://docs.gitlab.com/ee/ci/components/
+- GitHub: <https://docs.github.com/en/actions/creating-actions/creating-a-composite-action>
+- GitLab: <https://docs.gitlab.com/ee/ci/components/>
 - Architecture spec: §25, §32 (deferred)

@@ -204,12 +204,14 @@ pipeline(project, "deploy", {
 **Files:**
 
 - `packages/core/src/expand-calls.ts` (new):
+
   ```ts
   export function expandPipelineCalls(
     graph: DefinitionGraph,
     steps: readonly StepDefinition[],
   ): readonly StepDefinition[];
   ```
+
   - For each call step: recursively expand the callee's steps with id prefix
     `<callStepId>/` (so callee step `deploy` becomes `ci/deploy-staging/deploy`).
   - Rewrite callee-internal `StepRef`s, `dependsOn`, `importArtifact.from`,
@@ -222,6 +224,7 @@ pipeline(project, "deploy", {
     caller steps that referenced the call step's outputs now reference the
     callee's producing steps' outputs (rewrite those refs in the caller too).
   - Cycle/depth already validated at synthesis; expansion assumes valid graph.
+
 - `packages/core/src/index.ts` — export `expandPipelineCalls`
 
 **Test first (`packages/core/src/__tests__/expand-calls.test.ts`):**

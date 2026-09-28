@@ -121,7 +121,7 @@ expression lowering gaps).
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#script
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#script>
 - Architecture spec: §9.1, §15
 - Source: `packages/cdk/src/constructs.ts:136-143`, `packages/core/src/graph.ts:63-65`, `packages/sdk/src/sh.ts:85-117`, `packages/github/src/lower.ts:332-394`, `packages/engine-native/src/step-executor.ts:98-132`

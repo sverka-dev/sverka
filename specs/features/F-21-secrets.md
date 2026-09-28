@@ -139,7 +139,7 @@ GitHub lowering emits the expression; GitLab lowering omits the variable
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/security-guides/encrypted-secrets
-- GitLab: https://docs.gitlab.com/ee/ci/variables/#protect-a-cicd-variable
+- GitHub: <https://docs.github.com/en/actions/security-guides/encrypted-secrets>
+- GitLab: <https://docs.gitlab.com/ee/ci/variables/#protect-a-cicd-variable>
 - Architecture spec: §14.1, §12.1, §12.3
 - Source: `packages/cdk/src/model.ts:94,105`, `packages/github/src/lower.ts:297-301`, `packages/gitlab/src/lower.ts:428-432`, `packages/engine-native/src/step-executor.ts:200-208`

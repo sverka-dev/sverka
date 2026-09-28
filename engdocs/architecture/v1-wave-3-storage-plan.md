@@ -23,7 +23,7 @@ types in `@sverka/storage` — import them type-only from `@sverka/runtime`.
 
 ## File layout
 
-```
+```text
 packages/storage/
   package.json
   project.json

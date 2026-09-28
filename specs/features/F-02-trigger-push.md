@@ -104,6 +104,6 @@ Both providers support push natively. The divergence is in filter syntax (glob v
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpush_branchespush_branches-ignorepathspaths-ignore
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#rules
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpush_branchespush_branches-ignorepathspaths-ignore>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#rules>
 - Architecture spec: §25, §31.3

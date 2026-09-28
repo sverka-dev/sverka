@@ -28,7 +28,7 @@ Workflow definition (TypeScript code)
 
 ## Package dependency graph
 
-```
+```text
 sdk → core → ir
               ↓
          runtime → runtime-docker

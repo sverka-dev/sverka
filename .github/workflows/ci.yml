@@ -38,3 +38,70 @@ jobs:
       - run: ./node_modules/.bin/nx affected -t lint test
         env:
           NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
+
+  # Static security analysis of all workflow files (hand-written + the
+  # generated sverka.yml). SARIF is uploaded to GitHub Code Scanning.
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+
+  # Dependency diff gate — fails PRs that add vulnerable/malicious deps.
+  # Only meaningful on pull_request (compares against base branch).
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+
+  # GitHub-native SAST. JS/TS is interpreted — no build needed.
+  # Results land in GitHub Code Scanning (SARIF upload is built in).
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@88585263c0627ee42c0e1c5143a112c8d6f4aa18 # v4.38.2
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@88585263c0627ee42c0e1c5143a112c8d6f4aa18 # v4.38.2
+
+  # OpenSSF Scorecard — supply-chain posture + public badge. Runs on
+  # default-branch pushes only: PR runs can't publish and SARIF upload
+  # from forks would fail anyway.
+  scorecard:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@55891bbd73f2425e97637d96e306fc9d491d0b21 # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@88585263c0627ee42c0e1c5143a112c8d6f4aa18 # v4.38.2
+        with:
+          sarif_file: results.sarif

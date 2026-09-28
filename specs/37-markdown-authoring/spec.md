@@ -22,7 +22,7 @@ mixes Markdown with full TypeScript for complex cases.
 - `loadMarkdownFile(path: string): Promise<Project>` — read + parse.
 - Frontmatter fields: `pipeline` (id), `triggers` (array), `extends`
   (path to .ts config), `inputs` (record).
-- Step syntax: `## step-id` headings with ` - command: ...` and
+- Step syntax: `## step-id` headings with `- command: ...` and
   optional `depends_on:`, `image:`, `timeout:`, `outputs:`.
 - CLI auto-discovery: `sverka validate` finds `.sverka.md` files when
   no `sverka.config.ts` exists.
@@ -108,7 +108,7 @@ inputs:
 1. Extract YAML frontmatter (between `---` delimiters).
 2. Parse frontmatter with `yaml` library (already a dep).
 3. Parse step sections: `## <id>` heading → step block.
-4. Each step block: parse ` - key: value` lines into `MarkdownStep`.
+4. Each step block: parse `- key: value` lines into `MarkdownStep`.
 5. Build `Project` + `Pipeline` + `ShellStep` + `Entry` constructs.
 6. If `extends` set: load the TS config, merge Markdown pipeline into
    that Project (Markdown pipeline appended to existing Project).

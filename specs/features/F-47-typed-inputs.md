@@ -152,7 +152,7 @@ Both providers support typed inputs but with different type sets and validation 
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
-- GitHub: https://docs.github.com/en/actions/using-workflows/reusing-workflows#using-inputs-and-secrets-in-a-reusable-workflow
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#specinputs
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatchinputs>
+- GitHub: <https://docs.github.com/en/actions/using-workflows/reusing-workflows#using-inputs-and-secrets-in-a-reusable-workflow>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#specinputs>
 - Architecture spec: §25, §32 (deferred)

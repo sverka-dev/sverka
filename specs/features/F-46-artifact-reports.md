@@ -151,7 +151,7 @@ GitLab has native typed reports. GitHub uses actions. Sverka maps each report ty
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#artifactsreports
-- GitHub: https://github.com/dorny/test-reporter
-- GitHub: https://github.com/github/codeql-action
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#artifactsreports>
+- GitHub: <https://github.com/dorny/test-reporter>
+- GitHub: <https://github.com/github/codeql-action>
 - Architecture spec: §25, §32 (deferred)

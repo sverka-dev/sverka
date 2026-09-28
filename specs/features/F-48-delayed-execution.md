@@ -98,6 +98,6 @@ GitLab has native delayed execution (job is queued, runner is free during delay)
 
 ## References
 
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#when
-- GitLab: https://docs.gitlab.com/ee/ci/jobs/job_control.html#run-a-job-after-a-delay
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#when>
+- GitLab: <https://docs.gitlab.com/ee/ci/jobs/job_control.html#run-a-job-after-a-delay>
 - Architecture spec: §25, §32 (deferred)

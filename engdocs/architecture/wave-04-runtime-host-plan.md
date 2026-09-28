@@ -74,7 +74,7 @@ The builder must run `bun install` once after pulling the new workspace deps.
 
 Mirror `core`/`ir`/`runtime` (one module per concern, `__tests__/` co-located):
 
-```
+```text
 packages/runtime-host/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   errors.ts             # HostExecutorError, HostTimeoutError, CommandNotAllowedError
@@ -104,29 +104,29 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
 
 ### Slice B — Allowlist (security primitive, no deps)
 
-3. `allowlist.test.ts` — `createAllowlist(["node","/usr/bin/git"])`:
+1. `allowlist.test.ts` — `createAllowlist(["node","/usr/bin/git"])`:
    `isAllowed("node")` true, `isAllowed("git")` false (bare name must match
    entry exactly), `isAllowed("/usr/bin/git")` true, `isAllowed("/bin/sh")`
    false. Empty allowlist → nothing allowed.
-4. `allowlist.ts` — `CommandAllowlist` interface + `createAllowlist`. Matching
+2. `allowlist.ts` — `CommandAllowlist` interface + `createAllowlist`. Matching
    rule: an entry matches a command if (a) entry is an absolute path and
    equals the command exactly, or (b) entry is a bare name and equals the
    command's basename. **No globs** (spec: deterministic matching).
 
 ### Slice C — Config + public API skeleton
 
-5. `config.ts` — `HostExecutorConfig` interface (per spec, post-amendment:
+1. `config.ts` — `HostExecutorConfig` interface (per spec, post-amendment:
    no `workspace`/`artifactDir`).
-6. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
+2. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
 
 ### Slice D — HostExecutor core (canExecute + spawn + output + exit code)
 
-7. `helpers/fixtures.ts` — `makeHostOp(overrides)` building a minimal
+1. `helpers/fixtures.ts` — `makeHostOp(overrides)` building a minimal
    `PlanOperation` with `executor.type: "host"`, `command`, `args`,
    `timeoutSeconds`; `makeRequest(op, overrides)` building an `ExecuteRequest`
    with `workspace` (a temp dir), `env`, `credentials`, `cacheDir`,
    `artifactDir`.
-8. `host-executor.test.ts` —
+2. `host-executor.test.ts` —
    - `canExecute`: false when `enabled: false`; true for `executor.type:
 "host"` + allowed command + valid timeout; false for `type: "docker"`;
      false when command not in allowlist; false when `timeoutSeconds` missing.
@@ -134,65 +134,65 @@ No `internal/` needed — `allowlist.ts` is public (spec exports it).
      `exitCode: 0`, logs contain `hello`.
    - spawn `node -e "process.exit(1)"` → `status: "failure"`, `exitCode: 1`.
    - stdout + stderr both captured into `logs`.
-9. `host-executor.ts` — implement: construction stores config; `canExecute`
+3. `host-executor.ts` — implement: construction stores config; `canExecute`
    per spec eligibility formula; `execute` validates (enabled, type, timeout,
    allowlist), builds env, spawns via `node:child_process` `spawn`, captures
    stdout+stderr, resolves `ExecuteResult`. Use `request.workspace` as cwd.
 
 ### Slice E — Timeout
 
-10. Extend `host-executor.test.ts` — `timeoutSeconds: 0.1` running
+1.  Extend `host-executor.test.ts` — `timeoutSeconds: 0.1` running
     `node -e "setTimeout(()=>{},5000)"` → killed, `status: "failure"`, error
     contains "timeout". Use **real** short timeouts (not fake timers — spawn
     uses real timers internally).
-11. Implement: SIGTERM on expiry, SIGKILL after 2s grace, record timeout
+2.  Implement: SIGTERM on expiry, SIGKILL after 2s grace, record timeout
     failure. `MISSING_TIMEOUT` raised before spawn if `timeoutSeconds` absent
     or <= 0.
 
 ### Slice F — Environment bounding
 
-12. Extend tests — spawn `node -e "console.log(process.env.FOO)"`:
+1.  Extend tests — spawn `node -e "console.log(process.env.FOO)"`:
     - host env var not in `envAllowlist` → absent from child.
     - `envAllowlist: ["PATH"]` → PATH present.
     - `request.env: { FOO: "bar" }` → FOO present.
     - `request.credentials: { SECRET: "s" }` → SECRET present.
-13. Implement env building per spec step 5 (post-amendment): start empty,
+2.  Implement env building per spec step 5 (post-amendment): start empty,
     forward `envAllowlist` from `process.env`, merge `config.env`, merge
     `request.credentials`, merge `request.env`.
 
 ### Slice G — Working directory constraint
 
-14. Extend tests —
+1.  Extend tests —
     - cwd is `request.workspace` by default (spawn
       `node -e "console.log(process.cwd())"`).
     - `operation.workingDir` relative to workspace honored.
     - `operation.workingDir` resolving outside workspace →
       `HostExecutorError` (`WORKDIR_OUTSIDE_WORKSPACE`).
-15. Implement: resolve `operation.workingDir` against `request.workspace`;
+2.  Implement: resolve `operation.workingDir` against `request.workspace`;
     reject if the resolved path escapes `request.workspace` (use
     `path.resolve` + startsWith check).
 
 ### Slice H — Privilege escalation prevention (construction-time)
 
-16. Extend tests — constructing `HostExecutor` with `runAsUid: 0` throws
+1.  Extend tests — constructing `HostExecutor` with `runAsUid: 0` throws
     `HostExecutorError` (`PRIVILEGE_ESCALATION`); allowlist containing
     `sudo` or `su` throws at construction.
-17. Implement: validate in constructor; do not actually setuid.
+2.  Implement: validate in constructor; do not actually setuid.
 
 ### Slice I — Artifacts + log truncation
 
-18. Extend tests —
+1.  Extend tests —
     - declared artifact (a file written under workspace) copied into
       `request.artifactDir`.
     - missing artifact path → reported in result error, status unchanged.
     - output exceeding `maxLogBytes` → truncated + notice appended.
-19. Implement: copy artifacts after process exit; truncate logs with notice.
+2.  Implement: copy artifacts after process exit; truncate logs with notice.
 
 ### Slice J — Public API + gates
 
-20. Complete `index.ts` exports to match spec §Interfaces exactly.
-21. `public-api.test.ts` — every symbol importable + exercised.
-22. Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
+1.  Complete `index.ts` exports to match spec §Interfaces exactly.
+2.  `public-api.test.ts` — every symbol importable + exercised.
+3.  Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
     `bun run build`. All green.
 
 ## 6. Convention checklist (enforced by reviewer)

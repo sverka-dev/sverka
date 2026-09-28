@@ -130,7 +130,7 @@ Artifact naming in GitHub is `<shortStepId>-<outputName>` (e.g.
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsuses
-- GitLab: https://docs.gitlab.com/ee/ci/yaml/#artifacts
+- GitHub: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsuses>
+- GitLab: <https://docs.gitlab.com/ee/ci/yaml/#artifacts>
 - Architecture spec: §12.2, §15
 - Source: `packages/cdk/src/model.ts:77-81`, `packages/sdk/src/artifact.ts:1-9`, `packages/core/src/graph.ts:66`, `packages/core/src/synthesize.ts:133-141`, `packages/github/src/lower.ts:374-380`, `packages/gitlab/src/lower.ts:502-503`, `packages/engine-native/src/step-executor.ts:156-165`, `packages/engine-native/src/artifact-store.ts:10-48`

@@ -82,8 +82,8 @@ task("deploy", {
 
 ### Lowering
 
-- **GitHub target:** `expr`${git.branch}`` → `${{ github.ref }}`. `expr`${inputs.env}`` → `${{ inputs.env }}`. `expr`${needs.build.outputs.version}`` → `${{ needs.build.outputs.version }}`. Function calls translated: `hashFiles()` → `hashFiles()`, `success()` → `success()`.
-- **GitLab target:** `expr`${git.branch}`` → `$CI_COMMIT_BRANCH`. `expr`${inputs.env}`` → `$[[ inputs.env ]]`. `expr`${needs.build.outputs.version}`` → `$version` (from dotenv artifact). Function calls translated where possible; unsupported functions emit warnings.
+- **GitHub target:** `expr`${git.branch}`` → `${{ github.ref }}`.`expr`${inputs.env}`` →`${{ inputs.env }}`. `expr`${needs.build.outputs.version}`` → `${{ needs.build.outputs.version }}`. Function calls translated: `hashFiles()` → `hashFiles()`, `success()` → `success()`.
+- **GitLab target:** `expr`${git.branch}`` → `$CI_COMMIT_BRANCH`.`expr`${inputs.env}`` →`$[[ inputs.env ]]`. `expr`${needs.build.outputs.version}`` → `$version` (from dotenv artifact). Function calls translated where possible; unsupported functions emit warnings.
 - **Native engine:** evaluate expressions against the runtime context object. Git context from current repo state. Step outputs from ValueStore.
 
 ### Capability manifest
@@ -261,8 +261,8 @@ the template as a JavaScript expression. See
 
 ## References
 
-- GitHub: https://docs.github.com/en/actions/learn-github-actions/contexts
-- GitHub: https://docs.github.com/en/actions/learn-github-actions/expressions
-- GitLab: https://docs.gitlab.com/ee/ci/variables/
-- GitLab: https://docs.gitlab.com/ee/ci/expressions.html
+- GitHub: <https://docs.github.com/en/actions/learn-github-actions/contexts>
+- GitHub: <https://docs.github.com/en/actions/learn-github-actions/expressions>
+- GitLab: <https://docs.gitlab.com/ee/ci/variables/>
+- GitLab: <https://docs.gitlab.com/ee/ci/expressions.html>
 - Architecture spec: §11, §12.3, §25, §31.2

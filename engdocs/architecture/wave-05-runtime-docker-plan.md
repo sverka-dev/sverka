@@ -75,7 +75,7 @@ inspect`/`docker pull`).
 
 Mirror `runtime-host` (one module per concern, `__tests__/` co-located):
 
-```
+```text
 packages/runtime-docker/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   errors.ts             # DockerExecutorError, ImageDigestError, ContainerPolicyError
@@ -139,13 +139,13 @@ interface DockerCommandResult {
 
 ### Slice B — Config + public API skeleton
 
-3. `config.ts` — `DockerExecutorConfig` interface (post-amendment: no
+1. `config.ts` — `DockerExecutorConfig` interface (post-amendment: no
    `workspace`/`artifactDir`).
-4. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
+2. `public-api.test.ts` (skeleton) — assert every exported symbol importable.
 
 ### Slice C — Docker CLI seam
 
-5. `internal/docker-cli.ts` — `runDocker(args, opts)` wrapping `spawn("docker",
+1. `internal/docker-cli.ts` — `runDocker(args, opts)` wrapping `spawn("docker",
 [...args])`. Capture stdout/stderr, resolve exitCode, handle timeout via
    `setTimeout` + SIGTERM + SIGKILL grace (mirror `host-executor.ts`
    `spawnProcess` pattern). Return `DockerCommandResult`. No test file of its
@@ -154,13 +154,13 @@ interface DockerCommandResult {
 
 ### Slice D — canExecute + command construction (pure, no mock)
 
-6. `helpers/fixtures.ts` — `makeDockerOp(overrides)` building a minimal
+1. `helpers/fixtures.ts` — `makeDockerOp(overrides)` building a minimal
    `PlanOperation` with `executor.type: "docker"`, `executor.image`,
    `executor.imageDigest`, `command`, `args`, `timeoutSeconds`, `resources`,
    `network`, `credentials`, `artifacts`; `makeRequest(op, overrides)`
    building an `ExecuteRequest` with `workspace` (temp dir), `env`,
    `credentials`, `cacheDir`, `artifactDir`.
-7. `docker-executor.test.ts` —
+2. `docker-executor.test.ts` —
    - `canExecute`: true for `executor.type: "docker"`; false for `host`,
      `podman`, `remote`.
    - `buildDockerArgs`: includes `--rm`, `--read-only`, `--cap-drop ALL`,
@@ -169,46 +169,46 @@ interface DockerCommandResult {
      `--timeout <timeoutSeconds>`, `--workdir /workspace`, workspace mount
      with `readonly`, cache mount, artifact mount. Docker socket NEVER in
      any mount.
-8. `docker-executor.ts` — implement `DockerExecutor` class: constructor
+3. `docker-executor.ts` — implement `DockerExecutor` class: constructor
    stores config; `canExecute` per type check; `buildDockerArgs` constructs
    the arg array per spec §Container execution policy.
 
 ### Slice E — Network policy mapping (pure)
 
-9. Extend `docker-executor.test.ts` —
+1. Extend `docker-executor.test.ts` —
    - `network: "deny"` → `--network none`.
    - `network: "allow-egress"` → no `--network none` (default bridge).
    - `network: "allow-host"` → `--network host`.
-10. Implement: map `operation.network` to the correct `--network` flag in
-    `buildDockerArgs`.
+2. Implement: map `operation.network` to the correct `--network` flag in
+   `buildDockerArgs`.
 
 ### Slice F — Timeout enforcement (validation + mocked timeout)
 
-11. Extend tests —
+1.  Extend tests —
     - Operation without `timeoutSeconds` (or <= 0) → `ContainerPolicyError`
       (`MISSING_TIMEOUT`), no container started.
     - Mock `runDocker` to return `{ timedOut: true, exitCode: 137 }` →
       `status: "failure"`, error contains "timeout".
-12. Implement: validate `timeoutSeconds` before spawn; map `timedOut` result
+2.  Implement: validate `timeoutSeconds` before spawn; map `timedOut` result
     to failure with timeout error message.
 
 ### Slice G — Image digest verification (mocked CLI)
 
-13. `image.test.ts` — mock `internal/docker-cli.ts`:
+1.  `image.test.ts` — mock `internal/docker-cli.ts`:
     - `verifyImageDigest` with matching digest → resolves.
     - `verifyImageDigest` with mismatched digest → throws `ImageDigestError`
       with both digests in `context`.
     - Image not present → mock `docker inspect` to fail, `docker pull` to
       succeed, then `inspect` returns matching digest → resolves.
-14. `image.ts` — implement: `docker inspect --format={{.Id}} <image>` to get
+2.  `image.ts` — implement: `docker inspect --format={{.Id}} <image>` to get
     local digest; if not present, `docker pull <image>` then inspect;
     compare with `expectedDigest`; throw `ImageDigestError` on mismatch.
-15. Extend `docker-executor.test.ts` — operation without `imageDigest` →
+3.  Extend `docker-executor.test.ts` — operation without `imageDigest` →
     `ContainerPolicyError` (`MISSING_DIGEST`), no container started.
 
 ### Slice H — Secrets allowlist + env building (pure)
 
-16. Extend `docker-executor.test.ts` — `buildEnv`:
+1.  Extend `docker-executor.test.ts` — `buildEnv`:
     - Only env vars declared in `operation.credentials` get values from
       `request.credentials`.
     - `request.env` vars are included.
@@ -218,24 +218,24 @@ interface DockerCommandResult {
       (`UNDECLARED_SECRET`).
     - Docker socket path (`/var/run/docker.sock`) in any mount or env →
       `ContainerPolicyError` (`DOCKER_SOCKET_DENIED`).
-17. Implement: `buildEnv` per spec error rule #4 (post-amendment). Secret
+2.  Implement: `buildEnv` per spec error rule #4 (post-amendment). Secret
     denylist pattern: `/^(?:.*_)?(?:SECRET|TOKEN|PASSWORD|KEY|CREDENTIAL)$/i`.
     Socket detection: check for `docker.sock` in mount sources and env values.
 
 ### Slice I — Cache management (filesystem, no Docker)
 
-18. `cache.test.ts` — `DockerCacheManager`:
+1.  `cache.test.ts` — `DockerCacheManager`:
     - `prepare(inputs, key)` creates `<cacheDir>/<key>` and
       copies/symlinks declared inputs.
     - `collect(outputs, sourceDir)` copies declared outputs back to
       persistent `cacheDir`.
     - Second `prepare` with same key restores from cache (inputs exist).
-19. `cache.ts` — implement `CacheManager` interface + `DockerCacheManager`.
+2.  `cache.ts` — implement `CacheManager` interface + `DockerCacheManager`.
     Use `node:fs/promises` (`mkdir`, `copyFile`, `symlink`). No Docker.
 
 ### Slice J — Logs, artifacts, log truncation
 
-20. Extend `docker-executor.test.ts` —
+1.  Extend `docker-executor.test.ts` —
     - Mock `runDocker` returning stdout/stderr → `ExecuteResult.logs`
       contains both.
     - Logs exceeding `maxLogBytes` → truncated + notice appended (mirror
@@ -243,13 +243,13 @@ interface DockerCommandResult {
     - Declared artifact (file under workspace) copied into
       `request.artifactDir` (mirror `host-executor.ts` `collectArtifacts`).
     - Missing artifact → reported in result error, status unchanged.
-21. Implement: `execute` calls `runDocker`, builds `ExecuteResult` from
+2.  Implement: `execute` calls `runDocker`, builds `ExecuteResult` from
     `DockerCommandResult`, truncates logs, collects artifacts. Use
     `request.workspace` and `request.artifactDir`.
 
 ### Slice K — Integration tests (skippable)
 
-22. `integration.test.ts` — `describe.skipIf(!process.env.SVERKA_DOCKER)`:
+1.  `integration.test.ts` — `describe.skipIf(!process.env.SVERKA_DOCKER)`:
     - Run `echo hello` in `busybox@<digest>` → `status: "success"`, logs
       contain `hello`.
     - Run `sh -c "exit 1"` → `status: "failure"`, `exitCode: 1`.
@@ -257,12 +257,12 @@ interface DockerCommandResult {
 
 ### Slice L — Public API + gates
 
-23. Complete `index.ts` exports to match spec §Interfaces exactly:
+1.  Complete `index.ts` exports to match spec §Interfaces exactly:
     `DockerExecutor`, `DockerExecutorConfig`, `verifyImageDigest`,
     `CacheManager`, `DockerCacheManager`, `DockerExecutorError`,
     `ImageDigestError`, `ContainerPolicyError`.
-24. `public-api.test.ts` — every symbol importable + exercised.
-25. Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
+2.  `public-api.test.ts` — every symbol importable + exercised.
+3.  Run gates: `bun run test`, `bun run typecheck`, `bun run lint`,
     `bun run build`. All green (lint is pre-existing broken repo-wide —
     sv-ei2; not a blocker for this wave).
 
