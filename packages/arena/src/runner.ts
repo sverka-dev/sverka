@@ -244,14 +244,24 @@ async function executeRun(
 ): Promise<RunResult> {
   if (task.setup) {
     for (const command of task.setup) {
-      const { output, exitCode } = await execShell(tempWorkspace, command);
-      if (exitCode !== 0) {
+      let shell: { output: string; exitCode: number };
+      try {
+        shell = await execShell(tempWorkspace, command);
+      } catch (error) {
+        return errorResult(
+          task,
+          model,
+          combo,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
+      if (shell.exitCode !== 0) {
         return errorResult(
           task,
           model,
           combo,
           new Error(
-            `setup command failed (exit ${exitCode}): ${command}\n${output.trim()}`,
+            `setup command failed (exit ${shell.exitCode}): ${command}\n${shell.output.trim()}`,
           ),
         );
       }
@@ -333,13 +343,15 @@ function execShell(
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, CI: "true" },
     });
+    // Cap captured output — a noisy command must not grow memory without
+    // bound. 256 KiB keeps tail diagnostics while bounding the worst case.
+    const MAX_OUTPUT = 256 * 1024;
     let stdout = "";
-    proc.stdout?.on("data", (d: Buffer) => {
-      stdout += d.toString();
-    });
-    proc.stderr?.on("data", (d: Buffer) => {
-      stdout += d.toString();
-    });
+    const append = (d: Buffer): void => {
+      if (stdout.length < MAX_OUTPUT) stdout += d.toString();
+    };
+    proc.stdout?.on("data", append);
+    proc.stderr?.on("data", append);
     proc.on("close", (code: number | null) => {
       // null = killed by signal; treat as failure, not a crash source.
       resolve({ output: stdout, exitCode: code ?? -1 });
