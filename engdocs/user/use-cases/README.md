@@ -117,7 +117,7 @@ Switch CI providers without rewriting your checks.
 ## 7. Agent benchmarking
 
 `@sverka/arena` runs agents against tasks with and without a plugin, then
-measures tokens, tool calls, wall time, and a blind judge score.
+measures tokens, tool calls, wall time, and (optionally) a blind judge score.
 
 ```bash
 sverka-arena doctor    # verify the environment

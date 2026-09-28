@@ -46,7 +46,8 @@ export default defineConfig({
 
 All paths in the config resolve relative to the config file's directory —
 except `fixture`, which resolves relative to the `@sverka/arena` package
-root (the package ships fixtures under `packages/arena/fixtures/`).
+root. The repo's own fixtures live under `packages/arena/fixtures/`; they
+aren't published to npm, so `fixture` is only useful for in-repo runs today.
 
 ### Config fields
 
@@ -54,9 +55,9 @@ root (the package ships fixtures under `packages/arena/fixtures/`).
 | ------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `agent`       | string                                                         | Adapter name. Currently `"devin"`.                                                                        |
 | `models[]`    | `{id, name, envVar?}`                                          | `id` is passed to `devin acp --model` (fuzzy names ok). `envVar` names an env var `doctor` should verify. |
-| `plugins[]`   | `{id, name, path, enabled?, installPath?}`                     | `path` = skill dir copied into the workspace when the plugin is enabled.                                  |
+| `plugins[]`   | `{id, name, path, enabled?}`                                   | `path` = skill dir copied into the workspace when the plugin is enabled.                                  |
 | `tasks[]`     | `Task`                                                         | `prompt`, optional `fixture`, `checks`, `successCriteria`.                                                |
-| `workspace`   | string                                                         | Optional fixed workspace dir (default: temp dir per run).                                                 |
+| `workspace`   | string                                                         | Base dir for per-run isolated workspaces (default: system temp).                                          |
 | `repetitions` | number                                                         | Runs per cell of the matrix (default 1).                                                                  |
 | `outputDir`   | string                                                         | Where `results.json` and traces land.                                                                     |
 | `judge`       | `{model, agent?, repetitions?, revealPlugins?, systemPrompt?}` | Optional blind evaluation; judge defaults to the same agent adapter.                                      |

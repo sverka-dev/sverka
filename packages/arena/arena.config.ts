@@ -2,10 +2,12 @@
  * Dogfood config — benchmark Devin on this repo's own fixtures, with and
  * without the sverka skill installed. Paths resolve relative to this file.
  *
- * Run from anywhere:
+ * From the repo root:
  *   sverka-arena doctor --config packages/arena/arena.config.ts
  *   sverka-arena run    --config packages/arena/arena.config.ts
  *   sverka-arena report packages/arena/.arena/<run>/results.json
+ * (paths inside this file resolve relative to the file itself, so the
+ * --config path is the only cwd-dependent piece)
  *
  * Consumers should import defineConfig for typechecking:
  *   import { defineConfig } from "@sverka/arena";

@@ -128,7 +128,14 @@ async function runMatrix(
         for (let rep = 0; rep < repetitions; rep++) {
           const cellLabel = formatCell(task.id, model.id, combo, rep);
           process.stderr.write(`[arena] ${cellLabel} running...\n`);
-          const result = await runCell(config.agent, task, model, combo, rep);
+          const result = await runCell(
+            config.agent,
+            task,
+            model,
+            combo,
+            rep,
+            config.workspace,
+          );
           results.push(result);
           process.stderr.write(
             `[arena] ${cellLabel} ${result.success ? "PASS" : "FAIL"} — ` +
@@ -175,8 +182,15 @@ async function runCell(
   model: ArenaConfig["models"][number],
   combo: PluginConfig[],
   rep: number,
+  workspaceBase?: string,
 ): Promise<RunResult> {
-  const tempWorkspace = await createTempWorkspace(task, model, combo, rep);
+  const tempWorkspace = await createTempWorkspace(
+    task,
+    model,
+    combo,
+    rep,
+    workspaceBase,
+  );
   await installPlugins(tempWorkspace, combo);
   const result = await executeRun(agent, task, model, combo, tempWorkspace);
   await rm(tempWorkspace, { recursive: true, force: true });
@@ -192,9 +206,10 @@ async function createTempWorkspace(
   model: ArenaConfig["models"][number],
   combo: PluginConfig[],
   rep: number,
+  base?: string,
 ): Promise<string> {
   const tempWorkspace = join(
-    tmpdir(),
+    base ?? tmpdir(),
     `arena-${task.id}-${model.id}-${combo.map((p) => p.id + (p.enabled ? "on" : "off")).join(",")}-r${rep}-${Date.now()}`,
   );
   await mkdir(tempWorkspace, { recursive: true });
