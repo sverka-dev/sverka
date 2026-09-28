@@ -1,0 +1,16 @@
+{
+  "name": "example-failing-checks",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "build": "bun build src/index.ts --outdir dist"
+  },
+  "devDependencies": {
+    "@sverka/cli": "0.1.12",
+    "@sverka/workflow": "0.1.12",
+    "typescript": "^5.0.0"
+  }
+}

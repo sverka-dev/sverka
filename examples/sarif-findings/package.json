@@ -1,0 +1,13 @@
+{
+  "name": "example-sarif-findings",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint:sarif": "bun scripts/emit-sarif.ts"
+  },
+  "devDependencies": {
+    "@sverka/cli": "0.1.12",
+    "@sverka/workflow": "0.1.12"
+  }
+}
