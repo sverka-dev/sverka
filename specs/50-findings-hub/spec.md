@@ -51,11 +51,11 @@ sverka runs locally. Dogfooding target #1 is sverka-dev/sverka itself
 
 ## Data sources (GitHub REST)
 
-| Source | Endpoint | Auth |
-| --- | --- | --- |
-| Run artifacts | `GET /repos/{o}/{r}/actions/runs/{run}/artifacts` → download zip → `*.sarif` | token required |
-| Code scanning | `GET /repos/{o}/{r}/code-scanning/alerts` | token (public repos: any token) |
-| Annotations | `GET /repos/{o}/{r}/check-runs/{id}/annotations` | token |
+| Source        | Endpoint                                                                     | Auth                            |
+| ------------- | ---------------------------------------------------------------------------- | ------------------------------- |
+| Run artifacts | `GET /repos/{o}/{r}/actions/runs/{run}/artifacts` → download zip → `*.sarif` | token required                  |
+| Code scanning | `GET /repos/{o}/{r}/code-scanning/alerts`                                    | token (public repos: any token) |
+| Annotations   | `GET /repos/{o}/{r}/check-runs/{id}/annotations`                             | token                           |
 
 Artifact zips are unzipped in-browser (fflate). Artifact retention is
 90 days — surface a "gone" state for expired runs.
