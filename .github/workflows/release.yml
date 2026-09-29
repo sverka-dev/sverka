@@ -18,15 +18,16 @@ on:
 #      to this file — one-time local bootstrap (requires MFA):
 #        npm login
 #        bunx nx run tools:prepare-for-release --trust --trustRepo=sverka-dev/sverka
-permissions:
-  contents: write
-  id-token: write
+permissions: {}
 
 jobs:
   release:
     # workflow_dispatch can target any branch — restrict releases to main.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
