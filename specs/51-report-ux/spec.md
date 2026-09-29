@@ -27,15 +27,19 @@ A header block assembled programmatically by the CLI:
 command?, links?: { label, url }[], meta?: { label, value }[] }`.
 - `links` is the open slot — callers pass clickable rows (repo URL,
   commit URL, CI run URL) without the renderer knowing GitHub/GitLab.
-- CLI collects: git remote (normalized to https), commit sha + commit
-  link, branch; in GitHub Actions also the workflow-run URL from
+- CLI collects: git remote (normalized to https, credentials stripped),
+  commit sha + commit link, branch; in GitHub Actions also the
+  workflow-run URL from
   `GITHUB_SERVER_URL`/`GITHUB_REPOSITORY`/`GITHUB_RUN_ID`.
-- All values HTML-escaped; URLs rendered as `<a>`.
+- All values HTML-escaped; only `http(s)` URLs render as `<a>` — other
+  schemes become inert text.
 
 ### Event timestamps
 
-`RunEvent` gains `at?: number` (epoch ms), stamped once in the engine's
-emit wrapper — no call-site changes. Reducer records per-step
+`RunEvent` gains `at?: number` (epoch ms), stamped in the engine's emit
+wrapper and on every directly-yielded event (`run-started`,
+`run-completed`, setup-failure diagnostics) — nothing bypasses stamping.
+Reducer records per-step
 `startedAt`/`finishedAt` and the run window. Reports generated from
 unstamped event streams still render (Gantt shows a notice instead of
 fake data).
@@ -43,8 +47,8 @@ fake data).
 ### Step views
 
 The steps section becomes a panel with a segmented view switch —
-**Gantt | DAG | List** — all rendered at generation time, toggled by
-vanilla JS (no external libs):
+**Gantt | DAG | Tree | List** — all rendered at generation time, toggled
+by vanilla JS (no external libs):
 
 - **Gantt**: static SVG waterfall — one row per step ordered by start
   time, bar positioned `startedAt → finishedAt`, width ∝ duration,
@@ -52,9 +56,11 @@ vanilla JS (no external libs):
 - **DAG**: static SVG from `layoutDag` — status-colored nodes with
   arrows. No ReactFlow, no CDN, works in `<noscript>` contexts and
   offline. The dependency structure that was previously invisible.
+- **Tree**: nested list built from the same dependency edges — parent
+  steps expand to their dependents; status icon + state per node.
 - **List**: per-step rows — status icon, id, duration, expandable
   stdout/stderr tails (captured from `step-succeeded`/`step-failed`
-  events, tail-capped), error text.
+  events, byte-capped at 64 KiB), error text.
 
 ### Layout toggle
 

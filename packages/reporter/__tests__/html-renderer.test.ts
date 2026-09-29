@@ -344,6 +344,25 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("&quot;onload=&quot;");
   });
 
+  it("context — non-http(s) link schemes render as inert text", () => {
+    const outputPath = join(tmpDir, "report.html");
+    const renderer = createHtmlRenderer({
+      outputPath,
+      context: {
+        links: [
+          { label: "evil", url: "javascript:alert(1)" },
+          { label: "ok", url: "https://example.com" },
+        ],
+      },
+    });
+    renderer.onEvent(runStarted("r", "p"));
+    renderer.onEvent(runCompleted("r", "success", 1));
+    renderer.flush();
+    const html = readFileSync(outputPath, "utf-8");
+    expect(html).not.toContain('href="javascript:');
+    expect(html).toContain('href="https://example.com"');
+  });
+
   it("list view — step stdout/stderr land in expandable rows", () => {
     const html = renderHtml([
       runStarted("run-1", "plan-abc"),

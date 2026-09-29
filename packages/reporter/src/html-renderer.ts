@@ -142,10 +142,15 @@ function renderContext(state: UIState, context?: ReportContext): string {
     ...(context?.meta ?? []).map((m) => [m.label, m.value] as const),
   ];
   const linkRows = (context?.links ?? [])
-    .map(
-      (l) =>
-        `<span class="ctx-label">${escapeHtml(l.label)}:</span> <a class="ctx-link" href="${escapeHtml(l.url)}">${escapeHtml(l.url)}</a>`, // nosemgrep: html-in-template-string
-    )
+    .map((l) => {
+      // Only http(s) links become anchors — other schemes (javascript:,
+      // data:, ...) render as inert text.
+      const safe = /^https?:\/\//i.test(l.url);
+      const value = safe
+        ? `<a class="ctx-link" href="${escapeHtml(l.url)}" rel="noopener noreferrer">${escapeHtml(l.url)}</a>` // nosemgrep: html-in-template-string
+        : `<span class="ctx-value">${escapeHtml(l.url)}</span>`;
+      return `<span class="ctx-label">${escapeHtml(l.label)}:</span> ${value}`; // nosemgrep: html-in-template-string
+    })
     .join("\n      ");
 
   const generatedAt = context?.generatedAt

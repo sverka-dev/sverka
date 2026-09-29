@@ -7,22 +7,38 @@ import process from "node:process";
 import type { ReportContext } from "@sverka/reporter";
 
 function git(root: string, ...args: string[]): string | undefined {
-  const res = spawnSync("git", args, {
-    cwd: root,
-    encoding: "utf-8",
-    timeout: 5000,
-  });
+  const res = spawnSync(
+    "git", // NOSONAR — argv form, no shell; fixed binary name
+    args,
+    {
+      cwd: root,
+      encoding: "utf-8",
+      // Best-effort context — a slow/blocked git must not stall the run.
+      timeout: 2000,
+    },
+  );
   const out = res.status === 0 ? res.stdout?.trim() : undefined;
   return out || undefined;
 }
 
-/** Normalize a git remote URL (ssh or https) to a clickable web URL. */
+/** Normalize a git remote URL (ssh or https) to a clickable web URL.
+ * Credentials embedded in https remotes (user:token@host) are stripped. */
 function repoWebUrl(remote?: string): string | undefined {
   if (!remote) return undefined;
   const ssh = /^git@([^:]+):(.+?)(\.git)?$/.exec(remote);
   if (ssh) return `https://${ssh[1]}/${ssh[2]}`;
-  const clean = remote.replace(/\.git$/, "");
-  return clean.startsWith("http") ? clean : undefined;
+  try {
+    const url = new URL(remote);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return undefined;
+    }
+    url.username = "";
+    url.password = "";
+    url.pathname = url.pathname.replace(/\.git$/, "");
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return undefined;
+  }
 }
 
 export function collectReportContext(

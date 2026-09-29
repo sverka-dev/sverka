@@ -20,8 +20,15 @@ export function createInitialState(): UIState {
 /** Tail cap for captured step output — keeps report size bounded. */
 const OUTPUT_TAIL_BYTES = 64 * 1024;
 
+/** Keep at most the last N *bytes* of UTF-8 output (the suffix is the
+ * most relevant part). Byte-accurate: a multi-byte character at the cut
+ * point decodes to a replacement char rather than exceeding the cap. */
 function tail(text: string | undefined): string | undefined {
-  return text === undefined ? undefined : text.slice(-OUTPUT_TAIL_BYTES);
+  if (text === undefined) return undefined;
+  const buf = Buffer.from(text, "utf8");
+  return buf.length <= OUTPUT_TAIL_BYTES
+    ? text
+    : buf.subarray(buf.length - OUTPUT_TAIL_BYTES).toString("utf8");
 }
 
 /** Step patch: optional fields may be spelled as explicit undefined. */
