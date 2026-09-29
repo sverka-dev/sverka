@@ -6,14 +6,15 @@
   "sideEffects": false,
   "scripts": {
     "dev": "bun run sync-docs && vite dev",
-    "build": "bun run sync-docs && bun run docs:pipeline && vite build",
+    "build": "bun run sync-docs && bun run docs:search && bun run docs:pipeline && vite build",
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "test": "bun test",
     "sync-docs": "bun scripts/sync-docs.ts",
     "docs:arena": "bun scripts/update-arena-results.ts",
     "docs:pipeline": "bun scripts/gen-pipeline-data.ts",
-    "arena": "bun run server/arena-server.ts"
+    "arena": "bun run server/arena-server.ts",
+    "docs:search": "bun scripts/gen-search-index.ts"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.40",
