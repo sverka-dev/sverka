@@ -1007,8 +1007,14 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
       // preventDefault keeps <details> in the list view from toggling
       // when the "findings" chip inside <summary> is clicked.
       e.preventDefault();
-      // Ignore clicks that ended a DAG pan drag.
-      if (window.__dagMoved && window.__dagMoved()) return;
+      // Ignore clicks that ended a DAG pan drag — only for clicks
+      // inside the DAG svg; moved resets on the next pointerdown.
+      if (
+        el.closest("#dag-svg") &&
+        window.__dagMoved &&
+        window.__dagMoved()
+      )
+        return;
       applyStepFilter(el.getAttribute("data-step"));
     });
   });
