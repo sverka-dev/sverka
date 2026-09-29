@@ -164,6 +164,83 @@ describe("compile command", () => {
     expect(content).toContain("jobs:");
   });
 
+  it("writes each artifact to --output-dir (multi-pipeline)", async () => {
+    const dir = getDir();
+    const { code, out } = await runWithFile(
+      ["compile", "--target", "github", "--root", dir, "--output-dir", "gen"],
+      dir,
+      "sverka.config.ts",
+      `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const ci = new Pipeline(proj, "ci");
+new ShellStep(ci, "build", { command: "echo build" });
+new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+const rel = new Pipeline(proj, "release");
+new ShellStep(rel, "publish", { command: "echo publish" });
+new Entry(rel, "on-tag", { trigger: { kind: "manual" }, roots: ["publish"] });
+export default proj;
+`,
+    );
+    expect(code).toBe(0);
+    const { readFileSync } = await import("node:fs");
+    const ci = readFileSync(`${dir}/gen/.github/workflows/ci.yml`, "utf8");
+    const rel = readFileSync(
+      `${dir}/gen/.github/workflows/release.yml`,
+      "utf8",
+    );
+    expect(ci).toContain("jobs:");
+    expect(rel).toContain("jobs:");
+    expect(out.stdoutText).toContain("ci.yml");
+    expect(out.stdoutText).toContain("release.yml");
+  });
+
+  it("exits 2 when --output is given for a multi-pipeline project", async () => {
+    const dir = getDir();
+    await writefile(
+      dir,
+      "sverka.config.ts",
+      `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const ci = new Pipeline(proj, "ci");
+new ShellStep(ci, "build", { command: "echo build" });
+new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+const rel = new Pipeline(proj, "release");
+new ShellStep(rel, "publish", { command: "echo publish" });
+new Entry(rel, "on-tag", { trigger: { kind: "manual" }, roots: ["publish"] });
+export default proj;
+`,
+    );
+    const out = new CaptureWriter();
+    const code = await main(
+      ["compile", "--target", "github", "--root", dir, "--output", "all.yml"],
+      { output: out },
+    );
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("--output-dir");
+  });
+
+  it("exits 2 when --output and --output-dir are combined", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(
+      [
+        "compile",
+        "--target",
+        "github",
+        "--root",
+        dir,
+        "--output",
+        "a.yml",
+        "--output-dir",
+        "gen",
+      ],
+      { output: out },
+    );
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("mutually exclusive");
+  });
+
   it("exits 2 when no config found", async () => {
     await runExpectingExit2([
       "compile",
