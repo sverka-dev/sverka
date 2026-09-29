@@ -16,7 +16,8 @@
     "sync-docs": "bun scripts/sync-docs.ts",
     "docs:api": "cd .. && bun run docs:api",
     "arena": "bun run server/arena-server.ts",
-    "docs:pipeline": "bun scripts/gen-pipeline-data.ts"
+    "docs:pipeline": "bun scripts/gen-pipeline-data.ts",
+    "docs:arena": "bun scripts/update-arena-results.ts"
   },
   "dependencies": {
     "mermaid": "^11.17.2",
