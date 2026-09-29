@@ -86,7 +86,7 @@ export interface ResumeRequest {
 
 // --- Run events (§22.2 step states) ---
 
-export type RunEvent =
+type RunEventData =
   | {
       readonly type: "run-started";
       readonly runId: string;
@@ -164,6 +164,13 @@ export type RunEvent =
       readonly message: string;
       readonly severity: "info" | "warn" | "error";
     };
+
+/**
+ * A run event. `at` is the emit timestamp (epoch ms), stamped once by the
+ * engine's emit wrapper — producers never set it. Optional so serialized
+ * or synthesized event streams without it remain valid.
+ */
+export type RunEvent = RunEventData & { readonly at?: number };
 
 export type RunStatus = "success" | "failure" | "cancelled" | "suspended";
 

@@ -10,15 +10,34 @@ export function createInitialState(): UIState {
     planId: null,
     status: null,
     durationMs: null,
+    startedAt: null,
+    finishedAt: null,
     steps: new Map(),
     diagnostics: [],
   };
 }
 
+/** Tail cap for captured step output — keeps report size bounded. */
+const OUTPUT_TAIL_BYTES = 64 * 1024;
+
+function tail(text: string | undefined): string | undefined {
+  return text === undefined ? undefined : text.slice(-OUTPUT_TAIL_BYTES);
+}
+
+/** Step patch: optional fields may be spelled as explicit undefined. */
+type StepPatch = {
+  [K in keyof StepUIState]?: StepUIState[K] | undefined;
+} & { stepId: string };
+
 /** Update a single step in the state, returning a new UIState. */
-function withStep(state: UIState, stepId: string, step: StepUIState): UIState {
+function withStep(state: UIState, stepId: string, patch: StepPatch): UIState {
   const steps = new Map(state.steps);
-  steps.set(stepId, step);
+  // Drop undefined fields — a missing event field must not clobber data
+  // captured by earlier events (exactOptionalPropertyTypes also demands it).
+  const clean = Object.fromEntries(
+    Object.entries(patch).filter(([, v]) => v !== undefined),
+  ) as StepPatch;
+  steps.set(stepId, { ...steps.get(stepId), ...clean } as StepUIState);
   return { ...state, steps };
 }
 
@@ -26,13 +45,28 @@ function withStep(state: UIState, stepId: string, step: StepUIState): UIState {
 function reduceRunEvent(state: UIState, event: RunEvent): UIState | null {
   switch (event.type) {
     case "run-started":
-      return { ...state, runId: event.runId, planId: event.planId };
+      return {
+        ...state,
+        runId: event.runId,
+        planId: event.planId,
+        startedAt: event.at ?? null,
+      };
     case "run-completed":
-      return { ...state, status: event.status, durationMs: event.durationMs };
+      return {
+        ...state,
+        status: event.status,
+        durationMs: event.durationMs,
+        finishedAt: event.at ?? null,
+      };
     case "run-suspended":
-      return { ...state, status: "suspended", durationMs: event.durationMs };
+      return {
+        ...state,
+        status: "suspended",
+        durationMs: event.durationMs,
+        finishedAt: event.at ?? null,
+      };
     case "run-resumed":
-      return { ...state, status: null, durationMs: null };
+      return { ...state, status: null, durationMs: null, finishedAt: null };
     default:
       return null;
   }
@@ -43,10 +77,8 @@ function reduceStepEvent(state: UIState, event: RunEvent): UIState | null {
   const simpleStates: Record<string, string> = {
     "step-pending": "pending",
     "step-ready": "ready",
-    "step-started": "running",
     "step-skipped": "skipped",
     "step-cancelled": "cancelled",
-    "step-cache-hit": "cache-hit",
     "step-suspended": "suspended",
     "step-compensating": "compensating",
   };
@@ -60,18 +92,39 @@ function reduceStepEvent(state: UIState, event: RunEvent): UIState | null {
   }
 
   switch (event.type) {
+    // started/cache-hit carry `at` → startedAt for the timeline view
+    case "step-started":
+      return withStep(state, event.stepId, {
+        stepId: event.stepId,
+        state: "running",
+        startedAt: event.at,
+      });
+    case "step-cache-hit":
+      return withStep(state, event.stepId, {
+        stepId: event.stepId,
+        state: "cache-hit",
+        startedAt: event.at,
+      });
     case "step-succeeded":
       return withStep(state, event.stepId, {
         stepId: event.stepId,
         state: "succeeded",
         durationMs: event.durationMs,
+        finishedAt: event.at,
+        stdout: tail(event.stdout),
+        stderr: tail(event.stderr),
+        exitCode: event.exitCode,
       });
     case "step-failed":
       return withStep(state, event.stepId, {
         stepId: event.stepId,
         state: "failed",
         durationMs: event.durationMs,
+        finishedAt: event.at,
         error: event.error,
+        stdout: tail(event.stdout),
+        stderr: tail(event.stderr),
+        exitCode: event.exitCode,
       });
     case "step-retry":
       return withStep(state, event.stepId, {
@@ -84,6 +137,7 @@ function reduceStepEvent(state: UIState, event: RunEvent): UIState | null {
         stepId: event.stepId,
         state: "compensated",
         durationMs: event.durationMs,
+        finishedAt: event.at,
       });
     default:
       return null;

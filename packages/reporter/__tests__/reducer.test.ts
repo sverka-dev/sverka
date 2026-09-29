@@ -118,4 +118,87 @@ describe("EventReducer", () => {
     expect(initial.diagnostics).toHaveLength(frozen.diagnostics.length);
     expect(initial.runId).toBe(frozen.runId);
   });
+
+  it("captures run/step timestamps from event `at`", () => {
+    let state = createInitialState();
+    state = reduceEvent(state, {
+      type: "run-started",
+      runId: "r",
+      planId: "p",
+      at: 1000,
+    });
+    state = reduceEvent(state, {
+      type: "step-started",
+      stepId: "a",
+      at: 1100,
+    });
+    state = reduceEvent(state, {
+      type: "step-succeeded",
+      stepId: "a",
+      durationMs: 400,
+      at: 1500,
+    });
+    state = reduceEvent(state, {
+      type: "run-completed",
+      runId: "r",
+      status: "success",
+      durationMs: 500,
+      at: 1500,
+    });
+    expect(state.startedAt).toBe(1000);
+    expect(state.finishedAt).toBe(1500);
+    expect(state.steps.get("a")?.startedAt).toBe(1100);
+    expect(state.steps.get("a")?.finishedAt).toBe(1500);
+  });
+
+  it("terminal event preserves startedAt from earlier events", () => {
+    let state = createInitialState();
+    state = reduceEvent(state, {
+      type: "step-started",
+      stepId: "a",
+      at: 1100,
+    });
+    state = reduceEvent(state, {
+      type: "step-failed",
+      stepId: "a",
+      error: "boom",
+      durationMs: 40,
+      at: 1200,
+    });
+    const step = state.steps.get("a");
+    expect(step?.startedAt).toBe(1100);
+    expect(step?.finishedAt).toBe(1200);
+    expect(step?.state).toBe("failed");
+  });
+
+  it("captures stdout/stderr tails and exit code", () => {
+    let state = createInitialState();
+    state = reduceEvent(state, {
+      type: "step-failed",
+      stepId: "a",
+      error: "boom",
+      durationMs: 40,
+      stdout: "hello out",
+      stderr: "hello err",
+      exitCode: 2,
+    });
+    const step = state.steps.get("a");
+    expect(step?.stdout).toBe("hello out");
+    expect(step?.stderr).toBe("hello err");
+    expect(step?.exitCode).toBe(2);
+  });
+
+  it("stdout tail is bounded to the last 64 KiB", () => {
+    let state = createInitialState();
+    const big = "x".repeat(70 * 1024) + "TAILMARK";
+    state = reduceEvent(state, {
+      type: "step-succeeded",
+      stepId: "a",
+      durationMs: 1,
+      stdout: big,
+    });
+    const out = state.steps.get("a")?.stdout ?? "";
+    expect(out.length).toBeLessThanOrEqual(64 * 1024);
+    expect(out.endsWith("TAILMARK")).toBe(true);
+  });
 });

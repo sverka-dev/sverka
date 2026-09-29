@@ -275,7 +275,9 @@ class NativeEngine implements Engine {
     const eventDeferred = { current: new Deferred() };
 
     ctx.emit = (event: RunEvent): void => {
-      ctx.eventQueue.push(event);
+      // Stamp the wall-clock time once here — reports build timelines
+      // (Gantt) from `at`, and producers shouldn't hand-roll it.
+      ctx.eventQueue.push({ ...event, at: Date.now() });
       eventDeferred.current.resolve();
       eventDeferred.current = new Deferred();
     };
