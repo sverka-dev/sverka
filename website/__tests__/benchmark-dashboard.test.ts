@@ -37,7 +37,13 @@ describe("benchmark dashboard files", () => {
 
   it("index.html is valid HTML with title and script", () => {
     const html = readHtml("index.html");
-    expectContains(html.toLowerCase(), "<!doctype html>", "<title>", "</html>", "<script>");
+    expectContains(
+      html.toLowerCase(),
+      "<!doctype html>",
+      "<title>",
+      "</html>",
+      "<script>",
+    );
   });
 
   it("index.html contains comparison table structure", () => {
@@ -59,7 +65,13 @@ describe("benchmark dashboard files", () => {
     const path = join(benchDir, "trace.html");
     expect(existsSync(path)).toBe(true);
     const html = readHtml("trace.html");
-    expectContains(html.toLowerCase(), "<!doctype html>", "<title>", "</html>", "<script>");
+    expectContains(
+      html.toLowerCase(),
+      "<!doctype html>",
+      "<title>",
+      "</html>",
+      "<script>",
+    );
   });
 
   it("trace.html has hash-based routing", () => {
