@@ -39,7 +39,7 @@
         "sverka-arena": "dist/bin.mjs",
       },
       "dependencies": {
-        "@agentclientprotocol/sdk": "^1.4.0",
+        "@agentclientprotocol/sdk": "^1.5.0",
         "zod": "^4.6.5",
       },
       "devDependencies": {
@@ -54,7 +54,7 @@
         "sverka-benchmark": "dist/bin.mjs",
       },
       "dependencies": {
-        "@agentclientprotocol/sdk": "^1.4.0",
+        "@agentclientprotocol/sdk": "^1.5.0",
         "@sverka/arena": "workspace:*",
       },
       "devDependencies": {
@@ -266,7 +266,7 @@
     "smol-toml": "^1.8.0",
   },
   "packages": {
-    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@1.4.0", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-/eufudw+aFY1LKLolT6yFE6UMmYRl7fMJ/DEONSIyR6wI3slHWITBsANRGqXEY8FRzqUxwh7QEaGiZHcJPVThg=="],
+    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@1.5.0", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-524jwbB2iYWA+kWWyv9fhKbhU89dH/lu9u5EXwVNmfYzopV8BujCDxByBDZhxRUkB7RWIJzISCnwivdDk+bdVg=="],
 
     "@alcalzone/ansi-tokenize": ["@alcalzone/ansi-tokenize@0.3.0", "", { "dependencies": { "ansi-styles": "^6.2.1", "is-fullwidth-code-point": "^5.0.0" } }, "sha512-p+CMKJ93HFmLkjXKlXiVGlMQEuRb6H0MokBSwUsX+S6BRX8eV5naFZpQJFfJHjRZY0Hmnqy1/r6UWl3x+19zYA=="],
 
