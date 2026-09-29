@@ -80,10 +80,14 @@ composes with severity/search, highlights the step across all views
 (`step-active`), and surfaces a dismissible chip in the findings
 header; clicking the same step again or the chip clears it.
 
+The DAG viewport supports zoom and pan: the `viewBox` is padded around
+the graph and manipulated uniformly (wheel-to-cursor zoom, pointer-drag
+pan, `+`/`−`/`fit` buttons). A drag that ends on a node does not toggle
+the step filter.
+
 ## Non-goals
 
 - Live updating / streaming reports
-- Interactive zoom/pan on the DAG (static SVG only)
 - Theming beyond the existing dark palette
 - Persisting toggle state across loads
 
