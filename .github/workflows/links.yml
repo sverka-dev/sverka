@@ -1,0 +1,31 @@
+name: links
+on:
+  # Weekly — link rot is time-based, not commit-based. A per-push gate on
+  # external URLs would flake CI for reasons unrelated to the change.
+  schedule:
+    - cron: "0 6 * * 0" # Sunday 06:00 UTC
+  workflow_dispatch: {}
+permissions: {}
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --max-retries 3
+            --accept 200,429
+            --exclude-path vendor
+            --exclude-path node_modules
+            engdocs/**/*.md
+            specs/**/*.md
+            website/**/*.md
+            *.md
+          fail: true

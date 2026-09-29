@@ -3,6 +3,7 @@
   "version": "0.1.14",
   "description": "Sverka SDK — public TypeScript API for authoring and running workflows",
   "license": "MIT",
+  "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sverka-dev/sverka.git",

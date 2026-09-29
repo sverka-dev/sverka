@@ -12,7 +12,7 @@ import {
   type TargetDiagnostic,
   type CompilationResult,
   type GitlabTargetErrorCode,
-} from "../index.js";
+} from "../../index.js";
 
 describe("public API — exports", () => {
   it("exports all functions and classes", () => {

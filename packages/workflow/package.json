@@ -3,6 +3,7 @@
   "version": "0.1.14",
   "description": "Sverka workflow constructs — Project, Pipeline, Step, Definition Graph",
   "license": "MIT",
+  "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sverka-dev/sverka.git",

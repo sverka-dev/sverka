@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
 import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
-import { compileGitlab, gitlabCapabilities } from "../index.js";
+import { compileGitlab, gitlabCapabilities } from "../../index.js";
 
 function makeGraphWithPermissions(
   writeDecls: readonly { kind: string; target: string; description?: string }[],

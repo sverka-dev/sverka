@@ -20,9 +20,7 @@
     "packages/arena/fixtures/**",
     "**/__tests__/fixtures/**",
     "packages/sdk/src/compat/**",
-    "packages/workflow/src/ir/compat/**",
-    "packages/compiler/src/github/index.ts",
-    "packages/compiler/src/gitlab/index.ts"
+    "packages/workflow/src/ir/compat/**"
   ],
   "ignoreBinaries": ["devin", "make", "deploy", "deploy.sh"],
   "ignoreExportsUsedInFile": true

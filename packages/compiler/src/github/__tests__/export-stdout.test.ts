@@ -12,7 +12,7 @@ import {
   Entry,
   synthesize,
 } from "@sverka/workflow";
-import { compileGithub } from "../index.js";
+import { compileGithub } from "../../index.js";
 import {
   makeStdoutArtifactGraph,
   makeDoubleStdoutArtifactGraph,

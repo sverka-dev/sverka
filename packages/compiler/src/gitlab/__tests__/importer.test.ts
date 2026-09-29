@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { importGitlab, importGitlabWithDiagnostics } from "../index.js";
+import { importGitlab, importGitlabWithDiagnostics } from "../../index.js";
 
 describe("importGitlab", () => {
   it("imports a simple GitLab CI config with a shell job", () => {
