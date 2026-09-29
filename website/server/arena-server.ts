@@ -363,7 +363,7 @@ async function route(req: Request): Promise<Response> {
 
 const PORT = Number(process.env.PORT ?? 8099);
 
-const server: Server = serve({
+const server: Server<undefined> = serve({
   port: PORT,
   fetch: (req) =>
     route(req).catch((err) => {

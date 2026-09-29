@@ -6,137 +6,81 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const websiteDir = path.resolve(__dirname, "..");
-const docsDir = path.join(websiteDir, "src", "content", "docs");
-const publicDir = path.join(websiteDir, "public");
+const docsDir = path.join(websiteDir, "content", "docs");
 
 function runSync() {
   execSync("bun run sync-docs", {
     cwd: websiteDir,
-    env: {
-      ...process.env,
-      SITE_URL: "https://sverka-dev.github.io",
-      BASE_PATH: "/sverka",
-    },
     stdio: "pipe",
   });
 }
 
 describe("sync-docs", () => {
-  it("generates user docs with editUrl", () => {
+  it("generates fumadocs pages with title frontmatter", () => {
     runSync();
-    const index = path.join(docsDir, "user/index.md");
+    const index = path.join(docsDir, "index.mdx");
     expect(fs.existsSync(index)).toBe(true);
     const content = fs.readFileSync(index, "utf-8");
-    expect(content).toContain("editUrl:");
-    expect(content).toContain(
-      "https://github.com/sverka-dev/sverka/edit/main/engdocs/user/README.md",
-    );
+    expect(content).toMatch(/^---\ntitle: .+\n/);
+    expect(
+      fs.existsSync(path.join(docsDir, "getting-started/install.mdx")),
+    ).toBe(true);
   });
 
-  it("does not publish engineering or specs sections", () => {
+  it("does not publish engineering or raw specs sections", () => {
     runSync();
     expect(fs.existsSync(path.join(docsDir, "engineering"))).toBe(false);
     expect(fs.existsSync(path.join(docsDir, "specs"))).toBe(false);
+    expect(fs.existsSync(path.join(docsDir, "features"))).toBe(false);
   });
 
-  it("copies mermaid bundle", () => {
-    expect(fs.existsSync(path.join(publicDir, "mermaid.min.js"))).toBe(true);
+  it("collapses feature specs into a single summary page", () => {
+    runSync();
+    const page = fs.readFileSync(path.join(docsDir, "features.mdx"), "utf-8");
+    expect(page).toContain("title: CI Compatibility Features");
+    expect(page).toContain("F-24");
+    expect(page).toContain("specs/features/F-24-artifact-outputs.md");
   });
 
-  it("writes sitemap url to robots.txt", () => {
-    const robots = fs.readFileSync(path.join(publicDir, "robots.txt"), "utf-8");
-    expect(robots).toContain(
-      "Sitemap: https://sverka-dev.github.io/sverka/sitemap-index.xml",
-    );
-  });
-
-  it("preserves index.mdx and uses relative links", () => {
+  it("rewrites relative markdown links to /docs/ paths", () => {
+    runSync();
     const index = fs.readFileSync(path.join(docsDir, "index.mdx"), "utf-8");
-    expect(index).toContain("editUrl:");
-    expect(index).not.toContain("link: /user/");
-    expect(index).toContain("link: user/");
+    expect(index).toContain("](/docs/concepts)");
+    expect(index).not.toContain("](./concepts/README.md)");
   });
 
-  it("generates sidebar config with curated section order", () => {
+  it("generates meta.json with curated section order", () => {
     runSync();
-    const sidebar = fs.readFileSync(
-      path.join(websiteDir, "sidebar.generated.mjs"),
-      "utf-8",
+    const meta = JSON.parse(
+      fs.readFileSync(path.join(docsDir, "meta.json"), "utf-8"),
+    ) as { pages: string[] };
+    const order = meta.pages;
+    expect(order[0]).toBe("index");
+    expect(order[order.length - 1]).toBe("features");
+    expect(order.indexOf("concepts")).toBeLessThan(order.indexOf("use-cases"));
+    expect(order.indexOf("use-cases")).toBeLessThan(
+      order.indexOf("getting-started"),
     );
-    expect(sidebar).toContain('"label": "User documentation"');
-    expect(sidebar).toContain('"label": "Concepts"');
-    expect(sidebar).toContain('"label": "Use Cases"');
-    expect(sidebar).toContain('"label": "Getting Started"');
-    expect(sidebar).toContain('"label": "Running"');
-    expect(sidebar).toContain('"label": "Findings"');
-    expect(sidebar).toContain('"label": "Workflows"');
-    expect(sidebar).toContain('"label": "Agent Integration"');
-    expect(sidebar).toContain('"label": "Compiling"');
-    expect(sidebar).toContain('"label": "Reference"');
-    expect(sidebar).toContain('"directory": "user/getting-started"');
-    expect(sidebar).toContain('"directory": "user/findings"');
-    // Section order: Concepts → Use Cases → Getting Started → Running → Findings → Workflows → Agent Integration → Compiling → Reference
-    expect(sidebar.indexOf('"label": "Concepts"')).toBeLessThan(
-      sidebar.indexOf('"label": "Use Cases"'),
+    expect(order.indexOf("getting-started")).toBeLessThan(
+      order.indexOf("running"),
     );
-    expect(sidebar.indexOf('"label": "Use Cases"')).toBeLessThan(
-      sidebar.indexOf('"label": "Getting Started"'),
-    );
-    expect(sidebar.indexOf('"label": "Getting Started"')).toBeLessThan(
-      sidebar.indexOf('"label": "Running"'),
-    );
-    expect(sidebar.indexOf('"label": "Running"')).toBeLessThan(
-      sidebar.indexOf('"label": "Findings"'),
-    );
-    expect(sidebar.indexOf('"label": "Findings"')).toBeLessThan(
-      sidebar.indexOf('"label": "Workflows"'),
-    );
-    expect(sidebar.indexOf('"label": "Workflows"')).toBeLessThan(
-      sidebar.indexOf('"label": "Agent Integration"'),
-    );
-    expect(sidebar.indexOf('"label": "Agent Integration"')).toBeLessThan(
-      sidebar.indexOf('"label": "Compiling"'),
-    );
-    expect(sidebar.indexOf('"label": "Compiling"')).toBeLessThan(
-      sidebar.indexOf('"label": "Reference"'),
-    );
-    // CI compatibility matrix is nested under Reference, not a top-level section
-    expect(sidebar).toContain('"label": "CI Compatibility Matrix"');
-    expect(sidebar.indexOf('"label": "Reference"')).toBeLessThan(
-      sidebar.indexOf('"label": "CI Compatibility Matrix"'),
-    );
-    // Parse the sidebar and assert CI Compatibility Matrix is inside Reference's items
-    const sidebarContent = sidebar
-      .replace(/^export const sidebar =\s*/, "")
-      .trim()
-      .replace(/;$/, "");
-    const parsed = JSON.parse(sidebarContent);
-    const userDocGroup = parsed.find(
-      (entry: { label?: string }) => entry.label === "User documentation",
-    );
-    expect(userDocGroup).toBeDefined();
-    const userDocItems = userDocGroup.items ?? [];
-    const refGroup = userDocItems.find(
-      (entry: { label?: string }) => entry.label === "Reference",
-    );
-    expect(refGroup).toBeDefined();
-    const refItems = refGroup.items ?? [];
-    const ciMatrix = refItems.find(
-      (entry: { label?: string }) => entry.label === "CI Compatibility Matrix",
-    );
-    expect(ciMatrix).toBeDefined();
-    expect(sidebar).not.toContain('"label": "Feature matrix"');
-    // No duplicate: features overview comes from autogenerate only
-    expect(sidebar.match(/"slug": "features"/g)).toBeNull();
+    // folders must not be duplicated
+    expect(new Set(order).size).toBe(order.length);
   });
 
-  it("does not duplicate the generated index heading", () => {
+  it("writes per-folder meta.json with titles", () => {
     runSync();
-    const index = fs.readFileSync(path.join(docsDir, "user/index.md"), "utf-8");
-    const headingMatches = (
-      index.match(/^# Sverka — User Documentation$/gm) || []
-    ).length;
-    expect(headingMatches).toBe(0);
-    expect(index).toContain("sidebar:\n  label: Overview");
+    const meta = JSON.parse(
+      fs.readFileSync(path.join(docsDir, "getting-started/meta.json"), "utf-8"),
+    ) as { title: string; pages: string[] };
+    expect(meta.title).toBe("Getting Started");
+    expect(meta.pages).toContain("install");
+    expect(meta.pages).toContain("first-plan");
+  });
+
+  it("does not duplicate the extracted H1 in the body", () => {
+    runSync();
+    const index = fs.readFileSync(path.join(docsDir, "index.mdx"), "utf-8");
+    expect(index).not.toContain("# Sverka — User Documentation");
   });
 });
