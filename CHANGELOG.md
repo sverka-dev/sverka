@@ -1,3 +1,14 @@
+## 0.1.17 (2026-09-29)
+
+### 🚀 Features
+
+- **reporter:** click a step in any view to filter its findings ([#248](https://github.com/sverka-dev/sverka/pull/248))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.16 (2026-09-29)
 
 ### 🚀 Features
