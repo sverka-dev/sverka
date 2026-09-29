@@ -363,6 +363,35 @@ describe("HtmlRenderer", () => {
     expect(html).toContain('href="https://example.com"');
   });
 
+  it("steps are clickable — data-step on every view, findings wired to checkId", () => {
+    const html = renderHtml([
+      { type: "run-started", runId: "r", planId: "p", at: 1000 },
+      { type: "step-started", stepId: "ci/build", at: 1100 },
+      {
+        type: "step-succeeded",
+        stepId: "ci/build",
+        durationMs: 100,
+        at: 1200,
+      },
+      {
+        type: "run-completed",
+        runId: "r",
+        status: "success",
+        durationMs: 200,
+        at: 1200,
+      },
+    ]);
+    // every view carries data-step (gantt row, dag node, tree node, list chip)
+    expect(html).toContain('class="gstep" data-step="ci/build"');
+    expect(html).toContain('class="dag-node" data-step="ci/build"');
+    expect(html).toContain('data-step="ci/build"');
+    expect(html).toContain('class="step-findings" data-step="ci/build"');
+    // JS filters findings by the step's checkId
+    expect(html).toContain("stepFilter");
+    expect(html).toContain("f.checkId !== stepFilter");
+    expect(html).toContain("step-filter-chip");
+  });
+
   it("list view — step stdout/stderr land in expandable rows", () => {
     const html = renderHtml([
       runStarted("run-1", "plan-abc"),

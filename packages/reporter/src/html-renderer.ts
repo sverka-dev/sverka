@@ -253,7 +253,8 @@ function renderGanttSvg(state: UIState, nsPrefix: string): string {
       } else {
         bar = `<text class="dur notime" x="${labelW + 4}" y="${y + 18}">${escapeHtml(s.state)}</text>`;
       }
-      return `<text class="row-label" x="4" y="${y + 18}">${label}</text>${bar}`; // nosemgrep: html-in-template-string
+      // nosemgrep: html-in-template-string
+      return `<g class="gstep" data-step="${escapeHtml(s.stepId)}"><text class="row-label" x="4" y="${y + 18}">${label}</text>${bar}</g>`;
     })
     .join("");
 
@@ -317,7 +318,7 @@ function renderDagSvg(
       const short = displayId(n.id, nsPrefix);
       const label = short.length > 22 ? `${short.slice(0, 21)}…` : short;
       // nosemgrep: html-in-template-string
-      return `<g class="dag-node">
+      return `<g class="dag-node" data-step="${escapeHtml(n.id)}">
         <title>${escapeHtml(n.id)}</title>
         <rect x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="8" stroke="${color}" />
         <rect x="${n.x}" y="${n.y}" width="4" height="${n.height}" rx="2" fill="${color}" />
@@ -372,7 +373,7 @@ function renderStepList(state: UIState, nsPrefix: string): string {
 
       // nosemgrep: html-in-template-string
       return `      <details>
-        <summary><span class="step-icon">${icon}</span> ${escapeHtml(displayId(step.stepId, nsPrefix))} <span class="step-state ${step.state}">${step.state}</span> <span class="meta">${fmtMs(step.durationMs)}</span></summary>
+        <summary><span class="step-icon">${icon}</span> ${escapeHtml(displayId(step.stepId, nsPrefix))} <span class="step-state ${step.state}">${step.state}</span> <span class="meta">${fmtMs(step.durationMs)}</span> <button type="button" class="step-findings" data-step="${escapeHtml(step.stepId)}" title="Show only findings from this step">findings</button></summary>
         <div class="step-body">${bodyParts.join("") || '<span class="meta">no output captured</span>'}</div>
       </details>`;
     })
@@ -400,7 +401,7 @@ function renderTree(state: UIState, dag: DagLayout, nsPrefix: string): string {
     const kids = (children.get(id) ?? []).filter((k) => ids.has(k));
     const nested = kids.length ? `<ul>${kids.map(item).join("")}</ul>` : "";
     // nosemgrep: html-in-template-string
-    return `<li><span class="tree-node" style="border-color:${color}">${icon} ${escapeHtml(displayId(id, nsPrefix))} <span class="meta">${escapeHtml(step?.state ?? "pending")}</span></span>${nested}</li>`;
+    return `<li><span class="tree-node" data-step="${escapeHtml(id)}" style="border-color:${color}">${icon} ${escapeHtml(displayId(id, nsPrefix))} <span class="meta">${escapeHtml(step?.state ?? "pending")}</span></span>${nested}</li>`;
   };
 
   // nosemgrep: html-in-template-string
@@ -439,6 +440,10 @@ function renderFindingsSection(findingsHtml: string): string {
   return `<section id="findings">
     <h2>Findings</h2>
     <div class="findings-controls">
+      <span id="step-filter-chip" class="step-filter-chip hidden">
+        step: <b id="step-filter-name"></b>
+        <button type="button" id="step-filter-clear" title="Clear step filter">×</button>
+      </span>
       <div class="filter-buttons">
         <button class="filter-btn active" data-severity="all">All</button>
         <button class="filter-btn" data-severity="critical">Critical</button>
@@ -725,6 +730,43 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 0.8rem;
 }
+.step-active > rect:first-of-type,
+.step-active.tree-node { outline: 2px solid #58a6ff; outline-offset: 1px; }
+.step-active > .bar { stroke: #58a6ff; stroke-width: 2; }
+.gstep, .dag-node, .tree-node { cursor: pointer; }
+.gstep:hover .row-label { fill: #58a6ff; }
+.dag-node:hover > rect:first-of-type { stroke-width: 2.5; }
+.step-findings {
+  margin-left: 0.5rem;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #21262d;
+  color: #8b949e;
+  cursor: pointer;
+}
+.step-findings:hover { color: #58a6ff; border-color: #58a6ff; }
+.step-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid #1f6feb;
+  border-radius: 12px;
+  background: rgba(31, 111, 235, 0.15);
+  color: #58a6ff;
+  font-size: 0.8rem;
+}
+.step-filter-chip.hidden { display: none; }
+.step-filter-chip button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0 0.1rem;
+}
 .meta { color: #8b949e; }
 @media (max-width: 900px) {
   main.split { grid-template-columns: 1fr; }
@@ -773,6 +815,7 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
   var findingsData = window.__FINDINGS_DATA__ || [];
   var currentFilter = "all";
   var currentSearch = "";
+  var stepFilter = null;
   var sortColumn = null;
   var sortDir = 1;
 
@@ -780,6 +823,7 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
     var tbody = document.querySelector("#findings-table tbody");
     if (!tbody) return;
     var filtered = findingsData.filter(function(f) {
+      if (stepFilter && f.checkId !== stepFilter) return false;
       if (currentFilter !== "all" && f.severity !== currentFilter) return false;
       if (currentSearch) {
         var search = currentSearch.toLowerCase();
@@ -807,6 +851,47 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
         '<td>' + esc(f.message) + '</td>' +
         '</tr>';
     }).join("");
+  }
+
+  // Step → findings filter: click any step element (gantt row, dag
+  // node, tree node, list "findings" chip) to filter the table.
+  function applyStepFilter(id) {
+    stepFilter = stepFilter === id ? null : id;
+    document.querySelectorAll("[data-step]").forEach(function(el) {
+      el.classList.toggle("step-active", stepFilter === el.getAttribute("data-step"));
+    });
+    var chip = document.getElementById("step-filter-chip");
+    if (chip) chip.classList.toggle("hidden", !stepFilter);
+    var name = document.getElementById("step-filter-name");
+    if (name) name.textContent = stepFilter || "";
+    renderTable();
+    if (stepFilter) {
+      var f = document.getElementById("findings");
+      if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
+  document.querySelectorAll("[data-step]").forEach(function(el) {
+    el.addEventListener("click", function(e) {
+      e.stopPropagation();
+      // preventDefault keeps <details> in the list view from toggling
+      // when the "findings" chip inside <summary> is clicked.
+      e.preventDefault();
+      applyStepFilter(el.getAttribute("data-step"));
+    });
+  });
+
+  var clearBtn = document.getElementById("step-filter-clear");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", function() {
+      stepFilter = null;
+      document.querySelectorAll("[data-step]").forEach(function(el) {
+        el.classList.remove("step-active");
+      });
+      var chip = document.getElementById("step-filter-chip");
+      if (chip) chip.classList.add("hidden");
+      renderTable();
+    });
   }
 
   // Filter buttons
