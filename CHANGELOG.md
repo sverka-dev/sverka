@@ -1,3 +1,14 @@
+## 0.1.20 (2026-09-29)
+
+### 🚀 Features
+
+- **cli:** compile --output-dir for multi-pipeline projects ([#250](https://github.com/sverka-dev/sverka/pull/250))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+- ThePlenkov
+
 ## 0.1.19 (2026-09-29)
 
 ### 🚀 Features
