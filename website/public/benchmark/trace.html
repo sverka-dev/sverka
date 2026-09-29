@@ -924,10 +924,12 @@
           return null;
         }
 
-        /** Fetch arena-sample.json and extract verdict/output for this run. */
+        /** Fetch the arena results file and extract verdict/output for
+         *  this run — real snapshot first, sample as fallback. */
         async function fetchArenaVerdictAndOutput(taskId, modelId, pluginIds) {
           try {
-            var resp = await fetch("arena-sample.json");
+            var resp = await fetch("arena-results.json");
+            if (!resp.ok) resp = await fetch("arena-sample.json");
             if (!resp.ok) return null;
             var data = await resp.json();
             var result = findArenaResult(data, taskId, modelId, pluginIds);

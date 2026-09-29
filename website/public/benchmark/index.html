@@ -1098,6 +1098,12 @@
         margin-top: 0.5rem;
       }
 
+      /* Static hosting (no CRUD API) — mutation controls are dead
+         weight, so static mode hides them everywhere. */
+      body.static-mode .case-card-actions {
+        display: none;
+      }
+
       .config-editor {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -3316,6 +3322,7 @@
             renderSidebarWithCases();
           }
           if (!hasApi) {
+            document.body.classList.add("static-mode");
             ["btn-new-case", "btn-config", "btn-run"].forEach(function (id) {
               var b = document.getElementById(id);
               if (b) b.style.display = "none";
