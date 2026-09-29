@@ -137,6 +137,10 @@ function addCompileCommand(y: Argv): Argv {
       alias: "o",
       describe: "Write YAML to a file instead of stdout",
     })
+    .option("output-dir", {
+      type: "string",
+      describe: "Write each artifact to <dir>/<artifact path> (multi-pipeline)",
+    })
     .option("pin", {
       type: "boolean",
       default: false,
@@ -349,6 +353,7 @@ function dispatchCompile(
   const target = parsed.target === "gitlab" ? "gitlab" : "github";
   const args: CompileArgs = { target };
   if (typeof parsed.output === "string") args.output = parsed.output;
+  if (typeof parsed.outputDir === "string") args.outputDir = parsed.outputDir;
   if (parsed.pin === true) args.pin = true;
   return compileCommand(args, global, output, start);
 }

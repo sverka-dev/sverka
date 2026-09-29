@@ -11,6 +11,12 @@ import { detectCiSetup } from "../internal/ci-setup.js";
 export interface CompileArgs {
   target: string;
   output?: string | undefined;
+  /**
+   * Write each artifact to `<outputDir>/<artifact path>` instead of
+   * gluing all artifacts into one stdout/file. Mutually exclusive with
+   * `output`; required once a project defines more than one pipeline.
+   */
+  outputDir?: string | undefined;
   /** Pin GitHub action refs to commit SHAs (github target only). */
   pin?: boolean;
 }
@@ -26,6 +32,13 @@ export async function compileCommand(
   if (target !== "github" && target !== "gitlab") {
     throw new CliError(
       `invalid compile target: ${target} (expected github or gitlab)`,
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+  if (args.output && args.outputDir) {
+    throw new CliError(
+      "--output and --output-dir are mutually exclusive",
       "INVALID_FLAG",
       ExitCode.UsageError,
     );
@@ -58,7 +71,37 @@ export async function compileCommand(
 
   const yaml = result.artifacts.map((a) => a.content).join("\n---\n");
 
-  if (args.output) {
+  if (args.outputDir) {
+    const outDir = resolve(global.root, args.outputDir);
+    const written: string[] = [];
+    for (const a of result.artifacts) {
+      const outPath = resolve(outDir, a.path);
+      if (!outPath.startsWith(outDir + "/")) {
+        throw new CliError(
+          `artifact path escapes output dir: ${a.path}`,
+          "INVALID_FLAG",
+          ExitCode.UsageError,
+        );
+      }
+      await mkdir(dirname(outPath), { recursive: true });
+      await writeFile(outPath, a.content, "utf8");
+      written.push(outPath);
+    }
+
+    if (global.format === "json") {
+      output.writeLine(
+        JSON.stringify({
+          command: "compile",
+          data: { target, paths: written },
+          durationMs: Date.now() - start,
+        }),
+      );
+    } else {
+      for (const p of written) {
+        output.writeLine(`Compiled ${target} workflow to ${p}`);
+      }
+    }
+  } else if (args.output) {
     const outPath = resolve(global.root, args.output);
     await mkdir(dirname(outPath), { recursive: true });
     await writeFile(outPath, yaml, "utf8");

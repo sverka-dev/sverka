@@ -76,12 +76,16 @@ Evaluate policy against findings and baseline.
 ### `sverka compile --target github|gitlab`
 
 Compile the workflow to a CI target and print the YAML (or write it with
-`--output`).
+`--output`). With more than one pipeline, use `--output-dir` to write each
+artifact to its own file under the given directory (mirrors the repo-relative
+paths, e.g. `<dir>/.github/workflows/<pipeline>.yml`). `--output` and
+`--output-dir` are mutually exclusive.
 
-| Flag             | Type   | Default | Description                             |
-| ---------------- | ------ | ------- | --------------------------------------- |
-| `--target`       | string | —       | Target: `github` or `gitlab` (required) |
-| `--output`, `-o` | string | —       | Write YAML to a file instead of stdout  |
+| Flag             | Type   | Default | Description                                    |
+| ---------------- | ------ | ------- | ---------------------------------------------- |
+| `--target`       | string | —       | Target: `github` or `gitlab` (required)        |
+| `--output`, `-o` | string | —       | Write YAML to a file instead of stdout         |
+| `--output-dir`   | string | —       | Write each artifact to `<dir>/<artifact path>` |
 
 ### `sverka synth --target github|gitlab`
 
