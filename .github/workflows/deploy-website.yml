@@ -12,6 +12,10 @@ on:
       - "packages/**"
       - "sverka.config.ts"
       - "examples/**"
+      # The deploy installs and builds from these too.
+      - "package.json"
+      - "bun.lock"
+      - "nx.json"
   workflow_dispatch:
 
 jobs:
