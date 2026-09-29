@@ -1,4 +1,11 @@
-import { lstat, mkdir, realpath, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import {
+  mkdir,
+  open,
+  realpath,
+  writeFile,
+  type FileHandle,
+} from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { compileGithub, compileGitlab } from "@sverka/compiler";
 import type { CompilationResult } from "@sverka/compiler";
@@ -122,12 +129,25 @@ export async function compileCommand(
         }
       }
       await mkdir(dirname(outPath), { recursive: true });
+      // O_NOFOLLOW fails atomically on a symlinked leaf — no
+      // check-then-write race on the final path component.
+      const flags =
+        constants.O_WRONLY |
+        constants.O_CREAT |
+        constants.O_TRUNC |
+        constants.O_NOFOLLOW;
+      let fh: FileHandle;
       try {
-        if ((await lstat(outPath)).isSymbolicLink()) throw escapes();
+        fh = await open(outPath, flags);
       } catch (e) {
-        if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+        if ((e as NodeJS.ErrnoException).code === "ELOOP") throw escapes();
+        throw e;
       }
-      await writeFile(outPath, a.content, "utf8");
+      try {
+        await fh.writeFile(a.content);
+      } finally {
+        await fh.close();
+      }
       written.push(outPath);
     }
 
