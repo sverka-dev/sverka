@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { compileGithub, compileGitlab } from "@sverka/compiler";
 import type { CompilationResult } from "@sverka/compiler";
 import type { GlobalFlags, OutputWriter } from "../types.js";
@@ -71,12 +71,28 @@ export async function compileCommand(
 
   const yaml = result.artifacts.map((a) => a.content).join("\n---\n");
 
+  // A glued single file/stream cannot represent multiple pipelines —
+  // hard-fail --output, warn on stdout (back-compat for drift diffs).
+  if (result.artifacts.length > 1 && !args.outputDir) {
+    if (args.output) {
+      throw new CliError(
+        `--output cannot represent ${result.artifacts.length} artifacts; use --output-dir`,
+        "INVALID_FLAG",
+        ExitCode.UsageError,
+      );
+    }
+    output.errorLine(
+      `[warning] ${result.artifacts.length} artifacts glued into one stream; use --output-dir to write separate files`,
+    );
+  }
+
   if (args.outputDir) {
     const outDir = resolve(global.root, args.outputDir);
     const written: string[] = [];
     for (const a of result.artifacts) {
       const outPath = resolve(outDir, a.path);
-      if (!outPath.startsWith(outDir + "/")) {
+      const rel = relative(outDir, outPath);
+      if (rel.startsWith("..") || isAbsolute(rel)) {
         throw new CliError(
           `artifact path escapes output dir: ${a.path}`,
           "INVALID_FLAG",

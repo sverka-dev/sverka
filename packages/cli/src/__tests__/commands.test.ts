@@ -194,6 +194,31 @@ export default proj;
     expect(out.stdoutText).toContain("release.yml");
   });
 
+  it("exits 2 when --output is given for a multi-pipeline project", async () => {
+    const dir = getDir();
+    await writefile(
+      dir,
+      "sverka.config.ts",
+      `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const ci = new Pipeline(proj, "ci");
+new ShellStep(ci, "build", { command: "echo build" });
+new Entry(ci, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+const rel = new Pipeline(proj, "release");
+new ShellStep(rel, "publish", { command: "echo publish" });
+new Entry(rel, "on-tag", { trigger: { kind: "manual" }, roots: ["publish"] });
+export default proj;
+`,
+    );
+    const out = new CaptureWriter();
+    const code = await main(
+      ["compile", "--target", "github", "--root", dir, "--output", "all.yml"],
+      { output: out },
+    );
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("--output-dir");
+  });
+
   it("exits 2 when --output and --output-dir are combined", async () => {
     const dir = getDir();
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
