@@ -70,7 +70,15 @@ steps+findings area between vertical stacking and a two-column grid
 
 ### Findings
 
-Unchanged: severity filter buttons, sortable columns, search.
+Severity filter buttons, sortable columns, search — unchanged.
+New: every step element in every view (Gantt row, DAG node, tree node,
+the `findings` chip in list rows) carries `data-step` and is clickable.
+Clicking toggles a step filter on the findings table — finding
+checkIds are rule-qualified (`ci/lint:rule-id`), so a match means
+equal or `stepId:`-prefix, mirroring the policy evaluator. The filter
+composes with severity/search, highlights the step across all views
+(`step-active`), and surfaces a dismissible chip in the findings
+header; clicking the same step again or the chip clears it.
 
 ## Non-goals
 
