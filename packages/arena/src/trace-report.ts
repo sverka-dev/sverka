@@ -12,13 +12,18 @@ import type { RunEvent } from "@sverka/runtime";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { ReportContext } from "@sverka/reporter";
 import { createHtmlRenderer } from "@sverka/reporter";
-import type { RunResult, TraceData, TraceStep } from "./types.js";
+import type { RunResult, TraceData, TraceStep, ToolCall } from "./types.js";
 
 /** Relative duration weight per step kind — shares of the real total. */
-const WEIGHTS = { tool: 4, think: 2, message: 1 } as const;
 const MIN_STEP_MS = 150;
 
-type StepKind = keyof typeof WEIGHTS;
+type StepKind = "tool" | "think" | "message";
+
+function weight(kind: StepKind): number {
+  if (kind === "tool") return 4;
+  if (kind === "think") return 2;
+  return 1;
+}
 
 /** A trace step drives one Gantt bar. */
 export interface ActionStep {
@@ -28,19 +33,22 @@ export interface ActionStep {
   detail: string;
 }
 
+/** The argument that best summarizes a call (command line, path…). */
+function keyArgument(call: ToolCall): string {
+  const v =
+    call.arguments["command"] ??
+    call.arguments["file_path"] ??
+    call.arguments["command_text"] ??
+    "";
+  return typeof v === "string" ? v.replace(/\s+/g, " ") : "";
+}
+
 /** Short, readable label for a tool call — function + key argument. */
 function toolLabel(s: TraceStep): string {
   const calls = s.toolCalls ?? [];
   const names = calls.map((c) => c.functionName).join(", ");
-  const first = calls[0];
-  const arg = first
-    ? (first.arguments["command"] ??
-      first.arguments["file_path"] ??
-      first.arguments["command_text"] ??
-      "")
-    : "";
-  const argStr = typeof arg === "string" ? arg : JSON.stringify(arg);
-  const base = argStr ? `${names}: ${argStr.replace(/\s+/g, " ")}` : names;
+  const arg = calls.length > 0 ? keyArgument(calls[0]!) : "";
+  const base = arg ? `${names}: ${arg}` : names;
   return base.length > 60 ? `${base.slice(0, 59)}…` : base;
 }
 
@@ -57,7 +65,7 @@ function toLabel(s: TraceStep): string {
 }
 
 /**
- * extracts a trace into action steps: agent activity only (system/user
+ * Extracts a trace into action steps: agent activity only (system/user
  * context is noise for the "what did the agent do" view), adjacent
  * duplicates collapsed (the collector replays each turn twice).
  */
@@ -67,7 +75,7 @@ export function traceToActions(trace: TraceData): ActionStep[] {
   let n = 0;
   for (const s of trace.steps) {
     if (s.source !== "agent") continue;
-    const key = `${s.source}|${s.isLlmCall}|${s.message}`;
+    const key = `${s.isLlmCall}|${s.message}`;
     if (key === prevKey) continue;
     prevKey = key;
     const kind = classify(s);
@@ -92,37 +100,52 @@ export function traceToRunEvents(
 ): RunEvent[] {
   const actions = traceToActions(result.trace);
   const totalMs = Math.max(result.metrics.executionTimeMs || 0, 1);
-  const totalWeight = actions.reduce((a, s) => a + WEIGHTS[s.kind], 0) || 1;
+  const totalWeight = actions.reduce((a, s) => a + weight(s.kind), 0) || 1;
+  const runId = opts?.runId ?? `arena-${result.taskId}`;
 
   const events: RunEvent[] = [
     {
       type: "run-started",
-      runId: opts?.runId ?? `arena-${result.taskId}`,
+      runId,
       planId: opts?.planId ?? result.taskId,
       at: 0,
     },
   ];
 
   let t = 0;
-  for (const a of actions) {
+  actions.forEach((a, i) => {
     const dur = Math.max(
-      Math.round((totalMs * WEIGHTS[a.kind]) / totalWeight),
+      Math.round((totalMs * weight(a.kind)) / totalWeight),
       MIN_STEP_MS,
     );
     events.push({ type: "step-started", stepId: a.stepId, at: t });
-    events.push({
-      type: "step-succeeded",
-      stepId: a.stepId,
-      durationMs: dur,
-      stdout: a.detail,
-      at: t + dur,
-    });
+    // A failed run's last action is the one that failed — earlier
+    // steps still show green; the tail bar carries the error.
+    const isLast = i === actions.length - 1;
+    events.push(
+      !result.success && isLast
+        ? {
+            type: "step-failed",
+            stepId: a.stepId,
+            error: result.error ?? "run failed",
+            durationMs: dur,
+            stdout: a.detail,
+            at: t + dur,
+          }
+        : {
+            type: "step-succeeded",
+            stepId: a.stepId,
+            durationMs: dur,
+            stdout: a.detail,
+            at: t + dur,
+          },
+    );
     t += dur;
-  }
+  });
 
   events.push({
     type: "run-completed",
-    runId: opts?.runId ?? `arena-${result.taskId}`,
+    runId,
     status: result.success ? "success" : "failure",
     durationMs: t,
     at: t,
@@ -135,13 +158,14 @@ export function traceToRunEvents(
  * sequence. Only the fields layoutDag reads are populated.
  */
 export function traceGraph(actions: readonly ActionStep[]): DefinitionGraph {
-  const steps = actions.map((a, i) => ({
-    id: a.stepId,
-    dependencies:
-      i === 0
-        ? []
-        : [{ kind: "control" as const, producer: actions[i - 1]!.stepId }],
-  }));
+  let prev = "";
+  const steps = actions.map((a) => {
+    const dependencies = prev
+      ? [{ kind: "control" as const, producer: prev }]
+      : [];
+    prev = a.stepId;
+    return { id: a.stepId, dependencies };
+  });
   // Minimal graph — layoutDag only reads project.pipelines[].steps
   // ({id, dependencies}).
   return {

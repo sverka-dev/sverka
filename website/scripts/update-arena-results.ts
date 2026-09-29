@@ -45,14 +45,10 @@ interface ArenaTask {
   successCriteria?: string;
   checks?: { id: string; command: string; description: string }[];
 }
-interface ArenaRunResult {
-  taskId: string;
-  modelId: string;
-  pluginIds: string[];
-  trace?: unknown;
-}
 interface ArenaResultsFile {
-  results?: ArenaRunResult[];
+  // Typed as RunResult but trace is treated as optional — a hand-edited
+  // snapshot may drop it, and reports/traces just skip those entries.
+  results?: RunResult[];
 }
 interface ArenaConfigFile {
   models?: { id: string; name: string; envVar?: string }[];
@@ -103,29 +99,32 @@ async function writeJson(path: string, data: unknown): Promise<void> {
   await rename(tmp, path);
 }
 
-// Results — the SPA's default data file. Full copy via tmp+rename:
-// traces and output are what makes the viewer useful, and a torn file
-// must never reach the page.
-const resultsTmp = join(benchDir, "arena-results.json.tmp");
-await writeFile(resultsTmp, readFileSync(resultsSrc));
-await rename(resultsTmp, join(benchDir, "arena-results.json"));
-
 // Per-combo trace files — trace.html loads
 // traces/<taskId>/<plugins.join("--") | "no-plugins">.json.
+// Generated BEFORE the results.json rename so a rendering failure
+// never leaves the SPA pointing at fresh results with missing
+// reports.
 const tracesDir = join(benchDir, "traces");
 let reportsWritten = 0;
 for (const r of results.results ?? []) {
-  if (r.trace === undefined) continue;
+  if (!r.trace) continue;
   const combo = r.pluginIds.length ? r.pluginIds.join("--") : "no-plugins";
   const dir = join(tracesDir, r.taskId);
   await mkdir(dir, { recursive: true });
   // Later repetitions overwrite — the viewer only shows one run per combo.
   await writeJson(join(dir, `${combo}.json`), r.trace);
   // Sverka report — Gantt/DAG timeline of the agent run itself.
-  writeTraceReport(r as RunResult, join(dir, `${combo}.report.html`));
+  writeTraceReport(r, join(dir, `${combo}.report.html`));
   reportsWritten++;
 }
 // Older trace dirs stay — arena-sample.json still references them.
+
+// Results — the SPA's default data file. Full copy via tmp+rename:
+// traces and output are what makes the viewer useful, and a torn file
+// must never reach the page.
+const resultsTmp = join(benchDir, "arena-results.json.tmp");
+await writeFile(resultsTmp, readFileSync(resultsSrc));
+await rename(resultsTmp, join(benchDir, "arena-results.json"));
 
 // Cases — task definitions, preserving createdAt for existing ids.
 const casesPath = join(apiDir, "cases.json");

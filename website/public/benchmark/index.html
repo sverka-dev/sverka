@@ -2043,21 +2043,24 @@
 
           // Sverka report — the run rendered by @sverka/reporter
           // (Gantt/DAG). Written by docs:arena as
-          // traces/<taskId>/<combo>.report.html.
-          var combo =
-            result.pluginIds && result.pluginIds.length
-              ? result.pluginIds.join("--")
-              : "no-plugins";
-          var reportLink = document.createElement("a");
-          reportLink.className = "run-trace-link";
-          reportLink.href =
-            "traces/" +
-            encodeURIComponent(taskId) +
-            "/" +
-            encodeURIComponent(combo) +
-            ".report.html";
-          reportLink.textContent = "Timeline →";
-          body.appendChild(reportLink);
+          // traces/<taskId>/<combo>.report.html — only for runs that
+          // actually have a trace.
+          if (result.trace) {
+            var combo =
+              result.pluginIds && result.pluginIds.length
+                ? result.pluginIds.join("--")
+                : "no-plugins";
+            var reportLink = document.createElement("a");
+            reportLink.className = "run-trace-link";
+            reportLink.href =
+              "traces/" +
+              encodeURIComponent(taskId) +
+              "/" +
+              encodeURIComponent(combo) +
+              ".report.html";
+            reportLink.textContent = "Timeline →";
+            body.appendChild(reportLink);
+          }
 
           card.appendChild(body);
           return card;
@@ -2192,20 +2195,22 @@
           traceLink.textContent = "View Full Trace →";
           body.appendChild(traceLink);
 
-          var combo =
-            result.pluginIds && result.pluginIds.length
-              ? result.pluginIds.join("--")
-              : "no-plugins";
-          var reportLink = document.createElement("a");
-          reportLink.className = "run-trace-link";
-          reportLink.href =
-            "traces/" +
-            encodeURIComponent(taskId) +
-            "/" +
-            encodeURIComponent(combo) +
-            ".report.html";
-          reportLink.textContent = "Timeline →";
-          body.appendChild(reportLink);
+          if (result.trace) {
+            var combo =
+              result.pluginIds && result.pluginIds.length
+                ? result.pluginIds.join("--")
+                : "no-plugins";
+            var reportLink = document.createElement("a");
+            reportLink.className = "run-trace-link";
+            reportLink.href =
+              "traces/" +
+              encodeURIComponent(taskId) +
+              "/" +
+              encodeURIComponent(combo) +
+              ".report.html";
+            reportLink.textContent = "Timeline →";
+            body.appendChild(reportLink);
+          }
 
           col.appendChild(body);
           return col;

@@ -148,11 +148,22 @@ describe("traceToRunEvents", () => {
     }
   });
 
-  it("marks the run failed when success is false", () => {
-    const t = trace([step({ stepId: 1, isLlmCall: true, message: "x" })]);
-    const events = traceToRunEvents(result(t, { success: false }));
+  it("marks the run failed and fails the tail step when success is false", () => {
+    const t = trace([
+      step({ stepId: 1, isLlmCall: true, message: "x" }),
+      step({ stepId: 2, isLlmCall: true, message: "y" }),
+    ]);
+    const events = traceToRunEvents(
+      result(t, { success: false, error: "check failed" }),
+    );
     const last = events.at(-1);
     expect(last?.type === "run-completed" && last.status).toBe("failure");
+    const terminal = events.filter(
+      (e) => e.type === "step-succeeded" || e.type === "step-failed",
+    );
+    expect(terminal[0]?.type).toBe("step-succeeded");
+    const tail = terminal.at(-1);
+    expect(tail?.type === "step-failed" && tail.error).toBe("check failed");
   });
 });
 
