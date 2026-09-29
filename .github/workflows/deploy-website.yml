@@ -7,6 +7,11 @@ on:
       - "website/**"
       - "engdocs/user/**"
       - ".github/workflows/deploy-website.yml"
+      # The pipeline page runs the CLI and renders the HTML report from
+      # source — package changes must redeploy or the site goes stale.
+      - "packages/**"
+      - "sverka.config.ts"
+      - "examples/**"
   workflow_dispatch:
 
 jobs:
