@@ -1,3 +1,14 @@
+## 0.1.18 (2026-09-29)
+
+### 🚀 Features
+
+- **reporter:** zoomable, padded DAG viewport ([#251](https://github.com/sverka-dev/sverka/pull/251))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.17 (2026-09-29)
 
 ### 🚀 Features
