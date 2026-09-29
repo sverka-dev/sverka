@@ -17,7 +17,7 @@ let TEST_DIR: string;
 let CASES_FILE: string;
 let CONFIG_FILE: string;
 
-let server: Server;
+let server: Server<undefined>;
 
 beforeAll(async () => {
   TEST_DIR = await mkdtemp(join(tmpdir(), "arena-server-test-"));
@@ -61,7 +61,7 @@ beforeAll(async () => {
   );
 
   // Inline server for testing
-  const PUBLIC_DIR = join(process.cwd(), "website/public/benchmark");
+  const PUBLIC_DIR = join(import.meta.dirname, "..", "public/benchmark");
 
   async function loadCases() {
     return JSON.parse(await readFile(CASES_FILE, "utf-8"));
@@ -284,7 +284,7 @@ describe("arena-server CRUD API", () => {
 describe("arena dashboard genericity", () => {
   it("index.html does not hardcode 'raw-shell' in arena code", () => {
     const html = require("fs").readFileSync(
-      join(process.cwd(), "website/public/benchmark/index.html"),
+      join(import.meta.dirname, "..", "public/benchmark/index.html"),
       "utf-8",
     );
     // Legacy code may still reference raw-shell, but comboLabel should use no-plugins
@@ -293,7 +293,7 @@ describe("arena dashboard genericity", () => {
 
   it("index.html has CRUD UI elements", () => {
     const html = require("fs").readFileSync(
-      join(process.cwd(), "website/public/benchmark/index.html"),
+      join(import.meta.dirname, "..", "public/benchmark/index.html"),
       "utf-8",
     );
     expect(html).toContain("btn-new-case");
@@ -308,7 +308,7 @@ describe("arena dashboard genericity", () => {
 
   it("index.html has generic combo labels (no hardcoded sverka in arena functions)", () => {
     const html = require("fs").readFileSync(
-      join(process.cwd(), "website/public/benchmark/index.html"),
+      join(import.meta.dirname, "..", "public/benchmark/index.html"),
       "utf-8",
     );
     // comboLabel should return "no-plugins" not "raw"

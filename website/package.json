@@ -1,29 +1,45 @@
 {
-  "devDependencies": {
-    "@astrojs/check": "^0.9.10",
-    "typescript": "6"
-  },
+  "name": "sverka-website",
   "version": "0.0.0",
-  "name": "sverka-dev",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "scripts": {
-    "build": "bun run docs:api && bun run docs:pipeline && bun run sync-docs && astro build",
+    "dev": "bun run sync-docs && vite dev",
+    "build": "bun run sync-docs && bun run docs:pipeline && bun run docs:arena && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit",
     "test": "bun test",
-    "preview": "astro preview",
-    "dev": "bun run docs:api && bun run sync-docs && astro dev",
-    "check": "bun run docs:api && bun run sync-docs && astro check",
     "sync-docs": "bun scripts/sync-docs.ts",
-    "docs:api": "cd .. && bun run docs:api",
-    "arena": "bun run server/arena-server.ts",
+    "docs:arena": "bun scripts/update-arena-results.ts",
     "docs:pipeline": "bun scripts/gen-pipeline-data.ts",
-    "docs:arena": "bun scripts/update-arena-results.ts"
+    "arena": "bun run server/arena-server.ts"
   },
   "dependencies": {
-    "mermaid": "^11.17.2",
-    "astro": "^7.2.9",
-    "@astrojs/starlight": "0.41.10",
-    "yaml": "^2.5.0",
-    "@astrojs/sitemap": "^3.7.3"
+    "@tanstack/react-router": "1.170.40",
+    "@tanstack/react-start": "1.168.59",
+    "@tanstack/start-static-server-functions": "1.167.37",
+    "cn": "^0.3.0",
+    "fumadocs-core": "16.15.17",
+    "fumadocs-mdx": "15.4.5",
+    "fumadocs-ui": "16.15.17",
+    "lucide-react": "^1.47.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "^1.4.2",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^26.6.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "nitro": "3.0.260903-beta",
+    "srvx": "^1.0.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
   }
 }

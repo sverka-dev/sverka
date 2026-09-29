@@ -47,3 +47,12 @@ Publish a `/pipeline/` page on the docs site that visualizes real
 - Historical trends (each deploy shows the latest run only)
 - Arena results on the site (separate product surface)
 - Scheduled rebuilds for fresher status (workflow_dispatch stays manual)
+
+## Addendum — site stack swap (site-v2)
+
+The site moved from Astro/Starlight to TanStack Start + fumadocs. The
+dedicated `/pipeline/` index page is gone: the landing page and nav link
+directly to the standalone reports (`/pipeline-reports/sverka.html` etc.).
+`gen-pipeline-data.ts` still runs the runs and writes the HTML reports;
+`src/generated/pipelines.json` remains available should a reports index
+return.
