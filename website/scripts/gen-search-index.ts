@@ -48,8 +48,19 @@ function frontmatter(content: string): {
 }
 
 function stripMarkdown(body: string): string {
-  return body
-    .replace(/```[\s\S]*?```/g, " ")
+  // line-based fence removal — no backtracking regex over the whole body
+  let inFence = false;
+  const withoutFences = body
+    .split("\n")
+    .filter((line) => {
+      if (line.trimStart().startsWith("```")) {
+        inFence = !inFence;
+        return false;
+      }
+      return !inFence;
+    })
+    .join("\n");
+  return withoutFences
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[#>*`_|-]+/g, " ")
@@ -60,6 +71,8 @@ function stripMarkdown(body: string): string {
 function urlFor(file: string): string {
   const rel = path
     .relative(docsRoot, file)
+    .split(path.sep)
+    .join("/")
     .replace(/\.mdx$/, "")
     .replace(/\/index$/, "")
     .replace(/^index$/, "");
