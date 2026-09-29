@@ -65,12 +65,20 @@ const raw = (await import(src, { with: { type: "json" } }))
 const id = (m: string | { id: string }): string =>
   typeof m === "string" ? m : m.id;
 
-const digest = {
-  timestamp: raw.timestamp,
-  commit: execSync("git rev-parse --short HEAD", {
+let commit: string | undefined;
+try {
+  commit = execSync("git rev-parse --short HEAD", {
     cwd: repoRoot,
     encoding: "utf-8",
-  }).trim(),
+  }).trim();
+} catch {
+  // Not a git checkout (or git missing) — provenance stays optional.
+  commit = undefined;
+}
+
+const digest = {
+  timestamp: raw.timestamp,
+  commit,
   config: {
     models: (raw.config?.models ?? []).map(id),
     plugins: (raw.config?.plugins ?? []).map(id),
@@ -121,7 +129,12 @@ const digest = {
 };
 
 await mkdir(dirname(out), { recursive: true });
-await writeFile(out, JSON.stringify(digest, null, 2) + "\n");
+// Write to a temp file then rename — an interrupted write must not
+// leave truncated JSON behind, since Astro imports it eagerly.
+const tmp = `${out}.tmp`;
+await writeFile(tmp, JSON.stringify(digest, null, 2) + "\n");
+const { rename } = await import("node:fs/promises");
+await rename(tmp, out);
 console.log(
   `wrote ${out} — ${digest.aggregates.length} aggregates, ` +
     `${digest.analysis.length} task comparisons`,

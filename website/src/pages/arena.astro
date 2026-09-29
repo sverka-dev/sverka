@@ -105,6 +105,7 @@ const deltaClass = (n: number, invert = true): string => {
     <thead>
       <tr>
         <th>Task</th>
+        <th>Comparison</th>
         <th>Δ tokens</th>
         <th>Δ tool calls</th>
         <th>Δ LLM calls</th>
@@ -119,6 +120,10 @@ const deltaClass = (n: number, invert = true): string => {
             <td>
               <code>{t.taskId}</code>{" "}
               <span class="meta">{t.taskName}</span>
+            </td>
+            <td>
+              <code>{c.baseline}</code> <span class="meta">→</span>{" "}
+              <code>{c.candidate}</code>
             </td>
             <td class={`num ${deltaClass(c.deltaTokens)}`}>
               {fmtDelta(c.deltaTokens, (n) => n.toLocaleString())}
