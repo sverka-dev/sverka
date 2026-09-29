@@ -68,16 +68,12 @@ describe("DagLayout", () => {
     expect(layers.get("B")).toBe(1);
     expect(layers.get("C")).toBe(2);
     expect(result.edges).toHaveLength(2);
-    expect(result.edges).toContainEqual({
-      source: "A",
-      target: "B",
-      label: "control",
-    });
-    expect(result.edges).toContainEqual({
-      source: "B",
-      target: "C",
-      label: "control",
-    });
+    expect(result.edges).toContainEqual(
+      expect.objectContaining({ source: "A", target: "B", label: "control" }),
+    );
+    expect(result.edges).toContainEqual(
+      expect.objectContaining({ source: "B", target: "C", label: "control" }),
+    );
   });
 
   it("4. diamond A→B, A→C, B→D, C→D puts D at layer 2", () => {
@@ -157,7 +153,6 @@ describe("DagLayout", () => {
     });
     const bDefault = defaultResult.nodes.find((n) => n.id === "B")!;
     const bCustom = customResult.nodes.find((n) => n.id === "B")!;
-    expect(bCustom.x).toBe(bDefault.x === 200 ? 300 : 300);
     expect(bCustom.x).toBeGreaterThan(bDefault.x);
   });
 });

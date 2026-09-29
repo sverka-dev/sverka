@@ -101,20 +101,25 @@ export interface TextWriter {
 
 // --- Spec 44: DAG Layout + HTML Renderer ---
 
-/** A positioned node in the DAG layout. */
+/** A positioned node in the DAG layout (x/y are the top-left corner). */
 export interface DagNode {
   readonly id: string;
   readonly label: string;
   readonly x: number;
   readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  /** Longest-path rank from a root (0 = no dependencies). */
   readonly layer: number;
 }
 
-/** A directed edge in the DAG layout. */
+/** A directed edge in the DAG layout. `points` is the routed polyline
+ * produced by the layout engine (starts/ends on node borders). */
 export interface DagEdge {
   readonly source: string;
   readonly target: string;
   readonly label?: string;
+  readonly points?: readonly { x: number; y: number }[];
 }
 
 /** Result of laying out a DefinitionGraph. */
@@ -123,7 +128,8 @@ export interface DagLayoutResult {
   readonly edges: readonly DagEdge[];
 }
 
-/** Layout options. */
+/** Layout options — map to dagre rank separation (X) and node
+ * separation (Y) for the left-to-right Sugiyama layout. */
 export interface DagLayoutOptions {
   readonly nodeSpacingX?: number;
   readonly nodeSpacingY?: number;

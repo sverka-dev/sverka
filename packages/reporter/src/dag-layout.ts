@@ -1,5 +1,11 @@
-// @sverka/reporter — DAG layout (pure). Spec 44.
+// @sverka/reporter — DAG layout (pure). Spec 44, 51.
+//
+// Positions and edge routing come from dagre (Sugiyama layout) —
+// computed at report-generation time, so the emitted HTML stays a
+// fully self-contained static SVG. `layer` keeps the old longest-path
+// semantics (rank distance from a root) for consumers/tests.
 
+import { graphlib, layout as dagreLayout } from "@dagrejs/dagre";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type {
   DagNode,
@@ -8,8 +14,8 @@ import type {
   DagLayoutOptions,
 } from "./types.js";
 
-const DEFAULT_SPACING_X = 200;
-const DEFAULT_SPACING_Y = 80;
+const NODE_W = 190;
+const NODE_H = 44;
 
 /** Collect all steps and build edges from dependencies. */
 function buildEdges(graph: DefinitionGraph): {
@@ -33,155 +39,105 @@ function buildEdges(graph: DefinitionGraph): {
   return { steps, stepIds, edges };
 }
 
-/** Compute in-degree for each node. */
-function computeInDegrees(
+/** Longest-path layer of each node (0 = root). */
+function computeLayers(
   stepIds: Set<string>,
   edges: readonly DagEdge[],
 ): Map<string, number> {
+  const children = new Map<string, string[]>();
   const inDegree = new Map<string, number>();
-  for (const id of stepIds) inDegree.set(id, 0);
-  for (const edge of edges) {
-    inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1);
+  for (const id of stepIds) {
+    children.set(id, []);
+    inDegree.set(id, 0);
   }
-  return inDegree;
-}
-
-/** Build adjacency list from edges. */
-function buildAdjList(
-  stepIds: Set<string>,
-  edges: readonly DagEdge[],
-): Map<string, string[]> {
-  const adjList = new Map<string, string[]>();
-  for (const id of stepIds) adjList.set(id, []);
-  for (const edge of edges) {
-    adjList.get(edge.source)?.push(edge.target);
+  for (const e of edges) {
+    children.get(e.source)?.push(e.target);
+    inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
   }
-  return adjList;
-}
-
-/** Process a single neighbor: update layer and in-degree, enqueue if ready. */
-function processNeighbor(
-  neighbor: string,
-  currentLayer: number,
-  layer: Map<string, number>,
-  inDegree: Map<string, number>,
-  processed: Set<string>,
-  queue: string[],
-): void {
-  const neighborLayer = layer.get(neighbor) ?? 0;
-  if (currentLayer + 1 > neighborLayer) {
-    layer.set(neighbor, currentLayer + 1);
-  }
-  const deg = (inDegree.get(neighbor) ?? 1) - 1;
-  inDegree.set(neighbor, deg);
-  if (deg === 0 && !processed.has(neighbor)) {
-    queue.push(neighbor);
-    queue.sort((a, b) => a.localeCompare(b, "en"));
-  }
-}
-
-/** Initialize layer map and queue with root nodes. */
-function initLayerQueue(
-  stepIds: Set<string>,
-  inDegree: Map<string, number>,
-): { layer: Map<string, number>; queue: string[] } {
   const layer = new Map<string, number>();
-  for (const id of stepIds) layer.set(id, 0);
   const queue: string[] = [];
   for (const [id, deg] of inDegree) {
+    layer.set(id, 0);
     if (deg === 0) queue.push(id);
   }
   queue.sort((a, b) => a.localeCompare(b, "en"));
-  return { layer, queue };
-}
-
-/** Assign layers via longest path from roots using Kahn's algorithm. */
-function computeLayers(
-  stepIds: Set<string>,
-  inDegree: Map<string, number>,
-  adjList: Map<string, string[]>,
-): Map<string, number> {
-  const { layer, queue } = initLayerQueue(stepIds, inDegree);
-  const processed = new Set<string>();
   while (queue.length > 0) {
-    const node = queue.shift()!;
-    processed.add(node);
-    const currentLayer = layer.get(node) ?? 0;
-    for (const neighbor of adjList.get(node) ?? []) {
-      processNeighbor(
-        neighbor,
-        currentLayer,
-        layer,
-        inDegree,
-        processed,
-        queue,
-      );
+    const id = queue.shift()!;
+    const l = layer.get(id) ?? 0;
+    for (const next of children.get(id) ?? []) {
+      if (l + 1 > (layer.get(next) ?? 0)) layer.set(next, l + 1);
+      const deg = (inDegree.get(next) ?? 1) - 1;
+      inDegree.set(next, deg);
+      if (deg === 0) {
+        queue.push(next);
+        queue.sort((a, b) => a.localeCompare(b, "en"));
+      }
     }
-  }
-  for (const id of stepIds) {
-    if (!layer.has(id)) layer.set(id, 0);
   }
   return layer;
 }
 
-/** Group node ids by layer, sorted alphabetically. */
-function groupByLayer(layer: Map<string, number>): Map<number, string[]> {
-  const byLayer = new Map<number, string[]>();
-  for (const [id, l] of layer) {
-    let group = byLayer.get(l);
-    if (!group) {
-      group = [];
-      byLayer.set(l, group);
-    }
-    group.push(id);
-  }
-  for (const group of byLayer.values()) {
-    group.sort((a, b) => a.localeCompare(b, "en"));
-  }
-  return byLayer;
-}
-
-/** Assign x/y positions and produce sorted node list. */
-function assignPositions(
-  byLayer: Map<number, string[]>,
-  spacingX: number,
-  spacingY: number,
-): DagNode[] {
-  const nodes: DagNode[] = [];
-  for (const [l, ids] of byLayer) {
-    ids.forEach((id, index) => {
-      nodes.push({
-        id,
-        label: id,
-        x: l * spacingX,
-        y: index * spacingY,
-        layer: l,
-      });
-    });
-  }
-  nodes.sort(
-    (a, b) => a.layer - b.layer || a.y - b.y || a.id.localeCompare(b.id, "en"),
-  );
-  return nodes;
-}
-
 /**
- * Compute a topological layer-based layout for a DefinitionGraph.
- * Pure: no side effects, deterministic output for the same input.
+ * Compute the layout for a DefinitionGraph via dagre (left-to-right
+ * ranks, routed edge points). Deterministic for the same input.
  */
 export function layoutDag(
   graph: DefinitionGraph,
   options?: DagLayoutOptions,
 ): DagLayoutResult {
-  const spacingX = options?.nodeSpacingX ?? DEFAULT_SPACING_X;
-  const spacingY = options?.nodeSpacingY ?? DEFAULT_SPACING_Y;
-
   const { stepIds, edges } = buildEdges(graph);
-  const inDegree = computeInDegrees(stepIds, edges);
-  const adjList = buildAdjList(stepIds, edges);
-  const layer = computeLayers(stepIds, inDegree, adjList);
-  const byLayer = groupByLayer(layer);
-  const nodes = assignPositions(byLayer, spacingX, spacingY);
+  if (stepIds.size === 0) return { nodes: [], edges: [] };
 
-  return { nodes, edges };
+  const g = new graphlib.Graph();
+  g.setGraph({
+    rankdir: "LR",
+    nodesep: options?.nodeSpacingY ?? 18,
+    ranksep: options?.nodeSpacingX ?? 80,
+    marginx: 0,
+    marginy: 0,
+  });
+  g.setDefaultEdgeLabel(() => ({}));
+  for (const id of stepIds) {
+    g.setNode(id, { width: NODE_W, height: NODE_H });
+  }
+  // Dagre collapses parallel edges between the same pair — our edges
+  // list keeps every dependency kind, so dedupe what we hand it.
+  const seen = new Set<string>();
+  for (const e of edges) {
+    const key = `${e.source}→${e.target}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    g.setEdge(e.source, e.target);
+  }
+  dagreLayout(g);
+
+  const layer = computeLayers(stepIds, edges);
+  const nodes: DagNode[] = g.nodes().map((id) => {
+    const n = g.node(id);
+    return {
+      id,
+      label: id,
+      x: n.x - n.width / 2,
+      y: n.y - n.height / 2,
+      width: n.width,
+      height: n.height,
+      layer: layer.get(id) ?? 0,
+    };
+  });
+  nodes.sort(
+    (a, b) => a.layer - b.layer || a.y - b.y || a.id.localeCompare(b.id, "en"),
+  );
+
+  const routed = edges.map((e) => {
+    const de = g.edge({ v: e.source, w: e.target });
+    return {
+      ...e,
+      points: de?.points.map((p: { x: number; y: number }) => ({
+        x: p.x,
+        y: p.y,
+      })),
+    };
+  });
+
+  return { nodes, edges: routed };
 }
