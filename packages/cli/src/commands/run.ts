@@ -20,6 +20,7 @@ import { CliError, ExitCode } from "../types.js";
 import { loadProjectGraph } from "../internal/config.js";
 import { resolveDefaultEntryId, entryExists } from "../internal/graph.js";
 import { isBinaryAvailable } from "../internal/runtime-check.js";
+import { collectReportContext } from "../internal/report-context.js";
 
 export interface RunArgs {
   entryId?: string;
@@ -265,7 +266,14 @@ async function consumeEvents(
   } else if (isHtml) {
     const outputPath =
       args.output ?? join(global.root, ".sverka", "report.html");
-    renderer = createHtmlRenderer({ outputPath, graph });
+    renderer = createHtmlRenderer({
+      outputPath,
+      graph,
+      context: collectReportContext(
+        global.root,
+        `sverka ${process.argv.slice(2).join(" ")}`,
+      ),
+    });
   }
 
   for await (const event of engine.run({

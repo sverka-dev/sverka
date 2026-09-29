@@ -143,18 +143,25 @@ class NativeEngine implements Engine {
     const start = Date.now();
 
     if (this.activeRun && !this.activeRun.signal.aborted) {
-      yield { type: "run-started", runId, planId: request.plan.id };
+      yield {
+        type: "run-started",
+        runId,
+        planId: request.plan.id,
+        at: Date.now(),
+      };
       yield {
         type: "diagnostic",
         stepId: "",
         message: "another run is already active on this engine instance",
         severity: "error",
+        at: Date.now(),
       };
       yield {
         type: "run-completed",
         runId,
         status: "failure",
         durationMs: Date.now() - start,
+        at: Date.now(),
       };
       return;
     }
@@ -186,6 +193,7 @@ class NativeEngine implements Engine {
       stepId: "",
       message: "Engine.resume() is not yet implemented",
       severity: "error",
+      at: Date.now(),
     };
     throw new EngineError(
       "Engine.resume() is not yet implemented",
@@ -234,7 +242,12 @@ class NativeEngine implements Engine {
       status: "running",
     };
 
-    yield { type: "run-started", runId, planId: request.plan.id };
+    yield {
+      type: "run-started",
+      runId,
+      planId: request.plan.id,
+      at: Date.now(),
+    };
 
     const setup = yield* this.prepareRun(request, runId, start, abort);
     if (setup === null) {
@@ -275,7 +288,9 @@ class NativeEngine implements Engine {
     const eventDeferred = { current: new Deferred() };
 
     ctx.emit = (event: RunEvent): void => {
-      ctx.eventQueue.push(event);
+      // Stamp the wall-clock time once here — reports build timelines
+      // (Gantt) from `at`, and producers shouldn't hand-roll it.
+      ctx.eventQueue.push({ ...event, at: Date.now() });
       eventDeferred.current.resolve();
       eventDeferred.current = new Deferred();
     };
@@ -314,6 +329,7 @@ class NativeEngine implements Engine {
       runId,
       status,
       durationMs: Date.now() - start,
+      at: Date.now(),
     };
     this.clearCurrentRun(runId);
   }
@@ -413,12 +429,14 @@ class NativeEngine implements Engine {
       stepId: "",
       message,
       severity: "error",
+      at: Date.now(),
     };
     yield {
       type: "run-completed",
       runId,
       status: "failure",
       durationMs: Date.now() - start,
+      at: Date.now(),
     };
   }
 

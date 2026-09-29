@@ -22,6 +22,10 @@ export interface UIState {
   readonly planId: string | null;
   readonly status: RunStatus | null;
   readonly durationMs: number | null;
+  /** Emit time of run-started (epoch ms), if stamped. */
+  readonly startedAt: number | null;
+  /** Emit time of run-completed/run-suspended (epoch ms). */
+  readonly finishedAt: number | null;
   readonly steps: ReadonlyMap<string, StepUIState>;
   readonly diagnostics: readonly DiagnosticEntry[];
 }
@@ -32,6 +36,14 @@ export interface StepUIState {
   readonly durationMs?: number;
   readonly error?: string;
   readonly attempt?: number;
+  /** Emit time of step-started (epoch ms), if stamped. */
+  readonly startedAt?: number;
+  /** Emit time of the terminal step event (epoch ms). */
+  readonly finishedAt?: number;
+  /** Tail-capped captured output (≤64 KiB each). */
+  readonly stdout?: string;
+  readonly stderr?: string;
+  readonly exitCode?: number;
 }
 
 export type StepState =
@@ -117,10 +129,29 @@ export interface DagLayoutOptions {
   readonly nodeSpacingY?: number;
 }
 
+/**
+ * Run context rendered in the report header. Assembled programmatically
+ * by the caller (the CLI gathers git/CI facts) — the renderer only
+ * escapes and renders, it never derives URLs itself.
+ */
+export interface ReportContext {
+  /** Report title (defaults to "Sverka Run Report"). */
+  readonly title?: string;
+  /** ISO timestamp of report generation. */
+  readonly generatedAt?: string;
+  /** The command that produced the run, e.g. "sverka run --format html". */
+  readonly command?: string;
+  /** Plain key-value rows (branch, cwd, node version, ...). */
+  readonly meta?: readonly { label: string; value: string }[];
+  /** Clickable rows (repo, commit, CI run, ...). */
+  readonly links?: readonly { label: string; url: string }[];
+}
+
 /** Options for creating an HTML renderer. */
 export interface HtmlRendererOptions {
   readonly outputPath: string;
   readonly graph?: DefinitionGraph;
+  readonly context?: ReportContext;
 }
 
 // --- Spec 45: Ink TUI ---

@@ -18,6 +18,7 @@ export type {
   DagLayoutResult,
   DagLayoutOptions,
   HtmlRendererOptions,
+  ReportContext,
   FindingFilter,
   StepGlyph,
   StepTreeRow,

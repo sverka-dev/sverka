@@ -143,7 +143,12 @@ function extractDescription(body: string): string | undefined {
   for (const p of paragraphs) {
     const trimmed = p.trim();
     if (trimmed && !trimmed.startsWith("#") && !trimmed.startsWith("```")) {
-      return trimmed.replace(/\s+/g, " ").slice(0, 160);
+      const text = trimmed.replace(/\s+/g, " ");
+      // Cut at a word boundary — a mid-word slice produces non-words
+      // that spellcheck flags.
+      return text.length <= 160
+        ? text
+        : text.slice(0, 160).replace(/\s+\S*$/, "");
     }
   }
   return undefined;

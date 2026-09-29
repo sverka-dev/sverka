@@ -134,7 +134,7 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("<title>");
     expect(html).toContain("<header");
-    expect(html).toContain('id="dag"');
+    expect(html).toContain('id="view-dag"');
     expect(html).toContain('id="findings"');
     expect(html).toContain('id="steps"');
   });
@@ -225,10 +225,15 @@ describe("HtmlRenderer", () => {
     expect(html.length).toBeGreaterThan(100);
   });
 
-  it("18. ReactFlow CDN — HTML includes ReactFlow script tag", () => {
+  it("18. self-contained — no external CDN scripts, static SVG views", () => {
     const html = renderHtml(withRun());
-    expect(html).toContain("reactflow");
-    expect(html).toContain("<script");
+    // ReactFlow/UMD was dropped: report must not depend on CDN loads.
+    expect(html).not.toContain("reactflow");
+    expect(html).not.toMatch(/<script[^>]+src=/i);
+    expect(html).toContain("<svg");
+    expect(html).toContain('id="view-gantt"');
+    expect(html).toContain('id="view-dag"');
+    expect(html).toContain('id="view-list"');
   });
 
   it("19. filter JS — HTML contains vanilla JS for findings filter/sort/search", () => {
@@ -266,5 +271,114 @@ describe("HtmlRenderer", () => {
     renderer.flush();
     const html = readFileSync(outputPath, "utf-8");
     expect(html).toContain("pass");
+  });
+
+  it("gantt — stamped events produce positioned bars", () => {
+    const html = renderHtml([
+      { type: "run-started", runId: "r", planId: "p", at: 1000 },
+      { type: "step-started", stepId: "ci/build", at: 1100 },
+      { type: "step-succeeded", stepId: "ci/build", durationMs: 400, at: 1500 },
+      { type: "step-started", stepId: "ci/test", at: 1500 },
+      { type: "step-succeeded", stepId: "ci/test", durationMs: 300, at: 1800 },
+      {
+        type: "run-completed",
+        runId: "r",
+        status: "success",
+        durationMs: 800,
+        at: 1800,
+      },
+    ]);
+    expect(html).toContain('class="gantt"');
+    expect(html).toContain('class="bar"');
+    // bars carry tooltip with duration
+    expect(html).toContain("400ms");
+  });
+
+  it("gantt — no timestamps renders a notice, not a fake chart", () => {
+    const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
+    expect(html).toContain("No timing data");
+    expect(html).not.toContain('class="bar"');
+  });
+
+  it("context — links render as clickable anchors, meta as text", () => {
+    const outputPath = join(tmpDir, "report.html");
+    const renderer = createHtmlRenderer({
+      outputPath,
+      graph: SAMPLE_GRAPH,
+      context: {
+        generatedAt: "2026-01-01T00:00:00Z",
+        command: "sverka run --format html",
+        meta: [{ label: "Branch", value: "main" }],
+        links: [
+          { label: "Repo", url: "https://github.com/acme/x" },
+          {
+            label: "Commit",
+            url: "https://github.com/acme/x/commit/abc123",
+          },
+        ],
+      },
+    });
+    renderer.onEvent(runStarted("run-1", "plan-abc"));
+    renderer.onEvent(runCompleted("run-1", "success", 100));
+    renderer.flush();
+    const html = readFileSync(outputPath, "utf-8");
+    expect(html).toContain('href="https://github.com/acme/x"');
+    expect(html).toContain("https://github.com/acme/x/commit/abc123");
+    expect(html).toContain("Branch");
+    expect(html).toContain("sverka run --format html");
+  });
+
+  it("context — link values are HTML-escaped", () => {
+    const outputPath = join(tmpDir, "report.html");
+    const renderer = createHtmlRenderer({
+      outputPath,
+      context: {
+        links: [{ label: "x", url: 'https://e.com/"onload="alert(1)' }],
+      },
+    });
+    renderer.onEvent(runStarted("r", "p"));
+    renderer.onEvent(runCompleted("r", "success", 1));
+    renderer.flush();
+    const html = readFileSync(outputPath, "utf-8");
+    expect(html).not.toContain('"onload="');
+    expect(html).toContain("&quot;onload=&quot;");
+  });
+
+  it("context — non-http(s) link schemes render as inert text", () => {
+    const outputPath = join(tmpDir, "report.html");
+    const renderer = createHtmlRenderer({
+      outputPath,
+      context: {
+        links: [
+          { label: "evil", url: "javascript:alert(1)" },
+          { label: "ok", url: "https://example.com" },
+        ],
+      },
+    });
+    renderer.onEvent(runStarted("r", "p"));
+    renderer.onEvent(runCompleted("r", "success", 1));
+    renderer.flush();
+    const html = readFileSync(outputPath, "utf-8");
+    expect(html).not.toContain('href="javascript:');
+    expect(html).toContain('href="https://example.com"');
+  });
+
+  it("list view — step stdout/stderr land in expandable rows", () => {
+    const html = renderHtml([
+      runStarted("run-1", "plan-abc"),
+      {
+        type: "step-failed",
+        stepId: "ci/test",
+        error: "exit 1",
+        durationMs: 50,
+        stdout: "out text here",
+        stderr: "err text here",
+        exitCode: 1,
+      },
+      runCompleted("run-1", "failure", 60),
+    ]);
+    expect(html).toContain("out text here");
+    expect(html).toContain("err text here");
+    expect(html).toContain("Exit code: 1");
   });
 });
