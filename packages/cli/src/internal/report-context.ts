@@ -41,6 +41,22 @@ function repoWebUrl(remote?: string): string | undefined {
   }
 }
 
+function collectLinks(
+  repo: string | undefined,
+  commit: string | undefined,
+): { label: string; url: string }[] {
+  const links: { label: string; url: string }[] = [];
+  if (repo) links.push({ label: "Repo", url: repo });
+  if (repo && commit)
+    links.push({ label: "Commit", url: `${repo}/commit/${commit}` });
+  if (repo && process.env.GITHUB_RUN_ID)
+    links.push({
+      label: "CI run",
+      url: `${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+    });
+  return links;
+}
+
 export function collectReportContext(
   root: string,
   command: string,
@@ -55,20 +71,15 @@ export function collectReportContext(
   const branch =
     env.GITHUB_REF_NAME ?? git(root, "rev-parse", "--abbrev-ref", "HEAD");
 
-  const links: { label: string; url: string }[] = [];
-  if (repo) links.push({ label: "Repo", url: repo });
-  if (repo && commit)
-    links.push({ label: "Commit", url: `${repo}/commit/${commit}` });
-  if (repo && env.GITHUB_RUN_ID)
-    links.push({
-      label: "CI run",
-      url: `${repo}/actions/runs/${env.GITHUB_RUN_ID}`,
-    });
-
   const meta: { label: string; value: string }[] = [
     ...(branch ? [{ label: "Branch", value: branch }] : []),
     { label: "Directory", value: root },
   ];
 
-  return { generatedAt: new Date().toISOString(), command, meta, links };
+  return {
+    generatedAt: new Date().toISOString(),
+    command,
+    meta,
+    links: collectLinks(repo, commit),
+  };
 }
