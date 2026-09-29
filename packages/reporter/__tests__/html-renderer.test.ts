@@ -382,13 +382,15 @@ describe("HtmlRenderer", () => {
       },
     ]);
     // every view carries data-step (gantt row, dag node, tree node, list chip)
-    expect(html).toContain('class="gstep" data-step="ci/build"');
+    expect(html).toContain('class="gantt-step" data-step="ci/build"');
     expect(html).toContain('class="dag-node" data-step="ci/build"');
     expect(html).toContain('data-step="ci/build"');
     expect(html).toContain('class="step-findings" data-step="ci/build"');
-    // JS filters findings by the step's checkId
+    // JS filters findings by the step's checkId (rule-qualified ids
+    // match on their step-id prefix, mirroring the policy evaluator)
     expect(html).toContain("stepFilter");
-    expect(html).toContain("f.checkId !== stepFilter");
+    expect(html).toContain("stepMatches(stepFilter, f.checkId)");
+    expect(html).toContain('bareCheck.indexOf(bareStep + ":") === 0');
     expect(html).toContain("step-filter-chip");
   });
 

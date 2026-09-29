@@ -254,7 +254,7 @@ function renderGanttSvg(state: UIState, nsPrefix: string): string {
         bar = `<text class="dur notime" x="${labelW + 4}" y="${y + 18}">${escapeHtml(s.state)}</text>`;
       }
       // nosemgrep: html-in-template-string
-      return `<g class="gstep" data-step="${escapeHtml(s.stepId)}"><text class="row-label" x="4" y="${y + 18}">${label}</text>${bar}</g>`;
+      return `<g class="gantt-step" data-step="${escapeHtml(s.stepId)}"><text class="row-label" x="4" y="${y + 18}">${label}</text>${bar}</g>`;
     })
     .join("");
 
@@ -733,8 +733,8 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
 .step-active > rect:first-of-type,
 .step-active.tree-node { outline: 2px solid #58a6ff; outline-offset: 1px; }
 .step-active > .bar { stroke: #58a6ff; stroke-width: 2; }
-.gstep, .dag-node, .tree-node { cursor: pointer; }
-.gstep:hover .row-label { fill: #58a6ff; }
+.gantt-step, .dag-node, .tree-node { cursor: pointer; }
+.gantt-step:hover .row-label { fill: #58a6ff; }
 .dag-node:hover > rect:first-of-type { stroke-width: 2.5; }
 .step-findings {
   margin-left: 0.5rem;
@@ -819,11 +819,20 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
   var sortColumn = null;
   var sortDir = 1;
 
+  // Findings checkIds are rule-qualified (e.g. ci/lint:rule-id); a
+  // step filter must match the bare step id too — mirrors the policy
+  // evaluator's matchesCheckId semantics.
+  function stepMatches(stepId, checkId) {
+    var bareStep = stepId.indexOf("checks/") === 0 ? stepId.slice(7) : stepId;
+    var bareCheck = checkId.indexOf("checks/") === 0 ? checkId.slice(7) : checkId;
+    return bareCheck === bareStep || bareCheck.indexOf(bareStep + ":") === 0;
+  }
+
   function renderTable() {
     var tbody = document.querySelector("#findings-table tbody");
     if (!tbody) return;
     var filtered = findingsData.filter(function(f) {
-      if (stepFilter && f.checkId !== stepFilter) return false;
+      if (stepFilter && !stepMatches(stepFilter, f.checkId)) return false;
       if (currentFilter !== "all" && f.severity !== currentFilter) return false;
       if (currentSearch) {
         var search = currentSearch.toLowerCase();
