@@ -99,10 +99,34 @@ type DagLayout = {
     label: string;
     x: number;
     y: number;
+    width: number;
+    height: number;
     layer: number;
   }[];
-  edges: readonly { source: string; target: string; label?: string }[];
+  edges: readonly {
+    source: string;
+    target: string;
+    label?: string;
+    points?: readonly { x: number; y: number }[];
+  }[];
 };
+
+/** Common `ns/` prefix of step ids (e.g. all ids under "ci/").
+ * Uses each id's FIRST segment, so nested ids like "ci/a/b" still
+ * count as "ci/". Returns "" when ids don't share a namespace —
+ * multi-pipeline runs keep their prefixes visible. */
+function commonNsPrefix(ids: readonly string[]): string {
+  if (ids.length === 0) return "";
+  const cut = ids[0]!.indexOf("/");
+  if (cut < 0) return "";
+  const prefix = ids[0]!.slice(0, cut + 1);
+  return ids.every((id) => id.startsWith(prefix)) ? prefix : "";
+}
+
+/** Strip the shared namespace prefix for display. */
+function displayId(id: string, prefix: string): string {
+  return prefix && id.startsWith(prefix) ? id.slice(prefix.length) : id;
+}
 
 function statusColor(state?: string): string {
   return STATUS_COLORS[state ?? ""] ?? STATUS_COLOR_DEFAULT;
@@ -184,7 +208,7 @@ function orderedSteps(state: UIState): StepUIState[] {
 }
 
 /** Static SVG Gantt — one bar per step positioned on the run timeline. */
-function renderGanttSvg(state: UIState): string {
+function renderGanttSvg(state: UIState, nsPrefix: string): string {
   const steps = orderedSteps(state);
   const starts = steps
     .map((s) => s.startedAt)
@@ -218,14 +242,14 @@ function renderGanttSvg(state: UIState): string {
   const rows = steps
     .map((s, i) => {
       const y = pad + i * rowH;
-      const label = escapeHtml(s.stepId);
+      const label = escapeHtml(displayId(s.stepId, nsPrefix));
       const color = statusColor(s.state);
       let bar: string;
       if (s.startedAt !== undefined) {
         const end = s.finishedAt ?? s.startedAt + (s.durationMs ?? 0);
         const x = labelW + ((s.startedAt - t0) / span) * barArea;
         const w = Math.max(((end - s.startedAt) / span) * barArea, 3);
-        bar = `<rect class="bar" x="${x.toFixed(1)}" y="${y + 5}" width="${w.toFixed(1)}" height="16" rx="3" fill="${color}"><title>${label} — ${escapeHtml(s.state)} — ${fmtMs(s.durationMs)}</title></rect><text class="dur" x="${(x + w + 6).toFixed(1)}" y="${y + 18}">${fmtMs(s.durationMs)}</text>`;
+        bar = `<rect class="bar" x="${x.toFixed(1)}" y="${y + 5}" width="${w.toFixed(1)}" height="16" rx="3" fill="${color}"><title>${escapeHtml(s.stepId)} — ${escapeHtml(s.state)} — ${fmtMs(s.durationMs)}</title></rect><text class="dur" x="${(x + w + 6).toFixed(1)}" y="${y + 18}">${fmtMs(s.durationMs)}</text>`;
       } else {
         bar = `<text class="dur notime" x="${labelW + 4}" y="${y + 18}">${escapeHtml(s.state)}</text>`;
       }
@@ -237,33 +261,52 @@ function renderGanttSvg(state: UIState): string {
   return `<svg class="gantt" viewBox="0 0 ${width} ${height}" role="img" aria-label="Step timeline">${ticks}${rows}</svg>`;
 }
 
-/** Static SVG DAG — layered layout, nodes colored by step status. */
-function renderDagSvg(state: UIState, dag: DagLayout): string {
+/** Static SVG DAG — dagre-routed layout, nodes colored by step status. */
+function renderDagSvg(
+  state: UIState,
+  dag: DagLayout,
+  nsPrefix: string,
+): string {
   if (dag.nodes.length === 0) {
     return '<p class="view-note">No graph data.</p>';
   }
 
-  const NODE_W = 170;
-  const NODE_H = 34;
-  const maxX = Math.max(...dag.nodes.map((n) => n.x)) + NODE_W + 30;
-  const maxY = Math.max(...dag.nodes.map((n) => n.y)) + NODE_H + 30;
-  const pos = new Map(dag.nodes.map((n) => [n.id, n]));
+  const maxX = Math.max(...dag.nodes.map((n) => n.x + n.width)) + 16;
+  const maxY = Math.max(...dag.nodes.map((n) => n.y + n.height)) + 16;
+
+  // Dagre collapses parallel edges between the same pair — render one
+  // path per pair, joining the dependency kinds in the label.
+  const pairs = new Map<string, string[]>();
+  for (const e of dag.edges) {
+    const key = `${e.source}${e.target}`;
+    const kinds = pairs.get(key) ?? [];
+    if (e.label && !kinds.includes(e.label)) kinds.push(e.label);
+    pairs.set(key, kinds);
+  }
 
   const edges = dag.edges
+    .filter(
+      (e, i) =>
+        dag.edges.findIndex(
+          (o) => o.source === e.source && o.target === e.target,
+        ) === i,
+    )
     .map((e) => {
-      const from = pos.get(e.source);
-      const to = pos.get(e.target);
-      if (!from || !to) return "";
-      const x1 = from.x + NODE_W;
-      const y1 = from.y + NODE_H / 2;
-      const x2 = to.x;
-      const y2 = to.y + NODE_H / 2;
-      const mx = x1 + (x2 - x1) / 2;
-      const label = e.label
-        ? `<text class="edge-label" x="${mx}" y="${(y1 + y2) / 2 - 4}" text-anchor="middle">${escapeHtml(e.label)}</text>` // nosemgrep: html-in-template-string
+      const pts = e.points;
+      if (!pts || pts.length < 2) return "";
+      const d =
+        `M ${pts[0]!.x} ${pts[0]!.y} ` +
+        pts
+          .slice(1)
+          .map((p) => `L ${p.x} ${p.y}`)
+          .join(" ");
+      const kinds = pairs.get(`${e.source}${e.target}`) ?? [];
+      const mid = pts[Math.floor(pts.length / 2)]!;
+      const label = kinds.length
+        ? `<text class="edge-label" x="${mid.x}" y="${mid.y - 4}" text-anchor="middle">${escapeHtml(kinds.join("+"))}</text>` // nosemgrep: html-in-template-string
         : "";
       // nosemgrep: html-in-template-string
-      return `<path class="edge" d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" marker-end="url(#arrow)" />${label}`;
+      return `<path class="edge" d="${d}" marker-end="url(#arrow)" />${label}`;
     })
     .join("");
 
@@ -271,12 +314,15 @@ function renderDagSvg(state: UIState, dag: DagLayout): string {
     .map((n) => {
       const step = state.steps.get(n.id);
       const color = statusColor(step?.state);
-      const label = n.label.length > 20 ? `${n.label.slice(0, 19)}…` : n.label;
+      const short = displayId(n.id, nsPrefix);
+      const label = short.length > 22 ? `${short.slice(0, 21)}…` : short;
       // nosemgrep: html-in-template-string
       return `<g class="dag-node">
-        <rect x="${n.x + 10}" y="${n.y + 8}" width="${NODE_W}" height="${NODE_H}" rx="6" stroke="${color}" />
-        <text x="${n.x + 10 + NODE_W / 2}" y="${n.y + 8 + 15}" text-anchor="middle">${escapeHtml(label)}</text>
-        <text class="node-status" x="${n.x + 10 + NODE_W / 2}" y="${n.y + 8 + 29}" text-anchor="middle" fill="${color}">${escapeHtml(step?.state ?? "pending")}</text>
+        <title>${escapeHtml(n.id)}</title>
+        <rect x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="8" stroke="${color}" />
+        <rect x="${n.x}" y="${n.y}" width="4" height="${n.height}" rx="2" fill="${color}" />
+        <text x="${n.x + n.width / 2 + 2}" y="${n.y + 19}" text-anchor="middle">${escapeHtml(label)}</text>
+        <text class="node-status" x="${n.x + n.width / 2 + 2}" y="${n.y + 34}" text-anchor="middle" fill="${color}">${escapeHtml(step?.state ?? "pending")}</text>
       </g>`;
     })
     .join("");
@@ -289,7 +335,7 @@ function renderDagSvg(state: UIState, dag: DagLayout): string {
 }
 
 /** List view — per-step expandable row with output tails. */
-function renderStepList(state: UIState): string {
+function renderStepList(state: UIState, nsPrefix: string): string {
   if (state.steps.size === 0) {
     return "<p>No steps recorded.</p>";
   }
@@ -326,7 +372,7 @@ function renderStepList(state: UIState): string {
 
       // nosemgrep: html-in-template-string
       return `      <details>
-        <summary><span class="step-icon">${icon}</span> ${escapeHtml(step.stepId)} <span class="step-state ${step.state}">${step.state}</span> <span class="meta">${fmtMs(step.durationMs)}</span></summary>
+        <summary><span class="step-icon">${icon}</span> ${escapeHtml(displayId(step.stepId, nsPrefix))} <span class="step-state ${step.state}">${step.state}</span> <span class="meta">${fmtMs(step.durationMs)}</span></summary>
         <div class="step-body">${bodyParts.join("") || '<span class="meta">no output captured</span>'}</div>
       </details>`;
     })
@@ -334,7 +380,7 @@ function renderStepList(state: UIState): string {
 }
 
 /** Dependency tree — nested lists built from DAG edges. */
-function renderTree(state: UIState, dag: DagLayout): string {
+function renderTree(state: UIState, dag: DagLayout, nsPrefix: string): string {
   if (dag.nodes.length === 0) {
     return '<p class="view-note">No graph data.</p>';
   }
@@ -354,7 +400,7 @@ function renderTree(state: UIState, dag: DagLayout): string {
     const kids = (children.get(id) ?? []).filter((k) => ids.has(k));
     const nested = kids.length ? `<ul>${kids.map(item).join("")}</ul>` : "";
     // nosemgrep: html-in-template-string
-    return `<li><span class="tree-node" style="border-color:${color}">${icon} ${escapeHtml(id)} <span class="meta">${escapeHtml(step?.state ?? "pending")}</span></span>${nested}</li>`;
+    return `<li><span class="tree-node" style="border-color:${color}">${icon} ${escapeHtml(displayId(id, nsPrefix))} <span class="meta">${escapeHtml(step?.state ?? "pending")}</span></span>${nested}</li>`;
   };
 
   // nosemgrep: html-in-template-string
@@ -363,6 +409,12 @@ function renderTree(state: UIState, dag: DagLayout): string {
 
 /** Render the steps panel with the Gantt | DAG | Tree | List view switch. */
 function renderStepsSection(state: UIState, dag: DagLayout): string {
+  // Shared `ns/` prefix (e.g. "ci/") is stripped from labels — it is
+  // noise in a single-pipeline report. Full ids stay in tooltips.
+  const nsPrefix = commonNsPrefix([
+    ...dag.nodes.map((n) => n.id),
+    ...state.steps.keys(),
+  ]);
   // nosemgrep: html-in-template-string
   return `<section id="steps">
     <div class="section-head">
@@ -374,10 +426,10 @@ function renderStepsSection(state: UIState, dag: DagLayout): string {
         <button class="seg-btn" data-view="list">List</button>
       </div>
     </div>
-    <div class="view" id="view-gantt">${renderGanttSvg(state)}</div>
-    <div class="view hidden" id="view-dag">${renderDagSvg(state, dag)}</div>
-    <div class="view hidden" id="view-tree">${renderTree(state, dag)}</div>
-    <div class="view hidden" id="view-list">${renderStepList(state)}</div>
+    <div class="view" id="view-gantt">${renderGanttSvg(state, nsPrefix)}</div>
+    <div class="view hidden" id="view-dag">${renderDagSvg(state, dag, nsPrefix)}</div>
+    <div class="view hidden" id="view-tree">${renderTree(state, dag, nsPrefix)}</div>
+    <div class="view hidden" id="view-list">${renderStepList(state, nsPrefix)}</div>
   </section>`;
 }
 
