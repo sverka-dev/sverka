@@ -1,3 +1,14 @@
+## 0.1.16 (2026-09-29)
+
+### 🚀 Features
+
+- **reporter:** dagre layout for DAG view + strip ci/ namespace ([#244](https://github.com/sverka-dev/sverka/pull/244))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.15 (2026-09-29)
 
 ### 🚀 Features
