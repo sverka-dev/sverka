@@ -57,3 +57,11 @@ export {
 } from "./config.js";
 export type { ArenaConfigFile } from "./config.js";
 export { renderReport } from "./report.js";
+
+export {
+  traceToActions,
+  traceToRunEvents,
+  traceGraph,
+  writeTraceReport,
+} from "./trace-report.js";
+export type { ActionStep } from "./trace-report.js";

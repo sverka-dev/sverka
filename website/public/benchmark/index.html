@@ -2041,6 +2041,24 @@
           traceLink.textContent = "View Full Trace →";
           body.appendChild(traceLink);
 
+          // Sverka report — the run rendered by @sverka/reporter
+          // (Gantt/DAG). Written by docs:arena as
+          // traces/<taskId>/<combo>.report.html.
+          var combo =
+            result.pluginIds && result.pluginIds.length
+              ? result.pluginIds.join("--")
+              : "no-plugins";
+          var reportLink = document.createElement("a");
+          reportLink.className = "run-trace-link";
+          reportLink.href =
+            "traces/" +
+            encodeURIComponent(taskId) +
+            "/" +
+            encodeURIComponent(combo) +
+            ".report.html";
+          reportLink.textContent = "Timeline →";
+          body.appendChild(reportLink);
+
           card.appendChild(body);
           return card;
         }
@@ -2173,6 +2191,21 @@
           traceLink.href = "trace.html?" + params;
           traceLink.textContent = "View Full Trace →";
           body.appendChild(traceLink);
+
+          var combo =
+            result.pluginIds && result.pluginIds.length
+              ? result.pluginIds.join("--")
+              : "no-plugins";
+          var reportLink = document.createElement("a");
+          reportLink.className = "run-trace-link";
+          reportLink.href =
+            "traces/" +
+            encodeURIComponent(taskId) +
+            "/" +
+            encodeURIComponent(combo) +
+            ".report.html";
+          reportLink.textContent = "Timeline →";
+          body.appendChild(reportLink);
 
           col.appendChild(body);
           return col;

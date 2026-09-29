@@ -10,12 +10,23 @@
  *   - packages/arena/arena.config.ts tasks → public/benchmark/api/cases.json
  *   - packages/arena/arena.config.ts models/plugins → api/config.json
  *
- * Refresh after a local `sverka-arena run`: `bun run docs:arena`.
+ *   - per-run sverka reports → traces/<taskId>/<combo>.report.html
+ *     (the same @sverka/reporter Gantt/DAG as pipeline reports —
+ *     dogfooding the report on agent traces)
+ *
+ * Refresh after a local `sverka-arena run`: `bun run docs:arena`
+ * (needs `bun run build` first — imports @sverka/arena dist).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+// Source import — website/ is not an npm workspace member, so
+// @sverka/arena isn't resolvable by name. Bun runs TS directly;
+// the module's own @sverka/* imports resolve via arena's deps (dist,
+// so `bun run build` must have run at least once).
+import type { RunResult } from "../../packages/arena/src/types.js";
+import { writeTraceReport } from "../../packages/arena/src/trace-report.js";
 
 const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = dirname(websiteDir);
@@ -102,7 +113,7 @@ await rename(resultsTmp, join(benchDir, "arena-results.json"));
 // Per-combo trace files — trace.html loads
 // traces/<taskId>/<plugins.join("--") | "no-plugins">.json.
 const tracesDir = join(benchDir, "traces");
-const writtenTasks = new Set<string>();
+let reportsWritten = 0;
 for (const r of results.results ?? []) {
   if (r.trace === undefined) continue;
   const combo = r.pluginIds.length ? r.pluginIds.join("--") : "no-plugins";
@@ -110,7 +121,9 @@ for (const r of results.results ?? []) {
   await mkdir(dir, { recursive: true });
   // Later repetitions overwrite — the viewer only shows one run per combo.
   await writeJson(join(dir, `${combo}.json`), r.trace);
-  writtenTasks.add(r.taskId);
+  // Sverka report — Gantt/DAG timeline of the agent run itself.
+  writeTraceReport(r as RunResult, join(dir, `${combo}.report.html`));
+  reportsWritten++;
 }
 // Older trace dirs stay — arena-sample.json still references them.
 
@@ -149,5 +162,5 @@ await writeJson(join(apiDir, "config.json"), {
 console.log(
   `snapshot updated: arena-results.json (${Math.round(
     readFileSync(resultsSrc).length / 1024,
-  )}KB), ${cases.length} cases, ${config.models?.length ?? 0} models`,
+  )}KB), ${cases.length} cases, ${config.models?.length ?? 0} models, ${reportsWritten} sverka reports`,
 );

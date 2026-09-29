@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>arena: verify-and-fix — no-plugins</title>
+  <style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+}
+header {
+  padding: 1rem 2rem;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+header h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #f0f6fc; }
+.run-context { font-size: 0.875rem; color: #8b949e; }
+.ctx-label { font-weight: 600; margin-right: 0.25rem; }
+.ctx-value { margin-right: 1rem; }
+.ctx-link { margin-right: 1rem; color: #58a6ff; word-break: break-all; }
+.status-success { color: #3fb950; }
+.status-succeeded { color: #3fb950; }
+.status-failure { color: #f85149; }
+.status-failed { color: #f85149; }
+.status-cancelled { color: #d29922; }
+section { padding: 1rem 2rem; border-bottom: 1px solid #21262d; }
+section h2 { font-size: 1.25rem; color: #f0f6fc; margin: 0 0 1rem 0; }
+.section-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; }
+.section-head h2 { margin: 0; }
+.layout-toggle { padding: 0.5rem 2rem; display: flex; justify-content: flex-end; }
+main.stacked { display: block; }
+main.split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+main.split section { border-bottom: none; }
+main.split section + section { border-left: 1px solid #21262d; }
+.segmented {
+  display: inline-flex;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.seg-btn {
+  padding: 0.25rem 0.75rem;
+  border: none;
+  border-right: 1px solid #30363d;
+  background: #21262d;
+  color: #c9d1d9;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.seg-btn:last-child { border-right: none; }
+.seg-btn.active { background: #1f6feb; color: #fff; }
+.seg-btn:hover { background: #30363d; }
+.seg-btn.active:hover { background: #1f6feb; }
+.view.hidden { display: none; }
+.view-note { color: #8b949e; font-size: 0.875rem; }
+svg.gantt { width: 100%; height: auto; background: #161b22; border: 1px solid #30363d; border-radius: 6px; }
+svg.gantt .grid { stroke: #21262d; stroke-width: 1; }
+svg.gantt .tick { fill: #8b949e; font-size: 10px; }
+svg.gantt .row-label { fill: #c9d1d9; font-size: 11px; font-family: ui-monospace, SFMono-Regular, monospace; }
+svg.gantt .dur { fill: #8b949e; font-size: 10px; }
+svg.gantt .dur.notime { font-style: italic; }
+svg.dag { width: 100%; height: auto; background: #0d1117; }
+svg.dag .dag-grid { pointer-events: none; }
+svg.dag #dag-dots circle { fill: #21262d; }
+svg.dag .dag-card { fill: #161b22; stroke: #30363d; stroke-width: 1.5; }
+svg.dag .dag-node text { fill: #e6edf3; font-size: 11px; font-family: ui-monospace, SFMono-Regular, monospace; }
+svg.dag .dag-node .node-status { font-size: 9px; text-transform: uppercase; }
+svg.dag .edge { stroke: #4a5568; stroke-width: 1.5; fill: none; }
+svg.dag .edge-label { fill: #8b949e; font-size: 9px; paint-order: stroke; stroke: #0d1117; stroke-width: 3; }
+svg.dag marker path { fill: #4a5568; }
+.verdict-banner {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 1rem 2rem 0;
+}
+#verdict { padding: 0; border-bottom: none; }
+.verdict-pass { background: #1a3a2e; color: #3fb950; border: 1px solid #2ea043; }
+.verdict-fail { background: #3a1a1a; color: #f85149; border: 1px solid #da3633; }
+.verdict-none { background: #21262d; color: #8b949e; }
+.findings-controls { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+.filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.filter-btn {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #21262d;
+  color: #c9d1d9;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+.filter-btn:hover { border-color: #8b949e; }
+.search-input {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-size: 0.8rem;
+  flex: 1;
+  min-width: 200px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #21262d; }
+th { color: #8b949e; font-weight: 600; cursor: pointer; user-select: none; }
+th.sortable:hover { color: #f0f6fc; }
+th.sort-asc::after { content: " \2191"; }
+th.sort-desc::after { content: " \2193"; }
+.severity-critical { color: #f85149; font-weight: 600; }
+.severity-high { color: #f85149; }
+.severity-medium { color: #d29922; }
+.severity-low { color: #8b949e; }
+.severity-info { color: #58a6ff; }
+.no-findings { text-align: center; color: #8b949e; padding: 2rem; }
+details { margin-bottom: 0.5rem; border: 1px solid #21262d; border-radius: 6px; padding: 0.5rem; }
+details summary { cursor: pointer; font-size: 0.875rem; }
+.step-icon { font-size: 1rem; }
+.step-state { font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: 0.5rem; }
+.step-state.succeeded { color: #3fb950; }
+.step-state.failed { color: #f85149; }
+.step-state.skipped { color: #8b949e; }
+.step-state.cancelled { color: #d29922; }
+.step-state.running { color: #58a6ff; }
+.step-body { margin-top: 0.5rem; padding-left: 1rem; font-size: 0.8rem; color: #8b949e; }
+.step-error { color: #f85149; }
+.step-attempt { color: #d29922; }
+.step-out {
+  font-size: 0.75rem;
+  max-height: 16rem;
+  overflow: auto;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.step-out.err { color: #f85149; }
+ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
+ul.tree { padding-left: 0; }
+ul.tree li { margin: 0.35rem 0; }
+ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
+.tree-node {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid #30363d;
+  border-left-width: 3px;
+  border-radius: 4px;
+  background: #161b22;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.8rem;
+}
+.step-active .dag-card { stroke: #58a6ff; stroke-width: 2.5; }
+.step-active.tree-node { outline: 2px solid #58a6ff; outline-offset: 1px; }
+.step-active > .bar { stroke: #58a6ff; stroke-width: 2; }
+.dag-viewport {
+  position: relative;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  background: #0d1117;
+  overflow: hidden;
+}
+.dag-viewport svg.dag {
+  display: block;
+  width: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+.dag-viewport svg.dag.panning { cursor: grabbing; }
+.dag-tools {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+  z-index: 2;
+}
+.dag-btn {
+  padding: 0.1rem 0.5rem;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: rgba(33, 38, 45, 0.9);
+  color: #e6edf3;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.dag-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.dag-node { cursor: pointer; }
+.gantt-step, .tree-node { cursor: pointer; }
+.gantt-step:hover .row-label { fill: #58a6ff; }
+.dag-node:hover .dag-card { stroke: #58a6ff; }
+.step-findings {
+  margin-left: 0.5rem;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #21262d;
+  color: #8b949e;
+  cursor: pointer;
+}
+.step-findings:hover { color: #58a6ff; border-color: #58a6ff; }
+.step-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid #1f6feb;
+  border-radius: 12px;
+  background: rgba(31, 111, 235, 0.15);
+  color: #58a6ff;
+  font-size: 0.8rem;
+}
+.step-filter-chip.hidden { display: none; }
+.step-filter-chip button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0 0.1rem;
+}
+.meta { color: #8b949e; }
+@media (max-width: 900px) {
+  main.split { grid-template-columns: 1fr; }
+  main.split section + section { border-left: none; border-top: 1px solid #21262d; }
+}
+@media (max-width: 768px) {
+  section { padding: 1rem; }
+  .findings-controls { flex-direction: column; }
+  .search-input { min-width: 100%; }
+  table { font-size: 0.75rem; }
+  th, td { padding: 0.3rem 0.5rem; }
+}
+</style>
+</head>
+<body>
+  <header>
+    <h1>arena: verify-and-fix — no-plugins</h1>
+    <div class="run-context">
+      <span class="ctx-label">Plan:</span> <span class="ctx-value status-verify-and-fix">verify-and-fix</span>
+      <span class="ctx-label">Status:</span> <span class="ctx-value status-success">success</span>
+      <span class="ctx-label">Duration:</span> <span class="ctx-value status-1m 33s">1m 33s</span>
+      <span class="ctx-label">Command:</span> <span class="ctx-value status-sverka-arena run">sverka-arena run</span>
+      <span class="ctx-label">task:</span> <span class="ctx-value status-verify-and-fix">verify-and-fix</span>
+      <span class="ctx-label">model:</span> <span class="ctx-value status-swe-2-high">swe-2-high</span>
+      <span class="ctx-label">plugins:</span> <span class="ctx-value status-no-plugins">no-plugins</span>
+      <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
+      <span class="ctx-label">timing:</span> <span class="ctx-value status-durations estimated — ACP traces have no per-step timestamps; total is real">durations estimated — ACP traces have no per-step timestamps; total is real</span>
+      
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-29T19:55:47.180Z</span>
+    </div>
+  </header>
+
+  <section id="verdict"><div class="verdict-banner verdict-none">No policy evaluation</div></section>
+
+  <div class="layout-toggle">
+    <div class="segmented" id="layout-switch">
+      <button class="seg-btn active" data-layout="stacked">Stacked</button>
+      <button class="seg-btn" data-layout="split">Split</button>
+    </div>
+  </div>
+
+  <main id="layout" class="stacked">
+    <section id="steps">
+    <div class="section-head">
+      <h2>Steps</h2>
+      <div class="segmented" id="view-switch">
+        <button class="seg-btn active" data-view="gantt">Gantt</button>
+        <button class="seg-btn" data-view="dag">DAG</button>
+        <button class="seg-btn" data-view="tree">Tree</button>
+        <button class="seg-btn" data-view="list">List</button>
+      </div>
+    </div>
+    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 452" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="452" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="452" /><text class="tick" x="304" y="16" text-anchor="middle">18.5s</text><line class="grid" x1="428" y1="22" x2="428" y2="452" /><text class="tick" x="428" y="16" text-anchor="middle">37.0s</text><line class="grid" x1="552" y1="22" x2="552" y2="452" /><text class="tick" x="552" y="16" text-anchor="middle">55.5s</text><line class="grid" x1="676" y1="22" x2="676" y2="452" /><text class="tick" x="676" y="16" text-anchor="middle">1m 14s</text><line class="grid" x1="800" y1="22" x2="800" y2="452" /><text class="tick" x="800" y="16" text-anchor="middle">1m 33s</text><g class="gantt-step" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…"><text class="row-label" x="4" y="46">s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…</text><rect class="bar" x="180.0" y="33" width="49.6" height="16" rx="3" fill="#3fb950"><title>s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… — succeeded — 7.4s</title></rect><text class="dur" x="235.6" y="46">7.4s</text></g><g class="gantt-step" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="72">s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="229.6" y="59" width="49.6" height="16" rx="3" fill="#3fb950"><title>s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 7.4s</title></rect><text class="dur" x="285.2" y="72">7.4s</text></g><g class="gantt-step" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="98">s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="279.2" y="85" width="49.6" height="16" rx="3" fill="#3fb950"><title>s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 7.4s</title></rect><text class="dur" x="334.8" y="98">7.4s</text></g><g class="gantt-step" data-step="s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="124">s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="328.8" y="111" width="49.6" height="16" rx="3" fill="#3fb950"><title>s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 7.4s</title></rect><text class="dur" x="384.4" y="124">7.4s</text></g><g class="gantt-step" data-step="s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…"><text class="row-label" x="4" y="150">s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…</text><rect class="bar" x="378.4" y="137" width="49.6" height="16" rx="3" fill="#3fb950"><title>s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao… — succeeded — 7.4s</title></rect><text class="dur" x="434.0" y="150">7.4s</text></g><g class="gantt-step" data-step="s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…"><text class="row-label" x="4" y="176">s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…</text><rect class="bar" x="428.0" y="163" width="49.6" height="16" rx="3" fill="#3fb950"><title>s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao… — succeeded — 7.4s</title></rect><text class="dur" x="483.6" y="176">7.4s</text></g><g class="gantt-step" data-step="s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt"><text class="row-label" x="4" y="202">s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt</text><rect class="bar" x="477.6" y="189" width="49.6" height="16" rx="3" fill="#3fb950"><title>s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt — succeeded — 7.4s</title></rect><text class="dur" x="533.2" y="202">7.4s</text></g><g class="gantt-step" data-step="s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…"><text class="row-label" x="4" y="228">s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</text><rect class="bar" x="527.2" y="215" width="49.6" height="16" rx="3" fill="#3fb950"><title>s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… — succeeded — 7.4s</title></rect><text class="dur" x="582.8" y="228">7.4s</text></g><g class="gantt-step" data-step="s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s…"><text class="row-label" x="4" y="254">s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s…</text><rect class="bar" x="576.8" y="241" width="49.6" height="16" rx="3" fill="#3fb950"><title>s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s… — succeeded — 7.4s</title></rect><text class="dur" x="632.4" y="254">7.4s</text></g><g class="gantt-step" data-step="s10 think: read"><text class="row-label" x="4" y="280">s10 think: read</text><rect class="bar" x="626.4" y="267" width="24.8" height="16" rx="3" fill="#3fb950"><title>s10 think: read — succeeded — 3.7s</title></rect><text class="dur" x="657.2" y="280">3.7s</text></g><g class="gantt-step" data-step="s11 think: The entry is `ci/on-push`. Running the pipeline:"><text class="row-label" x="4" y="306">s11 think: The entry is `ci/on-push`. Running the pipeline:</text><rect class="bar" x="651.2" y="293" width="24.8" height="16" rx="3" fill="#3fb950"><title>s11 think: The entry is `ci/on-push`. Running the pipeline: — succeeded — 3.7s</title></rect><text class="dur" x="682.0" y="306">3.7s</text></g><g class="gantt-step" data-step="s12 think: Three checks fail. Let me run each command directly to see …"><text class="row-label" x="4" y="332">s12 think: Three checks fail. Let me run each command directly to see …</text><rect class="bar" x="676.0" y="319" width="24.8" height="16" rx="3" fill="#3fb950"><title>s12 think: Three checks fail. Let me run each command directly to see … — succeeded — 3.7s</title></rect><text class="dur" x="706.8" y="332">3.7s</text></g><g class="gantt-step" data-step="s13 think: All failures identified: unused variable (lint), `parseVers…"><text class="row-label" x="4" y="358">s13 think: All failures identified: unused variable (lint), `parseVers…</text><rect class="bar" x="700.8" y="345" width="24.8" height="16" rx="3" fill="#3fb950"><title>s13 think: All failures identified: unused variable (lint), `parseVers… — succeeded — 3.7s</title></rect><text class="dur" x="731.6" y="358">3.7s</text></g><g class="gantt-step" data-step="s14 think: I need to normalize the code formatting. After that, I&#39;ll r…"><text class="row-label" x="4" y="384">s14 think: I need to normalize the code formatting. After that, I&#39;ll r…</text><rect class="bar" x="725.6" y="371" width="24.8" height="16" rx="3" fill="#3fb950"><title>s14 think: I need to normalize the code formatting. After that, I&#39;ll r… — succeeded — 3.7s</title></rect><text class="dur" x="756.4" y="384">3.7s</text></g><g class="gantt-step" data-step="s15 think: All checks pass. Let me confirm the run artifacts are ignor…"><text class="row-label" x="4" y="410">s15 think: All checks pass. Let me confirm the run artifacts are ignor…</text><rect class="bar" x="750.4" y="397" width="24.8" height="16" rx="3" fill="#3fb950"><title>s15 think: All checks pass. Let me confirm the run artifacts are ignor… — succeeded — 3.7s</title></rect><text class="dur" x="781.2" y="410">3.7s</text></g><g class="gantt-step" data-step="s16 think: All five checks pass. Summary of what was broken and fixed …"><text class="row-label" x="4" y="436">s16 think: All five checks pass. Summary of what was broken and fixed …</text><rect class="bar" x="775.2" y="423" width="24.8" height="16" rx="3" fill="#3fb950"><title>s16 think: All five checks pass. Summary of what was broken and fixed … — succeeded — 3.7s</title></rect><text class="dur" x="806.0" y="436">3.7s</text></g></svg></div>
+    <div class="view hidden" id="view-dag"><div class="dag-viewport">
+    <div class="dag-tools">
+      <button type="button" class="dag-btn" data-dag-zoom="in" title="Zoom in">+</button>
+      <button type="button" class="dag-btn" data-dag-zoom="out" title="Zoom out">−</button>
+      <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
+    </div>
+    <svg id="dag-svg" class="dag" viewBox="-40 -40 4786 140" data-vb="-40 -40 4786 140" role="img" aria-label="Workflow DAG">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" /></marker>
+      <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="-40" y="-40"><circle cx="1" cy="1" r="1" /></pattern>
+    </defs>
+    <rect class="dag-grid" x="-40" y="-40" width="4786" height="140" fill="url(#dag-dots)" />
+    <path class="edge" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><path class="edge" d="M 2890 22 Q 2945 22 2972.5 22 L 3000 22" marker-end="url(#arrow)" /><text class="edge-label" x="2945" y="17" text-anchor="middle">control</text><path class="edge" d="M 3190 22 Q 3245 22 3272.5 22 L 3300 22" marker-end="url(#arrow)" /><text class="edge-label" x="3245" y="17" text-anchor="middle">control</text><path class="edge" d="M 3490 22 Q 3545 22 3572.5 22 L 3600 22" marker-end="url(#arrow)" /><text class="edge-label" x="3545" y="17" text-anchor="middle">control</text><path class="edge" d="M 3790 22 Q 3845 22 3872.5 22 L 3900 22" marker-end="url(#arrow)" /><text class="edge-label" x="3845" y="17" text-anchor="middle">control</text><path class="edge" d="M 4090 22 Q 4145 22 4172.5 22 L 4200 22" marker-end="url(#arrow)" /><text class="edge-label" x="4145" y="17" text-anchor="middle">control</text><path class="edge" d="M 4390 22 Q 4445 22 4472.5 22 L 4500 22" marker-end="url(#arrow)" /><text class="edge-label" x="4445" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…">
+        <title>s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+        <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
+        <circle cx="16" cy="22" r="4" fill="#3fb950" />
+        <text x="28" y="20">s01 tool: Listed ./: ls…</text>
+        <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
+        <title>s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+        <rect class="dag-card" x="300" y="0" width="190" height="44" rx="8" />
+        <circle cx="316" cy="22" r="4" fill="#3fb950" />
+        <text x="328" y="20">s02 tool: Read file: /t…</text>
+        <text class="node-status" x="328" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
+        <title>s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+        <rect class="dag-card" x="600" y="0" width="190" height="44" rx="8" />
+        <circle cx="616" cy="22" r="4" fill="#3fb950" />
+        <text x="628" y="20">s03 tool: Read file: /t…</text>
+        <text class="node-status" x="628" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
+        <title>s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+        <rect class="dag-card" x="900" y="0" width="190" height="44" rx="8" />
+        <circle cx="916" cy="22" r="4" fill="#3fb950" />
+        <text x="928" y="20">s04 tool: Ran ls: cd /t…</text>
+        <text class="node-status" x="928" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…">
+        <title>s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…</title>
+        <rect class="dag-card" x="1200" y="0" width="190" height="44" rx="8" />
+        <circle cx="1216" cy="22" r="4" fill="#3fb950" />
+        <text x="1228" y="20">s05 tool: Ran sverka: c…</text>
+        <text class="node-status" x="1228" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…">
+        <title>s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…</title>
+        <rect class="dag-card" x="1500" y="0" width="190" height="44" rx="8" />
+        <circle cx="1516" cy="22" r="4" fill="#3fb950" />
+        <text x="1528" y="20">s06 tool: Ran sverka: c…</text>
+        <text class="node-status" x="1528" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt">
+        <title>s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt</title>
+        <rect class="dag-card" x="1800" y="0" width="190" height="44" rx="8" />
+        <circle cx="1816" cy="22" r="4" fill="#3fb950" />
+        <text x="1828" y="20">s07 tool: Read file: /t…</text>
+        <text class="node-status" x="1828" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
+        <title>s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+        <rect class="dag-card" x="2100" y="0" width="190" height="44" rx="8" />
+        <circle cx="2116" cy="22" r="4" fill="#3fb950" />
+        <text x="2128" y="20">s08 tool: Ran bun, echo…</text>
+        <text class="node-status" x="2128" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s…">
+        <title>s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s…</title>
+        <rect class="dag-card" x="2400" y="0" width="190" height="44" rx="8" />
+        <circle cx="2416" cy="22" r="4" fill="#3fb950" />
+        <text x="2428" y="20">s09 tool: Ran bunx, sve…</text>
+        <text class="node-status" x="2428" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s10 think: read">
+        <title>s10 think: read</title>
+        <rect class="dag-card" x="2700" y="0" width="190" height="44" rx="8" />
+        <circle cx="2716" cy="22" r="4" fill="#3fb950" />
+        <text x="2728" y="20">s10 think: read</text>
+        <text class="node-status" x="2728" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s11 think: The entry is `ci/on-push`. Running the pipeline:">
+        <title>s11 think: The entry is `ci/on-push`. Running the pipeline:</title>
+        <rect class="dag-card" x="3000" y="0" width="190" height="44" rx="8" />
+        <circle cx="3016" cy="22" r="4" fill="#3fb950" />
+        <text x="3028" y="20">s11 think: The entry is…</text>
+        <text class="node-status" x="3028" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s12 think: Three checks fail. Let me run each command directly to see …">
+        <title>s12 think: Three checks fail. Let me run each command directly to see …</title>
+        <rect class="dag-card" x="3300" y="0" width="190" height="44" rx="8" />
+        <circle cx="3316" cy="22" r="4" fill="#3fb950" />
+        <text x="3328" y="20">s12 think: Three checks…</text>
+        <text class="node-status" x="3328" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s13 think: All failures identified: unused variable (lint), `parseVers…">
+        <title>s13 think: All failures identified: unused variable (lint), `parseVers…</title>
+        <rect class="dag-card" x="3600" y="0" width="190" height="44" rx="8" />
+        <circle cx="3616" cy="22" r="4" fill="#3fb950" />
+        <text x="3628" y="20">s13 think: All failures…</text>
+        <text class="node-status" x="3628" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s14 think: I need to normalize the code formatting. After that, I&#39;ll r…">
+        <title>s14 think: I need to normalize the code formatting. After that, I&#39;ll r…</title>
+        <rect class="dag-card" x="3900" y="0" width="190" height="44" rx="8" />
+        <circle cx="3916" cy="22" r="4" fill="#3fb950" />
+        <text x="3928" y="20">s14 think: I need to no…</text>
+        <text class="node-status" x="3928" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s15 think: All checks pass. Let me confirm the run artifacts are ignor…">
+        <title>s15 think: All checks pass. Let me confirm the run artifacts are ignor…</title>
+        <rect class="dag-card" x="4200" y="0" width="190" height="44" rx="8" />
+        <circle cx="4216" cy="22" r="4" fill="#3fb950" />
+        <text x="4228" y="20">s15 think: All checks p…</text>
+        <text class="node-status" x="4228" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s16 think: All five checks pass. Summary of what was broken and fixed …">
+        <title>s16 think: All five checks pass. Summary of what was broken and fixed …</title>
+        <rect class="dag-card" x="4500" y="0" width="190" height="44" rx="8" />
+        <circle cx="4516" cy="22" r="4" fill="#3fb950" />
+        <text x="4528" y="20">s16 think: All five che…</text>
+        <text class="node-status" x="4528" y="34" style="fill:#3fb950">succeeded</text>
+      </g>
+    </svg>
+  </div></div>
+    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…" style="border-color:#3fb950">✓ s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…" style="border-color:#3fb950">✓ s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt" style="border-color:#3fb950">✓ s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s…" style="border-color:#3fb950">✓ s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s10 think: read" style="border-color:#3fb950">✓ s10 think: read <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s11 think: The entry is `ci/on-push`. Running the pipeline:" style="border-color:#3fb950">✓ s11 think: The entry is `ci/on-push`. Running the pipeline: <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s12 think: Three checks fail. Let me run each command directly to see …" style="border-color:#3fb950">✓ s12 think: Three checks fail. Let me run each command directly to see … <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s13 think: All failures identified: unused variable (lint), `parseVers…" style="border-color:#3fb950">✓ s13 think: All failures identified: unused variable (lint), `parseVers… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s14 think: I need to normalize the code formatting. After that, I&#39;ll r…" style="border-color:#3fb950">✓ s14 think: I need to normalize the code formatting. After that, I&#39;ll r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s15 think: All checks pass. Let me confirm the run artifacts are ignor…" style="border-color:#3fb950">✓ s15 think: All checks pass. Let me confirm the run artifacts are ignor… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s16 think: All five checks pass. Summary of what was broken and fixed …" style="border-color:#3fb950">✓ s16 think: All five checks pass. Summary of what was broken and fixed … <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
+    <div class="view hidden" id="view-list">      <details>
+        <summary><span class="step-icon">✓</span> s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I&#39;ll start by exploring the project structure and the verification configuration.</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">exec</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">read, read</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s04 tool: Ran ls: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">The source file has deliberately planted issues. Let me run the checks to see actual failures, and check whether the sverka CLI is available.</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao… <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s05 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I don&#39;t see `bun` in `node_modules/.bin`, so I&#39;ll check if it&#39;s installed globally. There&#39;s also a `sverka` CLI. I should check `.devin/config.json` to decide whether to run the full `sverka` pipeline or just individual checks.</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao… <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s06 tool: Ran sverka: cd /tmp/arena-verify-and-fix-swe-2-high-sverkao…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">exec</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s07 tool: Read file: /tmp/devin-overflows-1000/62c578f7/content.txt" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I&#39;m trying to run the pipeline locally using `sverka run`. To figure out how to trigger the &quot;on-push&quot; entry, I&#39;ll first check `sverka run --help`.</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s08 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">Running the full pipeline via the sverka entry point:</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s… <span class="step-state succeeded">succeeded</span> <span class="meta">7.4s</span> <button type="button" class="step-findings" data-step="s09 tool: Ran bunx, sverka: cd /tmp/arena-verify-and-fix-swe-2-high-s…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">exec</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s10 think: read <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s10 think: read" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">read</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s11 think: The entry is `ci/on-push`. Running the pipeline: <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s11 think: The entry is `ci/on-push`. Running the pipeline:" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">The entry is `ci/on-push`. Running the pipeline:</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s12 think: Three checks fail. Let me run each command directly to see … <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s12 think: Three checks fail. Let me run each command directly to see …" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">Three checks fail. Let me run each command directly to see the actual errors.</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s13 think: All failures identified: unused variable (lint), `parseVers… <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s13 think: All failures identified: unused variable (lint), `parseVers…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">All failures identified: unused variable (lint), `parseVersion` returning `number[]` (typecheck + test), `countVowels` not case-insensitive (test), and prettier formatting. Fixing `src/index.ts`:</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s14 think: I need to normalize the code formatting. After that, I&#39;ll r… <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s14 think: I need to normalize the code formatting. After that, I&#39;ll r…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I need to normalize the code formatting. After that, I&#39;ll run the full test suite again to make sure everything still passes.</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s15 think: All checks pass. Let me confirm the run artifacts are ignor… <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s15 think: All checks pass. Let me confirm the run artifacts are ignor…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">All checks pass. Let me confirm the run artifacts are ignored and the working tree is clean.</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s16 think: All five checks pass. Summary of what was broken and fixed … <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s16 think: All five checks pass. Summary of what was broken and fixed …" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">All five checks pass. Summary of what was broken and fixed in `src/index.ts`:
+
+- **lint** (`oxlint`, `no-unused-vars`): removed the unused `const unused = &#39;debug-marker&#39;` in `slugify`.
+- **typecheck** (`tsc --noEmit`): `parseVersion` returned `v.split(&#39;.&#39;).map(Number)` (a `number[]`) against a `number` return type. Now returns `Number(v.split(&quot;.&quot;)[0])`.
+- **test** (`bun test`): two failing assertions —
+  - `parseVersion(&quot;1.2.3&quot;)` expected `1`; now returns the major version.
+  - `countVowels(&quot;APPLE&quot;)` expected `2`; added `c.toLowerCase()` so vowels are matched case-insensitively.
+- **format** (`prettier --check`): normalized quotes/semicolons to prettier defaults.
+- **build**: previously skipped due to dependencies; now succeeds (`bun build` → `dist/`).
+
+Final `sverka run --entry ci/on-push` result:
+
+```
+✓ ci/lint      ✓ ci/format   ✓ ci/typecheck
+✓ ci/test      ✓ ci/build
+■ run completed: success (499ms)
+```
+
+No test files, `sverka.config.ts`, `.oxlintrc.json`, or `tsconfig.json` were modified.</pre></div>
+      </details></div>
+  </section>
+
+    <section id="findings">
+    <h2>Findings</h2>
+    <div class="findings-controls">
+      <span id="step-filter-chip" class="step-filter-chip hidden">
+        step: <b id="step-filter-name"></b>
+        <button type="button" id="step-filter-clear" title="Clear step filter">×</button>
+      </span>
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-severity="all">All</button>
+        <button class="filter-btn" data-severity="critical">Critical</button>
+        <button class="filter-btn" data-severity="high">High</button>
+        <button class="filter-btn" data-severity="medium">Medium</button>
+        <button class="filter-btn" data-severity="low">Low</button>
+        <button class="filter-btn" data-severity="info">Info</button>
+      </div>
+      <input type="text" id="findings-search" placeholder="Search findings..." class="search-input">
+    </div>
+    <table id="findings-table">
+      <thead>
+        <tr>
+          <th data-sort="severity" class="sortable">Severity</th>
+          <th data-sort="checkId" class="sortable">Check</th>
+          <th data-sort="file" class="sortable">File</th>
+          <th data-sort="startLine" class="sortable">Line</th>
+          <th data-sort="message" class="sortable">Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="5" class="no-findings">No findings</td></tr>
+      </tbody>
+    </table>
+  </section>
+  </main>
+
+  <script>
+    var __FINDINGS_DATA__ = [];
+  </script>
+  <script>
+(function() {
+  function esc(text) {
+    var d = document.createElement("div");
+    d.textContent = text == null ? "" : String(text);
+    return d.innerHTML;
+  }
+
+  // View switch (gantt | dag | list)
+  document.querySelectorAll("#view-switch .seg-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll("#view-switch .seg-btn").forEach(function(b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      var view = btn.getAttribute("data-view");
+      document.querySelectorAll("#steps .view").forEach(function(el) {
+        el.classList.toggle("hidden", el.id !== "view-" + view);
+      });
+    });
+  });
+
+  // Layout toggle (stacked | split)
+  document.querySelectorAll("#layout-switch .seg-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll("#layout-switch .seg-btn").forEach(function(b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      var layout = document.getElementById("layout");
+      if (layout) layout.className = btn.getAttribute("data-layout");
+    });
+  });
+
+  // Findings filter/sort/search
+  var findingsData = window.__FINDINGS_DATA__ || [];
+  var currentFilter = "all";
+  var currentSearch = "";
+  var stepFilter = null;
+  var sortColumn = null;
+  var sortDir = 1;
+
+  // Findings checkIds are rule-qualified (e.g. ci/lint:rule-id); a
+  // step filter must match the bare step id too — mirrors the policy
+  // evaluator's matchesCheckId semantics.
+  function stepMatches(stepId, checkId) {
+    var bareStep = stepId.indexOf("checks/") === 0 ? stepId.slice(7) : stepId;
+    var bareCheck = checkId.indexOf("checks/") === 0 ? checkId.slice(7) : checkId;
+    return bareCheck === bareStep || bareCheck.indexOf(bareStep + ":") === 0;
+  }
+
+  function renderTable() {
+    var tbody = document.querySelector("#findings-table tbody");
+    if (!tbody) return;
+    var filtered = findingsData.filter(function(f) {
+      if (stepFilter && !stepMatches(stepFilter, f.checkId)) return false;
+      if (currentFilter !== "all" && f.severity !== currentFilter) return false;
+      if (currentSearch) {
+        var search = currentSearch.toLowerCase();
+        return (f.severity + " " + f.checkId + " " + f.file + " " + f.startLine + " " + f.message).toLowerCase().indexOf(search) !== -1;
+      }
+      return true;
+    });
+    if (sortColumn) {
+      filtered.sort(function(a, b) {
+        var va = a[sortColumn], vb = b[sortColumn];
+        if (typeof va === "number" && typeof vb === "number") return (va - vb) * sortDir;
+        return String(va).localeCompare(String(vb)) * sortDir;
+      });
+    }
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="no-findings">No findings</td></tr>';
+      return;
+    }
+    tbody.innerHTML = filtered.map(function(f) {
+      return '<tr data-severity="' + esc(f.severity) + '">' +
+        '<td class="severity-' + esc(f.severity) + '">' + esc(f.severity) + '</td>' +
+        '<td>' + esc(f.checkId) + '</td>' +
+        '<td>' + esc(f.file) + '</td>' +
+        '<td>' + esc(f.startLine) + '</td>' +
+        '<td>' + esc(f.message) + '</td>' +
+        '</tr>';
+    }).join("");
+  }
+
+  // DAG zoom/pan — the viewBox is manipulated directly. Zoom is
+  // uniform (w and h scale together) so the svg aspect never changes
+  // and the element height stays stable.
+  (function() {
+    var svg = document.getElementById("dag-svg");
+    if (!svg) return;
+    var base = (svg.getAttribute("data-vb") || "0 0 100 100").split(" ").map(Number);
+    var vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
+    var baseW = base[2];
+    var moved = 0;
+
+    function apply() {
+      svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
+    }
+    function zoomAt(factor, cx, cy) {
+      var w = Math.min(Math.max(vb.w * factor, baseW / 8), baseW * 2);
+      var f = w / vb.w;
+      vb.x = cx - (cx - vb.x) * f;
+      vb.y = cy - (cy - vb.y) * f;
+      vb.w = w;
+      vb.h = vb.h * f;
+      apply();
+    }
+    function toVb(e) {
+      var r = svg.getBoundingClientRect();
+      return {
+        x: vb.x + ((e.clientX - r.left) / r.width) * vb.w,
+        y: vb.y + ((e.clientY - r.top) / r.height) * vb.h,
+      };
+    }
+
+    svg.addEventListener("wheel", function(e) {
+      e.preventDefault();
+      var p = toVb(e);
+      zoomAt(e.deltaY > 0 ? 1.2 : 1 / 1.2, p.x, p.y);
+    }, { passive: false });
+
+    var drag = null;
+    svg.addEventListener("pointerdown", function(e) {
+      drag = { x: e.clientX, y: e.clientY };
+      moved = 0;
+      svg.classList.add("panning");
+      svg.setPointerCapture(e.pointerId);
+    });
+    svg.addEventListener("pointermove", function(e) {
+      if (!drag) return;
+      var r = svg.getBoundingClientRect();
+      var scale = vb.w / r.width;
+      moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
+      vb.x -= (e.clientX - drag.x) * scale;
+      vb.y -= (e.clientY - drag.y) * scale;
+      drag = { x: e.clientX, y: e.clientY };
+      apply();
+    });
+    function endDrag() { drag = null; svg.classList.remove("panning"); }
+    svg.addEventListener("pointerup", endDrag);
+    svg.addEventListener("pointercancel", endDrag);
+
+    document.querySelectorAll("[data-dag-zoom]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var mode = btn.getAttribute("data-dag-zoom");
+        if (mode === "fit") {
+          vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
+          apply();
+        } else {
+          zoomAt(mode === "in" ? 0.8 : 1.25, vb.x + vb.w / 2, vb.y + vb.h / 2);
+        }
+      });
+    });
+
+    // A drag that ends on a node must not toggle the step filter.
+    window.__dagMoved = function() { return moved > 4; };
+  })();
+
+  // Step → findings filter: click any step element (gantt row, dag
+  // node, tree node, list "findings" chip) to filter the table.
+  function applyStepFilter(id) {
+    stepFilter = stepFilter === id ? null : id;
+    document.querySelectorAll("[data-step]").forEach(function(el) {
+      el.classList.toggle("step-active", stepFilter === el.getAttribute("data-step"));
+    });
+    var chip = document.getElementById("step-filter-chip");
+    if (chip) chip.classList.toggle("hidden", !stepFilter);
+    var name = document.getElementById("step-filter-name");
+    if (name) name.textContent = stepFilter || "";
+    renderTable();
+    if (stepFilter) {
+      var f = document.getElementById("findings");
+      if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
+  document.querySelectorAll("[data-step]").forEach(function(el) {
+    el.addEventListener("click", function(e) {
+      e.stopPropagation();
+      // preventDefault keeps <details> in the list view from toggling
+      // when the "findings" chip inside <summary> is clicked.
+      e.preventDefault();
+      // Ignore clicks that ended a DAG pan drag — only for clicks
+      // inside the DAG svg; moved resets on the next pointerdown.
+      if (
+        el.closest("#dag-svg") &&
+        window.__dagMoved &&
+        window.__dagMoved()
+      )
+        return;
+      applyStepFilter(el.getAttribute("data-step"));
+    });
+  });
+
+  var clearBtn = document.getElementById("step-filter-clear");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", function() {
+      stepFilter = null;
+      document.querySelectorAll("[data-step]").forEach(function(el) {
+        el.classList.remove("step-active");
+      });
+      var chip = document.getElementById("step-filter-chip");
+      if (chip) chip.classList.add("hidden");
+      renderTable();
+    });
+  }
+
+  // Filter buttons
+  document.querySelectorAll(".filter-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll(".filter-btn").forEach(function(b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      currentFilter = btn.getAttribute("data-severity");
+      renderTable();
+    });
+  });
+
+  // Search input
+  var searchInput = document.getElementById("findings-search");
+  if (searchInput) {
+    searchInput.addEventListener("input", function() {
+      currentSearch = searchInput.value;
+      renderTable();
+    });
+  }
+
+  // Sort by column header
+  document.querySelectorAll("#findings-table th.sortable").forEach(function(th) {
+    th.addEventListener("click", function() {
+      var col = th.getAttribute("data-sort");
+      if (sortColumn === col) {
+        sortDir = -sortDir;
+      } else {
+        sortColumn = col;
+        sortDir = 1;
+      }
+      document.querySelectorAll("#findings-table th").forEach(function(t) {
+        t.classList.remove("sort-asc", "sort-desc");
+      });
+      th.classList.add(sortDir === 1 ? "sort-asc" : "sort-desc");
+      renderTable();
+    });
+  });
+})();
+</script>
+</body>
+</html>
