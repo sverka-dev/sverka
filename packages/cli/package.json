@@ -1,6 +1,6 @@
 {
   "name": "@sverka/cli",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "Sverka CLI — validate, plan, run, and compile workflows",
   "license": "MIT",
   "sideEffects": false,
