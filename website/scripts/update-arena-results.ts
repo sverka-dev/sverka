@@ -10,12 +10,23 @@
  *   - packages/arena/arena.config.ts tasks → public/benchmark/api/cases.json
  *   - packages/arena/arena.config.ts models/plugins → api/config.json
  *
- * Refresh after a local `sverka-arena run`: `bun run docs:arena`.
+ *   - per-run sverka reports → traces/<taskId>/<combo>.report.html
+ *     (the same @sverka/reporter Gantt/DAG as pipeline reports —
+ *     dogfooding the report on agent traces)
+ *
+ * Refresh after a local `sverka-arena run`: `bun run docs:arena`
+ * (needs `bun run build` first — imports @sverka/arena dist).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+// Source import — website/ is not an npm workspace member, so
+// @sverka/arena isn't resolvable by name. Bun runs TS directly;
+// the module's own @sverka/* imports resolve via arena's deps (dist,
+// so `bun run build` must have run at least once).
+import type { RunResult } from "../../packages/arena/src/types.js";
+import { writeTraceReport } from "../../packages/arena/src/trace-report.js";
 
 const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = dirname(websiteDir);
@@ -34,14 +45,10 @@ interface ArenaTask {
   successCriteria?: string;
   checks?: { id: string; command: string; description: string }[];
 }
-interface ArenaRunResult {
-  taskId: string;
-  modelId: string;
-  pluginIds: string[];
-  trace?: unknown;
-}
 interface ArenaResultsFile {
-  results?: ArenaRunResult[];
+  // Typed as RunResult but trace is treated as optional — a hand-edited
+  // snapshot may drop it, and reports/traces just skip those entries.
+  results?: RunResult[];
 }
 interface ArenaConfigFile {
   models?: { id: string; name: string; envVar?: string }[];
@@ -92,27 +99,42 @@ async function writeJson(path: string, data: unknown): Promise<void> {
   await rename(tmp, path);
 }
 
+// Per-combo artifacts — trace.html loads
+// traces/<taskId>/<plugins.join("--") | "no-plugins">.json, run cards
+// link traces/<taskId>/<combo>.report.html.
+// Two passes: generate everything to .tmp first, then rename the whole
+// batch, then results.json last — a render failure can never leave the
+// SPA pointing at a partial generation.
+const tracesDir = join(benchDir, "traces");
+const staged: [tmp: string, target: string][] = [];
+for (const r of results.results ?? []) {
+  if (!r.trace) continue;
+  const combo = r.pluginIds.length ? r.pluginIds.join("--") : "no-plugins";
+  const dir = join(tracesDir, r.taskId);
+  await mkdir(dir, { recursive: true });
+  // Later repetitions overwrite — the viewer only shows one run per combo.
+  const tracePath = join(dir, `${combo}.json`);
+  const traceTmp = `${tracePath}.tmp`;
+  await writeFile(traceTmp, JSON.stringify(r.trace, null, 2) + "\n");
+  staged.push([traceTmp, tracePath]);
+  // Sverka report — Gantt/DAG timeline of the agent run itself.
+  const reportPath = join(dir, `${combo}.report.html`);
+  const reportTmp = `${reportPath}.tmp`;
+  writeTraceReport(r, reportTmp);
+  staged.push([reportTmp, reportPath]);
+}
+const reportsWritten = staged.length / 2;
+for (const [tmp, target] of staged) {
+  await rename(tmp, target);
+}
+// Older trace dirs stay — arena-sample.json still references them.
+
 // Results — the SPA's default data file. Full copy via tmp+rename:
 // traces and output are what makes the viewer useful, and a torn file
 // must never reach the page.
 const resultsTmp = join(benchDir, "arena-results.json.tmp");
 await writeFile(resultsTmp, readFileSync(resultsSrc));
 await rename(resultsTmp, join(benchDir, "arena-results.json"));
-
-// Per-combo trace files — trace.html loads
-// traces/<taskId>/<plugins.join("--") | "no-plugins">.json.
-const tracesDir = join(benchDir, "traces");
-const writtenTasks = new Set<string>();
-for (const r of results.results ?? []) {
-  if (r.trace === undefined) continue;
-  const combo = r.pluginIds.length ? r.pluginIds.join("--") : "no-plugins";
-  const dir = join(tracesDir, r.taskId);
-  await mkdir(dir, { recursive: true });
-  // Later repetitions overwrite — the viewer only shows one run per combo.
-  await writeJson(join(dir, `${combo}.json`), r.trace);
-  writtenTasks.add(r.taskId);
-}
-// Older trace dirs stay — arena-sample.json still references them.
 
 // Cases — task definitions, preserving createdAt for existing ids.
 const casesPath = join(apiDir, "cases.json");
@@ -149,5 +171,5 @@ await writeJson(join(apiDir, "config.json"), {
 console.log(
   `snapshot updated: arena-results.json (${Math.round(
     readFileSync(resultsSrc).length / 1024,
-  )}KB), ${cases.length} cases, ${config.models?.length ?? 0} models`,
+  )}KB), ${cases.length} cases, ${config.models?.length ?? 0} models, ${reportsWritten} sverka reports`,
 );

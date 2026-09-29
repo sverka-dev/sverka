@@ -1,85 +1,87 @@
-# Spec 52 — Arena results page on the website
+# Spec 52 — Arena workbench on the website + sverka report dogfooding
 
 ## Problem
 
 Arena runs (`sverka-arena run`) produce `results.json` under
-`packages/arena/.arena/` — gitignored, local-only. There is no way to
-see benchmark deltas without running the benchmark yourself. The site
-already publishes live pipeline reports (`/pipeline/`); arena results
-should be visible there too.
+`packages/arena/.arena/` — gitignored, local-only. The arena workbench
+(`website/public/benchmark/`) already exists as a standalone SPA, but on
+GitHub Pages it had no fresh data: its live CRUD server only runs
+locally, and the committed sample was stale.
+
+Second gap: the workbench shows raw traces as a chat transcript. There
+was no way to see **what the agent did over time** — which is exactly
+what the sverka pipeline report (Gantt/DAG/findings) already renders.
+Dogfooding: render an agent run as a sverka report.
 
 ## Constraints
 
-- Arena spawns real agent sessions — it cannot run in the website
-  deploy (no agent credentials in CI secrets, and runs are costly).
-- Model policy: arena runs use `swe-2-high` only.
-- Keep the sidebar uncluttered — no sidebar entry; link from the
-  `/pipeline/` page.
+- No agent credentials in CI — arena results are a **committed
+  snapshot**, refreshed manually via `bun run docs:arena` after a local
+  `sverka-arena run`.
+- Static host — mutation UI (edit/delete/run) must be hidden when the
+  API server is absent; data comes from committed JSON files.
+- `website/` is not an npm workspace member — scripts import arena
+  sources by relative path; the module's `@sverka/*` imports resolve to
+  built `dist/` (`bun run build` first).
+- ACP traces carry **no usable per-step timestamps** — the collector
+  stamps every step with the same time. Reports mark synthesized
+  timing explicitly; the run total (`executionTimeMs`) is real.
 
 ## Design
 
-### Snapshot, not live data
+### Snapshot pipeline (`website/scripts/update-arena-results.ts`)
 
-`website/scripts/update-arena-results.ts` reads the runner output
-(`packages/arena/.arena/results.json`), strips bulky fields (`trace`,
-`output`, `verdicts`, `prompt`), and writes a committed digest at
-`website/src/data/arena-results.json`. Refreshing the page data is a
-deliberate act: run the arena locally, then `bun run docs:arena` and
-commit. The digest is data, not generated-at-build — it ships in git.
+- `packages/arena/.arena/results.json` → `public/benchmark/arena-results.json`
+  (full copy, atomic tmp+rename — the SPA's default data source).
+- `arena.config.ts` tasks/models/plugins → `api/cases.json`,
+  `api/config.json` (task-id guard: results must reference configured
+  tasks; `setup`/checks preserved).
+- Per-combo traces → `traces/<taskId>/<combo>.json` where combo is
+  `pluginIds.join("--")` or `no-plugins`.
+- **Per-combo sverka reports** → `traces/<taskId>/<combo>.report.html`
+  via `writeTraceReport`.
 
-Digest shape (subset of `ArenaResult`):
+### Trace → report (`packages/arena/src/trace-report.ts`)
 
-```typescript
-interface ArenaDigest {
-  timestamp: string;
-  commit?: string; // provenance — git sha of the snapshot run
-  config: { models: string[]; plugins: string[]; repetitions: number };
-  aggregates: {
-    label: string;
-    totalRuns: number;
-    successCount: number;
-    avgTotalTokens: number;
-    avgToolCalls: number;
-    avgLlmCalls: number;
-    avgExecutionTimeMs: number;
-  }[];
-  analysis: {
-    taskId: string;
-    taskName: string;
-    comparisons: {
-      baseline: string;
-      candidate: string;
-      deltaTokens: number;
-      deltaToolCalls: number;
-      deltaLlmCalls: number;
-      deltaTimeMs: number;
-      candidateBetter: boolean;
-    }[];
-  }[];
-}
-```
+- `traceToActions` extracts a trace to agent action steps: agent-source
+  steps only (system/user context dropped), adjacent duplicates
+  collapsed (the collector replays turns), classified as
+  `tool` (has `toolCalls`) / `think` (`isLlmCall`) / `message`.
+  Labels come from `functionName` + the key argument (`command`,
+  `file_path`) or a truncated message line.
+- `traceToRunEvents` emits a `RunEvent` stream — one
+  `step-started`/`step-succeeded` pair per action. Since real per-step
+  timing does not exist, the **real** total (`executionTimeMs`) is
+  allocated across steps weighted by kind (tool 4 / think 2 /
+  message 1, floor 150ms) — honest total, estimated breakdown.
+- `traceGraph` builds a linear-chain `DefinitionGraph` so the DAG view
+  shows the action sequence.
+- `writeTraceReport` renders via `createHtmlRenderer` with context
+  (task/model/plugins/success + the synthetic-timing disclaimer) —
+  same self-contained HTML as pipeline reports: Gantt, DAG, tree,
+  list, step-click filtering.
 
-### Page
+### Workbench wiring (`public/benchmark/index.html`)
 
-`website/src/pages/arena.astro` — StarlightPage titled "Arena results":
+- Each run card gains a **"Timeline →"** link next to "View Full
+  Trace →" pointing at `traces/<taskId>/<combo>.report.html`.
+- `api/*.json` static fallback keeps the case sidebar alive on Pages;
+  `static-mode` class hides mutation controls.
 
-- Meta line: snapshot timestamp + commit + model/plugin summary.
-- **Aggregates table**: label | runs | success | avg tokens |
-  avg tool calls | avg LLM calls | avg time.
-- **Per-task deltas table**: task | delta tokens | delta tool calls | delta LLM calls |
-  delta time | verdict chip (`better` / `worse` / neutral when zero).
-- Empty state when the digest is absent ("run bun run docs:arena").
-- `import.meta.glob` (eager) so a missing digest never breaks the build.
+## Comparison story
 
-### Navigation
+Per task, two combos render side by side:
 
-A single link on `/pipeline/` below the reports table — "arena
-results →" — mirroring how the reports index links into viewers. No
-sidebar or header additions.
+- `no-plugins` — raw shell/API calls one by one (`exec`, `read`,
+  `write`…);
+- `sverka` — the agent invokes the sverka skill/plugin and runs a whole
+  verification pipeline in one step.
 
-## Non-goals
+The Gantt view makes the difference visible at a glance: fewer, denser
+tool bars vs many small ones.
 
-- Running arena inside CI (no credentials; swe-2-high policy enforced
-  in the arena config, not here)
-- Historical trend charts (would need a results archive — follow-up)
-- Per-run trace inspection on the site
+## Testing
+
+- `trace-report.test.ts`: dedupe/classify, label extraction, weighted
+  duration allocation, monotonic `at`, failure status, linear chain,
+  self-contained HTML output.
