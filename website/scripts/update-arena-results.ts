@@ -1,141 +1,153 @@
 /**
- * Snapshot arena results for the /arena/ page.
+ * Refresh the benchmark app's static snapshot for /benchmark/.
  *
- * `sverka-arena run` writes `packages/arena/.arena/results.json` —
- * gitignored and hundreds of KB (full traces + agent output). This
- * script distils it into `src/data/arena-results.json`, which IS
- * committed: the page renders the snapshot, and refreshing it is a
- * deliberate local act (`bun run docs:arena` after a run), since CI
- * has no agent credentials.
+ * The arena workbench (public/benchmark/) is a static SPA on GitHub
+ * Pages — the live CRUD server only exists locally. So the real data
+ * must be committed:
+ *
+ *   - packages/arena/.arena/results.json → public/benchmark/arena-results.json
+ *     (the SPA's default data source; full ArenaResult shape)
+ *   - packages/arena/arena.config.ts tasks → public/benchmark/api/cases.json
+ *   - packages/arena/arena.config.ts models/plugins → api/config.json
+ *
+ * Refresh after a local `sverka-arena run`: `bun run docs:arena`.
  */
-import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { mkdir, writeFile, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = dirname(websiteDir);
-const src = join(repoRoot, "packages", "arena", ".arena", "results.json");
-const out = join(websiteDir, "src", "data", "arena-results.json");
+const arenaDir = join(repoRoot, "packages", "arena");
+const resultsSrc = join(arenaDir, ".arena", "results.json");
+const benchDir = join(websiteDir, "public", "benchmark");
+const apiDir = join(benchDir, "api");
 
-interface ArenaAggregate {
-  label: string;
-  totalRuns: number;
-  successCount: number;
-  avgTotalTokens: number;
-  avgToolCalls: number;
-  avgLlmCalls: number;
-  avgExecutionTimeMs: number;
+interface ArenaTask {
+  id: string;
+  name: string;
+  prompt: string;
+  fixture?: string;
+  timeoutMs?: number;
+  setup?: string[];
+  successCriteria?: string;
+  checks?: { id: string; command: string; description: string }[];
 }
-interface ArenaComparison {
-  baseline: string;
-  candidate: string;
-  deltaTokens: number;
-  deltaToolCalls: number;
-  deltaLlmCalls: number;
-  deltaTimeMs: number;
-  candidateBetter: boolean;
+interface ArenaRunResult {
+  taskId: string;
+  modelId: string;
+  pluginIds: string[];
+  trace?: unknown;
 }
-interface ArenaFile {
-  timestamp: string;
-  config?: {
-    models?: (string | { id: string })[];
-    plugins?: (string | { id: string })[];
-    repetitions?: number;
+interface ArenaResultsFile {
+  results?: ArenaRunResult[];
+}
+interface ArenaConfigFile {
+  models?: { id: string; name: string; envVar?: string }[];
+  plugins?: { id: string; name: string; path?: string }[];
+  judge?: {
+    model: { id: string };
+    revealPlugins: boolean;
+    repetitions: number;
   };
-  aggregates?: ArenaAggregate[];
-  analysis?: {
-    taskId: string;
-    taskName: string;
-    comparisons?: ArenaComparison[];
-  }[];
+  repetitions?: number;
+  tasks?: ArenaTask[];
 }
 
-if (!existsSync(src)) {
+if (!existsSync(resultsSrc)) {
   console.error(
-    `no arena results at ${src} — run "bunx sverka-arena run" first`,
+    `no arena results at ${resultsSrc} — run "bunx sverka-arena run" first`,
   );
   process.exit(1);
 }
 
-const raw = (await import(src, { with: { type: "json" } }))
-  .default as ArenaFile;
+const config = (await import(join(arenaDir, "arena.config.ts")))
+  .default as ArenaConfigFile;
 
-const id = (m: string | { id: string }): string =>
-  typeof m === "string" ? m : m.id;
+const results = JSON.parse(
+  readFileSync(resultsSrc, "utf-8"),
+) as ArenaResultsFile;
 
-let commit: string | undefined;
-try {
-  commit = execSync("git rev-parse --short HEAD", {
-    cwd: repoRoot,
-    encoding: "utf-8",
-  }).trim();
-} catch {
-  // Not a git checkout (or git missing) — provenance stays optional.
-  commit = undefined;
+// Guard against shipping a snapshot whose task ids don't exist in the
+// current arena config — cases.json is regenerated from it, so unknown
+// task ids would render without their case metadata.
+const configTaskIds = new Set((config.tasks ?? []).map((t) => t.id));
+const strayIds = [
+  ...new Set((results.results ?? []).map((r) => r.taskId)),
+].filter((id) => !configTaskIds.has(id));
+if (strayIds.length > 0) {
+  console.error(
+    `results.json references tasks absent from arena.config.ts: ${strayIds.join(", ")}`,
+  );
+  process.exit(1);
 }
 
-const digest = {
-  timestamp: raw.timestamp,
-  commit,
-  config: {
-    models: (raw.config?.models ?? []).map(id),
-    plugins: (raw.config?.plugins ?? []).map(id),
-    repetitions: raw.config?.repetitions ?? 0,
-  },
-  aggregates: (raw.aggregates ?? []).map(
-    ({
-      label,
-      totalRuns,
-      successCount,
-      avgTotalTokens,
-      avgToolCalls,
-      avgLlmCalls,
-      avgExecutionTimeMs,
-    }) => ({
-      label,
-      totalRuns,
-      successCount,
-      avgTotalTokens,
-      avgToolCalls,
-      avgLlmCalls,
-      avgExecutionTimeMs,
-    }),
-  ),
-  analysis: (raw.analysis ?? []).map(({ taskId, taskName, comparisons }) => ({
-    taskId,
-    taskName,
-    comparisons: (comparisons ?? []).map(
-      ({
-        baseline,
-        candidate,
-        deltaTokens,
-        deltaToolCalls,
-        deltaLlmCalls,
-        deltaTimeMs,
-        candidateBetter,
-      }) => ({
-        baseline,
-        candidate,
-        deltaTokens,
-        deltaToolCalls,
-        deltaLlmCalls,
-        deltaTimeMs,
-        candidateBetter,
-      }),
-    ),
-  })),
-};
+await mkdir(apiDir, { recursive: true });
 
-await mkdir(dirname(out), { recursive: true });
-// Write to a temp file then rename — an interrupted write must not
-// leave truncated JSON behind, since Astro imports it eagerly.
-const tmp = `${out}.tmp`;
-await writeFile(tmp, JSON.stringify(digest, null, 2) + "\n");
-const { rename } = await import("node:fs/promises");
-await rename(tmp, out);
+// Atomic write — a torn api/*.json would break the static snapshot.
+async function writeJson(path: string, data: unknown): Promise<void> {
+  const tmp = `${path}.tmp`;
+  await writeFile(tmp, JSON.stringify(data, null, 2) + "\n");
+  await rename(tmp, path);
+}
+
+// Results — the SPA's default data file. Full copy via tmp+rename:
+// traces and output are what makes the viewer useful, and a torn file
+// must never reach the page.
+const resultsTmp = join(benchDir, "arena-results.json.tmp");
+await writeFile(resultsTmp, readFileSync(resultsSrc));
+await rename(resultsTmp, join(benchDir, "arena-results.json"));
+
+// Per-combo trace files — trace.html loads
+// traces/<taskId>/<plugins.join("--") | "no-plugins">.json.
+const tracesDir = join(benchDir, "traces");
+const writtenTasks = new Set<string>();
+for (const r of results.results ?? []) {
+  if (r.trace === undefined) continue;
+  const combo = r.pluginIds.length ? r.pluginIds.join("--") : "no-plugins";
+  const dir = join(tracesDir, r.taskId);
+  await mkdir(dir, { recursive: true });
+  // Later repetitions overwrite — the viewer only shows one run per combo.
+  await writeJson(join(dir, `${combo}.json`), r.trace);
+  writtenTasks.add(r.taskId);
+}
+// Older trace dirs stay — arena-sample.json still references them.
+
+// Cases — task definitions, preserving createdAt for existing ids.
+const casesPath = join(apiDir, "cases.json");
+const oldCases: { id: string; createdAt?: string }[] = existsSync(casesPath)
+  ? (JSON.parse(readFileSync(casesPath, "utf-8")) as {
+      id: string;
+      createdAt?: string;
+    }[])
+  : [];
+const createdAtById = new Map(oldCases.map((c) => [c.id, c.createdAt]));
+const now = new Date().toISOString();
+const cases = (config.tasks ?? []).map((t) => ({
+  id: t.id,
+  name: t.name,
+  prompt: t.prompt,
+  ...(t.successCriteria ? { successCriteria: t.successCriteria } : {}),
+  ...(t.fixture ? { fixture: t.fixture } : {}),
+  ...(t.timeoutMs ? { timeoutMs: t.timeoutMs } : {}),
+  ...(t.setup ? { setup: t.setup } : {}),
+  ...(t.checks ? { checks: t.checks } : {}),
+  createdAt: createdAtById.get(t.id) ?? now,
+  updatedAt: now,
+}));
+await writeJson(casesPath, cases);
+
+// Config — models + plugins (no secrets; ids/names only).
+await writeJson(join(apiDir, "config.json"), {
+  models: config.models ?? [],
+  plugins: config.plugins ?? [],
+  ...(config.judge ? { judge: config.judge } : {}),
+  repetitions: config.repetitions ?? 1,
+});
+
 console.log(
-  `wrote ${out} — ${digest.aggregates.length} aggregates, ` +
-    `${digest.analysis.length} task comparisons`,
+  `snapshot updated: arena-results.json (${Math.round(
+    readFileSync(resultsSrc).length / 1024,
+  )}KB), ${cases.length} cases, ${config.models?.length ?? 0} models`,
 );

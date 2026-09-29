@@ -1098,6 +1098,12 @@
         margin-top: 0.5rem;
       }
 
+      /* Static hosting (no CRUD API) — mutation controls are dead
+         weight, so static mode hides them everywhere. */
+      body.static-mode .case-card-actions {
+        display: none;
+      }
+
       .config-editor {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -2597,28 +2603,28 @@
           }
         }
 
-        /** Load case definitions from the API. */
-        async function loadCaseDefinitions() {
-          try {
-            var resp = await fetch("/api/cases");
-            if (!resp.ok) return null;
-            caseDefinitions = await resp.json();
-            return caseDefinitions;
-          } catch (e) {
-            return null;
+        /** Fetch the first URL that responds ok — live API on the dev
+         * server, committed JSON snapshot on static hosting. */
+        async function loadJson(urls) {
+          for (var i = 0; i < urls.length; i++) {
+            try {
+              var resp = await fetch(urls[i]);
+              if (resp.ok) return await resp.json();
+            } catch (e) {}
           }
+          return null;
         }
 
-        /** Load arena config from the API. */
+        /** Load case definitions from the API or the static snapshot. */
+        async function loadCaseDefinitions() {
+          caseDefinitions = await loadJson(["/api/cases", "api/cases.json"]);
+          return caseDefinitions;
+        }
+
+        /** Load arena config from the API or the static snapshot. */
         async function loadArenaConfig() {
-          try {
-            var resp = await fetch("/api/config");
-            if (!resp.ok) return null;
-            arenaConfig = await resp.json();
-            return arenaConfig;
-          } catch (e) {
-            return null;
-          }
+          arenaConfig = await loadJson(["/api/config", "api/config.json"]);
+          return arenaConfig;
         }
 
         /** Create a new case via the API. */
@@ -3296,23 +3302,31 @@
           var params = new URLSearchParams(window.location.search);
           var dataParam = params.get("data");
           // Only allow specific safe data files — prevent client-side request forgery
-          var ALLOWED_DATA_FILES = ["arena-sample.json"];
+          var ALLOWED_DATA_FILES = ["arena-sample.json", "arena-results.json"];
           var dataUrl =
             dataParam && ALLOWED_DATA_FILES.includes(dataParam)
               ? dataParam
-              : "arena-sample.json";
+              : "arena-results.json";
 
           setupNavigation();
           setupCrudToolbar();
 
-          // Try to load case definitions and config from API (non-blocking)
+          // Case definitions and config come from the live API when
+          // available, otherwise from the committed api/*.json snapshot
+          // (static hosting). CRUD/run controls only make sense with a
+          // live server — hide them when there is no API.
           var hasApi = await apiAvailable();
-          if (hasApi) {
-            await loadCaseDefinitions();
-            await loadArenaConfig();
-            if (caseDefinitions && caseDefinitions.length > 0) {
-              renderSidebarWithCases();
-            }
+          await loadCaseDefinitions();
+          await loadArenaConfig();
+          if (caseDefinitions && caseDefinitions.length > 0) {
+            renderSidebarWithCases();
+          }
+          if (!hasApi) {
+            document.body.classList.add("static-mode");
+            ["btn-new-case", "btn-config", "btn-run"].forEach(function (id) {
+              var b = document.getElementById(id);
+              if (b) b.style.display = "none";
+            });
           }
 
           try {

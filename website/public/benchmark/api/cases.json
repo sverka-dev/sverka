@@ -1,68 +1,58 @@
 [
   {
-    "id": "fix-test",
-    "name": "Fix failing tests",
-    "prompt": "This project has 3 failing tests in test/index.test.ts. Read the test file, find the bugs in src/index.ts, fix them, and run the tests to verify they pass.",
-    "successCriteria": "All 8 tests pass with bun test. countUniqueWords returns 2 for 'hello world hello'. truncate('hello world', 8) returns 'hello...'.",
+    "id": "fix-tests",
+    "name": "Fix failing unit tests",
+    "prompt": "This TypeScript project has failing tests. Find the bugs in src/ and fix them so `bun test` passes.",
+    "successCriteria": "All unit tests pass and no test files were modified",
     "fixture": "fixtures/ts-fix-test",
-    "timeoutMs": 120000,
     "checks": [
       {
         "id": "tests-pass",
         "command": "bun test",
-        "description": "All tests pass"
+        "description": "unit tests pass"
       }
     ],
-    "createdAt": "2026-09-07T18:00:00Z",
-    "updatedAt": "2026-09-07T18:00:00Z"
+    "createdAt": "2026-09-29T18:41:10.690Z",
+    "updatedAt": "2026-09-29T18:58:26.857Z"
   },
   {
-    "id": "create-ci",
-    "name": "Create CI workflow",
-    "prompt": "Create a GitHub Actions workflow file at .github/workflows/ci.yml that runs tests on push and pull_request. Use bun for testing. The workflow should install bun, run tests, and run build.",
-    "successCriteria": "File .github/workflows/ci.yml exists, is valid YAML, contains 'bun test' step, and triggers on push and pull_request.",
-    "fixture": "fixtures/create-ci",
-    "timeoutMs": 120000,
-    "checks": [
-      {
-        "id": "ci-file-exists",
-        "command": "test -f .github/workflows/ci.yml",
-        "description": "CI file exists"
-      },
-      {
-        "id": "ci-valid-yaml",
-        "command": "python3 -c 'import yaml; yaml.safe_load(open(\".github/workflows/ci.yml\"))'",
-        "description": "Valid YAML"
-      },
-      {
-        "id": "ci-has-test-step",
-        "command": "grep -q 'bun test' .github/workflows/ci.yml",
-        "description": "Contains test step"
-      }
+    "id": "verify-and-fix",
+    "name": "Run verification suite and fix failures",
+    "prompt": "This project has a verification suite defined in sverka.config.ts (see also the package.json scripts). Run all the checks, find every failure, and fix the source code so the entire suite passes. Do not modify test files, sverka.config.ts, or any check configuration (.oxlintrc.json, tsconfig.json).",
+    "successCriteria": "Every check passes (format, lint, typecheck, test, build) and no test or config file was modified",
+    "fixture": "fixtures/verify-and-fix",
+    "timeoutMs": 300000,
+    "setup": [
+      "bun install"
     ],
-    "createdAt": "2026-09-07T18:00:00Z",
-    "updatedAt": "2026-09-07T18:00:00Z"
-  },
-  {
-    "id": "refactor-async",
-    "name": "Refactor callbacks to async/await",
-    "prompt": "Refactor all functions in src/index.ts from callback style to async/await. Do NOT change function signatures or test expectations. Run tests to verify everything still works.",
-    "successCriteria": "All 3 tests pass. No Callback type usage in src/index.ts. All functions return Promises.",
-    "fixture": "fixtures/refactor-async",
-    "timeoutMs": 120000,
     "checks": [
       {
         "id": "tests-pass",
         "command": "bun test",
-        "description": "All tests pass"
+        "description": "unit tests pass"
       },
       {
-        "id": "no-callbacks",
-        "command": "! grep -q 'Callback<' src/index.ts",
-        "description": "No callback types"
+        "id": "typecheck",
+        "command": "bunx tsc --noEmit",
+        "description": "no type errors"
+      },
+      {
+        "id": "lint",
+        "command": "bunx oxlint .",
+        "description": "no lint errors"
+      },
+      {
+        "id": "format",
+        "command": "bunx prettier --check .",
+        "description": "formatting is clean"
+      },
+      {
+        "id": "build",
+        "command": "bun run build",
+        "description": "build succeeds"
       }
     ],
-    "createdAt": "2026-09-07T18:00:00Z",
-    "updatedAt": "2026-09-07T18:00:00Z"
+    "createdAt": "2026-09-29T18:41:10.690Z",
+    "updatedAt": "2026-09-29T18:58:26.857Z"
   }
 ]

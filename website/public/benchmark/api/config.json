@@ -1,16 +1,16 @@
 {
-  "models": [{ "id": "glm-5-2", "name": "GLM-5.2 High" }],
+  "models": [
+    {
+      "id": "swe-2-high",
+      "name": "SWE-2 High"
+    }
+  ],
   "plugins": [
     {
       "id": "sverka",
-      "name": "Sverka CLI",
-      "path": "packages/arena/fixtures/sverka-skill"
+      "name": "Sverka",
+      "path": "../../skills/sverka"
     }
   ],
-  "judge": {
-    "model": "glm-5-2",
-    "revealPlugins": false,
-    "repetitions": 1
-  },
   "repetitions": 1
 }
