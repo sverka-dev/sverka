@@ -328,11 +328,24 @@ function renderDagSvg(
     })
     .join("");
 
+  // Padding around the graph inside the viewBox — keeps nodes off the
+  // viewport edge. Zoom/pan manipulate the viewBox (uniform scale keeps
+  // the aspect constant, so the svg height never jumps).
+  const pad = 40;
+  const baseVb = `${-pad} ${-pad} ${maxX + pad * 2} ${maxY + pad * 2}`;
+
   // nosemgrep: html-in-template-string
-  return `<svg class="dag" viewBox="0 0 ${maxX} ${maxY}" role="img" aria-label="Workflow DAG">
+  return `<div class="dag-viewport">
+    <div class="dag-tools">
+      <button type="button" class="dag-btn" data-dag-zoom="in" title="Zoom in">+</button>
+      <button type="button" class="dag-btn" data-dag-zoom="out" title="Zoom out">−</button>
+      <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
+    </div>
+    <svg id="dag-svg" class="dag" viewBox="${baseVb}" data-vb="${baseVb}" role="img" aria-label="Workflow DAG">
     <defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z" /></marker></defs>
     ${edges}${nodes}
-  </svg>`;
+    </svg>
+  </div>`;
 }
 
 /** List view — per-step expandable row with output tails. */
@@ -733,7 +746,40 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
 .step-active > rect:first-of-type,
 .step-active.tree-node { outline: 2px solid #58a6ff; outline-offset: 1px; }
 .step-active > .bar { stroke: #58a6ff; stroke-width: 2; }
-.gantt-step, .dag-node, .tree-node { cursor: pointer; }
+.dag-viewport {
+  position: relative;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  background: #0d1117;
+  overflow: hidden;
+}
+.dag-viewport svg.dag {
+  display: block;
+  width: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+.dag-viewport svg.dag.panning { cursor: grabbing; }
+.dag-tools {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+  z-index: 2;
+}
+.dag-btn {
+  padding: 0.1rem 0.5rem;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: rgba(33, 38, 45, 0.9);
+  color: #e6edf3;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.dag-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.dag-node { cursor: pointer; }
+.gantt-step, .tree-node { cursor: pointer; }
 .gantt-step:hover .row-label { fill: #58a6ff; }
 .dag-node:hover > rect:first-of-type { stroke-width: 2.5; }
 .step-findings {
@@ -862,6 +908,81 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
     }).join("");
   }
 
+  // DAG zoom/pan — the viewBox is manipulated directly. Zoom is
+  // uniform (w and h scale together) so the svg aspect never changes
+  // and the element height stays stable.
+  (function() {
+    var svg = document.getElementById("dag-svg");
+    if (!svg) return;
+    var base = (svg.getAttribute("data-vb") || "0 0 100 100").split(" ").map(Number);
+    var vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
+    var baseW = base[2];
+    var moved = 0;
+
+    function apply() {
+      svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
+    }
+    function zoomAt(factor, cx, cy) {
+      var w = Math.min(Math.max(vb.w * factor, baseW / 8), baseW * 2);
+      var f = w / vb.w;
+      vb.x = cx - (cx - vb.x) * f;
+      vb.y = cy - (cy - vb.y) * f;
+      vb.w = w;
+      vb.h = vb.h * f;
+      apply();
+    }
+    function toVb(e) {
+      var r = svg.getBoundingClientRect();
+      return {
+        x: vb.x + ((e.clientX - r.left) / r.width) * vb.w,
+        y: vb.y + ((e.clientY - r.top) / r.height) * vb.h,
+      };
+    }
+
+    svg.addEventListener("wheel", function(e) {
+      e.preventDefault();
+      var p = toVb(e);
+      zoomAt(e.deltaY > 0 ? 1.2 : 1 / 1.2, p.x, p.y);
+    }, { passive: false });
+
+    var drag = null;
+    svg.addEventListener("pointerdown", function(e) {
+      drag = { x: e.clientX, y: e.clientY };
+      moved = 0;
+      svg.classList.add("panning");
+      svg.setPointerCapture(e.pointerId);
+    });
+    svg.addEventListener("pointermove", function(e) {
+      if (!drag) return;
+      var r = svg.getBoundingClientRect();
+      var scale = vb.w / r.width;
+      moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
+      vb.x -= (e.clientX - drag.x) * scale;
+      vb.y -= (e.clientY - drag.y) * scale;
+      drag = { x: e.clientX, y: e.clientY };
+      apply();
+    });
+    function endDrag() { drag = null; svg.classList.remove("panning"); }
+    svg.addEventListener("pointerup", endDrag);
+    svg.addEventListener("pointercancel", endDrag);
+
+    document.querySelectorAll("[data-dag-zoom]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var mode = btn.getAttribute("data-dag-zoom");
+        if (mode === "fit") {
+          vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
+          apply();
+        } else {
+          zoomAt(mode === "in" ? 0.8 : 1.25, vb.x + vb.w / 2, vb.y + vb.h / 2);
+        }
+      });
+    });
+
+    // A drag that ends on a node must not toggle the step filter.
+    window.__dagMoved = function() { return moved > 4; };
+  })();
+
   // Step → findings filter: click any step element (gantt row, dag
   // node, tree node, list "findings" chip) to filter the table.
   function applyStepFilter(id) {
@@ -886,6 +1007,14 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
       // preventDefault keeps <details> in the list view from toggling
       // when the "findings" chip inside <summary> is clicked.
       e.preventDefault();
+      // Ignore clicks that ended a DAG pan drag — only for clicks
+      // inside the DAG svg; moved resets on the next pointerdown.
+      if (
+        el.closest("#dag-svg") &&
+        window.__dagMoved &&
+        window.__dagMoved()
+      )
+        return;
       applyStepFilter(el.getAttribute("data-step"));
     });
   });

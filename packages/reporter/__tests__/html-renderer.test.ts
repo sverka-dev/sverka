@@ -394,6 +394,22 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("step-filter-chip");
   });
 
+  it("dag — zoomable viewport with padded viewBox and controls", () => {
+    const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
+    expect(html).toContain('class="dag-viewport"');
+    expect(html).toContain('id="dag-svg"');
+    expect(html).toContain('data-dag-zoom="in"');
+    expect(html).toContain('data-dag-zoom="fit"');
+    // viewBox is padded beyond the content box (negative origin)
+    expect(html).toMatch(/viewBox="-40 -40 \d+ \d+"/);
+    expect(html).toContain('data-vb="-40 -40');
+    // wheel zoom + pointer pan wiring
+    expect(html).toContain('"wheel"');
+    expect(html).toContain('"pointermove"');
+    // drag-ended clicks must not toggle the step filter
+    expect(html).toContain("__dagMoved");
+  });
+
   it("list view — step stdout/stderr land in expandable rows", () => {
     const html = renderHtml([
       runStarted("run-1", "plan-abc"),
