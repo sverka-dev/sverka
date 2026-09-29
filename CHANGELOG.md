@@ -1,3 +1,14 @@
+## 0.1.19 (2026-09-29)
+
+### 🚀 Features
+
+- **reporter:** ReactFlow-style DAG — dots grid, card nodes, curved edges ([#252](https://github.com/sverka-dev/sverka/pull/252))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.18 (2026-09-29)
 
 ### 🚀 Features
