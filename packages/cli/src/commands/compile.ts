@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { lstat, mkdir, realpath, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { compileGithub, compileGitlab } from "@sverka/compiler";
 import type { CompilationResult } from "@sverka/compiler";
 import type { GlobalFlags, OutputWriter } from "../types.js";
@@ -88,18 +88,45 @@ export async function compileCommand(
 
   if (args.outputDir) {
     const outDir = resolve(global.root, args.outputDir);
+    await mkdir(outDir, { recursive: true });
+    const realOutDir = await realpath(outDir);
+    const contained = (base: string, p: string) => {
+      const rel = relative(base, p);
+      return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+    };
     const written: string[] = [];
     for (const a of result.artifacts) {
       const outPath = resolve(outDir, a.path);
-      const rel = relative(outDir, outPath);
-      if (rel.startsWith("..") || isAbsolute(rel)) {
-        throw new CliError(
+      const escapes = () =>
+        new CliError(
           `artifact path escapes output dir: ${a.path}`,
           "INVALID_FLAG",
           ExitCode.UsageError,
         );
+      if (!contained(outDir, outPath)) throw escapes();
+      // Lexical containment alone isn't enough: a symlink planted inside
+      // outDir would redirect the write. Walk up to the deepest existing
+      // ancestor, realpath it, and re-check before touching the fs.
+      for (let ancestor = dirname(outPath); ;) {
+        try {
+          const realAncestor = await realpath(ancestor);
+          const realTarget = join(realAncestor, relative(ancestor, outPath));
+          if (!contained(realOutDir, realTarget)) throw escapes();
+          break;
+        } catch (e) {
+          if (e instanceof CliError) throw e;
+          if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+          const up = dirname(ancestor);
+          if (up === ancestor) break;
+          ancestor = up;
+        }
       }
       await mkdir(dirname(outPath), { recursive: true });
+      try {
+        if ((await lstat(outPath)).isSymbolicLink()) throw escapes();
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+      }
       await writeFile(outPath, a.content, "utf8");
       written.push(outPath);
     }

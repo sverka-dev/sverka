@@ -194,6 +194,27 @@ export default proj;
     expect(out.stdoutText).toContain("release.yml");
   });
 
+  it("rejects --output-dir writes escaping via symlinked dirs", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const {
+      mkdirSync,
+      symlinkSync,
+      existsSync: fsExists,
+    } = await import("node:fs");
+    mkdirSync(`${dir}/gen`, { recursive: true });
+    mkdirSync(`${dir}/escape-target`, { recursive: true });
+    symlinkSync(`${dir}/escape-target`, `${dir}/gen/.github`, "dir");
+    const out = new CaptureWriter();
+    const code = await main(
+      ["compile", "--target", "github", "--root", dir, "--output-dir", "gen"],
+      { output: out },
+    );
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("escapes output dir");
+    expect(fsExists(`${dir}/escape-target/workflows/ci.yml`)).toBe(false);
+  });
+
   it("exits 2 when --output is given for a multi-pipeline project", async () => {
     const dir = getDir();
     await writefile(
