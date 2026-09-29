@@ -12,7 +12,7 @@
         "@nx-devkit/skillspector": "file:./vendor/nx.ts/packages/skillspector",
         "@nx-devkit/typescript": "file:./vendor/nx.ts/packages/typescript-preset",
         "@nx/js": "^23.2.1",
-        "@secretlint/secretlint-rule-preset-recommend": "13.0.5",
+        "@secretlint/secretlint-rule-preset-recommend": "13.0.6",
         "@sverka/workflow": "workspace:*",
         "@types/node": "26.5.1",
         "cspell": "10.3.3",
@@ -898,7 +898,7 @@
 
     "@secretlint/resolver": ["@secretlint/resolver@13.0.5", "", {}, "sha512-6V3PfSKJTafCMLbPMVZkP1d43Ot9y4hB8tmtA10NEybnV2gqgO8hMrWe2SsZUPBugjUPTise7efs9BFPsO9M6A=="],
 
-    "@secretlint/secretlint-rule-preset-recommend": ["@secretlint/secretlint-rule-preset-recommend@13.0.5", "", {}, "sha512-dxOmTLf1w7I6rQEFPL8Hkdz6dR1FQXF0bzmTahH/Wyezy89TMPLL+8LbZ2YD8trkmYBnS37zUmOsZT6rMVftKQ=="],
+    "@secretlint/secretlint-rule-preset-recommend": ["@secretlint/secretlint-rule-preset-recommend@13.0.6", "", {}, "sha512-5OdYoPKs7LznSY/mFgpJlSY8ayF+clq0gdfOE0ERVfvUifmIDz0yG/d1ij3wZmfpyOw33tk12zUcDZqrXHFodA=="],
 
     "@secretlint/source-creator": ["@secretlint/source-creator@13.0.5", "", { "dependencies": { "@secretlint/types": "13.0.5", "istextorbinary": "^9.5.0" } }, "sha512-Y1edWpqit4Ai9fM4LU+v3s0JcCW6rSzOisDcxKBKfrg6ynFPX8n+JwEr5Bk+zGA0RnwlngJbmqjS+/CxDNl56A=="],
 

@@ -30,7 +30,7 @@
     "@nx-devkit/skillspector": "file:./vendor/nx.ts/packages/skillspector",
     "@nx-devkit/typescript": "file:./vendor/nx.ts/packages/typescript-preset",
     "@nx/js": "^23.2.1",
-    "@secretlint/secretlint-rule-preset-recommend": "13.0.5",
+    "@secretlint/secretlint-rule-preset-recommend": "13.0.6",
     "@sverka/workflow": "workspace:*",
     "@types/node": "26.5.1",
     "cspell": "10.3.3",
