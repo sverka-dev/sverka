@@ -39,11 +39,11 @@ function buildEdges(graph: DefinitionGraph): {
   return { steps, stepIds, edges };
 }
 
-/** Longest-path layer of each node (0 = root). */
-function computeLayers(
+/** Adjacency + in-degree index over the edges. */
+function indexEdges(
   stepIds: Set<string>,
   edges: readonly DagEdge[],
-): Map<string, number> {
+): { children: Map<string, string[]>; inDegree: Map<string, number> } {
   const children = new Map<string, string[]>();
   const inDegree = new Map<string, number>();
   for (const id of stepIds) {
@@ -54,6 +54,14 @@ function computeLayers(
     children.get(e.source)?.push(e.target);
     inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
   }
+  return { children, inDegree };
+}
+
+/** Layer-0 init: zero layer everywhere, roots queued sorted. */
+function initLayers(inDegree: Map<string, number>): {
+  layer: Map<string, number>;
+  queue: string[];
+} {
   const layer = new Map<string, number>();
   const queue: string[] = [];
   for (const [id, deg] of inDegree) {
@@ -61,6 +69,16 @@ function computeLayers(
     if (deg === 0) queue.push(id);
   }
   queue.sort((a, b) => a.localeCompare(b, "en"));
+  return { layer, queue };
+}
+
+/** Longest-path layer of each node (0 = root), via Kahn's order. */
+function computeLayers(
+  stepIds: Set<string>,
+  edges: readonly DagEdge[],
+): Map<string, number> {
+  const { children, inDegree } = indexEdges(stepIds, edges);
+  const { layer, queue } = initLayers(inDegree);
   while (queue.length > 0) {
     const id = queue.shift()!;
     const l = layer.get(id) ?? 0;
@@ -104,7 +122,7 @@ export function layoutDag(
   // list keeps every dependency kind, so dedupe what we hand it.
   const seen = new Set<string>();
   for (const e of edges) {
-    const key = `${e.source}→${e.target}`;
+    const key = `${e.source}${e.target}`;
     if (seen.has(key)) continue;
     seen.add(key);
     g.setEdge(e.source, e.target);
@@ -132,7 +150,7 @@ export function layoutDag(
     const de = g.edge({ v: e.source, w: e.target });
     return {
       ...e,
-      points: de?.points.map((p: { x: number; y: number }) => ({
+      points: de?.points?.map((p: { x: number; y: number }) => ({
         x: p.x,
         y: p.y,
       })),

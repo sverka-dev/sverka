@@ -112,11 +112,12 @@ type DagLayout = {
 };
 
 /** Common `ns/` prefix of step ids (e.g. all ids under "ci/").
- * Returns "" when ids don't share a namespace — multi-pipeline runs
- * keep their prefixes visible. */
+ * Uses each id's FIRST segment, so nested ids like "ci/a/b" still
+ * count as "ci/". Returns "" when ids don't share a namespace —
+ * multi-pipeline runs keep their prefixes visible. */
 function commonNsPrefix(ids: readonly string[]): string {
   if (ids.length === 0) return "";
-  const cut = ids[0]!.lastIndexOf("/");
+  const cut = ids[0]!.indexOf("/");
   if (cut < 0) return "";
   const prefix = ids[0]!.slice(0, cut + 1);
   return ids.every((id) => id.startsWith(prefix)) ? prefix : "";
@@ -277,7 +278,7 @@ function renderDagSvg(
   // path per pair, joining the dependency kinds in the label.
   const pairs = new Map<string, string[]>();
   for (const e of dag.edges) {
-    const key = `${e.source}→${e.target}`;
+    const key = `${e.source}${e.target}`;
     const kinds = pairs.get(key) ?? [];
     if (e.label && !kinds.includes(e.label)) kinds.push(e.label);
     pairs.set(key, kinds);
@@ -299,7 +300,7 @@ function renderDagSvg(
           .slice(1)
           .map((p) => `L ${p.x} ${p.y}`)
           .join(" ");
-      const kinds = pairs.get(`${e.source}→${e.target}`) ?? [];
+      const kinds = pairs.get(`${e.source}${e.target}`) ?? [];
       const mid = pts[Math.floor(pts.length / 2)]!;
       const label = kinds.length
         ? `<text class="edge-label" x="${mid.x}" y="${mid.y - 4}" text-anchor="middle">${escapeHtml(kinds.join("+"))}</text>` // nosemgrep: html-in-template-string
