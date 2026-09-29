@@ -33,7 +33,7 @@
     "@secretlint/secretlint-rule-preset-recommend": "13.0.5",
     "@sverka/workflow": "workspace:*",
     "@types/node": "26.5.1",
-    "cspell": "10.3.3",
+    "cspell": "10.3.4",
     "eslint": "10.11.0",
     "knip": "6.38.0",
     "markdownlint-cli2": "0.23.3",
