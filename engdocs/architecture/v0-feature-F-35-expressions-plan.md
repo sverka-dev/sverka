@@ -56,11 +56,11 @@ engine-native). No new package. No new external deps.
 
 **Test first:**
 
-- `sh\`deploy ${git.branch}\`` → `run: deploy ${{ github.ref_name }}`
-- `sh\`echo ${git.sha}\`` → `run: echo ${{ github.sha }}`
-- `sh\`deploy ${env.MY_VAR}\`` → `run: deploy ${{ env.MY_VAR }}`
-- `sh\`deploy ${build.version}\`` → `run: deploy ${{ steps.build.outputs.version }}`
-- `sh\`echo ${HOME}\`` (literal, no ref in inputs) → `run: echo ${HOME}` (unchanged)
+- `sh\`deploy ${git.branch}\``→`run: deploy ${{ github.ref_name }}`
+- `sh\`echo ${git.sha}\``→`run: echo ${{ github.sha }}`
+- `sh\`deploy ${env.MY_VAR}\``→`run: deploy ${{ env.MY_VAR }}`
+- `sh\`deploy ${build.version}\``→`run: deploy ${{ steps.build.outputs.version }}`
+- `sh\`echo ${HOME}\``(literal, no ref in inputs) →`run: echo ${HOME}` (unchanged)
 
 ### Step 4: GitHub target — condition lowering
 
@@ -83,11 +83,11 @@ engine-native). No new package. No new external deps.
 
 **Test first:**
 
-- `sh\`deploy ${git.branch}\`` → `script: deploy $CI_COMMIT_BRANCH`
-- `sh\`echo ${git.sha}\`` → `script: echo $CI_COMMIT_SHA`
-- `sh\`deploy ${env.MY_VAR}\`` → `script: deploy $MY_VAR`
-- `sh\`deploy ${build.version}\`` → `script: deploy $version`
-- `sh\`echo ${HOME}\`` (literal) → `script: echo ${HOME}` (unchanged)
+- `sh\`deploy ${git.branch}\``→`script: deploy $CI_COMMIT_BRANCH`
+- `sh\`echo ${git.sha}\``→`script: echo $CI_COMMIT_SHA`
+- `sh\`deploy ${env.MY_VAR}\``→`script: deploy $MY_VAR`
+- `sh\`deploy ${build.version}\``→`script: deploy $version`
+- `sh\`echo ${HOME}\``(literal) →`script: echo ${HOME}` (unchanged)
 
 ### Step 6: GitLab target — condition lowering
 
