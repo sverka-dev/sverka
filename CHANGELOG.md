@@ -1,3 +1,14 @@
+## 0.1.22 (2026-09-29)
+
+### 🚀 Features
+
+- **website:** rebuild site on TanStack Start + fumadocs ([#257](https://github.com/sverka-dev/sverka/pull/257))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.21 (2026-09-29)
 
 ### 🚀 Features
