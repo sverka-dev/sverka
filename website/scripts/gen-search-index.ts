@@ -40,7 +40,11 @@ function frontmatter(content: string): {
     const kv = /^(\w+):\s*(.*)$/.exec(line.trim());
     if (kv) fm[kv[1]] = kv[2].replace(/^["']|["']$/g, "");
   }
-  return { title: fm.title, description: fm.description, body: content.slice(m[0].length) };
+  return {
+    title: fm.title,
+    description: fm.description,
+    body: content.slice(m[0].length),
+  };
 }
 
 function stripMarkdown(body: string): string {
@@ -65,7 +69,9 @@ function urlFor(file: string): string {
 const files = await collect(docsRoot);
 const indexes: Index[] = [];
 for (const file of files) {
-  const { title, description, body } = frontmatter(await readFile(file, "utf-8"));
+  const { title, description, body } = frontmatter(
+    await readFile(file, "utf-8"),
+  );
   if (!title) continue;
   indexes.push({
     title,
