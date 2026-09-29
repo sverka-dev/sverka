@@ -1,3 +1,19 @@
+## 0.1.15 (2026-09-29)
+
+### 🚀 Features
+
+- **reporter:** CI-grade HTML report — context, Gantt/DAG/Tree views ([#243](https://github.com/sverka-dev/sverka/pull/243))
+- **website:** surface pipeline status in header, hero, sidebar top ([#231](https://github.com/sverka-dev/sverka/pull/231))
+
+### 🩹 Fixes
+
+- **ci:** checkout submodules in deploy-website workflow ([#230](https://github.com/sverka-dev/sverka/pull/230))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.14 (2026-09-28)
 
 ### 🚀 Features
