@@ -1,6 +1,6 @@
 {
   "name": "@sverka/reporter",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "Sverka reporter — render engine events, findings, and policy verdicts",
   "license": "MIT",
   "sideEffects": false,
