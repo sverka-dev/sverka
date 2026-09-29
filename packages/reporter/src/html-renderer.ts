@@ -295,16 +295,20 @@ function renderDagSvg(
     .map((e) => {
       const pts = e.points;
       if (!pts || pts.length < 2) return "";
-      const d =
-        `M ${pts[0]!.x} ${pts[0]!.y} ` +
-        pts
-          .slice(1)
-          .map((p) => `L ${p.x} ${p.y}`)
-          .join(" ");
+      // Smooth the polyline: quadratic curves through each routing
+      // vertex, landing at midpoints — the ReactFlow "smoothstep" look.
+      let d = `M ${pts[0]!.x} ${pts[0]!.y}`;
+      for (let i = 1; i < pts.length - 1; i++) {
+        const p = pts[i]!;
+        const next = pts[i + 1]!;
+        d += ` Q ${p.x} ${p.y} ${(p.x + next.x) / 2} ${(p.y + next.y) / 2}`;
+      }
+      const last = pts[pts.length - 1]!;
+      d += ` L ${last.x} ${last.y}`;
       const kinds = pairs.get(`${e.source}${e.target}`) ?? [];
       const mid = pts[Math.floor(pts.length / 2)]!;
       const label = kinds.length
-        ? `<text class="edge-label" x="${mid.x}" y="${mid.y - 4}" text-anchor="middle">${escapeHtml(kinds.join("+"))}</text>` // nosemgrep: html-in-template-string
+        ? `<text class="edge-label" x="${mid.x}" y="${mid.y - 5}" text-anchor="middle">${escapeHtml(kinds.join("+"))}</text>` // nosemgrep: html-in-template-string
         : "";
       // nosemgrep: html-in-template-string
       return `<path class="edge" d="${d}" marker-end="url(#arrow)" />${label}`;
@@ -316,14 +320,15 @@ function renderDagSvg(
       const step = state.steps.get(n.id);
       const color = statusColor(step?.state);
       const short = displayId(n.id, nsPrefix);
-      const label = short.length > 22 ? `${short.slice(0, 21)}…` : short;
+      const label = short.length > 24 ? `${short.slice(0, 23)}…` : short;
+      const cy = n.y + n.height / 2;
       // nosemgrep: html-in-template-string
       return `<g class="dag-node" data-step="${escapeHtml(n.id)}">
         <title>${escapeHtml(n.id)}</title>
-        <rect x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="8" stroke="${color}" />
-        <rect x="${n.x}" y="${n.y}" width="4" height="${n.height}" rx="2" fill="${color}" />
-        <text x="${n.x + n.width / 2 + 2}" y="${n.y + 19}" text-anchor="middle">${escapeHtml(label)}</text>
-        <text class="node-status" x="${n.x + n.width / 2 + 2}" y="${n.y + 34}" text-anchor="middle" fill="${color}">${escapeHtml(step?.state ?? "pending")}</text>
+        <rect class="dag-card" x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="8" />
+        <circle cx="${n.x + 16}" cy="${cy}" r="4" fill="${color}" />
+        <text x="${n.x + 28}" y="${cy - 2}">${escapeHtml(label)}</text>
+        <text class="node-status" x="${n.x + 28}" y="${cy + 12}" style="fill:${color}">${escapeHtml(step?.state ?? "pending")}</text>
       </g>`;
     })
     .join("");
@@ -342,7 +347,11 @@ function renderDagSvg(
       <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
     </div>
     <svg id="dag-svg" class="dag" viewBox="${baseVb}" data-vb="${baseVb}" role="img" aria-label="Workflow DAG">
-    <defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z" /></marker></defs>
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" /></marker>
+      <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="${-pad}" y="${-pad}"><circle cx="1" cy="1" r="1" /></pattern>
+    </defs>
+    <rect class="dag-grid" x="${-pad}" y="${-pad}" width="${maxX + pad * 2}" height="${maxY + pad * 2}" fill="url(#dag-dots)" />
     ${edges}${nodes}
     </svg>
   </div>`;
@@ -652,13 +661,15 @@ svg.gantt .tick { fill: #8b949e; font-size: 10px; }
 svg.gantt .row-label { fill: #c9d1d9; font-size: 11px; font-family: ui-monospace, SFMono-Regular, monospace; }
 svg.gantt .dur { fill: #8b949e; font-size: 10px; }
 svg.gantt .dur.notime { font-style: italic; }
-svg.dag { width: 100%; height: auto; background: #161b22; border: 1px solid #30363d; border-radius: 6px; }
-svg.dag .dag-node rect { fill: #0d1117; stroke-width: 1.5; }
-svg.dag .dag-node text { fill: #c9d1d9; font-size: 11px; font-family: ui-monospace, SFMono-Regular, monospace; }
+svg.dag { width: 100%; height: auto; background: #0d1117; }
+svg.dag .dag-grid { pointer-events: none; }
+svg.dag #dag-dots circle { fill: #21262d; }
+svg.dag .dag-card { fill: #161b22; stroke: #30363d; stroke-width: 1.5; }
+svg.dag .dag-node text { fill: #e6edf3; font-size: 11px; font-family: ui-monospace, SFMono-Regular, monospace; }
 svg.dag .dag-node .node-status { font-size: 9px; text-transform: uppercase; }
-svg.dag .edge { stroke: #30363d; stroke-width: 1.5; fill: none; }
-svg.dag .edge-label { fill: #8b949e; font-size: 9px; }
-svg.dag marker path { fill: #8b949e; }
+svg.dag .edge { stroke: #4a5568; stroke-width: 1.5; fill: none; }
+svg.dag .edge-label { fill: #8b949e; font-size: 9px; paint-order: stroke; stroke: #0d1117; stroke-width: 3; }
+svg.dag marker path { fill: #4a5568; }
 .verdict-banner {
   padding: 0.75rem 1rem;
   border-radius: 6px;
@@ -743,7 +754,7 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 0.8rem;
 }
-.step-active > rect:first-of-type,
+.step-active .dag-card { stroke: #58a6ff; stroke-width: 2.5; }
 .step-active.tree-node { outline: 2px solid #58a6ff; outline-offset: 1px; }
 .step-active > .bar { stroke: #58a6ff; stroke-width: 2; }
 .dag-viewport {
@@ -781,7 +792,7 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
 .dag-node { cursor: pointer; }
 .gantt-step, .tree-node { cursor: pointer; }
 .gantt-step:hover .row-label { fill: #58a6ff; }
-.dag-node:hover > rect:first-of-type { stroke-width: 2.5; }
+.dag-node:hover .dag-card { stroke: #58a6ff; }
 .step-findings {
   margin-left: 0.5rem;
   padding: 0 0.4rem;
