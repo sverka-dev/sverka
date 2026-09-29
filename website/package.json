@@ -6,7 +6,7 @@
   "sideEffects": false,
   "scripts": {
     "dev": "bun run sync-docs && vite dev",
-    "build": "bun run sync-docs && bun run docs:pipeline && bun run docs:arena && vite build",
+    "build": "bun run sync-docs && bun run docs:pipeline && vite build",
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "test": "bun test",
