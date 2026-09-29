@@ -99,23 +99,33 @@ async function writeJson(path: string, data: unknown): Promise<void> {
   await rename(tmp, path);
 }
 
-// Per-combo trace files — trace.html loads
-// traces/<taskId>/<plugins.join("--") | "no-plugins">.json.
-// Generated BEFORE the results.json rename so a rendering failure
-// never leaves the SPA pointing at fresh results with missing
-// reports.
+// Per-combo artifacts — trace.html loads
+// traces/<taskId>/<plugins.join("--") | "no-plugins">.json, run cards
+// link traces/<taskId>/<combo>.report.html.
+// Two passes: generate everything to .tmp first, then rename the whole
+// batch, then results.json last — a render failure can never leave the
+// SPA pointing at a partial generation.
 const tracesDir = join(benchDir, "traces");
-let reportsWritten = 0;
+const staged: [tmp: string, target: string][] = [];
 for (const r of results.results ?? []) {
   if (!r.trace) continue;
   const combo = r.pluginIds.length ? r.pluginIds.join("--") : "no-plugins";
   const dir = join(tracesDir, r.taskId);
   await mkdir(dir, { recursive: true });
   // Later repetitions overwrite — the viewer only shows one run per combo.
-  await writeJson(join(dir, `${combo}.json`), r.trace);
+  const tracePath = join(dir, `${combo}.json`);
+  const traceTmp = `${tracePath}.tmp`;
+  await writeFile(traceTmp, JSON.stringify(r.trace, null, 2) + "\n");
+  staged.push([traceTmp, tracePath]);
   // Sverka report — Gantt/DAG timeline of the agent run itself.
-  writeTraceReport(r, join(dir, `${combo}.report.html`));
-  reportsWritten++;
+  const reportPath = join(dir, `${combo}.report.html`);
+  const reportTmp = `${reportPath}.tmp`;
+  writeTraceReport(r, reportTmp);
+  staged.push([reportTmp, reportPath]);
+}
+const reportsWritten = staged.length / 2;
+for (const [tmp, target] of staged) {
+  await rename(tmp, target);
 }
 // Older trace dirs stay — arena-sample.json still references them.
 

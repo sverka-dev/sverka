@@ -15,8 +15,6 @@ import { createHtmlRenderer } from "@sverka/reporter";
 import type { RunResult, TraceData, TraceStep, ToolCall } from "./types.js";
 
 /** Relative duration weight per step kind — shares of the real total. */
-const MIN_STEP_MS = 150;
-
 type StepKind = "tool" | "think" | "message";
 
 function weight(kind: StepKind): number {
@@ -31,6 +29,8 @@ export interface ActionStep {
   kind: StepKind;
   label: string;
   detail: string;
+  /** Set when this step should render as failed (run-level evidence). */
+  failed?: string;
 }
 
 /** The argument that best summarizes a call (command line, path…). */
@@ -75,19 +75,54 @@ export function traceToActions(trace: TraceData): ActionStep[] {
   let n = 0;
   for (const s of trace.steps) {
     if (s.source !== "agent") continue;
-    const key = `${s.isLlmCall}|${s.message}`;
+    // Dedupe replayed steps — the collector re-emits a turn once per
+    // tool call (same message) and again per observation, so identity
+    // must include the call ids, not just the message text.
+    const callIds = (s.toolCalls ?? [])
+      .map((c) => c.toolCallId || c.functionName)
+      .join(",");
+    const key = `${s.isLlmCall}|${s.message}|${callIds}`;
     if (key === prevKey) continue;
     prevKey = key;
     const kind = classify(s);
     const label = toLabel(s);
+    // For tool steps the observations are the tool's own output — pair
+    // them under the step that made the call (the message is the
+    // preceding reasoning, kept on top for context).
+    const outputs = (s.observations ?? []).map((o) => o.content);
+    const detail = [s.message, ...outputs].filter(Boolean).join("\n\n");
     out.push({
       stepId: `s${String(++n).padStart(2, "0")} ${kind}: ${label}`,
       kind,
       label,
-      detail: s.message,
+      detail,
     });
   }
   return out;
+}
+
+/**
+ * Evidence for a failed run: failing deterministic checks or the run
+ * error become a synthetic tail step — never pinned on an arbitrary
+ * agent action.
+ */
+function failureStep(result: RunResult, n: number): ActionStep | undefined {
+  if (result.success) return undefined;
+  const failedChecks = result.checkResults.filter((c) => !c.passed);
+  if (failedChecks.length === 0 && !result.error) return undefined;
+  const detail = [
+    ...failedChecks.map((c) => `${c.checkId}: ${c.output}`),
+    result.error ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return {
+    stepId: `s${String(n + 1).padStart(2, "0")} checks: deterministic`,
+    kind: "tool",
+    label: "deterministic checks",
+    detail,
+    failed: result.error ?? `${failedChecks.length} check(s) failed`,
+  };
 }
 
 /**
@@ -99,8 +134,10 @@ export function traceToRunEvents(
   opts?: { runId?: string; planId?: string },
 ): RunEvent[] {
   const actions = traceToActions(result.trace);
+  const failed = failureStep(result, actions.length);
+  const steps = failed ? [...actions, failed] : actions;
   const totalMs = Math.max(result.metrics.executionTimeMs || 0, 1);
-  const totalWeight = actions.reduce((a, s) => a + weight(s.kind), 0) || 1;
+  const totalWeight = steps.reduce((a, s) => a + weight(s.kind), 0) || 1;
   const runId = opts?.runId ?? `arena-${result.taskId}`;
 
   const events: RunEvent[] = [
@@ -113,21 +150,20 @@ export function traceToRunEvents(
   ];
 
   let t = 0;
-  actions.forEach((a, i) => {
-    const dur = Math.max(
-      Math.round((totalMs * weight(a.kind)) / totalWeight),
-      MIN_STEP_MS,
-    );
+  steps.forEach((a, i) => {
+    // Weighted share of the REAL total — the last step absorbs the
+    // rounding remainder so durations always sum to executionTimeMs.
+    const dur =
+      i === steps.length - 1
+        ? Math.max(totalMs - t, 0)
+        : Math.round((totalMs * weight(a.kind)) / totalWeight);
     events.push({ type: "step-started", stepId: a.stepId, at: t });
-    // A failed run's last action is the one that failed — earlier
-    // steps still show green; the tail bar carries the error.
-    const isLast = i === actions.length - 1;
     events.push(
-      !result.success && isLast
+      a.failed
         ? {
             type: "step-failed",
             stepId: a.stepId,
-            error: result.error ?? "run failed",
+            error: a.failed,
             durationMs: dur,
             stdout: a.detail,
             at: t + dur,
@@ -188,6 +224,20 @@ export function writeTraceReport(
   const combo = result.pluginIds.length
     ? result.pluginIds.join("+")
     : "no-plugins";
+  // Caller meta extends the defaults — the synthetic-timing row must
+  // survive a custom context.
+  const meta = [
+    { label: "task", value: result.taskId },
+    { label: "model", value: result.modelId },
+    { label: "plugins", value: combo },
+    { label: "success", value: String(result.success) },
+    {
+      label: "timing",
+      value:
+        "durations estimated — ACP traces have no per-step timestamps; total is real",
+    },
+    ...(context?.meta ?? []),
+  ];
   const renderer = createHtmlRenderer({
     outputPath,
     graph: traceGraph(actions),
@@ -195,18 +245,8 @@ export function writeTraceReport(
       title: `arena: ${result.taskId} — ${combo}`,
       generatedAt: new Date().toISOString(),
       command: "sverka-arena run",
-      meta: [
-        { label: "task", value: result.taskId },
-        { label: "model", value: result.modelId },
-        { label: "plugins", value: combo },
-        { label: "success", value: String(result.success) },
-        {
-          label: "timing",
-          value:
-            "durations estimated — ACP traces have no per-step timestamps; total is real",
-        },
-      ],
       ...context,
+      meta,
     },
   });
   for (const e of traceToRunEvents(result)) renderer.onEvent(e);
