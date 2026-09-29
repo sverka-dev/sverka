@@ -1,3 +1,16 @@
+## 0.1.21 (2026-09-29)
+
+### 🚀 Features
+
+- **arena:** render agent traces as sverka reports (dogfooding) ([#256](https://github.com/sverka-dev/sverka/pull/256))
+- **website:** /arena/ results page ([#254](https://github.com/sverka-dev/sverka/pull/254))
+- **website:** wire the arena workbench into the deployed site ([#255](https://github.com/sverka-dev/sverka/pull/255))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.20 (2026-09-29)
 
 ### 🚀 Features
