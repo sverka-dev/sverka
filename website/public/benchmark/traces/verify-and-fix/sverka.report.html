@@ -88,7 +88,8 @@ svg.dag marker path { fill: #4a5568; }
 .verdict-none { background: #21262d; color: #8b949e; }
 .findings-controls { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
 .filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.filter-btn {
+.filter-btn,
+.drawer-btn {
   padding: 0.25rem 0.75rem;
   border: 1px solid #30363d;
   border-radius: 6px;
@@ -98,7 +99,8 @@ svg.dag marker path { fill: #4a5568; }
   font-size: 0.8rem;
 }
 .filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-.filter-btn:hover { border-color: #8b949e; }
+.filter-btn:hover,
+.drawer-btn:hover { border-color: #8b949e; }
 .search-input {
   padding: 0.25rem 0.5rem;
   border: 1px solid #30363d;
@@ -145,6 +147,57 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
+.step-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 92vw);
+  background: #161b22;
+  border-left: 1px solid #30363d;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+.step-drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #30363d;
+}
+.drawer-head b { flex: 1; font-size: 0.9rem; word-break: break-all; }
+#drawer-close {
+  background: none;
+  border: none;
+  color: #8b949e;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+#drawer-close:hover { color: #f0f6fc; }
+.drawer-meta {
+  padding: 0.4rem 1rem;
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+.drawer-actions {
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-log-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
+#drawer-body .step-out { max-height: none; }
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -292,7 +345,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T18:26:43.840Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T22:23:04.996Z</span>
     </div>
   </header>
 
@@ -603,175 +656,48 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   </div></div>
     <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" style="border-color:#3fb950">✓ s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Invoked skill sverka" style="border-color:#3fb950">✓ s02 tool: Invoked skill sverka <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" style="border-color:#3fb950">✓ s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" style="border-color:#3fb950">✓ s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" style="border-color:#3fb950">✓ s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" style="border-color:#3fb950">✓ s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100 <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" style="border-color:#3fb950">✓ s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" style="border-color:#3fb950">✓ s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60 <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" style="border-color:#3fb950">✓ s09 think: Three checks failed, all in `src/index.ts`: an unused varia… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s10 think: exec" style="border-color:#3fb950">✓ s10 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…" style="border-color:#3fb950">✓ s11 think: All checks pass. The entire suite was failing on `src/index… <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts <span class="step-state succeeded">succeeded</span> <span class="meta">4.5s</span> <button type="button" class="step-findings" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;m starting by examining the project structure and the sverka configuration.
-
-total 672
-drwxr-xr-x    7 pepl pepl   4096 Sep 30 19:56 .
-drwxrwxrwt 1058 root root 593920 Sep 30 19:56 ..
-drwxr-xr-x    3 pepl pepl   4096 Sep 30 19:56 .agents
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 .devin
--rw-r--r--    1 pepl pepl     42 Sep 30 19:56 .gitignore
--rw-r--r--    1 pepl pepl     51 Sep 30 19:56 .oxlintrc.json
--rw-r--r--    1 pepl pepl     42 Sep 30 19:56 .prettierignore
--rw-r--r--    1 pepl pepl  37773 Sep 30 19:56 bun.lock
-drwxr-xr-x  146 pepl pepl   4096 Sep 30 19:56 node_modules
--rw-r--r--    1 pepl pepl    449 Sep 30 19:56 package.json
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 src
--rw-r--r--    1 pepl pepl    658 Sep 30 19:56 sverka.config.ts
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 test
--rw-r--r--    1 pepl pepl    201 Sep 30 19:56 tsconfig.json
-{
-  &quot;name&quot;: &quot;verify-and-fix&quot;,
-  &quot;version&quot;: &quot;1.0.0&quot;,
-  &quot;type&quot;: &quot;module&quot;,
-  &quot;private&quot;: true,
-  &quot;scripts&quot;: {
-    &quot;test&quot;: &quot;bun test&quot;,
-    &quot;typecheck&quot;: &quot;tsc --noEmit&quot;,
-    &quot;lint&quot;: &quot;oxlint .&quot;,
-    &quot;format&quot;: &quot;prettier --check .&quot;,
-    &quot;build&quot;: &quot;bun build src/index.ts --outdir dist&quot;
-  },
-  &quot;devDependencies&quot;: {
-    &quot;@sverka/cli&quot;: &quot;0.1.12&quot;,
-    &quot;@sverka/workflow&quot;: &quot;0.1.12&quot;,
-    &quot;oxlint&quot;: &quot;^1.0.0&quot;,
-    &quot;prettier&quot;: &quot;^3.0.0&quot;,
-    &quot;typescript&quot;: &quot;^5.0.0&quot;
-  }
-}
-import { Project, Pipeline, ShellStep, Entry, push } from &quot;@sverka/workflow&quot;;
-
-const proj = new Project(&quot;verify-and-fix&quot;);
-const ci = new Pipeline(proj, &quot;ci&quot;);
-
-// Fast checks first (parallel, no deps)
-new ShellStep(ci, &quot;format&quot;, { command: &quot;bun run format&quot; });
-new ShellStep(ci, &quot;lint&quot;, { command: &quot;bun run lint&quot; });
-new ShellStep(ci, &quot;typecheck&quot;, { command: &quot;bun run typecheck&quot; });
-
-new ShellStep(ci, &quot;test&quot;, {
-  command: &quot;bun run test&quot;,
-  dependsOn: [&quot;format&quot;, &quot;lint&quot;, &quot;typecheck&quot;],
-});
-
-new ShellStep(ci, &quot;build&quot;, { command: &quot;bun run build&quot;, dependsOn: [&quot;test&quot;] });
-
-new Entry(ci, &quot;on-push&quot;, { trigger: push(), roots: [&quot;build&quot;] });
-
-export default proj;</pre></div>
+        <summary><span class="step-icon">✓</span> s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts <span class="step-state succeeded">succeeded</span> <span class="meta">4.5s</span> <button type="button" class="step-findings" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s02 tool: Invoked skill sverka <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s02 tool: Invoked skill sverka" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;m starting by examining the project structure and the sverka configuration.</pre></div>
+        <summary><span class="step-icon">✓</span> s02 tool: Invoked skill sverka <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s02 tool: Invoked skill sverka" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr… <span class="step-state succeeded">succeeded</span> <span class="meta">3.0s</span> <button type="button" class="step-findings" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;m going to examine the source and test files to understand how to execute the sverka suite. My first step will be to check the sverka skill, as it appears to be available.
-
-src:
-index.ts
-
-test:
-index.test.ts
-{
-  &quot;compilerOptions&quot;: {
-    &quot;strict&quot;: true,
-    &quot;target&quot;: &quot;ES2022&quot;,
-    &quot;module&quot;: &quot;ESNext&quot;,
-    &quot;moduleResolution&quot;: &quot;bundler&quot;,
-    &quot;noEmit&quot;: true,
-    &quot;skipLibCheck&quot;: true
-  },
-  &quot;include&quot;: [&quot;src&quot;]
-}
-{
-  &quot;rules&quot;: {
-    &quot;no-unused-vars&quot;: &quot;error&quot;
-  }
-}
-dist
-node_modules
-.sverka
-.devin
-bun.lock
-node_modules
-dist
-.sverka
-.devin
-bun.lock</pre></div>
+        <summary><span class="step-icon">✓</span> s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr… <span class="step-state succeeded">succeeded</span> <span class="meta">3.0s</span> <button type="button" class="step-findings" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;m going to examine the source and test files to understand how to execute the sverka suite. My first step will be to check the sverka skill, as it appears to be available.
-
-20 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">10.5s</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">read, read
-
-23 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">10.5s</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100 <span class="step-state succeeded">succeeded</span> <span class="meta">6.7s</span> <button type="button" class="step-findings" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">read, read
-
-{&quot;command&quot;:&quot;run&quot;,&quot;data&quot;:{&quot;planId&quot;:&quot;rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6&quot;,&quot;status&quot;:&quot;failu(B[0mr(B[0m
-e&quot;,&quot;steps&quot;:[{&quot;stepId&quot;:&quot;ci/lint&quot;,&quot;status&quot;:&quot;failed&quot;,&quot;durationMs&quot;:119,&quot;error&quot;:&quot;step &#39;ci/lint&#39; shell command failed with ex(B[0mi(B[0m
-t code 1&quot;,&quot;stdout&quot;:&quot;\n  x eslint(no-unused-vars): Variable &#39;unused&#39; is declared but never used. Unused variables should(B[0m (B[0m
-start with a &#39;_&#39;.\n   ,-[src/index.ts:7:9]\n 6 | export function slugify(text: string): string {\n 7 |   const unused =(B[0m (B[0m
-&#39;debug-marker&#39;\n   :         ^^^|^^\n   :            `-- &#39;unused&#39; is declared here\n 8 |   return text\n   `----\n  hel(B[0mp(B[0m
-: Consider removing this declaration.\n\nFound 0 warnings and 1 error.\nFinished in 27ms on 3 files with 96 rules using(B[0m (B[0m
-5 threads.\n&quot;,&quot;stderr&quot;:&quot;$ oxlint .\nerror: script \&quot;lint\&quot; exited with code 1\n&quot;,&quot;exitCode&quot;:1},{&quot;stepId&quot;:&quot;ci/format&quot;,&quot;s(B[0mt(B[0m
-atus&quot;:&quot;failed&quot;,&quot;durationMs&quot;:537,&quot;error&quot;:&quot;step &#39;ci/format&#39; shell command failed with exit code 1&quot;,&quot;stdout&quot;:&quot;Checking for(B[0mm(B[0m
-atting...\n&quot;,&quot;stderr&quot;:&quot;$ prettier --check .\n[warn] src/index.ts\n[warn] Code style issues found in the above file. Run(B[0m (B[0m
-Prettier with --write to fix.\nerror: script \&quot;format\&quot; exited with code 1\n&quot;,&quot;exitCode&quot;:1},{&quot;stepId&quot;:&quot;ci/typecheck&quot;,&quot;s(B[0mt(B[0m
-atus&quot;:&quot;failed&quot;,&quot;durationMs&quot;:617,&quot;error&quot;:&quot;step &#39;ci/typecheck&#39; shell command failed with exit code 2&quot;,&quot;stdout&quot;:&quot;src/index(B[0m.(B[0m
-ts(15,3): error TS2322: Type &#39;number[]&#39; is not assignable to type &#39;number&#39;.\n&quot;,&quot;stderr&quot;:&quot;$ tsc --noEmit\n&quot;,&quot;exitCode&quot;:2(B[0m}(B[0m
-,{&quot;stepId&quot;:&quot;ci/test&quot;,&quot;status&quot;:&quot;skipped&quot;},{&quot;stepId&quot;:&quot;ci/build&quot;,&quot;status&quot;:&quot;skipped&quot;}]},&quot;durationMs&quot;:903}</pre></div>
+        <summary><span class="step-icon">✓</span> s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100 <span class="step-state succeeded">succeeded</span> <span class="meta">6.7s</span> <button type="button" class="step-findings" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="step-state succeeded">succeeded</span> <span class="meta">2.0s</span> <button type="button" class="step-findings" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;ll run the verification suite first to see all failures.</pre></div>
+        <summary><span class="step-icon">✓</span> s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="step-state succeeded">succeeded</span> <span class="meta">2.0s</span> <button type="button" class="step-findings" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60 <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;ll run the verification suite first to see all failures.
-
-{&quot;command&quot;:&quot;run&quot;,&quot;data&quot;:{&quot;planId&quot;:&quot;rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6&quot;,&quot;status&quot;:&quot;succe(B[0ms(B[0m
-s&quot;,&quot;steps&quot;:[{&quot;stepId&quot;:&quot;ci/lint&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:135,&quot;stdout&quot;:&quot;Found 0 warnings and 0 errors.\nFinishe(B[0md(B[0m
- in 49ms on 3 files with 96 rules using 5 threads.\n&quot;,&quot;stderr&quot;:&quot;$ oxlint .\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/format&quot;,&quot;stat(B[0mu(B[0m
-s&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:396,&quot;stdout&quot;:&quot;Checking formatting...\nAll matched files use Prettier code style!\n&quot;,&quot;stderr(B[0m&quot;(B[0m
-:&quot;$ prettier --check .\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/typecheck&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:402,&quot;stdout&quot;:&quot;&quot;,&quot;std(B[0me(B[0m
-rr&quot;:&quot;$ tsc --noEmit\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/test&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:15,&quot;stdout&quot;:&quot;bun test v1.4.2(B[0m (B[0m
-(744846f84)\n&quot;,&quot;stderr&quot;:&quot;$ bun test\n\ntest/index.test.ts:\n(pass) slugify &gt; converts to a lowercase slug [0.17ms]\n(pa(B[0ms(B[0m
-s) parseVersion &gt; returns the major version number [0.05ms]\n(pass) countVowels &gt; counts vowels case-insensitively [0.1(B[0m4(B[0m
-ms]\n(pass) countVowels &gt; returns zero for no vowels [0.02ms]\n\n 4 pass\n 0 fail\n 4 expect() calls\nRan 4 tests acros(B[0ms(B[0m
- 1 file. [4.00ms]\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/build&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:14,&quot;stdout&quot;:&quot;Bundled 1 module(B[0m (B[0m
-in 4ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quot;$ bun build src/index.ts --outdir dist\n&quot;,&quot;exitCode&quot;:0}]}(B[0m,(B[0m
-&quot;durationMs&quot;:596}</pre></div>
+        <summary><span class="step-icon">✓</span> s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60 <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s09 think: Three checks failed, all in `src/index.ts`: an unused varia… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Three checks failed, all in `src/index.ts`: an unused variable (lint), formatting (prettier), and a type error in `parseVersion`. The tests also reveal two real bugs: `parseVersion` must return the major version number, and `countVowels` must be case-insensitive. Fixing the source file:</pre></div>
+        <summary><span class="step-icon">✓</span> s09 think: Three checks failed, all in `src/index.ts`: an unused varia… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s10 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s10 think: exec" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec</pre></div>
+        <summary><span class="step-icon">✓</span> s10 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s10 think: exec" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s11 think: All checks pass. The entire suite was failing on `src/index… <span class="step-state succeeded">succeeded</span> <span class="meta">13.2s</span> <button type="button" class="step-findings" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">All checks pass. The entire suite was failing on `src/index.ts` — the only file that needed changes:
-
-- **lint** — removed the unused `unused` variable in `slugify`
-- **format** — rewrote the file in Prettier style (double quotes, semicolons)
-- **typecheck** — `parseVersion` returned `number[]`; now returns `Number(v.split(&quot;.&quot;)[0])` (the major version, matching the test)
-- **test** — `countVowels` was case-sensitive; now lowercases the input before counting, so `countVowels(&quot;APPLE&quot;) === 2`
-- **build** — passes downstream of the rest
-
-Final `sverka run` result: `status: success`, all 5 steps (lint, format, typecheck, test, build) green — 4/4 tests passing. No test or config files were touched.</pre></div>
+        <summary><span class="step-icon">✓</span> s11 think: All checks pass. The entire suite was failing on `src/index… <span class="step-state succeeded">succeeded</span> <span class="meta">13.2s</span> <button type="button" class="step-findings" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details></div>
   </section>
 
@@ -809,8 +735,21 @@ Final `sverka run` result: `status: success`, all 5 steps (lint, format, typeche
   </section>
   </main>
 
+  <aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <b id="drawer-title"></b>
+      <span id="drawer-state" class="step-state"></span>
+      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-actions">
+      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
+    </div>
+    <div id="drawer-body"></div>
+  </aside>
   <script>
     var __FINDINGS_DATA__ = [];
+    var __STEPS_DATA__ = {"s01 tool: Ran ls: ls -la && cat package.json sverka.config.ts":{"state":"succeeded","durationMs":4529,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the sverka configuration.\n\ntotal 672\ndrwxr-xr-x    7 pepl pepl   4096 Sep 30 19:56 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:56 ..\ndrwxr-xr-x    3 pepl pepl   4096 Sep 30 19:56 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 .devin\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:56 .gitignore\n-rw-r--r--    1 pepl pepl     51 Sep 30 19:56 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:56 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Sep 30 19:56 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Sep 30 19:56 node_modules\n-rw-r--r--    1 pepl pepl    449 Sep 30 19:56 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 src\n-rw-r--r--    1 pepl pepl    658 Sep 30 19:56 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 test\n-rw-r--r--    1 pepl pepl    201 Sep 30 19:56 tsconfig.json\n{\n  \"name\": \"verify-and-fix\",\n  \"version\": \"1.0.0\",\n  \"type\": \"module\",\n  \"private\": true,\n  \"scripts\": {\n    \"test\": \"bun test\",\n    \"typecheck\": \"tsc --noEmit\",\n    \"lint\": \"oxlint .\",\n    \"format\": \"prettier --check .\",\n    \"build\": \"bun build src/index.ts --outdir dist\"\n  },\n  \"devDependencies\": {\n    \"@sverka/cli\": \"0.1.12\",\n    \"@sverka/workflow\": \"0.1.12\",\n    \"oxlint\": \"^1.0.0\",\n    \"prettier\": \"^3.0.0\",\n    \"typescript\": \"^5.0.0\"\n  }\n}\nimport { Project, Pipeline, ShellStep, Entry, push } from \"@sverka/workflow\";\n\nconst proj = new Project(\"verify-and-fix\");\nconst ci = new Pipeline(proj, \"ci\");\n\n// Fast checks first (parallel, no deps)\nnew ShellStep(ci, \"format\", { command: \"bun run format\" });\nnew ShellStep(ci, \"lint\", { command: \"bun run lint\" });\nnew ShellStep(ci, \"typecheck\", { command: \"bun run typecheck\" });\n\nnew ShellStep(ci, \"test\", {\n  command: \"bun run test\",\n  dependsOn: [\"format\", \"lint\", \"typecheck\"],\n});\n\nnew ShellStep(ci, \"build\", { command: \"bun run build\", dependsOn: [\"test\"] });\n\nnew Entry(ci, \"on-push\", { trigger: push(), roots: [\"build\"] });\n\nexport default proj;","stderr":null},"s02 tool: Invoked skill sverka":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the sverka configuration.","stderr":null},"s03 tool: Ran ls: ls src test && cat tsconfig.json .oxlintrc.json .pr…":{"state":"succeeded","durationMs":2956,"exitCode":null,"error":null,"stdout":"I'm going to examine the source and test files to understand how to execute the sverka suite. My first step will be to check the sverka skill, as it appears to be available.\n\nsrc:\nindex.ts\n\ntest:\nindex.test.ts\n{\n  \"compilerOptions\": {\n    \"strict\": true,\n    \"target\": \"ES2022\",\n    \"module\": \"ESNext\",\n    \"moduleResolution\": \"bundler\",\n    \"noEmit\": true,\n    \"skipLibCheck\": true\n  },\n  \"include\": [\"src\"]\n}\n{\n  \"rules\": {\n    \"no-unused-vars\": \"error\"\n  }\n}\ndist\nnode_modules\n.sverka\n.devin\nbun.lock\nnode_modules\ndist\n.sverka\n.devin\nbun.lock","stderr":null},"s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'm going to examine the source and test files to understand how to execute the sverka suite. My first step will be to check the sverka skill, as it appears to be available.\n\n20 lines","stderr":null},"s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…":{"state":"succeeded","durationMs":10494,"exitCode":null,"error":null,"stdout":"read, read\n\n23 lines","stderr":null},"s06 tool: Ran npx: npx sverka run --format json 2>&1 | head -100":{"state":"succeeded","durationMs":6731,"exitCode":null,"error":null,"stdout":"read, read\n\n{\"command\":\"run\",\"data\":{\"planId\":\"rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6\",\"status\":\"failu\u001b(B\u001b[0mr\u001b(B\u001b[0m\ne\",\"steps\":[{\"stepId\":\"ci/lint\",\"status\":\"failed\",\"durationMs\":119,\"error\":\"step 'ci/lint' shell command failed with ex\u001b(B\u001b[0mi\u001b(B\u001b[0m\nt code 1\",\"stdout\":\"\\n  x eslint(no-unused-vars): Variable 'unused' is declared but never used. Unused variables should\u001b(B\u001b[0m \u001b(B\u001b[0m\nstart with a '_'.\\n   ,-[src/index.ts:7:9]\\n 6 | export function slugify(text: string): string {\\n 7 |   const unused =\u001b(B\u001b[0m \u001b(B\u001b[0m\n'debug-marker'\\n   :         ^^^|^^\\n   :            `-- 'unused' is declared here\\n 8 |   return text\\n   `----\\n  hel\u001b(B\u001b[0mp\u001b(B\u001b[0m\n: Consider removing this declaration.\\n\\nFound 0 warnings and 1 error.\\nFinished in 27ms on 3 files with 96 rules using\u001b(B\u001b[0m \u001b(B\u001b[0m\n5 threads.\\n\",\"stderr\":\"$ oxlint .\\nerror: script \\\"lint\\\" exited with code 1\\n\",\"exitCode\":1},{\"stepId\":\"ci/format\",\"s\u001b(B\u001b[0mt\u001b(B\u001b[0m\natus\":\"failed\",\"durationMs\":537,\"error\":\"step 'ci/format' shell command failed with exit code 1\",\"stdout\":\"Checking for\u001b(B\u001b[0mm\u001b(B\u001b[0m\natting...\\n\",\"stderr\":\"$ prettier --check .\\n[warn] src/index.ts\\n[warn] Code style issues found in the above file. Run\u001b(B\u001b[0m \u001b(B\u001b[0m\nPrettier with --write to fix.\\nerror: script \\\"format\\\" exited with code 1\\n\",\"exitCode\":1},{\"stepId\":\"ci/typecheck\",\"s\u001b(B\u001b[0mt\u001b(B\u001b[0m\natus\":\"failed\",\"durationMs\":617,\"error\":\"step 'ci/typecheck' shell command failed with exit code 2\",\"stdout\":\"src/index\u001b(B\u001b[0m.\u001b(B\u001b[0m\nts(15,3): error TS2322: Type 'number[]' is not assignable to type 'number'.\\n\",\"stderr\":\"$ tsc --noEmit\\n\",\"exitCode\":2\u001b(B\u001b[0m}\u001b(B\u001b[0m\n,{\"stepId\":\"ci/test\",\"status\":\"skipped\"},{\"stepId\":\"ci/build\",\"status\":\"skipped\"}]},\"durationMs\":903}","stderr":null},"s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…":{"state":"succeeded","durationMs":2010,"exitCode":null,"error":null,"stdout":"I'll run the verification suite first to see all failures.","stderr":null},"s08 tool: Ran npx: npx sverka run --format json 2>&1 | head -60":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'll run the verification suite first to see all failures.\n\n{\"command\":\"run\",\"data\":{\"planId\":\"rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6\",\"status\":\"succe\u001b(B\u001b[0ms\u001b(B\u001b[0m\ns\",\"steps\":[{\"stepId\":\"ci/lint\",\"status\":\"succeeded\",\"durationMs\":135,\"stdout\":\"Found 0 warnings and 0 errors.\\nFinishe\u001b(B\u001b[0md\u001b(B\u001b[0m\n in 49ms on 3 files with 96 rules using 5 threads.\\n\",\"stderr\":\"$ oxlint .\\n\",\"exitCode\":0},{\"stepId\":\"ci/format\",\"stat\u001b(B\u001b[0mu\u001b(B\u001b[0m\ns\":\"succeeded\",\"durationMs\":396,\"stdout\":\"Checking formatting...\\nAll matched files use Prettier code style!\\n\",\"stderr\u001b(B\u001b[0m\"\u001b(B\u001b[0m\n:\"$ prettier --check .\\n\",\"exitCode\":0},{\"stepId\":\"ci/typecheck\",\"status\":\"succeeded\",\"durationMs\":402,\"stdout\":\"\",\"std\u001b(B\u001b[0me\u001b(B\u001b[0m\nrr\":\"$ tsc --noEmit\\n\",\"exitCode\":0},{\"stepId\":\"ci/test\",\"status\":\"succeeded\",\"durationMs\":15,\"stdout\":\"bun test v1.4.2\u001b(B\u001b[0m \u001b(B\u001b[0m\n(744846f84)\\n\",\"stderr\":\"$ bun test\\n\\ntest/index.test.ts:\\n(pass) slugify > converts to a lowercase slug [0.17ms]\\n(pa\u001b(B\u001b[0ms\u001b(B\u001b[0m\ns) parseVersion > returns the major version number [0.05ms]\\n(pass) countVowels > counts vowels case-insensitively [0.1\u001b(B\u001b[0m4\u001b(B\u001b[0m\nms]\\n(pass) countVowels > returns zero for no vowels [0.02ms]\\n\\n 4 pass\\n 0 fail\\n 4 expect() calls\\nRan 4 tests acros\u001b(B\u001b[0ms\u001b(B\u001b[0m\n 1 file. [4.00ms]\\n\",\"exitCode\":0},{\"stepId\":\"ci/build\",\"status\":\"succeeded\",\"durationMs\":14,\"stdout\":\"Bundled 1 module\u001b(B\u001b[0m \u001b(B\u001b[0m\nin 4ms\\n\\n  index.js  344 bytes  (entry point)\\n\\n\",\"stderr\":\"$ bun build src/index.ts --outdir dist\\n\",\"exitCode\":0}]}\u001b(B\u001b[0m,\u001b(B\u001b[0m\n\"durationMs\":596}","stderr":null},"s09 think: Three checks failed, all in `src/index.ts`: an unused varia…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"Three checks failed, all in `src/index.ts`: an unused variable (lint), formatting (prettier), and a type error in `parseVersion`. The tests also reveal two real bugs: `parseVersion` must return the major version number, and `countVowels` must be case-insensitive. Fixing the source file:","stderr":null},"s10 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s11 think: All checks pass. The entire suite was failing on `src/index…":{"state":"succeeded","durationMs":13168,"exitCode":null,"error":null,"stdout":"All checks pass. The entire suite was failing on `src/index.ts` — the only file that needed changes:\n\n- **lint** — removed the unused `unused` variable in `slugify`\n- **format** — rewrote the file in Prettier style (double quotes, semicolons)\n- **typecheck** — `parseVersion` returned `number[]`; now returns `Number(v.split(\".\")[0])` (the major version, matching the test)\n- **test** — `countVowels` was case-sensitive; now lowercases the input before counting, so `countVowels(\"APPLE\") === 2`\n- **build** — passes downstream of the rest\n\nFinal `sverka run` result: `status: success`, all 5 steps (lint, format, typecheck, test, build) green — 4/4 tests passing. No test or config files were touched.","stderr":null}};
   </script>
   <script>
 (function() {
@@ -1138,10 +1077,79 @@ Final `sverka run` result: `status: success`, all 5 steps (lint, format, typeche
     var name = document.getElementById("step-filter-name");
     if (name) name.textContent = stepFilter || "";
     renderTable();
-    if (stepFilter) {
+  }
+
+  // Step-details drawer — logs and error for the clicked step.
+  var stepsData = window.__STEPS_DATA__ || {};
+  var drawer = document.getElementById("step-drawer");
+  var drawerOpener = null;
+
+  function drawerEl(tag, cls, text) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function openStep(id, opener) {
+    if (!drawer) return;
+    var s = stepsData[id];
+    if (!s) {
+      closeStep();
+      return;
+    }
+    document.getElementById("drawer-title").textContent = id;
+    var st = document.getElementById("drawer-state");
+    st.textContent = s.state;
+    st.className = "step-state " + s.state;
+    var meta = [];
+    if (s.durationMs != null) meta.push(s.durationMs + "ms");
+    if (s.exitCode != null) meta.push("exit " + s.exitCode);
+    document.getElementById("drawer-meta").textContent = meta.join(" · ");
+    var body = document.getElementById("drawer-body");
+    body.textContent = "";
+    if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    if (s.stdout) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
+      body.appendChild(drawerEl("pre", "step-out", s.stdout));
+    }
+    if (s.stderr) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
+      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
+    }
+    if (!s.error && !s.stdout && !s.stderr)
+      body.appendChild(drawerEl("span", "meta", "no output captured"));
+    var findingsBtn = document.getElementById("drawer-findings");
+    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+    drawerOpener = opener || null;
+    drawer.removeAttribute("inert");
+    drawer.classList.add("open");
+    drawer.setAttribute("aria-hidden", "false");
+    var closeButton = document.getElementById("drawer-close");
+    if (closeButton) closeButton.focus();
+  }
+
+  function closeStep() {
+    if (!drawer) return;
+    var opener = drawerOpener;
+    drawerOpener = null;
+    drawer.classList.remove("open");
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.setAttribute("inert", "");
+    if (opener && typeof opener.focus === "function") opener.focus();
+  }
+
+  var drawerClose = document.getElementById("drawer-close");
+  if (drawerClose) drawerClose.addEventListener("click", closeStep);
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeStep();
+  });
+  var drawerFindings = document.getElementById("drawer-findings");
+  if (drawerFindings) {
+    drawerFindings.addEventListener("click", function() {
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    });
   }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
@@ -1158,7 +1166,19 @@ Final `sverka run` result: `status: success`, all 5 steps (lint, format, typeche
         window.__dagMoved()
       )
         return;
-      applyStepFilter(el.getAttribute("data-step"));
+      var id = el.getAttribute("data-step");
+      // The list "details" chip is an open request: when its step is
+      // already selected, reopen the drawer instead of toggling the
+      // filter off.
+      if (el.classList.contains("step-findings") && stepFilter === id) {
+        openStep(id, el);
+        return;
+      }
+      applyStepFilter(id);
+      // Re-clicking the same step toggles the filter off — close the
+      // drawer with it; otherwise show the clicked step's logs.
+      if (stepFilter) openStep(stepFilter, el);
+      else closeStep();
     });
   });
 
@@ -1174,6 +1194,7 @@ Final `sverka run` result: `status: success`, all 5 steps (lint, format, typeche
       var chip = document.getElementById("step-filter-chip");
       if (chip) chip.classList.add("hidden");
       renderTable();
+      closeStep();
     });
   }
 

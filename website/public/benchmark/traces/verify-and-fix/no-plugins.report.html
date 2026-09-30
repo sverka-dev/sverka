@@ -88,7 +88,8 @@ svg.dag marker path { fill: #4a5568; }
 .verdict-none { background: #21262d; color: #8b949e; }
 .findings-controls { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
 .filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.filter-btn {
+.filter-btn,
+.drawer-btn {
   padding: 0.25rem 0.75rem;
   border: 1px solid #30363d;
   border-radius: 6px;
@@ -98,7 +99,8 @@ svg.dag marker path { fill: #4a5568; }
   font-size: 0.8rem;
 }
 .filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-.filter-btn:hover { border-color: #8b949e; }
+.filter-btn:hover,
+.drawer-btn:hover { border-color: #8b949e; }
 .search-input {
   padding: 0.25rem 0.5rem;
   border: 1px solid #30363d;
@@ -145,6 +147,57 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
+.step-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 92vw);
+  background: #161b22;
+  border-left: 1px solid #30363d;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+.step-drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #30363d;
+}
+.drawer-head b { flex: 1; font-size: 0.9rem; word-break: break-all; }
+#drawer-close {
+  background: none;
+  border: none;
+  color: #8b949e;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+#drawer-close:hover { color: #f0f6fc; }
+.drawer-meta {
+  padding: 0.4rem 1rem;
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+.drawer-actions {
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-log-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
+#drawer-body .step-out { max-height: none; }
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -292,7 +345,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T18:26:43.819Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T22:23:04.976Z</span>
     </div>
   </header>
 
@@ -699,207 +752,64 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   </div></div>
     <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" style="border-color:#3fb950">✓ s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" style="border-color:#3fb950">✓ s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s14 think: exec" style="border-color:#3fb950">✓ s14 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" style="border-color:#3fb950">✓ s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**… <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;m starting by examining the project structure and the configuration file to get a lay of the land.
-
-total 668
-drwxr-xr-x    6 pepl pepl   4096 Sep 30 19:55 .
-drwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin
--rw-r--r--    1 pepl pepl     42 Sep 30 19:55 .gitignore
--rw-r--r--    1 pepl pepl     51 Sep 30 19:55 .oxlintrc.json
--rw-r--r--    1 pepl pepl     42 Sep 30 19:55 .prettierignore
--rw-r--r--    1 pepl pepl  37773 Sep 30 19:55 bun.lock
-drwxr-xr-x  146 pepl pepl   4096 Sep 30 19:55 node_modules
--rw-r--r--    1 pepl pepl    449 Sep 30 19:55 package.json
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src
--rw-r--r--    1 pepl pepl    658 Sep 30 19:55 sverka.config.ts
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test
--rw-r--r--    1 pepl pepl    201 Sep 30 19:55 tsconfig.json</pre></div>
+        <summary><span class="step-icon">✓</span> s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;m starting by examining the project structure and the configuration file to get a lay of the land.
-
-20 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;m examining the source and test directories, along with configuration files, to understand the project structure and identify any potential issues or areas for improvement.
-
-20 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an… <span class="step-state succeeded">succeeded</span> <span class="meta">5ms</span> <button type="button" class="step-findings" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;m examining the source and test directories, along with configuration files, to understand the project structure and identify any potential issues or areas for improvement.
-
-/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/.devin:
-total 12
-drwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .
-drwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..
--rw-r--r-- 1 pepl pepl   40 Sep 30 19:55 config.json
-
-/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/src:
-total 12
-drwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .
-drwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..
--rw-r--r-- 1 pepl pepl  509 Sep 30 19:55 index.ts
-
-/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test:
-total 12
-drwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .
-drwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..
--rw-r--r-- 1 pepl pepl  616 Sep 30 19:55 index.test.ts</pre></div>
+        <summary><span class="step-icon">✓</span> s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an… <span class="step-state succeeded">succeeded</span> <span class="meta">5ms</span> <button type="button" class="step-findings" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">12ms</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">read, read
-
-5 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">12ms</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">read, read
-
-11 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">2.3s</span> <button type="button" class="step-findings" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;ll run all the checks to see the failures.
-
-5 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">2.3s</span> <button type="button" class="step-findings" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;ll run all the checks to see the failures.
-
-20 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">6.1s</span> <button type="button" class="step-findings" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec
-
-23 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">6.1s</span> <button type="button" class="step-findings" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">3.8s</span> <button type="button" class="step-findings" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec
-
-$ prettier --check .
-Checking formatting...
-[warn] src/index.ts
-[warn] Code style issues found in the above file. Run Prettier with --write to fix.
-error: script &quot;format&quot; exited with code 1
-=== format exit: 1
-$ oxlint .
-src/index.ts:7:9: error eslint(no-unused-vars): Variable &#39;unused&#39; is declared but never used. Unused variables should s(B[0mt(B[0m
-art with a &#39;_&#39;. help: Consider removing this declaration.
-error: script &quot;lint&quot; exited with code 1
-=== lint exit: 1
-$ tsc --noEmit
-src/index.ts(15,3): error TS2322: Type &#39;number[]&#39; is not assignable to type &#39;number&#39;.
-=== typecheck exit: 2</pre></div>
+        <summary><span class="step-icon">✓</span> s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">3.8s</span> <button type="button" class="step-findings" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">5.7s</span> <button type="button" class="step-findings" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">All four checks fail. I&#39;ll rewrite `src/index.ts` to fix the type error, the case-insensitive vowel count, remove the unused variable, and match prettier style (double quotes, semicolons).
-
-$ bun test
-bun test v1.4.2 (744846f84)
-
-test/index.test.ts:
-(pass) slugify &gt; converts to a lowercase slug [5.93ms]
- 7 |   });
- 8 | });
- 9 |
-10 | describe(&quot;parseVersion&quot;, () =&gt; {
-11 |   it(&quot;returns the major version number&quot;, () =&gt; {
-12 |     expect(parseVersion(&quot;1.2.3&quot;)).toBe(1);
-                                       ^
-error: expect(received).toBe(expected)
-
-Expected: 1
-Received: [ 1, 2, 3 ]
-
-      at &lt;anonymous&gt; (/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test/index.test.ts:12:35)
-(fail) parseVersion &gt; returns the major version number [6.58ms]
-13 |   });
-14 | });
-15 |
-16 | describe(&quot;countVowels&quot;, () =&gt; {
-17 |   it(&quot;counts vowels case-insensitively&quot;, () =&gt; {
-18 |     expect(countVowels(&quot;APPLE&quot;)).toBe(2);
-                                      ^
-error: expect(received).toBe(expected)
-
-Expected: 2
-Received: 0
-
-      at &lt;anonymous&gt; (/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test/index.test.ts:18:34)
-(fail) countVowels &gt; counts vowels case-insensitively [0.68ms]
-(pass) countVowels &gt; returns zero for no vowels [0.04ms]
-
- 2 pass
- 2 fail
- 4 expect() calls
-Ran 4 tests across 1 file. [26.00ms]
-error: script &quot;test&quot; exited with code 1
-=== test exit: 1</pre></div>
+        <summary><span class="step-icon">✓</span> s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">5.7s</span> <button type="button" class="step-findings" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="step-state succeeded">succeeded</span> <span class="meta">2.3s</span> <button type="button" class="step-findings" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">All four checks fail. I&#39;ll rewrite `src/index.ts` to fix the type error, the case-insensitive vowel count, remove the unused variable, and match prettier style (double quotes, semicolons).</pre></div>
+        <summary><span class="step-icon">✓</span> s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="step-state succeeded">succeeded</span> <span class="meta">2.3s</span> <button type="button" class="step-findings" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec
-
-$ prettier --check .
-Checking formatting...
-All matched files use Prettier code style!
-$ oxlint .
-$ tsc --noEmit
-$ bun test
-bun test v1.4.2 (744846f84)
-
-test/index.test.ts:
-(pass) slugify &gt; converts to a lowercase slug [0.20ms]
-(pass) parseVersion &gt; returns the major version number [0.05ms]
-(pass) countVowels &gt; counts vowels case-insensitively [0.14ms]
-(pass) countVowels &gt; returns zero for no vowels [0.02ms]
-
- 4 pass
- 0 fail
- 4 expect() calls
-Ran 4 tests across 1 file. [5.00ms]
-$ bun build src/index.ts --outdir dist
-Bundled 1 module in 47ms
-
-  index.js  344 bytes  (entry point)
-
-=== ALL PASS ===</pre></div>
+        <summary><span class="step-icon">✓</span> s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s14 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s14 think: exec" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec</pre></div>
+        <summary><span class="step-icon">✓</span> s14 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s14 think: exec" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**… <span class="step-state succeeded">succeeded</span> <span class="meta">15.3s</span> <button type="button" class="step-findings" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">All checks pass. Fixed `src/index.ts`:
-
-- **`parseVersion`**: was returning `v.split(&#39;.&#39;).map(Number)` (`number[]`) — now returns `Number(v.split(&quot;.&quot;)[0])`, the major version, fixing both the TS2322 type error and the failing test.
-- **`countVowels`**: now lowercases before matching, so `&quot;APPLE&quot;` counts 2 vowels.
-- **Lint**: removed the unused `debug-marker` variable.
-- **Format**: converted to prettier style (double quotes, semicolons).
-
-Pipeline results (`format` → `lint` → `typecheck` → `test` → `build`):
-- `prettier --check .` — clean
-- `oxlint .` — 0 errors
-- `tsc --noEmit` — clean
-- `bun test` — 4/4 pass
-- `bun build` — bundled successfully
-
-No test or config files were modified.</pre></div>
+        <summary><span class="step-icon">✓</span> s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**… <span class="step-state succeeded">succeeded</span> <span class="meta">15.3s</span> <button type="button" class="step-findings" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details></div>
   </section>
 
@@ -937,8 +847,21 @@ No test or config files were modified.</pre></div>
   </section>
   </main>
 
+  <aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <b id="drawer-title"></b>
+      <span id="drawer-state" class="step-state"></span>
+      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-actions">
+      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
+    </div>
+    <div id="drawer-body"></div>
+  </aside>
   <script>
     var __FINDINGS_DATA__ = [];
+    var __STEPS_DATA__ = {"s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the configuration file to get a lay of the land.\n\ntotal 668\ndrwxr-xr-x    6 pepl pepl   4096 Sep 30 19:55 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:55 .gitignore\n-rw-r--r--    1 pepl pepl     51 Sep 30 19:55 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:55 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Sep 30 19:55 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Sep 30 19:55 node_modules\n-rw-r--r--    1 pepl pepl    449 Sep 30 19:55 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src\n-rw-r--r--    1 pepl pepl    658 Sep 30 19:55 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test\n-rw-r--r--    1 pepl pepl    201 Sep 30 19:55 tsconfig.json","stderr":null},"s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the configuration file to get a lay of the land.\n\n20 lines","stderr":null},"s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":3700,"exitCode":null,"error":null,"stdout":"I'm examining the source and test directories, along with configuration files, to understand the project structure and identify any potential issues or areas for improvement.\n\n20 lines","stderr":null},"s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…":{"state":"succeeded","durationMs":5,"exitCode":null,"error":null,"stdout":"I'm examining the source and test directories, along with configuration files, to understand the project structure and identify any potential issues or areas for improvement.\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/.devin:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl   40 Sep 30 19:55 config.json\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/src:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl  509 Sep 30 19:55 index.ts\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl  616 Sep 30 19:55 index.test.ts","stderr":null},"s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":12,"exitCode":null,"error":null,"stdout":"read, read\n\n5 lines","stderr":null},"s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"read, read\n\n11 lines","stderr":null},"s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":2286,"exitCode":null,"error":null,"stdout":"I'll run all the checks to see the failures.\n\n5 lines","stderr":null},"s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"I'll run all the checks to see the failures.\n\n20 lines","stderr":null},"s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":6116,"exitCode":null,"error":null,"stdout":"exec\n\n23 lines","stderr":null},"s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":3801,"exitCode":null,"error":null,"stdout":"exec\n\n$ prettier --check .\nChecking formatting...\n[warn] src/index.ts\n[warn] Code style issues found in the above file. Run Prettier with --write to fix.\nerror: script \"format\" exited with code 1\n=== format exit: 1\n$ oxlint .\nsrc/index.ts:7:9: error eslint(no-unused-vars): Variable 'unused' is declared but never used. Unused variables should s\u001b(B\u001b[0mt\u001b(B\u001b[0m\nart with a '_'. help: Consider removing this declaration.\nerror: script \"lint\" exited with code 1\n=== lint exit: 1\n$ tsc --noEmit\nsrc/index.ts(15,3): error TS2322: Type 'number[]' is not assignable to type 'number'.\n=== typecheck exit: 2","stderr":null},"s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":5661,"exitCode":null,"error":null,"stdout":"All four checks fail. I'll rewrite `src/index.ts` to fix the type error, the case-insensitive vowel count, remove the unused variable, and match prettier style (double quotes, semicolons).\n\n$ bun test\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) slugify > converts to a lowercase slug [5.93ms]\n 7 |   });\n 8 | });\n 9 |\n10 | describe(\"parseVersion\", () => {\n11 |   it(\"returns the major version number\", () => {\n12 |     expect(parseVersion(\"1.2.3\")).toBe(1);\n                                       ^\nerror: expect(received).toBe(expected)\n\nExpected: 1\nReceived: [ 1, 2, 3 ]\n\n      at \u003canonymous> (/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test/index.test.ts:12:35)\n(fail) parseVersion > returns the major version number [6.58ms]\n13 |   });\n14 | });\n15 |\n16 | describe(\"countVowels\", () => {\n17 |   it(\"counts vowels case-insensitively\", () => {\n18 |     expect(countVowels(\"APPLE\")).toBe(2);\n                                      ^\nerror: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 0\n\n      at \u003canonymous> (/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test/index.test.ts:18:34)\n(fail) countVowels > counts vowels case-insensitively [0.68ms]\n(pass) countVowels > returns zero for no vowels [0.04ms]\n\n 2 pass\n 2 fail\n 4 expect() calls\nRan 4 tests across 1 file. [26.00ms]\nerror: script \"test\" exited with code 1\n=== test exit: 1","stderr":null},"s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…":{"state":"succeeded","durationMs":2342,"exitCode":null,"error":null,"stdout":"All four checks fail. I'll rewrite `src/index.ts` to fix the type error, the case-insensitive vowel count, remove the unused variable, and match prettier style (double quotes, semicolons).","stderr":null},"s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec\n\n$ prettier --check .\nChecking formatting...\nAll matched files use Prettier code style!\n$ oxlint .\n$ tsc --noEmit\n$ bun test\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) slugify > converts to a lowercase slug [0.20ms]\n(pass) parseVersion > returns the major version number [0.05ms]\n(pass) countVowels > counts vowels case-insensitively [0.14ms]\n(pass) countVowels > returns zero for no vowels [0.02ms]\n\n 4 pass\n 0 fail\n 4 expect() calls\nRan 4 tests across 1 file. [5.00ms]\n$ bun build src/index.ts --outdir dist\nBundled 1 module in 47ms\n\n  index.js  344 bytes  (entry point)\n\n=== ALL PASS ===","stderr":null},"s14 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…":{"state":"succeeded","durationMs":15319,"exitCode":null,"error":null,"stdout":"All checks pass. Fixed `src/index.ts`:\n\n- **`parseVersion`**: was returning `v.split('.').map(Number)` (`number[]`) — now returns `Number(v.split(\".\")[0])`, the major version, fixing both the TS2322 type error and the failing test.\n- **`countVowels`**: now lowercases before matching, so `\"APPLE\"` counts 2 vowels.\n- **Lint**: removed the unused `debug-marker` variable.\n- **Format**: converted to prettier style (double quotes, semicolons).\n\nPipeline results (`format` → `lint` → `typecheck` → `test` → `build`):\n- `prettier --check .` — clean\n- `oxlint .` — 0 errors\n- `tsc --noEmit` — clean\n- `bun test` — 4/4 pass\n- `bun build` — bundled successfully\n\nNo test or config files were modified.","stderr":null}};
   </script>
   <script>
 (function() {
@@ -1266,10 +1189,79 @@ No test or config files were modified.</pre></div>
     var name = document.getElementById("step-filter-name");
     if (name) name.textContent = stepFilter || "";
     renderTable();
-    if (stepFilter) {
+  }
+
+  // Step-details drawer — logs and error for the clicked step.
+  var stepsData = window.__STEPS_DATA__ || {};
+  var drawer = document.getElementById("step-drawer");
+  var drawerOpener = null;
+
+  function drawerEl(tag, cls, text) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function openStep(id, opener) {
+    if (!drawer) return;
+    var s = stepsData[id];
+    if (!s) {
+      closeStep();
+      return;
+    }
+    document.getElementById("drawer-title").textContent = id;
+    var st = document.getElementById("drawer-state");
+    st.textContent = s.state;
+    st.className = "step-state " + s.state;
+    var meta = [];
+    if (s.durationMs != null) meta.push(s.durationMs + "ms");
+    if (s.exitCode != null) meta.push("exit " + s.exitCode);
+    document.getElementById("drawer-meta").textContent = meta.join(" · ");
+    var body = document.getElementById("drawer-body");
+    body.textContent = "";
+    if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    if (s.stdout) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
+      body.appendChild(drawerEl("pre", "step-out", s.stdout));
+    }
+    if (s.stderr) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
+      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
+    }
+    if (!s.error && !s.stdout && !s.stderr)
+      body.appendChild(drawerEl("span", "meta", "no output captured"));
+    var findingsBtn = document.getElementById("drawer-findings");
+    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+    drawerOpener = opener || null;
+    drawer.removeAttribute("inert");
+    drawer.classList.add("open");
+    drawer.setAttribute("aria-hidden", "false");
+    var closeButton = document.getElementById("drawer-close");
+    if (closeButton) closeButton.focus();
+  }
+
+  function closeStep() {
+    if (!drawer) return;
+    var opener = drawerOpener;
+    drawerOpener = null;
+    drawer.classList.remove("open");
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.setAttribute("inert", "");
+    if (opener && typeof opener.focus === "function") opener.focus();
+  }
+
+  var drawerClose = document.getElementById("drawer-close");
+  if (drawerClose) drawerClose.addEventListener("click", closeStep);
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeStep();
+  });
+  var drawerFindings = document.getElementById("drawer-findings");
+  if (drawerFindings) {
+    drawerFindings.addEventListener("click", function() {
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    });
   }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
@@ -1286,7 +1278,19 @@ No test or config files were modified.</pre></div>
         window.__dagMoved()
       )
         return;
-      applyStepFilter(el.getAttribute("data-step"));
+      var id = el.getAttribute("data-step");
+      // The list "details" chip is an open request: when its step is
+      // already selected, reopen the drawer instead of toggling the
+      // filter off.
+      if (el.classList.contains("step-findings") && stepFilter === id) {
+        openStep(id, el);
+        return;
+      }
+      applyStepFilter(id);
+      // Re-clicking the same step toggles the filter off — close the
+      // drawer with it; otherwise show the clicked step's logs.
+      if (stepFilter) openStep(stepFilter, el);
+      else closeStep();
     });
   });
 
@@ -1302,6 +1306,7 @@ No test or config files were modified.</pre></div>
       var chip = document.getElementById("step-filter-chip");
       if (chip) chip.classList.add("hidden");
       renderTable();
+      closeStep();
     });
   }
 
