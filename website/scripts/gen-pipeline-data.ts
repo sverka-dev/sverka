@@ -31,6 +31,8 @@ interface RunCapture {
   outputTail: string;
   /** Report path relative to public/pipeline-reports/, if produced. */
   reportFile?: string;
+  /** Exit code of the run that produced reportFile (may differ from the JSON capture). */
+  reportExitCode?: number;
 }
 
 /**
@@ -40,19 +42,20 @@ interface RunCapture {
  * so an example named `sverka` can't clobber the self report. argv form —
  * no shell — and any previous file is removed first, so a failed run
  * can't resurrect a stale report. Returns the path relative to
- * reportDir on success.
+ * reportDir on success, along with that run's exit code so the index
+ * badge describes the exact run that produced the linked HTML.
  */
 function report(
   scope: string,
   id: string,
   cwd: string,
   cliArgv: string[],
-): string | undefined {
+): { rel: string; exitCode: number } | undefined {
   const rel = join(scope, `${id}.html`);
   const out = join(reportDir, rel);
   rmSync(out, { force: true });
   mkdirSync(dirname(out), { recursive: true });
-  spawnSync(
+  const res = spawnSync(
     cliArgv[0]!,
     [...cliArgv.slice(1), "run", "--format", "html", "--output", out],
     {
@@ -62,7 +65,7 @@ function report(
       timeout: 600_000,
     },
   );
-  return existsSync(out) ? rel : undefined;
+  return existsSync(out) ? { rel, exitCode: res.status ?? 1 } : undefined;
 }
 
 function capture(id: string, cwd: string, command: string): RunCapture {
@@ -97,8 +100,15 @@ function capture(id: string, cwd: string, command: string): RunCapture {
 
 function esc(s: string): string {
   return s.replace(
-    /[&<>"]/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+    /[&<>"']/g,
+    (c) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[c]!,
   );
 }
 
@@ -120,13 +130,13 @@ function renderIndex(
   const rows = [
     self.reportFile &&
       `<li><a href="${esc(self.reportFile)}">${esc(self.id)}</a> ${badge(
-        self.exitCode,
+        self.reportExitCode ?? self.exitCode,
       )} <span class="src">self-run on this repo</span></li>`,
     ...examples.map(
       (c) =>
         c.reportFile &&
         `<li><a href="${esc(c.reportFile)}">${esc(c.id)}</a> ${badge(
-          c.exitCode,
+          c.reportExitCode ?? c.exitCode,
         )} <span class="src">examples/${esc(c.id)}</span></li>`,
     ),
   ]
@@ -173,10 +183,12 @@ const self = capture(
   repoRoot,
   "bun packages/cli/src/bin.ts run --format json",
 );
-self.reportFile = report("", "sverka", repoRoot, [
+const selfReport = report("", "sverka", repoRoot, [
   "bun",
   "packages/cli/src/bin.ts",
 ]);
+self.reportFile = selfReport?.rel;
+self.reportExitCode = selfReport?.exitCode;
 
 let entries: Dirent[] = [];
 try {
@@ -191,7 +203,9 @@ for (const entry of entries.filter((e) => e.isDirectory())) {
   const dir = join(repoRoot, "examples", entry.name);
   capture(`${entry.name}:install`, dir, "bun install --silent");
   const c = capture(entry.name, dir, "bunx sverka run --format json");
-  c.reportFile = report("examples", entry.name, dir, ["bunx", "sverka"]);
+  const r = report("examples", entry.name, dir, ["bunx", "sverka"]);
+  c.reportFile = r?.rel;
+  c.reportExitCode = r?.exitCode;
   examples.push(c);
 }
 
@@ -224,7 +238,10 @@ await writeFile(
     2,
   ),
 );
-await writeFile(join(reportDir, "index.html"), renderIndex(self, examples, commit));
+await writeFile(
+  join(reportDir, "index.html"),
+  renderIndex(self, examples, commit),
+);
 console.log(
   `pipeline data → ${outFile} (self exit=${self.exitCode}, examples=${examples.length})`,
 );
