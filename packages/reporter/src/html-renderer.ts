@@ -537,6 +537,77 @@ function renderScripts(findingsData: string): string {
   <script>${JS}</script>`;
 }
 
+/** A findings-table row — real SARIF finding or synthesized step failure. */
+interface FindingView {
+  severity: string;
+  checkId: string;
+  file: string;
+  startLine: number | string;
+  endLine: number | string;
+  message: string;
+  rule: string;
+}
+
+/** Mirror of the stepMatches() logic used by the client-side step filter. */
+function findingMatchesStep(stepId: string, checkId: string): boolean {
+  const bareStep = stepId.startsWith("checks/") ? stepId.slice(7) : stepId;
+  const bareCheck = checkId.startsWith("checks/") ? checkId.slice(7) : checkId;
+  return bareCheck === bareStep || bareCheck.startsWith(`${bareStep}:`);
+}
+
+/**
+ * Last meaningful output line of a failed step — the concrete reason
+ * behind generic errors like "shell command failed with exit code 1".
+ */
+function failureDetail(step: StepUIState): string {
+  for (const out of [step.stderr, step.stdout]) {
+    const line = (out ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .pop();
+    if (line)
+      return ` — ${line.length > 160 ? `${line.slice(0, 160)}…` : line}`;
+  }
+  return "";
+}
+
+/**
+ * Findings merged with synthesized rows for steps that failed without
+ * emitting SARIF — otherwise a red step shows an empty findings table
+ * with no hint why. Synthetic rows get `checkId "<step>:step-failure"`
+ * so the step-click filter and severity filter treat them uniformly.
+ */
+function mergeStepFailures(
+  state: UIState,
+  findings: readonly Finding[],
+): FindingView[] {
+  const rows: FindingView[] = findings.map((f) => ({
+    severity: f.severity,
+    checkId: f.checkId,
+    file: f.file,
+    startLine: f.startLine,
+    endLine: f.endLine,
+    message: f.message,
+    rule: f.rule,
+  }));
+  for (const step of state.steps.values()) {
+    if (step.state !== "failed") continue;
+    if (findings.some((f) => findingMatchesStep(step.stepId, f.checkId)))
+      continue;
+    rows.unshift({
+      severity: "high",
+      checkId: `${step.stepId}:step-failure`,
+      file: "—",
+      startLine: "—",
+      endLine: "—",
+      message: (step.error ?? "step failed") + failureDetail(step),
+      rule: "step-failure",
+    });
+  }
+  return rows;
+}
+
 function generateHtml(
   state: UIState,
   findings: readonly Finding[],
@@ -545,21 +616,10 @@ function generateHtml(
   dagLayoutTB: DagLayout,
   context?: ReportContext,
 ): string {
-  const findingsHtml = renderFindings(findings);
+  const rows = mergeStepFailures(state, findings);
+  const findingsHtml = renderFindings(rows);
   const verdictHtml = renderVerdict(verdict);
-  const findingsData = escapeScriptData(
-    JSON.stringify(
-      findings.map((f) => ({
-        severity: f.severity,
-        checkId: f.checkId,
-        file: f.file,
-        startLine: f.startLine,
-        endLine: f.endLine,
-        message: f.message,
-        rule: f.rule,
-      })),
-    ),
-  );
+  const findingsData = escapeScriptData(JSON.stringify(rows));
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -587,13 +647,13 @@ ${renderHead(context?.title ?? "Sverka Run Report")}
 </html>`;
 }
 
-function renderFindings(findings: readonly Finding[]): string {
-  if (findings.length === 0) {
+function renderFindings(rows: readonly FindingView[]): string {
+  if (rows.length === 0) {
     return '<tr><td colspan="5" class="no-findings">No findings</td></tr>';
   }
 
   // nosemgrep: html-in-template-string
-  return findings
+  return rows
     .map(
       (f) => `        <tr data-severity="${escapeHtml(f.severity)}">
           <td class="severity-${escapeHtml(f.severity)}">${escapeHtml(f.severity)}</td>
