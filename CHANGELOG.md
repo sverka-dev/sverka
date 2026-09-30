@@ -1,3 +1,14 @@
+## 0.1.24 (2026-09-30)
+
+### 🚀 Features
+
+- **reporter:** DAG polish — LR/TB toggle, minimap, edge hover highlight ([#262](https://github.com/sverka-dev/sverka/pull/262))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.23 (2026-09-30)
 
 ### 🚀 Features
