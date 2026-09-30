@@ -413,20 +413,17 @@ function renderStepList(state: UIState, nsPrefix: string): string {
           `<div class="step-exit">Exit code: ${step.exitCode}</div>`,
         ); // nosemgrep: html-in-template-string
       }
-      if (step.stdout) {
+      if (step.stdout || step.stderr) {
+        // Full logs live in __STEPS_DATA__ — embedded once, shown in
+        // the drawer; the list keeps only a pointer to it.
         bodyParts.push(
-          `<pre class="step-out">${escapeHtml(step.stdout)}</pre>`,
-        ); // nosemgrep: html-in-template-string
-      }
-      if (step.stderr) {
-        bodyParts.push(
-          `<pre class="step-out err">${escapeHtml(step.stderr)}</pre>`,
+          '<div class="meta">output captured — open step details</div>',
         ); // nosemgrep: html-in-template-string
       }
 
       // nosemgrep: html-in-template-string
       return `      <details>
-        <summary><span class="step-icon">${icon}</span> ${escapeHtml(displayId(step.stepId, nsPrefix))} <span class="step-state ${step.state}">${step.state}</span> <span class="meta">${fmtMs(step.durationMs)}</span> <button type="button" class="step-findings" data-step="${escapeHtml(step.stepId)}" title="Show only findings from this step">findings</button></summary>
+        <summary><span class="step-icon">${icon}</span> ${escapeHtml(displayId(step.stepId, nsPrefix))} <span class="step-state ${step.state}">${step.state}</span> <span class="meta">${fmtMs(step.durationMs)}</span> <button type="button" class="step-findings" data-step="${escapeHtml(step.stepId)}" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body">${bodyParts.join("") || '<span class="meta">no output captured</span>'}</div>
       </details>`;
     })
@@ -549,7 +546,7 @@ function renderDrawer(): string {
     </div>
     <div id="drawer-meta" class="drawer-meta"></div>
     <div class="drawer-actions">
-      <button type="button" id="drawer-findings" class="filter-btn">Findings for this step</button>
+      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
     </div>
     <div id="drawer-body"></div>
   </aside>`;
@@ -815,7 +812,8 @@ svg.dag marker path { fill: #4a5568; }
 .verdict-none { background: #21262d; color: #8b949e; }
 .findings-controls { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
 .filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.filter-btn {
+.filter-btn,
+.drawer-btn {
   padding: 0.25rem 0.75rem;
   border: 1px solid #30363d;
   border-radius: 6px;
@@ -825,7 +823,8 @@ svg.dag marker path { fill: #4a5568; }
   font-size: 0.8rem;
 }
 .filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-.filter-btn:hover { border-color: #8b949e; }
+.filter-btn:hover,
+.drawer-btn:hover { border-color: #8b949e; }
 .search-input {
   padding: 0.25rem 0.5rem;
   border: 1px solid #30363d;
