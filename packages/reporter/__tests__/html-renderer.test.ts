@@ -201,6 +201,45 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("No findings");
   });
 
+  it("14a. failed step without findings — synthesized reason row", () => {
+    const html = renderHtml(
+      withRun(
+        stepFailed("ci/format", "shell command failed with exit code 1", 50),
+      ),
+    );
+    expect(html).toContain("ci/format:step-failure");
+    expect(html).toContain("shell command failed with exit code 1");
+    expect(html).toContain('data-severity="high"');
+  });
+
+  it("14b. failed step failure row includes stderr tail", () => {
+    const html = renderHtml([
+      runStarted("run-1", "plan-abc"),
+      {
+        type: "step-failed",
+        stepId: "ci/format",
+        error: "shell command failed with exit code 1",
+        stderr: "Checking formatting...\n[warn] src/x.ts\n",
+        durationMs: 50,
+      },
+      runCompleted("run-1", "failure", 100),
+    ]);
+    expect(html).toContain("[warn] src/x.ts");
+  });
+
+  it("14c. failed step WITH a matching finding — no synthesized duplicate", () => {
+    const outputPath = join(tmpDir, "report.html");
+    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
+    renderer.onEvent(runStarted("run-1", "plan-abc"));
+    renderer.onEvent(stepFailed("ci/lint", "boom", 10));
+    renderer.onEvent(runCompleted("run-1", "failure", 100));
+    renderer.onFindings([makeFinding("high", "ci/lint:no-var")]);
+    renderer.flush();
+    const html = readFileSync(outputPath, "utf-8");
+    expect(html).toContain("ci/lint:no-var");
+    expect(html).not.toContain("ci/lint:step-failure");
+  });
+
   it("15. DAG data — HTML contains inline JSON with DagLayout nodes and edges", () => {
     const html = renderHtml(withRun());
     expect(html).toContain("ci/build");
