@@ -17,10 +17,10 @@ const cards = [
   },
   {
     icon: GitBranch,
-    title: "Pipeline report",
+    title: "Pipeline reports",
     description:
-      "Live self-run: DAG, timeline, SARIF findings — rendered by sverka itself.",
-    href: "pipeline-reports/sverka.html",
+      "Live self-run and examples: DAG, timeline, SARIF findings — rendered by sverka itself.",
+    href: "pipeline-reports/",
     internal: false,
   },
   {

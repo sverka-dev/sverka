@@ -29,7 +29,9 @@ export default defineConfig({
         filter: (page) =>
           !/\.(md|txt|html)$/.test(page.path) &&
           !page.path.endsWith("/benchmark/") &&
-          !page.path.endsWith("/benchmark"),
+          !page.path.endsWith("/benchmark") &&
+          !page.path.endsWith("/pipeline-reports/") &&
+          !page.path.endsWith("/pipeline-reports"),
       },
     }),
     react(),
