@@ -147,22 +147,39 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
-.step-drawer {
+/* Step inspector \u2014 one panel for status, findings and logs.
+   Stacked layout: in-flow section between Steps and Findings.
+   Split layout: docked to the right edge. Narrow screens always
+   fall back to the in-flow variant (matches the grid collapse). */
+.step-drawer { display: none; }
+.step-drawer.open {
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  margin: 0 2rem 1rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+main.split .step-drawer.open {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(560px, 92vw);
-  background: #161b22;
+  width: min(560px, 40vw);
+  max-height: none;
+  margin: 0;
+  border: none;
   border-left: 1px solid #30363d;
+  border-radius: 0;
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
-  transform: translateX(100%);
-  transition: transform 0.2s ease;
   z-index: 50;
-  display: flex;
-  flex-direction: column;
 }
-.step-drawer.open { transform: translateX(0); }
+/* Docked inspector must not cover the findings column \u2014 give the
+   layout matching right padding so all content stays visible. */
+main.split:has(.step-drawer.open) {
+  padding-right: min(560px, 40vw);
+}
 .drawer-head {
   display: flex;
   align-items: center;
@@ -198,6 +215,12 @@ details summary { cursor: pointer; font-size: 0.875rem; }
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
+.drawer-finding {
+  font-size: 0.8rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #21262d;
+  word-break: break-word;
+}
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -321,6 +344,17 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 @media (max-width: 900px) {
   main.split { grid-template-columns: 1fr; }
   main.split section + section { border-left: none; border-top: 1px solid #21262d; }
+  /* Narrow screens: inspector docks in-flow even in split mode. */
+  main.split .step-drawer.open {
+    position: static;
+    width: auto;
+    max-height: 70vh;
+    margin: 0 1rem 1rem;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    box-shadow: none;
+  }
+  main.split:has(.step-drawer.open) { padding-right: 0; }
 }
 @media (max-width: 768px) {
   section { padding: 1rem; }
@@ -345,7 +379,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T22:23:04.976Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T23:06:35.473Z</span>
     </div>
   </header>
 
@@ -813,6 +847,19 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       </details></div>
   </section>
 
+    <aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <b id="drawer-title"></b>
+      <span id="drawer-state" class="step-state"></span>
+      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-actions">
+      <button type="button" id="drawer-findings" class="drawer-btn">Open in findings table</button>
+    </div>
+    <div id="drawer-body"></div>
+  </aside>
+
     <section id="findings">
     <h2>Findings</h2>
     <div class="findings-controls">
@@ -847,18 +894,6 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   </section>
   </main>
 
-  <aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
-    <div class="drawer-head">
-      <b id="drawer-title"></b>
-      <span id="drawer-state" class="step-state"></span>
-      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
-    </div>
-    <div id="drawer-meta" class="drawer-meta"></div>
-    <div class="drawer-actions">
-      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
-    </div>
-    <div id="drawer-body"></div>
-  </aside>
   <script>
     var __FINDINGS_DATA__ = [];
     var __STEPS_DATA__ = {"s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the configuration file to get a lay of the land.\n\ntotal 668\ndrwxr-xr-x    6 pepl pepl   4096 Sep 30 19:55 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:55 .gitignore\n-rw-r--r--    1 pepl pepl     51 Sep 30 19:55 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:55 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Sep 30 19:55 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Sep 30 19:55 node_modules\n-rw-r--r--    1 pepl pepl    449 Sep 30 19:55 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src\n-rw-r--r--    1 pepl pepl    658 Sep 30 19:55 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test\n-rw-r--r--    1 pepl pepl    201 Sep 30 19:55 tsconfig.json","stderr":null},"s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the configuration file to get a lay of the land.\n\n20 lines","stderr":null},"s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":3700,"exitCode":null,"error":null,"stdout":"I'm examining the source and test directories, along with configuration files, to understand the project structure and identify any potential issues or areas for improvement.\n\n20 lines","stderr":null},"s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…":{"state":"succeeded","durationMs":5,"exitCode":null,"error":null,"stdout":"I'm examining the source and test directories, along with configuration files, to understand the project structure and identify any potential issues or areas for improvement.\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/.devin:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl   40 Sep 30 19:55 config.json\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/src:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl  509 Sep 30 19:55 index.ts\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl  616 Sep 30 19:55 index.test.ts","stderr":null},"s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":12,"exitCode":null,"error":null,"stdout":"read, read\n\n5 lines","stderr":null},"s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"read, read\n\n11 lines","stderr":null},"s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":2286,"exitCode":null,"error":null,"stdout":"I'll run all the checks to see the failures.\n\n5 lines","stderr":null},"s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"I'll run all the checks to see the failures.\n\n20 lines","stderr":null},"s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":6116,"exitCode":null,"error":null,"stdout":"exec\n\n23 lines","stderr":null},"s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":3801,"exitCode":null,"error":null,"stdout":"exec\n\n$ prettier --check .\nChecking formatting...\n[warn] src/index.ts\n[warn] Code style issues found in the above file. Run Prettier with --write to fix.\nerror: script \"format\" exited with code 1\n=== format exit: 1\n$ oxlint .\nsrc/index.ts:7:9: error eslint(no-unused-vars): Variable 'unused' is declared but never used. Unused variables should s\u001b(B\u001b[0mt\u001b(B\u001b[0m\nart with a '_'. help: Consider removing this declaration.\nerror: script \"lint\" exited with code 1\n=== lint exit: 1\n$ tsc --noEmit\nsrc/index.ts(15,3): error TS2322: Type 'number[]' is not assignable to type 'number'.\n=== typecheck exit: 2","stderr":null},"s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":5661,"exitCode":null,"error":null,"stdout":"All four checks fail. I'll rewrite `src/index.ts` to fix the type error, the case-insensitive vowel count, remove the unused variable, and match prettier style (double quotes, semicolons).\n\n$ bun test\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) slugify > converts to a lowercase slug [5.93ms]\n 7 |   });\n 8 | });\n 9 |\n10 | describe(\"parseVersion\", () => {\n11 |   it(\"returns the major version number\", () => {\n12 |     expect(parseVersion(\"1.2.3\")).toBe(1);\n                                       ^\nerror: expect(received).toBe(expected)\n\nExpected: 1\nReceived: [ 1, 2, 3 ]\n\n      at \u003canonymous> (/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test/index.test.ts:12:35)\n(fail) parseVersion > returns the major version number [6.58ms]\n13 |   });\n14 | });\n15 |\n16 | describe(\"countVowels\", () => {\n17 |   it(\"counts vowels case-insensitively\", () => {\n18 |     expect(countVowels(\"APPLE\")).toBe(2);\n                                      ^\nerror: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 0\n\n      at \u003canonymous> (/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test/index.test.ts:18:34)\n(fail) countVowels > counts vowels case-insensitively [0.68ms]\n(pass) countVowels > returns zero for no vowels [0.04ms]\n\n 2 pass\n 2 fail\n 4 expect() calls\nRan 4 tests across 1 file. [26.00ms]\nerror: script \"test\" exited with code 1\n=== test exit: 1","stderr":null},"s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…":{"state":"succeeded","durationMs":2342,"exitCode":null,"error":null,"stdout":"All four checks fail. I'll rewrite `src/index.ts` to fix the type error, the case-insensitive vowel count, remove the unused variable, and match prettier style (double quotes, semicolons).","stderr":null},"s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec\n\n$ prettier --check .\nChecking formatting...\nAll matched files use Prettier code style!\n$ oxlint .\n$ tsc --noEmit\n$ bun test\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) slugify > converts to a lowercase slug [0.20ms]\n(pass) parseVersion > returns the major version number [0.05ms]\n(pass) countVowels > counts vowels case-insensitively [0.14ms]\n(pass) countVowels > returns zero for no vowels [0.02ms]\n\n 4 pass\n 0 fail\n 4 expect() calls\nRan 4 tests across 1 file. [5.00ms]\n$ bun build src/index.ts --outdir dist\nBundled 1 module in 47ms\n\n  index.js  344 bytes  (entry point)\n\n=== ALL PASS ===","stderr":null},"s14 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…":{"state":"succeeded","durationMs":15319,"exitCode":null,"error":null,"stdout":"All checks pass. Fixed `src/index.ts`:\n\n- **`parseVersion`**: was returning `v.split('.').map(Number)` (`number[]`) — now returns `Number(v.split(\".\")[0])`, the major version, fixing both the TS2322 type error and the failing test.\n- **`countVowels`**: now lowercases before matching, so `\"APPLE\"` counts 2 vowels.\n- **Lint**: removed the unused `debug-marker` variable.\n- **Format**: converted to prettier style (double quotes, semicolons).\n\nPipeline results (`format` → `lint` → `typecheck` → `test` → `build`):\n- `prettier --check .` — clean\n- `oxlint .` — 0 errors\n- `tsc --noEmit` — clean\n- `bun test` — 4/4 pass\n- `bun build` — bundled successfully\n\nNo test or config files were modified.","stderr":null}};
@@ -1221,6 +1256,31 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     var body = document.getElementById("drawer-body");
     body.textContent = "";
     if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    // The step's findings live next to its logs — one inspector.
+    var stepFindings = findingsData.filter(function(f) {
+      return stepMatches(id, f.checkId);
+    });
+    if (stepFindings.length) {
+      body.appendChild(
+        drawerEl(
+          "h4",
+          "drawer-log-title",
+          "findings (" + stepFindings.length + ")",
+        ),
+      );
+      stepFindings.forEach(function(f) {
+        var row = drawerEl("div", "drawer-finding", "");
+        row.appendChild(
+          drawerEl("span", "severity-" + f.severity, f.severity + " "),
+        );
+        row.appendChild(
+          document.createTextNode(
+            f.file + ":" + f.startLine + " — " + f.message,
+          ),
+        );
+        body.appendChild(row);
+      });
+    }
     if (s.stdout) {
       body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
       body.appendChild(drawerEl("pre", "step-out", s.stdout));
@@ -1229,7 +1289,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
       body.appendChild(drawerEl("pre", "step-out err", s.stderr));
     }
-    if (!s.error && !s.stdout && !s.stderr)
+    if (!s.error && !stepFindings.length && !s.stdout && !s.stderr)
       body.appendChild(drawerEl("span", "meta", "no output captured"));
     var findingsBtn = document.getElementById("drawer-findings");
     if (findingsBtn) findingsBtn.setAttribute("data-step", id);
@@ -1239,6 +1299,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     drawer.setAttribute("aria-hidden", "false");
     var closeButton = document.getElementById("drawer-close");
     if (closeButton) closeButton.focus();
+    // In-flow placement (stacked/narrow) sits below the clicked view —
+    // bring it into view; the fixed dock needs no scroll.
+    if (getComputedStyle(drawer).position !== "fixed")
+      drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function closeStep() {
