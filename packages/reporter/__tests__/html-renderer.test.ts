@@ -466,6 +466,22 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("a warning");
   });
 
+  it("step drawer — inspector shows step findings inline", () => {
+    const outputPath = join(tmpDir, "report.html");
+    const renderer = createHtmlRenderer({ outputPath, graph: SAMPLE_GRAPH });
+    renderer.onEvent(runStarted("run-1", "plan-abc"));
+    renderer.onEvent(stepSucceeded("ci/lint", 100));
+    renderer.onEvent(runCompleted("run-1", "success", 100));
+    renderer.onFindings([makeFinding("high", "ci/lint:no-var")]);
+    renderer.flush();
+    const html = readFileSync(outputPath, "utf-8");
+    // drawer renders per-step findings next to logs (stepMatches reuse)
+    expect(html).toContain("drawer-finding");
+    expect(html).toContain("stepMatches(id, f.checkId)");
+    // docked to the right in split mode, in-flow in stacked / narrow
+    expect(html).toContain("main.split .step-drawer.open");
+  });
+
   it("dag — zoom and pan viewport with padded viewBox and controls", () => {
     const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
     expect(html).toContain('class="dag-viewport"');
