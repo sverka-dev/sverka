@@ -95,6 +95,77 @@ function capture(id: string, cwd: string, command: string): RunCapture {
   return { id, exitCode: res.status ?? 1, outputTail: out.slice(-4000), run };
 }
 
+function esc(s: string): string {
+  return s.replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+  );
+}
+
+function badge(exitCode: number): string {
+  return exitCode === 0
+    ? '<span class="ok">passed</span>'
+    : '<span class="fail">failed</span>';
+}
+
+/**
+ * Minimal index page so /pipeline-reports/ itself resolves on GitHub
+ * Pages — lists every report actually produced, with run status.
+ */
+function renderIndex(
+  self: RunCapture,
+  examples: RunCapture[],
+  commit: string,
+): string {
+  const rows = [
+    self.reportFile &&
+      `<li><a href="${esc(self.reportFile)}">${esc(self.id)}</a> ${badge(
+        self.exitCode,
+      )} <span class="src">self-run on this repo</span></li>`,
+    ...examples.map(
+      (c) =>
+        c.reportFile &&
+        `<li><a href="${esc(c.reportFile)}">${esc(c.id)}</a> ${badge(
+          c.exitCode,
+        )} <span class="src">examples/${esc(c.id)}</span></li>`,
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n      ");
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sverka — Pipeline reports</title>
+<style>
+body { margin: 0; background: #0d1117; color: #c9d1d9; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+main { max-width: 44rem; margin: 3rem auto; padding: 0 1rem; }
+h1 { font-size: 1.4rem; color: #e6edf3; }
+ul { list-style: none; padding: 0; margin: 1.5rem 0; }
+li { padding: .7rem 1rem; border: 1px solid #21262d; border-radius: 8px; margin: .5rem 0; }
+a { color: #58a6ff; text-decoration: none; font-family: ui-monospace, SFMono-Regular, monospace; }
+a:hover { text-decoration: underline; }
+.ok { color: #3fb950; } .fail { color: #f85149; }
+.src { color: #8b949e; font-size: .85rem; }
+.meta { color: #8b949e; font-size: .8rem; }
+a.back { font-family: inherit; font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="../">← sverka</a>
+  <h1>Pipeline reports</h1>
+  <p class="meta">Generated ${esc(new Date().toISOString().slice(0, 10))} · commit ${esc(commit || "unknown")}</p>
+  <ul>
+      ${rows || "<li>No reports produced</li>"}
+  </ul>
+</main>
+</body>
+</html>
+`;
+}
+
 await mkdir(reportDir, { recursive: true });
 
 const self = capture(
@@ -153,6 +224,7 @@ await writeFile(
     2,
   ),
 );
+await writeFile(join(reportDir, "index.html"), renderIndex(self, examples, commit));
 console.log(
   `pipeline data → ${outFile} (self exit=${self.exitCode}, examples=${examples.length})`,
 );
