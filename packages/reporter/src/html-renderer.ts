@@ -529,12 +529,30 @@ function renderFindingsSection(findingsHtml: string): string {
 }
 
 /** Render the inline script: view switch, layout toggle, findings filter. */
-function renderScripts(findingsData: string): string {
+function renderScripts(findingsData: string, stepsData: string): string {
   // nosemgrep: html-in-template-string
   return `<script>
     var __FINDINGS_DATA__ = ${findingsData};
+    var __STEPS_DATA__ = ${stepsData};
   </script>
   <script>${JS}</script>`;
+}
+
+/** Step-details drawer — logs/error for the clicked step, any view. */
+function renderDrawer(): string {
+  // nosemgrep: html-in-template-string
+  return `<aside id="step-drawer" class="step-drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <b id="drawer-title"></b>
+      <span id="drawer-state" class="step-state"></span>
+      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-actions">
+      <button type="button" id="drawer-findings" class="filter-btn">Findings for this step</button>
+    </div>
+    <div id="drawer-body"></div>
+  </aside>`;
 }
 
 /** A findings-table row — real SARIF finding or synthesized step failure. */
@@ -620,6 +638,23 @@ function generateHtml(
   const findingsHtml = renderFindings(rows);
   const verdictHtml = renderVerdict(verdict);
   const findingsData = escapeScriptData(JSON.stringify(rows));
+  const stepsData = escapeScriptData(
+    JSON.stringify(
+      Object.fromEntries(
+        [...state.steps.values()].map((s) => [
+          s.stepId,
+          {
+            state: s.state,
+            durationMs: s.durationMs ?? null,
+            exitCode: s.exitCode ?? null,
+            error: s.error ?? null,
+            stdout: s.stdout ?? null,
+            stderr: s.stderr ?? null,
+          },
+        ]),
+      ),
+    ),
+  );
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -642,7 +677,8 @@ ${renderHead(context?.title ?? "Sverka Run Report")}
     ${renderFindingsSection(findingsHtml)}
   </main>
 
-  ${renderScripts(findingsData)}
+  ${renderDrawer()}
+  ${renderScripts(findingsData, stepsData)}
 </body>
 </html>`;
 }
@@ -836,6 +872,57 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
+.step-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 92vw);
+  background: #161b22;
+  border-left: 1px solid #30363d;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+.step-drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #30363d;
+}
+.drawer-head b { flex: 1; font-size: 0.9rem; word-break: break-all; }
+#drawer-close {
+  background: none;
+  border: none;
+  color: #8b949e;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+#drawer-close:hover { color: #f0f6fc; }
+.drawer-meta {
+  padding: 0.4rem 1rem;
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+.drawer-actions {
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-log-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
+#drawer-body .step-out { max-height: none; }
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -1295,10 +1382,71 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     var name = document.getElementById("step-filter-name");
     if (name) name.textContent = stepFilter || "";
     renderTable();
-    if (stepFilter) {
+  }
+
+  // Step-details drawer — logs and error for the clicked step.
+  var stepsData = window.__STEPS_DATA__ || {};
+  var drawer = document.getElementById("step-drawer");
+
+  function drawerEl(tag, cls, text) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function openStep(id) {
+    if (!drawer) return;
+    var s = stepsData[id];
+    if (!s) {
+      drawer.classList.remove("open");
+      drawer.setAttribute("aria-hidden", "true");
+      return;
+    }
+    document.getElementById("drawer-title").textContent = id;
+    var st = document.getElementById("drawer-state");
+    st.textContent = s.state;
+    st.className = "step-state " + s.state;
+    var meta = [];
+    if (s.durationMs != null) meta.push(s.durationMs + "ms");
+    if (s.exitCode != null) meta.push("exit " + s.exitCode);
+    document.getElementById("drawer-meta").textContent = meta.join(" · ");
+    var body = document.getElementById("drawer-body");
+    body.textContent = "";
+    if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    if (s.stdout) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
+      body.appendChild(drawerEl("pre", "step-out", s.stdout));
+    }
+    if (s.stderr) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
+      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
+    }
+    if (!s.error && !s.stdout && !s.stderr)
+      body.appendChild(drawerEl("span", "meta", "no output captured"));
+    var findingsBtn = document.getElementById("drawer-findings");
+    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+    drawer.classList.add("open");
+    drawer.setAttribute("aria-hidden", "false");
+  }
+
+  function closeStep() {
+    if (!drawer) return;
+    drawer.classList.remove("open");
+    drawer.setAttribute("aria-hidden", "true");
+  }
+
+  var drawerClose = document.getElementById("drawer-close");
+  if (drawerClose) drawerClose.addEventListener("click", closeStep);
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeStep();
+  });
+  var drawerFindings = document.getElementById("drawer-findings");
+  if (drawerFindings) {
+    drawerFindings.addEventListener("click", function() {
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    });
   }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
@@ -1316,6 +1464,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       )
         return;
       applyStepFilter(el.getAttribute("data-step"));
+      // Re-clicking the same step toggles the filter off — close the
+      // drawer with it; otherwise show the clicked step's logs.
+      if (stepFilter) openStep(stepFilter);
+      else closeStep();
     });
   });
 
@@ -1331,6 +1483,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       var chip = document.getElementById("step-filter-chip");
       if (chip) chip.classList.add("hidden");
       renderTable();
+      closeStep();
     });
   }
 
