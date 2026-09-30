@@ -147,22 +147,39 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
-.step-drawer {
+/* Step inspector \u2014 one panel for status, findings and logs.
+   Stacked layout: in-flow section between Steps and Findings.
+   Split layout: docked to the right edge. Narrow screens always
+   fall back to the in-flow variant (matches the grid collapse). */
+.step-drawer { display: none; }
+.step-drawer.open {
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  margin: 0 2rem 1rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+main.split .step-drawer.open {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(560px, 92vw);
-  background: #161b22;
+  width: min(560px, 40vw);
+  max-height: none;
+  margin: 0;
+  border: none;
   border-left: 1px solid #30363d;
+  border-radius: 0;
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
-  transform: translateX(100%);
-  transition: transform 0.2s ease;
   z-index: 50;
-  display: flex;
-  flex-direction: column;
 }
-.step-drawer.open { transform: translateX(0); }
+/* Docked inspector must not cover the findings column \u2014 give the
+   layout matching right padding so all content stays visible. */
+main.split:has(.step-drawer.open) {
+  padding-right: min(560px, 40vw);
+}
 .drawer-head {
   display: flex;
   align-items: center;
@@ -198,6 +215,12 @@ details summary { cursor: pointer; font-size: 0.875rem; }
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
+.drawer-finding {
+  font-size: 0.8rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #21262d;
+  word-break: break-word;
+}
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -321,6 +344,16 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 @media (max-width: 900px) {
   main.split { grid-template-columns: 1fr; }
   main.split section + section { border-left: none; border-top: 1px solid #21262d; }
+  /* Narrow screens: inspector docks in-flow even in split mode. */
+  main.split .step-drawer.open {
+    position: static;
+    width: auto;
+    max-height: 70vh;
+    margin: 0 1rem 1rem;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    box-shadow: none;
+  }
 }
 @media (max-width: 768px) {
   section { padding: 1rem; }
@@ -345,7 +378,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T22:23:04.996Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T23:01:47.070Z</span>
     </div>
   </header>
 
@@ -701,6 +734,19 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       </details></div>
   </section>
 
+    <aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <b id="drawer-title"></b>
+      <span id="drawer-state" class="step-state"></span>
+      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-actions">
+      <button type="button" id="drawer-findings" class="drawer-btn">Open in findings table</button>
+    </div>
+    <div id="drawer-body"></div>
+  </aside>
+
     <section id="findings">
     <h2>Findings</h2>
     <div class="findings-controls">
@@ -735,18 +781,6 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   </section>
   </main>
 
-  <aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
-    <div class="drawer-head">
-      <b id="drawer-title"></b>
-      <span id="drawer-state" class="step-state"></span>
-      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
-    </div>
-    <div id="drawer-meta" class="drawer-meta"></div>
-    <div class="drawer-actions">
-      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
-    </div>
-    <div id="drawer-body"></div>
-  </aside>
   <script>
     var __FINDINGS_DATA__ = [];
     var __STEPS_DATA__ = {"s01 tool: Ran ls: ls -la && cat package.json sverka.config.ts":{"state":"succeeded","durationMs":4529,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the sverka configuration.\n\ntotal 672\ndrwxr-xr-x    7 pepl pepl   4096 Sep 30 19:56 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:56 ..\ndrwxr-xr-x    3 pepl pepl   4096 Sep 30 19:56 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 .devin\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:56 .gitignore\n-rw-r--r--    1 pepl pepl     51 Sep 30 19:56 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:56 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Sep 30 19:56 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Sep 30 19:56 node_modules\n-rw-r--r--    1 pepl pepl    449 Sep 30 19:56 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 src\n-rw-r--r--    1 pepl pepl    658 Sep 30 19:56 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 test\n-rw-r--r--    1 pepl pepl    201 Sep 30 19:56 tsconfig.json\n{\n  \"name\": \"verify-and-fix\",\n  \"version\": \"1.0.0\",\n  \"type\": \"module\",\n  \"private\": true,\n  \"scripts\": {\n    \"test\": \"bun test\",\n    \"typecheck\": \"tsc --noEmit\",\n    \"lint\": \"oxlint .\",\n    \"format\": \"prettier --check .\",\n    \"build\": \"bun build src/index.ts --outdir dist\"\n  },\n  \"devDependencies\": {\n    \"@sverka/cli\": \"0.1.12\",\n    \"@sverka/workflow\": \"0.1.12\",\n    \"oxlint\": \"^1.0.0\",\n    \"prettier\": \"^3.0.0\",\n    \"typescript\": \"^5.0.0\"\n  }\n}\nimport { Project, Pipeline, ShellStep, Entry, push } from \"@sverka/workflow\";\n\nconst proj = new Project(\"verify-and-fix\");\nconst ci = new Pipeline(proj, \"ci\");\n\n// Fast checks first (parallel, no deps)\nnew ShellStep(ci, \"format\", { command: \"bun run format\" });\nnew ShellStep(ci, \"lint\", { command: \"bun run lint\" });\nnew ShellStep(ci, \"typecheck\", { command: \"bun run typecheck\" });\n\nnew ShellStep(ci, \"test\", {\n  command: \"bun run test\",\n  dependsOn: [\"format\", \"lint\", \"typecheck\"],\n});\n\nnew ShellStep(ci, \"build\", { command: \"bun run build\", dependsOn: [\"test\"] });\n\nnew Entry(ci, \"on-push\", { trigger: push(), roots: [\"build\"] });\n\nexport default proj;","stderr":null},"s02 tool: Invoked skill sverka":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the sverka configuration.","stderr":null},"s03 tool: Ran ls: ls src test && cat tsconfig.json .oxlintrc.json .pr…":{"state":"succeeded","durationMs":2956,"exitCode":null,"error":null,"stdout":"I'm going to examine the source and test files to understand how to execute the sverka suite. My first step will be to check the sverka skill, as it appears to be available.\n\nsrc:\nindex.ts\n\ntest:\nindex.test.ts\n{\n  \"compilerOptions\": {\n    \"strict\": true,\n    \"target\": \"ES2022\",\n    \"module\": \"ESNext\",\n    \"moduleResolution\": \"bundler\",\n    \"noEmit\": true,\n    \"skipLibCheck\": true\n  },\n  \"include\": [\"src\"]\n}\n{\n  \"rules\": {\n    \"no-unused-vars\": \"error\"\n  }\n}\ndist\nnode_modules\n.sverka\n.devin\nbun.lock\nnode_modules\ndist\n.sverka\n.devin\nbun.lock","stderr":null},"s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'm going to examine the source and test files to understand how to execute the sverka suite. My first step will be to check the sverka skill, as it appears to be available.\n\n20 lines","stderr":null},"s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…":{"state":"succeeded","durationMs":10494,"exitCode":null,"error":null,"stdout":"read, read\n\n23 lines","stderr":null},"s06 tool: Ran npx: npx sverka run --format json 2>&1 | head -100":{"state":"succeeded","durationMs":6731,"exitCode":null,"error":null,"stdout":"read, read\n\n{\"command\":\"run\",\"data\":{\"planId\":\"rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6\",\"status\":\"failu\u001b(B\u001b[0mr\u001b(B\u001b[0m\ne\",\"steps\":[{\"stepId\":\"ci/lint\",\"status\":\"failed\",\"durationMs\":119,\"error\":\"step 'ci/lint' shell command failed with ex\u001b(B\u001b[0mi\u001b(B\u001b[0m\nt code 1\",\"stdout\":\"\\n  x eslint(no-unused-vars): Variable 'unused' is declared but never used. Unused variables should\u001b(B\u001b[0m \u001b(B\u001b[0m\nstart with a '_'.\\n   ,-[src/index.ts:7:9]\\n 6 | export function slugify(text: string): string {\\n 7 |   const unused =\u001b(B\u001b[0m \u001b(B\u001b[0m\n'debug-marker'\\n   :         ^^^|^^\\n   :            `-- 'unused' is declared here\\n 8 |   return text\\n   `----\\n  hel\u001b(B\u001b[0mp\u001b(B\u001b[0m\n: Consider removing this declaration.\\n\\nFound 0 warnings and 1 error.\\nFinished in 27ms on 3 files with 96 rules using\u001b(B\u001b[0m \u001b(B\u001b[0m\n5 threads.\\n\",\"stderr\":\"$ oxlint .\\nerror: script \\\"lint\\\" exited with code 1\\n\",\"exitCode\":1},{\"stepId\":\"ci/format\",\"s\u001b(B\u001b[0mt\u001b(B\u001b[0m\natus\":\"failed\",\"durationMs\":537,\"error\":\"step 'ci/format' shell command failed with exit code 1\",\"stdout\":\"Checking for\u001b(B\u001b[0mm\u001b(B\u001b[0m\natting...\\n\",\"stderr\":\"$ prettier --check .\\n[warn] src/index.ts\\n[warn] Code style issues found in the above file. Run\u001b(B\u001b[0m \u001b(B\u001b[0m\nPrettier with --write to fix.\\nerror: script \\\"format\\\" exited with code 1\\n\",\"exitCode\":1},{\"stepId\":\"ci/typecheck\",\"s\u001b(B\u001b[0mt\u001b(B\u001b[0m\natus\":\"failed\",\"durationMs\":617,\"error\":\"step 'ci/typecheck' shell command failed with exit code 2\",\"stdout\":\"src/index\u001b(B\u001b[0m.\u001b(B\u001b[0m\nts(15,3): error TS2322: Type 'number[]' is not assignable to type 'number'.\\n\",\"stderr\":\"$ tsc --noEmit\\n\",\"exitCode\":2\u001b(B\u001b[0m}\u001b(B\u001b[0m\n,{\"stepId\":\"ci/test\",\"status\":\"skipped\"},{\"stepId\":\"ci/build\",\"status\":\"skipped\"}]},\"durationMs\":903}","stderr":null},"s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…":{"state":"succeeded","durationMs":2010,"exitCode":null,"error":null,"stdout":"I'll run the verification suite first to see all failures.","stderr":null},"s08 tool: Ran npx: npx sverka run --format json 2>&1 | head -60":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'll run the verification suite first to see all failures.\n\n{\"command\":\"run\",\"data\":{\"planId\":\"rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6\",\"status\":\"succe\u001b(B\u001b[0ms\u001b(B\u001b[0m\ns\",\"steps\":[{\"stepId\":\"ci/lint\",\"status\":\"succeeded\",\"durationMs\":135,\"stdout\":\"Found 0 warnings and 0 errors.\\nFinishe\u001b(B\u001b[0md\u001b(B\u001b[0m\n in 49ms on 3 files with 96 rules using 5 threads.\\n\",\"stderr\":\"$ oxlint .\\n\",\"exitCode\":0},{\"stepId\":\"ci/format\",\"stat\u001b(B\u001b[0mu\u001b(B\u001b[0m\ns\":\"succeeded\",\"durationMs\":396,\"stdout\":\"Checking formatting...\\nAll matched files use Prettier code style!\\n\",\"stderr\u001b(B\u001b[0m\"\u001b(B\u001b[0m\n:\"$ prettier --check .\\n\",\"exitCode\":0},{\"stepId\":\"ci/typecheck\",\"status\":\"succeeded\",\"durationMs\":402,\"stdout\":\"\",\"std\u001b(B\u001b[0me\u001b(B\u001b[0m\nrr\":\"$ tsc --noEmit\\n\",\"exitCode\":0},{\"stepId\":\"ci/test\",\"status\":\"succeeded\",\"durationMs\":15,\"stdout\":\"bun test v1.4.2\u001b(B\u001b[0m \u001b(B\u001b[0m\n(744846f84)\\n\",\"stderr\":\"$ bun test\\n\\ntest/index.test.ts:\\n(pass) slugify > converts to a lowercase slug [0.17ms]\\n(pa\u001b(B\u001b[0ms\u001b(B\u001b[0m\ns) parseVersion > returns the major version number [0.05ms]\\n(pass) countVowels > counts vowels case-insensitively [0.1\u001b(B\u001b[0m4\u001b(B\u001b[0m\nms]\\n(pass) countVowels > returns zero for no vowels [0.02ms]\\n\\n 4 pass\\n 0 fail\\n 4 expect() calls\\nRan 4 tests acros\u001b(B\u001b[0ms\u001b(B\u001b[0m\n 1 file. [4.00ms]\\n\",\"exitCode\":0},{\"stepId\":\"ci/build\",\"status\":\"succeeded\",\"durationMs\":14,\"stdout\":\"Bundled 1 module\u001b(B\u001b[0m \u001b(B\u001b[0m\nin 4ms\\n\\n  index.js  344 bytes  (entry point)\\n\\n\",\"stderr\":\"$ bun build src/index.ts --outdir dist\\n\",\"exitCode\":0}]}\u001b(B\u001b[0m,\u001b(B\u001b[0m\n\"durationMs\":596}","stderr":null},"s09 think: Three checks failed, all in `src/index.ts`: an unused varia…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"Three checks failed, all in `src/index.ts`: an unused variable (lint), formatting (prettier), and a type error in `parseVersion`. The tests also reveal two real bugs: `parseVersion` must return the major version number, and `countVowels` must be case-insensitive. Fixing the source file:","stderr":null},"s10 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s11 think: All checks pass. The entire suite was failing on `src/index…":{"state":"succeeded","durationMs":13168,"exitCode":null,"error":null,"stdout":"All checks pass. The entire suite was failing on `src/index.ts` — the only file that needed changes:\n\n- **lint** — removed the unused `unused` variable in `slugify`\n- **format** — rewrote the file in Prettier style (double quotes, semicolons)\n- **typecheck** — `parseVersion` returned `number[]`; now returns `Number(v.split(\".\")[0])` (the major version, matching the test)\n- **test** — `countVowels` was case-sensitive; now lowercases the input before counting, so `countVowels(\"APPLE\") === 2`\n- **build** — passes downstream of the rest\n\nFinal `sverka run` result: `status: success`, all 5 steps (lint, format, typecheck, test, build) green — 4/4 tests passing. No test or config files were touched.","stderr":null}};
@@ -1109,6 +1143,31 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     var body = document.getElementById("drawer-body");
     body.textContent = "";
     if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    // The step's findings live next to its logs — one inspector.
+    var stepFindings = findingsData.filter(function(f) {
+      return stepMatches(id, f.checkId);
+    });
+    if (stepFindings.length) {
+      body.appendChild(
+        drawerEl(
+          "h4",
+          "drawer-log-title",
+          "findings (" + stepFindings.length + ")",
+        ),
+      );
+      stepFindings.forEach(function(f) {
+        var row = drawerEl("div", "drawer-finding", "");
+        row.appendChild(
+          drawerEl("span", "severity-" + f.severity, f.severity + " "),
+        );
+        row.appendChild(
+          document.createTextNode(
+            f.file + ":" + f.startLine + " — " + f.message,
+          ),
+        );
+        body.appendChild(row);
+      });
+    }
     if (s.stdout) {
       body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
       body.appendChild(drawerEl("pre", "step-out", s.stdout));
@@ -1117,7 +1176,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
       body.appendChild(drawerEl("pre", "step-out err", s.stderr));
     }
-    if (!s.error && !s.stdout && !s.stderr)
+    if (!s.error && !stepFindings.length && !s.stdout && !s.stderr)
       body.appendChild(drawerEl("span", "meta", "no output captured"));
     var findingsBtn = document.getElementById("drawer-findings");
     if (findingsBtn) findingsBtn.setAttribute("data-step", id);
@@ -1127,6 +1186,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     drawer.setAttribute("aria-hidden", "false");
     var closeButton = document.getElementById("drawer-close");
     if (closeButton) closeButton.focus();
+    // In-flow placement (stacked/narrow) sits below the clicked view —
+    // bring it into view; the fixed dock needs no scroll.
+    if (getComputedStyle(drawer).position !== "fixed")
+      drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function closeStep() {

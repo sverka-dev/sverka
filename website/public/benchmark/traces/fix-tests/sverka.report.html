@@ -147,22 +147,39 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
-.step-drawer {
+/* Step inspector \u2014 one panel for status, findings and logs.
+   Stacked layout: in-flow section between Steps and Findings.
+   Split layout: docked to the right edge. Narrow screens always
+   fall back to the in-flow variant (matches the grid collapse). */
+.step-drawer { display: none; }
+.step-drawer.open {
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  margin: 0 2rem 1rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+main.split .step-drawer.open {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(560px, 92vw);
-  background: #161b22;
+  width: min(560px, 40vw);
+  max-height: none;
+  margin: 0;
+  border: none;
   border-left: 1px solid #30363d;
+  border-radius: 0;
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
-  transform: translateX(100%);
-  transition: transform 0.2s ease;
   z-index: 50;
-  display: flex;
-  flex-direction: column;
 }
-.step-drawer.open { transform: translateX(0); }
+/* Docked inspector must not cover the findings column \u2014 give the
+   layout matching right padding so all content stays visible. */
+main.split:has(.step-drawer.open) {
+  padding-right: min(560px, 40vw);
+}
 .drawer-head {
   display: flex;
   align-items: center;
@@ -198,6 +215,12 @@ details summary { cursor: pointer; font-size: 0.875rem; }
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
+.drawer-finding {
+  font-size: 0.8rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #21262d;
+  word-break: break-word;
+}
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -321,6 +344,16 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 @media (max-width: 900px) {
   main.split { grid-template-columns: 1fr; }
   main.split section + section { border-left: none; border-top: 1px solid #21262d; }
+  /* Narrow screens: inspector docks in-flow even in split mode. */
+  main.split .step-drawer.open {
+    position: static;
+    width: auto;
+    max-height: 70vh;
+    margin: 0 1rem 1rem;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    box-shadow: none;
+  }
 }
 @media (max-width: 768px) {
   section { padding: 1rem; }
@@ -345,7 +378,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T22:23:04.970Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T23:01:47.047Z</span>
     </div>
   </header>
 
@@ -645,6 +678,19 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       </details></div>
   </section>
 
+    <aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <b id="drawer-title"></b>
+      <span id="drawer-state" class="step-state"></span>
+      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-actions">
+      <button type="button" id="drawer-findings" class="drawer-btn">Open in findings table</button>
+    </div>
+    <div id="drawer-body"></div>
+  </aside>
+
     <section id="findings">
     <h2>Findings</h2>
     <div class="findings-controls">
@@ -679,18 +725,6 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   </section>
   </main>
 
-  <aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
-    <div class="drawer-head">
-      <b id="drawer-title"></b>
-      <span id="drawer-state" class="step-state"></span>
-      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
-    </div>
-    <div id="drawer-meta" class="drawer-meta"></div>
-    <div class="drawer-actions">
-      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
-    </div>
-    <div id="drawer-body"></div>
-  </aside>
   <script>
     var __FINDINGS_DATA__ = [];
     var __STEPS_DATA__ = {"s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…":{"state":"succeeded","durationMs":8,"exitCode":null,"error":null,"stdout":"I'll start by looking at the project structure and running the tests to see what's failing.\n\ntotal 608\ndrwxr-xr-x    6 pepl pepl   4096 Sep 30 19:55 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..\ndrwxr-xr-x    3 pepl pepl   4096 Sep 30 19:55 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin\n-rw-r--r--    1 pepl pepl    113 Sep 30 19:55 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test\n/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts\n/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/src/index.ts","stderr":null},"s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…":{"state":"succeeded","durationMs":2145,"exitCode":null,"error":null,"stdout":"I'll start by looking at the project structure and running the tests to see what's failing.\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [0.08ms]\n(pass) capitalize > handles empty string\n(pass) reverse > reverses a string [0.06ms]\n16 |   });\n17 | });\n18 |\n19 | describe(\"countUniqueWords\", () => {\n20 |   it(\"counts unique words case-insensitively\", () => {\n21 |     expect(countUniqueWords(\"hello world hello\")).toBe(2);\n                                                       ^\nerror: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:21:51)\n(fail) countUniqueWords > counts unique words case-insensitively [19.26ms]\n(pass) countUniqueWords > handles single word [0.11ms]\n22 |   });\n23 |   it(\"handles single word\", () => {\n24 |     expect(countUniqueWords(\"hello\")).toBe(1);\n25 |   });\n26 |   it(\"handles empty string\", () => {\n27 |     expect(countUniqueWords(\"\")).toBe(0);\n                                      ^\nerror: expect(received).toBe(expected)\n\nExpected: 0\nReceived: 1\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:27:34)\n(fail) countUniqueWords > handles empty string [0.42ms]\n28 |   });\n29 | });\n30 |\n31 | describe(\"truncate\", () => {\n32 |   it(\"truncates long strings with ellipsis\", () => {\n33 |     expect(truncate(\"hello world\", 8)).toBe(\"hello...\");\n                                            ^\nerror: expect(received).toBe(expected)\n\nExpected: \"hello...\"\nReceived: \"hell...\"\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:33:40)\n(fail) truncate > truncates long strings with ellipsis [3.94ms]\n(pass) truncate > does not truncate short strings [0.04ms]\n\n 5 pass\n 3 fail\n 8 expect() calls\nRan 8 tests across 1 file. [28.00ms]","stderr":null},"s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"Small project — let me read the source and test files.\n\n33 lines","stderr":null},"s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":4263,"exitCode":null,"error":null,"stdout":"Small project — let me read the source and test files.\n\n38 lines","stderr":null},"s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"Two bugs. `countUniqueWords` counts all words instead of unique case-insensitive words (and `\"\".split(/\\s+/)` gives `[\"\"]` → 1, not 0). `truncate` slices `maxLen - 4` instead of `maxLen - 3`. Fixing both.","stderr":null},"s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":1872,"exitCode":null,"error":null,"stdout":"Two bugs. `countUniqueWords` counts all words instead of unique case-insensitive words (and `\"\".split(/\\s+/)` gives `[\"\"]` → 1, not 0). `truncate` slices `maxLen - 4` instead of `maxLen - 3`. Fixing both.","stderr":null},"s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [0.65ms]\n(pass) capitalize > handles empty string [0.02ms]\n(pass) reverse > reverses a string [2.48ms]\n(pass) countUniqueWords > counts unique words case-insensitively [3.01ms]\n(pass) countUniqueWords > handles single word [1.20ms]\n(pass) countUniqueWords > handles empty string [1.64ms]\n(pass) truncate > truncates long strings with ellipsis [0.04ms]\n(pass) truncate > does not truncate short strings [0.31ms]\n\n 8 pass\n 0 fail\n 8 expect() calls\nRan 8 tests across 1 file. [100.00ms]","stderr":null},"s08 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…":{"state":"succeeded","durationMs":7754,"exitCode":null,"error":null,"stdout":"All 8 tests pass. Two fixes in `src/index.ts`:\n\n1. **`countUniqueWords`** — was returning the total word count. Now it filters empty strings, lowercases each word, and returns the `Set` size.\n2. **`truncate`** — was slicing `maxLen - 4` chars, producing output 1 char short of `maxLen`. Now slices `maxLen - 3` so `\"...\"` brings the total to exactly `maxLen`.","stderr":null}};
@@ -1053,6 +1087,31 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     var body = document.getElementById("drawer-body");
     body.textContent = "";
     if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    // The step's findings live next to its logs — one inspector.
+    var stepFindings = findingsData.filter(function(f) {
+      return stepMatches(id, f.checkId);
+    });
+    if (stepFindings.length) {
+      body.appendChild(
+        drawerEl(
+          "h4",
+          "drawer-log-title",
+          "findings (" + stepFindings.length + ")",
+        ),
+      );
+      stepFindings.forEach(function(f) {
+        var row = drawerEl("div", "drawer-finding", "");
+        row.appendChild(
+          drawerEl("span", "severity-" + f.severity, f.severity + " "),
+        );
+        row.appendChild(
+          document.createTextNode(
+            f.file + ":" + f.startLine + " — " + f.message,
+          ),
+        );
+        body.appendChild(row);
+      });
+    }
     if (s.stdout) {
       body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
       body.appendChild(drawerEl("pre", "step-out", s.stdout));
@@ -1061,7 +1120,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
       body.appendChild(drawerEl("pre", "step-out err", s.stderr));
     }
-    if (!s.error && !s.stdout && !s.stderr)
+    if (!s.error && !stepFindings.length && !s.stdout && !s.stderr)
       body.appendChild(drawerEl("span", "meta", "no output captured"));
     var findingsBtn = document.getElementById("drawer-findings");
     if (findingsBtn) findingsBtn.setAttribute("data-step", id);
@@ -1071,6 +1130,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     drawer.setAttribute("aria-hidden", "false");
     var closeButton = document.getElementById("drawer-close");
     if (closeButton) closeButton.focus();
+    // In-flow placement (stacked/narrow) sits below the clicked view —
+    // bring it into view; the fixed dock needs no scroll.
+    if (getComputedStyle(drawer).position !== "fixed")
+      drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function closeStep() {
