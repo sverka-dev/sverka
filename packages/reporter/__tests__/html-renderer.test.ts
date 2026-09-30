@@ -433,6 +433,39 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("step-filter-chip");
   });
 
+  it("step drawer — step data embedded, click opens logs panel", () => {
+    const html = renderHtml([
+      { type: "run-started", runId: "r", planId: "p", at: 1000 },
+      { type: "step-started", stepId: "ci/build", at: 1100 },
+      {
+        type: "step-succeeded",
+        stepId: "ci/build",
+        durationMs: 100,
+        at: 1200,
+        stdout: "build output line",
+        stderr: "a warning",
+        exitCode: 0,
+      },
+      {
+        type: "run-completed",
+        runId: "r",
+        status: "success",
+        durationMs: 200,
+        at: 1200,
+      },
+    ]);
+    // drawer markup + embedded step payload + wiring
+    expect(html).toContain('id="step-drawer"');
+    expect(html).toContain('id="drawer-body"');
+    expect(html).toContain('id="drawer-findings"');
+    expect(html).toContain("__STEPS_DATA__");
+    expect(html).toContain("openStep(stepFilter, el)");
+    expect(html).toContain("closeStep");
+    // payload carries captured logs for the drawer
+    expect(html).toContain("build output line");
+    expect(html).toContain("a warning");
+  });
+
   it("dag — zoom and pan viewport with padded viewBox and controls", () => {
     const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
     expect(html).toContain('class="dag-viewport"');
