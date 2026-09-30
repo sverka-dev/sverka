@@ -538,7 +538,7 @@ function renderScripts(findingsData: string, stepsData: string): string {
 /** Step-details drawer — logs/error for the clicked step, any view. */
 function renderDrawer(): string {
   // nosemgrep: html-in-template-string
-  return `<aside id="step-drawer" class="step-drawer" aria-hidden="true">
+  return `<aside id="step-drawer" class="step-drawer" aria-hidden="true" inert>
     <div class="drawer-head">
       <b id="drawer-title"></b>
       <span id="drawer-state" class="step-state"></span>
@@ -1386,6 +1386,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   // Step-details drawer — logs and error for the clicked step.
   var stepsData = window.__STEPS_DATA__ || {};
   var drawer = document.getElementById("step-drawer");
+  var drawerOpener = null;
 
   function drawerEl(tag, cls, text) {
     var el = document.createElement(tag);
@@ -1394,12 +1395,11 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     return el;
   }
 
-  function openStep(id) {
+  function openStep(id, opener) {
     if (!drawer) return;
     var s = stepsData[id];
     if (!s) {
-      drawer.classList.remove("open");
-      drawer.setAttribute("aria-hidden", "true");
+      closeStep();
       return;
     }
     document.getElementById("drawer-title").textContent = id;
@@ -1425,14 +1425,20 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       body.appendChild(drawerEl("span", "meta", "no output captured"));
     var findingsBtn = document.getElementById("drawer-findings");
     if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+    drawerOpener = opener || null;
+    drawer.removeAttribute("inert");
     drawer.classList.add("open");
     drawer.setAttribute("aria-hidden", "false");
   }
 
   function closeStep() {
     if (!drawer) return;
+    var opener = drawerOpener;
+    drawerOpener = null;
     drawer.classList.remove("open");
     drawer.setAttribute("aria-hidden", "true");
+    drawer.setAttribute("inert", "");
+    if (opener && typeof opener.focus === "function") opener.focus();
   }
 
   var drawerClose = document.getElementById("drawer-close");
@@ -1465,7 +1471,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       applyStepFilter(el.getAttribute("data-step"));
       // Re-clicking the same step toggles the filter off — close the
       // drawer with it; otherwise show the clicked step's logs.
-      if (stepFilter) openStep(stepFilter);
+      if (stepFilter) openStep(stepFilter, el);
       else closeStep();
     });
   });
