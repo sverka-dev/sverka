@@ -538,7 +538,7 @@ function renderScripts(findingsData: string, stepsData: string): string {
 /** Step-details drawer — logs/error for the clicked step, any view. */
 function renderDrawer(): string {
   // nosemgrep: html-in-template-string
-  return `<aside id="step-drawer" class="step-drawer" aria-hidden="true" inert>
+  return `<aside id="step-drawer" class="step-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
     <div class="drawer-head">
       <b id="drawer-title"></b>
       <span id="drawer-state" class="step-state"></span>
@@ -1429,6 +1429,8 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     drawer.removeAttribute("inert");
     drawer.classList.add("open");
     drawer.setAttribute("aria-hidden", "false");
+    var closeButton = document.getElementById("drawer-close");
+    if (closeButton) closeButton.focus();
   }
 
   function closeStep() {
@@ -1468,7 +1470,15 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         window.__dagMoved()
       )
         return;
-      applyStepFilter(el.getAttribute("data-step"));
+      var id = el.getAttribute("data-step");
+      // The list "details" chip is an open request: when its step is
+      // already selected, reopen the drawer instead of toggling the
+      // filter off.
+      if (el.classList.contains("step-findings") && stepFilter === id) {
+        openStep(id, el);
+        return;
+      }
+      applyStepFilter(id);
       // Re-clicking the same step toggles the filter off — close the
       // drawer with it; otherwise show the clicked step's logs.
       if (stepFilter) openStep(stepFilter, el);
