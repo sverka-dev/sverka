@@ -900,6 +900,11 @@ main.split .step-drawer.open {
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
   z-index: 50;
 }
+/* Docked inspector must not cover the findings column — give the
+   layout matching right padding so all content stays visible. */
+main.split:has(.step-drawer.open) {
+  padding-right: min(560px, 40vw);
+}
 .drawer-head {
   display: flex;
   align-items: center;
