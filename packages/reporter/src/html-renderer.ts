@@ -926,6 +926,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       document.querySelectorAll("#steps .view").forEach(function(el) {
         el.classList.toggle("hidden", el.id !== "view-" + view);
       });
+      // Minimap geometry was measured while the DAG view was hidden —
+      // recompute the indicator with real dimensions on activation.
+      if (view === "dag" && window.__dagUpdateMini) window.__dagUpdateMini();
     });
   });
 
@@ -1208,6 +1211,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     });
     // Called by the step-filter to keep a selected node's edges lit.
     window.__dagFocusId = function(id) { if (id) lightDag(id); else clearDagLight(); };
+    window.__dagUpdateMini = updateMini;
 
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
