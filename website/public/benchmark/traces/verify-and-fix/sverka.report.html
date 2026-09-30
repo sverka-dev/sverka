@@ -162,6 +162,37 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
 .step-active .dag-card { stroke: #58a6ff; stroke-width: 2.5; }
 .step-active.tree-node { outline: 2px solid #58a6ff; outline-offset: 1px; }
 .step-active > .bar { stroke: #58a6ff; stroke-width: 2; }
+/* Hover focus: connected edges + neighbor nodes stay lit, the rest dims */
+svg.dag.focus .edge { opacity: .25; }
+svg.dag.focus .edge.edge-hot { opacity: 1; stroke: #58a6ff; stroke-width: 2; }
+svg.dag.focus .edge.edge-hot + .edge-label { opacity: 1; fill: #79c0ff; }
+svg.dag.focus .edge-label { opacity: .25; }
+svg.dag.focus .dag-node { opacity: .35; transition: opacity .12s; }
+svg.dag.focus .dag-node.node-lit { opacity: 1; }
+.dag-dir[hidden], svg.dag-mini[hidden] { display: none; }
+.dag-minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 168px;
+  height: 104px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: rgba(13, 17, 23, .92);
+  overflow: hidden;
+}
+.dag-minimap svg.dag-mini { width: 100%; height: 100%; display: block; }
+.dag-minimap svg.dag-mini .edge,
+.dag-minimap svg.dag-mini .edge-label,
+.dag-minimap svg.dag-mini text { display: none; }
+.dag-minimap svg.dag-mini .dag-card { stroke-width: 4; }
+.dag-minimap .dag-mini-vp {
+  position: absolute;
+  border: 1.5px solid #58a6ff;
+  background: rgba(88, 166, 255, .12);
+  border-radius: 2px;
+  cursor: grab;
+}
 .dag-viewport {
   position: relative;
   border: 1px solid #21262d;
@@ -172,6 +203,10 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
 .dag-viewport svg.dag {
   display: block;
   width: 100%;
+  /* Fixed height box \u2014 the svg centers its viewBox inside
+     (preserveAspectRatio=meet), keeping the minimap on screen for
+     tall TB layouts. */
+  height: min(600px, 72vh);
   cursor: grab;
   touch-action: none;
 }
@@ -249,15 +284,15 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
     <div class="run-context">
       <span class="ctx-label">Plan:</span> <span class="ctx-value status-verify-and-fix">verify-and-fix</span>
       <span class="ctx-label">Status:</span> <span class="ctx-value status-success">success</span>
-      <span class="ctx-label">Duration:</span> <span class="ctx-value status-43.7s">43.7s</span>
+      <span class="ctx-label">Duration:</span> <span class="ctx-value status-39.9s">39.9s</span>
       <span class="ctx-label">Command:</span> <span class="ctx-value status-sverka-arena run">sverka-arena run</span>
       <span class="ctx-label">task:</span> <span class="ctx-value status-verify-and-fix">verify-and-fix</span>
       <span class="ctx-label">model:</span> <span class="ctx-value status-swe-2-high">swe-2-high</span>
       <span class="ctx-label">plugins:</span> <span class="ctx-value status-sverka">sverka</span>
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
-      <span class="ctx-label">timing:</span> <span class="ctx-value status-durations estimated — ACP traces have no per-step timestamps; total is real">durations estimated — ACP traces have no per-step timestamps; total is real</span>
+      <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-29T20:27:57.947Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T18:26:43.840Z</span>
     </div>
   </header>
 
@@ -281,33 +316,33 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
         <button class="seg-btn" data-view="list">List</button>
       </div>
     </div>
-    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 322" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="322" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="322" /><text class="tick" x="304" y="16" text-anchor="middle">8.7s</text><line class="grid" x1="428" y1="22" x2="428" y2="322" /><text class="tick" x="428" y="16" text-anchor="middle">17.5s</text><line class="grid" x1="552" y1="22" x2="552" y2="322" /><text class="tick" x="552" y="16" text-anchor="middle">26.2s</text><line class="grid" x1="676" y1="22" x2="676" y2="322" /><text class="tick" x="676" y="16" text-anchor="middle">35.0s</text><line class="grid" x1="800" y1="22" x2="800" y2="322" /><text class="tick" x="800" y="16" text-anchor="middle">43.7s</text><g class="gantt-step" data-step="s01 tool: Invoked skill sverka: invoke"><text class="row-label" x="4" y="46">s01 tool: Invoked skill sverka: invoke</text><rect class="bar" x="180.0" y="33" width="62.0" height="16" rx="3" fill="#3fb950"><title>s01 tool: Invoked skill sverka: invoke — succeeded — 4.4s</title></rect><text class="dur" x="248.0" y="46">4.4s</text></g><g class="gantt-step" data-step="s02 tool: Listed ./: ls -la"><text class="row-label" x="4" y="72">s02 tool: Listed ./: ls -la</text><rect class="bar" x="242.0" y="59" width="62.0" height="16" rx="3" fill="#3fb950"><title>s02 tool: Listed ./: ls -la — succeeded — 4.4s</title></rect><text class="dur" x="310.0" y="72">4.4s</text></g><g class="gantt-step" data-step="s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j…"><text class="row-label" x="4" y="98">s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j…</text><rect class="bar" x="304.0" y="85" width="62.0" height="16" rx="3" fill="#3fb950"><title>s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j… — succeeded — 4.4s</title></rect><text class="dur" x="372.0" y="98">4.4s</text></g><g class="gantt-step" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…"><text class="row-label" x="4" y="124">s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</text><rect class="bar" x="366.0" y="111" width="62.0" height="16" rx="3" fill="#3fb950"><title>s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… — succeeded — 4.4s</title></rect><text class="dur" x="434.0" y="124">4.4s</text></g><g class="gantt-step" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…"><text class="row-label" x="4" y="150">s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</text><rect class="bar" x="428.0" y="137" width="62.0" height="16" rx="3" fill="#3fb950"><title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… — succeeded — 4.4s</title></rect><text class="dur" x="496.0" y="150">4.4s</text></g><g class="gantt-step" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…"><text class="row-label" x="4" y="176">s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</text><rect class="bar" x="490.0" y="163" width="62.0" height="16" rx="3" fill="#3fb950"><title>s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… — succeeded — 4.4s</title></rect><text class="dur" x="558.0" y="176">4.4s</text></g><g class="gantt-step" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…"><text class="row-label" x="4" y="202">s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</text><rect class="bar" x="552.0" y="189" width="62.0" height="16" rx="3" fill="#3fb950"><title>s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… — succeeded — 4.4s</title></rect><text class="dur" x="620.0" y="202">4.4s</text></g><g class="gantt-step" data-step="s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…"><text class="row-label" x="4" y="228">s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</text><rect class="bar" x="614.0" y="215" width="62.0" height="16" rx="3" fill="#3fb950"><title>s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… — succeeded — 4.4s</title></rect><text class="dur" x="682.1" y="228">4.4s</text></g><g class="gantt-step" data-step="s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r…"><text class="row-label" x="4" y="254">s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r…</text><rect class="bar" x="676.1" y="241" width="62.0" height="16" rx="3" fill="#3fb950"><title>s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r… — succeeded — 4.4s</title></rect><text class="dur" x="744.1" y="254">4.4s</text></g><g class="gantt-step" data-step="s10 think: Now run the full verification suite."><text class="row-label" x="4" y="280">s10 think: Now run the full verification suite.</text><rect class="bar" x="738.1" y="267" width="31.0" height="16" rx="3" fill="#3fb950"><title>s10 think: Now run the full verification suite. — succeeded — 2.2s</title></rect><text class="dur" x="775.1" y="280">2.2s</text></g><g class="gantt-step" data-step="s11 think: All checks pass. The only broken file was `src/index.ts` — …"><text class="row-label" x="4" y="306">s11 think: All checks pass. The only broken file was `src/index.ts` — …</text><rect class="bar" x="769.1" y="293" width="30.9" height="16" rx="3" fill="#3fb950"><title>s11 think: All checks pass. The only broken file was `src/index.ts` — … — succeeded — 2.2s</title></rect><text class="dur" x="806.0" y="306">2.2s</text></g></svg></div>
+    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 322" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="322" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="322" /><text class="tick" x="304" y="16" text-anchor="middle">8.0s</text><line class="grid" x1="428" y1="22" x2="428" y2="322" /><text class="tick" x="428" y="16" text-anchor="middle">16.0s</text><line class="grid" x1="552" y1="22" x2="552" y2="322" /><text class="tick" x="552" y="16" text-anchor="middle">23.9s</text><line class="grid" x1="676" y1="22" x2="676" y2="322" /><text class="tick" x="676" y="16" text-anchor="middle">31.9s</text><line class="grid" x1="800" y1="22" x2="800" y2="322" /><text class="tick" x="800" y="16" text-anchor="middle">39.9s</text><g class="gantt-step" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts"><text class="row-label" x="4" y="46">s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts</text><rect class="bar" x="180.0" y="33" width="70.4" height="16" rx="3" fill="#3fb950"><title>s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts — succeeded — 4.5s</title></rect><text class="dur" x="256.4" y="46">4.5s</text></g><g class="gantt-step" data-step="s02 tool: Invoked skill sverka"><text class="row-label" x="4" y="72">s02 tool: Invoked skill sverka</text><rect class="bar" x="250.4" y="59" width="3.0" height="16" rx="3" fill="#3fb950"><title>s02 tool: Invoked skill sverka — succeeded — 1ms</title></rect><text class="dur" x="259.4" y="72">1ms</text></g><g class="gantt-step" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…"><text class="row-label" x="4" y="98">s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…</text><rect class="bar" x="250.4" y="85" width="45.9" height="16" rx="3" fill="#3fb950"><title>s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr… — succeeded — 3.0s</title></rect><text class="dur" x="302.4" y="98">3.0s</text></g><g class="gantt-step" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…"><text class="row-label" x="4" y="124">s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</text><rect class="bar" x="296.4" y="111" width="3.0" height="16" rx="3" fill="#3fb950"><title>s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… — succeeded — 0ms</title></rect><text class="dur" x="305.4" y="124">0ms</text></g><g class="gantt-step" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…"><text class="row-label" x="4" y="150">s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</text><rect class="bar" x="296.4" y="137" width="163.1" height="16" rx="3" fill="#3fb950"><title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… — succeeded — 10.5s</title></rect><text class="dur" x="465.5" y="150">10.5s</text></g><g class="gantt-step" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100"><text class="row-label" x="4" y="176">s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100</text><rect class="bar" x="459.5" y="163" width="104.6" height="16" rx="3" fill="#3fb950"><title>s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100 — succeeded — 6.7s</title></rect><text class="dur" x="570.1" y="176">6.7s</text></g><g class="gantt-step" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…"><text class="row-label" x="4" y="202">s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</text><rect class="bar" x="564.1" y="189" width="31.2" height="16" rx="3" fill="#3fb950"><title>s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… — succeeded — 2.0s</title></rect><text class="dur" x="601.3" y="202">2.0s</text></g><g class="gantt-step" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60"><text class="row-label" x="4" y="228">s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60</text><rect class="bar" x="595.3" y="215" width="3.0" height="16" rx="3" fill="#3fb950"><title>s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60 — succeeded — 0ms</title></rect><text class="dur" x="604.3" y="228">0ms</text></g><g class="gantt-step" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…"><text class="row-label" x="4" y="254">s09 think: Three checks failed, all in `src/index.ts`: an unused varia…</text><rect class="bar" x="595.3" y="241" width="3.0" height="16" rx="3" fill="#3fb950"><title>s09 think: Three checks failed, all in `src/index.ts`: an unused varia… — succeeded — 0ms</title></rect><text class="dur" x="604.3" y="254">0ms</text></g><g class="gantt-step" data-step="s10 think: exec"><text class="row-label" x="4" y="280">s10 think: exec</text><rect class="bar" x="595.3" y="267" width="3.0" height="16" rx="3" fill="#3fb950"><title>s10 think: exec — succeeded — 0ms</title></rect><text class="dur" x="604.3" y="280">0ms</text></g><g class="gantt-step" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…"><text class="row-label" x="4" y="306">s11 think: All checks pass. The entire suite was failing on `src/index…</text><rect class="bar" x="595.3" y="293" width="204.7" height="16" rx="3" fill="#3fb950"><title>s11 think: All checks pass. The entire suite was failing on `src/index… — succeeded — 13.2s</title></rect><text class="dur" x="806.0" y="306">13.2s</text></g></svg></div>
     <div class="view hidden" id="view-dag"><div class="dag-viewport">
     <div class="dag-tools">
       <button type="button" class="dag-btn" data-dag-zoom="in" title="Zoom in">+</button>
       <button type="button" class="dag-btn" data-dag-zoom="out" title="Zoom out">−</button>
       <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
+      <button type="button" class="dag-btn" data-dag-dir title="Switch direction (LR/TB)">⇄</button>
     </div>
-    <svg id="dag-svg" class="dag" viewBox="-40 -40 3286 140" data-vb="-40 -40 3286 140" role="img" aria-label="Workflow DAG">
+    <svg id="dag-svg" class="dag" viewBox="-40 -40 3286 140" data-vb-lr="-40 -40 3286 140" data-vb-tb="-40 -40 286 1680" role="img" aria-label="Workflow DAG">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" /></marker>
       <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="-40" y="-40"><circle cx="1" cy="1" r="1" /></pattern>
     </defs>
-    <rect class="dag-grid" x="-40" y="-40" width="3286" height="140" fill="url(#dag-dots)" />
-    <path class="edge" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><path class="edge" d="M 2890 22 Q 2945 22 2972.5 22 L 3000 22" marker-end="url(#arrow)" /><text class="edge-label" x="2945" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Invoked skill sverka: invoke">
-        <title>s01 tool: Invoked skill sverka: invoke</title>
+    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" data-dst="s02 tool: Invoked skill sverka" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Invoked skill sverka" data-dst="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" data-dst="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" data-dst="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" data-dst="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" data-dst="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" data-dst="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" data-dst="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" data-src="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" data-dst="s10 think: exec" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><path class="edge" data-src="s10 think: exec" data-dst="s11 think: All checks pass. The entire suite was failing on `src/index…" d="M 2890 22 Q 2945 22 2972.5 22 L 3000 22" marker-end="url(#arrow)" /><text class="edge-label" x="2945" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts">
+        <title>s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">s01 tool: Invoked skill…</text>
+        <text x="28" y="20">s01 tool: Ran ls: ls -l…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Listed ./: ls -la">
-        <title>s02 tool: Listed ./: ls -la</title>
+      </g><g class="dag-node" data-step="s02 tool: Invoked skill sverka">
+        <title>s02 tool: Invoked skill sverka</title>
         <rect class="dag-card" x="300" y="0" width="190" height="44" rx="8" />
         <circle cx="316" cy="22" r="4" fill="#3fb950" />
-        <text x="328" y="20">s02 tool: Listed ./: ls…</text>
+        <text x="328" y="20">s02 tool: Invoked skill…</text>
         <text class="node-status" x="328" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j…">
-        <title>s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j…</title>
+      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…">
+        <title>s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…</title>
         <rect class="dag-card" x="600" y="0" width="190" height="44" rx="8" />
         <circle cx="616" cy="22" r="4" fill="#3fb950" />
         <text x="628" y="20">s03 tool: Ran ls: ls sr…</text>
@@ -324,87 +359,322 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
         <circle cx="1216" cy="22" r="4" fill="#3fb950" />
         <text x="1228" y="20">s05 tool: Read file: /t…</text>
         <text class="node-status" x="1228" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…">
-        <title>s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</title>
+      </g><g class="dag-node" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100">
+        <title>s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100</title>
         <rect class="dag-card" x="1500" y="0" width="190" height="44" rx="8" />
         <circle cx="1516" cy="22" r="4" fill="#3fb950" />
-        <text x="1528" y="20">s06 tool: Read file: /t…</text>
+        <text x="1528" y="20">s06 tool: Ran npx: npx …</text>
         <text class="node-status" x="1528" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…">
-        <title>s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</title>
+      </g><g class="dag-node" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
+        <title>s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
         <rect class="dag-card" x="1800" y="0" width="190" height="44" rx="8" />
         <circle cx="1816" cy="22" r="4" fill="#3fb950" />
-        <text x="1828" y="20">s07 tool: Read file: /t…</text>
+        <text x="1828" y="20">s07 tool: Wrote ./src/i…</text>
         <text class="node-status" x="1828" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
-        <title>s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
+      </g><g class="dag-node" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60">
+        <title>s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60</title>
         <rect class="dag-card" x="2100" y="0" width="190" height="44" rx="8" />
         <circle cx="2116" cy="22" r="4" fill="#3fb950" />
-        <text x="2128" y="20">s08 tool: Wrote ./src/i…</text>
+        <text x="2128" y="20">s08 tool: Ran npx: npx …</text>
         <text class="node-status" x="2128" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r…">
-        <title>s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r…</title>
+      </g><g class="dag-node" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…">
+        <title>s09 think: Three checks failed, all in `src/index.ts`: an unused varia…</title>
         <rect class="dag-card" x="2400" y="0" width="190" height="44" rx="8" />
         <circle cx="2416" cy="22" r="4" fill="#3fb950" />
-        <text x="2428" y="20">s09 tool: Ran npx: cd /…</text>
+        <text x="2428" y="20">s09 think: Three checks…</text>
         <text class="node-status" x="2428" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s10 think: Now run the full verification suite.">
-        <title>s10 think: Now run the full verification suite.</title>
+      </g><g class="dag-node" data-step="s10 think: exec">
+        <title>s10 think: exec</title>
         <rect class="dag-card" x="2700" y="0" width="190" height="44" rx="8" />
         <circle cx="2716" cy="22" r="4" fill="#3fb950" />
-        <text x="2728" y="20">s10 think: Now run the …</text>
+        <text x="2728" y="20">s10 think: exec</text>
         <text class="node-status" x="2728" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s11 think: All checks pass. The only broken file was `src/index.ts` — …">
-        <title>s11 think: All checks pass. The only broken file was `src/index.ts` — …</title>
+      </g><g class="dag-node" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…">
+        <title>s11 think: All checks pass. The entire suite was failing on `src/index…</title>
         <rect class="dag-card" x="3000" y="0" width="190" height="44" rx="8" />
         <circle cx="3016" cy="22" r="4" fill="#3fb950" />
         <text x="3028" y="20">s11 think: All checks p…</text>
         <text class="node-status" x="3028" y="34" style="fill:#3fb950">succeeded</text>
-      </g>
+      </g></g>
+    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" data-dst="s02 tool: Invoked skill sverka" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Invoked skill sverka" data-dst="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" data-dst="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" data-dst="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" data-dst="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" data-dst="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" data-dst="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" data-dst="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><path class="edge" data-src="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" data-dst="s10 think: exec" d="M 95 1276 Q 95 1331 95 1358.5 L 95 1386" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1326" text-anchor="middle">control</text><path class="edge" data-src="s10 think: exec" data-dst="s11 think: All checks pass. The entire suite was failing on `src/index…" d="M 95 1430 Q 95 1485 95 1512.5 L 95 1540" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1480" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts">
+        <title>s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts</title>
+        <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
+        <circle cx="16" cy="22" r="4" fill="#3fb950" />
+        <text x="28" y="20">s01 tool: Ran ls: ls -l…</text>
+        <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s02 tool: Invoked skill sverka">
+        <title>s02 tool: Invoked skill sverka</title>
+        <rect class="dag-card" x="0" y="154" width="190" height="44" rx="8" />
+        <circle cx="16" cy="176" r="4" fill="#3fb950" />
+        <text x="28" y="174">s02 tool: Invoked skill…</text>
+        <text class="node-status" x="28" y="188" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…">
+        <title>s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…</title>
+        <rect class="dag-card" x="0" y="308" width="190" height="44" rx="8" />
+        <circle cx="16" cy="330" r="4" fill="#3fb950" />
+        <text x="28" y="328">s03 tool: Ran ls: ls sr…</text>
+        <text class="node-status" x="28" y="342" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…">
+        <title>s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</title>
+        <rect class="dag-card" x="0" y="462" width="190" height="44" rx="8" />
+        <circle cx="16" cy="484" r="4" fill="#3fb950" />
+        <text x="28" y="482">s04 tool: Read file: /t…</text>
+        <text class="node-status" x="28" y="496" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…">
+        <title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</title>
+        <rect class="dag-card" x="0" y="616" width="190" height="44" rx="8" />
+        <circle cx="16" cy="638" r="4" fill="#3fb950" />
+        <text x="28" y="636">s05 tool: Read file: /t…</text>
+        <text class="node-status" x="28" y="650" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100">
+        <title>s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100</title>
+        <rect class="dag-card" x="0" y="770" width="190" height="44" rx="8" />
+        <circle cx="16" cy="792" r="4" fill="#3fb950" />
+        <text x="28" y="790">s06 tool: Ran npx: npx …</text>
+        <text class="node-status" x="28" y="804" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
+        <title>s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
+        <rect class="dag-card" x="0" y="924" width="190" height="44" rx="8" />
+        <circle cx="16" cy="946" r="4" fill="#3fb950" />
+        <text x="28" y="944">s07 tool: Wrote ./src/i…</text>
+        <text class="node-status" x="28" y="958" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60">
+        <title>s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60</title>
+        <rect class="dag-card" x="0" y="1078" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1100" r="4" fill="#3fb950" />
+        <text x="28" y="1098">s08 tool: Ran npx: npx …</text>
+        <text class="node-status" x="28" y="1112" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…">
+        <title>s09 think: Three checks failed, all in `src/index.ts`: an unused varia…</title>
+        <rect class="dag-card" x="0" y="1232" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1254" r="4" fill="#3fb950" />
+        <text x="28" y="1252">s09 think: Three checks…</text>
+        <text class="node-status" x="28" y="1266" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s10 think: exec">
+        <title>s10 think: exec</title>
+        <rect class="dag-card" x="0" y="1386" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1408" r="4" fill="#3fb950" />
+        <text x="28" y="1406">s10 think: exec</text>
+        <text class="node-status" x="28" y="1420" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…">
+        <title>s11 think: All checks pass. The entire suite was failing on `src/index…</title>
+        <rect class="dag-card" x="0" y="1540" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1562" r="4" fill="#3fb950" />
+        <text x="28" y="1560">s11 think: All checks p…</text>
+        <text class="node-status" x="28" y="1574" style="fill:#3fb950">succeeded</text>
+      </g></g>
     </svg>
+    <div class="dag-minimap" id="dag-minimap">
+      <svg class="dag-mini" viewBox="-40 -40 3286 140" data-dir="LR"><path class="edge" data-src="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" data-dst="s02 tool: Invoked skill sverka" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Invoked skill sverka" data-dst="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" data-dst="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" data-dst="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" data-dst="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" data-dst="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" data-dst="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" data-dst="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" data-src="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" data-dst="s10 think: exec" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><path class="edge" data-src="s10 think: exec" data-dst="s11 think: All checks pass. The entire suite was failing on `src/index…" d="M 2890 22 Q 2945 22 2972.5 22 L 3000 22" marker-end="url(#arrow)" /><text class="edge-label" x="2945" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts">
+        <title>s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts</title>
+        <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
+        <circle cx="16" cy="22" r="4" fill="#3fb950" />
+        <text x="28" y="20">s01 tool: Ran ls: ls -l…</text>
+        <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s02 tool: Invoked skill sverka">
+        <title>s02 tool: Invoked skill sverka</title>
+        <rect class="dag-card" x="300" y="0" width="190" height="44" rx="8" />
+        <circle cx="316" cy="22" r="4" fill="#3fb950" />
+        <text x="328" y="20">s02 tool: Invoked skill…</text>
+        <text class="node-status" x="328" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…">
+        <title>s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…</title>
+        <rect class="dag-card" x="600" y="0" width="190" height="44" rx="8" />
+        <circle cx="616" cy="22" r="4" fill="#3fb950" />
+        <text x="628" y="20">s03 tool: Ran ls: ls sr…</text>
+        <text class="node-status" x="628" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…">
+        <title>s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</title>
+        <rect class="dag-card" x="900" y="0" width="190" height="44" rx="8" />
+        <circle cx="916" cy="22" r="4" fill="#3fb950" />
+        <text x="928" y="20">s04 tool: Read file: /t…</text>
+        <text class="node-status" x="928" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…">
+        <title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</title>
+        <rect class="dag-card" x="1200" y="0" width="190" height="44" rx="8" />
+        <circle cx="1216" cy="22" r="4" fill="#3fb950" />
+        <text x="1228" y="20">s05 tool: Read file: /t…</text>
+        <text class="node-status" x="1228" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100">
+        <title>s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100</title>
+        <rect class="dag-card" x="1500" y="0" width="190" height="44" rx="8" />
+        <circle cx="1516" cy="22" r="4" fill="#3fb950" />
+        <text x="1528" y="20">s06 tool: Ran npx: npx …</text>
+        <text class="node-status" x="1528" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
+        <title>s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
+        <rect class="dag-card" x="1800" y="0" width="190" height="44" rx="8" />
+        <circle cx="1816" cy="22" r="4" fill="#3fb950" />
+        <text x="1828" y="20">s07 tool: Wrote ./src/i…</text>
+        <text class="node-status" x="1828" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60">
+        <title>s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60</title>
+        <rect class="dag-card" x="2100" y="0" width="190" height="44" rx="8" />
+        <circle cx="2116" cy="22" r="4" fill="#3fb950" />
+        <text x="2128" y="20">s08 tool: Ran npx: npx …</text>
+        <text class="node-status" x="2128" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…">
+        <title>s09 think: Three checks failed, all in `src/index.ts`: an unused varia…</title>
+        <rect class="dag-card" x="2400" y="0" width="190" height="44" rx="8" />
+        <circle cx="2416" cy="22" r="4" fill="#3fb950" />
+        <text x="2428" y="20">s09 think: Three checks…</text>
+        <text class="node-status" x="2428" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s10 think: exec">
+        <title>s10 think: exec</title>
+        <rect class="dag-card" x="2700" y="0" width="190" height="44" rx="8" />
+        <circle cx="2716" cy="22" r="4" fill="#3fb950" />
+        <text x="2728" y="20">s10 think: exec</text>
+        <text class="node-status" x="2728" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…">
+        <title>s11 think: All checks pass. The entire suite was failing on `src/index…</title>
+        <rect class="dag-card" x="3000" y="0" width="190" height="44" rx="8" />
+        <circle cx="3016" cy="22" r="4" fill="#3fb950" />
+        <text x="3028" y="20">s11 think: All checks p…</text>
+        <text class="node-status" x="3028" y="34" style="fill:#3fb950">succeeded</text>
+      </g></svg><svg class="dag-mini" viewBox="-40 -40 286 1680" data-dir="TB" hidden><path class="edge" data-src="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" data-dst="s02 tool: Invoked skill sverka" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Invoked skill sverka" data-dst="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" data-dst="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" data-dst="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" data-dst="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" data-dst="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" data-dst="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" data-dst="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><path class="edge" data-src="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" data-dst="s10 think: exec" d="M 95 1276 Q 95 1331 95 1358.5 L 95 1386" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1326" text-anchor="middle">control</text><path class="edge" data-src="s10 think: exec" data-dst="s11 think: All checks pass. The entire suite was failing on `src/index…" d="M 95 1430 Q 95 1485 95 1512.5 L 95 1540" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1480" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts">
+        <title>s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts</title>
+        <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
+        <circle cx="16" cy="22" r="4" fill="#3fb950" />
+        <text x="28" y="20">s01 tool: Ran ls: ls -l…</text>
+        <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s02 tool: Invoked skill sverka">
+        <title>s02 tool: Invoked skill sverka</title>
+        <rect class="dag-card" x="0" y="154" width="190" height="44" rx="8" />
+        <circle cx="16" cy="176" r="4" fill="#3fb950" />
+        <text x="28" y="174">s02 tool: Invoked skill…</text>
+        <text class="node-status" x="28" y="188" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…">
+        <title>s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…</title>
+        <rect class="dag-card" x="0" y="308" width="190" height="44" rx="8" />
+        <circle cx="16" cy="330" r="4" fill="#3fb950" />
+        <text x="28" y="328">s03 tool: Ran ls: ls sr…</text>
+        <text class="node-status" x="28" y="342" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…">
+        <title>s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</title>
+        <rect class="dag-card" x="0" y="462" width="190" height="44" rx="8" />
+        <circle cx="16" cy="484" r="4" fill="#3fb950" />
+        <text x="28" y="482">s04 tool: Read file: /t…</text>
+        <text class="node-status" x="28" y="496" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…">
+        <title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…</title>
+        <rect class="dag-card" x="0" y="616" width="190" height="44" rx="8" />
+        <circle cx="16" cy="638" r="4" fill="#3fb950" />
+        <text x="28" y="636">s05 tool: Read file: /t…</text>
+        <text class="node-status" x="28" y="650" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100">
+        <title>s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100</title>
+        <rect class="dag-card" x="0" y="770" width="190" height="44" rx="8" />
+        <circle cx="16" cy="792" r="4" fill="#3fb950" />
+        <text x="28" y="790">s06 tool: Ran npx: npx …</text>
+        <text class="node-status" x="28" y="804" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
+        <title>s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
+        <rect class="dag-card" x="0" y="924" width="190" height="44" rx="8" />
+        <circle cx="16" cy="946" r="4" fill="#3fb950" />
+        <text x="28" y="944">s07 tool: Wrote ./src/i…</text>
+        <text class="node-status" x="28" y="958" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60">
+        <title>s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60</title>
+        <rect class="dag-card" x="0" y="1078" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1100" r="4" fill="#3fb950" />
+        <text x="28" y="1098">s08 tool: Ran npx: npx …</text>
+        <text class="node-status" x="28" y="1112" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…">
+        <title>s09 think: Three checks failed, all in `src/index.ts`: an unused varia…</title>
+        <rect class="dag-card" x="0" y="1232" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1254" r="4" fill="#3fb950" />
+        <text x="28" y="1252">s09 think: Three checks…</text>
+        <text class="node-status" x="28" y="1266" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s10 think: exec">
+        <title>s10 think: exec</title>
+        <rect class="dag-card" x="0" y="1386" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1408" r="4" fill="#3fb950" />
+        <text x="28" y="1406">s10 think: exec</text>
+        <text class="node-status" x="28" y="1420" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…">
+        <title>s11 think: All checks pass. The entire suite was failing on `src/index…</title>
+        <rect class="dag-card" x="0" y="1540" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1562" r="4" fill="#3fb950" />
+        <text x="28" y="1560">s11 think: All checks p…</text>
+        <text class="node-status" x="28" y="1574" style="fill:#3fb950">succeeded</text>
+      </g></svg>
+      <div class="dag-mini-vp" id="dag-mini-vp"></div>
+    </div>
   </div></div>
-    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Invoked skill sverka: invoke" style="border-color:#3fb950">✓ s01 tool: Invoked skill sverka: invoke <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Listed ./: ls -la" style="border-color:#3fb950">✓ s02 tool: Listed ./: ls -la <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j…" style="border-color:#3fb950">✓ s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" style="border-color:#3fb950">✓ s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" style="border-color:#3fb950">✓ s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" style="border-color:#3fb950">✓ s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" style="border-color:#3fb950">✓ s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" style="border-color:#3fb950">✓ s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r…" style="border-color:#3fb950">✓ s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s10 think: Now run the full verification suite." style="border-color:#3fb950">✓ s10 think: Now run the full verification suite. <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s11 think: All checks pass. The only broken file was `src/index.ts` — …" style="border-color:#3fb950">✓ s11 think: All checks pass. The only broken file was `src/index.ts` — … <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
+    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" style="border-color:#3fb950">✓ s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Invoked skill sverka" style="border-color:#3fb950">✓ s02 tool: Invoked skill sverka <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" style="border-color:#3fb950">✓ s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" style="border-color:#3fb950">✓ s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" style="border-color:#3fb950">✓ s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" style="border-color:#3fb950">✓ s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100 <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" style="border-color:#3fb950">✓ s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" style="border-color:#3fb950">✓ s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60 <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" style="border-color:#3fb950">✓ s09 think: Three checks failed, all in `src/index.ts`: an unused varia… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s10 think: exec" style="border-color:#3fb950">✓ s10 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…" style="border-color:#3fb950">✓ s11 think: All checks pass. The entire suite was failing on `src/index… <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> s01 tool: Invoked skill sverka: invoke <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s01 tool: Invoked skill sverka: invoke" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;ll start by invoking the sverka skill since this task involves running a sverka verification suite.</pre></div>
+        <summary><span class="step-icon">✓</span> s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts <span class="step-state succeeded">succeeded</span> <span class="meta">4.5s</span> <button type="button" class="step-findings" data-step="s01 tool: Ran ls: ls -la &amp;&amp; cat package.json sverka.config.ts" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I&#39;m starting by examining the project structure and the sverka configuration.
+
+total 672
+drwxr-xr-x    7 pepl pepl   4096 Sep 30 19:56 .
+drwxrwxrwt 1058 root root 593920 Sep 30 19:56 ..
+drwxr-xr-x    3 pepl pepl   4096 Sep 30 19:56 .agents
+drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 .devin
+-rw-r--r--    1 pepl pepl     42 Sep 30 19:56 .gitignore
+-rw-r--r--    1 pepl pepl     51 Sep 30 19:56 .oxlintrc.json
+-rw-r--r--    1 pepl pepl     42 Sep 30 19:56 .prettierignore
+-rw-r--r--    1 pepl pepl  37773 Sep 30 19:56 bun.lock
+drwxr-xr-x  146 pepl pepl   4096 Sep 30 19:56 node_modules
+-rw-r--r--    1 pepl pepl    449 Sep 30 19:56 package.json
+drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 src
+-rw-r--r--    1 pepl pepl    658 Sep 30 19:56 sverka.config.ts
+drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:56 test
+-rw-r--r--    1 pepl pepl    201 Sep 30 19:56 tsconfig.json
+{
+  &quot;name&quot;: &quot;verify-and-fix&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;type&quot;: &quot;module&quot;,
+  &quot;private&quot;: true,
+  &quot;scripts&quot;: {
+    &quot;test&quot;: &quot;bun test&quot;,
+    &quot;typecheck&quot;: &quot;tsc --noEmit&quot;,
+    &quot;lint&quot;: &quot;oxlint .&quot;,
+    &quot;format&quot;: &quot;prettier --check .&quot;,
+    &quot;build&quot;: &quot;bun build src/index.ts --outdir dist&quot;
+  },
+  &quot;devDependencies&quot;: {
+    &quot;@sverka/cli&quot;: &quot;0.1.12&quot;,
+    &quot;@sverka/workflow&quot;: &quot;0.1.12&quot;,
+    &quot;oxlint&quot;: &quot;^1.0.0&quot;,
+    &quot;prettier&quot;: &quot;^3.0.0&quot;,
+    &quot;typescript&quot;: &quot;^5.0.0&quot;
+  }
+}
+import { Project, Pipeline, ShellStep, Entry, push } from &quot;@sverka/workflow&quot;;
+
+const proj = new Project(&quot;verify-and-fix&quot;);
+const ci = new Pipeline(proj, &quot;ci&quot;);
+
+// Fast checks first (parallel, no deps)
+new ShellStep(ci, &quot;format&quot;, { command: &quot;bun run format&quot; });
+new ShellStep(ci, &quot;lint&quot;, { command: &quot;bun run lint&quot; });
+new ShellStep(ci, &quot;typecheck&quot;, { command: &quot;bun run typecheck&quot; });
+
+new ShellStep(ci, &quot;test&quot;, {
+  command: &quot;bun run test&quot;,
+  dependsOn: [&quot;format&quot;, &quot;lint&quot;, &quot;typecheck&quot;],
+});
+
+new ShellStep(ci, &quot;build&quot;, { command: &quot;bun run build&quot;, dependsOn: [&quot;test&quot;] });
+
+new Entry(ci, &quot;on-push&quot;, { trigger: push(), roots: [&quot;build&quot;] });
+
+export default proj;</pre></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s02 tool: Listed ./: ls -la <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s02 tool: Listed ./: ls -la" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;ll start by invoking the sverka skill since this task involves running a sverka verification suite.
-
-total 376
-drwxr-xr-x    7 pepl pepl   4096 Sep 28 19:58 .
-drwxrwxrwt 2238 root root 290816 Sep 28 19:58 ..
-drwxr-xr-x    3 pepl pepl   4096 Sep 28 19:58 .agents
-drwxr-xr-x    2 pepl pepl   4096 Sep 28 19:58 .devin
--rw-r--r--    1 pepl pepl     42 Sep 28 19:58 .gitignore
--rw-r--r--    1 pepl pepl     51 Sep 28 19:58 .oxlintrc.json
--rw-r--r--    1 pepl pepl     42 Sep 28 19:58 .prettierignore
--rw-r--r--    1 pepl pepl  37773 Sep 28 19:58 bun.lock
-drwxr-xr-x  146 pepl pepl   4096 Sep 28 19:58 node_modules
--rw-r--r--    1 pepl pepl    449 Sep 28 19:58 package.json
-drwxr-xr-x    2 pepl pepl   4096 Sep 28 19:58 src
--rw-r--r--    1 pepl pepl    658 Sep 28 19:58 sverka.config.ts
-drwxr-xr-x    2 pepl pepl   4096 Sep 28 19:58 test
--rw-r--r--    1 pepl pepl    201 Sep 28 19:58 tsconfig.json</pre></div>
+        <summary><span class="step-icon">✓</span> s02 tool: Invoked skill sverka <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s02 tool: Invoked skill sverka" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I&#39;m starting by examining the project structure and the sverka configuration.</pre></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j… <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s03 tool: Ran ls: ls src test .devin &amp;&amp; cat .oxlintrc.json tsconfig.j…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Let me look at the project files.
-
-.devin:
-config.json
+        <summary><span class="step-icon">✓</span> s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr… <span class="step-state succeeded">succeeded</span> <span class="meta">3.0s</span> <button type="button" class="step-findings" data-step="s03 tool: Ran ls: ls src test &amp;&amp; cat tsconfig.json .oxlintrc.json .pr…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I&#39;m going to examine the source and test files to understand how to execute the sverka suite. My first step will be to check the sverka skill, as it appears to be available.
 
 src:
 index.ts
 
 test:
 index.test.ts
-{
-  &quot;rules&quot;: {
-    &quot;no-unused-vars&quot;: &quot;error&quot;
-  }
-}
 {
   &quot;compilerOptions&quot;: {
     &quot;strict&quot;: true,
@@ -416,71 +686,92 @@ index.test.ts
   },
   &quot;include&quot;: [&quot;src&quot;]
 }
+{
+  &quot;rules&quot;: {
+    &quot;no-unused-vars&quot;: &quot;error&quot;
+  }
+}
 dist
 node_modules
+.sverka
+.devin
+bun.lock
+node_modules
+dist
 .sverka
 .devin
 bun.lock</pre></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Let me look at the project files.
+        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I&#39;m going to examine the source and test files to understand how to execute the sverka suite. My first step will be to check the sverka skill, as it appears to be available.
 
 20 lines</pre></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Show only findings from this step">findings</button></summary>
+        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">10.5s</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Show only findings from this step">findings</button></summary>
         <div class="step-body"><pre class="step-out">read, read
-
-20 lines</pre></div>
-      </details>
-      <details>
-        <summary><span class="step-icon">✓</span> s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">read, read
-
-20 lines</pre></div>
-      </details>
-      <details>
-        <summary><span class="step-icon">✓</span> s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0… <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r0…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">The failures are in `src/index.ts`: an unused variable (lint), `parseVersion` returning `number[]` instead of the major version (typecheck + test), case-sensitive `countVowels` (test), and single-quote/no-semicolon formatting (prettier). Let me fix them all.
 
 23 lines</pre></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s08 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">The failures are in `src/index.ts`: an unused variable (lint), `parseVersion` returning `number[]` instead of the major version (typecheck + test), case-sensitive `countVowels` (test), and single-quote/no-semicolon formatting (prettier). Let me fix them all.</pre></div>
+        <summary><span class="step-icon">✓</span> s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100 <span class="step-state succeeded">succeeded</span> <span class="meta">6.7s</span> <button type="button" class="step-findings" data-step="s06 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -100" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">read, read
+
+{&quot;command&quot;:&quot;run&quot;,&quot;data&quot;:{&quot;planId&quot;:&quot;rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6&quot;,&quot;status&quot;:&quot;failu(B[0mr(B[0m
+e&quot;,&quot;steps&quot;:[{&quot;stepId&quot;:&quot;ci/lint&quot;,&quot;status&quot;:&quot;failed&quot;,&quot;durationMs&quot;:119,&quot;error&quot;:&quot;step &#39;ci/lint&#39; shell command failed with ex(B[0mi(B[0m
+t code 1&quot;,&quot;stdout&quot;:&quot;\n  x eslint(no-unused-vars): Variable &#39;unused&#39; is declared but never used. Unused variables should(B[0m (B[0m
+start with a &#39;_&#39;.\n   ,-[src/index.ts:7:9]\n 6 | export function slugify(text: string): string {\n 7 |   const unused =(B[0m (B[0m
+&#39;debug-marker&#39;\n   :         ^^^|^^\n   :            `-- &#39;unused&#39; is declared here\n 8 |   return text\n   `----\n  hel(B[0mp(B[0m
+: Consider removing this declaration.\n\nFound 0 warnings and 1 error.\nFinished in 27ms on 3 files with 96 rules using(B[0m (B[0m
+5 threads.\n&quot;,&quot;stderr&quot;:&quot;$ oxlint .\nerror: script \&quot;lint\&quot; exited with code 1\n&quot;,&quot;exitCode&quot;:1},{&quot;stepId&quot;:&quot;ci/format&quot;,&quot;s(B[0mt(B[0m
+atus&quot;:&quot;failed&quot;,&quot;durationMs&quot;:537,&quot;error&quot;:&quot;step &#39;ci/format&#39; shell command failed with exit code 1&quot;,&quot;stdout&quot;:&quot;Checking for(B[0mm(B[0m
+atting...\n&quot;,&quot;stderr&quot;:&quot;$ prettier --check .\n[warn] src/index.ts\n[warn] Code style issues found in the above file. Run(B[0m (B[0m
+Prettier with --write to fix.\nerror: script \&quot;format\&quot; exited with code 1\n&quot;,&quot;exitCode&quot;:1},{&quot;stepId&quot;:&quot;ci/typecheck&quot;,&quot;s(B[0mt(B[0m
+atus&quot;:&quot;failed&quot;,&quot;durationMs&quot;:617,&quot;error&quot;:&quot;step &#39;ci/typecheck&#39; shell command failed with exit code 2&quot;,&quot;stdout&quot;:&quot;src/index(B[0m.(B[0m
+ts(15,3): error TS2322: Type &#39;number[]&#39; is not assignable to type &#39;number&#39;.\n&quot;,&quot;stderr&quot;:&quot;$ tsc --noEmit\n&quot;,&quot;exitCode&quot;:2(B[0m}(B[0m
+,{&quot;stepId&quot;:&quot;ci/test&quot;,&quot;status&quot;:&quot;skipped&quot;},{&quot;stepId&quot;:&quot;ci/build&quot;,&quot;status&quot;:&quot;skipped&quot;}]},&quot;durationMs&quot;:903}</pre></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r… <span class="step-state succeeded">succeeded</span> <span class="meta">4.4s</span> <button type="button" class="step-findings" data-step="s09 tool: Ran npx: cd /tmp/arena-verify-and-fix-swe-2-high-sverkaon-r…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Now run the full verification suite.
+        <summary><span class="step-icon">✓</span> s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="step-state succeeded">succeeded</span> <span class="meta">2.0s</span> <button type="button" class="step-findings" data-step="s07 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I&#39;ll run the verification suite first to see all failures.</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60 <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 tool: Ran npx: npx sverka run --format json 2&gt;&amp;1 | head -60" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">I&#39;ll run the verification suite first to see all failures.
 
 {&quot;command&quot;:&quot;run&quot;,&quot;data&quot;:{&quot;planId&quot;:&quot;rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6&quot;,&quot;status&quot;:&quot;succe(B[0ms(B[0m
-s&quot;,&quot;steps&quot;:[{&quot;stepId&quot;:&quot;ci/lint&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:106,&quot;stdout&quot;:&quot;Found 0 warnings and 0 errors.\nFinishe(B[0md(B[0m
- in 29ms on 3 files with 96 rules using 5 threads.\n&quot;,&quot;stderr&quot;:&quot;$ oxlint .\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/typecheck&quot;,&quot;s(B[0mt(B[0m
-atus&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:463,&quot;stdout&quot;:&quot;&quot;,&quot;stderr&quot;:&quot;$ tsc --noEmit\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/format&quot;,&quot;status&quot;(B[0m:(B[0m
-&quot;succeeded&quot;,&quot;durationMs&quot;:500,&quot;stdout&quot;:&quot;Checking formatting...\nAll matched files use Prettier code style!\n&quot;,&quot;stderr&quot;:&quot;(B[0m$(B[0m
- prettier --check .\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/test&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:17,&quot;stdout&quot;:&quot;bun test v1.4.2(B[0m (B[0m
-(744846f84)\n&quot;,&quot;stderr&quot;:&quot;$ bun test\n\ntest/index.test.ts:\n(pass) slugify &gt; converts to a lowercase slug [0.28ms]\n(pa(B[0ms(B[0m
-s) parseVersion &gt; returns the major version number [0.07ms]\n(pass) countVowels &gt; counts vowels case-insensitively [0.2(B[0m0(B[0m
+s&quot;,&quot;steps&quot;:[{&quot;stepId&quot;:&quot;ci/lint&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:135,&quot;stdout&quot;:&quot;Found 0 warnings and 0 errors.\nFinishe(B[0md(B[0m
+ in 49ms on 3 files with 96 rules using 5 threads.\n&quot;,&quot;stderr&quot;:&quot;$ oxlint .\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/format&quot;,&quot;stat(B[0mu(B[0m
+s&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:396,&quot;stdout&quot;:&quot;Checking formatting...\nAll matched files use Prettier code style!\n&quot;,&quot;stderr(B[0m&quot;(B[0m
+:&quot;$ prettier --check .\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/typecheck&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:402,&quot;stdout&quot;:&quot;&quot;,&quot;std(B[0me(B[0m
+rr&quot;:&quot;$ tsc --noEmit\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/test&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:15,&quot;stdout&quot;:&quot;bun test v1.4.2(B[0m (B[0m
+(744846f84)\n&quot;,&quot;stderr&quot;:&quot;$ bun test\n\ntest/index.test.ts:\n(pass) slugify &gt; converts to a lowercase slug [0.17ms]\n(pa(B[0ms(B[0m
+s) parseVersion &gt; returns the major version number [0.05ms]\n(pass) countVowels &gt; counts vowels case-insensitively [0.1(B[0m4(B[0m
 ms]\n(pass) countVowels &gt; returns zero for no vowels [0.02ms]\n\n 4 pass\n 0 fail\n 4 expect() calls\nRan 4 tests acros(B[0ms(B[0m
- 1 file. [5.00ms]\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/build&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:16,&quot;stdout&quot;:&quot;Bundled 1 module(B[0m (B[0m
-in 5ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quot;$ bun build src/index.ts --outdir dist\n&quot;,&quot;exitCode&quot;:0}]}(B[0m,(B[0m
-&quot;durationMs&quot;:734}</pre></div>
+ 1 file. [4.00ms]\n&quot;,&quot;exitCode&quot;:0},{&quot;stepId&quot;:&quot;ci/build&quot;,&quot;status&quot;:&quot;succeeded&quot;,&quot;durationMs&quot;:14,&quot;stdout&quot;:&quot;Bundled 1 module(B[0m (B[0m
+in 4ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quot;$ bun build src/index.ts --outdir dist\n&quot;,&quot;exitCode&quot;:0}]}(B[0m,(B[0m
+&quot;durationMs&quot;:596}</pre></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s10 think: Now run the full verification suite. <span class="step-state succeeded">succeeded</span> <span class="meta">2.2s</span> <button type="button" class="step-findings" data-step="s10 think: Now run the full verification suite." title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Now run the full verification suite.</pre></div>
+        <summary><span class="step-icon">✓</span> s09 think: Three checks failed, all in `src/index.ts`: an unused varia… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s09 think: Three checks failed, all in `src/index.ts`: an unused varia…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">Three checks failed, all in `src/index.ts`: an unused variable (lint), formatting (prettier), and a type error in `parseVersion`. The tests also reveal two real bugs: `parseVersion` must return the major version number, and `countVowels` must be case-insensitive. Fixing the source file:</pre></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s11 think: All checks pass. The only broken file was `src/index.ts` — … <span class="step-state succeeded">succeeded</span> <span class="meta">2.2s</span> <button type="button" class="step-findings" data-step="s11 think: All checks pass. The only broken file was `src/index.ts` — …" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">All checks pass. The only broken file was `src/index.ts` — fixes applied:
+        <summary><span class="step-icon">✓</span> s10 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s10 think: exec" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">exec</pre></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s11 think: All checks pass. The entire suite was failing on `src/index… <span class="step-state succeeded">succeeded</span> <span class="meta">13.2s</span> <button type="button" class="step-findings" data-step="s11 think: All checks pass. The entire suite was failing on `src/index…" title="Show only findings from this step">findings</button></summary>
+        <div class="step-body"><pre class="step-out">All checks pass. The entire suite was failing on `src/index.ts` — the only file that needed changes:
 
-- Removed the unused `debug-marker` variable → `lint` (oxlint `no-unused-vars`)
-- `parseVersion` now returns `Number(v.split(&quot;.&quot;)[0])` instead of a `number[]` → `typecheck` + the &quot;returns the major version number&quot; test
-- `countVowels` lowercases input before counting → the case-insensitive test
-- Rewrote with prettier defaults (double quotes, semicolons) → `format`
+- **lint** — removed the unused `unused` variable in `slugify`
+- **format** — rewrote the file in Prettier style (double quotes, semicolons)
+- **typecheck** — `parseVersion` returned `number[]`; now returns `Number(v.split(&quot;.&quot;)[0])` (the major version, matching the test)
+- **test** — `countVowels` was case-sensitive; now lowercases the input before counting, so `countVowels(&quot;APPLE&quot;) === 2`
+- **build** — passes downstream of the rest
 
-`npx sverka run` result: **success** — all 5 steps green (`lint`, `typecheck`, `format`, `test`: 4/4 pass, `build`), with no changes to test or config files.</pre></div>
+Final `sverka run` result: `status: success`, all 5 steps (lint, format, typecheck, test, build) green — 4/4 tests passing. No test or config files were touched.</pre></div>
       </details></div>
   </section>
 
@@ -538,6 +829,9 @@ in 5ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quo
       document.querySelectorAll("#steps .view").forEach(function(el) {
         el.classList.toggle("hidden", el.id !== "view-" + view);
       });
+      // Minimap geometry was measured while the DAG view was hidden —
+      // recompute the indicator with real dimensions on activation.
+      if (view === "dag" && window.__dagUpdateMini) window.__dagUpdateMini();
     });
   });
 
@@ -608,13 +902,44 @@ in 5ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quo
   (function() {
     var svg = document.getElementById("dag-svg");
     if (!svg) return;
-    var base = (svg.getAttribute("data-vb") || "0 0 100 100").split(" ").map(Number);
+    var bases = {
+      LR: (svg.getAttribute("data-vb-lr") || "0 0 100 100").split(" ").map(Number),
+      TB: (svg.getAttribute("data-vb-tb") || "0 0 100 100").split(" ").map(Number),
+    };
+    var dir = "LR";
+    var base = bases[dir];
     var vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
+    var savedVb = { LR: null, TB: null };
     var baseW = base[2];
     var moved = 0;
+    var captured = false;
+    var miniVp = document.getElementById("dag-mini-vp");
+    var minimap = document.getElementById("dag-minimap");
 
+    // The mini svgs preserve aspect ratio (meet), so the graph may be
+    // padded inside the minimap — map through the rendered box,
+    // not the element rect.
+    function miniBox() {
+      var r = minimap.getBoundingClientRect();
+      var s = Math.min(r.width / base[2], r.height / base[3]);
+      return {
+        r: r,
+        s: s,
+        ox: (r.width - base[2] * s) / 2,
+        oy: (r.height - base[3] * s) / 2,
+      };
+    }
+    function updateMini() {
+      if (!miniVp || !minimap) return;
+      var m = miniBox();
+      miniVp.style.left = m.ox + (vb.x - base[0]) * m.s + "px";
+      miniVp.style.top = m.oy + (vb.y - base[1]) * m.s + "px";
+      miniVp.style.width = Math.min(vb.w, base[2]) * m.s + "px";
+      miniVp.style.height = Math.min(vb.h, base[3]) * m.s + "px";
+    }
     function apply() {
       svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
+      updateMini();
     }
     function zoomAt(factor, cx, cy) {
       var w = Math.min(Math.max(vb.w * factor, baseW / 8), baseW * 2);
@@ -625,11 +950,23 @@ in 5ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quo
       vb.h = vb.h * f;
       apply();
     }
-    function toVb(e) {
+    // The svg element is a fixed-height box while the viewBox keeps the
+    // graph's aspect — preserveAspectRatio=meet centers it, so map
+    // pointer coordinates through the rendered box, not the element.
+    function renderBox() {
       var r = svg.getBoundingClientRect();
+      var s = Math.min(r.width / vb.w, r.height / vb.h);
       return {
-        x: vb.x + ((e.clientX - r.left) / r.width) * vb.w,
-        y: vb.y + ((e.clientY - r.top) / r.height) * vb.h,
+        s: s,
+        ox: r.left + (r.width - vb.w * s) / 2,
+        oy: r.top + (r.height - vb.h * s) / 2,
+      };
+    }
+    function toVb(e) {
+      var m = renderBox();
+      return {
+        x: vb.x + (e.clientX - m.ox) / m.s,
+        y: vb.y + (e.clientY - m.oy) / m.s,
       };
     }
 
@@ -643,20 +980,31 @@ in 5ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quo
     svg.addEventListener("pointerdown", function(e) {
       drag = { x: e.clientX, y: e.clientY };
       moved = 0;
+      captured = false;
       svg.classList.add("panning");
-      svg.setPointerCapture(e.pointerId);
     });
     svg.addEventListener("pointermove", function(e) {
       if (!drag) return;
-      var r = svg.getBoundingClientRect();
-      var scale = vb.w / r.width;
+      var scale = 1 / renderBox().s;
       moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
+      // Capture the pointer only once the drag threshold is passed —
+      // capturing on pointerdown would retarget the click to the svg
+      // and swallow node clicks.
+      if (!captured && moved > 4) {
+        try {
+          svg.setPointerCapture(e.pointerId);
+        } catch {}
+        captured = true;
+      }
       vb.x -= (e.clientX - drag.x) * scale;
       vb.y -= (e.clientY - drag.y) * scale;
       drag = { x: e.clientX, y: e.clientY };
       apply();
     });
-    function endDrag() { drag = null; svg.classList.remove("panning"); }
+    function endDrag() {
+      drag = null;
+      svg.classList.remove("panning");
+    }
     svg.addEventListener("pointerup", endDrag);
     svg.addEventListener("pointercancel", endDrag);
 
@@ -673,6 +1021,105 @@ in 5ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quo
       });
     });
 
+    // Direction toggle — swaps the pre-laid-out LR/TB groups and
+    // resets the view to that layout's bounds.
+    var dirBtn = svg.parentElement.querySelector("[data-dag-dir]");
+    if (dirBtn) {
+      dirBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        savedVb[dir] = { x: vb.x, y: vb.y, w: vb.w, h: vb.h };
+        dir = dir === "LR" ? "TB" : "LR";
+        base = bases[dir];
+        baseW = base[2];
+        vb = savedVb[dir] || { x: base[0], y: base[1], w: base[2], h: base[3] };
+        svg.querySelectorAll(".dag-dir").forEach(function(g) {
+          g.toggleAttribute("hidden", g.getAttribute("data-dir") !== dir);
+        });
+        if (minimap) {
+          minimap.querySelectorAll("svg.dag-mini").forEach(function(m) {
+            m.toggleAttribute("hidden", m.getAttribute("data-dir") !== dir);
+          });
+        }
+        apply();
+        // The new layer has no highlight classes yet — relight the
+        // node that owns the active step filter.
+        if (window.__stepFilter) lightDag(window.__stepFilter);
+        else clearDagLight();
+      });
+    }
+
+    // Minimap — click/drag the viewport rect to pan the main view.
+    if (minimap) {
+      var miniDrag = false;
+      function miniTo(e) {
+        var m = miniBox();
+        vb.x = base[0] + (e.clientX - m.r.left - m.ox) / m.s - vb.w / 2;
+        vb.y = base[1] + (e.clientY - m.r.top - m.oy) / m.s - vb.h / 2;
+        apply();
+      }
+      minimap.addEventListener("pointerdown", function(e) {
+        e.stopPropagation();
+        miniDrag = true;
+        minimap.setPointerCapture(e.pointerId);
+        miniTo(e);
+      });
+      minimap.addEventListener("pointermove", function(e) {
+        if (miniDrag) miniTo(e);
+      });
+      function endMiniDrag() { miniDrag = false; }
+      minimap.addEventListener("pointerup", endMiniDrag);
+      minimap.addEventListener("pointercancel", endMiniDrag);
+      minimap.addEventListener("click", function(e) { e.stopPropagation(); });
+      updateMini();
+    }
+
+    // The minimap viewport box depends on element geometry — recompute
+    // on resize (fixed-height svg reflows with the window).
+    window.addEventListener("resize", updateMini);
+
+    // Hover focus — light the hovered node's edges and neighbors.
+    function lightDag(id) {
+      var lit = {};
+      lit[id] = true;
+      svg.querySelectorAll('.dag-dir:not([hidden]) .edge').forEach(function(p) {
+        var hot = p.getAttribute("data-src") === id ||
+                  p.getAttribute("data-dst") === id;
+        p.classList.toggle("edge-hot", hot);
+        if (hot) {
+          lit[p.getAttribute("data-src")] = true;
+          lit[p.getAttribute("data-dst")] = true;
+        }
+      });
+      svg.querySelectorAll('.dag-dir:not([hidden]) .dag-node').forEach(function(n) {
+        n.classList.toggle("node-lit", !!lit[n.getAttribute("data-step")]);
+      });
+      svg.classList.add("focus");
+    }
+    function clearDagLight() {
+      svg.classList.remove("focus");
+      svg.querySelectorAll(".edge-hot").forEach(function(p) {
+        p.classList.remove("edge-hot");
+      });
+      svg.querySelectorAll(".node-lit").forEach(function(n) {
+        n.classList.remove("node-lit");
+      });
+    }
+    svg.addEventListener("mouseover", function(e) {
+      var node = e.target.closest && e.target.closest(".dag-node");
+      if (node) lightDag(node.getAttribute("data-step"));
+    });
+    svg.addEventListener("mouseout", function(e) {
+      var node = e.target.closest && e.target.closest(".dag-node");
+      var to = e.relatedTarget;
+      if (node && !(to && to.closest && to.closest(".dag-node") === node)) {
+        if (window.__stepFilter) lightDag(window.__stepFilter);
+        else clearDagLight();
+      }
+    });
+    // Called by the step-filter to keep a selected node's edges lit.
+    window.__dagFocusId = function(id) { if (id) lightDag(id); else clearDagLight(); };
+    window.__dagUpdateMini = updateMini;
+
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
   })();
@@ -681,6 +1128,8 @@ in 5ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quo
   // node, tree node, list "findings" chip) to filter the table.
   function applyStepFilter(id) {
     stepFilter = stepFilter === id ? null : id;
+    window.__stepFilter = stepFilter;
+    if (window.__dagFocusId) window.__dagFocusId(stepFilter);
     document.querySelectorAll("[data-step]").forEach(function(el) {
       el.classList.toggle("step-active", stepFilter === el.getAttribute("data-step"));
     });
@@ -717,6 +1166,8 @@ in 5ms\n\n  index.js  344 bytes  (entry point)\n\n&quot;,&quot;stderr&quot;:&quo
   if (clearBtn) {
     clearBtn.addEventListener("click", function() {
       stepFilter = null;
+      window.__stepFilter = null;
+      if (window.__dagFocusId) window.__dagFocusId(null);
       document.querySelectorAll("[data-step]").forEach(function(el) {
         el.classList.remove("step-active");
       });

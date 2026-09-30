@@ -1170,6 +1170,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       updateMini();
     }
 
+    // The minimap viewport box depends on element geometry — recompute
+    // on resize (fixed-height svg reflows with the window).
+    window.addEventListener("resize", updateMini);
+
     // Hover focus — light the hovered node's edges and neighbors.
     function lightDag(id) {
       var lit = {};
