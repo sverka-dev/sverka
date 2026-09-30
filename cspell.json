@@ -78,6 +78,7 @@
     "Interruptible",
     "interruptible",
     "jacoco",
+    "labelledby",
     "lfle",
     "lockfiles",
     "lparen",
@@ -210,6 +211,7 @@
     "skills-lock.json",
     "packs.lock",
     "eslint.sarif",
+    "website/public/benchmark/traces/**/*.html",
     ".sverka/**"
   ]
 }
