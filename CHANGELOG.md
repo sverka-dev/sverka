@@ -1,3 +1,19 @@
+## 0.1.23 (2026-09-30)
+
+### 🚀 Features
+
+- **arena:** real per-step timings in agent traces ([#261](https://github.com/sverka-dev/sverka/pull/261))
+- **website:** bake fumadocs search index as a static asset ([#259](https://github.com/sverka-dev/sverka/pull/259))
+
+### 🩹 Fixes
+
+- **website:** drop docs:arena from build — arena results are committed snapshots ([#258](https://github.com/sverka-dev/sverka/pull/258))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.22 (2026-09-29)
 
 ### 🚀 Features
