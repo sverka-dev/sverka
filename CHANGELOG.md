@@ -1,3 +1,14 @@
+## 0.1.26 (2026-09-30)
+
+### 🚀 Features
+
+- **report:** step-details drawer with logs on any-view click ([#267](https://github.com/sverka-dev/sverka/pull/267))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.25 (2026-09-30)
 
 ### 🚀 Features
