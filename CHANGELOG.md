@@ -1,3 +1,19 @@
+## 0.1.25 (2026-09-30)
+
+### 🚀 Features
+
+- **report:** show failed-step reason in findings table ([#266](https://github.com/sverka-dev/sverka/pull/266))
+- **website:** minimal /pipeline-reports/ index page ([#263](https://github.com/sverka-dev/sverka/pull/263))
+
+### 🩹 Fixes
+
+- **ci:** ignore generated website/content in format:check ([#265](https://github.com/sverka-dev/sverka/pull/265))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.24 (2026-09-30)
 
 ### 🚀 Features
