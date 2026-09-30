@@ -30,7 +30,7 @@ export interface ActionStep {
   label: string;
   detail: string;
   /** ISO timestamp from the trace — real when the collector stamped it. */
-  at?: string;
+  at?: string | undefined;
   /** Set when this step should render as failed (run-level evidence). */
   failed?: string;
 }
@@ -93,12 +93,19 @@ export function traceToActions(trace: TraceData): ActionStep[] {
     // preceding reasoning, kept on top for context).
     const outputs = (s.observations ?? []).map((o) => o.content);
     const detail = [s.message, ...outputs].filter(Boolean).join("\n\n");
+    // Provenance: only a timestamp that came from a live collector stamp
+    // counts as real — DB session-end stamps are identical across steps
+    // and a single live stamp among them must not flip the whole run
+    // into real-timing mode.
+    const stamped = (s.toolCalls ?? []).some(
+      (c) => c.collectedAt !== undefined && c.collectedAt === s.timestamp,
+    );
     out.push({
       stepId: `s${String(++n).padStart(2, "0")} ${kind}: ${label}`,
       kind,
       label,
       detail,
-      at: s.timestamp,
+      at: stamped ? s.timestamp : undefined,
     });
   }
   return out;

@@ -580,8 +580,8 @@ interface ToolCollector {
   collectedToolCalls: ToolCall[];
   observationsByCallId: Map<string, Observation>;
   toolCallCount: number;
-  onToolCall: (update: ToolCallMessage) => void;
-  onToolUpdate: (update: ToolCallUpdateMessage) => void;
+  onToolCall: (update: ToolCallMessage, receivedAt: number) => void;
+  onToolUpdate: (update: ToolCallUpdateMessage, receivedAt: number) => void;
 }
 
 /** Create a {@link ToolCollector} with callbacks that populate shared state. */
@@ -602,7 +602,10 @@ function createToolCollector(): ToolCollector {
     });
   };
 
-  const onToolUpdate = (update: ToolCallUpdateMessage): void => {
+  const onToolUpdate = (
+    update: ToolCallUpdateMessage,
+    _receivedAt: number,
+  ): void => {
     const text = extractTextContent(update.content ?? undefined);
     if (text) {
       observationsByCallId.set(update.toolCallId, {

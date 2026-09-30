@@ -149,12 +149,18 @@ describe("traceToRunEvents", () => {
     }
   });
 
-  it("uses real per-step durations when timestamps differ", () => {
+  it("uses real per-step durations when collector stamps differ", () => {
     const t = trace([
       step({
         stepId: 1,
-        isLlmCall: true,
-        message: "thinking",
+        toolCalls: [
+          {
+            functionName: "exec",
+            arguments: { command: "ls" },
+            toolCallId: "c1",
+            collectedAt: "2026-09-28T00:00:00.000Z",
+          },
+        ],
         timestamp: "2026-09-28T00:00:00.000Z",
       }),
       step({
@@ -163,7 +169,8 @@ describe("traceToRunEvents", () => {
           {
             functionName: "exec",
             arguments: { command: "bun test" },
-            toolCallId: "c1",
+            toolCallId: "c2",
+            collectedAt: "2026-09-28T00:00:10.000Z",
           },
         ],
         timestamp: "2026-09-28T00:00:10.000Z",
@@ -178,7 +185,7 @@ describe("traceToRunEvents", () => {
       succeeded[0]?.type === "step-succeeded" &&
       succeeded[1]?.type === "step-succeeded"
     ) {
-      // 10s real gap, 12s total → think bar ~10s, tool bar ~2s
+      // 10s real gap, 12s total → first bar ~10s, tail absorbs ~2s
       expect(succeeded[0].durationMs).toBe(10000);
       expect(succeeded[1].durationMs).toBe(2000);
     }
