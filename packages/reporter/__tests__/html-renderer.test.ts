@@ -459,7 +459,7 @@ describe("HtmlRenderer", () => {
     expect(html).toContain('id="drawer-body"');
     expect(html).toContain('id="drawer-findings"');
     expect(html).toContain("__STEPS_DATA__");
-    expect(html).toContain("openStep(stepFilter)");
+    expect(html).toContain("openStep(stepFilter, el)");
     expect(html).toContain("closeStep");
     // payload carries captured logs for the drawer
     expect(html).toContain("build output line");
