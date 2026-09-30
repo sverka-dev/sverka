@@ -133,6 +133,8 @@ export interface DagLayoutResult {
 export interface DagLayoutOptions {
   readonly nodeSpacingX?: number;
   readonly nodeSpacingY?: number;
+  /** dagre rankdir — "LR" (default) or "TB" for a top-down waterfall. */
+  readonly direction?: "LR" | "TB";
 }
 
 /**

@@ -108,7 +108,7 @@ export function layoutDag(
 
   const g = new graphlib.Graph();
   g.setGraph({
-    rankdir: "LR",
+    rankdir: options?.direction ?? "LR",
     nodesep: options?.nodeSpacingY ?? 26,
     ranksep: options?.nodeSpacingX ?? 110,
     marginx: 0,
