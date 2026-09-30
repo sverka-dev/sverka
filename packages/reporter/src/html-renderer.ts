@@ -38,12 +38,16 @@ export function createHtmlRenderer(options: HtmlRendererOptions): Renderer {
       const dagLayout = options.graph
         ? layoutDag(options.graph)
         : { nodes: [], edges: [] };
+      const dagLayoutTB = options.graph
+        ? layoutDag(options.graph, { direction: "TB" })
+        : { nodes: [], edges: [] };
 
       const html = generateHtml(
         state,
         findings,
         verdict,
         dagLayout,
+        dagLayoutTB,
         options.context,
       );
 
@@ -262,16 +266,12 @@ function renderGanttSvg(state: UIState, nsPrefix: string): string {
   return `<svg class="gantt" viewBox="0 0 ${width} ${height}" role="img" aria-label="Step timeline">${ticks}${rows}</svg>`;
 }
 
-/** Static SVG DAG — dagre-routed layout, nodes colored by step status. */
-function renderDagSvg(
+/** Edge + node markup for one laid-out direction of the DAG. */
+function renderDagLayer(
   state: UIState,
   dag: DagLayout,
   nsPrefix: string,
-): string {
-  if (dag.nodes.length === 0) {
-    return '<p class="view-note">No graph data.</p>';
-  }
-
+): { markup: string; vb: string } {
   const maxX = Math.max(...dag.nodes.map((n) => n.x + n.width)) + 16;
   const maxY = Math.max(...dag.nodes.map((n) => n.y + n.height)) + 16;
 
@@ -311,7 +311,7 @@ function renderDagSvg(
         ? `<text class="edge-label" x="${mid.x}" y="${mid.y - 5}" text-anchor="middle">${escapeHtml(kinds.join("+"))}</text>` // nosemgrep: html-in-template-string
         : "";
       // nosemgrep: html-in-template-string
-      return `<path class="edge" d="${d}" marker-end="url(#arrow)" />${label}`;
+      return `<path class="edge" data-src="${escapeHtml(e.source)}" data-dst="${escapeHtml(e.target)}" d="${d}" marker-end="url(#arrow)" />${label}`;
     })
     .join("");
 
@@ -337,7 +337,33 @@ function renderDagSvg(
   // viewport edge. Zoom/pan manipulate the viewBox (uniform scale keeps
   // the aspect constant, so the svg height never jumps).
   const pad = 40;
-  const baseVb = `${-pad} ${-pad} ${maxX + pad * 2} ${maxY + pad * 2}`;
+  return {
+    markup: edges + nodes,
+    vb: `${-pad} ${-pad} ${maxX + pad * 2} ${maxY + pad * 2}`,
+  };
+}
+
+/** Static SVG DAG — dagre-routed layout, nodes colored by step status.
+ *  Both LR and TB layouts are rendered; a toolbar button toggles them. */
+function renderDagSvg(
+  state: UIState,
+  dag: DagLayout,
+  dagTB: DagLayout,
+  nsPrefix: string,
+): string {
+  if (dag.nodes.length === 0) {
+    return '<p class="view-note">No graph data.</p>';
+  }
+
+  const lr = renderDagLayer(state, dag, nsPrefix);
+  const tb = renderDagLayer(state, dagTB, nsPrefix);
+  const lrGrid = `<rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" />`;
+  const mini = (
+    layer: { markup: string; vb: string },
+    dir: string,
+    hidden: boolean,
+  ) =>
+    `<svg class="dag-mini" viewBox="${layer.vb}" data-dir="${dir}"${hidden ? " hidden" : ""}>${layer.markup}</svg>`;
 
   // nosemgrep: html-in-template-string
   return `<div class="dag-viewport">
@@ -345,15 +371,20 @@ function renderDagSvg(
       <button type="button" class="dag-btn" data-dag-zoom="in" title="Zoom in">+</button>
       <button type="button" class="dag-btn" data-dag-zoom="out" title="Zoom out">−</button>
       <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
+      <button type="button" class="dag-btn" data-dag-dir title="Switch direction (LR/TB)">⇄</button>
     </div>
-    <svg id="dag-svg" class="dag" viewBox="${baseVb}" data-vb="${baseVb}" role="img" aria-label="Workflow DAG">
+    <svg id="dag-svg" class="dag" viewBox="${lr.vb}" data-vb-lr="${lr.vb}" data-vb-tb="${tb.vb}" role="img" aria-label="Workflow DAG">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" /></marker>
-      <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="${-pad}" y="${-pad}"><circle cx="1" cy="1" r="1" /></pattern>
+      <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="-40" y="-40"><circle cx="1" cy="1" r="1" /></pattern>
     </defs>
-    <rect class="dag-grid" x="${-pad}" y="${-pad}" width="${maxX + pad * 2}" height="${maxY + pad * 2}" fill="url(#dag-dots)" />
-    ${edges}${nodes}
+    <g class="dag-dir" data-dir="LR">${lrGrid}${lr.markup}</g>
+    <g class="dag-dir" data-dir="TB" hidden>${lrGrid}${tb.markup}</g>
     </svg>
+    <div class="dag-minimap" id="dag-minimap">
+      ${mini(lr, "LR", false)}${mini(tb, "TB", true)}
+      <div class="dag-mini-vp" id="dag-mini-vp"></div>
+    </div>
   </div>`;
 }
 
@@ -431,7 +462,11 @@ function renderTree(state: UIState, dag: DagLayout, nsPrefix: string): string {
 }
 
 /** Render the steps panel with the Gantt | DAG | Tree | List view switch. */
-function renderStepsSection(state: UIState, dag: DagLayout): string {
+function renderStepsSection(
+  state: UIState,
+  dag: DagLayout,
+  dagTB: DagLayout,
+): string {
   // Shared `ns/` prefix (e.g. "ci/") is stripped from labels — it is
   // noise in a single-pipeline report. Full ids stay in tooltips.
   const nsPrefix = commonNsPrefix([
@@ -450,7 +485,7 @@ function renderStepsSection(state: UIState, dag: DagLayout): string {
       </div>
     </div>
     <div class="view" id="view-gantt">${renderGanttSvg(state, nsPrefix)}</div>
-    <div class="view hidden" id="view-dag">${renderDagSvg(state, dag, nsPrefix)}</div>
+    <div class="view hidden" id="view-dag">${renderDagSvg(state, dag, dagTB, nsPrefix)}</div>
     <div class="view hidden" id="view-tree">${renderTree(state, dag, nsPrefix)}</div>
     <div class="view hidden" id="view-list">${renderStepList(state, nsPrefix)}</div>
   </section>`;
@@ -507,6 +542,7 @@ function generateHtml(
   findings: readonly Finding[],
   verdict: PolicyResult | null,
   dagLayout: DagLayout,
+  dagLayoutTB: DagLayout,
   context?: ReportContext,
 ): string {
   const findingsHtml = renderFindings(findings);
@@ -541,7 +577,7 @@ ${renderHead(context?.title ?? "Sverka Run Report")}
   </div>
 
   <main id="layout" class="stacked">
-    ${renderStepsSection(state, dagLayout)}
+    ${renderStepsSection(state, dagLayout, dagLayoutTB)}
 
     ${renderFindingsSection(findingsHtml)}
   </main>
@@ -757,6 +793,37 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
 .step-active .dag-card { stroke: #58a6ff; stroke-width: 2.5; }
 .step-active.tree-node { outline: 2px solid #58a6ff; outline-offset: 1px; }
 .step-active > .bar { stroke: #58a6ff; stroke-width: 2; }
+/* Hover focus: connected edges + neighbor nodes stay lit, the rest dims */
+svg.dag.focus .edge { opacity: .25; }
+svg.dag.focus .edge.edge-hot { opacity: 1; stroke: #58a6ff; stroke-width: 2; }
+svg.dag.focus .edge.edge-hot + .edge-label { opacity: 1; fill: #79c0ff; }
+svg.dag.focus .edge-label { opacity: .25; }
+svg.dag.focus .dag-node { opacity: .35; transition: opacity .12s; }
+svg.dag.focus .dag-node.node-lit { opacity: 1; }
+.dag-dir[hidden], svg.dag-mini[hidden] { display: none; }
+.dag-minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 168px;
+  height: 104px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: rgba(13, 17, 23, .92);
+  overflow: hidden;
+}
+.dag-minimap svg.dag-mini { width: 100%; height: 100%; display: block; }
+.dag-minimap svg.dag-mini .edge,
+.dag-minimap svg.dag-mini .edge-label,
+.dag-minimap svg.dag-mini text { display: none; }
+.dag-minimap svg.dag-mini .dag-card { stroke-width: 4; }
+.dag-minimap .dag-mini-vp {
+  position: absolute;
+  border: 1.5px solid #58a6ff;
+  background: rgba(88, 166, 255, .12);
+  border-radius: 2px;
+  cursor: grab;
+}
 .dag-viewport {
   position: relative;
   border: 1px solid #21262d;
@@ -925,13 +992,29 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
   (function() {
     var svg = document.getElementById("dag-svg");
     if (!svg) return;
-    var base = (svg.getAttribute("data-vb") || "0 0 100 100").split(" ").map(Number);
+    var bases = {
+      LR: (svg.getAttribute("data-vb-lr") || "0 0 100 100").split(" ").map(Number),
+      TB: (svg.getAttribute("data-vb-tb") || "0 0 100 100").split(" ").map(Number),
+    };
+    var dir = "LR";
+    var base = bases[dir];
     var vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
     var baseW = base[2];
     var moved = 0;
+    var miniVp = document.getElementById("dag-mini-vp");
+    var minimap = document.getElementById("dag-minimap");
 
+    function updateMini() {
+      if (!miniVp || !minimap) return;
+      var r = minimap.getBoundingClientRect();
+      miniVp.style.left = ((vb.x - base[0]) / base[2] * 100) + "%";
+      miniVp.style.top = ((vb.y - base[1]) / base[3] * 100) + "%";
+      miniVp.style.width = Math.min(vb.w / base[2], 1) * 100 + "%";
+      miniVp.style.height = Math.min(vb.h / base[3], 1) * 100 + "%";
+    }
     function apply() {
       svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
+      updateMini();
     }
     function zoomAt(factor, cx, cy) {
       var w = Math.min(Math.max(vb.w * factor, baseW / 8), baseW * 2);
@@ -961,10 +1044,17 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
       drag = { x: e.clientX, y: e.clientY };
       moved = 0;
       svg.classList.add("panning");
-      svg.setPointerCapture(e.pointerId);
     });
     svg.addEventListener("pointermove", function(e) {
       if (!drag) return;
+      // Capture the pointer only once a real drag is underway —
+      // capturing on pointerdown would retarget the click to the svg
+      // and swallow node clicks.
+      if (moved === 0) {
+        try {
+          svg.setPointerCapture(e.pointerId);
+        } catch {}
+      }
       var r = svg.getBoundingClientRect();
       var scale = vb.w / r.width;
       moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
@@ -990,6 +1080,95 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
       });
     });
 
+    // Direction toggle — swaps the pre-laid-out LR/TB groups and
+    // resets the view to that layout's bounds.
+    var dirBtn = svg.parentElement.querySelector("[data-dag-dir]");
+    if (dirBtn) {
+      dirBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        dir = dir === "LR" ? "TB" : "LR";
+        base = bases[dir];
+        baseW = base[2];
+        vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
+        svg.querySelectorAll(".dag-dir").forEach(function(g) {
+          g.toggleAttribute("hidden", g.getAttribute("data-dir") !== dir);
+        });
+        if (minimap) {
+          minimap.querySelectorAll("svg.dag-mini").forEach(function(m) {
+            m.toggleAttribute("hidden", m.getAttribute("data-dir") !== dir);
+          });
+        }
+        apply();
+      });
+    }
+
+    // Minimap — click/drag the viewport rect to pan the main view.
+    if (minimap) {
+      var miniDrag = false;
+      function miniTo(e) {
+        var r = minimap.getBoundingClientRect();
+        vb.x = base[0] + ((e.clientX - r.left) / r.width) * base[2] - vb.w / 2;
+        vb.y = base[1] + ((e.clientY - r.top) / r.height) * base[3] - vb.h / 2;
+        apply();
+      }
+      minimap.addEventListener("pointerdown", function(e) {
+        e.stopPropagation();
+        miniDrag = true;
+        minimap.setPointerCapture(e.pointerId);
+        miniTo(e);
+      });
+      minimap.addEventListener("pointermove", function(e) {
+        if (miniDrag) miniTo(e);
+      });
+      function endMiniDrag() { miniDrag = false; }
+      minimap.addEventListener("pointerup", endMiniDrag);
+      minimap.addEventListener("pointercancel", endMiniDrag);
+      minimap.addEventListener("click", function(e) { e.stopPropagation(); });
+      updateMini();
+    }
+
+    // Hover focus — light the hovered node's edges and neighbors.
+    function lightDag(id) {
+      var lit = {};
+      lit[id] = true;
+      svg.querySelectorAll('.dag-dir:not([hidden]) .edge').forEach(function(p) {
+        var hot = p.getAttribute("data-src") === id ||
+                  p.getAttribute("data-dst") === id;
+        p.classList.toggle("edge-hot", hot);
+        if (hot) {
+          lit[p.getAttribute("data-src")] = true;
+          lit[p.getAttribute("data-dst")] = true;
+        }
+      });
+      svg.querySelectorAll('.dag-dir:not([hidden]) .dag-node').forEach(function(n) {
+        n.classList.toggle("node-lit", !!lit[n.getAttribute("data-step")]);
+      });
+      svg.classList.add("focus");
+    }
+    function unlightDag() {
+      svg.classList.remove("focus");
+      svg.querySelectorAll(".edge-hot").forEach(function(p) {
+        p.classList.remove("edge-hot");
+      });
+      svg.querySelectorAll(".node-lit").forEach(function(n) {
+        n.classList.remove("node-lit");
+      });
+    }
+    svg.addEventListener("mouseover", function(e) {
+      var node = e.target.closest && e.target.closest(".dag-node");
+      if (node) lightDag(node.getAttribute("data-step"));
+    });
+    svg.addEventListener("mouseout", function(e) {
+      var node = e.target.closest && e.target.closest(".dag-node");
+      var to = e.relatedTarget;
+      if (node && !(to && to.closest && to.closest(".dag-node") === node)) {
+        if (window.__stepFilter) lightDag(window.__stepFilter);
+        else unlightDag();
+      }
+    });
+    // Called by the step-filter to keep a selected node's edges lit.
+    window.__dagFocusId = function(id) { if (id) lightDag(id); else unlightDag(); };
+
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
   })();
@@ -998,6 +1177,8 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
   // node, tree node, list "findings" chip) to filter the table.
   function applyStepFilter(id) {
     stepFilter = stepFilter === id ? null : id;
+    window.__stepFilter = stepFilter;
+    if (window.__dagFocusId) window.__dagFocusId(stepFilter);
     document.querySelectorAll("[data-step]").forEach(function(el) {
       el.classList.toggle("step-active", stepFilter === el.getAttribute("data-step"));
     });
@@ -1034,6 +1215,8 @@ ul.tree li li { border-left: 1px solid #30363d; padding-left: 0.75rem; }
   if (clearBtn) {
     clearBtn.addEventListener("click", function() {
       stepFilter = null;
+      window.__stepFilter = null;
+      if (window.__dagFocusId) window.__dagFocusId(null);
       document.querySelectorAll("[data-step]").forEach(function(el) {
         el.classList.remove("step-active");
       });

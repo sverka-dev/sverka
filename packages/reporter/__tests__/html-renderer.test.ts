@@ -402,12 +402,36 @@ describe("HtmlRenderer", () => {
     expect(html).toContain('data-dag-zoom="fit"');
     // viewBox is padded beyond the content box (negative origin)
     expect(html).toMatch(/viewBox="-40 -40 \d+ \d+"/);
-    expect(html).toContain('data-vb="-40 -40');
+    expect(html).toContain('data-vb-lr="-40 -40');
+    expect(html).toContain('data-vb-tb="-40 -40');
     // wheel zoom + pointer pan wiring
     expect(html).toContain('"wheel"');
     expect(html).toContain('"pointermove"');
     // drag-ended clicks must not toggle the step filter
     expect(html).toContain("__dagMoved");
+  });
+
+  it("dag — direction toggle renders both LR and TB layers", () => {
+    const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
+    expect(html).toContain('class="dag-dir" data-dir="LR"');
+    expect(html).toContain('class="dag-dir" data-dir="TB" hidden');
+    expect(html).toContain("data-dag-dir");
+  });
+
+  it("dag — minimap with viewport indicator and per-direction layers", () => {
+    const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
+    expect(html).toContain('id="dag-minimap"');
+    expect(html).toContain('id="dag-mini-vp"');
+    expect(html).toContain('class="dag-mini"');
+  });
+
+  it("dag — edges carry src/dst for hover highlighting", () => {
+    const html = renderHtml(
+      withRun(stepSucceeded("ci/build", 100), stepSucceeded("ci/test", 100)),
+    );
+    expect(html).toMatch(/class="edge" data-src="[^"]+" data-dst="[^"]+"/);
+    expect(html).toContain("edge-hot");
+    expect(html).toContain("node-lit");
   });
 
   it("list view — step stdout/stderr land in expandable rows", () => {
