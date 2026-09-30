@@ -158,7 +158,12 @@ function parseNode(row: SessionNodeRow): ParsedNode | undefined {
   return {
     step: {
       step_id: row.node_id,
-      timestamp: new Date(row.created_at).toISOString(),
+      // message_nodes.created_at is epoch SECONDS (the CLI batch-writes
+      // nodes at session end, so per-step timing is identical anyway);
+      // tolerate a future switch to ms.
+      timestamp: new Date(
+        row.created_at < 1e12 ? row.created_at * 1000 : row.created_at,
+      ).toISOString(),
       source: isInference ? "agent" : (node.role as "system" | "user"),
       message,
       extra: isInference
@@ -575,8 +580,8 @@ interface ToolCollector {
   collectedToolCalls: ToolCall[];
   observationsByCallId: Map<string, Observation>;
   toolCallCount: number;
-  onToolCall: (update: ToolCallMessage) => void;
-  onToolUpdate: (update: ToolCallUpdateMessage) => void;
+  onToolCall: (update: ToolCallMessage, receivedAt: number) => void;
+  onToolUpdate: (update: ToolCallUpdateMessage, receivedAt: number) => void;
 }
 
 /** Create a {@link ToolCollector} with callbacks that populate shared state. */
@@ -585,7 +590,7 @@ function createToolCollector(): ToolCollector {
   const observationsByCallId = new Map<string, Observation>();
   let toolCallCount = 0;
 
-  const onToolCall = (update: ToolCallMessage): void => {
+  const onToolCall = (update: ToolCallMessage, receivedAt: number): void => {
     toolCallCount++;
     const name = update.name ?? update.title ?? "unknown";
     const args = (update.rawInput as Record<string, unknown> | null) ?? {};
@@ -593,10 +598,14 @@ function createToolCollector(): ToolCollector {
       functionName: name,
       arguments: args,
       toolCallId: update.toolCallId,
+      collectedAt: new Date(receivedAt).toISOString(),
     });
   };
 
-  const onToolUpdate = (update: ToolCallUpdateMessage): void => {
+  const onToolUpdate = (
+    update: ToolCallUpdateMessage,
+    _receivedAt: number,
+  ): void => {
     const text = extractTextContent(update.content ?? undefined);
     if (text) {
       observationsByCallId.set(update.toolCallId, {
@@ -772,6 +781,8 @@ function attachNextToolCall(
   const obs = observationsByCallId.get(tc.toolCallId);
   const observations: Observation[] = obs ? [obs] : [];
   step.toolCalls = calls;
+  // Real arrival time beats the DB's identical session-end stamps.
+  if (tc.collectedAt) step.timestamp = tc.collectedAt;
   if (observations.length > 0) step.observations = observations;
   return { attached: true, nextIdx: toolIdx + 1 };
 }
@@ -806,7 +817,7 @@ function buildTraceFallback(
     const obs = observationsByCallId.get(tc.toolCallId);
     const step: TraceStep = {
       stepId: i,
-      timestamp: new Date().toISOString(),
+      timestamp: tc.collectedAt ?? new Date().toISOString(),
       source: "agent",
       message: tc.functionName,
       toolCalls: [tc],

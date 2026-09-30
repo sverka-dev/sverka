@@ -1,12 +1,12 @@
 /**
  * Arena trace → sverka report. Spec 52.
  *
- * The ACP collector stamps every trace step with the same timestamp
- * (session replay), so real per-step timing does not exist. We still
- * know the true wall-clock total (`metrics.executionTimeMs`), so the
- * report synthesizes per-step durations by allocating the real total
- * across steps weighted by kind — tool calls, LLM thinking, plain
- * messages. Honest totals, estimated breakdown — marked in context.
+ * Timing: fresh traces carry real per-step timestamps — the collector
+ * stamps each `session/update` with its arrival time (`ToolCall.
+ * collectedAt`), and attached steps inherit it. Older snapshots only
+ * have the DB's identical session-end stamps, so for them the report
+ * falls back to allocating the real `executionTimeMs` total across
+ * steps weighted by kind — tool calls, LLM thinking, plain messages.
  */
 import type { RunEvent } from "@sverka/runtime";
 import type { DefinitionGraph } from "@sverka/workflow";
@@ -29,6 +29,8 @@ export interface ActionStep {
   kind: StepKind;
   label: string;
   detail: string;
+  /** ISO timestamp from the trace — real when the collector stamped it. */
+  at?: string | undefined;
   /** Set when this step should render as failed (run-level evidence). */
   failed?: string;
 }
@@ -91,11 +93,19 @@ export function traceToActions(trace: TraceData): ActionStep[] {
     // preceding reasoning, kept on top for context).
     const outputs = (s.observations ?? []).map((o) => o.content);
     const detail = [s.message, ...outputs].filter(Boolean).join("\n\n");
+    // Provenance: only a timestamp that came from a live collector stamp
+    // counts as real — DB session-end stamps are identical across steps
+    // and a single live stamp among them must not flip the whole run
+    // into real-timing mode.
+    const stamped = (s.toolCalls ?? []).some(
+      (c) => c.collectedAt !== undefined && c.collectedAt === s.timestamp,
+    );
     out.push({
       stepId: `s${String(++n).padStart(2, "0")} ${kind}: ${label}`,
       kind,
       label,
       detail,
+      at: stamped ? s.timestamp : undefined,
     });
   }
   return out;
@@ -125,9 +135,34 @@ function failureStep(result: RunResult, n: number): ActionStep | undefined {
   };
 }
 
+/** Real start offsets (ms) per step, or `undefined` when stamps are unusable. */
+function stepStarts(steps: readonly ActionStep[]): number[] | undefined {
+  const stamps = steps.map((s) => (s.at ? Date.parse(s.at) : NaN));
+  const usable = stamps.filter(Number.isFinite);
+  if (usable.length === 0 || new Set(usable).size < 2) return undefined;
+  const t0 = Math.min(...usable);
+  const out: number[] = [];
+  let last = 0;
+  for (const s of stamps) {
+    if (Number.isFinite(s)) last = Math.max(s - t0, 0);
+    out.push(last);
+  }
+  // All stamps identical → no usable spread, fall back to weights.
+  if (out[out.length - 1] === 0) return undefined;
+  return out;
+}
+
+/** Whether per-step timings in this run come from live ACP events. */
+export function hasRealTimings(result: RunResult): boolean {
+  return stepStarts(traceToActions(result.trace)) !== undefined;
+}
+
 /**
- * Convert a run into a sverka `RunEvent` stream. Per-step `at`/`durationMs`
- * are synthetic — allocated from the real `executionTimeMs` total.
+ * Convert a run into a sverka `RunEvent` stream. When steps carry real
+ * collector timestamps, `at`/`durationMs` are derived from them (gaps
+ * before the first stamped step stay unrepresented; the tail absorbs
+ * the remainder of `executionTimeMs`). Otherwise durations are the
+ * weighted allocation of the real total.
  */
 export function traceToRunEvents(
   result: RunResult,
@@ -137,6 +172,7 @@ export function traceToRunEvents(
   const failed = failureStep(result, actions.length);
   const steps = failed ? [...actions, failed] : actions;
   const totalMs = Math.max(result.metrics.executionTimeMs || 0, 1);
+  const starts = stepStarts(steps);
   const totalWeight = steps.reduce((a, s) => a + weight(s.kind), 0) || 1;
   const runId = opts?.runId ?? `arena-${result.taskId}`;
 
@@ -151,12 +187,14 @@ export function traceToRunEvents(
 
   let t = 0;
   steps.forEach((a, i) => {
-    // Weighted share of the REAL total — the last step absorbs the
-    // rounding remainder so durations always sum to executionTimeMs.
+    // The last step absorbs the rounding/remainder so durations always
+    // sum to the real executionTimeMs.
     const dur =
       i === steps.length - 1
         ? Math.max(totalMs - t, 0)
-        : Math.round((totalMs * weight(a.kind)) / totalWeight);
+        : starts
+          ? Math.max(Math.min(starts[i + 1]!, totalMs) - t, 0)
+          : Math.round((totalMs * weight(a.kind)) / totalWeight);
     events.push({ type: "step-started", stepId: a.stepId, at: t });
     events.push(
       a.failed
@@ -233,8 +271,9 @@ export function writeTraceReport(
     { label: "success", value: String(result.success) },
     {
       label: "timing",
-      value:
-        "durations estimated — ACP traces have no per-step timestamps; total is real",
+      value: hasRealTimings(result)
+        ? "durations from live ACP event times; total is real"
+        : "durations estimated — trace has no per-step timestamps; total is real",
     },
     ...(context?.meta ?? []),
   ];

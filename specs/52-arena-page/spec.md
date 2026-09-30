@@ -23,9 +23,12 @@ Dogfooding: render an agent run as a sverka report.
 - `website/` is not an npm workspace member — scripts import arena
   sources by relative path; the module's `@sverka/*` imports resolve to
   built `dist/` (`bun run build` first).
-- ACP traces carry **no usable per-step timestamps** — the collector
-  stamps every step with the same time. Reports mark synthesized
-  timing explicitly; the run total (`executionTimeMs`) is real.
+- Per-step timing comes from the **live ACP stream**: the collector
+  stamps each `session/update` arrival (`ToolCall.collectedAt`) and
+  attached steps inherit it. `message_nodes.created_at` is unusable —
+  the CLI batch-writes all nodes at session end with one epoch-second
+  stamp. Traces without real stamps (old snapshots) fall back to
+  weighted allocation; reports state which mode was used.
 
 ## Design
 
@@ -50,14 +53,16 @@ Dogfooding: render an agent run as a sverka report.
   Labels come from `functionName` + the key argument (`command`,
   `file_path`) or a truncated message line.
 - `traceToRunEvents` emits a `RunEvent` stream — one
-  `step-started`/`step-succeeded` pair per action. Since real per-step
-  timing does not exist, the **real** total (`executionTimeMs`) is
-  allocated across steps weighted by kind (tool 4 / think 2 /
-  message 1, floor 150ms) — honest total, estimated breakdown.
+  `step-started`/`step-succeeded` pair per action. With ≥2 distinct
+  step timestamps, durations are derived from them (unstamped steps
+  inherit the previous start, the tail absorbs the remainder of the
+  real `executionTimeMs`). With identical/absent stamps, the real
+  total is allocated across steps weighted by kind (tool 4 /
+  think 2 / message 1) — honest total, estimated breakdown.
 - `traceGraph` builds a linear-chain `DefinitionGraph` so the DAG view
   shows the action sequence.
 - `writeTraceReport` renders via `createHtmlRenderer` with context
-  (task/model/plugins/success + the synthetic-timing disclaimer) —
+  (task/model/plugins/success + the timing-mode note) —
   same self-contained HTML as pipeline reports: Gantt, DAG, tree,
   list, step-click filtering.
 

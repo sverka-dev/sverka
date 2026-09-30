@@ -6,6 +6,7 @@ import {
   traceToActions,
   traceToRunEvents,
   traceGraph,
+  hasRealTimings,
   writeTraceReport,
 } from "../src/trace-report.js";
 import type { RunResult, TraceData, TraceStep } from "../src/types.js";
@@ -146,6 +147,56 @@ describe("traceToRunEvents", () => {
     for (let i = 1; i < ats.length; i++) {
       expect(ats[i]).toBeGreaterThanOrEqual(ats[i - 1]!);
     }
+  });
+
+  it("uses real per-step durations when collector stamps differ", () => {
+    const t = trace([
+      step({
+        stepId: 1,
+        toolCalls: [
+          {
+            functionName: "exec",
+            arguments: { command: "ls" },
+            toolCallId: "c1",
+            collectedAt: "2026-09-28T00:00:00.000Z",
+          },
+        ],
+        timestamp: "2026-09-28T00:00:00.000Z",
+      }),
+      step({
+        stepId: 2,
+        toolCalls: [
+          {
+            functionName: "exec",
+            arguments: { command: "bun test" },
+            toolCallId: "c2",
+            collectedAt: "2026-09-28T00:00:10.000Z",
+          },
+        ],
+        timestamp: "2026-09-28T00:00:10.000Z",
+      }),
+    ]);
+    const r = result(t);
+    expect(hasRealTimings(r)).toBe(true);
+    const succeeded = traceToRunEvents(r).filter(
+      (e) => e.type === "step-succeeded",
+    );
+    if (
+      succeeded[0]?.type === "step-succeeded" &&
+      succeeded[1]?.type === "step-succeeded"
+    ) {
+      // 10s real gap, 12s total → first bar ~10s, tail absorbs ~2s
+      expect(succeeded[0].durationMs).toBe(10000);
+      expect(succeeded[1].durationMs).toBe(2000);
+    }
+  });
+
+  it("falls back to weights when all timestamps are identical", () => {
+    const t = trace([
+      step({ stepId: 1, isLlmCall: true, message: "a" }),
+      step({ stepId: 2, isLlmCall: true, message: "b" }),
+    ]);
+    expect(hasRealTimings(result(t))).toBe(false);
   });
 
   it("marks the run failed and fails the tail step when success is false", () => {
