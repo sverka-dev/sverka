@@ -546,7 +546,7 @@ function renderDrawer(): string {
     </div>
     <div id="drawer-meta" class="drawer-meta"></div>
     <div class="drawer-actions">
-      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
+      <button type="button" id="drawer-findings" class="drawer-btn">Open in findings table</button>
     </div>
     <div id="drawer-body"></div>
   </aside>`;
@@ -671,10 +671,11 @@ ${renderHead(context?.title ?? "Sverka Run Report")}
   <main id="layout" class="stacked">
     ${renderStepsSection(state, dagLayout, dagLayoutTB)}
 
+    ${renderDrawer()}
+
     ${renderFindingsSection(findingsHtml)}
   </main>
 
-  ${renderDrawer()}
   ${renderScripts(findingsData, stepsData)}
 </body>
 </html>`;
@@ -871,22 +872,34 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
-.step-drawer {
+/* Step inspector — one panel for status, findings and logs.
+   Stacked layout: in-flow section between Steps and Findings.
+   Split layout: docked to the right edge. Narrow screens always
+   fall back to the in-flow variant (matches the grid collapse). */
+.step-drawer { display: none; }
+.step-drawer.open {
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  margin: 0 2rem 1rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+main.split .step-drawer.open {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(560px, 92vw);
-  background: #161b22;
+  width: min(560px, 40vw);
+  max-height: none;
+  margin: 0;
+  border: none;
   border-left: 1px solid #30363d;
+  border-radius: 0;
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
-  transform: translateX(100%);
-  transition: transform 0.2s ease;
   z-index: 50;
-  display: flex;
-  flex-direction: column;
 }
-.step-drawer.open { transform: translateX(0); }
 .drawer-head {
   display: flex;
   align-items: center;
@@ -922,6 +935,12 @@ details summary { cursor: pointer; font-size: 0.875rem; }
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
+.drawer-finding {
+  font-size: 0.8rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #21262d;
+  word-break: break-word;
+}
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -1045,6 +1064,16 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 @media (max-width: 900px) {
   main.split { grid-template-columns: 1fr; }
   main.split section + section { border-left: none; border-top: 1px solid #21262d; }
+  /* Narrow screens: inspector docks in-flow even in split mode. */
+  main.split .step-drawer.open {
+    position: static;
+    width: auto;
+    max-height: 70vh;
+    margin: 0 1rem 1rem;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    box-shadow: none;
+  }
 }
 @media (max-width: 768px) {
   section { padding: 1rem; }
@@ -1413,6 +1442,31 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     var body = document.getElementById("drawer-body");
     body.textContent = "";
     if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    // The step's findings live next to its logs — one inspector.
+    var stepFindings = findingsData.filter(function(f) {
+      return stepMatches(id, f.checkId);
+    });
+    if (stepFindings.length) {
+      body.appendChild(
+        drawerEl(
+          "h4",
+          "drawer-log-title",
+          "findings (" + stepFindings.length + ")",
+        ),
+      );
+      stepFindings.forEach(function(f) {
+        var row = drawerEl("div", "drawer-finding", "");
+        row.appendChild(
+          drawerEl("span", "severity-" + f.severity, f.severity + " "),
+        );
+        row.appendChild(
+          document.createTextNode(
+            f.file + ":" + f.startLine + " — " + f.message,
+          ),
+        );
+        body.appendChild(row);
+      });
+    }
     if (s.stdout) {
       body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
       body.appendChild(drawerEl("pre", "step-out", s.stdout));
@@ -1421,7 +1475,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
       body.appendChild(drawerEl("pre", "step-out err", s.stderr));
     }
-    if (!s.error && !s.stdout && !s.stderr)
+    if (!s.error && !stepFindings.length && !s.stdout && !s.stderr)
       body.appendChild(drawerEl("span", "meta", "no output captured"));
     var findingsBtn = document.getElementById("drawer-findings");
     if (findingsBtn) findingsBtn.setAttribute("data-step", id);
@@ -1431,6 +1485,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     drawer.setAttribute("aria-hidden", "false");
     var closeButton = document.getElementById("drawer-close");
     if (closeButton) closeButton.focus();
+    // In-flow placement (stacked/narrow) sits below the clicked view —
+    // bring it into view; the fixed dock needs no scroll.
+    if (getComputedStyle(drawer).position !== "fixed")
+      drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function closeStep() {
