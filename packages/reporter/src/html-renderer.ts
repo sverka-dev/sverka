@@ -834,6 +834,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 .dag-viewport svg.dag {
   display: block;
   width: 100%;
+  /* Fixed height box — the svg centers its viewBox inside
+     (preserveAspectRatio=meet), keeping the minimap on screen for
+     tall TB layouts. */
+  height: min(600px, 72vh);
   cursor: grab;
   touch-action: none;
 }
@@ -999,18 +1003,33 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     var dir = "LR";
     var base = bases[dir];
     var vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
+    var savedVb = { LR: null, TB: null };
     var baseW = base[2];
     var moved = 0;
+    var captured = false;
     var miniVp = document.getElementById("dag-mini-vp");
     var minimap = document.getElementById("dag-minimap");
 
+    // The mini svgs preserve aspect ratio (meet), so the graph may be
+    // padded inside the minimap — map through the rendered box,
+    // not the element rect.
+    function miniBox() {
+      var r = minimap.getBoundingClientRect();
+      var s = Math.min(r.width / base[2], r.height / base[3]);
+      return {
+        r: r,
+        s: s,
+        ox: (r.width - base[2] * s) / 2,
+        oy: (r.height - base[3] * s) / 2,
+      };
+    }
     function updateMini() {
       if (!miniVp || !minimap) return;
-      var r = minimap.getBoundingClientRect();
-      miniVp.style.left = ((vb.x - base[0]) / base[2] * 100) + "%";
-      miniVp.style.top = ((vb.y - base[1]) / base[3] * 100) + "%";
-      miniVp.style.width = Math.min(vb.w / base[2], 1) * 100 + "%";
-      miniVp.style.height = Math.min(vb.h / base[3], 1) * 100 + "%";
+      var m = miniBox();
+      miniVp.style.left = m.ox + (vb.x - base[0]) * m.s + "px";
+      miniVp.style.top = m.oy + (vb.y - base[1]) * m.s + "px";
+      miniVp.style.width = Math.min(vb.w, base[2]) * m.s + "px";
+      miniVp.style.height = Math.min(vb.h, base[3]) * m.s + "px";
     }
     function apply() {
       svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
@@ -1025,11 +1044,23 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       vb.h = vb.h * f;
       apply();
     }
-    function toVb(e) {
+    // The svg element is a fixed-height box while the viewBox keeps the
+    // graph's aspect — preserveAspectRatio=meet centers it, so map
+    // pointer coordinates through the rendered box, not the element.
+    function renderBox() {
       var r = svg.getBoundingClientRect();
+      var s = Math.min(r.width / vb.w, r.height / vb.h);
       return {
-        x: vb.x + ((e.clientX - r.left) / r.width) * vb.w,
-        y: vb.y + ((e.clientY - r.top) / r.height) * vb.h,
+        s: s,
+        ox: r.left + (r.width - vb.w * s) / 2,
+        oy: r.top + (r.height - vb.h * s) / 2,
+      };
+    }
+    function toVb(e) {
+      var m = renderBox();
+      return {
+        x: vb.x + (e.clientX - m.ox) / m.s,
+        y: vb.y + (e.clientY - m.oy) / m.s,
       };
     }
 
@@ -1043,27 +1074,31 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     svg.addEventListener("pointerdown", function(e) {
       drag = { x: e.clientX, y: e.clientY };
       moved = 0;
+      captured = false;
       svg.classList.add("panning");
     });
     svg.addEventListener("pointermove", function(e) {
       if (!drag) return;
-      // Capture the pointer only once a real drag is underway —
+      var scale = 1 / renderBox().s;
+      moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
+      // Capture the pointer only once the drag threshold is passed —
       // capturing on pointerdown would retarget the click to the svg
       // and swallow node clicks.
-      if (moved === 0) {
+      if (!captured && moved > 4) {
         try {
           svg.setPointerCapture(e.pointerId);
         } catch {}
+        captured = true;
       }
-      var r = svg.getBoundingClientRect();
-      var scale = vb.w / r.width;
-      moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
       vb.x -= (e.clientX - drag.x) * scale;
       vb.y -= (e.clientY - drag.y) * scale;
       drag = { x: e.clientX, y: e.clientY };
       apply();
     });
-    function endDrag() { drag = null; svg.classList.remove("panning"); }
+    function endDrag() {
+      drag = null;
+      svg.classList.remove("panning");
+    }
     svg.addEventListener("pointerup", endDrag);
     svg.addEventListener("pointercancel", endDrag);
 
@@ -1086,10 +1121,11 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (dirBtn) {
       dirBtn.addEventListener("click", function(e) {
         e.stopPropagation();
+        savedVb[dir] = { x: vb.x, y: vb.y, w: vb.w, h: vb.h };
         dir = dir === "LR" ? "TB" : "LR";
         base = bases[dir];
         baseW = base[2];
-        vb = { x: base[0], y: base[1], w: base[2], h: base[3] };
+        vb = savedVb[dir] || { x: base[0], y: base[1], w: base[2], h: base[3] };
         svg.querySelectorAll(".dag-dir").forEach(function(g) {
           g.toggleAttribute("hidden", g.getAttribute("data-dir") !== dir);
         });
@@ -1099,6 +1135,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
           });
         }
         apply();
+        // The new layer has no highlight classes yet — relight the
+        // node that owns the active step filter.
+        if (window.__stepFilter) lightDag(window.__stepFilter);
+        else clearDagLight();
       });
     }
 
@@ -1106,9 +1146,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (minimap) {
       var miniDrag = false;
       function miniTo(e) {
-        var r = minimap.getBoundingClientRect();
-        vb.x = base[0] + ((e.clientX - r.left) / r.width) * base[2] - vb.w / 2;
-        vb.y = base[1] + ((e.clientY - r.top) / r.height) * base[3] - vb.h / 2;
+        var m = miniBox();
+        vb.x = base[0] + (e.clientX - m.r.left - m.ox) / m.s - vb.w / 2;
+        vb.y = base[1] + (e.clientY - m.r.top - m.oy) / m.s - vb.h / 2;
         apply();
       }
       minimap.addEventListener("pointerdown", function(e) {
