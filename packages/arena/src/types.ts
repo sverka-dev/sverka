@@ -176,6 +176,8 @@ export interface ToolCall {
   functionName: string;
   arguments: Record<string, unknown>;
   toolCallId: string;
+  /** ISO time the `session/update` arrived — real-time, unlike DB created_at. */
+  collectedAt?: string;
 }
 
 /** Observation result from a tool call */

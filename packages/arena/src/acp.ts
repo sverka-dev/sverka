@@ -150,15 +150,16 @@ export function createPermissionHandler(): acp.ClientRequestHandler<
  */
 function handleSessionUpdate(
   message: acp.ActiveSessionMessage,
-  onToolCall?: (update: ToolCallMessage) => void,
-  onToolUpdate?: (update: ToolCallUpdateMessage) => void,
+  onToolCall?: (update: ToolCallMessage, receivedAt: number) => void,
+  onToolUpdate?: (update: ToolCallUpdateMessage, receivedAt: number) => void,
 ): PromptResponse | undefined {
   if (message.kind === "stop") return message.response;
+  const receivedAt = Date.now();
   const update = message.update;
   if (update.sessionUpdate === "tool_call") {
-    onToolCall?.(update);
+    onToolCall?.(update, receivedAt);
   } else if (update.sessionUpdate === "tool_call_update") {
-    onToolUpdate?.(update);
+    onToolUpdate?.(update, receivedAt);
   }
   return undefined;
 }
@@ -171,8 +172,8 @@ async function runSessionLoop(
   session: acp.ActiveSession,
   prompt: string,
   timeoutMs: number,
-  onToolCall?: (update: ToolCallMessage) => void,
-  onToolUpdate?: (update: ToolCallUpdateMessage) => void,
+  onToolCall?: (update: ToolCallMessage, receivedAt: number) => void,
+  onToolUpdate?: (update: ToolCallUpdateMessage, receivedAt: number) => void,
   onSession?: (sessionId: string) => void,
 ): Promise<PromptResponse> {
   onSession?.(session.sessionId);
@@ -214,8 +215,8 @@ export async function runAcpSession(
   workspace: string,
   prompt: string,
   timeoutMs: number,
-  onToolCall?: (update: ToolCallMessage) => void,
-  onToolUpdate?: (update: ToolCallUpdateMessage) => void,
+  onToolCall?: (update: ToolCallMessage, receivedAt: number) => void,
+  onToolUpdate?: (update: ToolCallUpdateMessage, receivedAt: number) => void,
   onSession?: (sessionId: string) => void,
 ): Promise<PromptResponse> {
   if (!proc.stdin || !proc.stdout) {
