@@ -1,3 +1,14 @@
+## 0.1.27 (2026-09-30)
+
+### 🚀 Features
+
+- **report:** unified step inspector — findings+logs, layout-aware docking ([#269](https://github.com/sverka-dev/sverka/pull/269))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.26 (2026-09-30)
 
 ### 🚀 Features
