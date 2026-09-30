@@ -88,7 +88,8 @@ svg.dag marker path { fill: #4a5568; }
 .verdict-none { background: #21262d; color: #8b949e; }
 .findings-controls { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
 .filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.filter-btn {
+.filter-btn,
+.drawer-btn {
   padding: 0.25rem 0.75rem;
   border: 1px solid #30363d;
   border-radius: 6px;
@@ -98,7 +99,8 @@ svg.dag marker path { fill: #4a5568; }
   font-size: 0.8rem;
 }
 .filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-.filter-btn:hover { border-color: #8b949e; }
+.filter-btn:hover,
+.drawer-btn:hover { border-color: #8b949e; }
 .search-input {
   padding: 0.25rem 0.5rem;
   border: 1px solid #30363d;
@@ -145,6 +147,57 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
+.step-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 92vw);
+  background: #161b22;
+  border-left: 1px solid #30363d;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+.step-drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #30363d;
+}
+.drawer-head b { flex: 1; font-size: 0.9rem; word-break: break-all; }
+#drawer-close {
+  background: none;
+  border: none;
+  color: #8b949e;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+#drawer-close:hover { color: #f0f6fc; }
+.drawer-meta {
+  padding: 0.4rem 1rem;
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+.drawer-actions {
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-log-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
+#drawer-body .step-out { max-height: none; }
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -292,7 +345,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T18:26:43.751Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T22:14:10.273Z</span>
     </div>
   </header>
 
@@ -555,78 +608,40 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   </div></div>
     <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" style="border-color:#3fb950">✓ s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" style="border-color:#3fb950">✓ s02 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" style="border-color:#3fb950">✓ s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" style="border-color:#3fb950">✓ s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" style="border-color:#3fb950">✓ s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" style="border-color:#3fb950">✓ s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-17…" style="border-color:#3fb950">✓ s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-17… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 think: exec" style="border-color:#3fb950">✓ s08 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 think: All 8 tests pass. Two bugs fixed in `src/index.ts`: - **`co…" style="border-color:#3fb950">✓ s09 think: All 8 tests pass. Two bugs fixed in `src/index.ts`: - **`co… <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… <span class="step-state succeeded">succeeded</span> <span class="meta">3.5s</span> <button type="button" class="step-findings" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I need to understand the project&#39;s layout before I can proceed.
-
-total 604
-drwxr-xr-x    5 pepl pepl   4096 Sep 30 19:55 .
-drwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin
--rw-r--r--    1 pepl pepl    113 Sep 30 19:55 package.json
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test
-/tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-1790790900139/test/index.test.ts
-/tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-1790790900139/package.json
-/tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-1790790900139/src/index.ts
-/tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-1790790900139/.devin/config.json</pre></div>
+        <summary><span class="step-icon">✓</span> s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… <span class="step-state succeeded">succeeded</span> <span class="meta">3.5s</span> <button type="button" class="step-findings" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s02 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s02 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I need to understand the project&#39;s layout before I can proceed.
-
-33 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s02 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s02 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">read, read, read
-
-38 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">7.2s</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">read, read, read
-
-8 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">7.2s</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Two documented bugs in `src/index.ts`. Fixing `countUniqueWords` (dedupe case-insensitively, handle empty string) and `truncate` (off-by-one: keep `maxLen - 3` chars so result is exactly `maxLen`).</pre></div>
+        <summary><span class="step-icon">✓</span> s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">2.6s</span> <button type="button" class="step-findings" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Two documented bugs in `src/index.ts`. Fixing `countUniqueWords` (dedupe case-insensitively, handle empty string) and `truncate` (off-by-one: keep `maxLen - 3` chars so result is exactly `maxLen`).</pre></div>
+        <summary><span class="step-icon">✓</span> s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">2.6s</span> <button type="button" class="step-findings" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-17… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-17…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec
-
-bun test v1.4.2 (744846f84)
-
-test/index.test.ts:
-(pass) capitalize &gt; capitalizes first letter [3.72ms]
-(pass) capitalize &gt; handles empty string [0.03ms]
-(pass) reverse &gt; reverses a string [2.63ms]
-(pass) countUniqueWords &gt; counts unique words case-insensitively [11.07ms]
-(pass) countUniqueWords &gt; handles single word [0.48ms]
-(pass) countUniqueWords &gt; handles empty string [0.02ms]
-(pass) truncate &gt; truncates long strings with ellipsis [0.10ms]
-(pass) truncate &gt; does not truncate short strings
-
- 8 pass
- 0 fail
- 8 expect() calls
-Ran 8 tests across 1 file. [113.00ms]</pre></div>
+        <summary><span class="step-icon">✓</span> s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-17… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-17…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s08 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 think: exec" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec</pre></div>
+        <summary><span class="step-icon">✓</span> s08 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 think: exec" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s09 think: All 8 tests pass. Two bugs fixed in `src/index.ts`: - **`co… <span class="step-state succeeded">succeeded</span> <span class="meta">9.8s</span> <button type="button" class="step-findings" data-step="s09 think: All 8 tests pass. Two bugs fixed in `src/index.ts`: - **`co…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">All 8 tests pass. Two bugs fixed in `src/index.ts`:
-
-- **`countUniqueWords`**: was returning total word count. Now lowercases words, dedupes with a `Set`, and returns 0 for empty/whitespace-only input (`&quot;&quot;.split(/\s+/)` yields `[&quot;&quot;]`).
-- **`truncate`**: off-by-one — sliced `maxLen - 4` chars, producing `maxLen - 1` total. Now slices `maxLen - 3` so `&quot;hello world&quot;` at `maxLen=8` gives `&quot;hello...&quot;` (exactly 8 chars).</pre></div>
+        <summary><span class="step-icon">✓</span> s09 think: All 8 tests pass. Two bugs fixed in `src/index.ts`: - **`co… <span class="step-state succeeded">succeeded</span> <span class="meta">9.8s</span> <button type="button" class="step-findings" data-step="s09 think: All 8 tests pass. Two bugs fixed in `src/index.ts`: - **`co…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details></div>
   </section>
 
@@ -664,8 +679,21 @@ Ran 8 tests across 1 file. [113.00ms]</pre></div>
   </section>
   </main>
 
+  <aside id="step-drawer" class="step-drawer" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <b id="drawer-title"></b>
+      <span id="drawer-state" class="step-state"></span>
+      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-actions">
+      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
+    </div>
+    <div id="drawer-body"></div>
+  </aside>
   <script>
     var __FINDINGS_DATA__ = [];
+    var __STEPS_DATA__ = {"s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…":{"state":"succeeded","durationMs":3510,"exitCode":null,"error":null,"stdout":"I need to understand the project's layout before I can proceed.\n\ntotal 604\ndrwxr-xr-x    5 pepl pepl   4096 Sep 30 19:55 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin\n-rw-r--r--    1 pepl pepl    113 Sep 30 19:55 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test\n/tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-1790790900139/test/index.test.ts\n/tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-1790790900139/package.json\n/tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-1790790900139/src/index.ts\n/tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-1790790900139/.devin/config.json","stderr":null},"s02 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"I need to understand the project's layout before I can proceed.\n\n33 lines","stderr":null},"s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"read, read, read\n\n38 lines","stderr":null},"s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…":{"state":"succeeded","durationMs":7207,"exitCode":null,"error":null,"stdout":"read, read, read\n\n8 lines","stderr":null},"s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"Two documented bugs in `src/index.ts`. Fixing `countUniqueWords` (dedupe case-insensitively, handle empty string) and `truncate` (off-by-one: keep `maxLen - 3` chars so result is exactly `maxLen`).","stderr":null},"s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-179…":{"state":"succeeded","durationMs":2558,"exitCode":null,"error":null,"stdout":"Two documented bugs in `src/index.ts`. Fixing `countUniqueWords` (dedupe case-insensitively, handle empty string) and `truncate` (off-by-one: keep `maxLen - 3` chars so result is exactly `maxLen`).","stderr":null},"s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaoff-r0-17…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [3.72ms]\n(pass) capitalize > handles empty string [0.03ms]\n(pass) reverse > reverses a string [2.63ms]\n(pass) countUniqueWords > counts unique words case-insensitively [11.07ms]\n(pass) countUniqueWords > handles single word [0.48ms]\n(pass) countUniqueWords > handles empty string [0.02ms]\n(pass) truncate > truncates long strings with ellipsis [0.10ms]\n(pass) truncate > does not truncate short strings\n\n 8 pass\n 0 fail\n 8 expect() calls\nRan 8 tests across 1 file. [113.00ms]","stderr":null},"s08 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s09 think: All 8 tests pass. Two bugs fixed in `src/index.ts`: - **`co…":{"state":"succeeded","durationMs":9765,"exitCode":null,"error":null,"stdout":"All 8 tests pass. Two bugs fixed in `src/index.ts`:\n\n- **`countUniqueWords`**: was returning total word count. Now lowercases words, dedupes with a `Set`, and returns 0 for empty/whitespace-only input (`\"\".split(/\\s+/)` yields `[\"\"]`).\n- **`truncate`**: off-by-one — sliced `maxLen - 4` chars, producing `maxLen - 1` total. Now slices `maxLen - 3` so `\"hello world\"` at `maxLen=8` gives `\"hello...\"` (exactly 8 chars).","stderr":null}};
   </script>
   <script>
 (function() {
@@ -993,10 +1021,77 @@ Ran 8 tests across 1 file. [113.00ms]</pre></div>
     var name = document.getElementById("step-filter-name");
     if (name) name.textContent = stepFilter || "";
     renderTable();
-    if (stepFilter) {
+  }
+
+  // Step-details drawer — logs and error for the clicked step.
+  var stepsData = window.__STEPS_DATA__ || {};
+  var drawer = document.getElementById("step-drawer");
+  var drawerOpener = null;
+
+  function drawerEl(tag, cls, text) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function openStep(id, opener) {
+    if (!drawer) return;
+    var s = stepsData[id];
+    if (!s) {
+      closeStep();
+      return;
+    }
+    document.getElementById("drawer-title").textContent = id;
+    var st = document.getElementById("drawer-state");
+    st.textContent = s.state;
+    st.className = "step-state " + s.state;
+    var meta = [];
+    if (s.durationMs != null) meta.push(s.durationMs + "ms");
+    if (s.exitCode != null) meta.push("exit " + s.exitCode);
+    document.getElementById("drawer-meta").textContent = meta.join(" · ");
+    var body = document.getElementById("drawer-body");
+    body.textContent = "";
+    if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    if (s.stdout) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
+      body.appendChild(drawerEl("pre", "step-out", s.stdout));
+    }
+    if (s.stderr) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
+      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
+    }
+    if (!s.error && !s.stdout && !s.stderr)
+      body.appendChild(drawerEl("span", "meta", "no output captured"));
+    var findingsBtn = document.getElementById("drawer-findings");
+    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+    drawerOpener = opener || null;
+    drawer.removeAttribute("inert");
+    drawer.classList.add("open");
+    drawer.setAttribute("aria-hidden", "false");
+  }
+
+  function closeStep() {
+    if (!drawer) return;
+    var opener = drawerOpener;
+    drawerOpener = null;
+    drawer.classList.remove("open");
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.setAttribute("inert", "");
+    if (opener && typeof opener.focus === "function") opener.focus();
+  }
+
+  var drawerClose = document.getElementById("drawer-close");
+  if (drawerClose) drawerClose.addEventListener("click", closeStep);
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeStep();
+  });
+  var drawerFindings = document.getElementById("drawer-findings");
+  if (drawerFindings) {
+    drawerFindings.addEventListener("click", function() {
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    });
   }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
@@ -1014,6 +1109,10 @@ Ran 8 tests across 1 file. [113.00ms]</pre></div>
       )
         return;
       applyStepFilter(el.getAttribute("data-step"));
+      // Re-clicking the same step toggles the filter off — close the
+      // drawer with it; otherwise show the clicked step's logs.
+      if (stepFilter) openStep(stepFilter, el);
+      else closeStep();
     });
   });
 
@@ -1029,6 +1128,7 @@ Ran 8 tests across 1 file. [113.00ms]</pre></div>
       var chip = document.getElementById("step-filter-chip");
       if (chip) chip.classList.add("hidden");
       renderTable();
+      closeStep();
     });
   }
 

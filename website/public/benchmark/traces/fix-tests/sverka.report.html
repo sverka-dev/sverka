@@ -88,7 +88,8 @@ svg.dag marker path { fill: #4a5568; }
 .verdict-none { background: #21262d; color: #8b949e; }
 .findings-controls { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
 .filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.filter-btn {
+.filter-btn,
+.drawer-btn {
   padding: 0.25rem 0.75rem;
   border: 1px solid #30363d;
   border-radius: 6px;
@@ -98,7 +99,8 @@ svg.dag marker path { fill: #4a5568; }
   font-size: 0.8rem;
 }
 .filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-.filter-btn:hover { border-color: #8b949e; }
+.filter-btn:hover,
+.drawer-btn:hover { border-color: #8b949e; }
 .search-input {
   padding: 0.25rem 0.5rem;
   border: 1px solid #30363d;
@@ -145,6 +147,57 @@ details summary { cursor: pointer; font-size: 0.875rem; }
   word-break: break-all;
 }
 .step-out.err { color: #f85149; }
+.step-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 92vw);
+  background: #161b22;
+  border-left: 1px solid #30363d;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+.step-drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #30363d;
+}
+.drawer-head b { flex: 1; font-size: 0.9rem; word-break: break-all; }
+#drawer-close {
+  background: none;
+  border: none;
+  color: #8b949e;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+#drawer-close:hover { color: #f0f6fc; }
+.drawer-meta {
+  padding: 0.4rem 1rem;
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+.drawer-actions {
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-log-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
+#drawer-body .step-out { max-height: none; }
 ul.tree, ul.tree ul { list-style: none; padding-left: 1.25rem; }
 ul.tree { padding-left: 0; }
 ul.tree li { margin: 0.35rem 0; }
@@ -292,7 +345,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T18:26:43.807Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T22:14:10.331Z</span>
     </div>
   </header>
 
@@ -555,131 +608,40 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   </div></div>
     <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" style="border-color:#3fb950">✓ s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" style="border-color:#3fb950">✓ s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" style="border-color:#3fb950">✓ s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" style="border-color:#3fb950">✓ s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" style="border-color:#3fb950">✓ s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" style="border-color:#3fb950">✓ s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" style="border-color:#3fb950">✓ s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 think: exec" style="border-color:#3fb950">✓ s08 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" style="border-color:#3fb950">✓ s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU… <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… <span class="step-state succeeded">succeeded</span> <span class="meta">8ms</span> <button type="button" class="step-findings" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;ll start by looking at the project structure and running the tests to see what&#39;s failing.
-
-total 608
-drwxr-xr-x    6 pepl pepl   4096 Sep 30 19:55 .
-drwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..
-drwxr-xr-x    3 pepl pepl   4096 Sep 30 19:55 .agents
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin
--rw-r--r--    1 pepl pepl    113 Sep 30 19:55 package.json
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src
-drwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test
-/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts
-/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/src/index.ts</pre></div>
+        <summary><span class="step-icon">✓</span> s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… <span class="step-state succeeded">succeeded</span> <span class="meta">8ms</span> <button type="button" class="step-findings" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">2.1s</span> <button type="button" class="step-findings" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">I&#39;ll start by looking at the project structure and running the tests to see what&#39;s failing.
-
-bun test v1.4.2 (744846f84)
-
-test/index.test.ts:
-(pass) capitalize &gt; capitalizes first letter [0.08ms]
-(pass) capitalize &gt; handles empty string
-(pass) reverse &gt; reverses a string [0.06ms]
-16 |   });
-17 | });
-18 |
-19 | describe(&quot;countUniqueWords&quot;, () =&gt; {
-20 |   it(&quot;counts unique words case-insensitively&quot;, () =&gt; {
-21 |     expect(countUniqueWords(&quot;hello world hello&quot;)).toBe(2);
-                                                       ^
-error: expect(received).toBe(expected)
-
-Expected: 2
-Received: 3
-
-      at &lt;anonymous&gt; (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:21:51)
-(fail) countUniqueWords &gt; counts unique words case-insensitively [19.26ms]
-(pass) countUniqueWords &gt; handles single word [0.11ms]
-22 |   });
-23 |   it(&quot;handles single word&quot;, () =&gt; {
-24 |     expect(countUniqueWords(&quot;hello&quot;)).toBe(1);
-25 |   });
-26 |   it(&quot;handles empty string&quot;, () =&gt; {
-27 |     expect(countUniqueWords(&quot;&quot;)).toBe(0);
-                                      ^
-error: expect(received).toBe(expected)
-
-Expected: 0
-Received: 1
-
-      at &lt;anonymous&gt; (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:27:34)
-(fail) countUniqueWords &gt; handles empty string [0.42ms]
-28 |   });
-29 | });
-30 |
-31 | describe(&quot;truncate&quot;, () =&gt; {
-32 |   it(&quot;truncates long strings with ellipsis&quot;, () =&gt; {
-33 |     expect(truncate(&quot;hello world&quot;, 8)).toBe(&quot;hello...&quot;);
-                                            ^
-error: expect(received).toBe(expected)
-
-Expected: &quot;hello...&quot;
-Received: &quot;hell...&quot;
-
-      at &lt;anonymous&gt; (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:33:40)
-(fail) truncate &gt; truncates long strings with ellipsis [3.94ms]
-(pass) truncate &gt; does not truncate short strings [0.04ms]
-
- 5 pass
- 3 fail
- 8 expect() calls
-Ran 8 tests across 1 file. [28.00ms]</pre></div>
+        <summary><span class="step-icon">✓</span> s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">2.1s</span> <button type="button" class="step-findings" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Small project — let me read the source and test files.
-
-33 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">4.3s</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Small project — let me read the source and test files.
-
-38 lines</pre></div>
+        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">4.3s</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Two bugs. `countUniqueWords` counts all words instead of unique case-insensitive words (and `&quot;&quot;.split(/\s+/)` gives `[&quot;&quot;]` → 1, not 0). `truncate` slices `maxLen - 4` instead of `maxLen - 3`. Fixing both.</pre></div>
+        <summary><span class="step-icon">✓</span> s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">1.9s</span> <button type="button" class="step-findings" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">Two bugs. `countUniqueWords` counts all words instead of unique case-insensitive words (and `&quot;&quot;.split(/\s+/)` gives `[&quot;&quot;]` → 1, not 0). `truncate` slices `maxLen - 4` instead of `maxLen - 3`. Fixing both.</pre></div>
+        <summary><span class="step-icon">✓</span> s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">1.9s</span> <button type="button" class="step-findings" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec
-
-bun test v1.4.2 (744846f84)
-
-test/index.test.ts:
-(pass) capitalize &gt; capitalizes first letter [0.65ms]
-(pass) capitalize &gt; handles empty string [0.02ms]
-(pass) reverse &gt; reverses a string [2.48ms]
-(pass) countUniqueWords &gt; counts unique words case-insensitively [3.01ms]
-(pass) countUniqueWords &gt; handles single word [1.20ms]
-(pass) countUniqueWords &gt; handles empty string [1.64ms]
-(pass) truncate &gt; truncates long strings with ellipsis [0.04ms]
-(pass) truncate &gt; does not truncate short strings [0.31ms]
-
- 8 pass
- 0 fail
- 8 expect() calls
-Ran 8 tests across 1 file. [100.00ms]</pre></div>
+        <summary><span class="step-icon">✓</span> s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s08 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 think: exec" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">exec</pre></div>
+        <summary><span class="step-icon">✓</span> s08 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 think: exec" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU… <span class="step-state succeeded">succeeded</span> <span class="meta">7.8s</span> <button type="button" class="step-findings" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" title="Show only findings from this step">findings</button></summary>
-        <div class="step-body"><pre class="step-out">All 8 tests pass. Two fixes in `src/index.ts`:
-
-1. **`countUniqueWords`** — was returning the total word count. Now it filters empty strings, lowercases each word, and returns the `Set` size.
-2. **`truncate`** — was slicing `maxLen - 4` chars, producing output 1 char short of `maxLen`. Now slices `maxLen - 3` so `&quot;...&quot;` brings the total to exactly `maxLen`.</pre></div>
+        <summary><span class="step-icon">✓</span> s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU… <span class="step-state succeeded">succeeded</span> <span class="meta">7.8s</span> <button type="button" class="step-findings" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details></div>
   </section>
 
@@ -717,8 +679,21 @@ Ran 8 tests across 1 file. [100.00ms]</pre></div>
   </section>
   </main>
 
+  <aside id="step-drawer" class="step-drawer" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <b id="drawer-title"></b>
+      <span id="drawer-state" class="step-state"></span>
+      <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-actions">
+      <button type="button" id="drawer-findings" class="drawer-btn">Findings for this step</button>
+    </div>
+    <div id="drawer-body"></div>
+  </aside>
   <script>
     var __FINDINGS_DATA__ = [];
+    var __STEPS_DATA__ = {"s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…":{"state":"succeeded","durationMs":8,"exitCode":null,"error":null,"stdout":"I'll start by looking at the project structure and running the tests to see what's failing.\n\ntotal 608\ndrwxr-xr-x    6 pepl pepl   4096 Sep 30 19:55 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..\ndrwxr-xr-x    3 pepl pepl   4096 Sep 30 19:55 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin\n-rw-r--r--    1 pepl pepl    113 Sep 30 19:55 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test\n/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts\n/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/src/index.ts","stderr":null},"s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…":{"state":"succeeded","durationMs":2145,"exitCode":null,"error":null,"stdout":"I'll start by looking at the project structure and running the tests to see what's failing.\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [0.08ms]\n(pass) capitalize > handles empty string\n(pass) reverse > reverses a string [0.06ms]\n16 |   });\n17 | });\n18 |\n19 | describe(\"countUniqueWords\", () => {\n20 |   it(\"counts unique words case-insensitively\", () => {\n21 |     expect(countUniqueWords(\"hello world hello\")).toBe(2);\n                                                       ^\nerror: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:21:51)\n(fail) countUniqueWords > counts unique words case-insensitively [19.26ms]\n(pass) countUniqueWords > handles single word [0.11ms]\n22 |   });\n23 |   it(\"handles single word\", () => {\n24 |     expect(countUniqueWords(\"hello\")).toBe(1);\n25 |   });\n26 |   it(\"handles empty string\", () => {\n27 |     expect(countUniqueWords(\"\")).toBe(0);\n                                      ^\nerror: expect(received).toBe(expected)\n\nExpected: 0\nReceived: 1\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:27:34)\n(fail) countUniqueWords > handles empty string [0.42ms]\n28 |   });\n29 | });\n30 |\n31 | describe(\"truncate\", () => {\n32 |   it(\"truncates long strings with ellipsis\", () => {\n33 |     expect(truncate(\"hello world\", 8)).toBe(\"hello...\");\n                                            ^\nerror: expect(received).toBe(expected)\n\nExpected: \"hello...\"\nReceived: \"hell...\"\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:33:40)\n(fail) truncate > truncates long strings with ellipsis [3.94ms]\n(pass) truncate > does not truncate short strings [0.04ms]\n\n 5 pass\n 3 fail\n 8 expect() calls\nRan 8 tests across 1 file. [28.00ms]","stderr":null},"s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"Small project — let me read the source and test files.\n\n33 lines","stderr":null},"s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":4263,"exitCode":null,"error":null,"stdout":"Small project — let me read the source and test files.\n\n38 lines","stderr":null},"s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"Two bugs. `countUniqueWords` counts all words instead of unique case-insensitive words (and `\"\".split(/\\s+/)` gives `[\"\"]` → 1, not 0). `truncate` slices `maxLen - 4` instead of `maxLen - 3`. Fixing both.","stderr":null},"s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":1872,"exitCode":null,"error":null,"stdout":"Two bugs. `countUniqueWords` counts all words instead of unique case-insensitive words (and `\"\".split(/\\s+/)` gives `[\"\"]` → 1, not 0). `truncate` slices `maxLen - 4` instead of `maxLen - 3`. Fixing both.","stderr":null},"s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [0.65ms]\n(pass) capitalize > handles empty string [0.02ms]\n(pass) reverse > reverses a string [2.48ms]\n(pass) countUniqueWords > counts unique words case-insensitively [3.01ms]\n(pass) countUniqueWords > handles single word [1.20ms]\n(pass) countUniqueWords > handles empty string [1.64ms]\n(pass) truncate > truncates long strings with ellipsis [0.04ms]\n(pass) truncate > does not truncate short strings [0.31ms]\n\n 8 pass\n 0 fail\n 8 expect() calls\nRan 8 tests across 1 file. [100.00ms]","stderr":null},"s08 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…":{"state":"succeeded","durationMs":7754,"exitCode":null,"error":null,"stdout":"All 8 tests pass. Two fixes in `src/index.ts`:\n\n1. **`countUniqueWords`** — was returning the total word count. Now it filters empty strings, lowercases each word, and returns the `Set` size.\n2. **`truncate`** — was slicing `maxLen - 4` chars, producing output 1 char short of `maxLen`. Now slices `maxLen - 3` so `\"...\"` brings the total to exactly `maxLen`.","stderr":null}};
   </script>
   <script>
 (function() {
@@ -1046,10 +1021,77 @@ Ran 8 tests across 1 file. [100.00ms]</pre></div>
     var name = document.getElementById("step-filter-name");
     if (name) name.textContent = stepFilter || "";
     renderTable();
-    if (stepFilter) {
+  }
+
+  // Step-details drawer — logs and error for the clicked step.
+  var stepsData = window.__STEPS_DATA__ || {};
+  var drawer = document.getElementById("step-drawer");
+  var drawerOpener = null;
+
+  function drawerEl(tag, cls, text) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function openStep(id, opener) {
+    if (!drawer) return;
+    var s = stepsData[id];
+    if (!s) {
+      closeStep();
+      return;
+    }
+    document.getElementById("drawer-title").textContent = id;
+    var st = document.getElementById("drawer-state");
+    st.textContent = s.state;
+    st.className = "step-state " + s.state;
+    var meta = [];
+    if (s.durationMs != null) meta.push(s.durationMs + "ms");
+    if (s.exitCode != null) meta.push("exit " + s.exitCode);
+    document.getElementById("drawer-meta").textContent = meta.join(" · ");
+    var body = document.getElementById("drawer-body");
+    body.textContent = "";
+    if (s.error) body.appendChild(drawerEl("div", "step-error", s.error));
+    if (s.stdout) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
+      body.appendChild(drawerEl("pre", "step-out", s.stdout));
+    }
+    if (s.stderr) {
+      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
+      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
+    }
+    if (!s.error && !s.stdout && !s.stderr)
+      body.appendChild(drawerEl("span", "meta", "no output captured"));
+    var findingsBtn = document.getElementById("drawer-findings");
+    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+    drawerOpener = opener || null;
+    drawer.removeAttribute("inert");
+    drawer.classList.add("open");
+    drawer.setAttribute("aria-hidden", "false");
+  }
+
+  function closeStep() {
+    if (!drawer) return;
+    var opener = drawerOpener;
+    drawerOpener = null;
+    drawer.classList.remove("open");
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.setAttribute("inert", "");
+    if (opener && typeof opener.focus === "function") opener.focus();
+  }
+
+  var drawerClose = document.getElementById("drawer-close");
+  if (drawerClose) drawerClose.addEventListener("click", closeStep);
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeStep();
+  });
+  var drawerFindings = document.getElementById("drawer-findings");
+  if (drawerFindings) {
+    drawerFindings.addEventListener("click", function() {
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    });
   }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
@@ -1067,6 +1109,10 @@ Ran 8 tests across 1 file. [100.00ms]</pre></div>
       )
         return;
       applyStepFilter(el.getAttribute("data-step"));
+      // Re-clicking the same step toggles the filter off — close the
+      // drawer with it; otherwise show the clicked step's logs.
+      if (stepFilter) openStep(stepFilter, el);
+      else closeStep();
     });
   });
 
@@ -1082,6 +1128,7 @@ Ran 8 tests across 1 file. [100.00ms]</pre></div>
       var chip = document.getElementById("step-filter-chip");
       if (chip) chip.classList.add("hidden");
       renderTable();
+      closeStep();
     });
   }
 
