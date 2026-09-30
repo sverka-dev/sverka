@@ -394,7 +394,7 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("step-filter-chip");
   });
 
-  it("dag — zoomable viewport with padded viewBox and controls", () => {
+  it("dag — zoom and pan viewport with padded viewBox and controls", () => {
     const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
     expect(html).toContain('class="dag-viewport"');
     expect(html).toContain('id="dag-svg"');

@@ -1145,7 +1145,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       });
       svg.classList.add("focus");
     }
-    function unlightDag() {
+    function clearDagLight() {
       svg.classList.remove("focus");
       svg.querySelectorAll(".edge-hot").forEach(function(p) {
         p.classList.remove("edge-hot");
@@ -1163,11 +1163,11 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       var to = e.relatedTarget;
       if (node && !(to && to.closest && to.closest(".dag-node") === node)) {
         if (window.__stepFilter) lightDag(window.__stepFilter);
-        else unlightDag();
+        else clearDagLight();
       }
     });
     // Called by the step-filter to keep a selected node's edges lit.
-    window.__dagFocusId = function(id) { if (id) lightDag(id); else unlightDag(); };
+    window.__dagFocusId = function(id) { if (id) lightDag(id); else clearDagLight(); };
 
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
