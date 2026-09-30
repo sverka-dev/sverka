@@ -292,7 +292,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T18:20:00.304Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T18:26:43.751Z</span>
     </div>
   </header>
 
@@ -927,6 +927,10 @@ Ran 8 tests across 1 file. [113.00ms]</pre></div>
       minimap.addEventListener("click", function(e) { e.stopPropagation(); });
       updateMini();
     }
+
+    // The minimap viewport box depends on element geometry — recompute
+    // on resize (fixed-height svg reflows with the window).
+    window.addEventListener("resize", updateMini);
 
     // Hover focus — light the hovered node's edges and neighbors.
     function lightDag(id) {
