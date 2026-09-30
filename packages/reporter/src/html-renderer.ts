@@ -1079,6 +1079,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     border-radius: 6px;
     box-shadow: none;
   }
+  main.split:has(.step-drawer.open) { padding-right: 0; }
 }
 @media (max-width: 768px) {
   section { padding: 1rem; }
