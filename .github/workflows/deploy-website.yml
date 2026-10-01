@@ -88,8 +88,24 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.repository == 'sverka-dev/sverka'
         run: |
           set -euo pipefail
+          # Edge propagation lags the deploy by a few seconds — poll until
+          # each path settles at 200 (curl --retry ignores 4xx; transport
+          # failures fold into code 000 and keep polling too).
           for path in / /docs /docs/concepts /api/search; do
-            code=$(curl -sS -o /dev/null -w "%{http_code}" --retry 3 --retry-delay 5 "https://sverka.dev${path}")
-            echo "${path} -> ${code}"
-            test "${code}" = "200"
+            body=""
+            for attempt in $(seq 1 10); do
+              code=$(curl -sS -o /tmp/smoke-body -w "%{http_code}" --max-time 10 "https://sverka.dev${path}" || echo "000")
+              code=${code##*$'\n'}
+              echo "${path} -> ${code} (attempt ${attempt})"
+              if [ "${code}" = "200" ]; then body=$(cat /tmp/smoke-body); break; fi
+              [ "${attempt}" = "10" ] && { echo "SMOKE FAIL: ${path} stayed ${code}"; exit 1; }
+              sleep 6
+            done
+            # A 200 with an empty/malformed search index is as broken as a 404.
+            # Parameter expansion, not head|grep — SIGPIPE + pipefail would
+            # falsely fail large bodies.
+            if [ "${path}" = "/api/search" ] && [ "${body:0:1}" != "[" ]; then
+              echo "SMOKE FAIL: /api/search 200 but body is not a JSON array"
+              exit 1
+            fi
           done
