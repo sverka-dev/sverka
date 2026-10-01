@@ -76,3 +76,16 @@ jobs:
           workingDirectory: website
           wranglerVersion: "4.136.1"
           command: deploy
+
+      # The bug class this migration fixes — site builds fine but the live
+      # domain serves 404s for client-nav payloads — is invisible to build.
+      # Assert the domain actually serves the SPA + docs + search index.
+      - name: Smoke check sverka.dev
+        if: github.ref == 'refs/heads/main' && github.repository == 'sverka-dev/sverka'
+        run: |
+          set -euo pipefail
+          for path in / /docs /docs/concepts /api/search; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --retry 3 --retry-delay 5 "https://sverka.dev${path}")
+            echo "${path} -> ${code}"
+            test "${code}" = "200"
+          done

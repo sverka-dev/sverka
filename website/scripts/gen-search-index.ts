@@ -1,9 +1,9 @@
 /**
  * Build the static search index for fumadocs `staticClient`.
  *
- * staticClient fetches `${BASE}/api/search` — on GitHub Pages there is no
- * server, so we bake the Orama export to `public/api/search` at build time.
- * Runs after sync-docs (content/docs is generated).
+ * staticClient fetches `${BASE}/api/search` — the site is deployed as
+ * static assets, so we bake the Orama export to `public/api/search` at
+ * build time. Runs after sync-docs (content/docs is generated).
  */
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
