@@ -5,7 +5,8 @@
  * single-page-application fallback — copy the shell into place so both
  * resolve.
  */
-import { copyFile, access } from "node:fs/promises";
+import { copyFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,13 +17,10 @@ const outDir = path.join(
 const shell = path.join(outDir, "_shell.html");
 const index = path.join(outDir, "index.html");
 
-try {
-  await access(index);
+if (existsSync(index)) {
   console.log("index.html already present — nothing to do");
-} catch {
-  try {
-    await access(shell);
-  } catch {
+} else {
+  if (!existsSync(shell)) {
     throw new Error(
       `${shell} missing — vite build did not emit the SPA shell; check the build output`,
     );
