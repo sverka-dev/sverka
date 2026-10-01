@@ -94,7 +94,9 @@ jobs:
           for path in / /docs /docs/concepts /api/search; do
             body=""
             for attempt in $(seq 1 10); do
-              code=$(curl -sS -o /tmp/smoke-body -w "%{http_code}" --max-time 10 "https://sverka.dev${path}" || echo "000")
+              # -L: Cloudflare normalizes /docs -> /docs/ via 307; the
+              # final status is what users see.
+              code=$(curl -sSL -o /tmp/smoke-body -w "%{http_code}" --max-time 10 "https://sverka.dev${path}" || echo "000")
               code=${code##*$'\n'}
               echo "${path} -> ${code} (attempt ${attempt})"
               if [ "${code}" = "200" ]; then body=$(cat /tmp/smoke-body); break; fi
