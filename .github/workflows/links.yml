@@ -22,7 +22,6 @@ jobs:
             --no-progress
             --max-retries 3
             --accept 200,429
-            --exclude-path vendor
             --exclude-path node_modules
             engdocs/**/*.md
             specs/**/*.md

@@ -14,30 +14,21 @@ const ci = new Pipeline(proj, "ci", {
   permissions: { actions: "read", contents: "read" },
 });
 
-// nx loads vendored @nx-devkit/* plugins — they must be built after install
-// (CI compiles this pipeline: setup-bun + bun install are injected, then
-// beforeScript runs before the step command).
-const nxPlugins = ["bun run build:nx-plugins"];
-
 // Build first: package tests resolve workspace deps via dist/.
 const build = new ShellStep(ci, "build", {
   command: "bun run build",
-  beforeScript: nxPlugins,
 });
 const typecheck = new ShellStep(ci, "typecheck", {
   command: "bun run typecheck",
   dependsOn: [build.node.id],
-  beforeScript: nxPlugins,
 });
 const lint = new ShellStep(ci, "lint", {
   command: "bun run lint",
   dependsOn: [typecheck.node.id],
-  beforeScript: nxPlugins,
 });
 const test = new ShellStep(ci, "test", {
   command: "bun run test",
   dependsOn: [lint.node.id],
-  beforeScript: nxPlugins,
 });
 
 // Emits SARIF on stdout → collected as a finding artifact for the policy
@@ -65,7 +56,7 @@ const policy = new ShellStep(ci, "policy", {
       type: "artifact",
     },
   ],
-  beforeScript: [...nxPlugins, "bun run build"],
+  beforeScript: ["bun run build"],
 });
 
 // Dependency vulnerabilities (bun audit exits non-zero on findings).
@@ -78,7 +69,7 @@ const format = new ShellStep(ci, "format", { command: "bun run format:check" });
 // CI jobs are isolated runners, so beforeScript builds them in-job.
 const doctor = new ShellStep(ci, "doctor", {
   command: "bun packages/cli/src/bin.ts doctor",
-  beforeScript: [...nxPlugins, "bun run build"],
+  beforeScript: ["bun run build"],
 });
 
 // Drift guard: .github/workflows/sverka.yml must equal `compile --pin`
@@ -91,7 +82,7 @@ const drift = new ShellStep(ci, "workflow-drift", {
   command:
     'f=$(mktemp) && trap \'rm -f "$f"\' EXIT && bun packages/cli/src/bin.ts compile --target github --pin > "$f" && diff "$f" .github/workflows/sverka.yml',
   runtime: { shell: "sh" },
-  beforeScript: [...nxPlugins, "bun run build"],
+  beforeScript: ["bun run build"],
 });
 
 // Docs gate — markdownlint over engdocs/specs/website/root docs.
@@ -106,7 +97,7 @@ const cliSmoke = new ShellStep(ci, "cli-smoke", {
   command:
     "bun packages/cli/src/bin.ts validate && bun packages/cli/src/bin.ts plan --format json && bun packages/cli/src/bin.ts discover --format json && bun packages/cli/src/bin.ts graph && bun packages/cli/src/bin.ts check --format json",
   runtime: { shell: "sh" },
-  beforeScript: [...nxPlugins, "bun run build"],
+  beforeScript: ["bun run build"],
 });
 
 // Dependency boundary — UI frameworks (ink/react/web servers) must stay
@@ -143,7 +134,7 @@ const packlint = new ShellStep(ci, "packlint", {
   command:
     'for d in packages/*/; do echo "== $d"; (cd "$d" && ../../node_modules/.bin/publint) || exit 1; done',
   runtime: { shell: "sh" },
-  beforeScript: [...nxPlugins, "bun run build"],
+  beforeScript: ["bun run build"],
 });
 
 // Types-in-package gate — attw validates that published types actually
@@ -151,7 +142,7 @@ const packlint = new ShellStep(ci, "packlint", {
 // the CJS matrix is deliberately out of scope). Rebuilds dist/ in-job.
 const typelint = new ShellStep(ci, "typelint", {
   command: "bun run lint:attw",
-  beforeScript: [...nxPlugins, "bun run build"],
+  beforeScript: ["bun run build"],
 });
 
 // Workflow lint — actionlint checks the hand-written workflows AND the
@@ -175,7 +166,7 @@ const selfRun = new ShellStep(ci, "self-run", {
   outputs: {
     "sverka-report": { type: "artifact", path: ".sverka/report.html" },
   },
-  beforeScript: [...nxPlugins, "bun run build"],
+  beforeScript: ["bun run build"],
 });
 
 export const onPush = new Entry(ci, "on-push", {
