@@ -92,7 +92,6 @@ jobs:
           # each path settles at 200 (curl --retry ignores 4xx; transport
           # failures fold into code 000 and keep polling too).
           for path in / /docs /docs/concepts /api/search; do
-            body=""
             for attempt in $(seq 1 10); do
               # -L: Cloudflare normalizes /docs -> /docs/ via 307; the
               # final status is what users see. Assert the redirect chain
@@ -108,10 +107,7 @@ jobs:
                 expected="https://sverka.dev${path}"; expected=${expected%/}
                 [ "${effective}" = "${expected}" ] || { echo "SMOKE FAIL: ${path} redirected to ${effective}"; exit 1; }
               fi
-              if [ "${code}" = "200" ]; then
-                [ "${path}" = "/api/search" ] && body=$(cat /tmp/smoke-body)
-                break
-              fi
+              if [ "${code}" = "200" ]; then break; fi
               [ "${attempt}" = "10" ] && { echo "SMOKE FAIL: ${path} stayed ${code}"; exit 1; }
               sleep 6
             done
