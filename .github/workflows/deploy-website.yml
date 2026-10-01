@@ -92,20 +92,29 @@ jobs:
           # each path settles at 200 (curl --retry ignores 4xx; transport
           # failures fold into code 000 and keep polling too).
           for path in / /docs /docs/concepts /api/search; do
-            body=""
             for attempt in $(seq 1 10); do
-              code=$(curl -sS -o /tmp/smoke-body -w "%{http_code}" --max-time 10 "https://sverka.dev${path}" || echo "000")
-              code=${code##*$'\n'}
+              # -L: Cloudflare normalizes /docs -> /docs/ via 307; the
+              # final status is what users see. Assert the redirect chain
+              # lands on the same canonical path (https only) — a broken
+              # route bouncing to / must not pass.
+              if ! result=$(curl -sSL --compressed --proto-redir '-all,https' -o /tmp/smoke-body -w "%{http_code} %{url_effective}" --max-time 10 "https://sverka.dev${path}"); then
+                result="000 -"
+              fi
+              code=${result%% *}; effective=${result##* }
+              effective=${effective%/}
               echo "${path} -> ${code} (attempt ${attempt})"
-              if [ "${code}" = "200" ]; then body=$(cat /tmp/smoke-body); break; fi
+              if [ "${code}" = "200" ]; then
+                expected="https://sverka.dev${path}"; expected=${expected%/}
+                [ "${effective}" = "${expected}" ] || { echo "SMOKE FAIL: ${path} redirected to ${effective}"; exit 1; }
+              fi
+              if [ "${code}" = "200" ]; then break; fi
               [ "${attempt}" = "10" ] && { echo "SMOKE FAIL: ${path} stayed ${code}"; exit 1; }
               sleep 6
             done
             # A 200 with an empty/malformed search index is as broken as a 404.
-            # Parameter expansion, not head|grep — SIGPIPE + pipefail would
-            # falsely fail large bodies.
-            if [ "${path}" = "/api/search" ] && [ "${body:0:1}" != "[" ]; then
-              echo "SMOKE FAIL: /api/search 200 but body is not a JSON array"
+            # Fumadocs exports a JSON object ({"type":"simple",...}).
+            if [ "${path}" = "/api/search" ] && ! jq -e 'type == "object"' /tmp/smoke-body >/dev/null; then
+              echo "SMOKE FAIL: /api/search 200 but body is not a JSON object"
               exit 1
             fi
           done
