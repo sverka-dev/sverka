@@ -98,7 +98,9 @@ jobs:
               # final status is what users see. Assert the redirect chain
               # lands on the same canonical path (https only) — a broken
               # route bouncing to / must not pass.
-              result=$(curl -sSL --compressed --proto-redir=-all,https -o /tmp/smoke-body -w "%{http_code} %{url_effective}" --max-time 10 "https://sverka.dev${path}" || echo "000 -")
+              if ! result=$(curl -sSL --compressed --proto-redir '-all,https' -o /tmp/smoke-body -w "%{http_code} %{url_effective}" --max-time 10 "https://sverka.dev${path}"); then
+                result="000 -"
+              fi
               code=${result%% *}; effective=${result##* }
               effective=${effective%/}
               echo "${path} -> ${code} (attempt ${attempt})"
@@ -115,9 +117,7 @@ jobs:
             done
             # A 200 with an empty/malformed search index is as broken as a 404.
             # Fumadocs exports a JSON object ({"type":"simple",...}).
-            # Parameter expansion, not head|grep — SIGPIPE + pipefail would
-            # falsely fail large bodies.
-            if [ "${path}" = "/api/search" ] && [ "${body:0:1}" != "{" ]; then
+            if [ "${path}" = "/api/search" ] && ! jq -e 'type == "object"' /tmp/smoke-body >/dev/null; then
               echo "SMOKE FAIL: /api/search 200 but body is not a JSON object"
               exit 1
             fi
