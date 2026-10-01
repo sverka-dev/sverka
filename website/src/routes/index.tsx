@@ -64,7 +64,7 @@ function Home() {
                 {inner}
               </Link>
             ) : (
-              <a key={card.title} href={`/sverka/${card.href}`} className={cls}>
+              <a key={card.title} href={`/${card.href}`} className={cls}>
                 {inner}
               </a>
             );

@@ -1,0 +1,11 @@
+{
+  "name": "sverka",
+  "compatibility_date": "2026-01-20",
+  "assets": {
+    "directory": "./.output/public",
+    // SPA fallback: unprerendered client routes hydrate from the landing
+    // shell; non-document requests still 404 normally.
+    "not_found_handling": "single-page-application",
+  },
+  "routes": [{ "pattern": "sverka.dev", "custom_domain": true }],
+}
