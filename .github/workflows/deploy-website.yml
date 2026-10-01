@@ -63,6 +63,10 @@ jobs:
       - name: Install website dependencies
         run: bun --cwd=${{ github.workspace }}/website install --frozen-lockfile
 
+      # website/ is nxignored — its tests only run here
+      - name: Test website
+        run: bun --cwd=${{ github.workspace }}/website test
+
       - name: Build website
         run: bun --cwd=${{ github.workspace }}/website run build
 
