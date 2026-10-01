@@ -5,7 +5,7 @@
     "directory": "./.output/public",
     // SPA fallback: unprerendered client routes hydrate from the landing
     // shell; non-document requests still 404 normally.
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
   },
-  "routes": [{ "pattern": "sverka.dev", "custom_domain": true }]
+  "routes": [{ "pattern": "sverka.dev", "custom_domain": true }],
 }
