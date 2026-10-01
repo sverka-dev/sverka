@@ -20,6 +20,13 @@ try {
   await access(index);
   console.log("index.html already present — nothing to do");
 } catch {
+  try {
+    await access(shell);
+  } catch {
+    throw new Error(
+      `${shell} missing — vite build did not emit the SPA shell; check the build output`,
+    );
+  }
   await copyFile(shell, index);
   console.log("index.html <- _shell.html");
 }
