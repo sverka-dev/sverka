@@ -21,7 +21,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run build
   typecheck:
     name: typecheck
@@ -41,7 +40,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run typecheck
   lint:
     name: lint
@@ -61,7 +59,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run lint
   test:
     name: test
@@ -81,7 +78,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run test
   lint-sarif:
     name: lint-sarif
@@ -131,7 +127,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run build
       - name: Download eslint.sarif
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -194,7 +189,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run build
       - run: bun packages/cli/src/bin.ts doctor
   workflow-drift:
@@ -214,7 +208,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run build
       - run: f=$(mktemp) && trap 'rm -f "$f"' EXIT && bun packages/cli/src/bin.ts
           compile --target github --pin > "$f" && diff "$f"
@@ -255,7 +248,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run build
       - run: bun packages/cli/src/bin.ts validate && bun packages/cli/src/bin.ts plan
           --format json && bun packages/cli/src/bin.ts discover --format json &&
@@ -359,7 +351,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run build
       - run: for d in packages/*/; do echo "== $d"; (cd "$d" &&
           ../../node_modules/.bin/publint) || exit 1; done
@@ -381,7 +372,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run build
       - run: bun run lint:attw
   actionlint:
@@ -421,7 +411,6 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build:nx-plugins
       - run: bun run build
       - run: bun packages/cli/src/bin.ts run --entry ci/self-demo --format html --output
           .sverka/report.html
