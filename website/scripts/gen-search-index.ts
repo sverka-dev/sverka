@@ -16,7 +16,7 @@ const websiteDir = path.resolve(
 );
 const docsRoot = path.join(websiteDir, "content/docs");
 const outFile = path.join(websiteDir, "public/api/search");
-const BASE = "/sverka";
+const BASE = "";
 
 async function collect(dir: string): Promise<string[]> {
   const out: string[] = [];

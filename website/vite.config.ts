@@ -6,7 +6,6 @@ import { fumadocsMdx } from "fumadocs-mdx/vite";
 import { nitro } from "nitro/vite";
 
 export default defineConfig({
-  base: "/sverka/",
   server: {
     port: 3000,
   },

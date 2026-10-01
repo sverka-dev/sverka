@@ -13,12 +13,12 @@ export function baseOptions(): BaseLayoutProps {
       },
       {
         text: "Pipeline",
-        url: "/sverka/pipeline-reports/sverka.html",
+        url: "/pipeline-reports/sverka.html",
         external: true,
       },
       {
         text: "Arena",
-        url: "/sverka/benchmark/",
+        url: "/benchmark/",
         external: true,
       },
     ],
