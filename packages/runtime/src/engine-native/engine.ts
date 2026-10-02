@@ -5,7 +5,7 @@
 import { mkdir } from "node:fs/promises";
 import { globSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
-import { join, resolve, sep } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
 import { EngineError } from "./errors.js";
 import type { RunPlan } from "@sverka/workflow";
@@ -1105,8 +1105,17 @@ class NativeEngine implements Engine {
       // per-file realpath check still applies.
     }
     const matched = new Set<string>();
+    // Carried across patterns so the cap warning emits once per key.
+    const capState = { warned: false };
     for (const pattern of patterns) {
-      this.collectHashMatches(pattern, workspace, matched, ctx, stepId);
+      this.collectHashMatches(
+        pattern,
+        workspace,
+        matched,
+        capState,
+        ctx,
+        stepId,
+      );
     }
     if (matched.size === 0) return "";
     return this.hashMatchedFiles(
@@ -1123,11 +1132,13 @@ class NativeEngine implements Engine {
     pattern: string,
     workspace: string,
     matched: Set<string>,
+    capState: { warned: boolean },
     ctx: RunContext,
     stepId: string,
   ): void {
-    // A pattern with '..' segments can escape the workspace — refuse.
-    if (pattern.split("/").includes("..")) {
+    // Absolute patterns ignore `cwd` in globSync, and '..' segments on
+    // either separator can escape the workspace — refuse both.
+    if (isAbsolute(pattern) || pattern.split(/[\\/]/).includes("..")) {
       ctx.emit({
         type: "diagnostic",
         stepId,
@@ -1138,19 +1149,23 @@ class NativeEngine implements Engine {
     }
     let hits = 0;
     for (const p of globSync(pattern, { cwd: workspace })) {
-      matched.add(p);
       hits++;
       // Resource bound — a workflow-controlled glob must not read
-      // the whole workspace into the key.
-      if (matched.size > 256) {
-        ctx.emit({
-          type: "diagnostic",
-          stepId,
-          severity: "warn",
-          message: `hashFiles: match cap (256) reached — remaining files ignored`,
-        });
+      // the whole workspace into the key. Checked before insertion so
+      // `matched` never exceeds the cap; warned once per key.
+      if (matched.size >= 256) {
+        if (!capState.warned) {
+          capState.warned = true;
+          ctx.emit({
+            type: "diagnostic",
+            stepId,
+            severity: "warn",
+            message: `hashFiles: match cap (256) reached — remaining files ignored`,
+          });
+        }
         break;
       }
+      matched.add(p);
     }
     if (hits === 0) {
       ctx.emit({
@@ -1184,10 +1199,13 @@ class NativeEngine implements Engine {
         const real = realpathSync(abs);
         if (real !== workspaceReal && !real.startsWith(workspaceReal + sep))
           continue;
+        // Per-file digest framing — raw `path\0content\0` is ambiguous
+        // when file content itself contains NUL bytes (two different
+        // file sets could serialize to the same key input).
         const content = readFileSync(real);
         hash.update(p);
         hash.update("\0");
-        hash.update(content);
+        hash.update(createHash("sha256").update(content).digest());
         hash.update("\0");
       } catch {
         // File vanished or is unreadable between glob and read — skip it

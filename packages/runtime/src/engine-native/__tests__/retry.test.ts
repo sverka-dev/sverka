@@ -453,4 +453,13 @@ describe("computeBackoffDelay — jitter", () => {
       expect(Number.isInteger(d)).toBe(true);
     }
   });
+
+  it("huge baseMs is clamped under randomInt's 2**48 range limit", () => {
+    // randomInt throws when max - min >= 2**48 — the delay is clamped
+    // below that so a valid-but-huge policy still retries.
+    const d = computeBackoffDelay({ baseMs: 2 ** 48, jitter: true }, 1);
+    expect(Number.isInteger(d)).toBe(true);
+    expect(d).toBeGreaterThanOrEqual(0);
+    expect(d).toBeLessThanOrEqual(2 ** 48 - 2);
+  });
 });
