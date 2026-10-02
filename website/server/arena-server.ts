@@ -22,8 +22,10 @@ import { join, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
-const PUBLIC_DIR = fileURLToPath(
-  new URL("../public/benchmark/", import.meta.url),
+// fileURLToPath keeps the trailing separator — resolve() strips it so the
+// traversal check below (filePath.startsWith(PUBLIC_DIR + sep)) works.
+const PUBLIC_DIR = resolve(
+  fileURLToPath(new URL("../public/benchmark/", import.meta.url)),
 );
 const DATA_DIR = join(PUBLIC_DIR, "api");
 const CASES_FILE = join(DATA_DIR, "cases.json");
@@ -128,14 +130,22 @@ async function serveStatic(path: string): Promise<Response> {
     return error(403, "Forbidden");
   }
 
-  if (!(await exists(filePath))) {
-    return error(404, "Not found");
+  let resolved = filePath;
+  if (!(await exists(resolved))) {
+    // Clean-URL fallback: try <path>.html, matching the static host's
+    // behavior (production serves /trace for /trace.html and
+    // /x.report for /x.report.html).
+    if (await exists(resolved + ".html")) {
+      resolved = resolved + ".html";
+    } else {
+      return error(404, "Not found");
+    }
   }
 
   // Directory? Try index.html
-  const stat = await Bun.file(filePath);
-  if (stat.size === 0 && !extname(filePath)) {
-    const indexPath = join(filePath, "index.html");
+  const stat = await Bun.file(resolved);
+  if (stat.size === 0 && !extname(resolved)) {
+    const indexPath = join(resolved, "index.html");
     if (await exists(indexPath)) {
       const content = await readFile(indexPath);
       return new Response(content, {
@@ -144,8 +154,8 @@ async function serveStatic(path: string): Promise<Response> {
     }
   }
 
-  const content = await readFile(filePath);
-  const ext = extname(filePath);
+  const content = await readFile(resolved);
+  const ext = extname(resolved);
   const mime = MIME_TYPES[ext] ?? "application/octet-stream";
   return new Response(content, {
     headers: { "Content-Type": mime },
@@ -352,7 +362,11 @@ async function route(req: Request): Promise<Response> {
   }
 
   if (path.startsWith("/api/")) {
-    return error(404, "API endpoint not found");
+    // Committed snapshots (api/cases.json, api/config.json, …) are static
+    // files — the hosted site serves them directly, so do the same here;
+    // only genuinely unknown endpoints 404.
+    const resp = await serveStatic(path);
+    return resp.status === 404 ? error(404, "API endpoint not found") : resp;
   }
 
   // Static files
