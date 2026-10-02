@@ -112,7 +112,12 @@ function validatePlanField(obj: Record<string, unknown>): void {
       );
     }
   }
-  const entry = p["entry"];
+  validatePlanEntry(p["entry"]);
+  validatePlanInputs(p["inputs"]);
+  validatePlanSteps(p["steps"]);
+}
+
+function validatePlanEntry(entry: unknown): void {
   if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
@@ -131,7 +136,9 @@ function validatePlanField(obj: Record<string, unknown>): void {
       "plan.entry lacks a string id or a trigger object",
     );
   }
-  const inputs = p["inputs"];
+}
+
+function validatePlanInputs(inputs: unknown): void {
   if (typeof inputs !== "object" || inputs === null || Array.isArray(inputs)) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
@@ -148,14 +155,17 @@ function validatePlanField(obj: Record<string, unknown>): void {
       );
     }
   }
-  if (!Array.isArray(p["steps"])) {
+}
+
+function validatePlanSteps(steps: unknown): void {
+  if (!Array.isArray(steps)) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
       "plan.steps is missing or not an array",
     );
   }
-  for (let i = 0; i < p["steps"].length; i++) {
-    const s = p["steps"][i] as Record<string, unknown> | null;
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i] as Record<string, unknown> | null;
     if (typeof s !== "object" || s === null || typeof s["id"] !== "string") {
       throw new StorageError(
         "CORRUPT_SNAPSHOT",

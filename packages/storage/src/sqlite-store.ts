@@ -34,6 +34,50 @@ const CREATE_TABLE_SQL = `
 `;
 
 /**
+ * Secure the DB file and its app-owned directory before SQLite opens it.
+ * Pre-creates the file with owner-only perms (O_NOFOLLOW rejects planted
+ * symlinks, fchmod applies perms to the retained descriptor, not the path)
+ * and tightens only directories we own — a created leaf or ".sverka" —
+ * never an arbitrary caller dir like "/tmp" when path is "/tmp/runs.db".
+ */
+function secureDbPath(path: string): void {
+  const dir = dirname(path);
+  try {
+    const created = mkdirSync(dir, { recursive: true, mode: 0o700 });
+    if (dir !== "." && (created === dir || basename(dir) === ".sverka")) {
+      if (lstatSync(dir).isSymbolicLink()) {
+        throw new StorageError(
+          "STORE_IO_FAILED",
+          `store directory is a symlink: ${dir}`,
+        );
+      }
+      chmodSync(dir, 0o700);
+    }
+  } catch (e) {
+    if (e instanceof StorageError) throw e;
+    // Directory may already exist or parent is "." — ignore.
+  }
+  try {
+    const fd = openSync(
+      path,
+      constants.O_CREAT | constants.O_RDWR | (constants.O_NOFOLLOW ?? 0),
+      0o600,
+    );
+    try {
+      fchmodSync(fd, 0o600);
+    } finally {
+      closeSync(fd);
+    }
+  } catch (e) {
+    throw new StorageError(
+      "STORE_IO_FAILED",
+      `failed to secure sqlite database at ${path}`,
+      e,
+    );
+  }
+}
+
+/**
  * Create a SQLite-backed `SnapshotStore` using `node:sqlite` (built into
  * Node 24+ and Bun, no install, no native build). One row per run keyed by
  * `runId`; snapshot stored as JSON text. Returns `SnapshotStore & { close(): void }`
@@ -45,49 +89,7 @@ export function createSqliteSnapshotStore(
   const path = config?.path ?? DEFAULT_PATH;
 
   if (path !== ":memory:") {
-    const dir = dirname(path);
-    try {
-      const created = mkdirSync(dir, { recursive: true, mode: 0o700 });
-      // mode only applies at creation — tighten an existing dir too, but
-      // only app-owned ones: a leaf we just created, or the conventional
-      // ".sverka" store dir. Never chmod an arbitrary caller directory
-      // (e.g. "/tmp" when path is "/tmp/runs.db") or follow a symlink.
-      if (dir !== "." && (created === dir || basename(dir) === ".sverka")) {
-        if (lstatSync(dir).isSymbolicLink()) {
-          throw new StorageError(
-            "STORE_IO_FAILED",
-            `store directory is a symlink: ${dir}`,
-          );
-        }
-        chmodSync(dir, 0o700);
-      }
-    } catch (e) {
-      if (e instanceof StorageError) throw e;
-      // Directory may already exist or parent is "." — ignore.
-    }
-    try {
-      // Pre-create with owner-only perms — DatabaseSync would otherwise
-      // create the file with default perms until chmod runs. Snapshots
-      // embed the full plan + outputs, so keep the DB owner-only. Open
-      // with O_NOFOLLOW so a planted symlink can't redirect the chmod;
-      // apply perms to the retained descriptor (fchmod), not the path.
-      const fd = openSync(
-        path,
-        constants.O_CREAT | constants.O_RDWR | (constants.O_NOFOLLOW ?? 0),
-        0o600,
-      );
-      try {
-        fchmodSync(fd, 0o600);
-      } finally {
-        closeSync(fd);
-      }
-    } catch (e) {
-      throw new StorageError(
-        "STORE_IO_FAILED",
-        `failed to secure sqlite database at ${path}`,
-        e,
-      );
-    }
+    secureDbPath(path);
   }
 
   let db: DatabaseSync;
