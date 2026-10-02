@@ -13,7 +13,7 @@
       }
     ],
     "createdAt": "2026-09-29T18:41:10.690Z",
-    "updatedAt": "2026-10-02T13:18:00.670Z"
+    "updatedAt": "2026-10-02T13:32:47.332Z"
   },
   {
     "id": "verify-and-fix",
@@ -53,7 +53,7 @@
       }
     ],
     "createdAt": "2026-09-29T18:41:10.690Z",
-    "updatedAt": "2026-10-02T13:18:00.670Z"
+    "updatedAt": "2026-10-02T13:32:47.332Z"
   },
   {
     "id": "ship-package",
@@ -90,9 +90,14 @@
         "id": "build",
         "command": "bun run build",
         "description": "build succeeds"
+      },
+      {
+        "id": "protected-files",
+        "command": "sha256sum -c .integrity-manifest",
+        "description": "test/tool-config files unmodified"
       }
     ],
     "createdAt": "2026-10-02T13:10:25.050Z",
-    "updatedAt": "2026-10-02T13:18:00.670Z"
+    "updatedAt": "2026-10-02T13:32:47.332Z"
   }
 ]

@@ -512,6 +512,9 @@ describe("HtmlRenderer", () => {
     expect(html).toContain('id="drawer-search"');
     expect(html).toContain('id="drawer-search-count"');
     expect(html).toContain("logMarks");
+    // unicode-safe matching: regex exec on the original text, not
+    // indexOf on a lowercased copy (char expansion shifts indices)
+    expect(html).toContain('new RegExp(needle, "gi")');
     // truncation: suffix detected and surfaced as a banner
     expect(html).toContain('id="drawer-truncated"');
     expect(html).toContain("TRUNCATED_RE");

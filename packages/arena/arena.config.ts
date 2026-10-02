@@ -135,6 +135,11 @@ export default {
           command: "bun run build",
           description: "build succeeds",
         },
+        {
+          id: "protected-files",
+          command: "sha256sum -c .integrity-manifest",
+          description: "test/tool-config files unmodified",
+        },
       ],
     },
   ],

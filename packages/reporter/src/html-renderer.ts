@@ -1601,7 +1601,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       // Case-insensitive regex match on the ORIGINAL text — indexOf on a
       // lowercased copy shifts indices when a char expands under
       // lowercasing (e.g. "İ" → "i̇", two code units).
-      var needle = q.replace(/[\\^$.|?*+()[{]/g, "\\$&");
+      var needle = q.replace(/[.*+?^\${}()|[\\]\\\\]/g, "\\\\$&");
       var re = new RegExp(needle, "gi");
       var i = 0;
       var hit;
