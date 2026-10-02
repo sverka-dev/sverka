@@ -119,11 +119,11 @@ normal `failed` outcome.
 7. `backoff` omitted: retries are immediate (no delay).
 8. `jitter: true`: delays are integers within `[0, cap]` and actually
    randomized (not always the cap); a fractional cap is never exceeded.
-8. Cancellation during backoff sleep: loop stops, outcome `cancelled`, no
+9. Cancellation during backoff sleep: loop stops, outcome `cancelled`, no
    further retries.
-9. `max: 0`: no retries (single attempt); no `step-retry` events.
-10. `max: -1` rejected by validation (`INVALID_RETRY_POLICY`).
-11. Retry re-runs the **whole step**: a step with two operations where the
+10. `max: 0`: no retries (single attempt); no `step-retry` events.
+11. `max: -1` rejected by validation (`INVALID_RETRY_POLICY`).
+12. Retry re-runs the **whole step**: a step with two operations where the
     second fails — both operations re-run on retry (verify via driver call
     count).
-12. `BackoffSpec` exported from `@sverka/workflow`.
+13. `BackoffSpec` exported from `@sverka/workflow`.
