@@ -1371,10 +1371,11 @@
 
         /** Handle route/param changes. */
         async function handleRoute() {
-          ++loadSeq;
+          var seq = ++loadSeq;
           var parsed = parseParams();
           var arenaData = await fetchArenaIndex();
           var cases = await fetchCaseIndex();
+          if (seq !== loadSeq) return;
           var tasks = arenaData ? arenaTasks(arenaData) : [];
           var navTasks = tasks.slice();
           // Configured cases may have trace files even without recorded

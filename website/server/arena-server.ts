@@ -17,7 +17,7 @@
  */
 
 import { serve, type Server } from "bun";
-import { readFile, writeFile, mkdir, exists } from "node:fs/promises";
+import { readFile, writeFile, mkdir, exists, realpath } from "node:fs/promises";
 import { join, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -27,6 +27,7 @@ import { spawn } from "node:child_process";
 const PUBLIC_DIR = resolve(
   fileURLToPath(new URL("../public/benchmark/", import.meta.url)),
 );
+const REAL_PUBLIC_DIR = await realpath(PUBLIC_DIR);
 const DATA_DIR = join(PUBLIC_DIR, "api");
 const CASES_FILE = join(DATA_DIR, "cases.json");
 const CONFIG_FILE = join(DATA_DIR, "config.json");
@@ -140,6 +141,16 @@ async function serveStatic(path: string): Promise<Response> {
     } else {
       return error(404, "Not found");
     }
+  }
+
+  // Symlink escape: lexical containment is not enough — resolve the final
+  // path and re-check it stays under the real PUBLIC_DIR before reading.
+  const realResolved = await realpath(resolved);
+  if (
+    !realResolved.startsWith(REAL_PUBLIC_DIR + sep) &&
+    realResolved !== REAL_PUBLIC_DIR
+  ) {
+    return error(403, "Forbidden");
   }
 
   // Directory? Try index.html
