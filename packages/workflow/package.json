@@ -1,6 +1,6 @@
 {
   "name": "@sverka/workflow",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "description": "Sverka workflow constructs — Project, Pipeline, Step, Definition Graph",
   "license": "MIT",
   "sideEffects": false,
