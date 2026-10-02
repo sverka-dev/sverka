@@ -763,8 +763,15 @@
           var grid = document.createElement("div");
           grid.className = "stat-grid";
           var fm = data.finalMetrics || {};
+          // Older trace files lack llmCallCount — count LLM-flagged steps.
+          var llmCalls =
+            typeof data.llmCallCount === "number"
+              ? data.llmCallCount
+              : (data.steps || []).filter(function (s) {
+                  return s.isLlmCall;
+                }).length;
           var rows = [
-            ["LLM calls", fmtNum(data.llmCallCount), data.llmCallCount < 50],
+            ["LLM calls", fmtNum(llmCalls), llmCalls > 0 && llmCalls < 50],
             ["Total steps", fmtNum(fm.totalSteps || data.steps.length), false],
             ["Prompt tokens", fmtNum(fm.totalPromptTokens || 0), false],
             ["Completion tokens", fmtNum(fm.totalCompletionTokens || 0), false],

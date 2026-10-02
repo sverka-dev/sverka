@@ -1708,10 +1708,50 @@
             return r.taskId === taskId;
           });
           if (taskResults.length === 0) {
-            container.innerHTML =
-              '<div class="error">No results found for case "' +
-              escapeHtml(taskId) +
-              '"</div>';
+            // No recorded runs — but the case may still have published
+            // trace files. Render the case info (from the cases snapshot)
+            // plus a link into the trace viewer, which resolves which
+            // combos actually exist.
+            var caseDef = (caseDefinitions || []).find(function (c) {
+              return c.id === taskId;
+            });
+            var h1Empty = document.createElement("h1");
+            h1Empty.textContent = (caseDef && caseDef.name) || taskId;
+            container.appendChild(h1Empty);
+            var subEmpty = document.createElement("p");
+            subEmpty.className = "subtitle";
+            subEmpty.textContent = taskId + " · no recorded runs";
+            container.appendChild(subEmpty);
+            if (caseDef && caseDef.prompt) {
+              var pBox = document.createElement("div");
+              pBox.className = "prompt-box";
+              var pLabel = document.createElement("div");
+              pLabel.className = "label";
+              pLabel.textContent = "Original Prompt";
+              pBox.appendChild(pLabel);
+              var pText = document.createElement("div");
+              pText.className = "prompt-text";
+              pText.textContent = caseDef.prompt;
+              pBox.appendChild(pText);
+              container.appendChild(pBox);
+            }
+            if (caseDef && caseDef.checks && caseDef.checks.length) {
+              var chk = document.createElement("p");
+              chk.className = "subtitle";
+              chk.textContent =
+                "Checks: " +
+                caseDef.checks
+                  .map(function (c) {
+                    return c.id;
+                  })
+                  .join(", ");
+              container.appendChild(chk);
+            }
+            var tLink = document.createElement("a");
+            tLink.className = "run-trace-link";
+            tLink.href = "trace?task=" + encodeURIComponent(taskId);
+            tLink.textContent = "View traces →";
+            container.appendChild(tLink);
             return;
           }
 
