@@ -39,17 +39,19 @@ import { writeAggregateReport } from "../../packages/arena/src/aggregate-report.
 // the emitter re-sends earlier steps on each flush, so identical stepIds
 // accumulate 2-6x in the raw trace.
 function redactText(text: string): string {
-  return text
-    .replace(/\/home\/[^\s"']+/g, "/home/user")
-    .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
-    .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
-    // TLD must be ≥2 letters — otherwise package specifiers like
-    // `cli@0.1.29` get mangled into `[email]`.
-    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-zA-Z]{2,}\b/g, "[email]")
-    .replace(
-      /(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi,
-      "$1=[redacted]",
-    );
+  return (
+    text
+      .replace(/\/home\/[^\s"']+/g, "/home/user")
+      .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
+      .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
+      // TLD must be ≥2 letters — otherwise package specifiers like
+      // `cli@0.1.29` get mangled into `[email]`.
+      .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-zA-Z]{2,}\b/g, "[email]")
+      .replace(
+        /(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi,
+        "$1=[redacted]",
+      )
+  );
 }
 
 function redactValue(value: unknown): unknown {
