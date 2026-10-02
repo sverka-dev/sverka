@@ -353,6 +353,17 @@ export function buildCheckEnv(
     out["XDG_CACHE_HOME"] = join(home, ".cache");
     out["XDG_CONFIG_HOME"] = join(home, ".config");
     out["XDG_DATA_HOME"] = join(home, ".local", "share");
+    // Keep package-manager caches warm: setup ran with the host HOME and
+    // populated them, and caches carry no credentials. Without this every
+    // check that installs or resolves deps re-downloads the world.
+    const hostHome = env["HOME"];
+    if (hostHome) {
+      out["BUN_INSTALL_CACHE_DIR"] =
+        env["BUN_INSTALL_CACHE_DIR"] ??
+        join(hostHome, ".bun", "install", "cache");
+      out["npm_config_cache"] =
+        env["npm_config_cache"] ?? join(hostHome, ".npm");
+    }
   }
   out["CI"] = "true"; // forced — checks always see CI mode
   return out;

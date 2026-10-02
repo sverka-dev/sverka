@@ -644,4 +644,21 @@ describe("buildCheckEnv", () => {
     expect(env["MY_CUSTOM_SECRET"]).toBeUndefined();
     expect(env["EDITOR"]).toBeUndefined();
   });
+
+  it("redirects home dirs at the fresh check home and keeps caches warm", () => {
+    const env = buildCheckEnv(
+      { PATH: "/usr/bin", HOME: "/home/u", CI: "false" },
+      "/tmp/check-home",
+    );
+    expect(env["HOME"]).toBe("/tmp/check-home");
+    expect(env["USERPROFILE"]).toBe("/tmp/check-home");
+    expect(env["XDG_CACHE_HOME"]).toBe("/tmp/check-home/.cache");
+    expect(env["XDG_CONFIG_HOME"]).toBe("/tmp/check-home/.config");
+    expect(env["XDG_DATA_HOME"]).toBe("/tmp/check-home/.local/share");
+    // Forced CI beats the caller's value.
+    expect(env["CI"]).toBe("true");
+    // Package-manager caches stay pointed at the host home.
+    expect(env["BUN_INSTALL_CACHE_DIR"]).toBe("/home/u/.bun/install/cache");
+    expect(env["npm_config_cache"]).toBe("/home/u/.npm");
+  });
 });
