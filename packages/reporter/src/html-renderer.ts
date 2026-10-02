@@ -545,10 +545,12 @@ function renderDrawer(): string {
       <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
     </div>
     <div id="drawer-meta" class="drawer-meta"></div>
-    <div class="drawer-tabs" id="drawer-tabs" role="tablist" hidden>
-      <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
-      <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log">stdout</button>
-      <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log">stderr</button>
+    <div class="drawer-tabs" id="drawer-tabs" hidden>
+      <div class="drawer-tablist" role="tablist" aria-label="step output">
+        <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
+        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log">stdout</button>
+        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log">stderr</button>
+      </div>
       <input id="drawer-search" type="search" placeholder="Search log…" aria-label="Search log">
       <span id="drawer-search-count" class="drawer-search-count"></span>
     </div>
@@ -949,6 +951,7 @@ main.split:has(.step-drawer.open) {
   padding: 0.4rem 1rem;
   border-bottom: 1px solid #21262d;
 }
+.drawer-tablist { display: flex; gap: 0.25rem; }
 .drawer-tab {
   background: none;
   border: 1px solid transparent;
@@ -1517,6 +1520,24 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     return splitTruncated(raw).text;
   }
 
+  // text.length counts UTF-16 units — label sizes are byte counts.
+  var textEncoder = new TextEncoder();
+  function byteLen(t) {
+    return t ? textEncoder.encode(t).length : 0;
+  }
+
+  // Actions act on the visible pane — disable them when it's empty.
+  function updateActionState() {
+    var text =
+      drawerTab === "overview"
+        ? (drawerStep && drawerStep.error) || ""
+        : activeLogText();
+    var copy = document.getElementById("drawer-copy");
+    if (copy) copy.disabled = !text;
+    var dl = document.getElementById("drawer-download");
+    if (dl) dl.disabled = !text;
+  }
+
   // Rebuild the log <pre> with <mark> around query hits — text nodes
   // only, never innerHTML.
   var logMarks = [];
@@ -1530,6 +1551,13 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (pre) pre.hidden = !logTab;
     if (!logTab || !drawerStep || !pre) {
       if (banner) banner.hidden = true;
+      // Leaving a log tab drops the search state — Enter must not cycle
+      // stale marks in a hidden pane.
+      logMarks = [];
+      logMarkIdx = -1;
+      var c0 = document.getElementById("drawer-search-count");
+      if (c0) c0.textContent = "";
+      updateActionState();
       return;
     }
     var split = splitTruncated(drawerStep[drawerTab] || "");
@@ -1556,15 +1584,18 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       while ((hit = lower.indexOf(needle, i)) !== -1) {
         pre.appendChild(document.createTextNode(split.text.slice(i, hit)));
         var mark = document.createElement("mark");
-        mark.textContent = split.text.slice(hit, hit + q.length);
+        // needle.length — the match length in the lowercased string,
+        // which can differ from q.length for chars like "İ".
+        mark.textContent = split.text.slice(hit, hit + needle.length);
         pre.appendChild(mark);
         logMarks.push(mark);
-        i = hit + q.length;
+        i = hit + needle.length;
       }
       pre.appendChild(document.createTextNode(split.text.slice(i)));
     }
     var count = document.getElementById("drawer-search-count");
     if (count) count.textContent = q ? logMarks.length + " matches" : "";
+    updateActionState();
   }
 
   function selectTab(tab) {
@@ -1636,11 +1667,14 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         var text = s[name] || "";
         b.disabled = !text;
         b.textContent =
-          name + (text ? " (" + text.length + "b)" : " (empty)");
+          name + (text ? " (" + byteLen(text) + "b)" : " (empty)");
       });
     }
     var findingsBtn = document.getElementById("drawer-findings");
     if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+    // Fresh step, fresh search — no carried-over query or count.
+    var searchEl = document.getElementById("drawer-search");
+    if (searchEl) searchEl.value = "";
     selectTab("overview");
     drawerOpener = opener || null;
     drawer.removeAttribute("inert");
