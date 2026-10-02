@@ -54,12 +54,19 @@ function redactText(text: string): string {
   );
 }
 
+const SENSITIVE_KEY = /key|token|secret|password|credential|auth/i;
+
 function redactValue(value: unknown): unknown {
   if (typeof value === "string") return redactText(value);
   if (Array.isArray(value)) return value.map(redactValue);
   if (value !== null && typeof value === "object") {
+    // Credential-bearing fields are redacted by key regardless of value
+    // shape — { "apiKey": "sk-..." } survives value-only scrubbing.
     return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, redactValue(v)]),
+      Object.entries(value).map(([k, v]) => [
+        k,
+        SENSITIVE_KEY.test(k) ? "[redacted]" : redactValue(v),
+      ]),
     );
   }
   return value;

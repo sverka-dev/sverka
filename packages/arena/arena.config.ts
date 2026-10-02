@@ -183,15 +183,23 @@ export default {
             'for(const[p,h]of Object.entries(exp)){let a;try{a=c.createHash("sha256").update(f.readFileSync(p)).digest("hex")}catch{a="missing"}if(a!==h){console.error("protected file modified:",p);bad=1}}' +
             'for(const[k,v]of Object.entries(want)){if(require("./package.json").scripts[k]!==v){console.error("script modified:",k);bad=1}}' +
             // New tool configs are as forbidden as edits — a
-            // vitest.config.ts with `include: []` + passWithNoTests
-            // would pass `bun run test` while running zero tests.
-            'if(["vitest.config.ts","vitest.config.js","vitest.config.mts","vitest.workspace.ts","vitest.workspace.js"].some(p=>f.existsSync(p))){console.error("vitest config added");bad=1}' +
+            // vite/vitest config with `test.include: []` +
+            // passWithNoTests would pass `bun run test` while running
+            // zero tests. Match every config filename vitest reads.
+            'if(f.readdirSync(".").some(p=>/^(vite|vitest)\\.(config|workspace)\\.[cm]?[jt]s$/.test(p))){console.error("vite/vitest config added");bad=1}' +
             "process.exit(bad)'",
           description: "test/tool-config files unmodified",
         },
         {
           id: "pipeline",
-          command: "bun run verify",
+          // Exit 0 alone isn't enough — `"verify": "echo ok"` passes
+          // trivially. The script must either delegate to a pipeline
+          // tool (sverka/just/make/nx/...) or compose the five checks.
+          command:
+            'bun run verify && node -e \'const v=require("./package.json").scripts.verify||"";' +
+            'const composed=["format","lint","typecheck","test","build"].every(k=>new RegExp("\\\\b"+k+"\\\\b").test(v));' +
+            "const delegated=/\\b(sverka|just|make|nx|turbo|moon|bazel)\\b/.test(v);" +
+            'if(!composed&&!delegated){console.error("verify does not run the full pipeline:",v);process.exit(1)}\'',
           description: "pipeline re-runnable as one command",
         },
       ],

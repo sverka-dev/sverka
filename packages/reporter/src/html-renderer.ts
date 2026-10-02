@@ -1604,18 +1604,16 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (!q) {
       pre.textContent = split.text;
     } else {
-      // Fold each char and keep an offset map back to the original
-      // text — plain indexOf on a lowercased copy shifts indices when a
-      // char expands under lowercasing ("İ" → "i̇"), while a regex /i on
-      // the original loses fold matches ("i" wouldn't find "İ").
-      var folded = "";
+      // Fold the whole text once (contextual folds like "ΟΣ" → "ος"
+      // need surrounding chars), then map folded offsets back: per-char
+      // fold LENGTHS agree with the contextual fold even when the folded
+      // char differs ("ς" vs "σ" are both one code unit), so each folded
+      // position maps to its originating original index.
+      var folded = split.text.toLowerCase();
       var foldMap = [];
       for (var ci = 0; ci < split.text.length; ci++) {
-        var fc = split.text[ci].toLowerCase();
-        for (var cj = 0; cj < fc.length; cj++) {
-          folded += fc[cj];
-          foldMap.push(ci);
-        }
+        var fl = split.text[ci].toLowerCase().length;
+        for (var cj = 0; cj < fl; cj++) foldMap.push(ci);
       }
       var nq = q.toLowerCase();
       var pos = 0;
