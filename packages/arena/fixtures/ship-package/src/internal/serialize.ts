@@ -91,7 +91,7 @@ function validatePlanField(obj: Record<string, unknown>): void {
   if (p["apiVersion"] !== "sverka.dev/v1run") {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
-      `plan.apiVersion must be "sverka.dev/v1run", got "${String(p["apiVersion"])}"`,
+      `plan.apiVersion must be "sverka.dev/v1run"`,
     );
   }
   for (const field of ["id", "graphId", "createdAt"] as const) {

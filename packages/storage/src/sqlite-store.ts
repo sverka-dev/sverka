@@ -37,22 +37,32 @@ export function createSqliteSnapshotStore(
   const path = config?.path ?? DEFAULT_PATH;
 
   if (path !== ":memory:") {
+    const dir = dirname(path);
     try {
-      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      // mode only applies at creation — tighten an existing dir too.
+      // Skip "." — it is the cwd, not an app-owned directory.
+      if (dir !== ".") chmodSync(dir, 0o700);
     } catch {
       // Directory may already exist or parent is "." — ignore.
     }
-  }
-
-  let db: DatabaseSync;
-  try {
-    if (path !== ":memory:") {
+    try {
       // Pre-create with owner-only perms — DatabaseSync would otherwise
       // create the file with default perms until chmod runs. Snapshots
       // embed the full plan + outputs, so keep the DB owner-only.
       closeSync(openSync(path, "a", 0o600));
       chmodSync(path, 0o600);
+    } catch (e) {
+      throw new StorageError(
+        "STORE_IO_FAILED",
+        `failed to secure sqlite database at ${path}`,
+        e,
+      );
     }
+  }
+
+  let db: DatabaseSync;
+  try {
     db = new DatabaseSync(path);
   } catch (e) {
     throw new StorageError(

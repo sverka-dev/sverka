@@ -57,7 +57,12 @@ describe("@sverka/storage public API", () => {
     walk(srcDir);
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
-      expect(readFileSync(file, "utf8")).not.toMatch(/\bany\b/);
+      // Strip comments before scanning — "any" in prose is fine, the
+      // `any` type is not.
+      const code = readFileSync(file, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/[^\n]*/g, "");
+      expect(code).not.toMatch(/[:<,(]\s*any\b|\bas any\b|\bany\s*[\]>\],)]/);
     }
   });
 
