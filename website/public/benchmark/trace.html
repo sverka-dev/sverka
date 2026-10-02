@@ -1195,8 +1195,7 @@
         async function loadTraceArena(taskId, modelId, pluginIds) {
           var seq = ++loadSeq;
           var content = document.getElementById("content");
-          var comboLabelA =
-            pluginIds.length === 0 ? "raw" : pluginIds.join("+");
+          var comboLabelA = comboLabel(pluginIds);
           content.innerHTML =
             '<div class="loading">Loading trace for ' +
             esc(taskId) +

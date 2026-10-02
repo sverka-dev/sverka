@@ -362,11 +362,16 @@ async function route(req: Request): Promise<Response> {
   }
 
   if (path.startsWith("/api/")) {
-    // Committed snapshots (api/cases.json, api/config.json, …) are static
-    // files — the hosted site serves them directly, so do the same here;
-    // only genuinely unknown endpoints 404.
-    const resp = await serveStatic(path);
-    return resp.status === 404 ? error(404, "API endpoint not found") : resp;
+    // The hosted site serves the committed api/*.json snapshots as static
+    // files — do the same here. Whitelist them rather than falling through
+    // for all of /api/*: RUNS_DIR lives under api/ too, and its runtime
+    // status files (absolute resultsPath, prompts, outputs) must not be
+    // exposed as static content.
+    if (path === "/api/cases.json" || path === "/api/config.json") {
+      const resp = await serveStatic(path);
+      if (resp.status !== 404) return resp;
+    }
+    return error(404, "API endpoint not found");
   }
 
   // Static files
