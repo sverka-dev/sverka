@@ -112,7 +112,9 @@ async function cmdReport(args: ParsedArgs, io: Io): Promise<number> {
   if (
     !Array.isArray(result.aggregates) ||
     !Array.isArray(result.analysis) ||
-    !Array.isArray(result.results)
+    !Array.isArray(result.results) ||
+    result.config === undefined ||
+    !Array.isArray(result.config.models)
   ) {
     io.err(`report: '${file}' is not a sverka-arena results file\n`);
     return 2;

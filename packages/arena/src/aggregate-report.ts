@@ -22,19 +22,20 @@ export function runStepId(result: RunResult, index: number): string {
   return `${result.taskId}/${result.modelId}/${comboLabel(result)}/r${index + 1}`;
 }
 
-function kfmt(n: number): string {
+function formatTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
 function metricsLine(result: RunResult): string {
   const m = result.metrics;
+  if (m === undefined) return "no metrics recorded";
   const judge = result.verdicts?.length
     ? `, judge ${Math.round(
         result.verdicts.reduce((a, v) => a + v.score, 0) /
           result.verdicts.length,
       )}`
     : "";
-  return `${kfmt(m.totalTokens)} tokens, ${m.toolCallCount} tool calls, ${m.llmCallCount} llm calls${judge}`;
+  return `${formatTokens(m.totalTokens)} tokens, ${m.toolCallCount} tool calls, ${m.llmCallCount} llm calls${judge}`;
 }
 
 function failureReason(result: RunResult): string {
@@ -44,7 +45,7 @@ function failureReason(result: RunResult): string {
       .map((c) => `${c.checkId}: ${c.output || `exit ${c.exitCode}`}`)
       .join("; ");
   }
-  return "run reported success=false";
+  return result.error ?? "run reported success=false";
 }
 
 /**
@@ -73,28 +74,29 @@ export function arenaResultGraph(result: ArenaResult): DefinitionGraph {
 }
 
 /**
- * Convert the whole matrix into a RunEvent stream. Steps run at their
- * own offsets (staggered by index so the Gantt rows don't collapse) —
- * each step's durationMs is the run's real executionTimeMs.
+ * Convert the whole matrix into a RunEvent stream. Runs are laid out
+ * serially — each starts when the previous ended — because arena
+ * executes the matrix sequentially; the Gantt then reads as the real
+ * wall-clock timeline and `run-completed` carries the honest total.
  */
 export function arenaResultToEvents(result: ArenaResult): RunEvent[] {
   const events: RunEvent[] = [
     { type: "run-started", runId: "arena", planId: "arena", at: 0 },
   ];
-  let maxEnd = 0;
+  let t = 0;
   result.results.forEach((r, i) => {
     const stepId = runStepId(r, i);
     const dur = Math.max(r.metrics?.executionTimeMs ?? 0, 1);
-    const events_ = Math.min(i * 1000, 60_000);
-    maxEnd = Math.max(maxEnd, events_ + dur);
-    events.push({ type: "step-started", stepId, at: events_ });
+    const start = t;
+    t += dur;
+    events.push({ type: "step-started", stepId, at: start });
     if (r.success) {
       events.push({
         type: "step-succeeded",
         stepId,
         durationMs: dur,
         stdout: metricsLine(r),
-        at: events_ + dur,
+        at: start + dur,
       });
     } else {
       events.push({
@@ -103,7 +105,7 @@ export function arenaResultToEvents(result: ArenaResult): RunEvent[] {
         error: failureReason(r),
         durationMs: dur,
         stdout: metricsLine(r),
-        at: events_ + dur,
+        at: start + dur,
       });
     }
     for (const v of r.verdicts ?? []) {
@@ -112,7 +114,7 @@ export function arenaResultToEvents(result: ArenaResult): RunEvent[] {
         stepId,
         severity: v.passed ? "info" : "warn",
         message: `judge score ${v.score}${v.passed ? "" : " (failed)"}: ${v.reasoning}`,
-        at: events_ + dur,
+        at: start + dur,
       });
     }
   });
@@ -121,8 +123,8 @@ export function arenaResultToEvents(result: ArenaResult): RunEvent[] {
     type: "run-completed",
     runId: "arena",
     status: anyFail ? "failure" : "success",
-    durationMs: maxEnd,
-    at: maxEnd,
+    durationMs: t,
+    at: t,
   });
   return events;
 }
@@ -149,7 +151,7 @@ export function writeAggregateReport(
     graph: arenaResultGraph(result),
     context: {
       title: "arena aggregate",
-      generatedAt: result.timestamp,
+      generatedAt: result.timestamp ?? new Date().toISOString(),
       command: "sverka-arena report --format html",
       ...context,
       meta,

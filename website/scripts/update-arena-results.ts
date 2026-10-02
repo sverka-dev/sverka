@@ -130,10 +130,16 @@ for (const [tmp, target] of staged) {
 
 // Aggregate report — the whole matrix as one sverka report (pipeline per
 // task, run per step). Same tmp+rename discipline as the trace reports.
-if ((results.results ?? []).length > 0 && results.config !== undefined) {
+const arenaResult =
+  (results.results ?? []).length > 0 &&
+  results.config !== undefined &&
+  Array.isArray(results.config.models)
+    ? (results as ArenaResult)
+    : undefined;
+if (arenaResult !== undefined) {
   const aggPath = join(benchDir, "aggregate.html");
   const aggTmp = `${aggPath}.tmp`;
-  writeAggregateReport(results as ArenaResult, aggTmp);
+  writeAggregateReport(arenaResult, aggTmp);
   await rename(aggTmp, aggPath);
 }
 
