@@ -123,7 +123,8 @@ function validatePlanField(obj: Record<string, unknown>): void {
   if (
     typeof e["id"] !== "string" ||
     typeof e["trigger"] !== "object" ||
-    e["trigger"] === null
+    e["trigger"] === null ||
+    Array.isArray(e["trigger"])
   ) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
@@ -164,6 +165,7 @@ function validatePlanField(obj: Record<string, unknown>): void {
     if (
       typeof s["runtime"] !== "object" ||
       s["runtime"] === null ||
+      Array.isArray(s["runtime"]) ||
       !Array.isArray(s["operations"]) ||
       !Array.isArray(s["inputs"]) ||
       !Array.isArray(s["outputs"]) ||

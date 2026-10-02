@@ -60,6 +60,24 @@ export function createFileSnapshotStore(
         `.snapshot.${randomBytes(6).toString("hex")}.tmp`,
       );
       await wrapIO(`save snapshot ${snapshot.runId}`, async () => {
+        // Reject symlinked store dirs before mkdir/chmod — a symlink planted
+        // at .sverka or runs would redirect writes outside root, and chmod
+        // would tighten the unrelated target directory.
+        for (const p of [
+          join(root, ".sverka"),
+          join(root, ".sverka", "runs"),
+        ]) {
+          try {
+            if ((await lstat(p)).isSymbolicLink()) {
+              throw new StorageError(
+                "STORE_IO_FAILED",
+                `store directory is a symlink: ${p}`,
+              );
+            }
+          } catch (err) {
+            if (!isENOENT(err)) throw err;
+          }
+        }
         await mkdir(dir, { recursive: true, mode: 0o700 });
         // mode only applies at creation — chmod an existing dir too, but
         // never follow a planted symlink: chmod(dir) would otherwise

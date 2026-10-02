@@ -117,14 +117,18 @@ describe("SqliteSnapshotStore", () => {
     }
   });
 
-  it("creates the database file owner-only (0600)", async () => {
-    const dbPath = join(dir, "perms.db");
-    const store = createSqliteSnapshotStore({ path: dbPath });
-    await store.save(makeSnapshot("run-p"));
-    const { statSync } = await import("node:fs");
-    expect(statSync(dbPath).mode & 0o777).toBe(0o600);
-    store.close();
-  });
+  // POSIX permission bits don't exist on Windows — Stats.mode is unreliable.
+  it.skipIf(process.platform === "win32")(
+    "creates the database file owner-only (0600)",
+    async () => {
+      const dbPath = join(dir, "perms.db");
+      const store = createSqliteSnapshotStore({ path: dbPath });
+      await store.save(makeSnapshot("run-p"));
+      const { statSync } = await import("node:fs");
+      expect(statSync(dbPath).mode & 0o777).toBe(0o600);
+      store.close();
+    },
+  );
 
   it("delete removes the snapshot", async () => {
     const store = createSqliteSnapshotStore({ path: ":memory:" });

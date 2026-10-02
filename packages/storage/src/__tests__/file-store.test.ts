@@ -175,15 +175,19 @@ describe("FileSnapshotStore", () => {
     expect(tmpFiles).toEqual([]);
   });
 
-  it("save writes snapshot.json owner-only (0600)", async () => {
-    const store = createFileSnapshotStore({ root: dir });
-    await store.save(makeSnapshot("run-perms"));
-    const { statSync } = await import("node:fs");
-    const mode =
-      statSync(join(dir, ".sverka", "runs", "run-perms", "snapshot.json"))
-        .mode & 0o777;
-    expect(mode).toBe(0o600);
-  });
+  // POSIX permission bits don't exist on Windows — Stats.mode is unreliable.
+  it.skipIf(process.platform === "win32")(
+    "save writes snapshot.json owner-only (0600)",
+    async () => {
+      const store = createFileSnapshotStore({ root: dir });
+      await store.save(makeSnapshot("run-perms"));
+      const { statSync } = await import("node:fs");
+      const mode =
+        statSync(join(dir, ".sverka", "runs", "run-perms", "snapshot.json"))
+          .mode & 0o777;
+      expect(mode).toBe(0o600);
+    },
+  );
 
   it("save writes atomically — no .snapshot.*.tmp file left after success", async () => {
     const store = createFileSnapshotStore({ root: dir });
