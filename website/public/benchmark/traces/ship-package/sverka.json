@@ -864,5 +864,6 @@
     "totalCompletionTokens": 14658,
     "totalCachedTokens": 1239656,
     "totalSteps": 46
-  }
+  },
+  "llmCallCount": 46
 }

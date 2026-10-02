@@ -114,7 +114,13 @@ for (const r of results.results ?? []) {
   // Later repetitions overwrite — the viewer only shows one run per combo.
   const tracePath = join(dir, `${combo}.json`);
   const traceTmp = `${tracePath}.tmp`;
-  await writeFile(traceTmp, JSON.stringify(r.trace, null, 2) + "\n");
+  // trace.html renders llmCallCount at the trace top level — it lives on
+  // RunResult.metrics, not inside TraceData, so copy it across.
+  const traceJson = {
+    ...r.trace,
+    llmCallCount: r.metrics?.llmCallCount ?? 0,
+  };
+  await writeFile(traceTmp, JSON.stringify(traceJson, null, 2) + "\n");
   staged.push([traceTmp, tracePath]);
   // Sverka report — Gantt/DAG timeline of the agent run itself.
   const reportPath = join(dir, `${combo}.report.html`);

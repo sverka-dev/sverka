@@ -158,7 +158,12 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
       return 2;
     }
     const wanted = new Set(args.tasks);
-    config.tasks = config.tasks.filter((t) => wanted.has(t.id));
+    const seen = new Set<string>();
+    config.tasks = config.tasks.filter((t) => {
+      if (!wanted.has(t.id) || seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
   }
   const result = await runArena(config);
   if (args.format === "json") {
@@ -246,9 +251,14 @@ export async function main(
       case "run":
         return await cmdRun(args, io);
       case "report":
-        return await cmdReport(args, io);
       case "doctor":
-        return await cmdDoctor(args, io);
+        if (args.tasks.length > 0) {
+          io.err(`${args.command}: --task is only supported by 'run'\n`);
+          return 2;
+        }
+        return args.command === "report"
+          ? await cmdReport(args, io)
+          : await cmdDoctor(args, io);
       default:
         io.err(`unknown command '${args.command}'\n`);
         io.err(USAGE);

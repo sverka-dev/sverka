@@ -433,7 +433,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <span class="ctx-label">success:</span> <span class="ctx-value">true</span>
       <span class="ctx-label">timing:</span> <span class="ctx-value">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-10-02T13:10:24.985Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-10-02T13:18:00.629Z</span>
     </div>
   </header>
 
@@ -1977,19 +1977,21 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (!q) {
       pre.textContent = split.text;
     } else {
-      var lower = split.text.toLowerCase();
-      var needle = q.toLowerCase();
+      // Case-insensitive regex match on the ORIGINAL text — indexOf on a
+      // lowercased copy shifts indices when a char expands under
+      // lowercasing (e.g. "İ" → "i̇", two code units).
+      var needle = q.replace(/[\^$.|?*+()[{]/g, "\$&");
+      var re = new RegExp(needle, "gi");
       var i = 0;
       var hit;
-      while ((hit = lower.indexOf(needle, i)) !== -1) {
-        pre.appendChild(document.createTextNode(split.text.slice(i, hit)));
+      while ((hit = re.exec(split.text)) !== null) {
+        pre.appendChild(document.createTextNode(split.text.slice(i, hit.index)));
         var mark = document.createElement("mark");
-        // needle.length — the match length in the lowercased string,
-        // which can differ from q.length for chars like "İ".
-        mark.textContent = split.text.slice(hit, hit + needle.length);
+        mark.textContent = hit[0];
         pre.appendChild(mark);
         logMarks.push(mark);
-        i = hit + needle.length;
+        i = hit.index + hit[0].length;
+        if (hit[0].length === 0) re.lastIndex += 1;
       }
       pre.appendChild(document.createTextNode(split.text.slice(i)));
     }

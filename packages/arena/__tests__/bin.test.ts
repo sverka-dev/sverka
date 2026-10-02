@@ -158,6 +158,20 @@ describe("sverka-arena bin", () => {
     expect(c.stderr).toContain("t1");
   });
 
+  it("report/doctor reject --task instead of silently ignoring it", async () => {
+    const { c, io } = capture();
+    const code = await main(
+      ["report", join(dir, "results.json"), "--task", "t1"],
+      io,
+    );
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("--task is only supported by 'run'");
+    const c2 = capture();
+    const code2 = await main(["doctor", "--task", "t1"], c2.io);
+    expect(code2).toBe(2);
+    expect(c2.c.stderr).toContain("--task is only supported by 'run'");
+  });
+
   it("report exits 2 on a results file with wrong shape", async () => {
     writeFileSync(join(dir, "not-results.json"), JSON.stringify({ ok: 1 }));
     const { c, io } = capture();
