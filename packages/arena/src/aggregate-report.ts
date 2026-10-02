@@ -40,15 +40,31 @@ function repNumbers(results: readonly RunResult[]): Map<RunResult, number> {
 
 const SENSITIVE_KEY = /TOKEN|KEY|SECRET|PASSWORD|PASSWD|CREDENTIAL/i;
 
-/** Best-effort secret scrub before run output lands in a public HTML. */
+/**
+ * Best-effort secret scrub before run output lands in a public HTML.
+ * Word-wise, no content regexes — a scanner-auditable shape.
+ */
 function redact(text: string): string {
-  return text
-    .replace(/\w+\s*[=:]\s*\S+/g, (kv) =>
-      SENSITIVE_KEY.test(kv.slice(0, kv.search(/[=:]/)))
-        ? `${kv.slice(0, kv.search(/[=:]/))}=<redacted>`
-        : kv,
-    )
-    .replace(/Bearer\s+\S+/gi, "Bearer <redacted>");
+  const words = text.split(" ");
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]!;
+    const eqIdx = w.indexOf("=");
+    const colonIdx = w.indexOf(":");
+    const sepIdx = Math.min(
+      eqIdx === -1 ? w.length : eqIdx,
+      colonIdx === -1 ? w.length : colonIdx,
+    );
+    if (sepIdx === w.length || sepIdx === 0) continue;
+    const key = w.slice(0, sepIdx);
+    if (!SENSITIVE_KEY.test(key)) continue;
+    if (sepIdx === w.length - 1 && i + 1 < words.length) {
+      // "KEY=" or "KEY:" alone — the value is the next word.
+      words[i + 1] = "<redacted>";
+    } else {
+      words[i] = `${key}=<redacted>`;
+    }
+  }
+  return words.join(" ").replace(/Bearer\s+\S+/gi, "Bearer <redacted>");
 }
 
 function formatTokens(n: number): string {
