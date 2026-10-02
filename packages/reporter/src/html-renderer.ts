@@ -560,8 +560,8 @@ function renderDrawer(): string {
       <button type="button" id="drawer-download" class="drawer-btn">Download</button>
     </div>
     <div id="drawer-truncated" class="drawer-truncated" hidden></div>
-    <div id="drawer-body" role="tabpanel" aria-label="overview"></div>
-    <pre id="drawer-log" class="step-out" role="tabpanel" aria-label="log" hidden></pre>
+    <div id="drawer-body" role="tabpanel" aria-label="overview" tabindex="0"></div>
+    <pre id="drawer-log" class="step-out" role="tabpanel" aria-label="log" tabindex="0" hidden></pre>
   </aside>`;
 }
 
