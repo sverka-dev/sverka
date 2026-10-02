@@ -38,14 +38,17 @@ function repNumbers(results: readonly RunResult[]): Map<RunResult, number> {
   return reps;
 }
 
+const SENSITIVE_KEY = /TOKEN|KEY|SECRET|PASSWORD|PASSWD|CREDENTIAL/i;
+
 /** Best-effort secret scrub before run output lands in a public HTML. */
 function redact(text: string): string {
   return text
-    .replace(
-      /([A-Za-z_]*(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|CREDENTIAL)[A-Za-z_]*\s*[=:]\s*"?)[^\s"']+/gi,
-      "$1<redacted>",
+    .replace(/\w+\s*[=:]\s*\S+/g, (kv) =>
+      SENSITIVE_KEY.test(kv.slice(0, kv.search(/[=:]/)))
+        ? `${kv.slice(0, kv.search(/[=:]/))}=<redacted>`
+        : kv,
     )
-    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer <redacted>");
+    .replace(/Bearer\s+\S+/gi, "Bearer <redacted>");
 }
 
 function formatTokens(n: number): string {
@@ -69,7 +72,7 @@ function failureReason(result: RunResult): string {
   if (failed.length > 0) {
     return redact(
       failed
-        .map((c) => `${c.checkId}: ${c.output || `exit ${c.exitCode}`}`)
+        .map((c) => `${c.checkId}: ${c.output || "exit " + c.exitCode}`)
         .join("; "),
     );
   }

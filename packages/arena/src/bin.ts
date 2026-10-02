@@ -20,12 +20,14 @@ interface Io {
   err(s: string): void;
 }
 
+type Format = "text" | "json" | "html";
+
 interface ParsedArgs {
   command: string | undefined;
   positional: string[];
   config: string;
   out: string | undefined;
-  format: "text" | "json" | "html";
+  format: Format;
 }
 
 const USAGE = `usage: sverka-arena <command> [options]
@@ -44,7 +46,7 @@ function flagValue(argv: readonly string[], i: number): string {
   return val;
 }
 
-function parseFormat(val: string): "text" | "json" | "html" {
+function parseFormat(val: string): Format {
   if (val !== "json" && val !== "text" && val !== "html") {
     throw new ArenaError(`invalid --format '${val}'`, "CONFIG_INVALID");
   }
@@ -149,21 +151,22 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
   return 0;
 }
 
-async function cmdDoctor(args: ParsedArgs, io: Io): Promise<number> {
-  if (args.format === "html") {
-    io.err("doctor: --format html is only supported by 'report'\n");
-    return 2;
-  }
-  const config = await loadArenaConfig(args.config);
-  const checks: { name: string; ok: boolean; detail: string }[] = [];
+interface DoctorCheck {
+  name: string;
+  ok: boolean;
+  detail: string;
+}
 
-  const agentFound = which(config.agent.id);
-  checks.push({
-    name: `agent binary: ${config.agent.id}`,
-    ok: agentFound,
-    detail: agentFound ? "on PATH" : "not found on PATH",
-  });
-
+function doctorChecks(
+  config: Awaited<ReturnType<typeof loadArenaConfig>>,
+): DoctorCheck[] {
+  const checks: DoctorCheck[] = [
+    {
+      name: `agent binary: ${config.agent.id}`,
+      ok: which(config.agent.id),
+      detail: which(config.agent.id) ? "on PATH" : "not found on PATH",
+    },
+  ];
   const models = config.judge
     ? [...config.models, config.judge.model]
     : config.models;
@@ -175,6 +178,15 @@ async function cmdDoctor(args: ParsedArgs, io: Io): Promise<number> {
       detail: process.env[m.envVar] !== undefined ? "set" : "not set",
     });
   }
+  return checks;
+}
+
+async function cmdDoctor(args: ParsedArgs, io: Io): Promise<number> {
+  if (args.format === "html") {
+    io.err("doctor: --format html is only supported by 'report'\n");
+    return 2;
+  }
+  const checks = doctorChecks(await loadArenaConfig(args.config));
 
   if (args.format === "json") {
     io.out(JSON.stringify({ checks }, null, 2) + "\n");
