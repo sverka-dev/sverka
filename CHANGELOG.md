@@ -1,3 +1,14 @@
+## 0.1.29 (2026-10-02)
+
+### 🩹 Fixes
+
+- **deps:** scope brace-expansion override per consumer line ([#282](https://github.com/sverka-dev/sverka/pull/282))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.28 (2026-10-02)
 
 ### 🚀 Features
