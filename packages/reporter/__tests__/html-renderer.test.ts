@@ -519,8 +519,7 @@ describe("HtmlRenderer", () => {
     // actions: copy + download operate on the active tab
     expect(html).toContain('id="drawer-copy"');
     expect(html).toContain('id="drawer-download"');
-    expect(html).toContain("navigator.clipboard");
-    expect(html).toContain("writeText");
+    expect(html).toMatch(/navigator\.clipboard\s*\.\s*writeText/);
     // the findings button applies the step filter, not just scrolls
     expect(html).toContain("applyStepFilter(drawerStep.id)");
     // the fixture's truncation marker lands in the embedded payload the
