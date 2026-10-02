@@ -4,7 +4,7 @@ import { Writable, Readable } from "node:stream";
 import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, basename } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
 
 import {
@@ -193,8 +193,10 @@ describe("DevinAdapter", () => {
     };
 
     const home = opts.env["HOME"];
-    expect(home).toMatch(/arena-env-.*\/home$/);
+    expect(basename(home)).toBe("home");
+    expect(dirname(home)).toMatch(/arena-env-/);
     expect(home).not.toBe(process.env.HOME);
+    expect(opts.env["USERPROFILE"]).toBe(home);
     expect(existsSync(home)).toBe(true);
     proc.kill();
   });

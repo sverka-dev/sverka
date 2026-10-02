@@ -480,6 +480,8 @@ function isolateAgentEnv(
     }
 
     if (overrides?.["HOME"] === undefined) env.HOME = homeDir;
+    // Windows resolves the profile dir via USERPROFILE, not HOME.
+    if (overrides?.["USERPROFILE"] === undefined) env.USERPROFILE = homeDir;
     env.XDG_CONFIG_HOME = configDir;
     env.XDG_DATA_HOME = dataDir;
     return envHome;
