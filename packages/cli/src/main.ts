@@ -100,6 +100,11 @@ function addRunCommand(y: Argv): Argv {
       type: "boolean",
       describe:
         "Interactive terminal UI (default: on when stdout is a TTY and no --format)",
+    })
+    .option("jobs", {
+      type: "number",
+      alias: "j",
+      describe: "Max steps running concurrently (default: 4)",
     });
 }
 
@@ -314,6 +319,16 @@ function dispatchRun(
     executor: parsed.executor === "docker" ? "docker" : "host",
     evaluate: Boolean(parsed.evaluate),
   };
+  if (parsed.jobs !== undefined) {
+    const jobs = Number(parsed.jobs);
+    if (!Number.isInteger(jobs) || jobs < 1)
+      throw new CliError(
+        "--jobs must be a positive integer",
+        "INVALID_FLAG",
+        ExitCode.UsageError,
+      );
+    args.jobs = jobs;
+  }
   if (typeof parsed.entry === "string") args.entryId = parsed.entry;
   if (typeof parsed.output === "string") args.output = parsed.output;
   if (parsed.tui === true) args.tui = true;

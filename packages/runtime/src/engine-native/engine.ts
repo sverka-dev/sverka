@@ -3,7 +3,9 @@
 // emits structured run events, supports cancellation.
 
 import { mkdir } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { globSync, readFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { join, relative } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
 import { EngineError } from "./errors.js";
 import type { RunPlan } from "@sverka/workflow";
@@ -1034,6 +1036,10 @@ class NativeEngine implements Engine {
   ): string {
     return key.replace(/\$\{\{([^{}]*)\}\}/g, (whole, inner: string) => {
       inner = inner.trim();
+      const hashMatch = inner.match(/^hashFiles\((.*)\)$/);
+      if (hashMatch) {
+        return this.hashFiles(hashMatch[1] ?? "", ctx, stepId);
+      }
       const dot = inner.lastIndexOf(".");
       if (dot === -1) return whole;
       const namespace = inner.slice(0, dot).trim();
@@ -1046,6 +1052,48 @@ class NativeEngine implements Engine {
       const value = this.resolveContextRef(ref, ctx, stepId);
       return value === undefined ? "" : String(value);
     });
+  }
+
+  /**
+   * ${{ hashFiles('glob', 'glob', ...) }} — sha256 over the sorted set of
+   * matched files (relative path + content), resolved against the run
+   * workspace. A pattern matching nothing yields an empty segment plus a
+   * warn diagnostic — a silent constant key would poison the cache.
+   */
+  private hashFiles(
+    argsSrc: string,
+    ctx: RunContext,
+    stepId: string,
+  ): string {
+    const patterns = [...argsSrc.matchAll(/["']([^"']*)["']/g)].map(
+      (m) => m[1] ?? "",
+    );
+    const matched = new Set<string>();
+    for (const pattern of patterns) {
+      for (const p of globSync(pattern, { cwd: ctx.request.workspace })) {
+        matched.add(p);
+      }
+    }
+    if (matched.size === 0) {
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        severity: "warn",
+        message: `hashFiles(${argsSrc}) matched no files — cache key segment is empty`,
+      });
+      return "";
+    }
+    // Synchronous key resolution: hash file contents in path order.
+    const hash = createHash("sha256");
+    for (const p of [...matched].sort()) {
+      const abs = join(ctx.request.workspace, p);
+      const content = readFileSync(abs);
+      hash.update(relative(ctx.request.workspace, abs));
+      hash.update("\0");
+      hash.update(content);
+      hash.update("\0");
+    }
+    return hash.digest("hex");
   }
 }
 

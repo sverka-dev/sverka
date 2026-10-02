@@ -31,6 +31,8 @@ export interface RunArgs {
   tui?: boolean;
   /** Whether --format was passed explicitly (disables TUI auto-detect). */
   formatExplicit?: boolean;
+  /** Max steps running concurrently (--jobs). */
+  jobs?: number;
 }
 
 /**
@@ -72,7 +74,7 @@ export async function runCommand(
 
   const engine = createEngine({
     drivers: buildDrivers(executor),
-    maxConcurrent: 4,
+    maxConcurrent: args.jobs ?? 4,
   });
 
   const { events, runStatus, renderer } = await consumeEvents(

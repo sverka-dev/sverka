@@ -33,7 +33,11 @@ export function computeBackoffDelay(
   if (!backoff) return 0;
   const factor = backoff.factor ?? 2;
   const raw = backoff.baseMs * Math.pow(factor, retryNumber - 1);
-  return backoff.maxMs !== undefined ? Math.min(raw, backoff.maxMs) : raw;
+  const capped = backoff.maxMs !== undefined ? Math.min(raw, backoff.maxMs) : raw;
+  // Full jitter — deterministic schedules make concurrent retries stampede
+  // the same resource; uniform random in [0, cap] spreads them out.
+  if (backoff.jitter) return Math.floor(Math.random() * (capped + 1));
+  return capped;
 }
 
 /**
