@@ -1076,7 +1076,14 @@ class NativeEngine implements Engine {
       field,
     };
     const value = this.resolveContextRef(ref, ctx, stepId);
-    return value === undefined ? "" : String(value);
+    if (value === undefined) return "";
+    // Cache keys end up in run events and the cache manifest — a secret
+    // must never appear verbatim. Hashing keeps the key deterministic
+    // without leaking the value.
+    if (namespace === "secrets") {
+      return createHash("sha256").update(String(value)).digest("hex");
+    }
+    return String(value);
   }
 
   /**

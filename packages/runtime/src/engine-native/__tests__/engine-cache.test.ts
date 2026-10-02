@@ -207,6 +207,46 @@ describe("Engine — cache integration", () => {
     }
   });
 
+  it("secrets.* refs land in the key as a sha256 — never the raw value", async () => {
+    const step: StepDefinition = {
+      id: "ci/build",
+      runtime: { secrets: ["TOKEN"] },
+      operations: [{ kind: "shell", command: "echo build" }],
+      inputs: [],
+      outputs: [],
+      dependencies: [],
+      cache: { paths: ["dist"], key: "ci-${{ secrets.TOKEN }}" },
+    };
+    const plan: RunPlan = {
+      apiVersion: "sverka.dev/v1run",
+      id: "rp-cache",
+      graphId: "graph-cache",
+      entry: { id: "ci/on-push", trigger: { kind: "push" } },
+      inputs: {},
+      steps: [step],
+      createdAt: "2026-08-31T00:00:00.000Z",
+    };
+    const restoreCalls: { key: string }[] = [];
+    const cache: CacheStore = {
+      restore: async (req) => {
+        restoreCalls.push({ key: req.key });
+        return undefined;
+      },
+      store: async () => undefined,
+    };
+    const engine = createEngine({ drivers: [createMockDriver()], cache });
+    await collectEvents(engine, {
+      plan,
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+      secrets: {
+        resolve: async (name) => (name === "TOKEN" ? "s3cr3t" : undefined),
+      },
+    });
+    expect(restoreCalls[0]?.key).toMatch(/^ci-[0-9a-f]{64}$/);
+    expect(restoreCalls[0]?.key).not.toContain("s3cr3t");
+  });
+
   it("hashFiles: key segment is the content hash, changes with file content", async () => {
     const ws = join(testDir, "ws");
     await mkdir(join(ws, "locks"), { recursive: true });
