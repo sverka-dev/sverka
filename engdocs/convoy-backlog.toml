@@ -1,0 +1,71 @@
+# Sverka backlog convoy — three feature tracks, run sequentially.
+# Each molecule: design → implement → ship (PR + green gate + merge).
+# Execute in order: mol-arena, then mol-inspector, then mol-core.
+kind = "convoy"
+gates = "forbid"   # unattended queue — no human gates inside molecules
+
+# ---------------------------------------------------------------- mol 1
+[[molecules]]
+title = "convoy: Arena aggregate report"
+description = "Svodnyi benchmark report across all arena runs: pass-rate, duration, combo comparison — same reporter pipeline as per-run reports."
+
+[[molecules.steps]]
+id = "design"
+title = "Design: data model for aggregated runs (which fields, grouping, deltas)"
+type = "agent"
+
+[[molecules.steps]]
+id = "impl"
+title = "Implement aggregate report generator + CLI entry"
+type = "agent"
+needs = ["design"]
+
+[[molecules.steps]]
+id = "ship"
+title = "Tests green, PR opened, act gate OK, merged"
+type = "agent"
+needs = ["impl"]
+
+# ---------------------------------------------------------------- mol 2
+[[molecules]]
+title = "convoy: Inspector UX"
+description = "Inspector improvements: stdout/stderr tabs, log search, tail truncation marker, copy/download buttons."
+
+[[molecules.steps]]
+id = "design"
+title = "Design: tab model + search UX + truncation marker semantics"
+type = "agent"
+
+[[molecules.steps]]
+id = "impl"
+title = "Implement tabs, search, tail marker, copy/download"
+type = "agent"
+needs = ["design"]
+
+[[molecules.steps]]
+id = "ship"
+title = "Tests green, PR opened, act gate OK, merged"
+type = "agent"
+needs = ["impl"]
+
+# ---------------------------------------------------------------- mol 3
+[[molecules]]
+title = "convoy: Core runtime hardening"
+description = "retries/retryOn per step, input-based caching, parallel execution inside a stage by needs."
+
+[[molecules.steps]]
+id = "design"
+title = "Design: retry policy fields, cache key from inputs, scheduler for intra-stage parallelism"
+type = "agent"
+
+[[molecules.steps]]
+id = "impl"
+title = "Implement retries, input cache, intra-stage parallelism"
+type = "agent"
+needs = ["design"]
+
+[[molecules.steps]]
+id = "ship"
+title = "Tests green, PR opened, act gate OK, merged"
+type = "agent"
+needs = ["impl"]
