@@ -79,6 +79,16 @@ function validateStringField(
   }
 }
 
+function isInputValue(value: unknown): boolean {
+  return (
+    typeof value === "string" ||
+    // Finite only — Infinity/NaN re-serialize to null and don't round-trip.
+    (typeof value === "number" && Number.isFinite(value)) ||
+    typeof value === "boolean" ||
+    (Array.isArray(value) && value.every((v) => typeof v === "string"))
+  );
+}
+
 function validatePlanField(obj: Record<string, unknown>): void {
   const plan = obj["plan"];
   if (typeof plan !== "object" || plan === null || Array.isArray(plan)) {
@@ -102,12 +112,38 @@ function validatePlanField(obj: Record<string, unknown>): void {
       );
     }
   }
-  for (const field of ["entry", "inputs"] as const) {
-    const v = p[field];
-    if (typeof v !== "object" || v === null || Array.isArray(v)) {
+  const entry = p["entry"];
+  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "plan.entry is missing or not an object",
+    );
+  }
+  const e = entry as Record<string, unknown>;
+  if (
+    typeof e["id"] !== "string" ||
+    typeof e["trigger"] !== "object" ||
+    e["trigger"] === null
+  ) {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "plan.entry lacks a string id or a trigger object",
+    );
+  }
+  const inputs = p["inputs"];
+  if (typeof inputs !== "object" || inputs === null || Array.isArray(inputs)) {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "plan.inputs is missing or not an object",
+    );
+  }
+  for (const [key, value] of Object.entries(
+    inputs as Record<string, unknown>,
+  )) {
+    if (!isInputValue(value)) {
       throw new StorageError(
         "CORRUPT_SNAPSHOT",
-        `plan.${field} is missing or not an object`,
+        `plan.inputs.${key} is not a valid InputValue`,
       );
     }
   }
@@ -123,6 +159,19 @@ function validatePlanField(obj: Record<string, unknown>): void {
       throw new StorageError(
         "CORRUPT_SNAPSHOT",
         `plan.steps[${i}] is missing or lacks a string id`,
+      );
+    }
+    if (
+      typeof s["runtime"] !== "object" ||
+      s["runtime"] === null ||
+      !Array.isArray(s["operations"]) ||
+      !Array.isArray(s["inputs"]) ||
+      !Array.isArray(s["outputs"]) ||
+      !Array.isArray(s["dependencies"])
+    ) {
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        `plan.steps[${i}] lacks runtime/operations/inputs/outputs/dependencies`,
       );
     }
   }
@@ -158,12 +207,7 @@ function validateCompletedSteps(obj: Record<string, unknown>): void {
     for (const [key, value] of Object.entries(
       step["outputs"] as Record<string, unknown>,
     )) {
-      const ok =
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean" ||
-        (Array.isArray(value) && value.every((v) => typeof v === "string"));
-      if (!ok) {
+      if (!isInputValue(value)) {
         throw new StorageError(
           "CORRUPT_SNAPSHOT",
           `completedSteps[${i}].outputs.${key} is not a valid InputValue`,

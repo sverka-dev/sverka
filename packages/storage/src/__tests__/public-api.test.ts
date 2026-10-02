@@ -57,12 +57,14 @@ describe("@sverka/storage public API", () => {
     walk(srcDir);
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
-      // Strip comments before scanning — "any" in prose is fine, the
-      // `any` type is not.
-      const code = readFileSync(file, "utf8")
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/\/\/[^\n]*/g, "");
-      expect(code).not.toMatch(/[:<,(]\s*any\b|\bas any\b|\bany\s*[\]>\],)]/);
+      // Strip strings and comments in one pass — a lone "any" inside a
+      // literal or comment is fine; any remaining word-boundary `any`
+      // (annotations, aliases, unions, casts) is the forbidden type.
+      const code = readFileSync(file, "utf8").replace(
+        /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
+        "",
+      );
+      expect(code).not.toMatch(/\bany\b/);
     }
   });
 

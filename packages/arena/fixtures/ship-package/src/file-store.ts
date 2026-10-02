@@ -3,6 +3,7 @@
 
 import {
   chmod,
+  lstat,
   mkdir,
   readFile,
   rename,
@@ -60,7 +61,15 @@ export function createFileSnapshotStore(
       );
       await wrapIO(`save snapshot ${snapshot.runId}`, async () => {
         await mkdir(dir, { recursive: true, mode: 0o700 });
-        // mode only applies at creation — chmod an existing dir too.
+        // mode only applies at creation — chmod an existing dir too, but
+        // never follow a planted symlink: chmod(dir) would otherwise
+        // tighten an unrelated target directory.
+        if ((await lstat(dir)).isSymbolicLink()) {
+          throw new StorageError(
+            "STORE_IO_FAILED",
+            `run directory is a symlink: ${dir}`,
+          );
+        }
         await chmod(dir, 0o700);
         try {
           await writeFile(tmpPath, serialize(snapshot), {
