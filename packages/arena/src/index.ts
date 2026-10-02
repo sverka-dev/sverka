@@ -65,3 +65,10 @@ export {
   writeTraceReport,
 } from "./trace-report.js";
 export type { ActionStep } from "./trace-report.js";
+
+export {
+  arenaResultGraph,
+  arenaResultToEvents,
+  runStepId,
+  writeAggregateReport,
+} from "./aggregate-report.js";
