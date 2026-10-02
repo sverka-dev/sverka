@@ -206,6 +206,48 @@ main.split:has(.step-drawer.open) {
   padding: 0.4rem 1rem;
   border-bottom: 1px solid #21262d;
 }
+.drawer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-tablist { display: flex; gap: 0.25rem; }
+.drawer-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  color: #8b949e;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+.drawer-tab:hover { color: #f0f6fc; }
+.drawer-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+.drawer-tab:disabled { color: #484f58; cursor: default; }
+/* Author display rules beat the UA [hidden] rule \u2014 restore it. */
+.drawer-tabs[hidden] { display: none; }
+#drawer-log[hidden] { display: none; }
+#drawer-search {
+  margin-left: auto;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #e6edf3;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  width: 9rem;
+}
+.drawer-search-count { color: #8b949e; font-size: 0.75rem; white-space: nowrap; }
+.drawer-truncated {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  background: #2d2105;
+  color: #d29922;
+  font-size: 0.75rem;
+  border-bottom: 1px solid #21262d;
+}
 .drawer-log-title {
   margin: 0.75rem 0 0.25rem;
   font-size: 0.75rem;
@@ -215,6 +257,14 @@ main.split:has(.step-drawer.open) {
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
+#drawer-log {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 0.75rem 1rem 1.5rem;
+}
+#drawer-log mark { background: #9e6a03; color: #fff; padding: 0 1px; }
+#drawer-log mark.mark-cur { outline: 1px solid #f0f6fc; }
 .drawer-finding {
   font-size: 0.8rem;
   padding: 0.3rem 0;
@@ -308,6 +358,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 .dag-node { cursor: pointer; }
 .gantt-step, .tree-node { cursor: pointer; }
 .gantt-step:hover .row-label { fill: #58a6ff; }
+[role="button"]:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 1px;
+}
 .dag-node:hover .dag-card { stroke: #58a6ff; }
 .step-findings {
   margin-left: 0.5rem;
@@ -369,17 +423,17 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   <header>
     <h1>arena aggregate</h1>
     <div class="run-context">
-      <span class="ctx-label">Plan:</span> <span class="ctx-value status-arena">arena</span>
+      <span class="ctx-label">Plan:</span> <span class="ctx-value">arena</span>
       <span class="ctx-label">Status:</span> <span class="ctx-value status-success">success</span>
-      <span class="ctx-label">Duration:</span> <span class="ctx-value status-1m 58s">1m 58s</span>
-      <span class="ctx-label">Command:</span> <span class="ctx-value status-sverka-arena report arena-results.json --format html">sverka-arena report arena-results.json --format html</span>
-      <span class="ctx-label">models:</span> <span class="ctx-value status-swe-2-high">swe-2-high</span>
-      <span class="ctx-label">plugins:</span> <span class="ctx-value status-sverka">sverka</span>
-      <span class="ctx-label">tasks:</span> <span class="ctx-value status-fix-tests, verify-and-fix">fix-tests, verify-and-fix</span>
-      <span class="ctx-label">repetitions:</span> <span class="ctx-value status-1">1</span>
-      <span class="ctx-label">runs:</span> <span class="ctx-value status-4">4</span>
+      <span class="ctx-label">Duration:</span> <span class="ctx-value">7m 38s</span>
+      <span class="ctx-label">Command:</span> <span class="ctx-value">sverka-arena report --format html</span>
+      <span class="ctx-label">models:</span> <span class="ctx-value">swe-2-high</span>
+      <span class="ctx-label">plugins:</span> <span class="ctx-value">sverka</span>
+      <span class="ctx-label">tasks:</span> <span class="ctx-value">ship-package</span>
+      <span class="ctx-label">repetitions:</span> <span class="ctx-value">1</span>
+      <span class="ctx-label">runs:</span> <span class="ctx-value">2</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T17:57:01.313Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-10-02T13:49:41.076Z</span>
     </div>
   </header>
 
@@ -403,7 +457,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         <button class="seg-btn" data-view="list">List</button>
       </div>
     </div>
-    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 140" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="140" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="140" /><text class="tick" x="304" y="16" text-anchor="middle">23.6s</text><line class="grid" x1="428" y1="22" x2="428" y2="140" /><text class="tick" x="428" y="16" text-anchor="middle">47.3s</text><line class="grid" x1="552" y1="22" x2="552" y2="140" /><text class="tick" x="552" y="16" text-anchor="middle">1m 11s</text><line class="grid" x1="676" y1="22" x2="676" y2="140" /><text class="tick" x="676" y="16" text-anchor="middle">1m 35s</text><line class="grid" x1="800" y1="22" x2="800" y2="140" /><text class="tick" x="800" y="16" text-anchor="middle">1m 58s</text><g class="gantt-step" data-step="fix-tests/swe-2-high/no-plugins/r1"><text class="row-label" x="4" y="46">fix-tests/swe-2-high/no-plugins/r1</text><rect class="bar" x="180.0" y="33" width="120.8" height="16" rx="3" fill="#3fb950"><title>fix-tests/swe-2-high/no-plugins/r1 — succeeded — 23.0s</title></rect><text class="dur" x="306.8" y="46">23.0s</text></g><g class="gantt-step" data-step="fix-tests/swe-2-high/sverka/r1"><text class="row-label" x="4" y="72">fix-tests/swe-2-high/sverka/r1</text><rect class="bar" x="300.8" y="59" width="84.1" height="16" rx="3" fill="#3fb950"><title>fix-tests/swe-2-high/sverka/r1 — succeeded — 16.0s</title></rect><text class="dur" x="391.0" y="72">16.0s</text></g><g class="gantt-step" data-step="verify-and-fix/swe-2-high/no-plugins/r1"><text class="row-label" x="4" y="98">verify-and-fix/swe-2-high/no-plugins/r1</text><rect class="bar" x="385.0" y="85" width="205.8" height="16" rx="3" fill="#3fb950"><title>verify-and-fix/swe-2-high/no-plugins/r1 — succeeded — 39.2s</title></rect><text class="dur" x="596.8" y="98">39.2s</text></g><g class="gantt-step" data-step="verify-and-fix/swe-2-high/sverka/r1"><text class="row-label" x="4" y="124">verify-and-fix/swe-2-high/sverka/r1</text><rect class="bar" x="590.8" y="111" width="209.2" height="16" rx="3" fill="#3fb950"><title>verify-and-fix/swe-2-high/sverka/r1 — succeeded — 39.9s</title></rect><text class="dur" x="806.0" y="124">39.9s</text></g></svg></div>
+    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 88" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="88" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="88" /><text class="tick" x="304" y="16" text-anchor="middle">1m 32s</text><line class="grid" x1="428" y1="22" x2="428" y2="88" /><text class="tick" x="428" y="16" text-anchor="middle">3m 3s</text><line class="grid" x1="552" y1="22" x2="552" y2="88" /><text class="tick" x="552" y="16" text-anchor="middle">4m 35s</text><line class="grid" x1="676" y1="22" x2="676" y2="88" /><text class="tick" x="676" y="16" text-anchor="middle">6m 6s</text><line class="grid" x1="800" y1="22" x2="800" y2="88" /><text class="tick" x="800" y="16" text-anchor="middle">7m 38s</text><g class="gantt-step" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1"><text class="row-label" x="4" y="46">swe-2-high/no-plugins/r1</text><rect class="bar" x="180.0" y="33" width="543.2" height="16" rx="3" fill="#3fb950"><title>ship-package/swe-2-high/no-plugins/r1 — succeeded — 6m 41s</title></rect><text class="dur" x="729.2" y="46">6m 41s</text></g><g class="gantt-step" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1"><text class="row-label" x="4" y="72">swe-2-high/sverka/r1</text><rect class="bar" x="723.2" y="59" width="76.8" height="16" rx="3" fill="#3fb950"><title>ship-package/swe-2-high/sverka/r1 — succeeded — 56.7s</title></rect><text class="dur" x="806.0" y="72">56.7s</text></g></svg></div>
     <div class="view hidden" id="view-dag"><div class="dag-viewport">
     <div class="dag-tools">
       <button type="button" class="dag-btn" data-dag-zoom="in" title="Zoom in">+</button>
@@ -411,130 +465,74 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
       <button type="button" class="dag-btn" data-dag-dir title="Switch direction (LR/TB)">⇄</button>
     </div>
-    <svg id="dag-svg" class="dag" viewBox="-40 -40 286 350" data-vb-lr="-40 -40 286 350" data-vb-tb="-40 -40 934 140" role="img" aria-label="Workflow DAG">
+    <svg id="dag-svg" class="dag" viewBox="-40 -40 286 210" data-vb-lr="-40 -40 286 210" data-vb-tb="-40 -40 502 140" role="img" aria-label="Workflow DAG">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" /></marker>
       <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="-40" y="-40"><circle cx="1" cy="1" r="1" /></pattern>
     </defs>
-    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><g class="dag-node" data-step="fix-tests/swe-2-high/no-plugins/r1">
-        <title>fix-tests/swe-2-high/no-plugins/r1</title>
+    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
+        <title>ship-package/swe-2-high/no-plugins/r1</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">fix-tests/swe-2-high/no…</text>
+        <text x="28" y="20">swe-2-high/no-plugins/r1</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="fix-tests/swe-2-high/sverka/r1">
-        <title>fix-tests/swe-2-high/sverka/r1</title>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
+        <title>ship-package/swe-2-high/sverka/r1</title>
         <rect class="dag-card" x="0" y="70" width="190" height="44" rx="8" />
         <circle cx="16" cy="92" r="4" fill="#3fb950" />
-        <text x="28" y="90">fix-tests/swe-2-high/sv…</text>
+        <text x="28" y="90">swe-2-high/sverka/r1</text>
         <text class="node-status" x="28" y="104" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1">
-        <title>verify-and-fix/swe-2-high/no-plugins/r1</title>
-        <rect class="dag-card" x="0" y="140" width="190" height="44" rx="8" />
-        <circle cx="16" cy="162" r="4" fill="#3fb950" />
-        <text x="28" y="160">verify-and-fix/swe-2-hi…</text>
-        <text class="node-status" x="28" y="174" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/sverka/r1">
-        <title>verify-and-fix/swe-2-high/sverka/r1</title>
-        <rect class="dag-card" x="0" y="210" width="190" height="44" rx="8" />
-        <circle cx="16" cy="232" r="4" fill="#3fb950" />
-        <text x="28" y="230">verify-and-fix/swe-2-hi…</text>
-        <text class="node-status" x="28" y="244" style="fill:#3fb950">succeeded</text>
       </g></g>
-    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><g class="dag-node" data-step="fix-tests/swe-2-high/no-plugins/r1">
-        <title>fix-tests/swe-2-high/no-plugins/r1</title>
+    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
+        <title>ship-package/swe-2-high/no-plugins/r1</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">fix-tests/swe-2-high/no…</text>
+        <text x="28" y="20">swe-2-high/no-plugins/r1</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="fix-tests/swe-2-high/sverka/r1">
-        <title>fix-tests/swe-2-high/sverka/r1</title>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
+        <title>ship-package/swe-2-high/sverka/r1</title>
         <rect class="dag-card" x="216" y="0" width="190" height="44" rx="8" />
         <circle cx="232" cy="22" r="4" fill="#3fb950" />
-        <text x="244" y="20">fix-tests/swe-2-high/sv…</text>
+        <text x="244" y="20">swe-2-high/sverka/r1</text>
         <text class="node-status" x="244" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1">
-        <title>verify-and-fix/swe-2-high/no-plugins/r1</title>
-        <rect class="dag-card" x="432" y="0" width="190" height="44" rx="8" />
-        <circle cx="448" cy="22" r="4" fill="#3fb950" />
-        <text x="460" y="20">verify-and-fix/swe-2-hi…</text>
-        <text class="node-status" x="460" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/sverka/r1">
-        <title>verify-and-fix/swe-2-high/sverka/r1</title>
-        <rect class="dag-card" x="648" y="0" width="190" height="44" rx="8" />
-        <circle cx="664" cy="22" r="4" fill="#3fb950" />
-        <text x="676" y="20">verify-and-fix/swe-2-hi…</text>
-        <text class="node-status" x="676" y="34" style="fill:#3fb950">succeeded</text>
       </g></g>
     </svg>
     <div class="dag-minimap" id="dag-minimap">
-      <svg class="dag-mini" viewBox="-40 -40 286 350" data-dir="LR"><g class="dag-node" data-step="fix-tests/swe-2-high/no-plugins/r1">
-        <title>fix-tests/swe-2-high/no-plugins/r1</title>
+      <svg class="dag-mini" viewBox="-40 -40 286 210" data-dir="LR"><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
+        <title>ship-package/swe-2-high/no-plugins/r1</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">fix-tests/swe-2-high/no…</text>
+        <text x="28" y="20">swe-2-high/no-plugins/r1</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="fix-tests/swe-2-high/sverka/r1">
-        <title>fix-tests/swe-2-high/sverka/r1</title>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
+        <title>ship-package/swe-2-high/sverka/r1</title>
         <rect class="dag-card" x="0" y="70" width="190" height="44" rx="8" />
         <circle cx="16" cy="92" r="4" fill="#3fb950" />
-        <text x="28" y="90">fix-tests/swe-2-high/sv…</text>
+        <text x="28" y="90">swe-2-high/sverka/r1</text>
         <text class="node-status" x="28" y="104" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1">
-        <title>verify-and-fix/swe-2-high/no-plugins/r1</title>
-        <rect class="dag-card" x="0" y="140" width="190" height="44" rx="8" />
-        <circle cx="16" cy="162" r="4" fill="#3fb950" />
-        <text x="28" y="160">verify-and-fix/swe-2-hi…</text>
-        <text class="node-status" x="28" y="174" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/sverka/r1">
-        <title>verify-and-fix/swe-2-high/sverka/r1</title>
-        <rect class="dag-card" x="0" y="210" width="190" height="44" rx="8" />
-        <circle cx="16" cy="232" r="4" fill="#3fb950" />
-        <text x="28" y="230">verify-and-fix/swe-2-hi…</text>
-        <text class="node-status" x="28" y="244" style="fill:#3fb950">succeeded</text>
-      </g></svg><svg class="dag-mini" viewBox="-40 -40 934 140" data-dir="TB" hidden><g class="dag-node" data-step="fix-tests/swe-2-high/no-plugins/r1">
-        <title>fix-tests/swe-2-high/no-plugins/r1</title>
+      </g></svg><svg class="dag-mini" viewBox="-40 -40 502 140" data-dir="TB" hidden><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
+        <title>ship-package/swe-2-high/no-plugins/r1</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">fix-tests/swe-2-high/no…</text>
+        <text x="28" y="20">swe-2-high/no-plugins/r1</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="fix-tests/swe-2-high/sverka/r1">
-        <title>fix-tests/swe-2-high/sverka/r1</title>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
+        <title>ship-package/swe-2-high/sverka/r1</title>
         <rect class="dag-card" x="216" y="0" width="190" height="44" rx="8" />
         <circle cx="232" cy="22" r="4" fill="#3fb950" />
-        <text x="244" y="20">fix-tests/swe-2-high/sv…</text>
+        <text x="244" y="20">swe-2-high/sverka/r1</text>
         <text class="node-status" x="244" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1">
-        <title>verify-and-fix/swe-2-high/no-plugins/r1</title>
-        <rect class="dag-card" x="432" y="0" width="190" height="44" rx="8" />
-        <circle cx="448" cy="22" r="4" fill="#3fb950" />
-        <text x="460" y="20">verify-and-fix/swe-2-hi…</text>
-        <text class="node-status" x="460" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/sverka/r1">
-        <title>verify-and-fix/swe-2-high/sverka/r1</title>
-        <rect class="dag-card" x="648" y="0" width="190" height="44" rx="8" />
-        <circle cx="664" cy="22" r="4" fill="#3fb950" />
-        <text x="676" y="20">verify-and-fix/swe-2-hi…</text>
-        <text class="node-status" x="676" y="34" style="fill:#3fb950">succeeded</text>
       </g></svg>
       <div class="dag-mini-vp" id="dag-mini-vp"></div>
     </div>
   </div></div>
-    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="fix-tests/swe-2-high/no-plugins/r1" style="border-color:#3fb950">✓ fix-tests/swe-2-high/no-plugins/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="fix-tests/swe-2-high/sverka/r1" style="border-color:#3fb950">✓ fix-tests/swe-2-high/sverka/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1" style="border-color:#3fb950">✓ verify-and-fix/swe-2-high/no-plugins/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="verify-and-fix/swe-2-high/sverka/r1" style="border-color:#3fb950">✓ verify-and-fix/swe-2-high/sverka/r1 <span class="meta">succeeded</span></span></li></ul></div>
+    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1" style="border-color:#3fb950">✓ swe-2-high/no-plugins/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1" style="border-color:#3fb950">✓ swe-2-high/sverka/r1 <span class="meta">succeeded</span></span></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> fix-tests/swe-2-high/no-plugins/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">23.0s</span> <button type="button" class="step-findings" data-step="fix-tests/swe-2-high/no-plugins/r1" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> swe-2-high/no-plugins/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">6m 41s</span> <button type="button" class="step-findings" data-step="ship-package/swe-2-high/no-plugins/r1" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> fix-tests/swe-2-high/sverka/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">16.0s</span> <button type="button" class="step-findings" data-step="fix-tests/swe-2-high/sverka/r1" title="Step logs, error details and findings">details</button></summary>
-        <div class="step-body"><div class="meta">output captured — open step details</div></div>
-      </details>
-      <details>
-        <summary><span class="step-icon">✓</span> verify-and-fix/swe-2-high/no-plugins/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">39.2s</span> <button type="button" class="step-findings" data-step="verify-and-fix/swe-2-high/no-plugins/r1" title="Step logs, error details and findings">details</button></summary>
-        <div class="step-body"><div class="meta">output captured — open step details</div></div>
-      </details>
-      <details>
-        <summary><span class="step-icon">✓</span> verify-and-fix/swe-2-high/sverka/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">39.9s</span> <button type="button" class="step-findings" data-step="verify-and-fix/swe-2-high/sverka/r1" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> swe-2-high/sverka/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">56.7s</span> <button type="button" class="step-findings" data-step="ship-package/swe-2-high/sverka/r1" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details></div>
   </section>
@@ -546,10 +544,23 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
     </div>
     <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-tabs" id="drawer-tabs" hidden>
+      <div class="drawer-tablist" role="tablist" aria-label="step output">
+        <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
+        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log">stdout</button>
+        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log">stderr</button>
+      </div>
+      <input id="drawer-search" type="search" placeholder="Search log…" aria-label="Search log">
+      <span id="drawer-search-count" class="drawer-search-count"></span>
+    </div>
     <div class="drawer-actions">
       <button type="button" id="drawer-findings" class="drawer-btn">Open in findings table</button>
+      <button type="button" id="drawer-copy" class="drawer-btn">Copy log</button>
+      <button type="button" id="drawer-download" class="drawer-btn">Download</button>
     </div>
-    <div id="drawer-body"></div>
+    <div id="drawer-truncated" class="drawer-truncated" hidden></div>
+    <div id="drawer-body" role="tabpanel" aria-label="overview" tabindex="0"></div>
+    <pre id="drawer-log" class="step-out" role="tabpanel" aria-label="log" tabindex="0" hidden></pre>
   </aside>
 
     <section id="findings">
@@ -588,7 +599,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 
   <script>
     var __FINDINGS_DATA__ = [];
-    var __STEPS_DATA__ = {"fix-tests/swe-2-high/no-plugins/r1":{"state":"succeeded","durationMs":23042,"exitCode":null,"error":null,"stdout":"21.6k tokens, 7 tool calls, 10 llm calls","stderr":null},"fix-tests/swe-2-high/sverka/r1":{"state":"succeeded","durationMs":16043,"exitCode":null,"error":null,"stdout":"22.0k tokens, 7 tool calls, 10 llm calls","stderr":null},"verify-and-fix/swe-2-high/no-plugins/r1":{"state":"succeeded","durationMs":39244,"exitCode":null,"error":null,"stdout":"23.8k tokens, 13 tool calls, 16 llm calls","stderr":null},"verify-and-fix/swe-2-high/sverka/r1":{"state":"succeeded","durationMs":39889,"exitCode":null,"error":null,"stdout":"25.1k tokens, 8 tool calls, 14 llm calls","stderr":null}};
+    var __STEPS_DATA__ = {"ship-package/swe-2-high/no-plugins/r1":{"state":"succeeded","durationMs":401013,"exitCode":null,"error":null,"stdout":"85.2k tokens, 51 tool calls, 86 llm calls","stderr":null},"ship-package/swe-2-high/sverka/r1":{"state":"succeeded","durationMs":56696,"exitCode":null,"error":null,"stdout":"32.5k tokens, 24 tool calls, 32 llm calls","stderr":null}};
   </script>
   <script>
 (function() {
@@ -900,6 +911,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
+    // Keyboard activation has no pointerdown to reset the drag guard —
+    // without this, Enter/Space stop working after any DAG pan.
+    window.__dagClearMoved = function() { moved = 0; };
   })();
 
   // Step → findings filter: click any step element (gantt row, dag
@@ -922,12 +936,140 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   var stepsData = window.__STEPS_DATA__ || {};
   var drawer = document.getElementById("step-drawer");
   var drawerOpener = null;
+  var drawerStep = null; // {id, stdout, stderr}
+  var drawerTab = "overview";
 
   function drawerEl(tag, cls, text) {
     var el = document.createElement(tag);
     if (cls) el.className = cls;
     el.textContent = text;
     return el;
+  }
+
+  // Runtime caps captured output (MAX_OUTPUT_BYTES) and appends
+  // "[... truncated N bytes]" — surface that as a banner, not log text.
+  // Double backslashes — JS lives in a template literal, so s would
+  // collapse to s before the browser ever parses the regex.
+  // Two producers: host runtime appends "[... truncated N bytes]",
+  // the docker runtime appends a bare "[log truncated]".
+  var TRUNCATED_RE =
+    /\[\.\.\. truncated ([0-9]+) bytes\]\s*$|\[log truncated\]\s*$/;
+  function splitTruncated(text) {
+    var m = text && text.match(TRUNCATED_RE);
+    return m
+      ? {
+          text: text.slice(0, m.index).replace(/\n$/, ""),
+          truncated: true,
+          dropped: m[1] || null,
+        }
+      : { text: text || "", truncated: false, dropped: null };
+  }
+
+  function activeLogText() {
+    if (!drawerStep || drawerTab === "overview") return "";
+    var raw = drawerStep[drawerTab] || "";
+    return splitTruncated(raw).text;
+  }
+
+  // text.length counts UTF-16 units — label sizes are byte counts.
+  var textEncoder = new TextEncoder();
+  function byteLen(t) {
+    return t ? textEncoder.encode(t).length : 0;
+  }
+
+  // Actions act on the visible pane — disable them when it's empty.
+  function updateActionState() {
+    var text =
+      drawerTab === "overview"
+        ? (drawerStep && drawerStep.error) || ""
+        : activeLogText();
+    var copy = document.getElementById("drawer-copy");
+    // navigator.clipboard is undefined outside secure contexts (plain
+    // http, file://) — keep the button disabled there so it can't look
+    // usable and silently no-op.
+    if (copy) copy.disabled = !text || !navigator.clipboard;
+    var dl = document.getElementById("drawer-download");
+    if (dl) dl.disabled = !text;
+  }
+
+  // Rebuild the log <pre> with <mark> around query hits — text nodes
+  // only, never innerHTML.
+  var logMarks = [];
+  var logMarkIdx = -1;
+  function renderLogPane() {
+    var pre = document.getElementById("drawer-log");
+    var body = document.getElementById("drawer-body");
+    var banner = document.getElementById("drawer-truncated");
+    var logTab = drawerTab !== "overview";
+    if (body) body.hidden = logTab;
+    if (pre) pre.hidden = !logTab;
+    if (!logTab || !drawerStep || !pre) {
+      if (banner) banner.hidden = true;
+      // Leaving a log tab drops the search state — Enter must not cycle
+      // stale marks in a hidden pane.
+      logMarks = [];
+      logMarkIdx = -1;
+      var c0 = document.getElementById("drawer-search-count");
+      if (c0) c0.textContent = "";
+      updateActionState();
+      return;
+    }
+    var split = splitTruncated(drawerStep[drawerTab] || "");
+    // stderr keeps the red styling the stacked blocks had.
+    pre.className = "step-out" + (drawerTab === "stderr" ? " err" : "");
+    if (banner) {
+      banner.hidden = !split.truncated;
+      if (split.truncated)
+        banner.textContent = split.dropped
+          ? "log truncated — " + split.dropped + " bytes dropped (capture cap)"
+          : "log truncated — output exceeded the capture cap";
+    }
+    var q = (document.getElementById("drawer-search") || {}).value || "";
+    pre.textContent = "";
+    logMarks = [];
+    logMarkIdx = -1;
+    if (!q) {
+      pre.textContent = split.text;
+    } else {
+      // Fold the whole text once (contextual folds like "ΟΣ" → "ος"
+      // need surrounding chars), then map folded offsets back: per-char
+      // fold LENGTHS agree with the contextual fold even when the folded
+      // char differs ("ς" vs "σ" are both one code unit), so each folded
+      // position maps to its originating original index.
+      var folded = split.text.toLowerCase();
+      var foldMap = [];
+      for (var ci = 0; ci < split.text.length; ci++) {
+        var fl = split.text[ci].toLowerCase().length;
+        for (var cj = 0; cj < fl; cj++) foldMap.push(ci);
+      }
+      var nq = q.toLowerCase();
+      var pos = 0;
+      var i = 0;
+      while ((pos = folded.indexOf(nq, pos)) !== -1) {
+        var from = foldMap[pos];
+        var to = foldMap[pos + nq.length - 1] + 1;
+        pre.appendChild(document.createTextNode(split.text.slice(i, from)));
+        var mark = document.createElement("mark");
+        mark.textContent = split.text.slice(from, to);
+        pre.appendChild(mark);
+        logMarks.push(mark);
+        i = to;
+        pos += nq.length;
+      }
+      pre.appendChild(document.createTextNode(split.text.slice(i)));
+    }
+    var count = document.getElementById("drawer-search-count");
+    if (count) count.textContent = q ? logMarks.length + " matches" : "";
+    updateActionState();
+  }
+
+  function selectTab(tab) {
+    drawerTab = tab;
+    document.querySelectorAll("#drawer-tabs .drawer-tab").forEach(function(b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+      b.setAttribute("aria-selected", b.getAttribute("data-tab") === tab);
+    });
+    renderLogPane();
   }
 
   function openStep(id, opener) {
@@ -937,6 +1079,8 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       closeStep();
       return;
     }
+    drawerStep = s;
+    drawerStep.id = id;
     document.getElementById("drawer-title").textContent = id;
     var st = document.getElementById("drawer-state");
     st.textContent = s.state;
@@ -973,18 +1117,28 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         body.appendChild(row);
       });
     }
-    if (s.stdout) {
-      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
-      body.appendChild(drawerEl("pre", "step-out", s.stdout));
-    }
-    if (s.stderr) {
-      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
-      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
-    }
     if (!s.error && !stepFindings.length && !s.stdout && !s.stderr)
       body.appendChild(drawerEl("span", "meta", "no output captured"));
-    var findingsBtn = document.getElementById("drawer-findings");
-    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+
+    // Tabs appear only when there are logs to tab between; labels carry
+    // the byte size so an empty stderr is obvious without clicking.
+    var tabs = document.getElementById("drawer-tabs");
+    var hasLogs = !!(s.stdout || s.stderr);
+    if (tabs) tabs.hidden = !hasLogs;
+    if (hasLogs) {
+      ["stdout", "stderr"].forEach(function(name) {
+        var b = tabs.querySelector('[data-tab="' + name + '"]');
+        if (!b) return;
+        var text = s[name] || "";
+        b.disabled = !text;
+        b.textContent =
+          name + (text ? " (" + byteLen(text) + "b)" : " (empty)");
+      });
+    }
+    // Fresh step, fresh search — no carried-over query or count.
+    var searchEl = document.getElementById("drawer-search");
+    if (searchEl) searchEl.value = "";
+    selectTab("overview");
     drawerOpener = opener || null;
     drawer.removeAttribute("inert");
     drawer.classList.add("open");
@@ -1001,6 +1155,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (!drawer) return;
     var opener = drawerOpener;
     drawerOpener = null;
+    drawerStep = null;
     drawer.classList.remove("open");
     drawer.setAttribute("aria-hidden", "true");
     drawer.setAttribute("inert", "");
@@ -1012,15 +1167,121 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   document.addEventListener("keydown", function(e) {
     if (e.key === "Escape") closeStep();
   });
+  document.querySelectorAll("#drawer-tabs .drawer-tab").forEach(function(b) {
+    b.addEventListener("click", function() {
+      selectTab(b.getAttribute("data-tab"));
+    });
+  });
+  var drawerTabs = document.getElementById("drawer-tabs");
+  if (drawerTabs) {
+    // Left/Right move across the enabled tabs — standard tablist keys.
+    drawerTabs.addEventListener("keydown", function(e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (!e.target.classList || !e.target.classList.contains("drawer-tab"))
+        return;
+      e.preventDefault();
+      var tabs = [];
+      drawerTabs
+        .querySelectorAll(".drawer-tab")
+        .forEach(function(t) { if (!t.disabled) tabs.push(t); });
+      var cur = tabs.indexOf(e.target);
+      if (cur === -1) return;
+      var next =
+        tabs[(cur + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus();
+      selectTab(next.getAttribute("data-tab"));
+    });
+  }
+  var drawerSearch = document.getElementById("drawer-search");
+  if (drawerSearch) {
+    drawerSearch.addEventListener("input", renderLogPane);
+    drawerSearch.addEventListener("keydown", function(e) {
+      // Enter cycles through matches inside the visible log.
+      if (e.key !== "Enter" || !logMarks.length) return;
+      if (logMarkIdx >= 0) logMarks[logMarkIdx].classList.remove("mark-cur");
+      logMarkIdx = (logMarkIdx + 1) % logMarks.length;
+      var next = logMarks[logMarkIdx];
+      next.classList.add("mark-cur");
+      var count = document.getElementById("drawer-search-count");
+      if (count)
+        count.textContent =
+          logMarkIdx + 1 + " of " + logMarks.length + " matches";
+      next.scrollIntoView({ block: "nearest" });
+    });
+  }
   var drawerFindings = document.getElementById("drawer-findings");
   if (drawerFindings) {
     drawerFindings.addEventListener("click", function() {
+      // Apply the step filter (not just scroll) — that is the drawer
+      // button's contract.
+      if (drawerStep && stepFilter !== drawerStep.id)
+        applyStepFilter(drawerStep.id);
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
+  var drawerCopy = document.getElementById("drawer-copy");
+  if (drawerCopy) {
+    drawerCopy.addEventListener("click", function() {
+      var text =
+        drawerTab === "overview" ? (drawerStep && drawerStep.error) || "" : activeLogText();
+      if (!text || !navigator.clipboard) return;
+      navigator.clipboard
+        .writeText(text)
+        .then(function() {
+          drawerCopy.textContent = "copied!";
+        })
+        .catch(function() {
+          drawerCopy.textContent = "copy failed";
+        })
+        .finally(function() {
+          setTimeout(function() { drawerCopy.textContent = "Copy log"; }, 1200);
+        });
+    });
+  }
+  var drawerDownload = document.getElementById("drawer-download");
+  if (drawerDownload) {
+    drawerDownload.addEventListener("click", function() {
+      if (!drawerStep) return;
+      var text = activeLogText() || (drawerStep.error || "");
+      var blob = new Blob([text], { type: "text/plain" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download =
+        drawerStep.id.replace(/[^\w.-]+/g, "_") + "." + drawerTab + ".txt";
+      // Firefox ignores download clicks on detached anchors; deferring
+      // the revoke keeps other engines from aborting the fetch.
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 0);
+    });
+  }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
+    // Keyboard activation for role=button elements (gantt rows, DAG
+    // nodes, tree spans) — native <button>/<summary> fire click on
+    // Enter/Space themselves; forwarding there would double-toggle.
+    if (el.getAttribute("role") === "button") {
+      el.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          // Held key repeats — swallow the default (Space would scroll
+          // the page) but only the first press may activate.
+          if (e.repeat) return;
+          // A DAG pan sets moved>4 until the next pointerdown — a
+          // keyboard activation has no pointer, so clear the guard or
+          // the synthetic click below gets swallowed as a drag.
+          if (window.__dagClearMoved) window.__dagClearMoved();
+          // SVGElement has no .click() — dispatch a synthetic click
+          // event so gantt/DAG <g> nodes activate like HTML elements.
+          el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        }
+      });
+    }
     el.addEventListener("click", function(e) {
       e.stopPropagation();
       // preventDefault keeps <details> in the list view from toggling

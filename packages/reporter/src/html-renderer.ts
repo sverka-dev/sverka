@@ -1484,6 +1484,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
+    // Keyboard activation has no pointerdown to reset the drag guard —
+    // without this, Enter/Space stop working after any DAG pan.
+    window.__dagClearMoved = function() { moved = 0; };
   })();
 
   // Step → findings filter: click any step element (gantt row, dag
@@ -1554,7 +1557,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         ? (drawerStep && drawerStep.error) || ""
         : activeLogText();
     var copy = document.getElementById("drawer-copy");
-    if (copy) copy.disabled = !text;
+    // navigator.clipboard is undefined outside secure contexts (plain
+    // http, file://) — keep the button disabled there so it can't look
+    // usable and silently no-op.
+    if (copy) copy.disabled = !text || !navigator.clipboard;
     var dl = document.getElementById("drawer-download");
     if (dl) dl.disabled = !text;
   }
@@ -1598,19 +1604,30 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (!q) {
       pre.textContent = split.text;
     } else {
-      var lower = split.text.toLowerCase();
-      var needle = q.toLowerCase();
+      // Fold the whole text once (contextual folds like "ΟΣ" → "ος"
+      // need surrounding chars), then map folded offsets back: per-char
+      // fold LENGTHS agree with the contextual fold even when the folded
+      // char differs ("ς" vs "σ" are both one code unit), so each folded
+      // position maps to its originating original index.
+      var folded = split.text.toLowerCase();
+      var foldMap = [];
+      for (var ci = 0; ci < split.text.length; ci++) {
+        var fl = split.text[ci].toLowerCase().length;
+        for (var cj = 0; cj < fl; cj++) foldMap.push(ci);
+      }
+      var nq = q.toLowerCase();
+      var pos = 0;
       var i = 0;
-      var hit;
-      while ((hit = lower.indexOf(needle, i)) !== -1) {
-        pre.appendChild(document.createTextNode(split.text.slice(i, hit)));
+      while ((pos = folded.indexOf(nq, pos)) !== -1) {
+        var from = foldMap[pos];
+        var to = foldMap[pos + nq.length - 1] + 1;
+        pre.appendChild(document.createTextNode(split.text.slice(i, from)));
         var mark = document.createElement("mark");
-        // needle.length — the match length in the lowercased string,
-        // which can differ from q.length for chars like "İ".
-        mark.textContent = split.text.slice(hit, hit + needle.length);
+        mark.textContent = split.text.slice(from, to);
         pre.appendChild(mark);
         logMarks.push(mark);
-        i = hit + needle.length;
+        i = to;
+        pos += nq.length;
       }
       pre.appendChild(document.createTextNode(split.text.slice(i)));
     }
@@ -1805,8 +1822,14 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       a.href = URL.createObjectURL(blob);
       a.download =
         drawerStep.id.replace(/[^\\w.-]+/g, "_") + "." + drawerTab + ".txt";
+      // Firefox ignores download clicks on detached anchors; deferring
+      // the revoke keeps other engines from aborting the fetch.
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(a.href);
+      setTimeout(function() {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 0);
     });
   }
 
@@ -1819,6 +1842,13 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           e.stopPropagation();
+          // Held key repeats — swallow the default (Space would scroll
+          // the page) but only the first press may activate.
+          if (e.repeat) return;
+          // A DAG pan sets moved>4 until the next pointerdown — a
+          // keyboard activation has no pointer, so clear the guard or
+          // the synthetic click below gets swallowed as a drag.
+          if (window.__dagClearMoved) window.__dagClearMoved();
           // SVGElement has no .click() — dispatch a synthetic click
           // event so gantt/DAG <g> nodes activate like HTML elements.
           el.dispatchEvent(new MouseEvent("click", { bubbles: true }));

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { main } from "../src/bin.js";
+import { main, filterTasks } from "../src/bin.js";
 import type { ArenaResult } from "../src/types.js";
 
 const dir = mkdtempSync(join(tmpdir(), "arena-bin-"));
@@ -141,11 +141,61 @@ describe("sverka-arena bin", () => {
     expect(c.stderr).toContain("--out requires a value");
   });
 
+  it("run --task with an unknown id exits 2 before spawning", async () => {
+    const { c, io } = capture();
+    const code = await main(
+      [
+        "run",
+        "--config",
+        join(dir, "arena.config.ts"),
+        "--task",
+        "no-such-task",
+      ],
+      io,
+    );
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("no-such-task");
+    expect(c.stderr).toContain("t1");
+  });
+
+  it("report/doctor reject --task instead of silently ignoring it", async () => {
+    const { c, io } = capture();
+    const code = await main(
+      ["report", join(dir, "results.json"), "--task", "t1"],
+      io,
+    );
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("--task is only supported by 'run'");
+    const c2 = capture();
+    const code2 = await main(["doctor", "--task", "t1"], c2.io);
+    expect(code2).toBe(2);
+    expect(c2.c.stderr).toContain("--task is only supported by 'run'");
+  });
+
   it("report exits 2 on a results file with wrong shape", async () => {
     writeFileSync(join(dir, "not-results.json"), JSON.stringify({ ok: 1 }));
     const { c, io } = capture();
     const code = await main(["report", join(dir, "not-results.json")], io);
     expect(code).toBe(2);
     expect(c.stderr).toContain("not a sverka-arena results file");
+  });
+});
+
+describe("filterTasks", () => {
+  const tasks = [{ id: "a" }, { id: "b" }, { id: "a" }];
+
+  it("selects a subset and dedupes repeated ids", () => {
+    const out = filterTasks(tasks, ["a"]);
+    expect("tasks" in out && out.tasks).toEqual([{ id: "a" }]);
+  });
+
+  it("dedupes configured ids even without --task", () => {
+    const out = filterTasks(tasks, []);
+    expect("tasks" in out && out.tasks).toEqual([{ id: "a" }, { id: "b" }]);
+  });
+
+  it("reports unknown ids without touching the task list", () => {
+    const out = filterTasks(tasks, ["zzz"]);
+    expect("missing" in out && out.missing).toEqual(["zzz"]);
   });
 });

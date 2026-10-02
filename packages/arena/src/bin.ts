@@ -28,12 +28,13 @@ interface ParsedArgs {
   config: string;
   out: string | undefined;
   format: Format;
+  tasks: string[];
 }
 
 const USAGE = `usage: sverka-arena <command> [options]
 
 commands:
-  run      [--config <path>] [--out <dir>] [--format json|text]
+  run      [--config <path>] [--out <dir>] [--format json|text] [--task <id>]...
   report   <results.json>               [--format json|text|html] [--out <file.html>]
   doctor   [--config <path>]            [--format json|text]
 `;
@@ -59,6 +60,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let out: string | undefined;
   let format: "text" | "json" | "html" = "text";
   let command: string | undefined;
+  const tasks: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     switch (arg) {
@@ -74,6 +76,10 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         format = parseFormat(flagValue(argv, i));
         i += 1;
         break;
+      case "--task":
+        tasks.push(flagValue(argv, i));
+        i += 1;
+        break;
       default:
         if (arg.startsWith("--")) {
           throw new ArenaError(`unknown option '${arg}'`, "CONFIG_INVALID");
@@ -82,7 +88,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         else positional.push(arg);
     }
   }
-  return { command, positional, config, out, format };
+  return { command, positional, config, out, format, tasks };
 }
 
 function which(bin: string): boolean {
@@ -135,6 +141,25 @@ async function cmdReport(args: ParsedArgs, io: Io): Promise<number> {
   return 0;
 }
 
+/** Filter config tasks by --task ids; duplicate ids collapse to one. */
+export function filterTasks<T extends { id: string }>(
+  tasks: T[],
+  ids: string[],
+): { tasks: T[] } | { missing: string[] } {
+  const seen = new Set<string>();
+  const uniq = tasks.filter((t) => {
+    if (seen.has(t.id)) return false;
+    seen.add(t.id);
+    return true;
+  });
+  if (ids.length === 0) return { tasks: uniq };
+  const known = new Set(uniq.map((t) => t.id));
+  const missing = ids.filter((id) => !known.has(id));
+  if (missing.length > 0) return { missing };
+  const wanted = new Set(ids);
+  return { tasks: uniq.filter((t) => wanted.has(t.id)) };
+}
+
 async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
   if (args.format === "html") {
     io.err("run: --format html is only supported by 'report'\n");
@@ -142,6 +167,14 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
   }
   const config = await loadArenaConfig(args.config);
   if (args.out !== undefined) config.outputDir = resolve(args.out);
+  const filtered = filterTasks(config.tasks, args.tasks);
+  if ("missing" in filtered) {
+    io.err(
+      `run: unknown --task '${filtered.missing.join("', '")}' (config defines: ${[...new Set(config.tasks.map((t) => t.id))].join(", ")})\n`,
+    );
+    return 2;
+  }
+  config.tasks = filtered.tasks;
   const result = await runArena(config);
   if (args.format === "json") {
     io.out(JSON.stringify(result, null, 2) + "\n");
@@ -228,9 +261,14 @@ export async function main(
       case "run":
         return await cmdRun(args, io);
       case "report":
-        return await cmdReport(args, io);
       case "doctor":
-        return await cmdDoctor(args, io);
+        if (args.tasks.length > 0) {
+          io.err(`${args.command}: --task is only supported by 'run'\n`);
+          return 2;
+        }
+        return args.command === "report"
+          ? await cmdReport(args, io)
+          : await cmdDoctor(args, io);
       default:
         io.err(`unknown command '${args.command}'\n`);
         io.err(USAGE);
