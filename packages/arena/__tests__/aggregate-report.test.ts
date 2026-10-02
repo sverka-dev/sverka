@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { mkdtempSync, readFileSync, existsSync } from "node:fs";
+import { describe, it, expect, afterAll } from "vitest";
+import { mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -51,10 +51,9 @@ function arenaResult(results: RunResult[]): ArenaResult {
 }
 
 describe("runStepId", () => {
-  it("builds a stable readable id from task/model/combo/index", () => {
-    const id = runStepId(run(), 0);
-    expect(id).toBe("fix-test/glm-5-2/no-plugins/r1");
-    expect(runStepId(run({ pluginIds: ["sverka"] }), 1)).toBe(
+  it("builds a stable readable id from task/model/combo/rep", () => {
+    expect(runStepId(run(), 1)).toBe("fix-test/glm-5-2/no-plugins/r1");
+    expect(runStepId(run({ pluginIds: ["sverka"] }), 2)).toBe(
       "fix-test/glm-5-2/sverka/r2",
     );
   });
@@ -101,9 +100,15 @@ describe("arenaResultToEvents", () => {
   });
 });
 
+const tmpDirs: string[] = [];
+afterAll(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
+
 describe("writeAggregateReport", () => {
   it("writes a self-contained HTML report listing every run", () => {
     const dir = mkdtempSync(join(tmpdir(), "arena-agg-"));
+    tmpDirs.push(dir);
     const out = join(dir, "aggregate.html");
     writeAggregateReport(
       arenaResult([run(), run({ pluginIds: ["sverka"], success: false })]),
@@ -113,6 +118,6 @@ describe("writeAggregateReport", () => {
     const html = readFileSync(out, "utf8");
     expect(html).toContain("arena aggregate");
     expect(html).toContain("fix-test/glm-5-2/no-plugins/r1");
-    expect(html).toContain("fix-test/glm-5-2/sverka/r2");
+    expect(html).toContain("fix-test/glm-5-2/sverka/r1");
   });
 });

@@ -18,7 +18,7 @@
  * (needs `bun run build` first — imports @sverka/arena dist).
  */
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, writeFile, rename } from "node:fs/promises";
+import { mkdir, writeFile, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 // Source import — website/ is not an npm workspace member, so
@@ -130,17 +130,22 @@ for (const [tmp, target] of staged) {
 
 // Aggregate report — the whole matrix as one sverka report (pipeline per
 // task, run per step). Same tmp+rename discipline as the trace reports.
+const cfg = results.config;
 const arenaResult =
-  (results.results ?? []).length > 0 &&
-  results.config !== undefined &&
-  Array.isArray(results.config.models)
-    ? (results as ArenaResult)
+  cfg !== undefined &&
+  Array.isArray(cfg.models) &&
+  Array.isArray(cfg.plugins) &&
+  Array.isArray(cfg.tasks)
+    ? ({ ...results, results: results.results ?? [] } as ArenaResult)
     : undefined;
+const aggPath = join(benchDir, "aggregate.html");
 if (arenaResult !== undefined) {
-  const aggPath = join(benchDir, "aggregate.html");
   const aggTmp = `${aggPath}.tmp`;
   writeAggregateReport(arenaResult, aggTmp);
   await rename(aggTmp, aggPath);
+} else if (existsSync(aggPath)) {
+  // Snapshot lost its usable config — don't leave a stale report behind.
+  await rm(aggPath);
 }
 
 // Results — the SPA's default data file. Full copy via tmp+rename:

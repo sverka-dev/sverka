@@ -18,8 +18,34 @@ function comboLabel(result: RunResult): string {
 }
 
 /** Stable per-run step id — readable in the DAG, Gantt and step list. */
-export function runStepId(result: RunResult, index: number): string {
-  return `${result.taskId}/${result.modelId}/${comboLabel(result)}/r${index + 1}`;
+export function runStepId(result: RunResult, rep: number): string {
+  return `${result.taskId}/${result.modelId}/${comboLabel(result)}/r${rep}`;
+}
+
+/**
+ * Repetition number within (task, model, combo) — the global matrix
+ * index would label task B's first run "r13" in a wide matrix.
+ */
+function repNumbers(results: readonly RunResult[]): Map<RunResult, number> {
+  const counts = new Map<string, number>();
+  const reps = new Map<RunResult, number>();
+  for (const r of results) {
+    const key = `${r.taskId} ${r.modelId} ${comboLabel(r)}`;
+    const rep = (counts.get(key) ?? 0) + 1;
+    counts.set(key, rep);
+    reps.set(r, rep);
+  }
+  return reps;
+}
+
+/** Best-effort secret scrub before run output lands in a public HTML. */
+function redact(text: string): string {
+  return text
+    .replace(
+      /([A-Za-z_]*(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|CREDENTIAL)[A-Za-z_]*\s*[=:]\s*"?)[^\s"']+/gi,
+      "$1<redacted>",
+    )
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer <redacted>");
 }
 
 function formatTokens(n: number): string {
@@ -41,11 +67,13 @@ function metricsLine(result: RunResult): string {
 function failureReason(result: RunResult): string {
   const failed = (result.checkResults ?? []).filter((c) => !c.passed);
   if (failed.length > 0) {
-    return failed
-      .map((c) => `${c.checkId}: ${c.output || `exit ${c.exitCode}`}`)
-      .join("; ");
+    return redact(
+      failed
+        .map((c) => `${c.checkId}: ${c.output || `exit ${c.exitCode}`}`)
+        .join("; "),
+    );
   }
-  return result.error ?? "run reported success=false";
+  return redact(result.error ?? "run reported success=false");
 }
 
 /**
@@ -54,11 +82,12 @@ function failureReason(result: RunResult): string {
  */
 export function arenaResultGraph(result: ArenaResult): DefinitionGraph {
   const byTask = new Map<string, { id: string; dependencies: never[] }[]>();
-  result.results.forEach((r, i) => {
+  const reps = repNumbers(result.results);
+  for (const r of result.results) {
     const steps = byTask.get(r.taskId) ?? [];
-    steps.push({ id: runStepId(r, i), dependencies: [] });
+    steps.push({ id: runStepId(r, reps.get(r)!), dependencies: [] });
     byTask.set(r.taskId, steps);
-  });
+  }
   return {
     project: {
       id: "arena",
@@ -84,12 +113,22 @@ export function arenaResultToEvents(result: ArenaResult): RunEvent[] {
     { type: "run-started", runId: "arena", planId: "arena", at: 0 },
   ];
   let t = 0;
-  result.results.forEach((r, i) => {
-    const stepId = runStepId(r, i);
-    const dur = Math.max(r.metrics?.executionTimeMs ?? 0, 1);
+  const reps = repNumbers(result.results);
+  for (const r of result.results) {
+    const stepId = runStepId(r, reps.get(r)!);
+    const dur = Math.max(r.metrics?.executionTimeMs ?? 0, 0);
     const start = t;
     t += dur;
     events.push({ type: "step-started", stepId, at: start });
+    if (r.metrics?.executionTimeMs === undefined || dur === 0) {
+      events.push({
+        type: "diagnostic",
+        stepId,
+        severity: "info",
+        message: "no duration recorded — run failed before/without timing",
+        at: start,
+      });
+    }
     if (r.success) {
       events.push({
         type: "step-succeeded",
@@ -113,11 +152,13 @@ export function arenaResultToEvents(result: ArenaResult): RunEvent[] {
         type: "diagnostic",
         stepId,
         severity: v.passed ? "info" : "warn",
-        message: `judge score ${v.score}${v.passed ? "" : " (failed)"}: ${v.reasoning}`,
+        message: redact(
+          `judge score ${v.score}${v.passed ? "" : " (failed)"}: ${v.reasoning}`,
+        ),
         at: start + dur,
       });
     }
-  });
+  }
   const anyFail = result.results.some((r) => !r.success);
   events.push({
     type: "run-completed",
