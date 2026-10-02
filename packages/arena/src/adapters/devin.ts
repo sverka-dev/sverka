@@ -437,6 +437,8 @@ async function writeForbidManifest(workspace: string): Promise<void> {
 
 /**
  * Create a fresh XDG home for the spawned agent and point `env` at it:
+ * - `HOME` — drops host user-level skills (`~/.agents/skills`), which are
+ *   resolved via `homedir()` and would otherwise leak into every cell.
  * - `XDG_CONFIG_HOME` — drops global user skills, hooks, MCP config, and
  *   user-level `AGENTS.md` so all cells share the builtin baseline.
  * - `XDG_DATA_HOME` — fresh plugin/session store; seeded with the host's
@@ -450,8 +452,10 @@ function isolateAgentEnv(env: Record<string, string>): string {
   try {
     const configDir = join(envHome, "config");
     const dataDir = join(envHome, "data");
+    const homeDir = join(envHome, "home");
     mkdirSync(join(dataDir, "devin"), { recursive: true });
     mkdirSync(configDir, { recursive: true });
+    mkdirSync(homeDir, { recursive: true });
 
     const hostDataHome =
       process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
@@ -460,6 +464,7 @@ function isolateAgentEnv(env: Record<string, string>): string {
       cpSync(creds, join(dataDir, "devin", "credentials.toml"));
     }
 
+    env.HOME = homeDir;
     env.XDG_CONFIG_HOME = configDir;
     env.XDG_DATA_HOME = dataDir;
     return envHome;

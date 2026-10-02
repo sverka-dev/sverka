@@ -179,6 +179,26 @@ describe("DevinAdapter", () => {
     expect(envHome).not.toBe(dirname(process.env.XDG_DATA_HOME ?? ""));
   });
 
+  it("redirects HOME so host ~/.agents/skills don't leak into cells", () => {
+    const mock = mockChild();
+    vi.mocked(spawnMock).mockReturnValue(mock.child as never);
+
+    const proc = new DevinAdapter().spawn({
+      model,
+      workspace: "/tmp/ws",
+      plugins: [],
+    });
+    const opts = vi.mocked(spawnMock).mock.calls.at(-1)?.[2] as {
+      env: Record<string, string>;
+    };
+
+    const home = opts.env["HOME"];
+    expect(home).toMatch(/arena-env-.*\/home$/);
+    expect(home).not.toBe(process.env.HOME);
+    expect(existsSync(home)).toBe(true);
+    proc.kill();
+  });
+
   it("kill removes the isolated env home", async () => {
     const mock = mockChild();
     vi.mocked(spawnMock).mockReturnValue(mock.child as never);
