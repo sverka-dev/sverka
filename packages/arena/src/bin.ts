@@ -160,11 +160,12 @@ interface DoctorCheck {
 function doctorChecks(
   config: Awaited<ReturnType<typeof loadArenaConfig>>,
 ): DoctorCheck[] {
+  const agentOnPath = which(config.agent.id);
   const checks: DoctorCheck[] = [
     {
       name: `agent binary: ${config.agent.id}`,
-      ok: which(config.agent.id),
-      detail: which(config.agent.id) ? "on PATH" : "not found on PATH",
+      ok: agentOnPath,
+      detail: agentOnPath ? "on PATH" : "not found on PATH",
     },
   ];
   const models = config.judge
