@@ -238,6 +238,7 @@ describe("Engine — cache integration", () => {
       workspace: ws,
       artifactDir: join(testDir, "art"),
     });
+    expect(restoreCalls).toHaveLength(2);
     expect(restoreCalls[1]?.key).not.toBe(restoreCalls[0]?.key);
   });
 

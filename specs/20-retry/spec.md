@@ -33,7 +33,6 @@ Wave 1 adds an optional `backoff?: BackoffSpec` for exponential backoff
 
 ## Non-goals
 
-- Retry jitter — follow-up.
 - Per-operation retry within a step — out of scope (step-level only).
 - GHA retry lowering (composite retry wrapper) — follow-up bead.
 - Retry hooks / before-after re-run semantics — out of scope.
@@ -49,6 +48,7 @@ interface BackoffSpec {
   readonly baseMs: number;
   readonly maxMs?: number; // cap per delay; default: no cap
   readonly factor?: number; // default: 2
+  readonly jitter?: boolean; // full jitter: uniform random int in [0, cap]
 }
 
 interface RetryPolicy {

@@ -73,12 +73,13 @@ export async function runCommand(
   const artifactDir = join(global.root, ".sverka", "artifacts");
 
   // runCommand is exported — re-validate, don't rely on argv parsing alone.
+  // Upper bound: an absurd --jobs value can exhaust local/CI resources.
   if (
     args.jobs !== undefined &&
-    (!Number.isInteger(args.jobs) || args.jobs < 1)
+    (!Number.isInteger(args.jobs) || args.jobs < 1 || args.jobs > 64)
   ) {
     throw new CliError(
-      "--jobs must be a positive integer",
+      "--jobs must be an integer in [1, 64]",
       "INVALID_FLAG",
       ExitCode.UsageError,
     );

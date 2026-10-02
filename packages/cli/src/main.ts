@@ -321,9 +321,9 @@ function dispatchRun(
   };
   if (parsed.jobs !== undefined) {
     const jobs = Number(parsed.jobs);
-    if (!Number.isInteger(jobs) || jobs < 1)
+    if (!Number.isInteger(jobs) || jobs < 1 || jobs > 64)
       throw new CliError(
-        "--jobs must be a positive integer",
+        "--jobs must be an integer in [1, 64]",
         "INVALID_FLAG",
         ExitCode.UsageError,
       );

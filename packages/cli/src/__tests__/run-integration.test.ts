@@ -115,6 +115,32 @@ describe("run command — format and evaluate", () => {
     expect(out.stderrText).toContain("jobs");
   });
 
+  it("--jobs rejects non-integer and out-of-range values", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    for (const bad of ["2.5", "999"]) {
+      const out = new CaptureWriter();
+      const code = await main(
+        ["run", "--root", dir, "--format", "text", "--jobs", bad],
+        { output: out },
+      );
+      expect(code).toBe(2);
+      expect(out.stderrText).toContain("jobs");
+    }
+  });
+
+  it("-j alias maps to --jobs", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["run", "--root", dir, "--format", "text", "-j", "0"],
+      { output: out },
+    );
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("jobs");
+  });
+
   it("27. --format text produces vitest-style output", async () => {
     const dir = getDir();
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);

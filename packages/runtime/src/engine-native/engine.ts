@@ -3,9 +3,9 @@
 // emits structured run events, supports cancellation.
 
 import { mkdir } from "node:fs/promises";
-import { globSync, readFileSync } from "node:fs";
+import { globSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
-import { join, relative } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
 import { EngineError } from "./errors.js";
 import type { RunPlan } from "@sverka/workflow";
@@ -1034,7 +1034,9 @@ class NativeEngine implements Engine {
     ctx: RunContext,
     stepId: string,
   ): string {
-    return key.replace(/\$\{\{([^{}]*)\}\}/g, (whole, inner: string) => {
+    // Non-greedy up to '}}' so brace-expansion globs inside
+    // hashFiles('{a,b}.lock') parse correctly.
+    return key.replace(/\$\{\{(.*?)\}\}/g, (whole, inner: string) => {
       inner = inner.trim();
       const hashMatch = inner.match(/^hashFiles\((.*)\)$/);
       if (hashMatch) {
@@ -1064,28 +1066,68 @@ class NativeEngine implements Engine {
     const patterns = [...argsSrc.matchAll(/["']([^"']*)["']/g)].map(
       (m) => m[1] ?? "",
     );
+    const workspace = resolve(ctx.request.workspace);
+    let workspaceReal = workspace;
+    try {
+      workspaceReal = realpathSync(workspace);
+    } catch {
+      // Workspace itself unresolvable — keep the lexical path; the
+      // per-file realpath check still applies.
+    }
     const matched = new Set<string>();
     for (const pattern of patterns) {
-      for (const p of globSync(pattern, { cwd: ctx.request.workspace })) {
+      // A pattern with '..' segments can escape the workspace — refuse.
+      if (pattern.split("/").includes("..")) {
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          severity: "warn",
+          message: `hashFiles: pattern '${pattern}' escapes the workspace — skipped`,
+        });
+        continue;
+      }
+      let hits = 0;
+      for (const p of globSync(pattern, { cwd: workspace })) {
         matched.add(p);
+        hits++;
+        // Resource bound — a workflow-controlled glob must not read
+        // the whole workspace into the key.
+        if (matched.size > 256) {
+          ctx.emit({
+            type: "diagnostic",
+            stepId,
+            severity: "warn",
+            message: `hashFiles: match cap (256) reached — remaining files ignored`,
+          });
+          break;
+        }
+      }
+      if (hits === 0) {
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          severity: "warn",
+          message: `hashFiles: pattern '${pattern}' matched no files`,
+        });
       }
     }
     if (matched.size === 0) {
-      ctx.emit({
-        type: "diagnostic",
-        stepId,
-        severity: "warn",
-        message: `hashFiles(${argsSrc}) matched no files — cache key segment is empty`,
-      });
       return "";
     }
     // Synchronous key resolution: hash file contents in path order.
     const hash = createHash("sha256");
     for (const p of [...matched].sort()) {
-      const abs = join(ctx.request.workspace, p);
+      const abs = join(workspace, p);
       try {
-        const content = readFileSync(abs);
-        hash.update(relative(ctx.request.workspace, abs));
+        // Directories match globs like '**' — hash regular files only.
+        if (!statSync(abs).isFile()) continue;
+        // Defense in depth: symlinks resolve outside the workspace even
+        // when the path itself does not — check the real path.
+        const real = realpathSync(abs);
+        if (real !== workspaceReal && !real.startsWith(workspaceReal + sep))
+          continue;
+        const content = readFileSync(real);
+        hash.update(p);
         hash.update("\0");
         hash.update(content);
         hash.update("\0");
