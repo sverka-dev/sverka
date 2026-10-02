@@ -1144,11 +1144,12 @@ class NativeEngine implements Engine {
     // Absolute patterns ignore `cwd` in glob; drive-relative ("C:foo")
     // resolve against the drive's cwd, not the workspace; '..' segments
     // on either separator can escape — refuse all three.
+    const driveLetter = pattern.charCodeAt(0);
     const startsWithDrive =
       pattern.length >= 2 &&
-      pattern[1] === ":" &&
-      ((pattern[0] >= "a" && pattern[0] <= "z") ||
-        (pattern[0] >= "A" && pattern[0] <= "Z"));
+      pattern.charCodeAt(1) === 58 && // ':'
+      ((driveLetter >= 97 && driveLetter <= 122) ||
+        (driveLetter >= 65 && driveLetter <= 90));
     if (
       isAbsolute(pattern) ||
       startsWithDrive ||
