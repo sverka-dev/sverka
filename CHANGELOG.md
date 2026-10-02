@@ -1,3 +1,19 @@
+## 0.1.28 (2026-10-02)
+
+### 🚀 Features
+
+- **arena:** aggregate report — whole run matrix as one sverka report ([#276](https://github.com/sverka-dev/sverka/pull/276))
+- **website:** migrate site to sverka.dev on Cloudflare Workers — fixes docs navigation ([#272](https://github.com/sverka-dev/sverka/pull/272))
+
+### 🩹 Fixes
+
+- **website:** emit root index.html — sverka.dev / was 404 ([#273](https://github.com/sverka-dev/sverka/pull/273))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.27 (2026-09-30)
 
 ### 🚀 Features
