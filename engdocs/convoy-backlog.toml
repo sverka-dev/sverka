@@ -1,0 +1,73 @@
+# Sverka backlog convoy — three feature tracks, run sequentially.
+# Record of the queue poured 2026-10-01; all three molecules shipped:
+# mol 1 → PR #276, mol 2 → PR #277, mol 3 → PR #278.
+# Each molecule: design → implement → ship (PR + green gate + merge).
+# Execute in order: mol-arena, then mol-inspector, then mol-core.
+kind = "convoy"
+gates = "forbid"   # unattended queue — no human gates inside molecules
+
+# ---------------------------------------------------------------- mol 1
+[[molecules]]
+title = "convoy: Arena aggregate report"
+description = "Aggregate benchmark report across all arena runs: pass-rate, duration, combo comparison — same reporter pipeline as per-run reports. Shipped in PR #276."
+
+[[molecules.steps]]
+id = "design"
+title = "Design: data model for aggregated runs (which fields, grouping, deltas)"
+type = "agent"
+
+[[molecules.steps]]
+id = "impl"
+title = "Implement a report that combines multiple arena results.json files"
+type = "agent"
+needs = ["design"]
+
+[[molecules.steps]]
+id = "ship"
+title = "Arena report: tests green, PR opened, act gate OK, merged"
+type = "agent"
+needs = ["impl"]
+
+# ---------------------------------------------------------------- mol 2
+[[molecules]]
+title = "convoy: Inspector UX"
+description = "Step-drawer improvements in the HTML report: stdout/stderr tabs, log search, tail truncation marker, copy/download buttons. Shipped in PR #277."
+
+[[molecules.steps]]
+id = "design"
+title = "Design: tab model + search UX + truncation marker semantics"
+type = "agent"
+
+[[molecules.steps]]
+id = "impl"
+title = "Implement drawer tabs, search, tail marker, copy/download"
+type = "agent"
+needs = ["design"]
+
+[[molecules.steps]]
+id = "ship"
+title = "Inspector UX: tests green, PR opened, act gate OK, merged"
+type = "agent"
+needs = ["impl"]
+
+# ---------------------------------------------------------------- mol 3
+[[molecules]]
+title = "convoy: Core runtime hardening"
+description = "Step-level retry policies (backoff + jitter), hashFiles-based cache keys, and a bounded --jobs concurrency limit in the native engine. Shipped in PR #278."
+
+[[molecules.steps]]
+id = "design"
+title = "Design: retry policy fields, hashFiles cache keys, --jobs bound"
+type = "agent"
+
+[[molecules.steps]]
+id = "impl"
+title = "Implement retries, hashFiles cache keys, --jobs bound"
+type = "agent"
+needs = ["design"]
+
+[[molecules.steps]]
+id = "ship"
+title = "Runtime hardening: tests green, PR opened, act gate OK, merged"
+type = "agent"
+needs = ["impl"]
