@@ -63,7 +63,10 @@ export function createFileSnapshotStore(
         // Reject symlinked store dirs before mkdir/chmod — a symlink planted
         // at .sverka or runs would redirect writes outside root, and chmod
         // would tighten the unrelated target directory.
-        for (const p of [join(root, ".sverka"), join(root, ".sverka", "runs")]) {
+        for (const p of [
+          join(root, ".sverka"),
+          join(root, ".sverka", "runs"),
+        ]) {
           try {
             if ((await lstat(p)).isSymbolicLink()) {
               throw new StorageError(
