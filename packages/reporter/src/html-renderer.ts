@@ -1493,12 +1493,19 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   // "[... truncated N bytes]" — surface that as a banner, not log text.
   // Double backslashes — JS lives in a template literal, so \s would
   // collapse to s before the browser ever parses the regex.
-  var TRUNCATED_RE = /\\[\\.\\.\\. truncated ([0-9]+) bytes\\]\\s*$/;
+  // Two producers: host runtime appends "[... truncated N bytes]",
+  // the docker runtime appends a bare "[log truncated]".
+  var TRUNCATED_RE =
+    /\\[\\.\\.\\. truncated ([0-9]+) bytes\\]\\s*$|\\[log truncated\\]\\s*$/;
   function splitTruncated(text) {
     var m = text && text.match(TRUNCATED_RE);
     return m
-      ? { text: text.slice(0, m.index).replace(/\\n$/, ""), dropped: m[1] }
-      : { text: text || "", dropped: null };
+      ? {
+          text: text.slice(0, m.index).replace(/\\n$/, ""),
+          truncated: true,
+          dropped: m[1] || null,
+        }
+      : { text: text || "", truncated: false, dropped: null };
   }
 
   function activeLogText() {
@@ -1524,10 +1531,11 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     }
     var split = splitTruncated(drawerStep[drawerTab] || "");
     if (banner) {
-      banner.hidden = split.dropped === null;
-      if (split.dropped !== null)
-        banner.textContent =
-          "log truncated — " + split.dropped + " bytes dropped (capture cap)";
+      banner.hidden = !split.truncated;
+      if (split.truncated)
+        banner.textContent = split.dropped
+          ? "log truncated — " + split.dropped + " bytes dropped (capture cap)"
+          : "log truncated — output exceeded the capture cap";
     }
     var q = (document.getElementById("drawer-search") || {}).value || "";
     pre.textContent = "";
