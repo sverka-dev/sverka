@@ -545,10 +545,23 @@ function renderDrawer(): string {
       <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
     </div>
     <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-tabs" id="drawer-tabs" hidden>
+      <div class="drawer-tablist" role="tablist" aria-label="step output">
+        <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
+        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log">stdout</button>
+        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log">stderr</button>
+      </div>
+      <input id="drawer-search" type="search" placeholder="Search log…" aria-label="Search log">
+      <span id="drawer-search-count" class="drawer-search-count"></span>
+    </div>
     <div class="drawer-actions">
       <button type="button" id="drawer-findings" class="drawer-btn">Open in findings table</button>
+      <button type="button" id="drawer-copy" class="drawer-btn">Copy log</button>
+      <button type="button" id="drawer-download" class="drawer-btn">Download</button>
     </div>
-    <div id="drawer-body"></div>
+    <div id="drawer-truncated" class="drawer-truncated" hidden></div>
+    <div id="drawer-body" role="tabpanel" aria-label="overview" tabindex="0"></div>
+    <pre id="drawer-log" class="step-out" role="tabpanel" aria-label="log" tabindex="0" hidden></pre>
   </aside>`;
 }
 
@@ -931,6 +944,48 @@ main.split:has(.step-drawer.open) {
   padding: 0.4rem 1rem;
   border-bottom: 1px solid #21262d;
 }
+.drawer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-tablist { display: flex; gap: 0.25rem; }
+.drawer-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  color: #8b949e;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+.drawer-tab:hover { color: #f0f6fc; }
+.drawer-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+.drawer-tab:disabled { color: #484f58; cursor: default; }
+/* Author display rules beat the UA [hidden] rule — restore it. */
+.drawer-tabs[hidden] { display: none; }
+#drawer-log[hidden] { display: none; }
+#drawer-search {
+  margin-left: auto;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #e6edf3;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  width: 9rem;
+}
+.drawer-search-count { color: #8b949e; font-size: 0.75rem; white-space: nowrap; }
+.drawer-truncated {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  background: #2d2105;
+  color: #d29922;
+  font-size: 0.75rem;
+  border-bottom: 1px solid #21262d;
+}
 .drawer-log-title {
   margin: 0.75rem 0 0.25rem;
   font-size: 0.75rem;
@@ -940,6 +995,14 @@ main.split:has(.step-drawer.open) {
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
+#drawer-log {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 0.75rem 1rem 1.5rem;
+}
+#drawer-log mark { background: #9e6a03; color: #fff; padding: 0 1px; }
+#drawer-log mark.mark-cur { outline: 1px solid #f0f6fc; }
 .drawer-finding {
   font-size: 0.8rem;
   padding: 0.3rem 0;
@@ -1422,12 +1485,126 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   var stepsData = window.__STEPS_DATA__ || {};
   var drawer = document.getElementById("step-drawer");
   var drawerOpener = null;
+  var drawerStep = null; // {id, stdout, stderr}
+  var drawerTab = "overview";
 
   function drawerEl(tag, cls, text) {
     var el = document.createElement(tag);
     if (cls) el.className = cls;
     el.textContent = text;
     return el;
+  }
+
+  // Runtime caps captured output (MAX_OUTPUT_BYTES) and appends
+  // "[... truncated N bytes]" — surface that as a banner, not log text.
+  // Double backslashes — JS lives in a template literal, so \s would
+  // collapse to s before the browser ever parses the regex.
+  // Two producers: host runtime appends "[... truncated N bytes]",
+  // the docker runtime appends a bare "[log truncated]".
+  var TRUNCATED_RE =
+    /\\[\\.\\.\\. truncated ([0-9]+) bytes\\]\\s*$|\\[log truncated\\]\\s*$/;
+  function splitTruncated(text) {
+    var m = text && text.match(TRUNCATED_RE);
+    return m
+      ? {
+          text: text.slice(0, m.index).replace(/\\n$/, ""),
+          truncated: true,
+          dropped: m[1] || null,
+        }
+      : { text: text || "", truncated: false, dropped: null };
+  }
+
+  function activeLogText() {
+    if (!drawerStep || drawerTab === "overview") return "";
+    var raw = drawerStep[drawerTab] || "";
+    return splitTruncated(raw).text;
+  }
+
+  // text.length counts UTF-16 units — label sizes are byte counts.
+  var textEncoder = new TextEncoder();
+  function byteLen(t) {
+    return t ? textEncoder.encode(t).length : 0;
+  }
+
+  // Actions act on the visible pane — disable them when it's empty.
+  function updateActionState() {
+    var text =
+      drawerTab === "overview"
+        ? (drawerStep && drawerStep.error) || ""
+        : activeLogText();
+    var copy = document.getElementById("drawer-copy");
+    if (copy) copy.disabled = !text;
+    var dl = document.getElementById("drawer-download");
+    if (dl) dl.disabled = !text;
+  }
+
+  // Rebuild the log <pre> with <mark> around query hits — text nodes
+  // only, never innerHTML.
+  var logMarks = [];
+  var logMarkIdx = -1;
+  function renderLogPane() {
+    var pre = document.getElementById("drawer-log");
+    var body = document.getElementById("drawer-body");
+    var banner = document.getElementById("drawer-truncated");
+    var logTab = drawerTab !== "overview";
+    if (body) body.hidden = logTab;
+    if (pre) pre.hidden = !logTab;
+    if (!logTab || !drawerStep || !pre) {
+      if (banner) banner.hidden = true;
+      // Leaving a log tab drops the search state — Enter must not cycle
+      // stale marks in a hidden pane.
+      logMarks = [];
+      logMarkIdx = -1;
+      var c0 = document.getElementById("drawer-search-count");
+      if (c0) c0.textContent = "";
+      updateActionState();
+      return;
+    }
+    var split = splitTruncated(drawerStep[drawerTab] || "");
+    // stderr keeps the red styling the stacked blocks had.
+    pre.className = "step-out" + (drawerTab === "stderr" ? " err" : "");
+    if (banner) {
+      banner.hidden = !split.truncated;
+      if (split.truncated)
+        banner.textContent = split.dropped
+          ? "log truncated — " + split.dropped + " bytes dropped (capture cap)"
+          : "log truncated — output exceeded the capture cap";
+    }
+    var q = (document.getElementById("drawer-search") || {}).value || "";
+    pre.textContent = "";
+    logMarks = [];
+    logMarkIdx = -1;
+    if (!q) {
+      pre.textContent = split.text;
+    } else {
+      var lower = split.text.toLowerCase();
+      var needle = q.toLowerCase();
+      var i = 0;
+      var hit;
+      while ((hit = lower.indexOf(needle, i)) !== -1) {
+        pre.appendChild(document.createTextNode(split.text.slice(i, hit)));
+        var mark = document.createElement("mark");
+        // needle.length — the match length in the lowercased string,
+        // which can differ from q.length for chars like "İ".
+        mark.textContent = split.text.slice(hit, hit + needle.length);
+        pre.appendChild(mark);
+        logMarks.push(mark);
+        i = hit + needle.length;
+      }
+      pre.appendChild(document.createTextNode(split.text.slice(i)));
+    }
+    var count = document.getElementById("drawer-search-count");
+    if (count) count.textContent = q ? logMarks.length + " matches" : "";
+    updateActionState();
+  }
+
+  function selectTab(tab) {
+    drawerTab = tab;
+    document.querySelectorAll("#drawer-tabs .drawer-tab").forEach(function(b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+      b.setAttribute("aria-selected", b.getAttribute("data-tab") === tab);
+    });
+    renderLogPane();
   }
 
   function openStep(id, opener) {
@@ -1437,6 +1614,8 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       closeStep();
       return;
     }
+    drawerStep = s;
+    drawerStep.id = id;
     document.getElementById("drawer-title").textContent = id;
     var st = document.getElementById("drawer-state");
     st.textContent = s.state;
@@ -1473,18 +1652,30 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         body.appendChild(row);
       });
     }
-    if (s.stdout) {
-      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
-      body.appendChild(drawerEl("pre", "step-out", s.stdout));
-    }
-    if (s.stderr) {
-      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
-      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
-    }
     if (!s.error && !stepFindings.length && !s.stdout && !s.stderr)
       body.appendChild(drawerEl("span", "meta", "no output captured"));
+
+    // Tabs appear only when there are logs to tab between; labels carry
+    // the byte size so an empty stderr is obvious without clicking.
+    var tabs = document.getElementById("drawer-tabs");
+    var hasLogs = !!(s.stdout || s.stderr);
+    if (tabs) tabs.hidden = !hasLogs;
+    if (hasLogs) {
+      ["stdout", "stderr"].forEach(function(name) {
+        var b = tabs.querySelector('[data-tab="' + name + '"]');
+        if (!b) return;
+        var text = s[name] || "";
+        b.disabled = !text;
+        b.textContent =
+          name + (text ? " (" + byteLen(text) + "b)" : " (empty)");
+      });
+    }
     var findingsBtn = document.getElementById("drawer-findings");
     if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+    // Fresh step, fresh search — no carried-over query or count.
+    var searchEl = document.getElementById("drawer-search");
+    if (searchEl) searchEl.value = "";
+    selectTab("overview");
     drawerOpener = opener || null;
     drawer.removeAttribute("inert");
     drawer.classList.add("open");
@@ -1501,6 +1692,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (!drawer) return;
     var opener = drawerOpener;
     drawerOpener = null;
+    drawerStep = null;
     drawer.classList.remove("open");
     drawer.setAttribute("aria-hidden", "true");
     drawer.setAttribute("inert", "");
@@ -1512,11 +1704,90 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   document.addEventListener("keydown", function(e) {
     if (e.key === "Escape") closeStep();
   });
+  document.querySelectorAll("#drawer-tabs .drawer-tab").forEach(function(b) {
+    b.addEventListener("click", function() {
+      selectTab(b.getAttribute("data-tab"));
+    });
+  });
+  var drawerTabs = document.getElementById("drawer-tabs");
+  if (drawerTabs) {
+    // Left/Right move across the enabled tabs — standard tablist keys.
+    drawerTabs.addEventListener("keydown", function(e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (!e.target.classList || !e.target.classList.contains("drawer-tab"))
+        return;
+      e.preventDefault();
+      var tabs = [];
+      drawerTabs
+        .querySelectorAll(".drawer-tab")
+        .forEach(function(t) { if (!t.disabled) tabs.push(t); });
+      var cur = tabs.indexOf(e.target);
+      if (cur === -1) return;
+      var next =
+        tabs[(cur + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus();
+      selectTab(next.getAttribute("data-tab"));
+    });
+  }
+  var drawerSearch = document.getElementById("drawer-search");
+  if (drawerSearch) {
+    drawerSearch.addEventListener("input", renderLogPane);
+    drawerSearch.addEventListener("keydown", function(e) {
+      // Enter cycles through matches inside the visible log.
+      if (e.key !== "Enter" || !logMarks.length) return;
+      if (logMarkIdx >= 0) logMarks[logMarkIdx].classList.remove("mark-cur");
+      logMarkIdx = (logMarkIdx + 1) % logMarks.length;
+      var next = logMarks[logMarkIdx];
+      next.classList.add("mark-cur");
+      var count = document.getElementById("drawer-search-count");
+      if (count)
+        count.textContent =
+          logMarkIdx + 1 + " of " + logMarks.length + " matches";
+      next.scrollIntoView({ block: "nearest" });
+    });
+  }
   var drawerFindings = document.getElementById("drawer-findings");
   if (drawerFindings) {
     drawerFindings.addEventListener("click", function() {
+      // Apply the step filter (not just scroll) — that is the drawer
+      // button's contract.
+      if (drawerStep && stepFilter !== drawerStep.id)
+        applyStepFilter(drawerStep.id);
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }
+  var drawerCopy = document.getElementById("drawer-copy");
+  if (drawerCopy) {
+    drawerCopy.addEventListener("click", function() {
+      var text =
+        drawerTab === "overview" ? (drawerStep && drawerStep.error) || "" : activeLogText();
+      if (!text || !navigator.clipboard) return;
+      navigator.clipboard
+        .writeText(text)
+        .then(function() {
+          drawerCopy.textContent = "copied!";
+        })
+        .catch(function() {
+          drawerCopy.textContent = "copy failed";
+        })
+        .finally(function() {
+          setTimeout(function() { drawerCopy.textContent = "Copy log"; }, 1200);
+        });
+    });
+  }
+  var drawerDownload = document.getElementById("drawer-download");
+  if (drawerDownload) {
+    drawerDownload.addEventListener("click", function() {
+      if (!drawerStep) return;
+      var text = activeLogText() || (drawerStep.error || "");
+      var blob = new Blob([text], { type: "text/plain" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download =
+        drawerStep.id.replace(/[^\\w.-]+/g, "_") + "." + drawerTab + ".txt";
+      a.click();
+      URL.revokeObjectURL(a.href);
     });
   }
 

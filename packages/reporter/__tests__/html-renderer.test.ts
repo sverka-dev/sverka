@@ -482,6 +482,51 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("main.split .step-drawer.open");
   });
 
+  it("step drawer — tabs, log search, truncation banner, copy/download", () => {
+    const html = renderHtml([
+      { type: "run-started", runId: "r", planId: "p", at: 1000 },
+      { type: "step-started", stepId: "ci/build", at: 1100 },
+      {
+        type: "step-succeeded",
+        stepId: "ci/build",
+        durationMs: 100,
+        at: 1200,
+        stdout: "head\n[... truncated 4200 bytes]",
+        stderr: "warn",
+        exitCode: 0,
+      },
+      {
+        type: "run-completed",
+        runId: "r",
+        status: "success",
+        durationMs: 200,
+        at: 1200,
+      },
+    ]);
+    // tab bar: overview + per-stream tabs
+    expect(html).toContain('id="drawer-tabs"');
+    expect(html).toContain('data-tab="overview"');
+    expect(html).toContain('data-tab="stdout"');
+    expect(html).toContain('data-tab="stderr"');
+    // log search with match cycling
+    expect(html).toContain('id="drawer-search"');
+    expect(html).toContain('id="drawer-search-count"');
+    expect(html).toContain("logMarks");
+    // truncation: suffix detected and surfaced as a banner
+    expect(html).toContain('id="drawer-truncated"');
+    expect(html).toContain("TRUNCATED_RE");
+    expect(html).toContain("bytes dropped");
+    // actions: copy + download operate on the active tab
+    expect(html).toContain('id="drawer-copy"');
+    expect(html).toContain('id="drawer-download"');
+    expect(html).toMatch(/navigator\.clipboard\s*\.\s*writeText/);
+    // the findings button applies the step filter, not just scrolls
+    expect(html).toContain("applyStepFilter(drawerStep.id)");
+    // the fixture's truncation marker lands in the embedded payload the
+    // drawer JS scans — detection input is verified present
+    expect(html).toContain("[... truncated 4200 bytes]");
+  });
+
   it("dag — zoom and pan viewport with padded viewBox and controls", () => {
     const html = renderHtml(withRun(stepSucceeded("ci/build", 100)));
     expect(html).toContain('class="dag-viewport"');
