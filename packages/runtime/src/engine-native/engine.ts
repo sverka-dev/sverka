@@ -547,13 +547,16 @@ class NativeEngine implements Engine {
     if (!isAgentStep && step.cache && ctx.cache) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "pull" || policy === "pull-push") {
-        const key = await this.resolveCacheKey(step.cache.key, ctx, step.id);
-        const restoreKeys = await Promise.all(
-          (step.cache.restoreKeys ?? []).map((k) =>
-            this.resolveCacheKey(k, ctx, step.id),
-          ),
-        );
         try {
+          // Key resolution is inside the try: a rejected glob or
+          // unresolvable ref must not wedge scheduling — treat it like
+          // a restore failure (warn + run the step).
+          const key = await this.resolveCacheKey(step.cache.key, ctx, step.id);
+          const restoreKeys = await Promise.all(
+            (step.cache.restoreKeys ?? []).map((k) =>
+              this.resolveCacheKey(k, ctx, step.id),
+            ),
+          );
           const hit = await ctx.cache.restore({
             key,
             restoreKeys,
@@ -616,8 +619,8 @@ class NativeEngine implements Engine {
     ) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "push" || policy === "pull-push") {
-        const key = await this.resolveCacheKey(step.cache.key, ctx, step.id);
         try {
+          const key = await this.resolveCacheKey(step.cache.key, ctx, step.id);
           await ctx.cache.store({
             key,
             paths: step.cache.paths,
