@@ -3,6 +3,7 @@ import {
   pluginCombinations,
   aggregateResults,
   computeAnalysis,
+  buildCheckEnv,
 } from "../src/runner.js";
 import type {
   PluginConfig,
@@ -617,5 +618,30 @@ describe("runArena with judge", () => {
     expect(result.config.judgeModel).toBeUndefined();
     expect(result.results[0]?.verdicts).toEqual([]);
     await rm(outDir, { recursive: true, force: true });
+  });
+});
+
+describe("buildCheckEnv", () => {
+  it("keeps toolchain basics and scrubs secrets", () => {
+    const env = buildCheckEnv({
+      PATH: "/usr/bin",
+      HOME: "/home/u",
+      TMPDIR: "/tmp",
+      GH_TOKEN: "secret1",
+      NPM_TOKEN: "secret2",
+      DEVIN_API_KEY: "secret3",
+      AWS_SECRET_ACCESS_KEY: "secret4",
+      MY_CUSTOM_SECRET: "secret5",
+      EDITOR: "vim",
+    });
+    expect(env["PATH"]).toBe("/usr/bin");
+    expect(env["HOME"]).toBe("/home/u");
+    expect(env["CI"]).toBe("true");
+    expect(env["GH_TOKEN"]).toBeUndefined();
+    expect(env["NPM_TOKEN"]).toBeUndefined();
+    expect(env["DEVIN_API_KEY"]).toBeUndefined();
+    expect(env["AWS_SECRET_ACCESS_KEY"]).toBeUndefined();
+    expect(env["MY_CUSTOM_SECRET"]).toBeUndefined();
+    expect(env["EDITOR"]).toBeUndefined();
   });
 });

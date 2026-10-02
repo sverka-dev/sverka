@@ -328,6 +328,23 @@ function errorResult(
   };
 }
 
+/**
+ * Env for check subprocesses. Checks run agent-written scripts (e.g.
+ * `bun run verify` executes whatever the agent left in package.json), so
+ * the runner's secrets must not leak in. Allowlist toolchain basics only.
+ */
+export function buildCheckEnv(
+  env: Record<string, string | undefined> = process.env,
+): Record<string, string> {
+  const SAFE =
+    /^(PATH|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|SYSTEMROOT|SystemRoot|WINDIR|COMSPEC|PATHEXT|TEMP|TMP|TMPDIR|SHELL|TERM|COLORTERM|FORCE_COLOR|NO_COLOR|LANG|LC_[A-Z_]+|USER|LOGNAME|XDG_CACHE_HOME|XDG_CONFIG_HOME|XDG_DATA_HOME|CI|TZ|NODE_ENV|NODE_OPTIONS|BUN_INSTALL|VIRTUAL_ENV|OSTYPE|MACHTYPE|HOSTTYPE)$/;
+  const out: Record<string, string> = { CI: "true" };
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === "string" && SAFE.test(key)) out[key] = value;
+  }
+  return out;
+}
+
 /** Run a shell command in the workspace, capturing combined output. */
 function execShell(
   workspace: string,
@@ -337,7 +354,7 @@ function execShell(
     const opts: SpawnOptions = {
       cwd: workspace,
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, CI: "true" },
+      env: buildCheckEnv(),
     };
     const proc = spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
     // Cap captured output — a noisy command must not grow memory without

@@ -565,8 +565,8 @@ function renderDrawer(): string {
     <div class="drawer-tabs" id="drawer-tabs" hidden>
       <div class="drawer-tablist" role="tablist" aria-label="step output">
         <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
-        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log">stdout</button>
-        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log">stderr</button>
+        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log-stdout">stdout</button>
+        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log-stderr">stderr</button>
       </div>
       <input id="drawer-search" type="search" placeholder="Search log…" aria-label="Search log">
       <span id="drawer-search-count" class="drawer-search-count"></span>
@@ -578,7 +578,8 @@ function renderDrawer(): string {
     </div>
     <div id="drawer-truncated" class="drawer-truncated" hidden></div>
     <div id="drawer-body" role="tabpanel" aria-label="overview" tabindex="0"></div>
-    <pre id="drawer-log" class="step-out" role="tabpanel" aria-label="log" tabindex="0" hidden></pre>
+    <pre id="drawer-log-stdout" class="drawer-log step-out" role="tabpanel" aria-label="stdout" tabindex="0" hidden></pre>
+    <pre id="drawer-log-stderr" class="drawer-log step-out err" role="tabpanel" aria-label="stderr" tabindex="0" hidden></pre>
   </aside>`;
 }
 
@@ -983,7 +984,7 @@ main.split:has(.step-drawer.open) {
 .drawer-tab:disabled { color: #484f58; cursor: default; }
 /* Author display rules beat the UA [hidden] rule — restore it. */
 .drawer-tabs[hidden] { display: none; }
-#drawer-log[hidden] { display: none; }
+.drawer-log[hidden] { display: none; }
 #drawer-search {
   margin-left: auto;
   background: #0d1117;
@@ -1012,14 +1013,14 @@ main.split:has(.step-drawer.open) {
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
-#drawer-log {
+.drawer-log {
   flex: 1;
   overflow: auto;
   margin: 0;
   padding: 0.75rem 1rem 1.5rem;
 }
-#drawer-log mark { background: #9e6a03; color: #fff; padding: 0 1px; }
-#drawer-log mark.mark-cur { outline: 1px solid #f0f6fc; }
+.drawer-log mark { background: #9e6a03; color: #fff; padding: 0 1px; }
+.drawer-log mark.mark-cur { outline: 1px solid #f0f6fc; }
 .drawer-finding {
   font-size: 0.8rem;
   padding: 0.3rem 0;
@@ -1570,13 +1571,15 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   var logMarks = [];
   var logMarkIdx = -1;
   function renderLogPane() {
-    var pre = document.getElementById("drawer-log");
+    var preOut = document.getElementById("drawer-log-stdout");
+    var preErr = document.getElementById("drawer-log-stderr");
     var body = document.getElementById("drawer-body");
     var banner = document.getElementById("drawer-truncated");
-    var logTab = drawerTab !== "overview";
-    if (body) body.hidden = logTab;
-    if (pre) pre.hidden = !logTab;
-    if (!logTab || !drawerStep || !pre) {
+    var pre = drawerTab === "stderr" ? preErr : preOut;
+    if (body) body.hidden = drawerTab !== "overview";
+    if (preOut) preOut.hidden = drawerTab !== "stdout";
+    if (preErr) preErr.hidden = drawerTab !== "stderr";
+    if (drawerTab === "overview" || !drawerStep || !pre) {
       if (banner) banner.hidden = true;
       // Leaving a log tab drops the search state — Enter must not cycle
       // stale marks in a hidden pane.
@@ -1588,8 +1591,6 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       return;
     }
     var split = splitTruncated(drawerStep[drawerTab] || "");
-    // stderr keeps the red styling the stacked blocks had.
-    pre.className = "step-out" + (drawerTab === "stderr" ? " err" : "");
     if (banner) {
       banner.hidden = !split.truncated;
       if (split.truncated)
