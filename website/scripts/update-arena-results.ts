@@ -42,7 +42,9 @@ function redactText(text: string): string {
   return text
     .replace(/\/home\/[^\s"']+/g, "/home/user")
     .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
-    .replace(/OS Version: [^\n<]+/g, "OS Version: linux");
+    .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]")
+    .replace(/(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi, "$1=[redacted]");
 }
 
 function redactValue(value: unknown): unknown {
@@ -223,6 +225,24 @@ const sanitizedResults = {
   ...results,
   results: (results.results ?? []).map((r) => ({
     ...r,
+    // output/checkResults/verdicts carry recorded commands and tool
+    // output — same host path + secret leakage surface as the trace.
+    ...(typeof r.output === "string" ? { output: redactText(r.output) } : {}),
+    ...(r.checkResults
+      ? {
+          checkResults: r.checkResults.map((c) => ({
+            ...c,
+            output: redactText(c.output),
+          })),
+        }
+      : {}),
+    ...(r.verdicts
+      ? {
+          verdicts: r.verdicts.map(
+            (v) => redactValue(v) as (typeof r.verdicts)[number],
+          ),
+        }
+      : {}),
     ...(r.trace ? { trace: sanitizeTrace(r.trace) } : {}),
   })),
 };
@@ -232,26 +252,41 @@ await rename(resultsTmp, join(benchDir, "arena-results.json"));
 
 // Cases — task definitions, preserving createdAt for existing ids.
 const casesPath = join(apiDir, "cases.json");
-const oldCases: { id: string; createdAt?: string }[] = existsSync(casesPath)
-  ? (JSON.parse(readFileSync(casesPath, "utf-8")) as {
-      id: string;
-      createdAt?: string;
-    }[])
-  : [];
-const createdAtById = new Map(oldCases.map((c) => [c.id, c.createdAt]));
+const oldCases: { id: string; createdAt?: string; updatedAt?: string }[] =
+  existsSync(casesPath)
+    ? (JSON.parse(readFileSync(casesPath, "utf-8")) as {
+        id: string;
+        createdAt?: string;
+        updatedAt?: string;
+      }[])
+    : [];
+const oldById = new Map(oldCases.map((c) => [c.id, c]));
 const now = new Date().toISOString();
-const cases = (config.tasks ?? []).map((t) => ({
-  id: t.id,
-  name: t.name,
-  prompt: t.prompt,
-  ...(t.successCriteria ? { successCriteria: t.successCriteria } : {}),
-  ...(t.fixture ? { fixture: t.fixture } : {}),
-  ...(t.timeoutMs ? { timeoutMs: t.timeoutMs } : {}),
-  ...(t.setup ? { setup: t.setup } : {}),
-  ...(t.checks ? { checks: t.checks } : {}),
-  createdAt: createdAtById.get(t.id) ?? now,
-  updatedAt: now,
-}));
+const cases = (config.tasks ?? []).map((t) => {
+  const base = {
+    id: t.id,
+    name: t.name,
+    prompt: t.prompt,
+    ...(t.successCriteria ? { successCriteria: t.successCriteria } : {}),
+    ...(t.fixture ? { fixture: t.fixture } : {}),
+    ...(t.timeoutMs ? { timeoutMs: t.timeoutMs } : {}),
+    ...(t.setup ? { setup: t.setup } : {}),
+    ...(t.checks ? { checks: t.checks } : {}),
+  };
+  const old = oldById.get(t.id);
+  const { createdAt: oldCreated, updatedAt: oldUpdated, ...oldRest } =
+    old ?? {};
+  // updatedAt only advances when the case content actually changed —
+  // otherwise every refresh claims all cases were recently edited.
+  const unchanged =
+    old !== undefined &&
+    JSON.stringify(oldRest) === JSON.stringify(base);
+  return {
+    ...base,
+    createdAt: oldCreated ?? now,
+    updatedAt: unchanged ? (oldUpdated ?? now) : now,
+  };
+});
 await writeJson(casesPath, cases);
 
 // Config — models + plugins (no secrets; ids/names only).

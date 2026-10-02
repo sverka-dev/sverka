@@ -388,7 +388,7 @@
             "observations": [
               {
                 "sourceCallId": "call_8d34086484a84260b0575295#ae3df85fb4bd452a886cafc6b4644493",
-                "content": "{\n  \"name\": \"verkit\",\n  \"type\": \"module\",\n  \"version\": \"0.4.1\",\n  \"description\": \"Fast, zero-dependency SemVer for ESM and TypeScript, with functional, tree-shakeable APIs.\",\n  \"author\": \"Kevin Deng <sxzz@sxzz.moe>\",\n  \"license\": \"MIT\",\n  \"funding\": \"https://github.com/sponsors/sxzz\",\n  \"homepage\": \"https://github.com/sxzz/verkit#readme\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sxzz/verkit.git\"\n  },\n  \"bugs\": {\n    \"url\": \"https://github.com/sxzz/verkit/issues\"\n  },\n  \"keywords\": [\n    \"semver\",\n    \"semantic-versioning\",\n    \"version\",\n    \"range\",\n    \"esm\",\n    \"typescript\",\n    \"functional\",\n    \"immutable\"\n  ],\n  \"sideEffects\": false,\n  \"exports\": {\n    \".\": \"./dist/index.js\",\n    \"./comparator\": \"./dist/comparator.js\",\n    \"./range\": \"./dist/range.js\",\n    \"./version\": \"./dist/version.js\",\n    \"./package.json\": \"./package.json\"\n  },\n  \"files\": [\n    \"dist\"\n  ],\n  \"publishConfig\": {\n    \"access\": \"public\"\n  },\n  \"engines\": {\n    \"node\": \">=18.12.0\"\n  },\n  \"devEngines\": {\n    \"packageManager\": {\n      \"name\": \"pnpm\",\n      \"version\": \"12.4.2\",\n      \"onFail\": \"download\"\n    }\n  },\nLICENSE\nREADME.md\ndist\npackage.json"
+                "content": "{\n  \"name\": \"verkit\",\n  \"type\": \"module\",\n  \"version\": \"0.4.1\",\n  \"description\": \"Fast, zero-dependency SemVer for ESM and TypeScript, with functional, tree-shakeable APIs.\",\n  \"author\": \"Kevin Deng <[email]>\",\n  \"license\": \"MIT\",\n  \"funding\": \"https://github.com/sponsors/sxzz\",\n  \"homepage\": \"https://github.com/sxzz/verkit#readme\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/sxzz/verkit.git\"\n  },\n  \"bugs\": {\n    \"url\": \"https://github.com/sxzz/verkit/issues\"\n  },\n  \"keywords\": [\n    \"semver\",\n    \"semantic-versioning\",\n    \"version\",\n    \"range\",\n    \"esm\",\n    \"typescript\",\n    \"functional\",\n    \"immutable\"\n  ],\n  \"sideEffects\": false,\n  \"exports\": {\n    \".\": \"./dist/index.js\",\n    \"./comparator\": \"./dist/comparator.js\",\n    \"./range\": \"./dist/range.js\",\n    \"./version\": \"./dist/version.js\",\n    \"./package.json\": \"./package.json\"\n  },\n  \"files\": [\n    \"dist\"\n  ],\n  \"publishConfig\": {\n    \"access\": \"public\"\n  },\n  \"engines\": {\n    \"node\": \">=18.12.0\"\n  },\n  \"devEngines\": {\n    \"packageManager\": {\n      \"name\": \"pnpm\",\n      \"version\": \"12.4.2\",\n      \"onFail\": \"download\"\n    }\n  },\nLICENSE\nREADME.md\ndist\npackage.json"
               }
             ]
           },
@@ -411,7 +411,7 @@
             "observations": [
               {
                 "sourceCallId": "call_0109f1e2dee64f8ea153220a#135949dc9427427eaf4756dfb6d1fc5b",
-                "content": "6:      \"name\": \"@sverka/storage\",\n8:        \"@sverka/runtime\": \"0.1.29\",\n101:    \"@sverka/runtime\": [\"@sverka/runtime@0.1.29\", \"\", { \"dependencies\": { \"@sverka/workflow\": \"^0.1.29\" } }, \"sha51\u001b(B\u001b[0m2\u001b(B\u001b[0m\n-60tJ3812QfJhDeiS+1b2QVewBk99pLG5BPgzyF1RSslFaZE81HdOLZL8+LzYxzygxpQ+elXR47oiuzeioL8Znw==\"],\n103:    \"@sverka/workflow\": [\"@sverka/workflow@0.1.29\", \"\", { \"dependencies\": { \"constructs\": \"10.8.1\" } }, \"sha512-uHA\u001b(B\u001b[0mx\u001b(B\u001b[0m\nDZ8WrllN5hBuO7rCcX1mJWEt/oMWrfrsNFt+K9E7amkcma0YNFyuaAvQw1QbtJ1vybAIOcrqopFDAgmBmg==\"],"
+                "content": "6:      \"name\": \"@sverka/storage\",\n8:        \"@sverka/runtime\": \"0.1.29\",\n101:    \"@sverka/runtime\": [\"@sverka/[email]\", \"\", { \"dependencies\": { \"@sverka/workflow\": \"^0.1.29\" } }, \"sha51\u001b(B\u001b[0m2\u001b(B\u001b[0m\n-60tJ3812QfJhDeiS+1b2QVewBk99pLG5BPgzyF1RSslFaZE81HdOLZL8+LzYxzygxpQ+elXR47oiuzeioL8Znw==\"],\n103:    \"@sverka/workflow\": [\"@sverka/[email]\", \"\", { \"dependencies\": { \"constructs\": \"10.8.1\" } }, \"sha512-uHA\u001b(B\u001b[0mx\u001b(B\u001b[0m\nDZ8WrllN5hBuO7rCcX1mJWEt/oMWrfrsNFt+K9E7amkcma0YNFyuaAvQw1QbtJ1vybAIOcrqopFDAgmBmg==\"],"
               }
             ]
           },
@@ -1633,13 +1633,13 @@
         {
           "checkId": "tests-pass",
           "passed": true,
-          "output": "$ vitest run --passWithNoTests\n\n RUN  v5.0.3 /tmp/arena-ship-package-swe-2-high-sverkaoff-r0-1790948504799\n\n\n Test Files  5 passed (5)\n      Tests  49 passed (49)\n   Start at  15:48:31\n   Duration  316ms (transform 44%, tests 39%, import 13%, worker 3%)",
+          "output": "$ vitest run --passWithNoTests\n\n RUN  v5.0.3 /tmp/sandbox\n\n\n Test Files  5 passed (5)\n      Tests  49 passed (49)\n   Start at  15:48:31\n   Duration  316ms (transform 44%, tests 39%, import 13%, worker 3%)",
           "exitCode": 0
         },
         {
           "checkId": "build",
           "passed": true,
-          "output": "$ tsdown\nℹ tsdown v0.23.0 powered by rolldown v1.2.12\nℹ config file: /tmp/arena-ship-package-swe-2-high-sverkaoff-r0-1790948504799/tsdown.config.ts \nℹ entry: src/index.ts\nℹ target: node24.0.0\nℹ tsconfig: tsconfig.json\nℹ Build start\nℹ Cleaning 2 files\nℹ dist/index.mjs    8.60 kB │ gzip: 2.66 kB\nℹ dist/index.d.mts  1.51 kB │ gzip: 0.72 kB\nℹ 2 files, total: 10.11 kB\n✔ Build complete in 625ms",
+          "output": "$ tsdown\nℹ tsdown v0.23.0 powered by rolldown v1.2.12\nℹ config file: /tmp/sandbox \nℹ entry: src/index.ts\nℹ target: node24.0.0\nℹ tsconfig: tsconfig.json\nℹ Build start\nℹ Cleaning 2 files\nℹ dist/index.mjs    8.60 kB │ gzip: 2.66 kB\nℹ dist/index.d.mts  1.51 kB │ gzip: 0.72 kB\nℹ 2 files, total: 10.11 kB\n✔ Build complete in 625ms",
           "exitCode": 0
         },
         {
@@ -2043,7 +2043,7 @@
               {
                 "functionName": "Ran bun",
                 "arguments": {
-                  "command": "cd /tmp/sandbox && bun add -d @sverka/cli@0.1.29 2>&1 | tail -10"
+                  "command": "cd /tmp/sandbox && bun add -d @sverka/[email] 2>&1 | tail -10"
                 },
                 "toolCallId": "exec:0#680f000f49e34dda9768ede7ead23ade",
                 "collectedAt": "2026-10-02T13:48:56.889Z"
@@ -2052,7 +2052,7 @@
             "observations": [
               {
                 "sourceCallId": "exec:0#680f000f49e34dda9768ede7ead23ade",
-                "content": "bun add v1.4.2 (744846f84)\nResolving dependencies\nResolved, downloaded and extracted [140]\nSaved lockfile\n\ninstalled @sverka/cli@0.1.29 with binaries:\n - sverka\n\n150 packages installed [9.16s]"
+                "content": "bun add v1.4.2 (744846f84)\nResolving dependencies\nResolved, downloaded and extracted [140]\nSaved lockfile\n\ninstalled @sverka/[email] with binaries:\n - sverka\n\n150 packages installed [9.16s]"
               }
             ]
           },
@@ -2066,7 +2066,7 @@
               {
                 "functionName": "Ran bun",
                 "arguments": {
-                  "command": "cd /tmp/sandbox && bun add -d @sverka/workflow@0.1.29 2>&1 | tail -5"
+                  "command": "cd /tmp/sandbox && bun add -d @sverka/[email] 2>&1 | tail -5"
                 },
                 "toolCallId": "exec:0#613b31bbb159471faba740f3b2465e72",
                 "collectedAt": "2026-10-02T13:49:08.047Z"
@@ -2075,7 +2075,7 @@
             "observations": [
               {
                 "sourceCallId": "exec:0#613b31bbb159471faba740f3b2465e72",
-                "content": "bun add v1.4.2 (744846f84)\nSaved lockfile\n\ninstalled @sverka/workflow@0.1.29\n\n[50.00ms] done"
+                "content": "bun add v1.4.2 (744846f84)\nSaved lockfile\n\ninstalled @sverka/[email]\n\n[50.00ms] done"
               }
             ]
           },
@@ -2407,14 +2407,14 @@
             "stepId": 76,
             "timestamp": "2026-10-02T13:49:35.000Z",
             "source": "agent",
-            "message": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/cli@0.1.29` and `@sverka/workflow@0.1.29` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
+            "message": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/[email]` and `@sverka/[email]` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
             "isLlmCall": true
           },
           {
             "stepId": 77,
             "timestamp": "2026-10-02T13:49:35.000Z",
             "source": "agent",
-            "message": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/cli@0.1.29` and `@sverka/workflow@0.1.29` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
+            "message": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/[email]` and `@sverka/[email]` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
             "isLlmCall": true
           }
         ],
@@ -2425,7 +2425,7 @@
           "totalSteps": 32
         }
       },
-      "output": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/cli@0.1.29` and `@sverka/workflow@0.1.29` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
+      "output": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/[email]` and `@sverka/[email]` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
       "checkResults": [
         {
           "checkId": "format",
@@ -2448,13 +2448,13 @@
         {
           "checkId": "tests-pass",
           "passed": true,
-          "output": "$ vitest run --passWithNoTests\n\n RUN  v5.0.3 /tmp/arena-ship-package-swe-2-high-sverkaon-r0-1790948915461\n\n\n Test Files  5 passed (5)\n      Tests  49 passed (49)\n   Start at  15:49:37\n   Duration  324ms (transform 48%, tests 32%, import 17%, worker 3%)",
+          "output": "$ vitest run --passWithNoTests\n\n RUN  v5.0.3 /tmp/sandbox\n\n\n Test Files  5 passed (5)\n      Tests  49 passed (49)\n   Start at  15:49:37\n   Duration  324ms (transform 48%, tests 32%, import 17%, worker 3%)",
           "exitCode": 0
         },
         {
           "checkId": "build",
           "passed": true,
-          "output": "$ tsdown\nℹ tsdown v0.23.0 powered by rolldown v1.2.12\nℹ config file: /tmp/arena-ship-package-swe-2-high-sverkaon-r0-1790948915461/tsdown.config.ts \nℹ entry: src/index.ts\nℹ target: node24.0.0\nℹ tsconfig: tsconfig.json\nℹ Build start\nℹ Cleaning 2 files\nℹ dist/index.mjs    8.60 kB │ gzip: 2.66 kB\nℹ dist/index.d.mts  1.51 kB │ gzip: 0.72 kB\nℹ 2 files, total: 10.11 kB\n✔ Build complete in 586ms",
+          "output": "$ tsdown\nℹ tsdown v0.23.0 powered by rolldown v1.2.12\nℹ config file: /tmp/sandbox \nℹ entry: src/index.ts\nℹ target: node24.0.0\nℹ tsconfig: tsconfig.json\nℹ Build start\nℹ Cleaning 2 files\nℹ dist/index.mjs    8.60 kB │ gzip: 2.66 kB\nℹ dist/index.d.mts  1.51 kB │ gzip: 0.72 kB\nℹ 2 files, total: 10.11 kB\n✔ Build complete in 586ms",
           "exitCode": 0
         },
         {

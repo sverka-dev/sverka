@@ -369,7 +369,7 @@
             {
               "functionName": "Ran bun",
               "arguments": {
-                "command": "cd /tmp/sandbox && bun add -d @sverka/cli@0.1.29 2>&1 | tail -10"
+                "command": "cd /tmp/sandbox && bun add -d @sverka/[email] 2>&1 | tail -10"
               },
               "toolCallId": "exec:0#680f000f49e34dda9768ede7ead23ade",
               "collectedAt": "2026-10-02T13:48:56.889Z"
@@ -378,7 +378,7 @@
           "observations": [
             {
               "sourceCallId": "exec:0#680f000f49e34dda9768ede7ead23ade",
-              "content": "bun add v1.4.2 (744846f84)\nResolving dependencies\nResolved, downloaded and extracted [140]\nSaved lockfile\n\ninstalled @sverka/cli@0.1.29 with binaries:\n - sverka\n\n150 packages installed [9.16s]"
+              "content": "bun add v1.4.2 (744846f84)\nResolving dependencies\nResolved, downloaded and extracted [140]\nSaved lockfile\n\ninstalled @sverka/[email] with binaries:\n - sverka\n\n150 packages installed [9.16s]"
             }
           ]
         },
@@ -392,7 +392,7 @@
             {
               "functionName": "Ran bun",
               "arguments": {
-                "command": "cd /tmp/sandbox && bun add -d @sverka/workflow@0.1.29 2>&1 | tail -5"
+                "command": "cd /tmp/sandbox && bun add -d @sverka/[email] 2>&1 | tail -5"
               },
               "toolCallId": "exec:0#613b31bbb159471faba740f3b2465e72",
               "collectedAt": "2026-10-02T13:49:08.047Z"
@@ -401,7 +401,7 @@
           "observations": [
             {
               "sourceCallId": "exec:0#613b31bbb159471faba740f3b2465e72",
-              "content": "bun add v1.4.2 (744846f84)\nSaved lockfile\n\ninstalled @sverka/workflow@0.1.29\n\n[50.00ms] done"
+              "content": "bun add v1.4.2 (744846f84)\nSaved lockfile\n\ninstalled @sverka/[email]\n\n[50.00ms] done"
             }
           ]
         },
@@ -733,14 +733,14 @@
           "stepId": 76,
           "timestamp": "2026-10-02T13:49:35.000Z",
           "source": "agent",
-          "message": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/cli@0.1.29` and `@sverka/workflow@0.1.29` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
+          "message": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/[email]` and `@sverka/[email]` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
           "isLlmCall": true
         },
         {
           "stepId": 77,
           "timestamp": "2026-10-02T13:49:35.000Z",
           "source": "agent",
-          "message": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/cli@0.1.29` and `@sverka/workflow@0.1.29` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
+          "message": "Done. `bun run verify` now executes the full pipeline and all checks pass.\n\n**Setup**\n\n- `sverka.config.ts` — declares the `ci` pipeline: `format`, `lint`, `typecheck` run in parallel (no deps), `test` depends on all three, `build` depends on `test`. Entry `on-push` roots at `build`, so the planner pulls the whole chain.\n- `package.json` — added `\"verify\": \"sverka run\"` script.\n- Installed `@sverka/[email]` and `@sverka/[email]` as devDependencies (matching the workspace's `@sverka/*` version).\n\n**Source fixes** (no test/config changes)\n\n- `src/file-store.ts` — removed unused `basename` import; changed `const root = config?.root` to `config?.root ?? process.cwd()`. That single change fixed three `TS2345` errors (`string | undefined` passed to `join`) and made the previously-unused `node:process` import meaningful — the default root is now the cwd, consistent with the `.sverka/runs/` layout.\n- `src/errors.ts` — prettier formatting (single→double quotes in the union type).\n\n**Result**\n\n```\n✓ ci/lint  succeeded    ✓ ci/format  succeeded    ✓ ci/typecheck  succeeded\n✓ ci/test  succeeded (49 tests, 5 files)\n✓ ci/build  succeeded\n■ run completed: success\n```",
           "isLlmCall": true
         }
       ],

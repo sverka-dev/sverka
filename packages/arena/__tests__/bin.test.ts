@@ -189,9 +189,9 @@ describe("filterTasks", () => {
     expect("tasks" in out && out.tasks).toEqual([{ id: "a" }]);
   });
 
-  it("returns all tasks when no ids given", () => {
+  it("dedupes configured ids even without --task", () => {
     const out = filterTasks(tasks, []);
-    expect("tasks" in out && out.tasks).toHaveLength(3);
+    expect("tasks" in out && out.tasks).toEqual([{ id: "a" }, { id: "b" }]);
   });
 
   it("reports unknown ids without touching the task list", () => {
