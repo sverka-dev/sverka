@@ -198,6 +198,7 @@ function renderContext(state: UIState, context?: ReportContext): string {
     "pending",
     "running",
     "skipped",
+    "suspended",
   ]);
   const statusCls = (v: unknown) =>
     STATUS_CLASS.has(String(v)) ? ` status-${String(v)}` : "";
@@ -1818,7 +1819,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           e.stopPropagation();
-          el.click();
+          // SVGElement has no .click() — dispatch a synthetic click
+          // event so gantt/DAG <g> nodes activate like HTML elements.
+          el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         }
       });
     }
