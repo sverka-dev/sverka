@@ -86,7 +86,9 @@ Retry decision:
   (equivalent to `"always"`).
 
 Backoff delay for attempt `n` (1-indexed retry): `min(baseMs *
-factor^(n-1), maxMs ?? Infinity)`. No delay when `backoff` omitted.
+factor^(n-1), maxMs ?? Infinity)`. With `jitter: true` the delay is a
+uniform random integer in `[0, floor(cap)]` (full jitter, crypto RNG).
+No delay when `backoff` omitted.
 
 ## Error handling
 
@@ -115,6 +117,8 @@ normal `failed` outcome.
 6. `backoff: { baseMs: 100, factor: 2 }`: delays are 100ms (1st retry),
    200ms (2nd retry); `maxMs: 150` caps the 2nd at 150ms.
 7. `backoff` omitted: retries are immediate (no delay).
+8. `jitter: true`: delays are integers within `[0, cap]` and actually
+   randomized (not always the cap); a fractional cap is never exceeded.
 8. Cancellation during backoff sleep: loop stops, outcome `cancelled`, no
    further retries.
 9. `max: 0`: no retries (single attempt); no `step-retry` events.

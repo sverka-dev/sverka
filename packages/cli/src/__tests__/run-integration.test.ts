@@ -118,7 +118,7 @@ describe("run command — format and evaluate", () => {
   it("--jobs rejects non-integer and out-of-range values", async () => {
     const dir = getDir();
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
-    for (const bad of ["2.5", "999"]) {
+    for (const bad of ["2.5", "65"]) {
       const out = new CaptureWriter();
       const code = await main(
         ["run", "--root", dir, "--format", "text", "--jobs", bad],
@@ -127,6 +127,17 @@ describe("run command — format and evaluate", () => {
       expect(code).toBe(2);
       expect(out.stderrText).toContain("jobs");
     }
+  });
+
+  it("--jobs 64 is accepted (boundary)", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["run", "--root", dir, "--format", "text", "--jobs", "64"],
+      { output: out },
+    );
+    expect(code).toBe(0);
   });
 
   it("-j alias maps to --jobs", async () => {
