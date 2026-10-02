@@ -190,11 +190,7 @@ function outcomeEvents(
   return events;
 }
 
-function verdictEvents(
-  r: RunResult,
-  stepId: string,
-  end: number,
-): RunEvent[] {
+function verdictEvents(r: RunResult, stepId: string, end: number): RunEvent[] {
   return (r.verdicts ?? []).map((v) => ({
     type: "diagnostic" as const,
     stepId,
