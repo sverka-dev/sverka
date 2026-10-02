@@ -8,6 +8,7 @@
  */
 
 import { writeFile, mkdir, cp, rm, realpath } from "node:fs/promises";
+import { mkdtempSync } from "node:fs";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, type SpawnOptions } from "node:child_process";
@@ -328,16 +329,57 @@ function errorResult(
   };
 }
 
+/**
+ * Env for check subprocesses. Checks run agent-written scripts (e.g.
+ * `bun run verify` executes whatever the agent left in package.json), so
+ * the runner's secrets must not leak in. Allowlist toolchain basics only.
+ */
+export function buildCheckEnv(
+  env: Record<string, string | undefined> = process.env,
+  home?: string,
+): Record<string, string> {
+  // NODE_OPTIONS is deliberately excluded — host preload flags would inject
+  // host modules into Node-based checks.
+  const SAFE =
+    /^(PATH|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|SYSTEMROOT|SystemRoot|WINDIR|COMSPEC|PATHEXT|TEMP|TMP|TMPDIR|SHELL|TERM|COLORTERM|FORCE_COLOR|NO_COLOR|LANG|LC_[A-Z_]+|USER|LOGNAME|XDG_CACHE_HOME|XDG_CONFIG_HOME|XDG_DATA_HOME|TZ|NODE_ENV|BUN_INSTALL|VIRTUAL_ENV|OSTYPE|MACHTYPE|HOSTTYPE)$/;
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === "string" && SAFE.test(key)) out[key] = value;
+  }
+  // Redirect the credential-bearing home dirs at a fresh empty home.
+  if (home) {
+    out["HOME"] = home;
+    out["USERPROFILE"] = home;
+    out["XDG_CACHE_HOME"] = join(home, ".cache");
+    out["XDG_CONFIG_HOME"] = join(home, ".config");
+    out["XDG_DATA_HOME"] = join(home, ".local", "share");
+    // Keep package-manager caches warm: setup ran with the host HOME and
+    // populated them, and caches carry no credentials. Without this every
+    // check that installs or resolves deps re-downloads the world.
+    const hostHome = env["HOME"];
+    if (hostHome) {
+      out["BUN_INSTALL_CACHE_DIR"] =
+        env["BUN_INSTALL_CACHE_DIR"] ??
+        join(hostHome, ".bun", "install", "cache");
+      out["npm_config_cache"] =
+        env["npm_config_cache"] ?? join(hostHome, ".npm");
+    }
+  }
+  out["CI"] = "true"; // forced — checks always see CI mode
+  return out;
+}
+
 /** Run a shell command in the workspace, capturing combined output. */
 function execShell(
   workspace: string,
   command: string,
+  env?: Record<string, string>,
 ): Promise<{ output: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
     const opts: SpawnOptions = {
       cwd: workspace,
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, CI: "true" },
+      env: env ?? { ...process.env, CI: "true" },
     };
     const proc = spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
     // Cap captured output — a noisy command must not grow memory without
@@ -357,32 +399,48 @@ function execShell(
   });
 }
 
-/** Run deterministic checks in the workspace. */
+/**
+ * Run deterministic checks in the workspace. Checks execute agent-written
+ * scripts, so they get a scrubbed env (see {@link buildCheckEnv}) plus a
+ * fresh empty HOME — host credentials under ~/.npmrc, ~/.config/gh etc.
+ * are not reachable via $HOME. (Same-UID filesystem access is still
+ * possible via absolute paths — this is env hygiene, not a sandbox.)
+ */
 async function runChecks(
   workspace: string,
   checks: Task["checks"],
 ): Promise<CheckResult[]> {
   if (!checks) return [];
+  const checkHome = mkdtempSync(join(tmpdir(), "arena-check-home-"));
+  const env = buildCheckEnv(process.env, checkHome);
   const results: CheckResult[] = [];
-  for (const check of checks) {
-    try {
-      const { output, exitCode } = await execShell(workspace, check.command);
-      results.push({
-        checkId: check.id,
-        passed: exitCode === 0,
-        output: output.trim(),
-        exitCode,
-      });
-    } catch (error) {
-      results.push({
-        checkId: check.id,
-        passed: false,
-        output: error instanceof Error ? error.message : String(error),
-        exitCode: -1,
-      });
+  try {
+    for (const check of checks) {
+      try {
+        const { output, exitCode } = await execShell(
+          workspace,
+          check.command,
+          env,
+        );
+        results.push({
+          checkId: check.id,
+          passed: exitCode === 0,
+          output: output.trim(),
+          exitCode,
+        });
+      } catch (error) {
+        results.push({
+          checkId: check.id,
+          passed: false,
+          output: error instanceof Error ? error.message : String(error),
+          exitCode: -1,
+        });
+      }
     }
+    return results;
+  } finally {
+    await rm(checkHome, { recursive: true, force: true }).catch(() => {});
   }
-  return results;
 }
 
 /**

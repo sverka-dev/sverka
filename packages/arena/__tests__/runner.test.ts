@@ -3,6 +3,7 @@ import {
   pluginCombinations,
   aggregateResults,
   computeAnalysis,
+  buildCheckEnv,
 } from "../src/runner.js";
 import type {
   PluginConfig,
@@ -617,5 +618,47 @@ describe("runArena with judge", () => {
     expect(result.config.judgeModel).toBeUndefined();
     expect(result.results[0]?.verdicts).toEqual([]);
     await rm(outDir, { recursive: true, force: true });
+  });
+});
+
+describe("buildCheckEnv", () => {
+  it("keeps toolchain basics and scrubs secrets", () => {
+    const env = buildCheckEnv({
+      PATH: "/usr/bin",
+      HOME: "/home/u",
+      TMPDIR: "/tmp",
+      GH_TOKEN: "secret1",
+      NPM_TOKEN: "secret2",
+      DEVIN_API_KEY: "secret3",
+      AWS_SECRET_ACCESS_KEY: "secret4",
+      MY_CUSTOM_SECRET: "secret5",
+      EDITOR: "vim",
+    });
+    expect(env["PATH"]).toBe("/usr/bin");
+    expect(env["HOME"]).toBe("/home/u");
+    expect(env["CI"]).toBe("true");
+    expect(env["GH_TOKEN"]).toBeUndefined();
+    expect(env["NPM_TOKEN"]).toBeUndefined();
+    expect(env["DEVIN_API_KEY"]).toBeUndefined();
+    expect(env["AWS_SECRET_ACCESS_KEY"]).toBeUndefined();
+    expect(env["MY_CUSTOM_SECRET"]).toBeUndefined();
+    expect(env["EDITOR"]).toBeUndefined();
+  });
+
+  it("redirects home dirs at the fresh check home and keeps caches warm", () => {
+    const env = buildCheckEnv(
+      { PATH: "/usr/bin", HOME: "/home/u", CI: "false" },
+      "/tmp/check-home",
+    );
+    expect(env["HOME"]).toBe("/tmp/check-home");
+    expect(env["USERPROFILE"]).toBe("/tmp/check-home");
+    expect(env["XDG_CACHE_HOME"]).toBe("/tmp/check-home/.cache");
+    expect(env["XDG_CONFIG_HOME"]).toBe("/tmp/check-home/.config");
+    expect(env["XDG_DATA_HOME"]).toBe("/tmp/check-home/.local/share");
+    // Forced CI beats the caller's value.
+    expect(env["CI"]).toBe("true");
+    // Package-manager caches stay pointed at the host home.
+    expect(env["BUN_INSTALL_CACHE_DIR"]).toBe("/home/u/.bun/install/cache");
+    expect(env["npm_config_cache"]).toBe("/home/u/.npm");
   });
 });
