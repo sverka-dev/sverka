@@ -342,10 +342,11 @@ describe("Engine — cache integration", () => {
 
   it("hashFiles: match cap emits the warning once across patterns", async () => {
     const ws = join(testDir, "ws");
-    // 300+ files across two dirs so both patterns overflow the cap.
+    // 300 files per dir — each pattern overflows the 256 cap on its
+    // own, so a missing capState would warn twice (pre-fix behavior).
     for (const dir of ["a", "b"]) {
       await mkdir(join(ws, dir), { recursive: true });
-      for (let i = 0; i < 160; i++) {
+      for (let i = 0; i < 300; i++) {
         await writeFile(join(ws, dir, `f${i}.txt`), `${dir}${i}`);
       }
     }

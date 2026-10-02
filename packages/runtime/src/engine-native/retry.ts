@@ -39,11 +39,13 @@ export function computeBackoffDelay(
     backoff.maxMs !== undefined ? Math.min(raw, backoff.maxMs) : raw;
   // Full jitter — deterministic schedules make concurrent retries stampede
   // the same resource; uniform random in [0, cap] spreads them out. The
-  // cap is floored first so a fractional maxMs (e.g. 100.5) never yields
-  // a delay above it, and clamped under randomInt's range limit
-  // (max - min < 2**48) so a huge baseMs can't make the draw throw.
+  // cap is floored so a fractional maxMs (e.g. 100.5) never yields a
+  // delay above it, clamped at 0 so a negative factor/maxMs can't make
+  // randomInt throw, and bounded by the timer-safe maximum (2**31-1 ms
+  // ≈ 24.8 days — past it setTimeout fires immediately, and randomInt's
+  // 2**48 range limit is covered as well).
   if (backoff.jitter) {
-    const cap = Math.min(Math.floor(capped), 2 ** 48 - 2);
+    const cap = Math.max(0, Math.min(Math.floor(capped) || 0, 2 ** 31 - 1));
     return randomInt(0, cap + 1);
   }
   return capped;

@@ -2,8 +2,8 @@
 // Consumes a RunPlan, schedules the Step DAG, executes via runtime drivers,
 // emits structured run events, supports cancellation.
 
-import { mkdir } from "node:fs/promises";
-import { globSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { mkdir, glob } from "node:fs/promises";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
@@ -547,11 +547,12 @@ class NativeEngine implements Engine {
     if (!isAgentStep && step.cache && ctx.cache) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "pull" || policy === "pull-push") {
-        const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
-        const restoreKeys =
-          step.cache.restoreKeys?.map((k) =>
+        const key = await this.resolveCacheKey(step.cache.key, ctx, step.id);
+        const restoreKeys = await Promise.all(
+          (step.cache.restoreKeys ?? []).map((k) =>
             this.resolveCacheKey(k, ctx, step.id),
-          ) ?? [];
+          ),
+        );
         try {
           const hit = await ctx.cache.restore({
             key,
@@ -615,7 +616,7 @@ class NativeEngine implements Engine {
     ) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "push" || policy === "pull-push") {
-        const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
+        const key = await this.resolveCacheKey(step.cache.key, ctx, step.id);
         try {
           await ctx.cache.store({
             key,
@@ -1029,11 +1030,11 @@ class NativeEngine implements Engine {
    * step-output refs are disallowed in cache keys (validated at analyze time)
    * and left unresolved here. Unknown refs are replaced with an empty string.
    */
-  private resolveCacheKey(
+  private async resolveCacheKey(
     key: string,
     ctx: RunContext,
     stepId: string,
-  ): string {
+  ): Promise<string> {
     // Manual scan, not a regex — /\$\{\{(.*?)\}\}/ is quadratic on
     // adversarial input (unbalanced '${{'), flagged as polynomial ReDoS.
     let out = "";
@@ -1044,7 +1045,7 @@ class NativeEngine implements Engine {
       const end = key.indexOf("}}", start + 3);
       if (end === -1) break;
       out += key.slice(i, start);
-      out += this.resolveCacheKeyExpr(
+      out += await this.resolveCacheKeyExpr(
         key.slice(start + 3, end).trim(),
         key.slice(start, end + 2),
         ctx,
@@ -1056,12 +1057,12 @@ class NativeEngine implements Engine {
   }
 
   /** Resolve a single `${{ ... }}` expression body to its replacement. */
-  private resolveCacheKeyExpr(
+  private async resolveCacheKeyExpr(
     inner: string,
     whole: string,
     ctx: RunContext,
     stepId: string,
-  ): string {
+  ): Promise<string> {
     // hashFiles('a', 'b') — args may contain braces, so no regex.
     if (inner.startsWith("hashFiles(") && inner.endsWith(")")) {
       return this.hashFiles(inner.slice(10, -1), ctx, stepId);
@@ -1092,7 +1093,11 @@ class NativeEngine implements Engine {
    * workspace. A pattern matching nothing yields an empty segment plus a
    * warn diagnostic — a silent constant key would poison the cache.
    */
-  private hashFiles(argsSrc: string, ctx: RunContext, stepId: string): string {
+  private async hashFiles(
+    argsSrc: string,
+    ctx: RunContext,
+    stepId: string,
+  ): Promise<string> {
     const patterns = [...argsSrc.matchAll(/["']([^"']*)["']/g)].map(
       (m) => m[1] ?? "",
     );
@@ -1108,7 +1113,7 @@ class NativeEngine implements Engine {
     // Carried across patterns so the cap warning emits once per key.
     const capState = { warned: false };
     for (const pattern of patterns) {
-      this.collectHashMatches(
+      await this.collectHashMatches(
         pattern,
         workspace,
         matched,
@@ -1128,17 +1133,22 @@ class NativeEngine implements Engine {
   }
 
   /** Expand one glob pattern into `matched`, bounded and diagnosed. */
-  private collectHashMatches(
+  private async collectHashMatches(
     pattern: string,
     workspace: string,
     matched: Set<string>,
     capState: { warned: boolean },
     ctx: RunContext,
     stepId: string,
-  ): void {
-    // Absolute patterns ignore `cwd` in globSync, and '..' segments on
-    // either separator can escape the workspace — refuse both.
-    if (isAbsolute(pattern) || pattern.split(/[\\/]/).includes("..")) {
+  ): Promise<void> {
+    // Absolute patterns ignore `cwd` in glob; drive-relative ("C:foo")
+    // resolve against the drive's cwd, not the workspace; '..' segments
+    // on either separator can escape — refuse all three.
+    if (
+      isAbsolute(pattern) ||
+      /^[A-Za-z]:(?:$|[^\\/])/.test(pattern) ||
+      pattern.split(/[\\/]/).includes("..")
+    ) {
       ctx.emit({
         type: "diagnostic",
         stepId,
@@ -1148,7 +1158,9 @@ class NativeEngine implements Engine {
       return;
     }
     let hits = 0;
-    for (const p of globSync(pattern, { cwd: workspace })) {
+    // fs.promises.glob is lazy — breaking at the cap bounds both the
+    // match set and the filesystem traversal itself.
+    for await (const p of glob(pattern, { cwd: workspace })) {
       hits++;
       // Resource bound — a workflow-controlled glob must not read
       // the whole workspace into the key. Checked before insertion so

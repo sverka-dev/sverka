@@ -21,11 +21,12 @@ references (`env.*`, `git.*`, `matrix.*`, `inputs.*`) in `key` and
 (chicken-egg — the step has not run yet).
 
 `key` also supports `${{ hashFiles('glob', 'glob', ...) }}` — a content
-hash over the matched files (sorted relative path + sha256 content),
-resolved against the run workspace. Patterns containing `..` are refused;
-directories and symlinks escaping the workspace are skipped; a pattern
-matching nothing emits a warn diagnostic (empty segment). Matches are
-capped at 256 files.
+hash over the matched files (sorted relative path + per-file sha256),
+resolved against the run workspace. Absolute, drive-relative (`C:foo`)
+and `..`-containing patterns are refused; directories and symlinks
+escaping the workspace are skipped; a pattern matching nothing emits a
+warn diagnostic (empty segment). Glob expansion is lazy — matches are
+capped at 256 files with traversal stopping at the cap.
 
 ## Goals
 
