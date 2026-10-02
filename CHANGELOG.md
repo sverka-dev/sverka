@@ -1,3 +1,14 @@
+## 0.1.32 (2026-10-02)
+
+### 🩹 Fixes
+
+- **reporter,arena:** split drawer log panels; scrub check env ([#288](https://github.com/sverka-dev/sverka/pull/288))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.31 (2026-10-02)
 
 ### 🩹 Fixes
