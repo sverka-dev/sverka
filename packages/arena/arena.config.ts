@@ -131,8 +131,9 @@ export default {
         "supports (format, lint, typecheck, test, build) in a sensible " +
         "order, re-runnable via a single `bun run verify` command. Run " +
         "it and fix the source until all checks pass. Do not modify " +
-        "test files or existing tool configuration; you may add new " +
-        "files (e.g. sverka.config.ts) and scripts to package.json.",
+        "test files or existing tool configuration; you may add " +
+        "pipeline files (e.g. sverka.config.ts) and scripts to " +
+        "package.json — no new tool configs.",
       fixture: "fixtures/ship-package",
       setup: ["bun install"],
       timeoutMs: 600_000,
@@ -181,6 +182,10 @@ export default {
             "let bad=0;" +
             'for(const[p,h]of Object.entries(exp)){let a;try{a=c.createHash("sha256").update(f.readFileSync(p)).digest("hex")}catch{a="missing"}if(a!==h){console.error("protected file modified:",p);bad=1}}' +
             'for(const[k,v]of Object.entries(want)){if(require("./package.json").scripts[k]!==v){console.error("script modified:",k);bad=1}}' +
+            // New tool configs are as forbidden as edits — a
+            // vitest.config.ts with `include: []` + passWithNoTests
+            // would pass `bun run test` while running zero tests.
+            'if(["vitest.config.ts","vitest.config.js","vitest.config.mts","vitest.workspace.ts","vitest.workspace.js"].some(p=>f.existsSync(p))){console.error("vitest config added");bad=1}' +
             "process.exit(bad)'",
           description: "test/tool-config files unmodified",
         },

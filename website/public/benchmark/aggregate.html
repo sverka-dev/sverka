@@ -984,7 +984,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         ? (drawerStep && drawerStep.error) || ""
         : activeLogText();
     var copy = document.getElementById("drawer-copy");
-    if (copy) copy.disabled = !text;
+    // navigator.clipboard is undefined outside secure contexts (plain
+    // http, file://) — keep the button disabled there so it can't look
+    // usable and silently no-op.
+    if (copy) copy.disabled = !text || !navigator.clipboard;
     var dl = document.getElementById("drawer-download");
     if (dl) dl.disabled = !text;
   }
@@ -1221,9 +1224,6 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   }
   var drawerCopy = document.getElementById("drawer-copy");
   if (drawerCopy) {
-    // navigator.clipboard is undefined outside secure contexts
-    // (plain http, file://) — the button would silently no-op.
-    if (!navigator.clipboard) drawerCopy.disabled = true;
     drawerCopy.addEventListener("click", function() {
       var text =
         drawerTab === "overview" ? (drawerStep && drawerStep.error) || "" : activeLogText();
@@ -1268,10 +1268,12 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     // Enter/Space themselves; forwarding there would double-toggle.
     if (el.getAttribute("role") === "button") {
       el.addEventListener("keydown", function(e) {
-        if (e.repeat) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           e.stopPropagation();
+          // Held key repeats — swallow the default (Space would scroll
+          // the page) but only the first press may activate.
+          if (e.repeat) return;
           // A DAG pan sets moved>4 until the next pointerdown — a
           // keyboard activation has no pointer, so clear the guard or
           // the synthetic click below gets swallowed as a drag.

@@ -44,7 +44,10 @@ function redactText(text: string): string {
     .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
     .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
     .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]")
-    .replace(/(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi, "$1=[redacted]");
+    .replace(
+      /(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi,
+      "$1=[redacted]",
+    );
 }
 
 function redactValue(value: unknown): unknown {
@@ -186,10 +189,11 @@ for (const r of results.results ?? []) {
   };
   await writeFile(traceTmp, JSON.stringify(traceJson, null, 2) + "\n");
   staged.push([traceTmp, tracePath]);
-  // Sverka report — Gantt/DAG timeline of the agent run itself.
+  // Sverka report — Gantt/DAG timeline of the agent run itself. The
+  // report embeds the trace, so render it from the sanitized clone too.
   const reportPath = join(dir, `${combo}.report.html`);
   const reportTmp = `${reportPath}.tmp`;
-  writeTraceReport(r, reportTmp);
+  writeTraceReport({ ...r, trace: sanitizeTrace(r.trace) }, reportTmp);
   staged.push([reportTmp, reportPath]);
 }
 const reportsWritten = staged.length / 2;
@@ -274,13 +278,15 @@ const cases = (config.tasks ?? []).map((t) => {
     ...(t.checks ? { checks: t.checks } : {}),
   };
   const old = oldById.get(t.id);
-  const { createdAt: oldCreated, updatedAt: oldUpdated, ...oldRest } =
-    old ?? {};
+  const {
+    createdAt: oldCreated,
+    updatedAt: oldUpdated,
+    ...oldRest
+  } = old ?? {};
   // updatedAt only advances when the case content actually changed —
   // otherwise every refresh claims all cases were recently edited.
   const unchanged =
-    old !== undefined &&
-    JSON.stringify(oldRest) === JSON.stringify(base);
+    old !== undefined && JSON.stringify(oldRest) === JSON.stringify(base);
   return {
     ...base,
     createdAt: oldCreated ?? now,
