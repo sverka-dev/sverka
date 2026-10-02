@@ -4,7 +4,7 @@ import { Writable, Readable } from "node:stream";
 import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, basename } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
 
 import {
@@ -177,6 +177,46 @@ describe("DevinAdapter", () => {
     expect(envHome).toMatch(/arena-env-/);
     expect(envHome).not.toBe(dirname(process.env.XDG_CONFIG_HOME ?? ""));
     expect(envHome).not.toBe(dirname(process.env.XDG_DATA_HOME ?? ""));
+  });
+
+  it("redirects HOME so host ~/.agents/skills don't leak into cells", () => {
+    const mock = mockChild();
+    vi.mocked(spawnMock).mockReturnValue(mock.child as never);
+
+    const proc = new DevinAdapter().spawn({
+      model,
+      workspace: "/tmp/ws",
+      plugins: [],
+    });
+    const opts = vi.mocked(spawnMock).mock.calls.at(-1)?.[2] as {
+      env: Record<string, string>;
+    };
+
+    const home = opts.env["HOME"];
+    expect(basename(home)).toBe("home");
+    expect(dirname(home)).toMatch(/arena-env-/);
+    expect(home).not.toBe(process.env.HOME);
+    expect(opts.env["USERPROFILE"]).toBe(home);
+    expect(existsSync(home)).toBe(true);
+    proc.kill();
+  });
+
+  it("honors an explicit config.env.HOME override", () => {
+    const mock = mockChild();
+    vi.mocked(spawnMock).mockReturnValue(mock.child as never);
+
+    const proc = new DevinAdapter().spawn({
+      model,
+      workspace: "/tmp/ws",
+      plugins: [],
+      env: { HOME: "/custom/agent-home" },
+    });
+    const opts = vi.mocked(spawnMock).mock.calls.at(-1)?.[2] as {
+      env: Record<string, string>;
+    };
+
+    expect(opts.env["HOME"]).toBe("/custom/agent-home");
+    proc.kill();
   });
 
   it("kill removes the isolated env home", async () => {
