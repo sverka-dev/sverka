@@ -72,6 +72,18 @@ export async function runCommand(
   const workspace = global.root;
   const artifactDir = join(global.root, ".sverka", "artifacts");
 
+  // runCommand is exported — re-validate, don't rely on argv parsing alone.
+  if (
+    args.jobs !== undefined &&
+    (!Number.isInteger(args.jobs) || args.jobs < 1)
+  ) {
+    throw new CliError(
+      "--jobs must be a positive integer",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+
   const engine = createEngine({
     drivers: buildDrivers(executor),
     maxConcurrent: args.jobs ?? 4,

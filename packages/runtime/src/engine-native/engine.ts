@@ -1060,11 +1060,7 @@ class NativeEngine implements Engine {
    * workspace. A pattern matching nothing yields an empty segment plus a
    * warn diagnostic — a silent constant key would poison the cache.
    */
-  private hashFiles(
-    argsSrc: string,
-    ctx: RunContext,
-    stepId: string,
-  ): string {
+  private hashFiles(argsSrc: string, ctx: RunContext, stepId: string): string {
     const patterns = [...argsSrc.matchAll(/["']([^"']*)["']/g)].map(
       (m) => m[1] ?? "",
     );
@@ -1087,11 +1083,22 @@ class NativeEngine implements Engine {
     const hash = createHash("sha256");
     for (const p of [...matched].sort()) {
       const abs = join(ctx.request.workspace, p);
-      const content = readFileSync(abs);
-      hash.update(relative(ctx.request.workspace, abs));
-      hash.update("\0");
-      hash.update(content);
-      hash.update("\0");
+      try {
+        const content = readFileSync(abs);
+        hash.update(relative(ctx.request.workspace, abs));
+        hash.update("\0");
+        hash.update(content);
+        hash.update("\0");
+      } catch {
+        // File vanished or is unreadable between glob and read — skip it
+        // rather than abort the run.
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          severity: "warn",
+          message: `hashFiles: could not read '${p}' — skipped`,
+        });
+      }
     }
     return hash.digest("hex");
   }
