@@ -54,7 +54,10 @@ function redactText(text: string): string {
   );
 }
 
-const SENSITIVE_KEY = /key|token|secret|password|credential|auth/i;
+// Exact credential field names — a substring match would redact ordinary
+// arguments like `{ key: "value" }` or `{ author: "..." }`.
+const SENSITIVE_KEY =
+  /^(api[-_]?key|access[-_]?key|secret(?:[-_]?key)?|(?:access|auth|refresh|id|bearer)[-_]?token|token|password|passwd|authorization|credentials?|client[-_]?secret|private[-_]?key)$/i;
 
 function redactValue(value: unknown): unknown {
   if (typeof value === "string") return redactText(value);

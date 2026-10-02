@@ -199,7 +199,9 @@ export default {
             'bun run verify && node -e \'const v=require("./package.json").scripts.verify||"";' +
             'const composed=["format","lint","typecheck","test","build"].every(k=>new RegExp("\\\\b"+k+"\\\\b").test(v));' +
             "const delegated=/\\b(sverka|just|make|nx|turbo|moon|bazel)\\b/.test(v);" +
-            'if(!composed&&!delegated){console.error("verify does not run the full pipeline:",v);process.exit(1)}\'',
+            // Don't echo `v` — the verify script is agent-authored and
+            // check output lands in committed artifacts.
+            'if(!composed&&!delegated){console.error("verify does not run the full pipeline");process.exit(1)}\'',
           description: "pipeline re-runnable as one command",
         },
       ],
