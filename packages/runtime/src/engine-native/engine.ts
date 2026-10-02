@@ -1099,47 +1099,75 @@ class NativeEngine implements Engine {
     }
     const matched = new Set<string>();
     for (const pattern of patterns) {
-      // A pattern with '..' segments can escape the workspace — refuse.
-      if (pattern.split("/").includes("..")) {
+      this.collectHashMatches(pattern, workspace, matched, ctx, stepId);
+    }
+    if (matched.size === 0) return "";
+    return this.hashMatchedFiles(
+      workspace,
+      workspaceReal,
+      matched,
+      ctx,
+      stepId,
+    );
+  }
+
+  /** Expand one glob pattern into `matched`, bounded and diagnosed. */
+  private collectHashMatches(
+    pattern: string,
+    workspace: string,
+    matched: Set<string>,
+    ctx: RunContext,
+    stepId: string,
+  ): void {
+    // A pattern with '..' segments can escape the workspace — refuse.
+    if (pattern.split("/").includes("..")) {
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        severity: "warn",
+        message: `hashFiles: pattern '${pattern}' escapes the workspace — skipped`,
+      });
+      return;
+    }
+    let hits = 0;
+    for (const p of globSync(pattern, { cwd: workspace })) {
+      matched.add(p);
+      hits++;
+      // Resource bound — a workflow-controlled glob must not read
+      // the whole workspace into the key.
+      if (matched.size > 256) {
         ctx.emit({
           type: "diagnostic",
           stepId,
           severity: "warn",
-          message: `hashFiles: pattern '${pattern}' escapes the workspace — skipped`,
+          message: `hashFiles: match cap (256) reached — remaining files ignored`,
         });
-        continue;
-      }
-      let hits = 0;
-      for (const p of globSync(pattern, { cwd: workspace })) {
-        matched.add(p);
-        hits++;
-        // Resource bound — a workflow-controlled glob must not read
-        // the whole workspace into the key.
-        if (matched.size > 256) {
-          ctx.emit({
-            type: "diagnostic",
-            stepId,
-            severity: "warn",
-            message: `hashFiles: match cap (256) reached — remaining files ignored`,
-          });
-          break;
-        }
-      }
-      if (hits === 0) {
-        ctx.emit({
-          type: "diagnostic",
-          stepId,
-          severity: "warn",
-          message: `hashFiles: pattern '${pattern}' matched no files`,
-        });
+        break;
       }
     }
-    if (matched.size === 0) {
-      return "";
+    if (hits === 0) {
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        severity: "warn",
+        message: `hashFiles: pattern '${pattern}' matched no files`,
+      });
     }
-    // Synchronous key resolution: hash file contents in path order.
+  }
+
+  /** sha256 over matched files in code-point path order. */
+  private hashMatchedFiles(
+    workspace: string,
+    workspaceReal: string,
+    matched: Set<string>,
+    ctx: RunContext,
+    stepId: string,
+  ): string {
     const hash = createHash("sha256");
-    for (const p of [...matched].sort()) {
+    // Explicit code-point comparator — localeCompare would make the key
+    // locale-dependent, which breaks cache determinism.
+    const paths = [...matched].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    for (const p of paths) {
       const abs = join(workspace, p);
       try {
         // Directories match globs like '**' — hash regular files only.
