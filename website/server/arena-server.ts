@@ -17,14 +17,17 @@
  */
 
 import { serve, type Server } from "bun";
-import { readFile, writeFile, mkdir, exists } from "node:fs/promises";
+import { readFile, writeFile, mkdir, exists, realpath } from "node:fs/promises";
 import { join, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
-const PUBLIC_DIR = fileURLToPath(
-  new URL("../public/benchmark/", import.meta.url),
+// fileURLToPath keeps the trailing separator — resolve() strips it so the
+// traversal check below (filePath.startsWith(PUBLIC_DIR + sep)) works.
+const PUBLIC_DIR = resolve(
+  fileURLToPath(new URL("../public/benchmark/", import.meta.url)),
 );
+const REAL_PUBLIC_DIR = await realpath(PUBLIC_DIR);
 const DATA_DIR = join(PUBLIC_DIR, "api");
 const CASES_FILE = join(DATA_DIR, "cases.json");
 const CONFIG_FILE = join(DATA_DIR, "config.json");
@@ -128,14 +131,32 @@ async function serveStatic(path: string): Promise<Response> {
     return error(403, "Forbidden");
   }
 
-  if (!(await exists(filePath))) {
-    return error(404, "Not found");
+  let resolved = filePath;
+  if (!(await exists(resolved))) {
+    // Clean-URL fallback: try <path>.html, matching the static host's
+    // behavior (production serves /trace for /trace.html and
+    // /x.report for /x.report.html).
+    if (await exists(resolved + ".html")) {
+      resolved = resolved + ".html";
+    } else {
+      return error(404, "Not found");
+    }
+  }
+
+  // Symlink escape: lexical containment is not enough — resolve the final
+  // path and re-check it stays under the real PUBLIC_DIR before reading.
+  const realResolved = await realpath(resolved);
+  if (
+    !realResolved.startsWith(REAL_PUBLIC_DIR + sep) &&
+    realResolved !== REAL_PUBLIC_DIR
+  ) {
+    return error(403, "Forbidden");
   }
 
   // Directory? Try index.html
-  const stat = await Bun.file(filePath);
-  if (stat.size === 0 && !extname(filePath)) {
-    const indexPath = join(filePath, "index.html");
+  const stat = await Bun.file(resolved);
+  if (stat.size === 0 && !extname(resolved)) {
+    const indexPath = join(resolved, "index.html");
     if (await exists(indexPath)) {
       const content = await readFile(indexPath);
       return new Response(content, {
@@ -144,8 +165,8 @@ async function serveStatic(path: string): Promise<Response> {
     }
   }
 
-  const content = await readFile(filePath);
-  const ext = extname(filePath);
+  const content = await readFile(resolved);
+  const ext = extname(resolved);
   const mime = MIME_TYPES[ext] ?? "application/octet-stream";
   return new Response(content, {
     headers: { "Content-Type": mime },
@@ -352,6 +373,15 @@ async function route(req: Request): Promise<Response> {
   }
 
   if (path.startsWith("/api/")) {
+    // The hosted site serves the committed api/*.json snapshots as static
+    // files — do the same here. Whitelist them rather than falling through
+    // for all of /api/*: RUNS_DIR lives under api/ too, and its runtime
+    // status files (absolute resultsPath, prompts, outputs) must not be
+    // exposed as static content.
+    if (path === "/api/cases.json" || path === "/api/config.json") {
+      const resp = await serveStatic(path);
+      if (resp.status !== 404) return resp;
+    }
     return error(404, "API endpoint not found");
   }
 

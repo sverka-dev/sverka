@@ -58,7 +58,7 @@ describe("benchmark dashboard files", () => {
 
   it("index.html links to trace viewer", () => {
     const html = readHtml("index.html");
-    expectContains(html, "trace.html", "trace-link");
+    expectContains(html, "trace?", "trace-link");
   });
 
   it("trace.html exists and is valid HTML", () => {
@@ -308,9 +308,9 @@ describe("arena dashboard matrix view", () => {
     expectContains(html, 'id="view-toggle"', "toggle-matrix", "toggle-classic");
   });
 
-  it("index.html matrix cells link to trace.html with URL params", () => {
+  it("index.html matrix cells link to trace viewer with URL params", () => {
     const html = readHtml("index.html");
-    expectContains(html, "trace.html?", "task=", "model=", "plugins=");
+    expectContains(html, "trace?", "task=", "model=", "plugins=");
   });
 
   it("index.html maintains backward compatibility with classic format", () => {
@@ -502,7 +502,7 @@ describe("workbench AI report elements", () => {
 
   it("index.html run cards link to trace viewer with run param", () => {
     const html = readHtml("index.html");
-    expectContains(html, "trace.html?", "run=");
+    expectContains(html, "trace?", "run=");
   });
 
   it("index.html displays original prompt in case detail", () => {

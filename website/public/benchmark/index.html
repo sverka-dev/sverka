@@ -1189,7 +1189,7 @@
           <a
             class="btn"
             style="text-decoration: none"
-            href="aggregate.html"
+            href="aggregate"
             target="_blank"
             rel="noopener"
             >Aggregate report ↗</a
@@ -2045,7 +2045,7 @@
             encodeURIComponent(result.pluginIds.join(",")) +
             "&run=" +
             i;
-          traceLink.href = "trace.html?" + params;
+          traceLink.href = "trace?" + params;
           traceLink.textContent = "View Full Trace →";
           body.appendChild(traceLink);
 
@@ -2065,7 +2065,7 @@
               encodeURIComponent(taskId) +
               "/" +
               encodeURIComponent(combo) +
-              ".report.html";
+              ".report";
             reportLink.textContent = "Timeline →";
             body.appendChild(reportLink);
           }
@@ -2199,7 +2199,7 @@
             encodeURIComponent(result.pluginIds.join(",")) +
             "&run=" +
             runIndex;
-          traceLink.href = "trace.html?" + params;
+          traceLink.href = "trace?" + params;
           traceLink.textContent = "View Full Trace →";
           body.appendChild(traceLink);
 
@@ -2215,7 +2215,7 @@
               encodeURIComponent(taskId) +
               "/" +
               encodeURIComponent(combo) +
-              ".report.html";
+              ".report";
             reportLink.textContent = "Timeline →";
             body.appendChild(reportLink);
           }
@@ -2359,7 +2359,7 @@
             var taskTd = document.createElement("td");
             taskTd.className = "task";
             var taskLink = document.createElement("a");
-            taskLink.href = "trace.html#/trace/" + encodeURIComponent(taskId);
+            taskLink.href = "trace#/trace/" + encodeURIComponent(taskId);
             taskLink.textContent = taskId;
             taskTd.appendChild(taskLink);
             row.appendChild(taskTd);
@@ -2428,7 +2428,7 @@
             var traceTd = document.createElement("td");
             traceTd.style.textAlign = "center";
             var traceLink = document.createElement("a");
-            traceLink.href = "trace.html#/trace/" + encodeURIComponent(taskId);
+            traceLink.href = "trace#/trace/" + encodeURIComponent(taskId);
             traceLink.className = "trace-link";
             traceLink.textContent = "View →";
             traceTd.appendChild(traceLink);
@@ -2582,7 +2582,7 @@
                   encodeURIComponent(modelId) +
                   "&plugins=" +
                   encodeURIComponent(combo.join(","));
-                link.href = "trace.html?" + params;
+                link.href = "trace?" + params;
                 var mainVal = document.createElement("div");
                 mainVal.className = "cell-tokens";
                 var metricValue = r.metrics[selectedMetric] || 0;
@@ -2639,11 +2639,16 @@
         var caseDefinitions = null; // cached case definitions from API
         var arenaConfig = null; // cached arena config from API
 
-        /** Check if the API server is available. */
+        /** Check if the API server is available. Static hosts answer
+         *  unknown paths with an HTML fallback page (200), so a plain
+         *  resp.ok check is not enough — require a JSON content type. */
         async function apiAvailable() {
           try {
-            var resp = await fetch("/api/cases");
-            return resp.ok;
+            var resp = await fetch("/api/cases", {
+              headers: { Accept: "application/json" },
+            });
+            var ct = resp.headers.get("content-type") || "";
+            return resp.ok && ct.indexOf("json") !== -1;
           } catch (e) {
             return false;
           }
@@ -3362,8 +3367,15 @@
           // (static hosting). CRUD/run controls only make sense with a
           // live server — hide them when there is no API.
           var hasApi = await apiAvailable();
-          await loadCaseDefinitions();
-          await loadArenaConfig();
+          if (!hasApi) {
+            // Static hosting — skip the live-API URLs entirely; they
+            // resolve to the SPA fallback page, not JSON.
+            caseDefinitions = await loadJson(["api/cases.json"]);
+            arenaConfig = await loadJson(["api/config.json"]);
+          } else {
+            await loadCaseDefinitions();
+            await loadArenaConfig();
+          }
           if (caseDefinitions && caseDefinitions.length > 0) {
             renderSidebarWithCases();
           }
