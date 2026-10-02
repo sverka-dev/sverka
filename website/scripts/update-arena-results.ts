@@ -43,7 +43,9 @@ function redactText(text: string): string {
     .replace(/\/home\/[^\s"']+/g, "/home/user")
     .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
     .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
-    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]")
+    // TLD must be ≥2 letters — otherwise package specifiers like
+    // `cli@0.1.29` get mangled into `[email]`.
+    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-zA-Z]{2,}\b/g, "[email]")
     .replace(
       /(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi,
       "$1=[redacted]",

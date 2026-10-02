@@ -384,7 +384,7 @@
           "observations": [
             {
               "sourceCallId": "call_0109f1e2dee64f8ea153220a#135949dc9427427eaf4756dfb6d1fc5b",
-              "content": "6:      \"name\": \"@sverka/storage\",\n8:        \"@sverka/runtime\": \"0.1.29\",\n101:    \"@sverka/runtime\": [\"@sverka/[email]\", \"\", { \"dependencies\": { \"@sverka/workflow\": \"^0.1.29\" } }, \"sha51\u001b(B\u001b[0m2\u001b(B\u001b[0m\n-60tJ3812QfJhDeiS+1b2QVewBk99pLG5BPgzyF1RSslFaZE81HdOLZL8+LzYxzygxpQ+elXR47oiuzeioL8Znw==\"],\n103:    \"@sverka/workflow\": [\"@sverka/[email]\", \"\", { \"dependencies\": { \"constructs\": \"10.8.1\" } }, \"sha512-uHA\u001b(B\u001b[0mx\u001b(B\u001b[0m\nDZ8WrllN5hBuO7rCcX1mJWEt/oMWrfrsNFt+K9E7amkcma0YNFyuaAvQw1QbtJ1vybAIOcrqopFDAgmBmg==\"],"
+              "content": "6:      \"name\": \"@sverka/storage\",\n8:        \"@sverka/runtime\": \"0.1.29\",\n101:    \"@sverka/runtime\": [\"@sverka/runtime@0.1.29\", \"\", { \"dependencies\": { \"@sverka/workflow\": \"^0.1.29\" } }, \"sha51\u001b(B\u001b[0m2\u001b(B\u001b[0m\n-60tJ3812QfJhDeiS+1b2QVewBk99pLG5BPgzyF1RSslFaZE81HdOLZL8+LzYxzygxpQ+elXR47oiuzeioL8Znw==\"],\n103:    \"@sverka/workflow\": [\"@sverka/workflow@0.1.29\", \"\", { \"dependencies\": { \"constructs\": \"10.8.1\" } }, \"sha512-uHA\u001b(B\u001b[0mx\u001b(B\u001b[0m\nDZ8WrllN5hBuO7rCcX1mJWEt/oMWrfrsNFt+K9E7amkcma0YNFyuaAvQw1QbtJ1vybAIOcrqopFDAgmBmg==\"],"
             }
           ]
         },
