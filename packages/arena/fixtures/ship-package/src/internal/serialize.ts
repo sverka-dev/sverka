@@ -80,14 +80,30 @@ function validateStringField(
 }
 
 function validatePlanField(obj: Record<string, unknown>): void {
-  if (
-    typeof obj["plan"] !== "object" ||
-    obj["plan"] === null ||
-    Array.isArray(obj["plan"])
-  ) {
+  const plan = obj["plan"];
+  if (typeof plan !== "object" || plan === null || Array.isArray(plan)) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
       "missing or invalid field: plan",
+    );
+  }
+  const p = plan as Record<string, unknown>;
+  if (p["apiVersion"] !== "sverka.dev/v1run") {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      `plan.apiVersion must be "sverka.dev/v1run", got "${String(p["apiVersion"])}"`,
+    );
+  }
+  if (typeof p["id"] !== "string" || typeof p["graphId"] !== "string") {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "plan is missing required string fields: id, graphId",
+    );
+  }
+  if (!Array.isArray(p["steps"])) {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "plan.steps is missing or not an array",
     );
   }
 }
@@ -119,12 +135,31 @@ function validateCompletedSteps(obj: Record<string, unknown>): void {
         `completedSteps[${i}].outputs is missing or not an object`,
       );
     }
+    for (const [key, value] of Object.entries(
+      step["outputs"] as Record<string, unknown>,
+    )) {
+      const ok =
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        (Array.isArray(value) && value.every((v) => typeof v === "string"));
+      if (!ok) {
+        throw new StorageError(
+          "CORRUPT_SNAPSHOT",
+          `completedSteps[${i}].outputs.${key} is not a valid InputValue`,
+        );
+      }
+    }
   }
 }
 
 function validateResumeSchema(obj: Record<string, unknown>): void {
   if (obj["resumeSchema"] === undefined) return;
-  if (typeof obj["resumeSchema"] !== "object" || obj["resumeSchema"] === null) {
+  if (
+    typeof obj["resumeSchema"] !== "object" ||
+    obj["resumeSchema"] === null ||
+    Array.isArray(obj["resumeSchema"])
+  ) {
     throw new StorageError("CORRUPT_SNAPSHOT", "resumeSchema is not an object");
   }
   const rs = obj["resumeSchema"] as Record<string, unknown>;

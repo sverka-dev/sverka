@@ -95,16 +95,19 @@ describe("FileSnapshotStore", () => {
 
   // Item 6: load throws CORRUPT_SNAPSHOT when JSON parses but required fields missing / status !== suspended
   it("load throws CORRUPT_SNAPSHOT when JSON parses but status !== suspended", async () => {
-    const bad = JSON.stringify({ ...makeSnapshot(), status: "success" });
+    // runId must match the file's directory — otherwise the runId check
+    // masks the status check being exercised here.
+    const bad = JSON.stringify({
+      ...makeSnapshot("run-wrong-status"),
+      status: "success",
+    });
     await writeSnapshotFile(dir, "run-wrong-status", bad);
-    const store = createFileSnapshotStore({ root: dir });
-    await expect(store.load("run-wrong-status")).rejects.toThrow(StorageError);
+    await expectLoadError(dir, "run-wrong-status", "CORRUPT_SNAPSHOT");
   });
 
   it("load throws CORRUPT_SNAPSHOT when required fields are missing", async () => {
     await writeSnapshotFile(dir, "run-missing", JSON.stringify({ foo: "bar" }));
-    const store = createFileSnapshotStore({ root: dir });
-    await expect(store.load("run-missing")).rejects.toThrow(StorageError);
+    await expectLoadError(dir, "run-missing", "CORRUPT_SNAPSHOT");
   });
 
   it("delete removes the snapshot file", async () => {
@@ -156,6 +159,30 @@ describe("FileSnapshotStore", () => {
   it("delete rejects runId with path traversal", async () => {
     const store = createFileSnapshotStore({ root: dir });
     await expect(store.delete("../escape")).rejects.toThrow(StorageError);
+  });
+
+  it("save cleans up the tmp file when the rename fails", async () => {
+    const store = createFileSnapshotStore({ root: dir });
+    const snap = makeSnapshot("run-tmpfail");
+    const runDir = join(dir, ".sverka", "runs", "run-tmpfail");
+    await mkdir(runDir, { recursive: true });
+    // A directory named snapshot.json makes rename() fail.
+    await mkdir(join(runDir, "snapshot.json"));
+    await expect(store.save(snap)).rejects.toThrow(StorageError);
+    const tmpFiles = readdirSync(runDir).filter(
+      (f) => f.startsWith(".snapshot.") && f.endsWith(".tmp"),
+    );
+    expect(tmpFiles).toEqual([]);
+  });
+
+  it("save writes snapshot.json owner-only (0600)", async () => {
+    const store = createFileSnapshotStore({ root: dir });
+    await store.save(makeSnapshot("run-perms"));
+    const { statSync } = await import("node:fs");
+    const mode =
+      statSync(join(dir, ".sverka", "runs", "run-perms", "snapshot.json"))
+        .mode & 0o777;
+    expect(mode).toBe(0o600);
   });
 
   it("save writes atomically — no .snapshot.*.tmp file left after success", async () => {

@@ -7,7 +7,11 @@ import { StorageError } from "../errors.js";
  * Check if an error is an ENOENT (file not found) error.
  */
 export function isENOENT(e: unknown): boolean {
-  return (e as NodeJS.ErrnoException).code === "ENOENT";
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    (e as NodeJS.ErrnoException).code === "ENOENT"
+  );
 }
 
 /**

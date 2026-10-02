@@ -52,9 +52,19 @@ export function createFileSnapshotStore(
         `.snapshot.${randomBytes(6).toString("hex")}.tmp`,
       );
       await wrapIO(`save snapshot ${snapshot.runId}`, async () => {
-        await mkdir(dir, { recursive: true });
-        await writeFile(tmpPath, serialize(snapshot), "utf8");
-        await rename(tmpPath, finalPath);
+        await mkdir(dir, { recursive: true, mode: 0o700 });
+        try {
+          await writeFile(tmpPath, serialize(snapshot), {
+            encoding: "utf8",
+            mode: 0o600,
+          });
+          await rename(tmpPath, finalPath);
+        } catch (e) {
+          // Don't leave tmp files behind — repeated failures would
+          // accumulate under .sverka/runs.
+          await unlink(tmpPath).catch(() => {});
+          throw e;
+        }
       });
     },
 
