@@ -100,15 +100,17 @@ export default {
         "This TypeScript package has no CI verification wired up. Set up " +
         "a verification pipeline that runs every check this project " +
         "supports (format, lint, typecheck, test, build) in a sensible " +
-        "order, run it, and fix the source until all checks pass. Do not " +
-        "modify test files or tool configuration.",
+        "order, re-runnable via a single `bun run verify` command. Run " +
+        "it and fix the source until all checks pass. Do not modify " +
+        "test files or existing tool configuration; you may add new " +
+        "files (e.g. sverka.config.ts) and scripts to package.json.",
       fixture: "fixtures/ship-package",
       setup: ["bun install"],
       timeoutMs: 600_000,
       successCriteria:
         "Every check passes (format, lint, typecheck, test, build), " +
-        "verification can be re-run as one pipeline, and no test or tool " +
-        "config file was modified",
+        "`bun run verify` re-runs the whole pipeline, and no test or " +
+        "existing tool config file was modified",
       checks: [
         {
           id: "format",
@@ -139,6 +141,11 @@ export default {
           id: "protected-files",
           command: "sha256sum -c .integrity-manifest",
           description: "test/tool-config files unmodified",
+        },
+        {
+          id: "pipeline",
+          command: "bun run verify",
+          description: "pipeline re-runnable as one command",
         },
       ],
     },

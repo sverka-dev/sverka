@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { main } from "../src/bin.js";
+import { main, filterTasks } from "../src/bin.js";
 import type { ArenaResult } from "../src/types.js";
 
 const dir = mkdtempSync(join(tmpdir(), "arena-bin-"));
@@ -178,5 +178,24 @@ describe("sverka-arena bin", () => {
     const code = await main(["report", join(dir, "not-results.json")], io);
     expect(code).toBe(2);
     expect(c.stderr).toContain("not a sverka-arena results file");
+  });
+});
+
+describe("filterTasks", () => {
+  const tasks = [{ id: "a" }, { id: "b" }, { id: "a" }];
+
+  it("selects a subset and dedupes repeated ids", () => {
+    const out = filterTasks(tasks, ["a"]);
+    expect("tasks" in out && out.tasks).toEqual([{ id: "a" }]);
+  });
+
+  it("returns all tasks when no ids given", () => {
+    const out = filterTasks(tasks, []);
+    expect("tasks" in out && out.tasks).toHaveLength(3);
+  });
+
+  it("reports unknown ids without touching the task list", () => {
+    const out = filterTasks(tasks, ["zzz"]);
+    expect("missing" in out && out.missing).toEqual(["zzz"]);
   });
 });

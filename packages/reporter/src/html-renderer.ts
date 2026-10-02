@@ -1484,6 +1484,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
+    // Keyboard activation has no pointerdown to reset the drag guard —
+    // without this, Enter/Space stop working after any DAG pan.
+    window.__dagClearMoved = function() { moved = 0; };
   })();
 
   // Step → findings filter: click any step element (gantt row, dag
@@ -1780,6 +1783,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   }
   var drawerCopy = document.getElementById("drawer-copy");
   if (drawerCopy) {
+    // navigator.clipboard is undefined outside secure contexts
+    // (plain http, file://) — the button would silently no-op.
+    if (!navigator.clipboard) drawerCopy.disabled = true;
     drawerCopy.addEventListener("click", function() {
       var text =
         drawerTab === "overview" ? (drawerStep && drawerStep.error) || "" : activeLogText();
@@ -1807,8 +1813,14 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       a.href = URL.createObjectURL(blob);
       a.download =
         drawerStep.id.replace(/[^\\w.-]+/g, "_") + "." + drawerTab + ".txt";
+      // Firefox ignores download clicks on detached anchors; deferring
+      // the revoke keeps other engines from aborting the fetch.
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(a.href);
+      setTimeout(function() {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 0);
     });
   }
 
@@ -1818,9 +1830,14 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     // Enter/Space themselves; forwarding there would double-toggle.
     if (el.getAttribute("role") === "button") {
       el.addEventListener("keydown", function(e) {
+        if (e.repeat) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           e.stopPropagation();
+          // A DAG pan sets moved>4 until the next pointerdown — a
+          // keyboard activation has no pointer, so clear the guard or
+          // the synthetic click below gets swallowed as a drag.
+          if (window.__dagClearMoved) window.__dagClearMoved();
           // SVGElement has no .click() — dispatch a synthetic click
           // event so gantt/DAG <g> nodes activate like HTML elements.
           el.dispatchEvent(new MouseEvent("click", { bubbles: true }));

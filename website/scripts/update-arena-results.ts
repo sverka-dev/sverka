@@ -25,9 +25,65 @@ import { fileURLToPath } from "node:url";
 // @sverka/arena isn't resolvable by name. Bun runs TS directly;
 // the module's own @sverka/* imports resolve via arena's deps (dist,
 // so `bun run build` must have run at least once).
-import type { ArenaResult, RunResult } from "../../packages/arena/src/types.js";
+import type {
+  ArenaResult,
+  RunResult,
+  TraceData,
+  TraceStep,
+} from "../../packages/arena/src/types.js";
 import { writeTraceReport } from "../../packages/arena/src/trace-report.js";
 import { writeAggregateReport } from "../../packages/arena/src/aggregate-report.js";
+
+// Committed traces are public artifacts — strip host/session specifics
+// (absolute paths, kernel build, session ids) and drop replayed context:
+// the emitter re-sends earlier steps on each flush, so identical stepIds
+// accumulate 2-6x in the raw trace.
+function redactText(text: string): string {
+  return text
+    .replace(/\/home\/[^\s"']+/g, "/home/user")
+    .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
+    .replace(/OS Version: [^\n<]+/g, "OS Version: linux");
+}
+
+function redactValue(value: unknown): unknown {
+  if (typeof value === "string") return redactText(value);
+  if (Array.isArray(value)) return value.map(redactValue);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, redactValue(v)]),
+    );
+  }
+  return value;
+}
+
+function sanitizeTrace(trace: TraceData): TraceData {
+  const byStep = new Map<number, TraceStep>();
+  for (const step of trace.steps) byStep.set(step.stepId, step);
+  return {
+    ...trace,
+    sessionId: "redacted",
+    steps: [...byStep.values()].map((s) => ({
+      ...s,
+      message: redactText(s.message),
+      ...(s.toolCalls
+        ? {
+            toolCalls: s.toolCalls.map((c) => ({
+              ...c,
+              arguments: redactValue(c.arguments) as Record<string, unknown>,
+            })),
+          }
+        : {}),
+      ...(s.observations
+        ? {
+            observations: s.observations.map((o) => ({
+              ...o,
+              content: redactText(o.content),
+            })),
+          }
+        : {}),
+    })),
+  };
+}
 
 const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = dirname(websiteDir);
@@ -117,7 +173,7 @@ for (const r of results.results ?? []) {
   // trace.html renders llmCallCount at the trace top level — it lives on
   // RunResult.metrics, not inside TraceData, so copy it across.
   const traceJson = {
-    ...r.trace,
+    ...sanitizeTrace(r.trace),
     llmCallCount: r.metrics?.llmCallCount ?? 0,
   };
   await writeFile(traceTmp, JSON.stringify(traceJson, null, 2) + "\n");
@@ -154,11 +210,18 @@ if (arenaResult !== undefined) {
   await rm(aggPath);
 }
 
-// Results — the SPA's default data file. Full copy via tmp+rename:
-// traces and output are what makes the viewer useful, and a torn file
-// must never reach the page.
+// Results — the SPA's default data file. Traces get the same public
+// sanitization as the per-run files; a torn file must never reach the
+// page, so write via tmp+rename.
+const sanitizedResults = {
+  ...results,
+  results: (results.results ?? []).map((r) => ({
+    ...r,
+    ...(r.trace ? { trace: sanitizeTrace(r.trace) } : {}),
+  })),
+};
 const resultsTmp = join(benchDir, "arena-results.json.tmp");
-await writeFile(resultsTmp, readFileSync(resultsSrc));
+await writeFile(resultsTmp, JSON.stringify(sanitizedResults, null, 2) + "\n");
 await rename(resultsTmp, join(benchDir, "arena-results.json"));
 
 // Cases — task definitions, preserving createdAt for existing ids.

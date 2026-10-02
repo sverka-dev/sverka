@@ -141,6 +141,26 @@ async function cmdReport(args: ParsedArgs, io: Io): Promise<number> {
   return 0;
 }
 
+/** Filter config tasks by --task ids; duplicate ids select one entry. */
+export function filterTasks<T extends { id: string }>(
+  tasks: T[],
+  ids: string[],
+): { tasks: T[] } | { missing: string[] } {
+  if (ids.length === 0) return { tasks };
+  const known = new Set(tasks.map((t) => t.id));
+  const missing = ids.filter((id) => !known.has(id));
+  if (missing.length > 0) return { missing };
+  const wanted = new Set(ids);
+  const seen = new Set<string>();
+  return {
+    tasks: tasks.filter((t) => {
+      if (!wanted.has(t.id) || seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    }),
+  };
+}
+
 async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
   if (args.format === "html") {
     io.err("run: --format html is only supported by 'report'\n");
@@ -149,21 +169,14 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
   const config = await loadArenaConfig(args.config);
   if (args.out !== undefined) config.outputDir = resolve(args.out);
   if (args.tasks.length > 0) {
-    const known = new Set(config.tasks.map((t) => t.id));
-    const missing = args.tasks.filter((id) => !known.has(id));
-    if (missing.length > 0) {
+    const filtered = filterTasks(config.tasks, args.tasks);
+    if ("missing" in filtered) {
       io.err(
-        `run: unknown --task '${missing.join("', '")}' (config defines: ${[...known].join(", ")})\n`,
+        `run: unknown --task '${filtered.missing.join("', '")}' (config defines: ${config.tasks.map((t) => t.id).join(", ")})\n`,
       );
       return 2;
     }
-    const wanted = new Set(args.tasks);
-    const seen = new Set<string>();
-    config.tasks = config.tasks.filter((t) => {
-      if (!wanted.has(t.id) || seen.has(t.id)) return false;
-      seen.add(t.id);
-      return true;
-    });
+    config.tasks = filtered.tasks;
   }
   const result = await runArena(config);
   if (args.format === "json") {
