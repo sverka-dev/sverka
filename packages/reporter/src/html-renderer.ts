@@ -185,6 +185,23 @@ function renderContext(state: UIState, context?: ReportContext): string {
     ? `<span class="ctx-label">Generated:</span> <span class="ctx-value">${escapeHtml(context.generatedAt)}</span>`
     : "";
 
+  // Only known status values may become a status-* class — arbitrary
+  // ctx values (e.g. a multi-word command line) would split into class
+  // tokens, and a value like 'failure' would falsely render red.
+  const STATUS_CLASS = new Set([
+    "success",
+    "succeeded",
+    "failure",
+    "failed",
+    "cancelled",
+    "canceled",
+    "pending",
+    "running",
+    "skipped",
+    "suspended",
+  ]);
+  const statusCls = (v: unknown) =>
+    STATUS_CLASS.has(String(v)) ? ` status-${String(v)}` : "";
   // nosemgrep: html-in-template-string
   return `<header>
     <h1>${escapeHtml(title)}</h1>
@@ -192,7 +209,7 @@ function renderContext(state: UIState, context?: ReportContext): string {
       ${metaRows
         .map(
           ([label, value]) =>
-            `<span class="ctx-label">${escapeHtml(label)}:</span> <span class="ctx-value status-${escapeHtml(String(value))}">${escapeHtml(String(value))}</span>`, // nosemgrep: html-in-template-string
+            `<span class="ctx-label">${escapeHtml(label)}:</span> <span class="ctx-value${statusCls(value)}">${escapeHtml(String(value))}</span>`, // nosemgrep: html-in-template-string
         )
         .join("\n      ")}
       ${linkRows}
@@ -258,7 +275,7 @@ function renderGanttSvg(state: UIState, nsPrefix: string): string {
         bar = `<text class="dur notime" x="${labelW + 4}" y="${y + 18}">${escapeHtml(s.state)}</text>`;
       }
       // nosemgrep: html-in-template-string
-      return `<g class="gantt-step" data-step="${escapeHtml(s.stepId)}"><text class="row-label" x="4" y="${y + 18}">${label}</text>${bar}</g>`;
+      return `<g class="gantt-step" data-step="${escapeHtml(s.stepId)}" tabindex="0" role="button" aria-label="step ${escapeHtml(s.stepId)}"><text class="row-label" x="4" y="${y + 18}">${label}</text>${bar}</g>`;
     })
     .join("");
 
@@ -323,7 +340,7 @@ function renderDagLayer(
       const label = short.length > 24 ? `${short.slice(0, 23)}…` : short;
       const cy = n.y + n.height / 2;
       // nosemgrep: html-in-template-string
-      return `<g class="dag-node" data-step="${escapeHtml(n.id)}">
+      return `<g class="dag-node" data-step="${escapeHtml(n.id)}" tabindex="0" role="button" aria-label="step ${escapeHtml(n.id)}">
         <title>${escapeHtml(n.id)}</title>
         <rect class="dag-card" x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="8" />
         <circle cx="${n.x + 16}" cy="${cy}" r="4" fill="${color}" />
@@ -451,7 +468,7 @@ function renderTree(state: UIState, dag: DagLayout, nsPrefix: string): string {
     const kids = (children.get(id) ?? []).filter((k) => ids.has(k));
     const nested = kids.length ? `<ul>${kids.map(item).join("")}</ul>` : "";
     // nosemgrep: html-in-template-string
-    return `<li><span class="tree-node" data-step="${escapeHtml(id)}" style="border-color:${color}">${icon} ${escapeHtml(displayId(id, nsPrefix))} <span class="meta">${escapeHtml(step?.state ?? "pending")}</span></span>${nested}</li>`;
+    return `<li><span class="tree-node" data-step="${escapeHtml(id)}" tabindex="0" role="button" aria-label="step ${escapeHtml(id)}" style="border-color:${color}">${icon} ${escapeHtml(displayId(id, nsPrefix))} <span class="meta">${escapeHtml(step?.state ?? "pending")}</span></span>${nested}</li>`;
   };
 
   // nosemgrep: html-in-template-string
@@ -1096,6 +1113,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 .dag-node { cursor: pointer; }
 .gantt-step, .tree-node { cursor: pointer; }
 .gantt-step:hover .row-label { fill: #58a6ff; }
+[role="button"]:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 1px;
+}
 .dag-node:hover .dag-card { stroke: #58a6ff; }
 .step-findings {
   margin-left: 0.5rem;
@@ -1670,8 +1691,6 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
           name + (text ? " (" + byteLen(text) + "b)" : " (empty)");
       });
     }
-    var findingsBtn = document.getElementById("drawer-findings");
-    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
     // Fresh step, fresh search — no carried-over query or count.
     var searchEl = document.getElementById("drawer-search");
     if (searchEl) searchEl.value = "";
@@ -1792,6 +1811,20 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
+    // Keyboard activation for role=button elements (gantt rows, DAG
+    // nodes, tree spans) — native <button>/<summary> fire click on
+    // Enter/Space themselves; forwarding there would double-toggle.
+    if (el.getAttribute("role") === "button") {
+      el.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          // SVGElement has no .click() — dispatch a synthetic click
+          // event so gantt/DAG <g> nodes activate like HTML elements.
+          el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        }
+      });
+    }
     el.addEventListener("click", function(e) {
       e.stopPropagation();
       // preventDefault keeps <details> in the list view from toggling

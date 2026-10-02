@@ -585,4 +585,54 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("err text here");
     expect(html).toContain("Exit code: 1");
   });
+
+  it("context — status-* class only for known status values", () => {
+    const outputPath = join(tmpDir, "report.html");
+    const renderer = createHtmlRenderer({
+      outputPath,
+      graph: SAMPLE_GRAPH,
+      context: {
+        command: "sverka run --format html",
+        meta: [{ label: "Outcome", value: "failed" }],
+      },
+    });
+    renderer.onEvent(runStarted("run-1", "plan-abc"));
+    renderer.onEvent(runCompleted("run-1", "success", 100));
+    renderer.flush();
+    const html = readFileSync(outputPath, "utf-8");
+    // Run status + a status-word meta value get the class...
+    expect(html).toContain("ctx-value status-success");
+    expect(html).toContain("ctx-value status-failed");
+    // ...a free-form command string must not splinter into classes.
+    expect(html).toContain('class="ctx-value">sverka run --format html');
+    expect(html).not.toContain("status-sverka");
+  });
+
+  it("step selection — gantt/DAG/tree targets are keyboard-activatable", () => {
+    // Timestamped events so the gantt view renders real rows.
+    const html = renderHtml([
+      { type: "run-started", runId: "r", planId: "p", at: 1000 },
+      { type: "step-started", stepId: "ci/build", at: 1100 },
+      {
+        type: "step-succeeded",
+        stepId: "ci/build",
+        durationMs: 100,
+        at: 1200,
+      },
+      {
+        type: "run-completed",
+        runId: "r",
+        status: "success",
+        durationMs: 200,
+        at: 1200,
+      },
+    ]);
+    // role=button + tabindex on the non-native clickable elements,
+    // and the keydown forwarder in the embedded script.
+    expect(html).toMatch(/class="gantt-step"[^>]*role="button"/);
+    expect(html).toMatch(/class="dag-node"[^>]*role="button"/);
+    expect(html).toMatch(/class="tree-node"[^>]*role="button"/);
+    expect(html).toContain('tabindex="0"');
+    expect(html).toContain('e.key === "Enter" || e.key === " "');
+  });
 });
