@@ -59,12 +59,12 @@ function redact(text: string): string {
     if (!SENSITIVE_KEY.test(key)) continue;
     if (sepIdx === w.length - 1 && i + 1 < words.length) {
       // "KEY=" or "KEY:" alone — the value is the next word.
-      words[i + 1] = "<redacted>";
+      words[i + 1] = "[REDACTED]";
     } else {
-      words[i] = `${key}=<redacted>`;
+      words[i] = `${key}=[REDACTED]`;
     }
   }
-  return words.join(" ").replace(/Bearer\s+\S+/gi, "Bearer <redacted>");
+  return words.join(" ").replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]");
 }
 
 function formatTokens(n: number): string {
@@ -136,47 +136,11 @@ export function arenaResultToEvents(result: ArenaResult): RunEvent[] {
   for (const r of result.results) {
     const stepId = runStepId(r, reps.get(r)!);
     const dur = Math.max(r.metrics?.executionTimeMs ?? 0, 0);
-    const start = t;
-    t += dur;
-    events.push({ type: "step-started", stepId, at: start });
-    if (r.metrics?.executionTimeMs === undefined || dur === 0) {
-      events.push({
-        type: "diagnostic",
-        stepId,
-        severity: "info",
-        message: "no duration recorded — run failed before/without timing",
-        at: start,
-      });
-    }
-    if (r.success) {
-      events.push({
-        type: "step-succeeded",
-        stepId,
-        durationMs: dur,
-        stdout: metricsLine(r),
-        at: start + dur,
-      });
-    } else {
-      events.push({
-        type: "step-failed",
-        stepId,
-        error: failureReason(r),
-        durationMs: dur,
-        stdout: metricsLine(r),
-        at: start + dur,
-      });
-    }
-    for (const v of r.verdicts ?? []) {
-      events.push({
-        type: "diagnostic",
-        stepId,
-        severity: v.passed ? "info" : "warn",
-        message: redact(
-          `judge score ${v.score}${v.passed ? "" : " (failed)"}: ${v.reasoning}`,
-        ),
-        at: start + dur,
-      });
-    }
+    const end = t + dur;
+    events.push({ type: "step-started", stepId, at: t });
+    events.push(...outcomeEvents(r, stepId, dur, end));
+    events.push(...verdictEvents(r, stepId, end));
+    t = end;
   }
   const anyFail = result.results.some((r) => !r.success);
   events.push({
@@ -187,6 +151,59 @@ export function arenaResultToEvents(result: ArenaResult): RunEvent[] {
     at: t,
   });
   return events;
+}
+
+function outcomeEvents(
+  r: RunResult,
+  stepId: string,
+  dur: number,
+  end: number,
+): RunEvent[] {
+  const events: RunEvent[] = [];
+  if (r.metrics?.executionTimeMs === undefined || dur === 0) {
+    events.push({
+      type: "diagnostic",
+      stepId,
+      severity: "info",
+      message: "no duration recorded — run failed before/without timing",
+      at: end,
+    });
+  }
+  if (r.success) {
+    events.push({
+      type: "step-succeeded",
+      stepId,
+      durationMs: dur,
+      stdout: metricsLine(r),
+      at: end,
+    });
+  } else {
+    events.push({
+      type: "step-failed",
+      stepId,
+      error: failureReason(r),
+      durationMs: dur,
+      stdout: metricsLine(r),
+      at: end,
+    });
+  }
+  return events;
+}
+
+function verdictEvents(
+  r: RunResult,
+  stepId: string,
+  end: number,
+): RunEvent[] {
+  return (r.verdicts ?? []).map((v) => ({
+    type: "diagnostic" as const,
+    stepId,
+    severity: (v.passed ? "info" : "warn") as "info" | "warn",
+    message: redact(
+      `judge score ${v.score}${v.passed ? "" : " (failed)"}: ${v.reasoning}`,
+    ),
+    at: end,
+  }));
 }
 
 /** Render the whole arena matrix as a standalone sverka HTML report. */
