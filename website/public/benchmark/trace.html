@@ -763,13 +763,7 @@
           var grid = document.createElement("div");
           grid.className = "stat-grid";
           var fm = data.finalMetrics || {};
-          // Older trace files lack llmCallCount — count LLM-flagged steps.
-          var llmCalls =
-            typeof data.llmCallCount === "number"
-              ? data.llmCallCount
-              : (data.steps || []).filter(function (s) {
-                  return s.isLlmCall;
-                }).length;
+          var llmCalls = countLlmCalls(data);
           var rows = [
             ["LLM calls", fmtNum(llmCalls), llmCalls > 0 && llmCalls < 50],
             ["Total steps", fmtNum(fm.totalSteps || data.steps.length), false],
@@ -915,6 +909,15 @@
           return div;
         }
 
+        // Older trace files lack llmCallCount — count LLM-flagged steps.
+        function countLlmCalls(data) {
+          return typeof data.llmCallCount === "number"
+            ? data.llmCallCount
+            : (data.steps || []).filter(function (s) {
+                return s.isLlmCall;
+              }).length;
+        }
+
         /** Render a trace column for one agent config. */
         function renderTraceColumn(type, title, data) {
           var col = document.createElement("div");
@@ -928,7 +931,7 @@
           var count = document.createElement("span");
           count.className = "step-count";
           count.textContent =
-            data.steps.length + " steps · " + data.llmCallCount + " LLM calls";
+            data.steps.length + " steps · " + countLlmCalls(data) + " LLM calls";
           header.appendChild(name);
           header.appendChild(count);
           col.appendChild(header);
