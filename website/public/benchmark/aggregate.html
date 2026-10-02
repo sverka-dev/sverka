@@ -1028,21 +1028,32 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (!q) {
       pre.textContent = split.text;
     } else {
-      // Case-insensitive regex match on the ORIGINAL text — indexOf on a
-      // lowercased copy shifts indices when a char expands under
-      // lowercasing (e.g. "İ" → "i̇", two code units).
-      var needle = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      var re = new RegExp(needle, "gi");
+      // Fold each char and keep an offset map back to the original
+      // text — plain indexOf on a lowercased copy shifts indices when a
+      // char expands under lowercasing ("İ" → "i̇"), while a regex /i on
+      // the original loses fold matches ("i" wouldn't find "İ").
+      var folded = "";
+      var foldMap = [];
+      for (var ci = 0; ci < split.text.length; ci++) {
+        var fc = split.text[ci].toLowerCase();
+        for (var cj = 0; cj < fc.length; cj++) {
+          folded += fc[cj];
+          foldMap.push(ci);
+        }
+      }
+      var nq = q.toLowerCase();
+      var pos = 0;
       var i = 0;
-      var hit;
-      while ((hit = re.exec(split.text)) !== null) {
-        pre.appendChild(document.createTextNode(split.text.slice(i, hit.index)));
+      while ((pos = folded.indexOf(nq, pos)) !== -1) {
+        var from = foldMap[pos];
+        var to = foldMap[pos + nq.length - 1] + 1;
+        pre.appendChild(document.createTextNode(split.text.slice(i, from)));
         var mark = document.createElement("mark");
-        mark.textContent = hit[0];
+        mark.textContent = split.text.slice(from, to);
         pre.appendChild(mark);
         logMarks.push(mark);
-        i = hit.index + hit[0].length;
-        if (hit[0].length === 0) re.lastIndex += 1;
+        i = to;
+        pos += nq.length;
       }
       pre.appendChild(document.createTextNode(split.text.slice(i)));
     }

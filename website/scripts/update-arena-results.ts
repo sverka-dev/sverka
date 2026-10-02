@@ -170,11 +170,17 @@ for (const r of results.results ?? []) {
   // Later repetitions overwrite — the viewer only shows one run per combo.
   const tracePath = join(dir, `${combo}.json`);
   const traceTmp = `${tracePath}.tmp`;
-  // trace.html renders llmCallCount at the trace top level — it lives on
+  // trace.html reads per-config data from a `configs` map keyed by
+  // combo label ("raw"/"sverka"/...) — llmCallCount lives on
   // RunResult.metrics, not inside TraceData, so copy it across.
+  const comboLabel = r.pluginIds.length ? r.pluginIds.join("+") : "raw";
   const traceJson = {
-    ...sanitizeTrace(r.trace),
-    llmCallCount: r.metrics?.llmCallCount ?? 0,
+    configs: {
+      [comboLabel]: {
+        ...sanitizeTrace(r.trace),
+        llmCallCount: r.metrics?.llmCallCount ?? 0,
+      },
+    },
   };
   await writeFile(traceTmp, JSON.stringify(traceJson, null, 2) + "\n");
   staged.push([traceTmp, tracePath]);

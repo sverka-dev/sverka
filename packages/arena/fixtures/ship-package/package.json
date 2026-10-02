@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "build": "tsdown",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "lint": "oxlint --deny-warnings src",
     "typecheck": "tsc --noEmit",
     "format": "prettier --check ."
