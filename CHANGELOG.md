@@ -1,3 +1,15 @@
+## 0.1.31 (2026-10-02)
+
+### 🩹 Fixes
+
+- **arena:** redirect HOME so host user skills don't leak into benchmark cells ([#286](https://github.com/sverka-dev/sverka/pull/286))
+- **website:** case detail renders for trace-only cases ([#285](https://github.com/sverka-dev/sverka/pull/285))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.30 (2026-10-02)
 
 ### 🩹 Fixes
