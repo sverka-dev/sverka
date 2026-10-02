@@ -1034,26 +1034,49 @@ class NativeEngine implements Engine {
     ctx: RunContext,
     stepId: string,
   ): string {
-    // Non-greedy up to '}}' so brace-expansion globs inside
-    // hashFiles('{a,b}.lock') parse correctly.
-    return key.replace(/\$\{\{(.*?)\}\}/g, (whole, inner: string) => {
-      inner = inner.trim();
-      const hashMatch = inner.match(/^hashFiles\((.*)\)$/);
-      if (hashMatch) {
-        return this.hashFiles(hashMatch[1] ?? "", ctx, stepId);
-      }
-      const dot = inner.lastIndexOf(".");
-      if (dot === -1) return whole;
-      const namespace = inner.slice(0, dot).trim();
-      const field = inner.slice(dot + 1).trim();
-      const ref = {
-        kind: "context" as const,
-        namespace: namespace as never,
-        field,
-      };
-      const value = this.resolveContextRef(ref, ctx, stepId);
-      return value === undefined ? "" : String(value);
-    });
+    // Manual scan, not a regex — /\$\{\{(.*?)\}\}/ is quadratic on
+    // adversarial input (unbalanced '${{'), flagged as polynomial ReDoS.
+    let out = "";
+    let i = 0;
+    while (i < key.length) {
+      const start = key.indexOf("${{", i);
+      if (start === -1) break;
+      const end = key.indexOf("}}", start + 3);
+      if (end === -1) break;
+      out += key.slice(i, start);
+      out += this.resolveCacheKeyExpr(
+        key.slice(start + 3, end).trim(),
+        key.slice(start, end + 2),
+        ctx,
+        stepId,
+      );
+      i = end + 2;
+    }
+    return out + key.slice(i);
+  }
+
+  /** Resolve a single `${{ ... }}` expression body to its replacement. */
+  private resolveCacheKeyExpr(
+    inner: string,
+    whole: string,
+    ctx: RunContext,
+    stepId: string,
+  ): string {
+    // hashFiles('a', 'b') — args may contain braces, so no regex.
+    if (inner.startsWith("hashFiles(") && inner.endsWith(")")) {
+      return this.hashFiles(inner.slice(10, -1), ctx, stepId);
+    }
+    const dot = inner.lastIndexOf(".");
+    if (dot === -1) return whole;
+    const namespace = inner.slice(0, dot).trim();
+    const field = inner.slice(dot + 1).trim();
+    const ref = {
+      kind: "context" as const,
+      namespace: namespace as never,
+      field,
+    };
+    const value = this.resolveContextRef(ref, ctx, stepId);
+    return value === undefined ? "" : String(value);
   }
 
   /**
