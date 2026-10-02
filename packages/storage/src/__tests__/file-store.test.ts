@@ -163,8 +163,8 @@ describe("FileSnapshotStore", () => {
 
   it("save cleans up the tmp file when the rename fails", async () => {
     const store = createFileSnapshotStore({ root: dir });
-    const snap = makeSnapshot("run-tmpfail");
-    const runDir = join(dir, ".sverka", "runs", "run-tmpfail");
+    const snap = makeSnapshot("run-tmp-leak");
+    const runDir = join(dir, ".sverka", "runs", "run-tmp-leak");
     await mkdir(runDir, { recursive: true });
     // A directory named snapshot.json makes rename() fail.
     await mkdir(join(runDir, "snapshot.json"));

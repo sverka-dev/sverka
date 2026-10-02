@@ -94,17 +94,37 @@ function validatePlanField(obj: Record<string, unknown>): void {
       `plan.apiVersion must be "sverka.dev/v1run", got "${String(p["apiVersion"])}"`,
     );
   }
-  if (typeof p["id"] !== "string" || typeof p["graphId"] !== "string") {
-    throw new StorageError(
-      "CORRUPT_SNAPSHOT",
-      "plan is missing required string fields: id, graphId",
-    );
+  for (const field of ["id", "graphId", "createdAt"] as const) {
+    if (typeof p[field] !== "string") {
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        `plan.${field} is missing or not a string`,
+      );
+    }
+  }
+  for (const field of ["entry", "inputs"] as const) {
+    const v = p[field];
+    if (typeof v !== "object" || v === null || Array.isArray(v)) {
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        `plan.${field} is missing or not an object`,
+      );
+    }
   }
   if (!Array.isArray(p["steps"])) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
       "plan.steps is missing or not an array",
     );
+  }
+  for (let i = 0; i < p["steps"].length; i++) {
+    const s = p["steps"][i] as Record<string, unknown> | null;
+    if (typeof s !== "object" || s === null || typeof s["id"] !== "string") {
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        `plan.steps[${i}] is missing or lacks a string id`,
+      );
+    }
   }
 }
 

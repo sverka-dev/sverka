@@ -1,7 +1,7 @@
 // SqliteSnapshotStore — SQLite database via node:sqlite (built into Node 24+ and Bun).
 // Spec 31 — SQLite schema.
 
-import { chmodSync, mkdirSync } from "node:fs";
+import { chmodSync, closeSync, mkdirSync, openSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RunSnapshot, SnapshotStore } from "@sverka/runtime";
@@ -46,11 +46,14 @@ export function createSqliteSnapshotStore(
 
   let db: DatabaseSync;
   try {
-    db = new DatabaseSync(path);
     if (path !== ":memory:") {
-      // Snapshots embed the full plan + outputs — keep the DB owner-only.
+      // Pre-create with owner-only perms — DatabaseSync would otherwise
+      // create the file with default perms until chmod runs. Snapshots
+      // embed the full plan + outputs, so keep the DB owner-only.
+      closeSync(openSync(path, "a", 0o600));
       chmodSync(path, 0o600);
     }
+    db = new DatabaseSync(path);
   } catch (e) {
     throw new StorageError(
       "STORE_IO_FAILED",

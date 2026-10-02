@@ -1,7 +1,14 @@
 // FileSnapshotStore — JSON file per run at <root>/.sverka/runs/<runId>/snapshot.json.
 // Spec 31 — File layout.
 
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  readFile,
+  rename,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import process from "node:process";
@@ -53,6 +60,8 @@ export function createFileSnapshotStore(
       );
       await wrapIO(`save snapshot ${snapshot.runId}`, async () => {
         await mkdir(dir, { recursive: true, mode: 0o700 });
+        // mode only applies at creation — chmod an existing dir too.
+        await chmod(dir, 0o700);
         try {
           await writeFile(tmpPath, serialize(snapshot), {
             encoding: "utf8",
