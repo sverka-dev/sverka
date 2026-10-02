@@ -600,7 +600,7 @@
           (arenaData.results || []).forEach(function (r) {
             if (r.taskId !== taskId) return;
             if (modelId && r.modelId !== modelId) return;
-            var key = (r.pluginIds || []).join(",");
+            var key = (r.modelId || "") + "\n" + (r.pluginIds || []).join(",");
             if (seen[key]) return;
             seen[key] = true;
             combos.push({ pluginIds: r.pluginIds || [], modelId: r.modelId });
@@ -700,7 +700,13 @@
         /** Render task navigation bar. Chips come from the published
          *  results (arena mode) plus legacy classic tasks; links keep the
          *  current model/plugins combo when the target task has it. */
-        function renderTaskNav(activeTask, navTasks, arenaData, curModel, curPlugins) {
+        function renderTaskNav(
+          activeTask,
+          navTasks,
+          arenaData,
+          curModel,
+          curPlugins,
+        ) {
           var nav = document.getElementById("task-nav");
           nav.innerHTML = "";
           var curKey = (curPlugins || []).join(",");
@@ -739,7 +745,8 @@
         /** CSS accent class for a config label — "raw"-like combos get the
          *  raw-shell styling, everything else the plugin styling. */
         function summaryClass(label) {
-          return label === "raw" || label === "no-plugins" ||
+          return label === "raw" ||
+            label === "no-plugins" ||
             label === "raw-shell"
             ? "raw-shell"
             : "sverka";
@@ -1145,6 +1152,7 @@
 
         /** Load and render trace data for a task (classic format). */
         async function loadTraceClassic(taskId) {
+          var seq = ++loadSeq;
           var content = document.getElementById("content");
           content.innerHTML =
             '<div class="loading">Loading trace for ' +
@@ -1165,20 +1173,27 @@
             var trace = await fetchJson(
               "traces/" + encodeURIComponent(taskId) + "/trace.json",
             );
+            if (seq !== loadSeq) return;
             if (!trace)
               throw new Error("No trace data for task '" + taskId + "'");
             renderTraceClassic(trace);
           } catch (err) {
+            if (seq !== loadSeq) return;
             content.innerHTML = "";
             showError("Failed to load trace: " + (err.message || err));
           }
         }
+
+        /** Monotonic request id — a slow async load must not overwrite
+         *  the view of a newer navigation. */
+        var loadSeq = 0;
 
         /** Load and render trace data for a task (arena format).
          *  Fetches traces/<task-id>/<combo-hash>.json for the selected combo,
          *  and also fetches the comparison combo for side-by-side view.
          */
         async function loadTraceArena(taskId, modelId, pluginIds) {
+          var seq = ++loadSeq;
           var content = document.getElementById("content");
           var comboLabelA =
             pluginIds.length === 0 ? "raw" : pluginIds.join("+");
@@ -1204,6 +1219,7 @@
           // Fetch verdict and output from arena data (async, non-blocking)
           fetchArenaVerdictAndOutput(taskId, modelId, pluginIds).then(
             function (info) {
+              if (seq !== loadSeq) return;
               if (info) {
                 renderAgentOutput(info.output, comboLabelA);
                 renderJudgeVerdict(info.verdict, comboLabelA);
@@ -1215,6 +1231,7 @@
             // Determine which combos exist for this task — from the
             // published results, falling back to the requested combo.
             var arenaData = await fetchArenaIndex();
+            if (seq !== loadSeq) return;
             var combos = arenaData
               ? combosForTask(arenaData, taskId, modelId)
               : [];
@@ -1287,9 +1304,7 @@
             }
 
             if (!order.length) {
-              throw new Error(
-                "No trace data found for task '" + taskId + "'",
-              );
+              throw new Error("No trace data found for task '" + taskId + "'");
             }
 
             // Prompt lives in the published case list, not the trace files.
@@ -1300,6 +1315,8 @@
               });
               if (caseDef && caseDef.prompt) prompt = caseDef.prompt;
             }
+
+            if (seq !== loadSeq) return;
 
             var traceA = { configs: merged, prompt: prompt };
             var configKeys = order;
@@ -1347,6 +1364,7 @@
 
             renderTraceArena(traceA, configA, configB);
           } catch (err) {
+            if (seq !== loadSeq) return;
             content.innerHTML = "";
             showError("Failed to load trace: " + (err.message || err));
           }
@@ -1354,6 +1372,7 @@
 
         /** Handle route/param changes. */
         async function handleRoute() {
+          ++loadSeq;
           var parsed = parseParams();
           var arenaData = await fetchArenaIndex();
           var cases = await fetchCaseIndex();
@@ -1414,8 +1433,14 @@
           }
         }
 
-        window.addEventListener("hashchange", handleRoute);
-        handleRoute();
+        function route() {
+          handleRoute().catch(function (err) {
+            showError("Failed to load trace: " + (err.message || err));
+          });
+        }
+
+        window.addEventListener("hashchange", route);
+        route();
       })();
     </script>
   </body>
