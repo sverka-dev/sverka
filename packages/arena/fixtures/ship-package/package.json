@@ -1,0 +1,41 @@
+{
+  "name": "@sverka/storage",
+  "version": "0.1.29",
+  "description": "Sverka storage — file and SQLite snapshot stores for run persistence",
+  "license": "MIT",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run --passWithNoTests",
+    "lint": "oxlint --deny-warnings src",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --check ."
+  },
+  "dependencies": {
+    "@sverka/runtime": "0.1.29"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "oxlint": "^1.0.0",
+    "prettier": "^3.0.0",
+    "tsdown": "^0.23.0",
+    "typescript": "^5.8.0",
+    "vitest": "^5.0.0"
+  }
+}

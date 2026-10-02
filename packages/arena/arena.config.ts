@@ -87,6 +87,56 @@ export default {
         },
       ],
     },
+    {
+      id: "ship-package",
+      name: "Wire a CI pipeline for a real package",
+      // The honest dogfood: the fixture is a verbatim copy of this repo's
+      // real @sverka/storage package (real tests, real build) with three
+      // accumulated-without-CI failures (typecheck, lint, format). The
+      // prompt never mentions sverka — the skill cell must discover the
+      // plugin, author sverka.config.ts from scratch, and drive
+      // `sverka run`; the baseline cell does the same work by hand.
+      prompt:
+        "This TypeScript package has no CI verification wired up. Set up " +
+        "a verification pipeline that runs every check this project " +
+        "supports (format, lint, typecheck, test, build) in a sensible " +
+        "order, run it, and fix the source until all checks pass. Do not " +
+        "modify test files or tool configuration.",
+      fixture: "fixtures/ship-package",
+      setup: ["bun install"],
+      timeoutMs: 600_000,
+      successCriteria:
+        "Every check passes (format, lint, typecheck, test, build), " +
+        "verification can be re-run as one pipeline, and no test or tool " +
+        "config file was modified",
+      checks: [
+        {
+          id: "format",
+          command: "bun run format",
+          description: "formatting is clean",
+        },
+        {
+          id: "lint",
+          command: "bun run lint",
+          description: "no lint errors",
+        },
+        {
+          id: "typecheck",
+          command: "bun run typecheck",
+          description: "no type errors",
+        },
+        {
+          id: "tests-pass",
+          command: "bun run test",
+          description: "unit tests pass",
+        },
+        {
+          id: "build",
+          command: "bun run build",
+          description: "build succeeds",
+        },
+      ],
+    },
   ],
   repetitions: 1,
   outputDir: ".arena",

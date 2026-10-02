@@ -13,7 +13,7 @@
       }
     ],
     "createdAt": "2026-09-29T18:41:10.690Z",
-    "updatedAt": "2026-09-30T23:06:35.510Z"
+    "updatedAt": "2026-10-02T13:10:25.050Z"
   },
   {
     "id": "verify-and-fix",
@@ -53,6 +53,46 @@
       }
     ],
     "createdAt": "2026-09-29T18:41:10.690Z",
-    "updatedAt": "2026-09-30T23:06:35.510Z"
+    "updatedAt": "2026-10-02T13:10:25.050Z"
+  },
+  {
+    "id": "ship-package",
+    "name": "Wire a CI pipeline for a real package",
+    "prompt": "This TypeScript package has no CI verification wired up. Set up a verification pipeline that runs every check this project supports (format, lint, typecheck, test, build) in a sensible order, run it, and fix the source until all checks pass. Do not modify test files or tool configuration.",
+    "successCriteria": "Every check passes (format, lint, typecheck, test, build), verification can be re-run as one pipeline, and no test or tool config file was modified",
+    "fixture": "fixtures/ship-package",
+    "timeoutMs": 600000,
+    "setup": [
+      "bun install"
+    ],
+    "checks": [
+      {
+        "id": "format",
+        "command": "bun run format",
+        "description": "formatting is clean"
+      },
+      {
+        "id": "lint",
+        "command": "bun run lint",
+        "description": "no lint errors"
+      },
+      {
+        "id": "typecheck",
+        "command": "bun run typecheck",
+        "description": "no type errors"
+      },
+      {
+        "id": "tests-pass",
+        "command": "bun run test",
+        "description": "unit tests pass"
+      },
+      {
+        "id": "build",
+        "command": "bun run build",
+        "description": "build succeeds"
+      }
+    ],
+    "createdAt": "2026-10-02T13:10:25.050Z",
+    "updatedAt": "2026-10-02T13:10:25.050Z"
   }
 ]

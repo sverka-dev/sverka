@@ -141,6 +141,23 @@ describe("sverka-arena bin", () => {
     expect(c.stderr).toContain("--out requires a value");
   });
 
+  it("run --task with an unknown id exits 2 before spawning", async () => {
+    const { c, io } = capture();
+    const code = await main(
+      [
+        "run",
+        "--config",
+        join(dir, "arena.config.ts"),
+        "--task",
+        "no-such-task",
+      ],
+      io,
+    );
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("no-such-task");
+    expect(c.stderr).toContain("t1");
+  });
+
   it("report exits 2 on a results file with wrong shape", async () => {
     writeFileSync(join(dir, "not-results.json"), JSON.stringify({ ok: 1 }));
     const { c, io } = capture();
