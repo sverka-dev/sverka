@@ -25,8 +25,9 @@ import { fileURLToPath } from "node:url";
 // @sverka/arena isn't resolvable by name. Bun runs TS directly;
 // the module's own @sverka/* imports resolve via arena's deps (dist,
 // so `bun run build` must have run at least once).
-import type { RunResult } from "../../packages/arena/src/types.js";
+import type { ArenaResult, RunResult } from "../../packages/arena/src/types.js";
 import { writeTraceReport } from "../../packages/arena/src/trace-report.js";
+import { writeAggregateReport } from "../../packages/arena/src/aggregate-report.js";
 
 const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = dirname(websiteDir);
@@ -45,11 +46,9 @@ interface ArenaTask {
   successCriteria?: string;
   checks?: { id: string; command: string; description: string }[];
 }
-interface ArenaResultsFile {
-  // Typed as RunResult but trace is treated as optional — a hand-edited
-  // snapshot may drop it, and reports/traces just skip those entries.
-  results?: RunResult[];
-}
+// Typed as RunResult but trace is treated as optional — a hand-edited
+// snapshot may drop it, and reports/traces just skip those entries.
+type ArenaResultsFile = Partial<ArenaResult> & { results?: RunResult[] };
 interface ArenaConfigFile {
   models?: { id: string; name: string; envVar?: string }[];
   plugins?: { id: string; name: string; path?: string }[];
@@ -128,6 +127,15 @@ for (const [tmp, target] of staged) {
   await rename(tmp, target);
 }
 // Older trace dirs stay — arena-sample.json still references them.
+
+// Aggregate report — the whole matrix as one sverka report (pipeline per
+// task, run per step). Same tmp+rename discipline as the trace reports.
+if ((results.results ?? []).length > 0 && results.config !== undefined) {
+  const aggPath = join(benchDir, "aggregate.html");
+  const aggTmp = `${aggPath}.tmp`;
+  writeAggregateReport(results as ArenaResult, aggTmp);
+  await rename(aggTmp, aggPath);
+}
 
 // Results — the SPA's default data file. Full copy via tmp+rename:
 // traces and output are what makes the viewer useful, and a torn file
