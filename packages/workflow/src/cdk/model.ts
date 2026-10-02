@@ -275,6 +275,8 @@ export interface BackoffSpec {
   readonly baseMs: number;
   readonly maxMs?: number;
   readonly factor?: number;
+  /** Full jitter: delay = random integer in [0, computed cap]. */
+  readonly jitter?: boolean;
 }
 
 export interface RetryPolicy {

@@ -3,7 +3,9 @@
 // emits structured run events, supports cancellation.
 
 import { mkdir } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { globSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { join, resolve, sep } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
 import { EngineError } from "./errors.js";
 import type { RunPlan } from "@sverka/workflow";
@@ -1032,20 +1034,173 @@ class NativeEngine implements Engine {
     ctx: RunContext,
     stepId: string,
   ): string {
-    return key.replace(/\$\{\{([^{}]*)\}\}/g, (whole, inner: string) => {
-      inner = inner.trim();
-      const dot = inner.lastIndexOf(".");
-      if (dot === -1) return whole;
-      const namespace = inner.slice(0, dot).trim();
-      const field = inner.slice(dot + 1).trim();
-      const ref = {
-        kind: "context" as const,
-        namespace: namespace as never,
-        field,
-      };
-      const value = this.resolveContextRef(ref, ctx, stepId);
-      return value === undefined ? "" : String(value);
-    });
+    // Manual scan, not a regex — /\$\{\{(.*?)\}\}/ is quadratic on
+    // adversarial input (unbalanced '${{'), flagged as polynomial ReDoS.
+    let out = "";
+    let i = 0;
+    while (i < key.length) {
+      const start = key.indexOf("${{", i);
+      if (start === -1) break;
+      const end = key.indexOf("}}", start + 3);
+      if (end === -1) break;
+      out += key.slice(i, start);
+      out += this.resolveCacheKeyExpr(
+        key.slice(start + 3, end).trim(),
+        key.slice(start, end + 2),
+        ctx,
+        stepId,
+      );
+      i = end + 2;
+    }
+    return out + key.slice(i);
+  }
+
+  /** Resolve a single `${{ ... }}` expression body to its replacement. */
+  private resolveCacheKeyExpr(
+    inner: string,
+    whole: string,
+    ctx: RunContext,
+    stepId: string,
+  ): string {
+    // hashFiles('a', 'b') — args may contain braces, so no regex.
+    if (inner.startsWith("hashFiles(") && inner.endsWith(")")) {
+      return this.hashFiles(inner.slice(10, -1), ctx, stepId);
+    }
+    const dot = inner.lastIndexOf(".");
+    if (dot === -1) return whole;
+    const namespace = inner.slice(0, dot).trim();
+    const field = inner.slice(dot + 1).trim();
+    const ref = {
+      kind: "context" as const,
+      namespace: namespace as never,
+      field,
+    };
+    const value = this.resolveContextRef(ref, ctx, stepId);
+    if (value === undefined) return "";
+    // Cache keys end up in run events and the cache manifest — a secret
+    // must never appear verbatim. Hashing keeps the key deterministic
+    // without leaking the value.
+    if (namespace === "secrets") {
+      return createHash("sha256").update(String(value)).digest("hex");
+    }
+    return String(value);
+  }
+
+  /**
+   * ${{ hashFiles('glob', 'glob', ...) }} — sha256 over the sorted set of
+   * matched files (relative path + content), resolved against the run
+   * workspace. A pattern matching nothing yields an empty segment plus a
+   * warn diagnostic — a silent constant key would poison the cache.
+   */
+  private hashFiles(argsSrc: string, ctx: RunContext, stepId: string): string {
+    const patterns = [...argsSrc.matchAll(/["']([^"']*)["']/g)].map(
+      (m) => m[1] ?? "",
+    );
+    const workspace = resolve(ctx.request.workspace);
+    let workspaceReal = workspace;
+    try {
+      workspaceReal = realpathSync(workspace);
+    } catch {
+      // Workspace itself unresolvable — keep the lexical path; the
+      // per-file realpath check still applies.
+    }
+    const matched = new Set<string>();
+    for (const pattern of patterns) {
+      this.collectHashMatches(pattern, workspace, matched, ctx, stepId);
+    }
+    if (matched.size === 0) return "";
+    return this.hashMatchedFiles(
+      workspace,
+      workspaceReal,
+      matched,
+      ctx,
+      stepId,
+    );
+  }
+
+  /** Expand one glob pattern into `matched`, bounded and diagnosed. */
+  private collectHashMatches(
+    pattern: string,
+    workspace: string,
+    matched: Set<string>,
+    ctx: RunContext,
+    stepId: string,
+  ): void {
+    // A pattern with '..' segments can escape the workspace — refuse.
+    if (pattern.split("/").includes("..")) {
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        severity: "warn",
+        message: `hashFiles: pattern '${pattern}' escapes the workspace — skipped`,
+      });
+      return;
+    }
+    let hits = 0;
+    for (const p of globSync(pattern, { cwd: workspace })) {
+      matched.add(p);
+      hits++;
+      // Resource bound — a workflow-controlled glob must not read
+      // the whole workspace into the key.
+      if (matched.size > 256) {
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          severity: "warn",
+          message: `hashFiles: match cap (256) reached — remaining files ignored`,
+        });
+        break;
+      }
+    }
+    if (hits === 0) {
+      ctx.emit({
+        type: "diagnostic",
+        stepId,
+        severity: "warn",
+        message: `hashFiles: pattern '${pattern}' matched no files`,
+      });
+    }
+  }
+
+  /** sha256 over matched files in code-point path order. */
+  private hashMatchedFiles(
+    workspace: string,
+    workspaceReal: string,
+    matched: Set<string>,
+    ctx: RunContext,
+    stepId: string,
+  ): string {
+    const hash = createHash("sha256");
+    // Explicit code-point comparator — localeCompare would make the key
+    // locale-dependent, which breaks cache determinism.
+    const paths = [...matched].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    for (const p of paths) {
+      const abs = join(workspace, p);
+      try {
+        // Directories match globs like '**' — hash regular files only.
+        if (!statSync(abs).isFile()) continue;
+        // Defense in depth: symlinks resolve outside the workspace even
+        // when the path itself does not — check the real path.
+        const real = realpathSync(abs);
+        if (real !== workspaceReal && !real.startsWith(workspaceReal + sep))
+          continue;
+        const content = readFileSync(real);
+        hash.update(p);
+        hash.update("\0");
+        hash.update(content);
+        hash.update("\0");
+      } catch {
+        // File vanished or is unreadable between glob and read — skip it
+        // rather than abort the run.
+        ctx.emit({
+          type: "diagnostic",
+          stepId,
+          severity: "warn",
+          message: `hashFiles: could not read '${p}' — skipped`,
+        });
+      }
+    }
+    return hash.digest("hex");
   }
 }
 

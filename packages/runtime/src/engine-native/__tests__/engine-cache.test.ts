@@ -207,6 +207,108 @@ describe("Engine — cache integration", () => {
     }
   });
 
+  it("secrets.* refs land in the key as a sha256 — never the raw value", async () => {
+    const step: StepDefinition = {
+      id: "ci/build",
+      runtime: { secrets: ["TOKEN"] },
+      operations: [{ kind: "shell", command: "echo build" }],
+      inputs: [],
+      outputs: [],
+      dependencies: [],
+      cache: { paths: ["dist"], key: "ci-${{ secrets.TOKEN }}" },
+    };
+    const plan: RunPlan = {
+      apiVersion: "sverka.dev/v1run",
+      id: "rp-cache",
+      graphId: "graph-cache",
+      entry: { id: "ci/on-push", trigger: { kind: "push" } },
+      inputs: {},
+      steps: [step],
+      createdAt: "2026-08-31T00:00:00.000Z",
+    };
+    const restoreCalls: { key: string }[] = [];
+    const cache: CacheStore = {
+      restore: async (req) => {
+        restoreCalls.push({ key: req.key });
+        return undefined;
+      },
+      store: async () => undefined,
+    };
+    const engine = createEngine({ drivers: [createMockDriver()], cache });
+    await collectEvents(engine, {
+      plan,
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+      secrets: {
+        resolve: async (name) => (name === "TOKEN" ? "s3cr3t" : undefined),
+      },
+    });
+    expect(restoreCalls[0]?.key).toMatch(/^ci-[0-9a-f]{64}$/);
+    expect(restoreCalls[0]?.key).not.toContain("s3cr3t");
+  });
+
+  it("hashFiles: key segment is the content hash, changes with file content", async () => {
+    const ws = join(testDir, "ws");
+    await mkdir(join(ws, "locks"), { recursive: true });
+    await writeFile(join(ws, "locks", "a.lock"), "v1");
+    const restoreCalls: { key: string }[] = [];
+    const cache: CacheStore = {
+      restore: async (req) => {
+        restoreCalls.push({ key: req.key });
+        return undefined;
+      },
+      store: async () => undefined,
+    };
+    const engine = createEngine({ drivers: [createMockDriver()], cache });
+    const plan = makeCacheablePlan({
+      paths: ["dist"],
+      key: "deps-${{ hashFiles('locks/*.lock') }}",
+    });
+    await collectEvents(engine, {
+      plan,
+      workspace: ws,
+      artifactDir: join(testDir, "art"),
+    });
+    expect(restoreCalls[0]?.key).toMatch(/^deps-[0-9a-f]{64}$/);
+
+    // Same layout, different content → different key.
+    await writeFile(join(ws, "locks", "a.lock"), "v2");
+    await collectEvents(engine, {
+      plan,
+      workspace: ws,
+      artifactDir: join(testDir, "art"),
+    });
+    expect(restoreCalls).toHaveLength(2);
+    expect(restoreCalls[1]?.key).not.toBe(restoreCalls[0]?.key);
+  });
+
+  it("hashFiles with no matches resolves to empty segment + warn diagnostic", async () => {
+    const ws = join(testDir, "ws");
+    await mkdir(ws, { recursive: true });
+    const restoreCalls: { key: string }[] = [];
+    const cache: CacheStore = {
+      restore: async (req) => {
+        restoreCalls.push({ key: req.key });
+        return undefined;
+      },
+      store: async () => undefined,
+    };
+    const engine = createEngine({ drivers: [createMockDriver()], cache });
+    const events = await collectEvents(engine, {
+      plan: makeCacheablePlan({
+        paths: ["dist"],
+        key: "deps-${{ hashFiles('missing/*.lock') }}",
+      }),
+      workspace: ws,
+      artifactDir: join(testDir, "art"),
+    });
+    expect(restoreCalls[0]?.key).toBe("deps-");
+    const diag = events.find(
+      (e) => e.type === "diagnostic" && e.severity === "warn",
+    );
+    expect(diag?.message).toContain("hashFiles");
+  });
+
   it("restore throw → step runs normally (miss), a warn diagnostic emitted", async () => {
     const cache: CacheStore = {
       restore: async () => {

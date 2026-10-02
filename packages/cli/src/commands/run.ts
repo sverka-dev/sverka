@@ -31,6 +31,8 @@ export interface RunArgs {
   tui?: boolean;
   /** Whether --format was passed explicitly (disables TUI auto-detect). */
   formatExplicit?: boolean;
+  /** Max steps running concurrently (--jobs). */
+  jobs?: number;
 }
 
 /**
@@ -70,9 +72,22 @@ export async function runCommand(
   const workspace = global.root;
   const artifactDir = join(global.root, ".sverka", "artifacts");
 
+  // runCommand is exported — re-validate, don't rely on argv parsing alone.
+  // Upper bound: an absurd --jobs value can exhaust local/CI resources.
+  if (
+    args.jobs !== undefined &&
+    (!Number.isInteger(args.jobs) || args.jobs < 1 || args.jobs > 64)
+  ) {
+    throw new CliError(
+      "--jobs must be an integer in [1, 64]",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+
   const engine = createEngine({
     drivers: buildDrivers(executor),
-    maxConcurrent: 4,
+    maxConcurrent: args.jobs ?? 4,
   });
 
   const { events, runStatus, renderer } = await consumeEvents(

@@ -20,6 +20,13 @@ references (`env.*`, `git.*`, `matrix.*`, `inputs.*`) in `key` and
 `restoreKeys` before lookup; step-output refs are disallowed in cache keys
 (chicken-egg — the step has not run yet).
 
+`key` also supports `${{ hashFiles('glob', 'glob', ...) }}` — a content
+hash over the matched files (sorted relative path + sha256 content),
+resolved against the run workspace. Patterns containing `..` are refused;
+directories and symlinks escaping the workspace are skipped; a pattern
+matching nothing emits a warn diagnostic (empty segment). Matches are
+capped at 256 files.
+
 ## Goals
 
 - `CacheStore` interface in engine-native: `restore()` + `store()`.

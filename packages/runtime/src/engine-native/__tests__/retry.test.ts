@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEngine } from "../engine.js";
+import { computeBackoffDelay } from "../retry.js";
 import { createMockDriver } from "./helpers/mock-driver.js";
 import type {
   RuntimeDriver,
@@ -385,5 +386,71 @@ describe("Engine — retry (Spec 20)", () => {
       { type: "run-completed" }
     >;
     expect(completed.status).toBe("success");
+  });
+
+  // 12. jitter: full jitter bounds each delay at random(0, cap) — never
+  // exceeds the deterministic ceiling, always an integer ≥ 0.
+  it("backoff jitter: delays stay within [0, cap] and are integers", async () => {
+    const driver = createFlakyDriver(3);
+    const engine = createEngine({ drivers: [driver] });
+    const events = await collectEvents(engine, {
+      plan: makeRetryPlan({
+        max: 3,
+        backoff: { baseMs: 100, factor: 2, maxMs: 250, jitter: true },
+      }),
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+    });
+    const retries = events.filter((e) => e.type === "step-retry") as Extract<
+      RunEvent,
+      { type: "step-retry" }
+    >[];
+    expect(retries).toHaveLength(3);
+    const caps = [100, 200, 250];
+    retries.forEach((r, i) => {
+      expect(r.nextAttemptMs).toBeGreaterThanOrEqual(0);
+      expect(r.nextAttemptMs).toBeLessThanOrEqual(caps[i]!);
+      expect(Number.isInteger(r.nextAttemptMs)).toBe(true);
+    });
+  });
+
+  it("backoff without jitter stays deterministic", async () => {
+    const driver = createFlakyDriver(1);
+    const engine = createEngine({ drivers: [driver] });
+    const events = await collectEvents(engine, {
+      plan: makeRetryPlan({
+        max: 1,
+        backoff: { baseMs: 100, factor: 2 },
+      }),
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+    });
+    const retries = events.filter((e) => e.type === "step-retry") as Extract<
+      RunEvent,
+      { type: "step-retry" }
+    >[];
+    expect(retries[0]!.nextAttemptMs).toBe(100);
+  });
+});
+
+describe("computeBackoffDelay — jitter", () => {
+  it("jitter actually randomizes — not just within bounds", () => {
+    // Deterministic output would hit the cap every time; a full-jitter
+    // draw of 1000 samples lands below the cap with overwhelming odds.
+    const samples = Array.from({ length: 1000 }, () =>
+      computeBackoffDelay({ baseMs: 1000, jitter: true }, 1),
+    );
+    expect(samples.every((d) => d >= 0 && d <= 1000)).toBe(true);
+    expect(samples.every(Number.isInteger)).toBe(true);
+    expect(samples.some((d) => d < 1000)).toBe(true);
+  });
+
+  it("fractional cap never produces a delay above it", () => {
+    for (let i = 0; i < 100; i++) {
+      const d = computeBackoffDelay({ baseMs: 100.5, jitter: true }, 1);
+      expect(d).toBeGreaterThanOrEqual(0);
+      expect(d).toBeLessThanOrEqual(100.5);
+      expect(Number.isInteger(d)).toBe(true);
+    }
   });
 });

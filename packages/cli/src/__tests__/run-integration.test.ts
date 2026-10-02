@@ -91,6 +91,67 @@ const SARIF_CLEAN_CONFIG = sarifStdoutConfig(
 describe("run command — format and evaluate", () => {
   const getDir = useTempDir();
 
+  it("--jobs N is accepted and the run completes", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["run", "--root", dir, "--format", "text", "--jobs", "2"],
+      { output: out },
+    );
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain("run completed");
+  });
+
+  it("--jobs 0 exits 2 with a validation error", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["run", "--root", dir, "--format", "text", "--jobs", "0"],
+      { output: out },
+    );
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("jobs");
+  });
+
+  it("--jobs rejects non-integer and out-of-range values", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    for (const bad of ["2.5", "65"]) {
+      const out = new CaptureWriter();
+      const code = await main(
+        ["run", "--root", dir, "--format", "text", "--jobs", bad],
+        { output: out },
+      );
+      expect(code).toBe(2);
+      expect(out.stderrText).toContain("jobs");
+    }
+  });
+
+  it("--jobs 64 is accepted (boundary)", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["run", "--root", dir, "--format", "text", "--jobs", "64"],
+      { output: out },
+    );
+    expect(code).toBe(0);
+  });
+
+  it("-j alias maps to --jobs", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    const out = new CaptureWriter();
+    const code = await main(
+      ["run", "--root", dir, "--format", "text", "-j", "0"],
+      { output: out },
+    );
+    expect(code).toBe(2);
+    expect(out.stderrText).toContain("jobs");
+  });
+
   it("27. --format text produces vitest-style output", async () => {
     const dir = getDir();
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);

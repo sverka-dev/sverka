@@ -33,7 +33,6 @@ Wave 1 adds an optional `backoff?: BackoffSpec` for exponential backoff
 
 ## Non-goals
 
-- Retry jitter — follow-up.
 - Per-operation retry within a step — out of scope (step-level only).
 - GHA retry lowering (composite retry wrapper) — follow-up bead.
 - Retry hooks / before-after re-run semantics — out of scope.
@@ -49,6 +48,7 @@ interface BackoffSpec {
   readonly baseMs: number;
   readonly maxMs?: number; // cap per delay; default: no cap
   readonly factor?: number; // default: 2
+  readonly jitter?: boolean; // full jitter: uniform random int in [0, cap]
 }
 
 interface RetryPolicy {
@@ -86,7 +86,9 @@ Retry decision:
   (equivalent to `"always"`).
 
 Backoff delay for attempt `n` (1-indexed retry): `min(baseMs *
-factor^(n-1), maxMs ?? Infinity)`. No delay when `backoff` omitted.
+factor^(n-1), maxMs ?? Infinity)`. With `jitter: true` the delay is a
+uniform random integer in `[0, floor(cap)]` (full jitter, crypto RNG).
+No delay when `backoff` omitted.
 
 ## Error handling
 
@@ -115,11 +117,13 @@ normal `failed` outcome.
 6. `backoff: { baseMs: 100, factor: 2 }`: delays are 100ms (1st retry),
    200ms (2nd retry); `maxMs: 150` caps the 2nd at 150ms.
 7. `backoff` omitted: retries are immediate (no delay).
-8. Cancellation during backoff sleep: loop stops, outcome `cancelled`, no
+8. `jitter: true`: delays are integers within `[0, cap]` and actually
+   randomized (not always the cap); a fractional cap is never exceeded.
+9. Cancellation during backoff sleep: loop stops, outcome `cancelled`, no
    further retries.
-9. `max: 0`: no retries (single attempt); no `step-retry` events.
-10. `max: -1` rejected by validation (`INVALID_RETRY_POLICY`).
-11. Retry re-runs the **whole step**: a step with two operations where the
+10. `max: 0`: no retries (single attempt); no `step-retry` events.
+11. `max: -1` rejected by validation (`INVALID_RETRY_POLICY`).
+12. Retry re-runs the **whole step**: a step with two operations where the
     second fails — both operations re-run on retry (verify via driver call
     count).
-12. `BackoffSpec` exported from `@sverka/workflow`.
+13. `BackoffSpec` exported from `@sverka/workflow`.

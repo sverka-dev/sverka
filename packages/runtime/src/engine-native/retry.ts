@@ -2,6 +2,7 @@
 // Wraps executeStep in a retry loop that re-runs the whole step on matching
 // failures, emitting step-retry events before each retry.
 
+import { randomInt } from "node:crypto";
 import type { RetryPolicy, BackoffSpec, RetryWhen } from "@sverka/workflow";
 import type { RunEvent } from "./types.js";
 import {
@@ -23,7 +24,8 @@ export function classifyRetryWhen(result: StepExecResult): RetryWhen {
 
 /**
  * Compute the backoff delay (ms) for the nth retry (1-indexed).
- * delay = min(baseMs * factor^(n-1), maxMs ?? Infinity).
+ * Without jitter: delay = min(baseMs * factor^(n-1), maxMs ?? Infinity).
+ * With jitter: uniform random integer in [0, floor(cap)] — "full jitter".
  * Returns 0 when backoff is omitted (immediate retry).
  */
 export function computeBackoffDelay(
@@ -33,7 +35,14 @@ export function computeBackoffDelay(
   if (!backoff) return 0;
   const factor = backoff.factor ?? 2;
   const raw = backoff.baseMs * Math.pow(factor, retryNumber - 1);
-  return backoff.maxMs !== undefined ? Math.min(raw, backoff.maxMs) : raw;
+  const capped =
+    backoff.maxMs !== undefined ? Math.min(raw, backoff.maxMs) : raw;
+  // Full jitter — deterministic schedules make concurrent retries stampede
+  // the same resource; uniform random in [0, cap] spreads them out. The
+  // cap is floored first so a fractional maxMs (e.g. 100.5) never yields
+  // a delay above it.
+  if (backoff.jitter) return randomInt(0, Math.floor(capped) + 1);
+  return capped;
 }
 
 /**
