@@ -309,6 +309,105 @@ describe("Engine — cache integration", () => {
     expect(diag?.message).toContain("hashFiles");
   });
 
+  it("hashFiles: absolute and '..' patterns are refused with a warn", async () => {
+    const ws = join(testDir, "ws");
+    await mkdir(ws, { recursive: true });
+    const restoreCalls: { key: string }[] = [];
+    const cache: CacheStore = {
+      restore: async (req) => {
+        restoreCalls.push({ key: req.key });
+        // Hit — keeps the key resolved once (store never runs).
+        return { key: req.key };
+      },
+      store: async () => undefined,
+    };
+    const engine = createEngine({ drivers: [createMockDriver()], cache });
+    const events = await collectEvents(engine, {
+      plan: makeCacheablePlan({
+        paths: ["dist"],
+        key: "deps-${{ hashFiles('/etc/*', '../x', '..\\x') }}",
+      }),
+      workspace: ws,
+      artifactDir: join(testDir, "art"),
+    });
+    expect(restoreCalls[0]?.key).toBe("deps-");
+    const warns = events.filter(
+      (e) =>
+        e.type === "diagnostic" &&
+        e.severity === "warn" &&
+        (e.message ?? "").includes("escapes the workspace"),
+    );
+    expect(warns).toHaveLength(3);
+  });
+
+  it("hashFiles: match cap emits the warning once across patterns", async () => {
+    const ws = join(testDir, "ws");
+    // 300 files per dir — each pattern overflows the 256 cap on its
+    // own, so a missing capState would warn twice (pre-fix behavior).
+    for (const dir of ["a", "b"]) {
+      await mkdir(join(ws, dir), { recursive: true });
+      for (let i = 0; i < 300; i++) {
+        await writeFile(join(ws, dir, `f${i}.txt`), `${dir}${i}`);
+      }
+    }
+    const cache: CacheStore = {
+      // Hit — the key resolves once (store never runs).
+      restore: async (req) => ({ key: req.key }),
+      store: async () => undefined,
+    };
+    const engine = createEngine({ drivers: [createMockDriver()], cache });
+    const events = await collectEvents(engine, {
+      plan: makeCacheablePlan({
+        paths: ["dist"],
+        key: "deps-${{ hashFiles('a/*.txt', 'b/*.txt') }}",
+      }),
+      workspace: ws,
+      artifactDir: join(testDir, "art"),
+    });
+    const capWarns = events.filter(
+      (e) => e.type === "diagnostic" && (e.message ?? "").includes("cap"),
+    );
+    expect(capWarns).toHaveLength(1);
+  });
+
+  it("hashFiles: NUL bytes in content cannot collide two file sets", async () => {
+    // Old framing hashed path\0content\0 — a file 'a' containing
+    // "x\0b\0" collided with files 'a'="x" + 'b'="". Per-file digests
+    // must keep these sets distinct.
+    const keyFor = async (files: Record<string, string>) => {
+      const ws = join(
+        testDir,
+        `ws-${Object.keys(files).join("")}-${files["a"]!.length}`,
+      );
+      await mkdir(ws, { recursive: true });
+      for (const [name, content] of Object.entries(files)) {
+        await writeFile(join(ws, name), content);
+      }
+      const restoreCalls: { key: string }[] = [];
+      const cache: CacheStore = {
+        restore: async (req) => {
+          restoreCalls.push({ key: req.key });
+          return undefined;
+        },
+        store: async () => undefined,
+      };
+      const engine = createEngine({ drivers: [createMockDriver()], cache });
+      await collectEvents(engine, {
+        plan: makeCacheablePlan({
+          paths: ["dist"],
+          key: "deps-${{ hashFiles('*') }}",
+        }),
+        workspace: ws,
+        artifactDir: join(testDir, "art"),
+      });
+      return restoreCalls[0]?.key;
+    };
+    const keyA = await keyFor({ a: "x\0b\0" });
+    const keyB = await keyFor({ a: "x", b: "" });
+    expect(keyA).toBeDefined();
+    expect(keyA).not.toBe(keyB);
+  });
+
   it("restore throw → step runs normally (miss), a warn diagnostic emitted", async () => {
     const cache: CacheStore = {
       restore: async () => {

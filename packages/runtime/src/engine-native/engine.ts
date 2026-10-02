@@ -2,10 +2,10 @@
 // Consumes a RunPlan, schedules the Step DAG, executes via runtime drivers,
 // emits structured run events, supports cancellation.
 
-import { mkdir } from "node:fs/promises";
-import { globSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { mkdir, glob } from "node:fs/promises";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
-import { join, resolve, sep } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
 import { sortKeysDeep } from "./internal/sort-keys.js";
 import { EngineError } from "./errors.js";
 import type { RunPlan } from "@sverka/workflow";
@@ -547,12 +547,16 @@ class NativeEngine implements Engine {
     if (!isAgentStep && step.cache && ctx.cache) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "pull" || policy === "pull-push") {
-        const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
-        const restoreKeys =
-          step.cache.restoreKeys?.map((k) =>
-            this.resolveCacheKey(k, ctx, step.id),
-          ) ?? [];
         try {
+          // Key resolution is inside the try: a rejected glob or
+          // unresolvable ref must not wedge scheduling — treat it like
+          // a restore failure (warn + run the step).
+          const key = await this.resolveCacheKey(step.cache.key, ctx, step.id);
+          const restoreKeys = await Promise.all(
+            (step.cache.restoreKeys ?? []).map((k) =>
+              this.resolveCacheKey(k, ctx, step.id),
+            ),
+          );
           const hit = await ctx.cache.restore({
             key,
             restoreKeys,
@@ -615,8 +619,8 @@ class NativeEngine implements Engine {
     ) {
       const policy = step.cache.policy ?? "pull-push";
       if (policy === "push" || policy === "pull-push") {
-        const key = this.resolveCacheKey(step.cache.key, ctx, step.id);
         try {
+          const key = await this.resolveCacheKey(step.cache.key, ctx, step.id);
           await ctx.cache.store({
             key,
             paths: step.cache.paths,
@@ -1029,11 +1033,11 @@ class NativeEngine implements Engine {
    * step-output refs are disallowed in cache keys (validated at analyze time)
    * and left unresolved here. Unknown refs are replaced with an empty string.
    */
-  private resolveCacheKey(
+  private async resolveCacheKey(
     key: string,
     ctx: RunContext,
     stepId: string,
-  ): string {
+  ): Promise<string> {
     // Manual scan, not a regex — /\$\{\{(.*?)\}\}/ is quadratic on
     // adversarial input (unbalanced '${{'), flagged as polynomial ReDoS.
     let out = "";
@@ -1044,7 +1048,7 @@ class NativeEngine implements Engine {
       const end = key.indexOf("}}", start + 3);
       if (end === -1) break;
       out += key.slice(i, start);
-      out += this.resolveCacheKeyExpr(
+      out += await this.resolveCacheKeyExpr(
         key.slice(start + 3, end).trim(),
         key.slice(start, end + 2),
         ctx,
@@ -1056,12 +1060,12 @@ class NativeEngine implements Engine {
   }
 
   /** Resolve a single `${{ ... }}` expression body to its replacement. */
-  private resolveCacheKeyExpr(
+  private async resolveCacheKeyExpr(
     inner: string,
     whole: string,
     ctx: RunContext,
     stepId: string,
-  ): string {
+  ): Promise<string> {
     // hashFiles('a', 'b') — args may contain braces, so no regex.
     if (inner.startsWith("hashFiles(") && inner.endsWith(")")) {
       return this.hashFiles(inner.slice(10, -1), ctx, stepId);
@@ -1092,7 +1096,11 @@ class NativeEngine implements Engine {
    * workspace. A pattern matching nothing yields an empty segment plus a
    * warn diagnostic — a silent constant key would poison the cache.
    */
-  private hashFiles(argsSrc: string, ctx: RunContext, stepId: string): string {
+  private async hashFiles(
+    argsSrc: string,
+    ctx: RunContext,
+    stepId: string,
+  ): Promise<string> {
     const patterns = [...argsSrc.matchAll(/["']([^"']*)["']/g)].map(
       (m) => m[1] ?? "",
     );
@@ -1105,8 +1113,17 @@ class NativeEngine implements Engine {
       // per-file realpath check still applies.
     }
     const matched = new Set<string>();
+    // Carried across patterns so the cap warning emits once per key.
+    const capState = { warned: false };
     for (const pattern of patterns) {
-      this.collectHashMatches(pattern, workspace, matched, ctx, stepId);
+      await this.collectHashMatches(
+        pattern,
+        workspace,
+        matched,
+        capState,
+        ctx,
+        stepId,
+      );
     }
     if (matched.size === 0) return "";
     return this.hashMatchedFiles(
@@ -1119,15 +1136,28 @@ class NativeEngine implements Engine {
   }
 
   /** Expand one glob pattern into `matched`, bounded and diagnosed. */
-  private collectHashMatches(
+  private async collectHashMatches(
     pattern: string,
     workspace: string,
     matched: Set<string>,
+    capState: { warned: boolean },
     ctx: RunContext,
     stepId: string,
-  ): void {
-    // A pattern with '..' segments can escape the workspace — refuse.
-    if (pattern.split("/").includes("..")) {
+  ): Promise<void> {
+    // Absolute patterns ignore `cwd` in glob; drive-relative ("C:foo")
+    // resolve against the drive's cwd, not the workspace; '..' segments
+    // on either separator can escape — refuse all three.
+    const driveLetter = pattern.charCodeAt(0);
+    const startsWithDrive =
+      pattern.length >= 2 &&
+      pattern.charCodeAt(1) === 58 && // ':'
+      ((driveLetter >= 97 && driveLetter <= 122) ||
+        (driveLetter >= 65 && driveLetter <= 90));
+    if (
+      isAbsolute(pattern) ||
+      startsWithDrive ||
+      pattern.split(/[\\/]/).includes("..")
+    ) {
       ctx.emit({
         type: "diagnostic",
         stepId,
@@ -1137,20 +1167,26 @@ class NativeEngine implements Engine {
       return;
     }
     let hits = 0;
-    for (const p of globSync(pattern, { cwd: workspace })) {
-      matched.add(p);
+    // fs.promises.glob is lazy — breaking at the cap bounds both the
+    // match set and the filesystem traversal itself.
+    for await (const p of glob(pattern, { cwd: workspace })) {
       hits++;
       // Resource bound — a workflow-controlled glob must not read
-      // the whole workspace into the key.
-      if (matched.size > 256) {
-        ctx.emit({
-          type: "diagnostic",
-          stepId,
-          severity: "warn",
-          message: `hashFiles: match cap (256) reached — remaining files ignored`,
-        });
+      // the whole workspace into the key. Checked before insertion so
+      // `matched` never exceeds the cap; warned once per key.
+      if (matched.size >= 256) {
+        if (!capState.warned) {
+          capState.warned = true;
+          ctx.emit({
+            type: "diagnostic",
+            stepId,
+            severity: "warn",
+            message: `hashFiles: match cap (256) reached — remaining files ignored`,
+          });
+        }
         break;
       }
+      matched.add(p);
     }
     if (hits === 0) {
       ctx.emit({
@@ -1184,10 +1220,13 @@ class NativeEngine implements Engine {
         const real = realpathSync(abs);
         if (real !== workspaceReal && !real.startsWith(workspaceReal + sep))
           continue;
+        // Per-file digest framing — raw `path\0content\0` is ambiguous
+        // when file content itself contains NUL bytes (two different
+        // file sets could serialize to the same key input).
         const content = readFileSync(real);
         hash.update(p);
         hash.update("\0");
-        hash.update(content);
+        hash.update(createHash("sha256").update(content).digest());
         hash.update("\0");
       } catch {
         // File vanished or is unreadable between glob and read — skip it

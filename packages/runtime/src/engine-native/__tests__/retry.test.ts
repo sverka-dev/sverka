@@ -453,4 +453,26 @@ describe("computeBackoffDelay — jitter", () => {
       expect(Number.isInteger(d)).toBe(true);
     }
   });
+
+  it("huge baseMs is clamped to the timer-safe maximum", () => {
+    // randomInt throws past 2**48 and setTimeout fires immediately past
+    // 2**31-1 — the delay is clamped to the tighter bound.
+    const d = computeBackoffDelay({ baseMs: 2 ** 48, jitter: true }, 1);
+    expect(Number.isInteger(d)).toBe(true);
+    expect(d).toBeGreaterThanOrEqual(0);
+    expect(d).toBeLessThanOrEqual(2 ** 31 - 1);
+  });
+
+  it("negative or NaN cap still retries instead of throwing", () => {
+    // A negative factor flips the computed delay negative on even
+    // retries; NaN baseMs propagates through Math.min. Both floor to 0.
+    for (const backoff of [
+      { baseMs: 100, factor: -2, jitter: true },
+      { baseMs: Number.NaN, jitter: true },
+      { baseMs: 100, maxMs: -5, jitter: true },
+    ]) {
+      const d = computeBackoffDelay(backoff, 2);
+      expect(d).toBe(0);
+    }
+  });
 });
