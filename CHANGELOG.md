@@ -1,3 +1,14 @@
+## 0.1.30 (2026-10-02)
+
+### 🩹 Fixes
+
+- **website:** benchmark pages work on static hosting ([#284](https://github.com/sverka-dev/sverka/pull/284))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.29 (2026-10-02)
 
 ### 🩹 Fixes
