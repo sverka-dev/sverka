@@ -522,6 +522,9 @@ describe("HtmlRenderer", () => {
     expect(html).toContain("navigator.clipboard.writeText");
     // the findings button applies the step filter, not just scrolls
     expect(html).toContain("applyStepFilter(drawerStep.id)");
+    // the fixture's truncation marker lands in the embedded payload the
+    // drawer JS scans — detection input is verified present
+    expect(html).toContain("[... truncated 4200 bytes]");
   });
 
   it("dag — zoom and pan viewport with padded viewBox and controls", () => {

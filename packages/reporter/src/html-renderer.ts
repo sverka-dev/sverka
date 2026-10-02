@@ -546,9 +546,9 @@ function renderDrawer(): string {
     </div>
     <div id="drawer-meta" class="drawer-meta"></div>
     <div class="drawer-tabs" id="drawer-tabs" role="tablist" hidden>
-      <button type="button" class="drawer-tab" data-tab="overview" role="tab">overview</button>
-      <button type="button" class="drawer-tab" data-tab="stdout" role="tab">stdout</button>
-      <button type="button" class="drawer-tab" data-tab="stderr" role="tab">stderr</button>
+      <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
+      <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log">stdout</button>
+      <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log">stderr</button>
       <input id="drawer-search" type="search" placeholder="Search log…" aria-label="Search log">
       <span id="drawer-search-count" class="drawer-search-count"></span>
     </div>
@@ -558,8 +558,8 @@ function renderDrawer(): string {
       <button type="button" id="drawer-download" class="drawer-btn">Download</button>
     </div>
     <div id="drawer-truncated" class="drawer-truncated" hidden></div>
-    <div id="drawer-body"></div>
-    <pre id="drawer-log" class="step-out" hidden></pre>
+    <div id="drawer-body" role="tabpanel" aria-label="overview"></div>
+    <pre id="drawer-log" class="step-out" role="tabpanel" aria-label="log" hidden></pre>
   </aside>`;
 }
 
@@ -961,6 +961,9 @@ main.split:has(.step-drawer.open) {
 .drawer-tab:hover { color: #f0f6fc; }
 .drawer-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
 .drawer-tab:disabled { color: #484f58; cursor: default; }
+/* Author display rules beat the UA [hidden] rule — restore it. */
+.drawer-tabs[hidden] { display: none; }
+#drawer-log[hidden] { display: none; }
 #drawer-search {
   margin-left: auto;
   background: #0d1117;
@@ -1530,6 +1533,8 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       return;
     }
     var split = splitTruncated(drawerStep[drawerTab] || "");
+    // stderr keeps the red styling the stacked blocks had.
+    pre.className = "step-out" + (drawerTab === "stderr" ? " err" : "");
     if (banner) {
       banner.hidden = !split.truncated;
       if (split.truncated)
@@ -1670,6 +1675,26 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       selectTab(b.getAttribute("data-tab"));
     });
   });
+  var drawerTabs = document.getElementById("drawer-tabs");
+  if (drawerTabs) {
+    // Left/Right move across the enabled tabs — standard tablist keys.
+    drawerTabs.addEventListener("keydown", function(e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (!e.target.classList || !e.target.classList.contains("drawer-tab"))
+        return;
+      e.preventDefault();
+      var tabs = [];
+      drawerTabs
+        .querySelectorAll(".drawer-tab")
+        .forEach(function(t) { if (!t.disabled) tabs.push(t); });
+      var cur = tabs.indexOf(e.target);
+      if (cur === -1) return;
+      var next =
+        tabs[(cur + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus();
+      selectTab(next.getAttribute("data-tab"));
+    });
+  }
   var drawerSearch = document.getElementById("drawer-search");
   if (drawerSearch) {
     drawerSearch.addEventListener("input", renderLogPane);
@@ -1704,10 +1729,17 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       var text =
         drawerTab === "overview" ? (drawerStep && drawerStep.error) || "" : activeLogText();
       if (!text || !navigator.clipboard) return;
-      navigator.clipboard.writeText(text).then(function() {
-        drawerCopy.textContent = "copied!";
-        setTimeout(function() { drawerCopy.textContent = "Copy log"; }, 1200);
-      });
+      navigator.clipboard
+        .writeText(text)
+        .then(function() {
+          drawerCopy.textContent = "copied!";
+        })
+        .catch(function() {
+          drawerCopy.textContent = "copy failed";
+        })
+        .finally(function() {
+          setTimeout(function() { drawerCopy.textContent = "Copy log"; }, 1200);
+        });
     });
   }
   var drawerDownload = document.getElementById("drawer-download");
