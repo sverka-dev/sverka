@@ -199,6 +199,24 @@ describe("DevinAdapter", () => {
     proc.kill();
   });
 
+  it("honors an explicit config.env.HOME override", () => {
+    const mock = mockChild();
+    vi.mocked(spawnMock).mockReturnValue(mock.child as never);
+
+    const proc = new DevinAdapter().spawn({
+      model,
+      workspace: "/tmp/ws",
+      plugins: [],
+      env: { HOME: "/custom/agent-home" },
+    });
+    const opts = vi.mocked(spawnMock).mock.calls.at(-1)?.[2] as {
+      env: Record<string, string>;
+    };
+
+    expect(opts.env["HOME"]).toBe("/custom/agent-home");
+    proc.kill();
+  });
+
   it("kill removes the isolated env home", async () => {
     const mock = mockChild();
     vi.mocked(spawnMock).mockReturnValue(mock.child as never);

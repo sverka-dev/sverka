@@ -251,14 +251,23 @@ export function readSessionTranscript(
  * Load a transcript for the session — session DB first (that's where
  * `devin acp` actually writes), then the transcript file as a fallback.
  * The DB write can lag `session/prompt` completion, so retry once.
+ *
+ * The session DB lives at `~/.local/share/devin/cli/` — it does NOT
+ * follow XDG_DATA_HOME — so it lands under the child's resolved HOME
+ * (`childHome`, which already accounts for any caller override). The
+ * host-home path stays a last-resort fallback.
  */
 async function loadTranscript(
   sessionId: string,
-  dir?: string,
+  childHome: string,
 ): Promise<Transcript | undefined> {
+  const childDataDir = join(childHome, ".local", "share", "devin", "cli");
   const tryDb = (): Transcript | undefined => {
     try {
-      return readSessionTranscript(sessionId);
+      return (
+        readSessionTranscript(sessionId, join(childDataDir, "sessions.db")) ??
+        readSessionTranscript(sessionId)
+      );
     } catch {
       return undefined;
     }
@@ -270,7 +279,7 @@ async function loadTranscript(
     ));
   if (fromDb) return fromDb;
   try {
-    return await readTranscript(sessionId, dir);
+    return await readTranscript(sessionId, join(childDataDir, "transcripts"));
   } catch {
     return undefined;
   }
@@ -446,8 +455,14 @@ async function writeForbidManifest(workspace: string): Promise<void> {
  *   writing session state into the user's real Devin data dir.
  *
  * Returns the env-home path — the caller must delete it after the run.
+ *
+ * An explicit `config.env.HOME` override wins over the redirect (the
+ * caller then owns whatever leaks from that home).
  */
-function isolateAgentEnv(env: Record<string, string>): string {
+function isolateAgentEnv(
+  env: Record<string, string>,
+  overrides?: Record<string, string>,
+): string {
   const envHome = mkdtempSync(join(tmpdir(), "arena-env-"));
   try {
     const configDir = join(envHome, "config");
@@ -464,7 +479,7 @@ function isolateAgentEnv(env: Record<string, string>): string {
       cpSync(creds, join(dataDir, "devin", "credentials.toml"));
     }
 
-    env.HOME = homeDir;
+    if (overrides?.["HOME"] === undefined) env.HOME = homeDir;
     env.XDG_CONFIG_HOME = configDir;
     env.XDG_DATA_HOME = dataDir;
     return envHome;
@@ -491,7 +506,7 @@ export class DevinAdapter implements AgentAdapter {
   readonly id = "devin";
 
   spawn(config: AgentSpawnConfig): AgentProcess {
-    const { proc, envHome } = spawnDevin(config);
+    const { proc, envHome, childHome } = spawnDevin(config);
     let killed = false;
     let cleaned = false;
     const cleanup = (): void => {
@@ -528,7 +543,7 @@ export class DevinAdapter implements AgentAdapter {
             config,
             prompt,
             timeoutMs,
-            envHome,
+            childHome,
           );
         } finally {
           terminate();
@@ -563,9 +578,10 @@ function resolveDevinBinary(): string {
 function spawnDevin(config: AgentSpawnConfig): {
   proc: ChildProcess;
   envHome: string;
+  childHome: string;
 } {
   const env = sanitizeEnv(config);
-  const envHome = isolateAgentEnv(env);
+  const envHome = isolateAgentEnv(env, config.env);
   const devinBin = resolveDevinBinary();
   try {
     const proc = spawn(devinBin, ["acp", "--model", config.model.id], {
@@ -573,7 +589,10 @@ function spawnDevin(config: AgentSpawnConfig): {
       stdio: ["pipe", "pipe", "inherit"],
       env,
     });
-    return { proc, envHome };
+    // The session DB lives under the child's resolved HOME (it does NOT
+    // follow XDG_DATA_HOME) — keep it for transcript loading.
+    const childHome = env["HOME"] ?? envHome;
+    return { proc, envHome, childHome };
   } catch (error) {
     rm(envHome, { recursive: true, force: true }).catch(() => {});
     throw error;
@@ -677,7 +696,7 @@ async function runDevinSession(
   config: AgentSpawnConfig,
   prompt: string,
   timeoutMs: number,
-  envHome: string,
+  childHome: string,
 ): Promise<RunResult> {
   const startTime = Date.now();
   const model = config.model;
@@ -703,7 +722,7 @@ async function runDevinSession(
       model,
       collector.collectedToolCalls,
       collector.observationsByCallId,
-      join(envHome, "data", "devin", "cli", "transcripts"),
+      childHome,
     );
     const llmCallCount = trace.steps.filter((s) => s.isLlmCall).length;
     const metrics = buildMetrics(
@@ -746,11 +765,11 @@ async function buildTraceFromTranscript(
   sessionId: string,
   collectedToolCalls: ToolCall[],
   observationsByCallId: Map<string, Observation>,
-  dir?: string,
+  childHome: string,
 ): Promise<TraceData | undefined> {
   if (!sessionId) return undefined;
   try {
-    const transcript = await loadTranscript(sessionId, dir);
+    const transcript = await loadTranscript(sessionId, childHome);
     if (!transcript) return undefined;
     const steps = transcript.steps.map(buildTraceStep);
     attachToolCallsToSteps(steps, collectedToolCalls, observationsByCallId);
@@ -853,14 +872,14 @@ async function buildTrace(
   model: ModelConfig,
   collectedToolCalls: ToolCall[],
   observationsByCallId: Map<string, Observation>,
-  dir?: string,
+  childHome: string,
 ): Promise<TraceData> {
   return (
     (await buildTraceFromTranscript(
       sessionId,
       collectedToolCalls,
       observationsByCallId,
-      dir,
+      childHome,
     )) ??
     buildTraceFallback(
       sessionId,
