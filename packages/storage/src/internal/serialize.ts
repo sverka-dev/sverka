@@ -117,20 +117,18 @@ function validatePlanField(obj: Record<string, unknown>): void {
   validatePlanSteps(p["steps"]);
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 function validatePlanEntry(entry: unknown): void {
-  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+  if (!isRecord(entry)) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
       "plan.entry is missing or not an object",
     );
   }
-  const e = entry as Record<string, unknown>;
-  if (
-    typeof e["id"] !== "string" ||
-    typeof e["trigger"] !== "object" ||
-    e["trigger"] === null ||
-    Array.isArray(e["trigger"])
-  ) {
+  if (typeof entry["id"] !== "string" || !isRecord(entry["trigger"])) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
       "plan.entry lacks a string id or a trigger object",
@@ -139,15 +137,13 @@ function validatePlanEntry(entry: unknown): void {
 }
 
 function validatePlanInputs(inputs: unknown): void {
-  if (typeof inputs !== "object" || inputs === null || Array.isArray(inputs)) {
+  if (!isRecord(inputs)) {
     throw new StorageError(
       "CORRUPT_SNAPSHOT",
       "plan.inputs is missing or not an object",
     );
   }
-  for (const [key, value] of Object.entries(
-    inputs as Record<string, unknown>,
-  )) {
+  for (const [key, value] of Object.entries(inputs)) {
     if (!isInputValue(value)) {
       throw new StorageError(
         "CORRUPT_SNAPSHOT",
@@ -157,6 +153,30 @@ function validatePlanInputs(inputs: unknown): void {
   }
 }
 
+function validatePlanStep(s: unknown, i: number): void {
+  if (!isRecord(s) || typeof s["id"] !== "string") {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      `plan.steps[${i}] is missing or lacks a string id`,
+    );
+  }
+  if (!isRecord(s["runtime"]) || !hasStepArrays(s)) {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      `plan.steps[${i}] lacks runtime/operations/inputs/outputs/dependencies`,
+    );
+  }
+}
+
+function hasStepArrays(s: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(s["operations"]) &&
+    Array.isArray(s["inputs"]) &&
+    Array.isArray(s["outputs"]) &&
+    Array.isArray(s["dependencies"])
+  );
+}
+
 function validatePlanSteps(steps: unknown): void {
   if (!Array.isArray(steps)) {
     throw new StorageError(
@@ -164,29 +184,7 @@ function validatePlanSteps(steps: unknown): void {
       "plan.steps is missing or not an array",
     );
   }
-  for (let i = 0; i < steps.length; i++) {
-    const s = steps[i] as Record<string, unknown> | null;
-    if (typeof s !== "object" || s === null || typeof s["id"] !== "string") {
-      throw new StorageError(
-        "CORRUPT_SNAPSHOT",
-        `plan.steps[${i}] is missing or lacks a string id`,
-      );
-    }
-    if (
-      typeof s["runtime"] !== "object" ||
-      s["runtime"] === null ||
-      Array.isArray(s["runtime"]) ||
-      !Array.isArray(s["operations"]) ||
-      !Array.isArray(s["inputs"]) ||
-      !Array.isArray(s["outputs"]) ||
-      !Array.isArray(s["dependencies"])
-    ) {
-      throw new StorageError(
-        "CORRUPT_SNAPSHOT",
-        `plan.steps[${i}] lacks runtime/operations/inputs/outputs/dependencies`,
-      );
-    }
-  }
+  steps.forEach(validatePlanStep);
 }
 
 function validateCompletedSteps(obj: Record<string, unknown>): void {
