@@ -1,3 +1,18 @@
+## 0.1.35 (2026-10-03)
+
+### 🚀 Features
+
+- **arena:** opt-in unshareNet network isolation for checks ([#291](https://github.com/sverka-dev/sverka/pull/291))
+
+### 🩹 Fixes
+
+- **website:** scrub host paths and ANSI-split leaks from benchmark artifacts ([#290](https://github.com/sverka-dev/sverka/pull/290))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.34 (2026-10-03)
 
 ### 🚀 Features
