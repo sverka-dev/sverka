@@ -76,6 +76,11 @@ export interface ArenaConfig {
   outputDir: string;
   /** Judge configuration for blind evaluation (optional) */
   judge?: JudgeConfig;
+  /** Opt-in: run checks inside a network namespace too (--unshare-net).
+   * Default keeps host network so checks can install packages; set to
+   * fully isolate checks that must not reach the network. Only has an
+   * effect where the bwrap sandbox is available. */
+  unshareNet?: boolean;
 }
 
 /** Judge configuration — blind LLM evaluation of run outputs */

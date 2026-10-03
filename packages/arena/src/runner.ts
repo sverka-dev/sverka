@@ -136,6 +136,7 @@ async function runMatrix(
             combo,
             rep,
             config.workspace,
+            config.unshareNet,
           );
           results.push(result);
           process.stderr.write(
@@ -184,6 +185,7 @@ async function runCell(
   combo: PluginConfig[],
   rep: number,
   workspaceBase?: string,
+  unshareNet = false,
 ): Promise<RunResult> {
   const tempWorkspace = await createTempWorkspace(
     task,
@@ -193,7 +195,14 @@ async function runCell(
     workspaceBase,
   );
   await installPlugins(tempWorkspace, combo);
-  const result = await executeRun(agent, task, model, combo, tempWorkspace);
+  const result = await executeRun(
+    agent,
+    task,
+    model,
+    combo,
+    tempWorkspace,
+    unshareNet,
+  );
   await rm(tempWorkspace, { recursive: true, force: true });
   return result;
 }
@@ -242,6 +251,7 @@ async function executeRun(
   model: ArenaConfig["models"][number],
   combo: PluginConfig[],
   tempWorkspace: string,
+  unshareNet = false,
 ): Promise<RunResult> {
   const setupError = await runSetup(tempWorkspace, task.setup);
   if (setupError) return errorResult(task, model, combo, setupError);
@@ -257,7 +267,11 @@ async function executeRun(
     if (!result.verdicts) result.verdicts = [];
     if (!result.checkResults) result.checkResults = [];
     if (task.checks && task.checks.length > 0) {
-      result.checkResults = await runChecks(tempWorkspace, task.checks);
+      result.checkResults = await runChecks(
+        tempWorkspace,
+        task.checks,
+        unshareNet,
+      );
       result.success =
         result.success && result.checkResults.every((c) => c.passed);
     }
@@ -475,28 +489,35 @@ function sandboxHomeBinds(hostHome: string, roDirs: string[]): string[] {
   return argv;
 }
 
-let bwrapDetected: boolean | undefined;
-function hasBwrap(): boolean {
+const bwrapDetected = new Map<boolean, boolean>();
+function hasBwrap(unshareNet = false): boolean {
   // Probe a real namespace launch — `bwrap --version` says nothing about
   // whether unprivileged user namespaces are enabled on this kernel. Run
-  // the full argv (tmpfs + ro/rw binds) against throwaway dirs so a
-  // mount-type failure surfaces here, not on the first check.
-  if (bwrapDetected !== undefined) return bwrapDetected;
-  if (process.platform !== "linux") return (bwrapDetected = false);
+  // the full argv (tmpfs + ro/rw binds, plus --unshare-net when the config
+  // asks for it) against throwaway dirs so a mount/namespace-type failure
+  // surfaces here, not on the first check.
+  const cached = bwrapDetected.get(unshareNet);
+  if (cached !== undefined) return cached;
+  if (process.platform !== "linux") {
+    bwrapDetected.set(unshareNet, false);
+    return false;
+  }
   const probeWs = mkdtempSync(join(tmpdir(), "arena-probe-"));
   const probeHome = mkdtempSync(join(tmpdir(), "arena-probe-home-"));
+  let detected: boolean;
   try {
-    bwrapDetected =
+    detected =
       spawnSync(
         "bwrap", // NOSONAR — host PATH is trusted runner config
-        [...buildSandboxArgv(probeWs, probeHome), "true"],
+        [...buildSandboxArgv(probeWs, probeHome, unshareNet), "true"],
         { stdio: "ignore" },
       ).status === 0;
   } finally {
     rmSync(probeWs, { recursive: true, force: true });
     rmSync(probeHome, { recursive: true, force: true });
   }
-  return bwrapDetected;
+  bwrapDetected.set(unshareNet, detected);
+  return detected;
 }
 
 /**
@@ -508,6 +529,7 @@ function hasBwrap(): boolean {
 export function buildSandboxArgv(
   workspace: string,
   checkHome: string,
+  unshareNet = false,
 ): string[] {
   const argv = [
     "--die-with-parent",
@@ -517,6 +539,10 @@ export function buildSandboxArgv(
     "--gid",
     "0",
     "--unshare-pid",
+    // Opt-in: a fresh network namespace has no interfaces but loopback —
+    // checks that must not reach the network get full isolation. Off by
+    // default because checks legitimately install packages.
+    ...(unshareNet ? ["--unshare-net"] : []),
     "--new-session",
     "--dev",
     "/dev",
@@ -551,6 +577,7 @@ function execShell(
   command: string,
   env?: Record<string, string>,
   checkHome?: string,
+  unshareNet = false,
 ): Promise<{ output: string; exitCode: number }> {
   const opts: SpawnOptions = {
     cwd: workspace,
@@ -564,7 +591,10 @@ function execShell(
       const proc = sandboxed
         ? spawn(
             "bwrap", // NOSONAR — host PATH is trusted runner config
-            [...buildSandboxArgv(workspace, checkHome ?? ""), command],
+            [
+              ...buildSandboxArgv(workspace, checkHome ?? "", unshareNet),
+              command,
+            ],
             opts,
           )
         : spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
@@ -584,7 +614,7 @@ function execShell(
       });
       proc.on("error", reject);
     });
-  if (checkHome === undefined || !hasBwrap()) return run(false);
+  if (checkHome === undefined || !hasBwrap(unshareNet)) return run(false);
   // No retry on sandboxed failure: the check output is child-controlled,
   // so a nonzero result can never prove the sandbox itself failed —
   // treating any marker as "retry outside" would hand agent-authored
@@ -604,11 +634,20 @@ function execShell(
 async function runChecks(
   workspace: string,
   checks: Task["checks"],
+  unshareNet = false,
 ): Promise<CheckResult[]> {
   if (!checks) return [];
   const checkHome = mkdtempSync(join(tmpdir(), "arena-check-home-"));
   const env = buildCheckEnv(process.env, checkHome);
-  if (hasBwrap()) {
+  if (unshareNet && !hasBwrap(true)) {
+    // Requested network isolation is unavailable on this host — say so
+    // loudly instead of silently running checks with host network.
+    process.stderr.write(
+      "[arena] warning: unshareNet requested but the bwrap sandbox is " +
+        "unavailable — checks run with host network\n",
+    );
+  }
+  if (hasBwrap(unshareNet)) {
     // Host cache paths aren't bound inside the sandbox — point them at
     // writable dirs under the fresh check HOME instead.
     env["BUN_INSTALL_CACHE_DIR"] = join(checkHome, ".bun", "install", "cache");
@@ -623,6 +662,7 @@ async function runChecks(
           check.command,
           env,
           checkHome,
+          unshareNet,
         );
         results.push({
           checkId: check.id,
