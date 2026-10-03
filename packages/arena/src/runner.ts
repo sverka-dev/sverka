@@ -8,7 +8,7 @@
  */
 
 import { writeFile, mkdir, cp, rm, realpath } from "node:fs/promises";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, realpathSync } from "node:fs";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, spawnSync, type SpawnOptions } from "node:child_process";
@@ -374,15 +374,16 @@ export function buildCheckEnv(
  * node, bash, git) plus /etc. Host $HOME is deliberately absent: that is
  * what makes credentials unreachable by absolute path, not just by env.
  */
-const SANDBOX_RO_DIRS = [
-  "/usr",
-  "/bin",
-  "/sbin",
-  "/lib",
-  "/lib64",
-  "/etc",
-  "/opt",
-  "/home/linuxbrew",
+const SANDBOX_RO_DIRS = ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc"];
+
+/**
+ * Toolchain prefixes outside the system dirs bound read-only — never a
+ * wholesale parent like /opt or /home/linuxbrew, which would expose
+ * arbitrary host files.
+ */
+const SANDBOX_RO_TOOL_DIRS = [
+  "/opt/hostedtoolcache",
+  "/home/linuxbrew/.linuxbrew",
 ];
 
 /**
@@ -397,13 +398,51 @@ const SANDBOX_HOME_TOOL_DIRS = [
   ".local/share/mise",
   ".local/share/pnpm",
   ".local/share/pipx",
+  ".local/share/uv",
   ".cargo/bin",
   ".rustup",
   ".nvm",
   ".volta",
   ".asdf",
   ".deno",
+  ".pyenv",
+  ".poetry",
+  ".rbenv",
+  ".sdkman",
 ];
+
+/**
+ * Read-only bind args shared by the availability probe and the real
+ * sandbox — both must mount the same view or the probe lies. A dir that
+ * is inside, or equal to, the host HOME is never bound wholesale;
+ * toolchain subtrees under HOME are re-exposed explicitly by
+ * SANDBOX_HOME_TOOL_DIRS.
+ */
+function sandboxRoBinds(hostHome: string | undefined): string[] {
+  const argv: string[] = [];
+  for (const dir of [...SANDBOX_RO_DIRS, ...SANDBOX_RO_TOOL_DIRS]) {
+    if (hostHome && (dir === hostHome || dir.startsWith(hostHome + sep)))
+      continue;
+    if (existsSync(dir)) argv.push("--ro-bind", dir, dir);
+  }
+  // /etc/resolv.conf is often a symlink (/run/systemd/resolve/* on
+  // systemd-resolved, /mnt/wsl/resolv.conf on WSL) whose target lives
+  // outside the /etc bind — bind the resolved target alone so sandboxed
+  // checks keep DNS without exposing the whole parent dir. A target
+  // inside host HOME is skipped like any other HOME path.
+  try {
+    const resolv = realpathSync("/etc/resolv.conf");
+    const insideHome =
+      hostHome !== undefined &&
+      (resolv === hostHome || resolv.startsWith(hostHome + sep));
+    if (!insideHome && resolv !== "/etc/resolv.conf") {
+      argv.push("--ro-bind", resolv, resolv);
+    }
+  } catch {
+    // No usable resolv.conf target — DNS is absent inside, like /run.
+  }
+  return argv;
+}
 
 let bwrapDetected: boolean | undefined;
 function hasBwrap(): boolean {
@@ -425,11 +464,7 @@ function hasBwrap(): boolean {
         "/dev",
         "--proc",
         "/proc",
-        ...SANDBOX_RO_DIRS.filter(existsSync).flatMap((d) => [
-          "--ro-bind",
-          d,
-          d,
-        ]),
+        ...sandboxRoBinds(process.env["HOME"]),
         "--",
         "bash",
         "-c",
@@ -466,15 +501,14 @@ export function buildSandboxArgv(
     "--tmpfs",
     "/tmp",
   ];
-  for (const dir of SANDBOX_RO_DIRS) {
-    if (existsSync(dir)) argv.push("--ro-bind", dir, dir);
-  }
   const hostHome = process.env["HOME"];
+  const roDirs = [...SANDBOX_RO_DIRS, ...SANDBOX_RO_TOOL_DIRS];
+  argv.push(...sandboxRoBinds(hostHome));
   if (hostHome) {
     // If HOME sits inside a read-only bound dir (e.g. /opt/runner), mask
     // it so the bind can't leak credentials, then re-expose only the
     // known toolchain subdirs.
-    if (SANDBOX_RO_DIRS.some((d) => hostHome.startsWith(d + sep))) {
+    if (roDirs.some((d) => hostHome.startsWith(d + sep))) {
       argv.push("--tmpfs", hostHome);
     }
     for (const sub of SANDBOX_HOME_TOOL_DIRS) {
