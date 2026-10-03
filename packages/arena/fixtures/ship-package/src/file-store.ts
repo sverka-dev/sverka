@@ -1,8 +1,16 @@
 // FileSnapshotStore — JSON file per run at <root>/.sverka/runs/<runId>/snapshot.json.
 // Spec 31 — File layout.
 
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  rename,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
+import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import process from "node:process";
 import type { RunSnapshot, SnapshotStore } from "@sverka/runtime";
@@ -40,7 +48,7 @@ function validateRunId(runId: string): void {
 export function createFileSnapshotStore(
   config?: FileSnapshotStoreConfig,
 ): SnapshotStore {
-  const root = config?.root;
+  const root = config?.root ?? process.cwd();
 
   return {
     async save(snapshot: RunSnapshot): Promise<void> {
@@ -52,9 +60,51 @@ export function createFileSnapshotStore(
         `.snapshot.${randomBytes(6).toString("hex")}.tmp`,
       );
       await wrapIO(`save snapshot ${snapshot.runId}`, async () => {
-        await mkdir(dir, { recursive: true });
-        await writeFile(tmpPath, serialize(snapshot), "utf8");
-        await rename(tmpPath, finalPath);
+        // Reject symlinked store dirs before mkdir/chmod — a symlink planted
+        // at .sverka or runs would redirect writes outside root, and chmod
+        // would tighten the unrelated target directory.
+        const candidates = await Promise.all(
+          [join(root, ".sverka"), join(root, ".sverka", "runs")].map(
+            async (p) => {
+              try {
+                return (await lstat(p)).isSymbolicLink() ? p : null;
+              } catch (err) {
+                if (isENOENT(err)) return null;
+                throw err;
+              }
+            },
+          ),
+        );
+        const symlinked = candidates.find((p) => p !== null);
+        if (symlinked) {
+          throw new StorageError(
+            "STORE_IO_FAILED",
+            `store directory is a symlink: ${symlinked}`,
+          );
+        }
+        await mkdir(dir, { recursive: true, mode: 0o700 });
+        // mode only applies at creation — chmod an existing dir too, but
+        // never follow a planted symlink: chmod(dir) would otherwise
+        // tighten an unrelated target directory.
+        if ((await lstat(dir)).isSymbolicLink()) {
+          throw new StorageError(
+            "STORE_IO_FAILED",
+            `run directory is a symlink: ${dir}`,
+          );
+        }
+        await chmod(dir, 0o700);
+        try {
+          await writeFile(tmpPath, serialize(snapshot), {
+            encoding: "utf8",
+            mode: 0o600,
+          });
+          await rename(tmpPath, finalPath);
+        } catch (e) {
+          // Don't leave tmp files behind — repeated failures would
+          // accumulate under .sverka/runs.
+          await unlink(tmpPath).catch(() => {});
+          throw e;
+        }
       });
     },
 

@@ -37,7 +37,37 @@ describe("@sverka/storage public API", () => {
     expect(StorageError).toBeDefined();
   });
 
-  // Item 17: no any in implementation — verified by typecheck (no any assertions here)
+  // Item 17: no any in implementation — enforced by scanning sources.
+  it("implementation sources contain no `any`", async () => {
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join, dirname } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const srcDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const files: string[] = [];
+    const walk = (d: string): void => {
+      for (const entry of readdirSync(d)) {
+        const p = join(d, entry);
+        if (statSync(p).isDirectory()) {
+          if (entry !== "__tests__") walk(p);
+        } else if (entry.endsWith(".ts")) {
+          files.push(p);
+        }
+      }
+    };
+    walk(srcDir);
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      // Strip strings and comments in one pass — a lone "any" inside a
+      // literal or comment is fine; any remaining word-boundary `any`
+      // (annotations, aliases, unions, casts) is the forbidden type.
+      const code = readFileSync(file, "utf8").replace(
+        /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
+        "",
+      );
+      expect(code).not.toMatch(/\bany\b/);
+    }
+  });
+
   it("StorageError is constructable with both codes", () => {
     const e1 = new StorageError("STORE_IO_FAILED", "io");
     expect(e1.code).toBe("STORE_IO_FAILED");

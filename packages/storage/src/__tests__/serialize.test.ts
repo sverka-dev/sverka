@@ -76,7 +76,9 @@ describe("serialize / deserialize", () => {
   it("deserialize throws CORRUPT_SNAPSHOT when status !== suspended", () => {
     const snap = makeSnapshot();
     const text = serialize(snap).replace('"suspended"', '"success"');
-    expect(() => deserialize(text, "run-1")).toThrow(StorageError);
+    expect(() => deserialize(text, "run-1")).toThrowError(
+      expect.objectContaining({ code: "CORRUPT_SNAPSHOT" }),
+    );
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when runId does not match requested runId", () => {
@@ -112,6 +114,48 @@ describe("serialize / deserialize", () => {
     expectCorruptSnapshot((obj) => {
       obj.resumeSchema = "bad";
     });
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when resumeSchema is an array", () => {
+    expectCorruptSnapshot((obj) => {
+      obj.resumeSchema = ["required"];
+    });
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when plan is an empty object", () => {
+    expectCorruptSnapshot((obj) => {
+      obj.plan = {};
+    });
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when plan.apiVersion is wrong", () => {
+    expectCorruptSnapshot((obj) => {
+      (obj.plan as Record<string, unknown>).apiVersion = "v0";
+    });
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when plan.steps is missing", () => {
+    expectCorruptSnapshot((obj) => {
+      delete (obj.plan as Record<string, unknown>).steps;
+    });
+  });
+
+  it("deserialize throws CORRUPT_SNAPSHOT when an output value is an object", () => {
+    expectCorruptSnapshot((obj) => {
+      (obj.completedSteps as Record<string, unknown>[])[0]!.outputs = {
+        value: {},
+      };
+    });
+  });
+
+  it("deserialize accepts string-array output values", () => {
+    const snap = makeSnapshot();
+    const parsed: unknown = JSON.parse(serialize(snap));
+    const obj = parsed as Record<string, unknown>;
+    (obj.completedSteps as Record<string, unknown>[])[0]!.outputs = {
+      files: ["a.ts", "b.ts"],
+    };
+    expect(() => deserialize(JSON.stringify(obj), "run-1")).not.toThrow();
   });
 
   it("deserialize throws CORRUPT_SNAPSHOT when resumeSchema.required is not string array", () => {
