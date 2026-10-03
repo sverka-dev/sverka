@@ -452,6 +452,29 @@ function resolvConfTarget(hostHome: string | undefined): string | undefined {
   }
 }
 
+/**
+ * Args masking the host HOME inside the sandbox and re-exposing only the
+ * allowlisted toolchain subdirs. HOME may be a symlink into a bound dir
+ * — a textual containment check would miss that /usr/runner is readable
+ * through /usr — so containment is tested on the resolved path while
+ * tool dirs bind back at the textual HOME so PATH entries keep working.
+ */
+function sandboxHomeBinds(hostHome: string, roDirs: string[]): string[] {
+  const resolvedHome = existsSync(hostHome) ? realpathSync(hostHome) : hostHome;
+  const underBoundDir = (p: string) =>
+    roDirs.some((d) => p.startsWith(d + sep));
+  const argv: string[] = [];
+  if (underBoundDir(resolvedHome)) argv.push("--tmpfs", resolvedHome);
+  if (hostHome !== resolvedHome && underBoundDir(hostHome)) {
+    argv.push("--tmpfs", hostHome);
+  }
+  for (const sub of SANDBOX_HOME_TOOL_DIRS) {
+    const src = join(resolvedHome, sub);
+    if (existsSync(src)) argv.push("--ro-bind", src, join(hostHome, sub));
+  }
+  return argv;
+}
+
 let bwrapDetected: boolean | undefined;
 function hasBwrap(): boolean {
   // Probe a real namespace launch — `bwrap --version` says nothing about
@@ -505,25 +528,7 @@ export function buildSandboxArgv(
   const hostHome = process.env["HOME"];
   const roDirs = [...SANDBOX_RO_DIRS, ...SANDBOX_RO_TOOL_DIRS];
   argv.push(...sandboxRoBinds(hostHome));
-  if (hostHome) {
-    // HOME may be a symlink into a bound dir — a textual containment
-    // check would miss that /usr/runner is readable through /usr.
-    // Containment is tested on the resolved path; tool dirs are bound
-    // back at the textual HOME so PATH entries keep working.
-    const resolvedHome = existsSync(hostHome)
-      ? realpathSync(hostHome)
-      : hostHome;
-    const underBoundDir = (p: string) =>
-      roDirs.some((d) => p.startsWith(d + sep));
-    if (underBoundDir(resolvedHome)) argv.push("--tmpfs", resolvedHome);
-    if (hostHome !== resolvedHome && underBoundDir(hostHome)) {
-      argv.push("--tmpfs", hostHome);
-    }
-    for (const sub of SANDBOX_HOME_TOOL_DIRS) {
-      const src = join(resolvedHome, sub);
-      if (existsSync(src)) argv.push("--ro-bind", src, join(hostHome, sub));
-    }
-  }
+  if (hostHome) argv.push(...sandboxHomeBinds(hostHome, roDirs));
   argv.push(
     "--bind",
     checkHome,
