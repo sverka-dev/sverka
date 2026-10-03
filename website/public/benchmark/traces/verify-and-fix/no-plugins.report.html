@@ -206,6 +206,48 @@ main.split:has(.step-drawer.open) {
   padding: 0.4rem 1rem;
   border-bottom: 1px solid #21262d;
 }
+.drawer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-tablist { display: flex; gap: 0.25rem; }
+.drawer-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  color: #8b949e;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+.drawer-tab:hover { color: #f0f6fc; }
+.drawer-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+.drawer-tab:disabled { color: #484f58; cursor: default; }
+/* Author display rules beat the UA [hidden] rule \u2014 restore it. */
+.drawer-tabs[hidden] { display: none; }
+.drawer-log[hidden] { display: none; }
+#drawer-search {
+  margin-left: auto;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #e6edf3;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  width: 9rem;
+}
+.drawer-search-count { color: #8b949e; font-size: 0.75rem; white-space: nowrap; }
+.drawer-truncated {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  background: #2d2105;
+  color: #d29922;
+  font-size: 0.75rem;
+  border-bottom: 1px solid #21262d;
+}
 .drawer-log-title {
   margin: 0.75rem 0 0.25rem;
   font-size: 0.75rem;
@@ -215,6 +257,14 @@ main.split:has(.step-drawer.open) {
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
+.drawer-log {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 0.75rem 1rem 1.5rem;
+}
+.drawer-log mark { background: #9e6a03; color: #fff; padding: 0 1px; }
+.drawer-log mark.mark-cur { outline: 1px solid #f0f6fc; }
 .drawer-finding {
   font-size: 0.8rem;
   padding: 0.3rem 0;
@@ -308,6 +358,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 .dag-node { cursor: pointer; }
 .gantt-step, .tree-node { cursor: pointer; }
 .gantt-step:hover .row-label { fill: #58a6ff; }
+[role="button"]:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 1px;
+}
 .dag-node:hover .dag-card { stroke: #58a6ff; }
 .step-findings {
   margin-left: 0.5rem;
@@ -369,17 +423,17 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   <header>
     <h1>arena: verify-and-fix — no-plugins</h1>
     <div class="run-context">
-      <span class="ctx-label">Plan:</span> <span class="ctx-value status-verify-and-fix">verify-and-fix</span>
+      <span class="ctx-label">Plan:</span> <span class="ctx-value">verify-and-fix</span>
       <span class="ctx-label">Status:</span> <span class="ctx-value status-success">success</span>
-      <span class="ctx-label">Duration:</span> <span class="ctx-value status-39.2s">39.2s</span>
-      <span class="ctx-label">Command:</span> <span class="ctx-value status-sverka-arena run">sverka-arena run</span>
-      <span class="ctx-label">task:</span> <span class="ctx-value status-verify-and-fix">verify-and-fix</span>
-      <span class="ctx-label">model:</span> <span class="ctx-value status-swe-2-high">swe-2-high</span>
-      <span class="ctx-label">plugins:</span> <span class="ctx-value status-no-plugins">no-plugins</span>
-      <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
-      <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
+      <span class="ctx-label">Duration:</span> <span class="ctx-value">1m 5s</span>
+      <span class="ctx-label">Command:</span> <span class="ctx-value">sverka-arena run</span>
+      <span class="ctx-label">task:</span> <span class="ctx-value">verify-and-fix</span>
+      <span class="ctx-label">model:</span> <span class="ctx-value">swe-2-high</span>
+      <span class="ctx-label">plugins:</span> <span class="ctx-value">no-plugins</span>
+      <span class="ctx-label">success:</span> <span class="ctx-value">true</span>
+      <span class="ctx-label">timing:</span> <span class="ctx-value">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T23:06:35.473Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-10-03T00:40:03.028Z</span>
     </div>
   </header>
 
@@ -403,7 +457,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         <button class="seg-btn" data-view="list">List</button>
       </div>
     </div>
-    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 426" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="426" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="426" /><text class="tick" x="304" y="16" text-anchor="middle">7.8s</text><line class="grid" x1="428" y1="22" x2="428" y2="426" /><text class="tick" x="428" y="16" text-anchor="middle">15.7s</text><line class="grid" x1="552" y1="22" x2="552" y2="426" /><text class="tick" x="552" y="16" text-anchor="middle">23.5s</text><line class="grid" x1="676" y1="22" x2="676" y2="426" /><text class="tick" x="676" y="16" text-anchor="middle">31.4s</text><line class="grid" x1="800" y1="22" x2="800" y2="426" /><text class="tick" x="800" y="16" text-anchor="middle">39.2s</text><g class="gantt-step" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…"><text class="row-label" x="4" y="46">s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…</text><rect class="bar" x="180.0" y="33" width="3.0" height="16" rx="3" fill="#3fb950"><title>s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… — succeeded — 0ms</title></rect><text class="dur" x="189.0" y="46">0ms</text></g><g class="gantt-step" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="72">s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="180.0" y="59" width="3.0" height="16" rx="3" fill="#3fb950"><title>s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 0ms</title></rect><text class="dur" x="189.0" y="72">0ms</text></g><g class="gantt-step" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="98">s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="180.0" y="85" width="58.5" height="16" rx="3" fill="#3fb950"><title>s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 3.7s</title></rect><text class="dur" x="244.5" y="98">3.7s</text></g><g class="gantt-step" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…"><text class="row-label" x="4" y="124">s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…</text><rect class="bar" x="238.5" y="111" width="3.0" height="16" rx="3" fill="#3fb950"><title>s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an… — succeeded — 5ms</title></rect><text class="dur" x="247.5" y="124">5ms</text></g><g class="gantt-step" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="150">s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="238.5" y="137" width="3.0" height="16" rx="3" fill="#3fb950"><title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 12ms</title></rect><text class="dur" x="247.5" y="150">12ms</text></g><g class="gantt-step" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="176">s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="238.7" y="163" width="3.0" height="16" rx="3" fill="#3fb950"><title>s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 1ms</title></rect><text class="dur" x="247.7" y="176">1ms</text></g><g class="gantt-step" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="202">s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="238.7" y="189" width="36.1" height="16" rx="3" fill="#3fb950"><title>s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 2.3s</title></rect><text class="dur" x="280.9" y="202">2.3s</text></g><g class="gantt-step" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="228">s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="274.9" y="215" width="3.0" height="16" rx="3" fill="#3fb950"><title>s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 1ms</title></rect><text class="dur" x="283.9" y="228">1ms</text></g><g class="gantt-step" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…"><text class="row-label" x="4" y="254">s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</text><rect class="bar" x="274.9" y="241" width="96.6" height="16" rx="3" fill="#3fb950"><title>s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… — succeeded — 6.1s</title></rect><text class="dur" x="377.5" y="254">6.1s</text></g><g class="gantt-step" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…"><text class="row-label" x="4" y="280">s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</text><rect class="bar" x="371.5" y="267" width="60.1" height="16" rx="3" fill="#3fb950"><title>s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… — succeeded — 3.8s</title></rect><text class="dur" x="437.5" y="280">3.8s</text></g><g class="gantt-step" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…"><text class="row-label" x="4" y="306">s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</text><rect class="bar" x="431.5" y="293" width="89.4" height="16" rx="3" fill="#3fb950"><title>s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… — succeeded — 5.7s</title></rect><text class="dur" x="527.0" y="306">5.7s</text></g><g class="gantt-step" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…"><text class="row-label" x="4" y="332">s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</text><rect class="bar" x="521.0" y="319" width="37.0" height="16" rx="3" fill="#3fb950"><title>s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… — succeeded — 2.3s</title></rect><text class="dur" x="564.0" y="332">2.3s</text></g><g class="gantt-step" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…"><text class="row-label" x="4" y="358">s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</text><rect class="bar" x="558.0" y="345" width="3.0" height="16" rx="3" fill="#3fb950"><title>s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… — succeeded — 0ms</title></rect><text class="dur" x="567.0" y="358">0ms</text></g><g class="gantt-step" data-step="s14 think: exec"><text class="row-label" x="4" y="384">s14 think: exec</text><rect class="bar" x="558.0" y="371" width="3.0" height="16" rx="3" fill="#3fb950"><title>s14 think: exec — succeeded — 0ms</title></rect><text class="dur" x="567.0" y="384">0ms</text></g><g class="gantt-step" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…"><text class="row-label" x="4" y="410">s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…</text><rect class="bar" x="558.0" y="397" width="242.0" height="16" rx="3" fill="#3fb950"><title>s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**… — succeeded — 15.3s</title></rect><text class="dur" x="806.0" y="410">15.3s</text></g></svg></div>
+    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 478" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="478" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="478" /><text class="tick" x="304" y="16" text-anchor="middle">13.0s</text><line class="grid" x1="428" y1="22" x2="428" y2="478" /><text class="tick" x="428" y="16" text-anchor="middle">26.0s</text><line class="grid" x1="552" y1="22" x2="552" y2="478" /><text class="tick" x="552" y="16" text-anchor="middle">39.1s</text><line class="grid" x1="676" y1="22" x2="676" y2="478" /><text class="tick" x="676" y="16" text-anchor="middle">52.1s</text><line class="grid" x1="800" y1="22" x2="800" y2="478" /><text class="tick" x="800" y="16" text-anchor="middle">1m 5s</text><g class="gantt-step" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox"><text class="row-label" x="4" y="46">s01 tool: Listed ./: ls -la /tmp/sandbox</text><rect class="bar" x="180.0" y="33" width="53.8" height="16" rx="3" fill="#3fb950"><title>s01 tool: Listed ./: ls -la /tmp/sandbox — succeeded — 5.6s</title></rect><text class="dur" x="239.8" y="46">5.6s</text></g><g class="gantt-step" data-step="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" tabindex="0" role="button" aria-label="step s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…"><text class="row-label" x="4" y="72">s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…</text><rect class="bar" x="233.8" y="59" width="3.0" height="16" rx="3" fill="#3fb950"><title>s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo… — succeeded — 2ms</title></rect><text class="dur" x="242.8" y="72">2ms</text></g><g class="gantt-step" data-step="s03 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="98">s03 tool: Read file: /tmp/sandbox</text><rect class="bar" x="233.8" y="85" width="3.0" height="16" rx="3" fill="#3fb950"><title>s03 tool: Read file: /tmp/sandbox — succeeded — 2ms</title></rect><text class="dur" x="242.8" y="98">2ms</text></g><g class="gantt-step" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="124">s04 tool: Read file: /tmp/sandbox</text><rect class="bar" x="233.8" y="111" width="3.0" height="16" rx="3" fill="#3fb950"><title>s04 tool: Read file: /tmp/sandbox — succeeded — 0ms</title></rect><text class="dur" x="242.8" y="124">0ms</text></g><g class="gantt-step" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="150">s05 tool: Read file: /tmp/sandbox</text><rect class="bar" x="233.8" y="137" width="3.0" height="16" rx="3" fill="#3fb950"><title>s05 tool: Read file: /tmp/sandbox — succeeded — 3ms</title></rect><text class="dur" x="242.8" y="150">3ms</text></g><g class="gantt-step" data-step="s06 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="176">s06 tool: Read file: /tmp/sandbox</text><rect class="bar" x="233.8" y="163" width="36.2" height="16" rx="3" fill="#3fb950"><title>s06 tool: Read file: /tmp/sandbox — succeeded — 3.8s</title></rect><text class="dur" x="276.1" y="176">3.8s</text></g><g class="gantt-step" data-step="s07 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="202">s07 tool: Read file: /tmp/sandbox</text><rect class="bar" x="270.1" y="189" width="3.0" height="16" rx="3" fill="#3fb950"><title>s07 tool: Read file: /tmp/sandbox — succeeded — 0ms</title></rect><text class="dur" x="279.1" y="202">0ms</text></g><g class="gantt-step" data-step="s08 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s08 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="228">s08 tool: Read file: /tmp/sandbox</text><rect class="bar" x="270.1" y="215" width="3.0" height="16" rx="3" fill="#3fb950"><title>s08 tool: Read file: /tmp/sandbox — succeeded — 1ms</title></rect><text class="dur" x="279.1" y="228">1ms</text></g><g class="gantt-step" data-step="s09 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s09 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="254">s09 tool: Read file: /tmp/sandbox</text><rect class="bar" x="270.1" y="241" width="83.1" height="16" rx="3" fill="#3fb950"><title>s09 tool: Read file: /tmp/sandbox — succeeded — 8.7s</title></rect><text class="dur" x="359.2" y="254">8.7s</text></g><g class="gantt-step" data-step="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" tabindex="0" role="button" aria-label="step s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…"><text class="row-label" x="4" y="280">s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…</text><rect class="bar" x="353.2" y="267" width="125.6" height="16" rx="3" fill="#3fb950"><title>s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai… — succeeded — 13.2s</title></rect><text class="dur" x="484.8" y="280">13.2s</text></g><g class="gantt-step" data-step="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" tabindex="0" role="button" aria-label="step s11 tool: Wrote ./src/index.ts: /tmp/sandbox"><text class="row-label" x="4" y="306">s11 tool: Wrote ./src/index.ts: /tmp/sandbox</text><rect class="bar" x="478.8" y="293" width="31.3" height="16" rx="3" fill="#3fb950"><title>s11 tool: Wrote ./src/index.ts: /tmp/sandbox — succeeded — 3.3s</title></rect><text class="dur" x="516.1" y="306">3.3s</text></g><g class="gantt-step" data-step="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" tabindex="0" role="button" aria-label="step s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …"><text class="row-label" x="4" y="332">s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …</text><rect class="bar" x="510.1" y="319" width="57.1" height="16" rx="3" fill="#3fb950"><title>s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint … — succeeded — 6.0s</title></rect><text class="dur" x="573.2" y="332">6.0s</text></g><g class="gantt-step" data-step="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" tabindex="0" role="button" aria-label="step s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…"><text class="row-label" x="4" y="358">s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…</text><rect class="bar" x="567.2" y="345" width="40.2" height="16" rx="3" fill="#3fb950"><title>s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl… — succeeded — 4.2s</title></rect><text class="dur" x="613.4" y="358">4.2s</text></g><g class="gantt-step" data-step="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" tabindex="0" role="button" aria-label="step s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…"><text class="row-label" x="4" y="384">s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…</text><rect class="bar" x="607.4" y="371" width="35.6" height="16" rx="3" fill="#3fb950"><title>s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -… — succeeded — 3.7s</title></rect><text class="dur" x="649.1" y="384">3.7s</text></g><g class="gantt-step" data-step="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" tabindex="0" role="button" aria-label="step s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…"><text class="row-label" x="4" y="410">s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…</text><rect class="bar" x="643.1" y="397" width="3.0" height="16" rx="3" fill="#3fb950"><title>s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r… — succeeded — 0ms</title></rect><text class="dur" x="652.1" y="410">0ms</text></g><g class="gantt-step" data-step="s16 think: exec" tabindex="0" role="button" aria-label="step s16 think: exec"><text class="row-label" x="4" y="436">s16 think: exec</text><rect class="bar" x="643.1" y="423" width="3.0" height="16" rx="3" fill="#3fb950"><title>s16 think: exec — succeeded — 0ms</title></rect><text class="dur" x="652.1" y="436">0ms</text></g><g class="gantt-step" data-step="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" tabindex="0" role="button" aria-label="step s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…"><text class="row-label" x="4" y="462">s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…</text><rect class="bar" x="643.1" y="449" width="156.9" height="16" rx="3" fill="#3fb950"><title>s17 think: All checks pass. The full sverka pipeline (`sverka run`) co… — succeeded — 16.5s</title></rect><text class="dur" x="806.0" y="462">16.5s</text></g></svg></div>
     <div class="view hidden" id="view-dag"><div class="dag-viewport">
     <div class="dag-tools">
       <button type="button" class="dag-btn" data-dag-zoom="in" title="Zoom in">+</button>
@@ -411,438 +465,494 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
       <button type="button" class="dag-btn" data-dag-dir title="Switch direction (LR/TB)">⇄</button>
     </div>
-    <svg id="dag-svg" class="dag" viewBox="-40 -40 4486 140" data-vb-lr="-40 -40 4486 140" data-vb-tb="-40 -40 286 2296" role="img" aria-label="Workflow DAG">
+    <svg id="dag-svg" class="dag" viewBox="-40 -40 5086 140" data-vb-lr="-40 -40 5086 140" data-vb-tb="-40 -40 286 2604" role="img" aria-label="Workflow DAG">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" /></marker>
       <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="-40" y="-40"><circle cx="1" cy="1" r="1" /></pattern>
     </defs>
-    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" data-dst="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" data-src="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><path class="edge" data-src="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 2890 22 Q 2945 22 2972.5 22 L 3000 22" marker-end="url(#arrow)" /><text class="edge-label" x="2945" y="17" text-anchor="middle">control</text><path class="edge" data-src="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" d="M 3190 22 Q 3245 22 3272.5 22 L 3300 22" marker-end="url(#arrow)" /><text class="edge-label" x="3245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" data-dst="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 3490 22 Q 3545 22 3572.5 22 L 3600 22" marker-end="url(#arrow)" /><text class="edge-label" x="3545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s14 think: exec" d="M 3790 22 Q 3845 22 3872.5 22 L 3900 22" marker-end="url(#arrow)" /><text class="edge-label" x="3845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s14 think: exec" data-dst="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" d="M 4090 22 Q 4145 22 4172.5 22 L 4200 22" marker-end="url(#arrow)" /><text class="edge-label" x="4145" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/sandbox" data-dst="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" data-dst="s03 tool: Read file: /tmp/sandbox" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/sandbox" data-dst="s04 tool: Read file: /tmp/sandbox" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/sandbox" data-dst="s05 tool: Read file: /tmp/sandbox" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/sandbox" data-dst="s06 tool: Read file: /tmp/sandbox" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Read file: /tmp/sandbox" data-dst="s07 tool: Read file: /tmp/sandbox" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Read file: /tmp/sandbox" data-dst="s08 tool: Read file: /tmp/sandbox" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Read file: /tmp/sandbox" data-dst="s09 tool: Read file: /tmp/sandbox" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" data-src="s09 tool: Read file: /tmp/sandbox" data-dst="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><path class="edge" data-src="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" data-dst="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" d="M 2890 22 Q 2945 22 2972.5 22 L 3000 22" marker-end="url(#arrow)" /><text class="edge-label" x="2945" y="17" text-anchor="middle">control</text><path class="edge" data-src="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" data-dst="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" d="M 3190 22 Q 3245 22 3272.5 22 L 3300 22" marker-end="url(#arrow)" /><text class="edge-label" x="3245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" data-dst="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" d="M 3490 22 Q 3545 22 3572.5 22 L 3600 22" marker-end="url(#arrow)" /><text class="edge-label" x="3545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" data-dst="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" d="M 3790 22 Q 3845 22 3872.5 22 L 3900 22" marker-end="url(#arrow)" /><text class="edge-label" x="3845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" data-dst="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" d="M 4090 22 Q 4145 22 4172.5 22 L 4200 22" marker-end="url(#arrow)" /><text class="edge-label" x="4145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" data-dst="s16 think: exec" d="M 4390 22 Q 4445 22 4472.5 22 L 4500 22" marker-end="url(#arrow)" /><text class="edge-label" x="4445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s16 think: exec" data-dst="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" d="M 4690 22 Q 4745 22 4772.5 22 L 4800 22" marker-end="url(#arrow)" /><text class="edge-label" x="4745" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox">
+        <title>s01 tool: Listed ./: ls -la /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
         <text x="28" y="20">s01 tool: Listed ./: ls…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" tabindex="0" role="button" aria-label="step s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…">
+        <title>s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…</title>
         <rect class="dag-card" x="300" y="0" width="190" height="44" rx="8" />
         <circle cx="316" cy="22" r="4" fill="#3fb950" />
-        <text x="328" y="20">s02 tool: Read file: /t…</text>
+        <text x="328" y="20">s02 tool: Listed ./src,…</text>
         <text class="node-status" x="328" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Read file: /tmp/sandbox">
+        <title>s03 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="600" y="0" width="190" height="44" rx="8" />
         <circle cx="616" cy="22" r="4" fill="#3fb950" />
         <text x="628" y="20">s03 tool: Read file: /t…</text>
         <text class="node-status" x="628" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…">
-        <title>s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…</title>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox">
+        <title>s04 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="900" y="0" width="190" height="44" rx="8" />
         <circle cx="916" cy="22" r="4" fill="#3fb950" />
-        <text x="928" y="20">s04 tool: Listed ./src,…</text>
+        <text x="928" y="20">s04 tool: Read file: /t…</text>
         <text class="node-status" x="928" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox">
+        <title>s05 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="1200" y="0" width="190" height="44" rx="8" />
         <circle cx="1216" cy="22" r="4" fill="#3fb950" />
         <text x="1228" y="20">s05 tool: Read file: /t…</text>
         <text class="node-status" x="1228" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Read file: /tmp/sandbox">
+        <title>s06 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="1500" y="0" width="190" height="44" rx="8" />
         <circle cx="1516" cy="22" r="4" fill="#3fb950" />
         <text x="1528" y="20">s06 tool: Read file: /t…</text>
         <text class="node-status" x="1528" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Read file: /tmp/sandbox">
+        <title>s07 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="1800" y="0" width="190" height="44" rx="8" />
         <circle cx="1816" cy="22" r="4" fill="#3fb950" />
         <text x="1828" y="20">s07 tool: Read file: /t…</text>
         <text class="node-status" x="1828" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s08 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s08 tool: Read file: /tmp/sandbox">
+        <title>s08 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="2100" y="0" width="190" height="44" rx="8" />
         <circle cx="2116" cy="22" r="4" fill="#3fb950" />
         <text x="2128" y="20">s08 tool: Read file: /t…</text>
         <text class="node-status" x="2128" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s09 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s09 tool: Read file: /tmp/sandbox">
+        <title>s09 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="2400" y="0" width="190" height="44" rx="8" />
         <circle cx="2416" cy="22" r="4" fill="#3fb950" />
         <text x="2428" y="20">s09 tool: Read file: /t…</text>
         <text class="node-status" x="2428" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" tabindex="0" role="button" aria-label="step s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…">
+        <title>s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…</title>
         <rect class="dag-card" x="2700" y="0" width="190" height="44" rx="8" />
         <circle cx="2716" cy="22" r="4" fill="#3fb950" />
         <text x="2728" y="20">s10 tool: Ran bun, echo…</text>
         <text class="node-status" x="2728" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" tabindex="0" role="button" aria-label="step s11 tool: Wrote ./src/index.ts: /tmp/sandbox">
+        <title>s11 tool: Wrote ./src/index.ts: /tmp/sandbox</title>
         <rect class="dag-card" x="3000" y="0" width="190" height="44" rx="8" />
         <circle cx="3016" cy="22" r="4" fill="#3fb950" />
-        <text x="3028" y="20">s11 tool: Ran bun, echo…</text>
+        <text x="3028" y="20">s11 tool: Wrote ./src/i…</text>
         <text class="node-status" x="3028" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
-        <title>s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
+      </g><g class="dag-node" data-step="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" tabindex="0" role="button" aria-label="step s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …">
+        <title>s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …</title>
         <rect class="dag-card" x="3300" y="0" width="190" height="44" rx="8" />
         <circle cx="3316" cy="22" r="4" fill="#3fb950" />
-        <text x="3328" y="20">s12 tool: Wrote ./src/i…</text>
+        <text x="3328" y="20">s12 tool: Ran bun: cd /…</text>
         <text class="node-status" x="3328" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" tabindex="0" role="button" aria-label="step s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…">
+        <title>s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…</title>
         <rect class="dag-card" x="3600" y="0" width="190" height="44" rx="8" />
         <circle cx="3616" cy="22" r="4" fill="#3fb950" />
-        <text x="3628" y="20">s13 tool: Ran bun, echo…</text>
+        <text x="3628" y="20">s13 tool: Ran ls, grep:…</text>
         <text class="node-status" x="3628" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s14 think: exec">
-        <title>s14 think: exec</title>
+      </g><g class="dag-node" data-step="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" tabindex="0" role="button" aria-label="step s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…">
+        <title>s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…</title>
         <rect class="dag-card" x="3900" y="0" width="190" height="44" rx="8" />
         <circle cx="3916" cy="22" r="4" fill="#3fb950" />
-        <text x="3928" y="20">s14 think: exec</text>
+        <text x="3928" y="20">s14 tool: Ran sverka: c…</text>
         <text class="node-status" x="3928" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…">
-        <title>s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…</title>
+      </g><g class="dag-node" data-step="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" tabindex="0" role="button" aria-label="step s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…">
+        <title>s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…</title>
         <rect class="dag-card" x="4200" y="0" width="190" height="44" rx="8" />
         <circle cx="4216" cy="22" r="4" fill="#3fb950" />
-        <text x="4228" y="20">s15 think: All checks p…</text>
+        <text x="4228" y="20">s15 tool: Ran sverka: c…</text>
         <text class="node-status" x="4228" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s16 think: exec" tabindex="0" role="button" aria-label="step s16 think: exec">
+        <title>s16 think: exec</title>
+        <rect class="dag-card" x="4500" y="0" width="190" height="44" rx="8" />
+        <circle cx="4516" cy="22" r="4" fill="#3fb950" />
+        <text x="4528" y="20">s16 think: exec</text>
+        <text class="node-status" x="4528" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" tabindex="0" role="button" aria-label="step s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…">
+        <title>s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…</title>
+        <rect class="dag-card" x="4800" y="0" width="190" height="44" rx="8" />
+        <circle cx="4816" cy="22" r="4" fill="#3fb950" />
+        <text x="4828" y="20">s17 think: All checks p…</text>
+        <text class="node-status" x="4828" y="34" style="fill:#3fb950">succeeded</text>
       </g></g>
-    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" data-dst="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><path class="edge" data-src="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 95 1276 Q 95 1331 95 1358.5 L 95 1386" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1326" text-anchor="middle">control</text><path class="edge" data-src="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 95 1430 Q 95 1485 95 1512.5 L 95 1540" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1480" text-anchor="middle">control</text><path class="edge" data-src="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" d="M 95 1584 Q 95 1639 95 1666.5 L 95 1694" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1634" text-anchor="middle">control</text><path class="edge" data-src="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" data-dst="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 95 1738 Q 95 1793 95 1820.5 L 95 1848" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1788" text-anchor="middle">control</text><path class="edge" data-src="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s14 think: exec" d="M 95 1892 Q 95 1947 95 1974.5 L 95 2002" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1942" text-anchor="middle">control</text><path class="edge" data-src="s14 think: exec" data-dst="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" d="M 95 2046 Q 95 2101 95 2128.5 L 95 2156" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="2096" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/sandbox" data-dst="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" data-dst="s03 tool: Read file: /tmp/sandbox" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/sandbox" data-dst="s04 tool: Read file: /tmp/sandbox" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/sandbox" data-dst="s05 tool: Read file: /tmp/sandbox" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/sandbox" data-dst="s06 tool: Read file: /tmp/sandbox" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Read file: /tmp/sandbox" data-dst="s07 tool: Read file: /tmp/sandbox" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Read file: /tmp/sandbox" data-dst="s08 tool: Read file: /tmp/sandbox" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Read file: /tmp/sandbox" data-dst="s09 tool: Read file: /tmp/sandbox" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><path class="edge" data-src="s09 tool: Read file: /tmp/sandbox" data-dst="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" d="M 95 1276 Q 95 1331 95 1358.5 L 95 1386" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1326" text-anchor="middle">control</text><path class="edge" data-src="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" data-dst="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" d="M 95 1430 Q 95 1485 95 1512.5 L 95 1540" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1480" text-anchor="middle">control</text><path class="edge" data-src="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" data-dst="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" d="M 95 1584 Q 95 1639 95 1666.5 L 95 1694" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1634" text-anchor="middle">control</text><path class="edge" data-src="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" data-dst="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" d="M 95 1738 Q 95 1793 95 1820.5 L 95 1848" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1788" text-anchor="middle">control</text><path class="edge" data-src="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" data-dst="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" d="M 95 1892 Q 95 1947 95 1974.5 L 95 2002" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1942" text-anchor="middle">control</text><path class="edge" data-src="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" data-dst="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" d="M 95 2046 Q 95 2101 95 2128.5 L 95 2156" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="2096" text-anchor="middle">control</text><path class="edge" data-src="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" data-dst="s16 think: exec" d="M 95 2200 Q 95 2255 95 2282.5 L 95 2310" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="2250" text-anchor="middle">control</text><path class="edge" data-src="s16 think: exec" data-dst="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" d="M 95 2354 Q 95 2409 95 2436.5 L 95 2464" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="2404" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox">
+        <title>s01 tool: Listed ./: ls -la /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
         <text x="28" y="20">s01 tool: Listed ./: ls…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" tabindex="0" role="button" aria-label="step s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…">
+        <title>s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…</title>
         <rect class="dag-card" x="0" y="154" width="190" height="44" rx="8" />
         <circle cx="16" cy="176" r="4" fill="#3fb950" />
-        <text x="28" y="174">s02 tool: Read file: /t…</text>
+        <text x="28" y="174">s02 tool: Listed ./src,…</text>
         <text class="node-status" x="28" y="188" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Read file: /tmp/sandbox">
+        <title>s03 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="308" width="190" height="44" rx="8" />
         <circle cx="16" cy="330" r="4" fill="#3fb950" />
         <text x="28" y="328">s03 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="342" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…">
-        <title>s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…</title>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox">
+        <title>s04 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="462" width="190" height="44" rx="8" />
         <circle cx="16" cy="484" r="4" fill="#3fb950" />
-        <text x="28" y="482">s04 tool: Listed ./src,…</text>
+        <text x="28" y="482">s04 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="496" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox">
+        <title>s05 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="616" width="190" height="44" rx="8" />
         <circle cx="16" cy="638" r="4" fill="#3fb950" />
         <text x="28" y="636">s05 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="650" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Read file: /tmp/sandbox">
+        <title>s06 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="770" width="190" height="44" rx="8" />
         <circle cx="16" cy="792" r="4" fill="#3fb950" />
         <text x="28" y="790">s06 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="804" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Read file: /tmp/sandbox">
+        <title>s07 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="924" width="190" height="44" rx="8" />
         <circle cx="16" cy="946" r="4" fill="#3fb950" />
         <text x="28" y="944">s07 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="958" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s08 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s08 tool: Read file: /tmp/sandbox">
+        <title>s08 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="1078" width="190" height="44" rx="8" />
         <circle cx="16" cy="1100" r="4" fill="#3fb950" />
         <text x="28" y="1098">s08 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="1112" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s09 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s09 tool: Read file: /tmp/sandbox">
+        <title>s09 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="1232" width="190" height="44" rx="8" />
         <circle cx="16" cy="1254" r="4" fill="#3fb950" />
         <text x="28" y="1252">s09 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="1266" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" tabindex="0" role="button" aria-label="step s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…">
+        <title>s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…</title>
         <rect class="dag-card" x="0" y="1386" width="190" height="44" rx="8" />
         <circle cx="16" cy="1408" r="4" fill="#3fb950" />
         <text x="28" y="1406">s10 tool: Ran bun, echo…</text>
         <text class="node-status" x="28" y="1420" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" tabindex="0" role="button" aria-label="step s11 tool: Wrote ./src/index.ts: /tmp/sandbox">
+        <title>s11 tool: Wrote ./src/index.ts: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="1540" width="190" height="44" rx="8" />
         <circle cx="16" cy="1562" r="4" fill="#3fb950" />
-        <text x="28" y="1560">s11 tool: Ran bun, echo…</text>
+        <text x="28" y="1560">s11 tool: Wrote ./src/i…</text>
         <text class="node-status" x="28" y="1574" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
-        <title>s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
+      </g><g class="dag-node" data-step="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" tabindex="0" role="button" aria-label="step s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …">
+        <title>s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …</title>
         <rect class="dag-card" x="0" y="1694" width="190" height="44" rx="8" />
         <circle cx="16" cy="1716" r="4" fill="#3fb950" />
-        <text x="28" y="1714">s12 tool: Wrote ./src/i…</text>
+        <text x="28" y="1714">s12 tool: Ran bun: cd /…</text>
         <text class="node-status" x="28" y="1728" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" tabindex="0" role="button" aria-label="step s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…">
+        <title>s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…</title>
         <rect class="dag-card" x="0" y="1848" width="190" height="44" rx="8" />
         <circle cx="16" cy="1870" r="4" fill="#3fb950" />
-        <text x="28" y="1868">s13 tool: Ran bun, echo…</text>
+        <text x="28" y="1868">s13 tool: Ran ls, grep:…</text>
         <text class="node-status" x="28" y="1882" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s14 think: exec">
-        <title>s14 think: exec</title>
+      </g><g class="dag-node" data-step="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" tabindex="0" role="button" aria-label="step s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…">
+        <title>s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…</title>
         <rect class="dag-card" x="0" y="2002" width="190" height="44" rx="8" />
         <circle cx="16" cy="2024" r="4" fill="#3fb950" />
-        <text x="28" y="2022">s14 think: exec</text>
+        <text x="28" y="2022">s14 tool: Ran sverka: c…</text>
         <text class="node-status" x="28" y="2036" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…">
-        <title>s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…</title>
+      </g><g class="dag-node" data-step="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" tabindex="0" role="button" aria-label="step s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…">
+        <title>s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…</title>
         <rect class="dag-card" x="0" y="2156" width="190" height="44" rx="8" />
         <circle cx="16" cy="2178" r="4" fill="#3fb950" />
-        <text x="28" y="2176">s15 think: All checks p…</text>
+        <text x="28" y="2176">s15 tool: Ran sverka: c…</text>
         <text class="node-status" x="28" y="2190" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s16 think: exec" tabindex="0" role="button" aria-label="step s16 think: exec">
+        <title>s16 think: exec</title>
+        <rect class="dag-card" x="0" y="2310" width="190" height="44" rx="8" />
+        <circle cx="16" cy="2332" r="4" fill="#3fb950" />
+        <text x="28" y="2330">s16 think: exec</text>
+        <text class="node-status" x="28" y="2344" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" tabindex="0" role="button" aria-label="step s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…">
+        <title>s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…</title>
+        <rect class="dag-card" x="0" y="2464" width="190" height="44" rx="8" />
+        <circle cx="16" cy="2486" r="4" fill="#3fb950" />
+        <text x="28" y="2484">s17 think: All checks p…</text>
+        <text class="node-status" x="28" y="2498" style="fill:#3fb950">succeeded</text>
       </g></g>
     </svg>
     <div class="dag-minimap" id="dag-minimap">
-      <svg class="dag-mini" viewBox="-40 -40 4486 140" data-dir="LR"><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" data-dst="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" data-src="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><path class="edge" data-src="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 2890 22 Q 2945 22 2972.5 22 L 3000 22" marker-end="url(#arrow)" /><text class="edge-label" x="2945" y="17" text-anchor="middle">control</text><path class="edge" data-src="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" d="M 3190 22 Q 3245 22 3272.5 22 L 3300 22" marker-end="url(#arrow)" /><text class="edge-label" x="3245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" data-dst="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 3490 22 Q 3545 22 3572.5 22 L 3600 22" marker-end="url(#arrow)" /><text class="edge-label" x="3545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s14 think: exec" d="M 3790 22 Q 3845 22 3872.5 22 L 3900 22" marker-end="url(#arrow)" /><text class="edge-label" x="3845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s14 think: exec" data-dst="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" d="M 4090 22 Q 4145 22 4172.5 22 L 4200 22" marker-end="url(#arrow)" /><text class="edge-label" x="4145" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      <svg class="dag-mini" viewBox="-40 -40 5086 140" data-dir="LR"><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/sandbox" data-dst="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" data-dst="s03 tool: Read file: /tmp/sandbox" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/sandbox" data-dst="s04 tool: Read file: /tmp/sandbox" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/sandbox" data-dst="s05 tool: Read file: /tmp/sandbox" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/sandbox" data-dst="s06 tool: Read file: /tmp/sandbox" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Read file: /tmp/sandbox" data-dst="s07 tool: Read file: /tmp/sandbox" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Read file: /tmp/sandbox" data-dst="s08 tool: Read file: /tmp/sandbox" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Read file: /tmp/sandbox" data-dst="s09 tool: Read file: /tmp/sandbox" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" data-src="s09 tool: Read file: /tmp/sandbox" data-dst="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><path class="edge" data-src="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" data-dst="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" d="M 2890 22 Q 2945 22 2972.5 22 L 3000 22" marker-end="url(#arrow)" /><text class="edge-label" x="2945" y="17" text-anchor="middle">control</text><path class="edge" data-src="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" data-dst="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" d="M 3190 22 Q 3245 22 3272.5 22 L 3300 22" marker-end="url(#arrow)" /><text class="edge-label" x="3245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" data-dst="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" d="M 3490 22 Q 3545 22 3572.5 22 L 3600 22" marker-end="url(#arrow)" /><text class="edge-label" x="3545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" data-dst="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" d="M 3790 22 Q 3845 22 3872.5 22 L 3900 22" marker-end="url(#arrow)" /><text class="edge-label" x="3845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" data-dst="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" d="M 4090 22 Q 4145 22 4172.5 22 L 4200 22" marker-end="url(#arrow)" /><text class="edge-label" x="4145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" data-dst="s16 think: exec" d="M 4390 22 Q 4445 22 4472.5 22 L 4500 22" marker-end="url(#arrow)" /><text class="edge-label" x="4445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s16 think: exec" data-dst="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" d="M 4690 22 Q 4745 22 4772.5 22 L 4800 22" marker-end="url(#arrow)" /><text class="edge-label" x="4745" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox">
+        <title>s01 tool: Listed ./: ls -la /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
         <text x="28" y="20">s01 tool: Listed ./: ls…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" tabindex="0" role="button" aria-label="step s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…">
+        <title>s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…</title>
         <rect class="dag-card" x="300" y="0" width="190" height="44" rx="8" />
         <circle cx="316" cy="22" r="4" fill="#3fb950" />
-        <text x="328" y="20">s02 tool: Read file: /t…</text>
+        <text x="328" y="20">s02 tool: Listed ./src,…</text>
         <text class="node-status" x="328" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Read file: /tmp/sandbox">
+        <title>s03 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="600" y="0" width="190" height="44" rx="8" />
         <circle cx="616" cy="22" r="4" fill="#3fb950" />
         <text x="628" y="20">s03 tool: Read file: /t…</text>
         <text class="node-status" x="628" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…">
-        <title>s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…</title>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox">
+        <title>s04 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="900" y="0" width="190" height="44" rx="8" />
         <circle cx="916" cy="22" r="4" fill="#3fb950" />
-        <text x="928" y="20">s04 tool: Listed ./src,…</text>
+        <text x="928" y="20">s04 tool: Read file: /t…</text>
         <text class="node-status" x="928" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox">
+        <title>s05 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="1200" y="0" width="190" height="44" rx="8" />
         <circle cx="1216" cy="22" r="4" fill="#3fb950" />
         <text x="1228" y="20">s05 tool: Read file: /t…</text>
         <text class="node-status" x="1228" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Read file: /tmp/sandbox">
+        <title>s06 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="1500" y="0" width="190" height="44" rx="8" />
         <circle cx="1516" cy="22" r="4" fill="#3fb950" />
         <text x="1528" y="20">s06 tool: Read file: /t…</text>
         <text class="node-status" x="1528" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Read file: /tmp/sandbox">
+        <title>s07 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="1800" y="0" width="190" height="44" rx="8" />
         <circle cx="1816" cy="22" r="4" fill="#3fb950" />
         <text x="1828" y="20">s07 tool: Read file: /t…</text>
         <text class="node-status" x="1828" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s08 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s08 tool: Read file: /tmp/sandbox">
+        <title>s08 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="2100" y="0" width="190" height="44" rx="8" />
         <circle cx="2116" cy="22" r="4" fill="#3fb950" />
         <text x="2128" y="20">s08 tool: Read file: /t…</text>
         <text class="node-status" x="2128" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s09 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s09 tool: Read file: /tmp/sandbox">
+        <title>s09 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="2400" y="0" width="190" height="44" rx="8" />
         <circle cx="2416" cy="22" r="4" fill="#3fb950" />
         <text x="2428" y="20">s09 tool: Read file: /t…</text>
         <text class="node-status" x="2428" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" tabindex="0" role="button" aria-label="step s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…">
+        <title>s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…</title>
         <rect class="dag-card" x="2700" y="0" width="190" height="44" rx="8" />
         <circle cx="2716" cy="22" r="4" fill="#3fb950" />
         <text x="2728" y="20">s10 tool: Ran bun, echo…</text>
         <text class="node-status" x="2728" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" tabindex="0" role="button" aria-label="step s11 tool: Wrote ./src/index.ts: /tmp/sandbox">
+        <title>s11 tool: Wrote ./src/index.ts: /tmp/sandbox</title>
         <rect class="dag-card" x="3000" y="0" width="190" height="44" rx="8" />
         <circle cx="3016" cy="22" r="4" fill="#3fb950" />
-        <text x="3028" y="20">s11 tool: Ran bun, echo…</text>
+        <text x="3028" y="20">s11 tool: Wrote ./src/i…</text>
         <text class="node-status" x="3028" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
-        <title>s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
+      </g><g class="dag-node" data-step="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" tabindex="0" role="button" aria-label="step s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …">
+        <title>s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …</title>
         <rect class="dag-card" x="3300" y="0" width="190" height="44" rx="8" />
         <circle cx="3316" cy="22" r="4" fill="#3fb950" />
-        <text x="3328" y="20">s12 tool: Wrote ./src/i…</text>
+        <text x="3328" y="20">s12 tool: Ran bun: cd /…</text>
         <text class="node-status" x="3328" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" tabindex="0" role="button" aria-label="step s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…">
+        <title>s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…</title>
         <rect class="dag-card" x="3600" y="0" width="190" height="44" rx="8" />
         <circle cx="3616" cy="22" r="4" fill="#3fb950" />
-        <text x="3628" y="20">s13 tool: Ran bun, echo…</text>
+        <text x="3628" y="20">s13 tool: Ran ls, grep:…</text>
         <text class="node-status" x="3628" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s14 think: exec">
-        <title>s14 think: exec</title>
+      </g><g class="dag-node" data-step="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" tabindex="0" role="button" aria-label="step s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…">
+        <title>s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…</title>
         <rect class="dag-card" x="3900" y="0" width="190" height="44" rx="8" />
         <circle cx="3916" cy="22" r="4" fill="#3fb950" />
-        <text x="3928" y="20">s14 think: exec</text>
+        <text x="3928" y="20">s14 tool: Ran sverka: c…</text>
         <text class="node-status" x="3928" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…">
-        <title>s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…</title>
+      </g><g class="dag-node" data-step="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" tabindex="0" role="button" aria-label="step s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…">
+        <title>s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…</title>
         <rect class="dag-card" x="4200" y="0" width="190" height="44" rx="8" />
         <circle cx="4216" cy="22" r="4" fill="#3fb950" />
-        <text x="4228" y="20">s15 think: All checks p…</text>
+        <text x="4228" y="20">s15 tool: Ran sverka: c…</text>
         <text class="node-status" x="4228" y="34" style="fill:#3fb950">succeeded</text>
-      </g></svg><svg class="dag-mini" viewBox="-40 -40 286 2296" data-dir="TB" hidden><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" data-dst="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><path class="edge" data-src="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" data-dst="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 95 1276 Q 95 1331 95 1358.5 L 95 1386" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1326" text-anchor="middle">control</text><path class="edge" data-src="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 95 1430 Q 95 1485 95 1512.5 L 95 1540" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1480" text-anchor="middle">control</text><path class="edge" data-src="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" d="M 95 1584 Q 95 1639 95 1666.5 L 95 1694" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1634" text-anchor="middle">control</text><path class="edge" data-src="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" data-dst="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" d="M 95 1738 Q 95 1793 95 1820.5 L 95 1848" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1788" text-anchor="middle">control</text><path class="edge" data-src="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" data-dst="s14 think: exec" d="M 95 1892 Q 95 1947 95 1974.5 L 95 2002" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1942" text-anchor="middle">control</text><path class="edge" data-src="s14 think: exec" data-dst="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" d="M 95 2046 Q 95 2101 95 2128.5 L 95 2156" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="2096" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s16 think: exec" tabindex="0" role="button" aria-label="step s16 think: exec">
+        <title>s16 think: exec</title>
+        <rect class="dag-card" x="4500" y="0" width="190" height="44" rx="8" />
+        <circle cx="4516" cy="22" r="4" fill="#3fb950" />
+        <text x="4528" y="20">s16 think: exec</text>
+        <text class="node-status" x="4528" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" tabindex="0" role="button" aria-label="step s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…">
+        <title>s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…</title>
+        <rect class="dag-card" x="4800" y="0" width="190" height="44" rx="8" />
+        <circle cx="4816" cy="22" r="4" fill="#3fb950" />
+        <text x="4828" y="20">s17 think: All checks p…</text>
+        <text class="node-status" x="4828" y="34" style="fill:#3fb950">succeeded</text>
+      </g></svg><svg class="dag-mini" viewBox="-40 -40 286 2604" data-dir="TB" hidden><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/sandbox" data-dst="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" data-dst="s03 tool: Read file: /tmp/sandbox" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/sandbox" data-dst="s04 tool: Read file: /tmp/sandbox" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/sandbox" data-dst="s05 tool: Read file: /tmp/sandbox" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/sandbox" data-dst="s06 tool: Read file: /tmp/sandbox" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Read file: /tmp/sandbox" data-dst="s07 tool: Read file: /tmp/sandbox" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Read file: /tmp/sandbox" data-dst="s08 tool: Read file: /tmp/sandbox" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Read file: /tmp/sandbox" data-dst="s09 tool: Read file: /tmp/sandbox" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><path class="edge" data-src="s09 tool: Read file: /tmp/sandbox" data-dst="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" d="M 95 1276 Q 95 1331 95 1358.5 L 95 1386" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1326" text-anchor="middle">control</text><path class="edge" data-src="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" data-dst="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" d="M 95 1430 Q 95 1485 95 1512.5 L 95 1540" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1480" text-anchor="middle">control</text><path class="edge" data-src="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" data-dst="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" d="M 95 1584 Q 95 1639 95 1666.5 L 95 1694" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1634" text-anchor="middle">control</text><path class="edge" data-src="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" data-dst="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" d="M 95 1738 Q 95 1793 95 1820.5 L 95 1848" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1788" text-anchor="middle">control</text><path class="edge" data-src="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" data-dst="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" d="M 95 1892 Q 95 1947 95 1974.5 L 95 2002" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1942" text-anchor="middle">control</text><path class="edge" data-src="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" data-dst="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" d="M 95 2046 Q 95 2101 95 2128.5 L 95 2156" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="2096" text-anchor="middle">control</text><path class="edge" data-src="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" data-dst="s16 think: exec" d="M 95 2200 Q 95 2255 95 2282.5 L 95 2310" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="2250" text-anchor="middle">control</text><path class="edge" data-src="s16 think: exec" data-dst="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" d="M 95 2354 Q 95 2409 95 2436.5 L 95 2464" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="2404" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox">
+        <title>s01 tool: Listed ./: ls -la /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
         <text x="28" y="20">s01 tool: Listed ./: ls…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" tabindex="0" role="button" aria-label="step s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…">
+        <title>s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…</title>
         <rect class="dag-card" x="0" y="154" width="190" height="44" rx="8" />
         <circle cx="16" cy="176" r="4" fill="#3fb950" />
-        <text x="28" y="174">s02 tool: Read file: /t…</text>
+        <text x="28" y="174">s02 tool: Listed ./src,…</text>
         <text class="node-status" x="28" y="188" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Read file: /tmp/sandbox">
+        <title>s03 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="308" width="190" height="44" rx="8" />
         <circle cx="16" cy="330" r="4" fill="#3fb950" />
         <text x="28" y="328">s03 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="342" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…">
-        <title>s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…</title>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox">
+        <title>s04 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="462" width="190" height="44" rx="8" />
         <circle cx="16" cy="484" r="4" fill="#3fb950" />
-        <text x="28" y="482">s04 tool: Listed ./src,…</text>
+        <text x="28" y="482">s04 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="496" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox">
+        <title>s05 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="616" width="190" height="44" rx="8" />
         <circle cx="16" cy="638" r="4" fill="#3fb950" />
         <text x="28" y="636">s05 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="650" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s06 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Read file: /tmp/sandbox">
+        <title>s06 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="770" width="190" height="44" rx="8" />
         <circle cx="16" cy="792" r="4" fill="#3fb950" />
         <text x="28" y="790">s06 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="804" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s07 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Read file: /tmp/sandbox">
+        <title>s07 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="924" width="190" height="44" rx="8" />
         <circle cx="16" cy="946" r="4" fill="#3fb950" />
         <text x="28" y="944">s07 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="958" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s08 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s08 tool: Read file: /tmp/sandbox">
+        <title>s08 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="1078" width="190" height="44" rx="8" />
         <circle cx="16" cy="1100" r="4" fill="#3fb950" />
         <text x="28" y="1098">s08 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="1112" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…">
-        <title>s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…</title>
+      </g><g class="dag-node" data-step="s09 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s09 tool: Read file: /tmp/sandbox">
+        <title>s09 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="1232" width="190" height="44" rx="8" />
         <circle cx="16" cy="1254" r="4" fill="#3fb950" />
         <text x="28" y="1252">s09 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="1266" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" tabindex="0" role="button" aria-label="step s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…">
+        <title>s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…</title>
         <rect class="dag-card" x="0" y="1386" width="190" height="44" rx="8" />
         <circle cx="16" cy="1408" r="4" fill="#3fb950" />
         <text x="28" y="1406">s10 tool: Ran bun, echo…</text>
         <text class="node-status" x="28" y="1420" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" tabindex="0" role="button" aria-label="step s11 tool: Wrote ./src/index.ts: /tmp/sandbox">
+        <title>s11 tool: Wrote ./src/index.ts: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="1540" width="190" height="44" rx="8" />
         <circle cx="16" cy="1562" r="4" fill="#3fb950" />
-        <text x="28" y="1560">s11 tool: Ran bun, echo…</text>
+        <text x="28" y="1560">s11 tool: Wrote ./src/i…</text>
         <text class="node-status" x="28" y="1574" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…">
-        <title>s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…</title>
+      </g><g class="dag-node" data-step="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" tabindex="0" role="button" aria-label="step s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …">
+        <title>s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …</title>
         <rect class="dag-card" x="0" y="1694" width="190" height="44" rx="8" />
         <circle cx="16" cy="1716" r="4" fill="#3fb950" />
-        <text x="28" y="1714">s12 tool: Wrote ./src/i…</text>
+        <text x="28" y="1714">s12 tool: Ran bun: cd /…</text>
         <text class="node-status" x="28" y="1728" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…">
-        <title>s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…</title>
+      </g><g class="dag-node" data-step="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" tabindex="0" role="button" aria-label="step s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…">
+        <title>s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…</title>
         <rect class="dag-card" x="0" y="1848" width="190" height="44" rx="8" />
         <circle cx="16" cy="1870" r="4" fill="#3fb950" />
-        <text x="28" y="1868">s13 tool: Ran bun, echo…</text>
+        <text x="28" y="1868">s13 tool: Ran ls, grep:…</text>
         <text class="node-status" x="28" y="1882" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s14 think: exec">
-        <title>s14 think: exec</title>
+      </g><g class="dag-node" data-step="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" tabindex="0" role="button" aria-label="step s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…">
+        <title>s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…</title>
         <rect class="dag-card" x="0" y="2002" width="190" height="44" rx="8" />
         <circle cx="16" cy="2024" r="4" fill="#3fb950" />
-        <text x="28" y="2022">s14 think: exec</text>
+        <text x="28" y="2022">s14 tool: Ran sverka: c…</text>
         <text class="node-status" x="28" y="2036" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…">
-        <title>s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…</title>
+      </g><g class="dag-node" data-step="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" tabindex="0" role="button" aria-label="step s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…">
+        <title>s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…</title>
         <rect class="dag-card" x="0" y="2156" width="190" height="44" rx="8" />
         <circle cx="16" cy="2178" r="4" fill="#3fb950" />
-        <text x="28" y="2176">s15 think: All checks p…</text>
+        <text x="28" y="2176">s15 tool: Ran sverka: c…</text>
         <text class="node-status" x="28" y="2190" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s16 think: exec" tabindex="0" role="button" aria-label="step s16 think: exec">
+        <title>s16 think: exec</title>
+        <rect class="dag-card" x="0" y="2310" width="190" height="44" rx="8" />
+        <circle cx="16" cy="2332" r="4" fill="#3fb950" />
+        <text x="28" y="2330">s16 think: exec</text>
+        <text class="node-status" x="28" y="2344" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" tabindex="0" role="button" aria-label="step s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…">
+        <title>s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…</title>
+        <rect class="dag-card" x="0" y="2464" width="190" height="44" rx="8" />
+        <circle cx="16" cy="2486" r="4" fill="#3fb950" />
+        <text x="28" y="2484">s17 think: All checks p…</text>
+        <text class="node-status" x="28" y="2498" style="fill:#3fb950">succeeded</text>
       </g></svg>
       <div class="dag-mini-vp" id="dag-mini-vp"></div>
     </div>
   </div></div>
-    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" style="border-color:#3fb950">✓ s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" style="border-color:#3fb950">✓ s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" style="border-color:#3fb950">✓ s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" style="border-color:#3fb950">✓ s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s14 think: exec" style="border-color:#3fb950">✓ s14 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" style="border-color:#3fb950">✓ s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**… <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
+    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox" style="border-color:#3fb950">✓ s01 tool: Listed ./: ls -la /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" tabindex="0" role="button" aria-label="step s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" style="border-color:#3fb950">✓ s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s03 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s04 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s05 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s06 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s07 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s08 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s08 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s09 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s09 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" tabindex="0" role="button" aria-label="step s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" style="border-color:#3fb950">✓ s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" tabindex="0" role="button" aria-label="step s11 tool: Wrote ./src/index.ts: /tmp/sandbox" style="border-color:#3fb950">✓ s11 tool: Wrote ./src/index.ts: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" tabindex="0" role="button" aria-label="step s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" style="border-color:#3fb950">✓ s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint … <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" tabindex="0" role="button" aria-label="step s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" style="border-color:#3fb950">✓ s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" tabindex="0" role="button" aria-label="step s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" style="border-color:#3fb950">✓ s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" tabindex="0" role="button" aria-label="step s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" style="border-color:#3fb950">✓ s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s16 think: exec" tabindex="0" role="button" aria-label="step s16 think: exec" style="border-color:#3fb950">✓ s16 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" tabindex="0" role="button" aria-label="step s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" style="border-color:#3fb950">✓ s17 think: All checks pass. The full sverka pipeline (`sverka run`) co… <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s01 tool: Listed ./: ls -la /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">5.6s</span> <button type="button" class="step-findings" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo… <span class="step-state succeeded">succeeded</span> <span class="meta">2ms</span> <button type="button" class="step-findings" data-step="s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">2ms</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an… <span class="step-state succeeded">succeeded</span> <span class="meta">5ms</span> <button type="button" class="step-findings" data-step="s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">12ms</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">3ms</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s06 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">3.8s</span> <button type="button" class="step-findings" data-step="s06 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">2.3s</span> <button type="button" class="step-findings" data-step="s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s07 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s07 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s08 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s08 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r… <span class="step-state succeeded">succeeded</span> <span class="meta">6.1s</span> <button type="button" class="step-findings" data-step="s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s09 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">8.7s</span> <button type="button" class="step-findings" data-step="s09 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">3.8s</span> <button type="button" class="step-findings" data-step="s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai… <span class="step-state succeeded">succeeded</span> <span class="meta">13.2s</span> <button type="button" class="step-findings" data-step="s10 tool: Ran bun, echo: cd /tmp/sandbox &amp;&amp; bun run format 2&gt;&amp;1 | tai…" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">5.7s</span> <button type="button" class="step-findings" data-step="s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s11 tool: Wrote ./src/index.ts: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">3.3s</span> <button type="button" class="step-findings" data-step="s11 tool: Wrote ./src/index.ts: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-… <span class="step-state succeeded">succeeded</span> <span class="meta">2.3s</span> <button type="button" class="step-findings" data-step="s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint … <span class="step-state succeeded">succeeded</span> <span class="meta">6.0s</span> <button type="button" class="step-findings" data-step="s12 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun run format &amp;&amp; bun run lint …" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl… <span class="step-state succeeded">succeeded</span> <span class="meta">4.2s</span> <button type="button" class="step-findings" data-step="s13 tool: Ran ls, grep: cd /tmp/sandbox &amp;&amp; ls node_modules/@sverka/cl…" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s14 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s14 think: exec" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -… <span class="step-state succeeded">succeeded</span> <span class="meta">3.7s</span> <button type="button" class="step-findings" data-step="s14 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka -…" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**… <span class="step-state succeeded">succeeded</span> <span class="meta">15.3s</span> <button type="button" class="step-findings" data-step="s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s15 tool: Ran sverka: cd /tmp/sandbox &amp;&amp; ./node_modules/.bin/sverka r…" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s16 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s16 think: exec" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s17 think: All checks pass. The full sverka pipeline (`sverka run`) co… <span class="step-state succeeded">succeeded</span> <span class="meta">16.5s</span> <button type="button" class="step-findings" data-step="s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details></div>
   </section>
@@ -854,10 +964,24 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
     </div>
     <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-tabs" id="drawer-tabs" hidden>
+      <div class="drawer-tablist" role="tablist" aria-label="step output">
+        <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
+        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log-stdout">stdout</button>
+        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log-stderr">stderr</button>
+      </div>
+      <input id="drawer-search" type="search" placeholder="Search log…" aria-label="Search log">
+      <span id="drawer-search-count" class="drawer-search-count"></span>
+    </div>
     <div class="drawer-actions">
       <button type="button" id="drawer-findings" class="drawer-btn">Open in findings table</button>
+      <button type="button" id="drawer-copy" class="drawer-btn">Copy log</button>
+      <button type="button" id="drawer-download" class="drawer-btn">Download</button>
     </div>
-    <div id="drawer-body"></div>
+    <div id="drawer-truncated" class="drawer-truncated" hidden></div>
+    <div id="drawer-body" role="tabpanel" aria-label="overview" tabindex="0"></div>
+    <pre id="drawer-log-stdout" class="drawer-log step-out" role="tabpanel" aria-label="stdout" tabindex="0" hidden></pre>
+    <pre id="drawer-log-stderr" class="drawer-log step-out err" role="tabpanel" aria-label="stderr" tabindex="0" hidden></pre>
   </aside>
 
     <section id="findings">
@@ -896,7 +1020,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 
   <script>
     var __FINDINGS_DATA__ = [];
-    var __STEPS_DATA__ = {"s01 tool: Listed ./: ls -la /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the configuration file to get a lay of the land.\n\ntotal 668\ndrwxr-xr-x    6 pepl pepl   4096 Sep 30 19:55 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:55 .gitignore\n-rw-r--r--    1 pepl pepl     51 Sep 30 19:55 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Sep 30 19:55 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Sep 30 19:55 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Sep 30 19:55 node_modules\n-rw-r--r--    1 pepl pepl    449 Sep 30 19:55 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src\n-rw-r--r--    1 pepl pepl    658 Sep 30 19:55 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test\n-rw-r--r--    1 pepl pepl    201 Sep 30 19:55 tsconfig.json","stderr":null},"s02 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"I'm starting by examining the project structure and the configuration file to get a lay of the land.\n\n20 lines","stderr":null},"s03 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":3700,"exitCode":null,"error":null,"stdout":"I'm examining the source and test directories, along with configuration files, to understand the project structure and identify any potential issues or areas for improvement.\n\n20 lines","stderr":null},"s04 tool: Listed ./src, ./test, ./.devin: ls -la /tmp/arena-verify-an…":{"state":"succeeded","durationMs":5,"exitCode":null,"error":null,"stdout":"I'm examining the source and test directories, along with configuration files, to understand the project structure and identify any potential issues or areas for improvement.\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/.devin:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl   40 Sep 30 19:55 config.json\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/src:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl  509 Sep 30 19:55 index.ts\n\n/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test:\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Sep 30 19:55 .\ndrwxr-xr-x 6 pepl pepl 4096 Sep 30 19:55 ..\n-rw-r--r-- 1 pepl pepl  616 Sep 30 19:55 index.test.ts","stderr":null},"s05 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":12,"exitCode":null,"error":null,"stdout":"read, read\n\n5 lines","stderr":null},"s06 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"read, read\n\n11 lines","stderr":null},"s07 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":2286,"exitCode":null,"error":null,"stdout":"I'll run all the checks to see the failures.\n\n5 lines","stderr":null},"s08 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"I'll run all the checks to see the failures.\n\n20 lines","stderr":null},"s09 tool: Read file: /tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r…":{"state":"succeeded","durationMs":6116,"exitCode":null,"error":null,"stdout":"exec\n\n23 lines","stderr":null},"s10 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":3801,"exitCode":null,"error":null,"stdout":"exec\n\n$ prettier --check .\nChecking formatting...\n[warn] src/index.ts\n[warn] Code style issues found in the above file. Run Prettier with --write to fix.\nerror: script \"format\" exited with code 1\n=== format exit: 1\n$ oxlint .\nsrc/index.ts:7:9: error eslint(no-unused-vars): Variable 'unused' is declared but never used. Unused variables should s\u001b(B\u001b[0mt\u001b(B\u001b[0m\nart with a '_'. help: Consider removing this declaration.\nerror: script \"lint\" exited with code 1\n=== lint exit: 1\n$ tsc --noEmit\nsrc/index.ts(15,3): error TS2322: Type 'number[]' is not assignable to type 'number'.\n=== typecheck exit: 2","stderr":null},"s11 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":5661,"exitCode":null,"error":null,"stdout":"All four checks fail. I'll rewrite `src/index.ts` to fix the type error, the case-insensitive vowel count, remove the unused variable, and match prettier style (double quotes, semicolons).\n\n$ bun test\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) slugify > converts to a lowercase slug [5.93ms]\n 7 |   });\n 8 | });\n 9 |\n10 | describe(\"parseVersion\", () => {\n11 |   it(\"returns the major version number\", () => {\n12 |     expect(parseVersion(\"1.2.3\")).toBe(1);\n                                       ^\nerror: expect(received).toBe(expected)\n\nExpected: 1\nReceived: [ 1, 2, 3 ]\n\n      at \u003canonymous> (/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test/index.test.ts:12:35)\n(fail) parseVersion > returns the major version number [6.58ms]\n13 |   });\n14 | });\n15 |\n16 | describe(\"countVowels\", () => {\n17 |   it(\"counts vowels case-insensitively\", () => {\n18 |     expect(countVowels(\"APPLE\")).toBe(2);\n                                      ^\nerror: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 0\n\n      at \u003canonymous> (/tmp/arena-verify-and-fix-swe-2-high-sverkaoff-r0-1790790939367/test/index.test.ts:18:34)\n(fail) countVowels > counts vowels case-insensitively [0.68ms]\n(pass) countVowels > returns zero for no vowels [0.04ms]\n\n 2 pass\n 2 fail\n 4 expect() calls\nRan 4 tests across 1 file. [26.00ms]\nerror: script \"test\" exited with code 1\n=== test exit: 1","stderr":null},"s12 tool: Wrote ./src/index.ts: /tmp/arena-verify-and-fix-swe-2-high-…":{"state":"succeeded","durationMs":2342,"exitCode":null,"error":null,"stdout":"All four checks fail. I'll rewrite `src/index.ts` to fix the type error, the case-insensitive vowel count, remove the unused variable, and match prettier style (double quotes, semicolons).","stderr":null},"s13 tool: Ran bun, echo: cd /tmp/arena-verify-and-fix-swe-2-high-sver…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec\n\n$ prettier --check .\nChecking formatting...\nAll matched files use Prettier code style!\n$ oxlint .\n$ tsc --noEmit\n$ bun test\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) slugify > converts to a lowercase slug [0.20ms]\n(pass) parseVersion > returns the major version number [0.05ms]\n(pass) countVowels > counts vowels case-insensitively [0.14ms]\n(pass) countVowels > returns zero for no vowels [0.02ms]\n\n 4 pass\n 0 fail\n 4 expect() calls\nRan 4 tests across 1 file. [5.00ms]\n$ bun build src/index.ts --outdir dist\nBundled 1 module in 47ms\n\n  index.js  344 bytes  (entry point)\n\n=== ALL PASS ===","stderr":null},"s14 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s15 think: All checks pass. Fixed `src/index.ts`: - **`parseVersion`**…":{"state":"succeeded","durationMs":15319,"exitCode":null,"error":null,"stdout":"All checks pass. Fixed `src/index.ts`:\n\n- **`parseVersion`**: was returning `v.split('.').map(Number)` (`number[]`) — now returns `Number(v.split(\".\")[0])`, the major version, fixing both the TS2322 type error and the failing test.\n- **`countVowels`**: now lowercases before matching, so `\"APPLE\"` counts 2 vowels.\n- **Lint**: removed the unused `debug-marker` variable.\n- **Format**: converted to prettier style (double quotes, semicolons).\n\nPipeline results (`format` → `lint` → `typecheck` → `test` → `build`):\n- `prettier --check .` — clean\n- `oxlint .` — 0 errors\n- `tsc --noEmit` — clean\n- `bun test` — 4/4 pass\n- `bun build` — bundled successfully\n\nNo test or config files were modified.","stderr":null}};
+    var __STEPS_DATA__ = {"s01 tool: Listed ./: ls -la /tmp/sandbox":{"state":"succeeded","durationMs":5644,"exitCode":null,"error":null,"stdout":"I need to understand the project structure first.\n\ntotal 668\ndrwxr-xr-x    6 pepl pepl   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:19 ..\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:18 .gitignore\n-rw-r--r--    1 pepl pepl     51 Oct  3 02:18 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:18 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Oct  3 02:18 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Oct  3 02:18 node_modules\n-rw-r--r--    1 pepl pepl    449 Oct  3 02:18 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 src\n-rw-r--r--    1 pepl pepl    658 Oct  3 02:18 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 test\n-rw-r--r--    1 pepl pepl    201 Oct  3 02:18 tsconfig.json","stderr":null},"s02 tool: Listed ./src, ./test, ./.devin: ls /tmp/sandbox /tmp/sandbo…":{"state":"succeeded","durationMs":2,"exitCode":null,"error":null,"stdout":"I need to understand the project structure first.\n\n/tmp/sandbox\nconfig.json\n\n/tmp/sandbox\nindex.ts\n\n/tmp/sandbox\nindex.test.ts","stderr":null},"s03 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":2,"exitCode":null,"error":null,"stdout":"read, read, read, read, exec\n\n20 lines","stderr":null},"s04 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"read, read, read, read, exec\n\n20 lines","stderr":null},"s05 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":3,"exitCode":null,"error":null,"stdout":"read, read, read\n\n5 lines","stderr":null},"s06 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":3803,"exitCode":null,"error":null,"stdout":"read, read, read\n\n11 lines","stderr":null},"s07 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"The source file is deliberately broken. Let me run each check to confirm the failures before fixing.\n\n20 lines","stderr":null},"s08 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"The source file is deliberately broken. Let me run each check to confirm the failures before fixing.\n\n23 lines","stderr":null},"s09 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":8728,"exitCode":null,"error":null,"stdout":"All four failures confirmed:\n\n- **format**: `src/index.ts` violates prettier defaults (single quotes, no semicolons)\n- **lint**: unused variable `unused` at line 7\n- **typecheck**: `parseVersion` returns `number[]` but declares `number`\n- **test**: `parseVersion` should return the major version (`1`), and `countVowels` must be case-insensitive\n\nFixing `src/index.ts`:\n\n5 lines","stderr":null},"s10 tool: Ran bun, echo: cd /tmp/sandbox && bun run format 2>&1 | tai…":{"state":"succeeded","durationMs":13188,"exitCode":null,"error":null,"stdout":"All four failures confirmed:\n\n- **format**: `src/index.ts` violates prettier defaults (single quotes, no semicolons)\n- **lint**: unused variable `unused` at line 7\n- **typecheck**: `parseVersion` returns `number[]` but declares `number`\n- **test**: `parseVersion` should return the major version (`1`), and `countVowels` must be case-insensitive\n\nFixing `src/index.ts`:\n\n$ prettier --check .\nChecking formatting...\n[warn] src/index.ts\n[warn] Code style issues found in the above file. Run Prettier with --write to fix.\nerror: script \"format\" exited with code 1\n=== LINT ===\n$ oxlint .\nsrc/index.ts:7:9: error eslint(no-unused-vars): Variable 'unused' is declared but never used. Unused variables should st\nart with a '_'. help: Consider removing this declaration.\nerror: script \"lint\" exited with code 1\n=== TYPECHECK ===\n$ tsc --noEmit\nsrc/index.ts(15,3): error TS2322: Type 'number[]' is not assignable to type 'number'.\n=== TEST ===\nReceived: [ 1, 2, 3 ]\n\n      at \u003canonymous> (/tmp/sandbox\n(fail) parseVersion > returns the major version number [10.03ms]\n13 |   });\n14 | });\n15 |\n16 | describe(\"countVowels\", () => {\n17 |   it(\"counts vowels case-insensitively\", () => {\n18 |     expect(countVowels(\"APPLE\")).toBe(2);\n                                      ^\nerror: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 0\n\n      at \u003canonymous> (/tmp/sandbox\n(fail) countVowels > counts vowels case-insensitively [0.73ms]\n(pass) countVowels > returns zero for no vowels [0.11ms]\n\n 2 pass\n 2 fail\n 4 expect() calls\nRan 4 tests across 1 file. [42.00ms]\nerror: script \"test\" exited with code 1","stderr":null},"s11 tool: Wrote ./src/index.ts: /tmp/sandbox":{"state":"succeeded","durationMs":3285,"exitCode":null,"error":null,"stdout":"Now re-running the full suite:","stderr":null},"s12 tool: Ran bun: cd /tmp/sandbox && bun run format && bun run lint …":{"state":"succeeded","durationMs":5998,"exitCode":null,"error":null,"stdout":"Now re-running the full suite:\n\n$ prettier --check .\nChecking formatting...\nAll matched files use Prettier code style!\n$ oxlint .\n$ tsc --noEmit\n$ bun test\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) slugify > converts to a lowercase slug [0.29ms]\n(pass) parseVersion > returns the major version number [0.06ms]\n(pass) countVowels > counts vowels case-insensitively [0.19ms]\n(pass) countVowels > returns zero for no vowels [0.07ms]\n\n 4 pass\n 0 fail\n 4 expect() calls\nRan 4 tests across 1 file. [10.00ms]\n$ bun build src/index.ts --outdir dist\nBundled 1 module in 90ms\n\n  index.js  344 bytes  (entry point)","stderr":null},"s13 tool: Ran ls, grep: cd /tmp/sandbox && ls node_modules/@sverka/cl…":{"state":"succeeded","durationMs":4221,"exitCode":null,"error":null,"stdout":"All individual checks pass. Let me also verify via the sverka pipeline itself, since that's the suite entrypoint.\n\ndist\npackage.json\nsverka","stderr":null},"s14 tool: Ran sverka: cd /tmp/sandbox && ./node_modules/.bin/sverka -…":{"state":"succeeded","durationMs":3739,"exitCode":null,"error":null,"stdout":"All individual checks pass. Let me also verify via the sverka pipeline itself, since that's the suite entrypoint.\n\nsverka \u003ccommand>\n\nCommands:\n  sverka init         Create a sverka.config.ts\n  sverka validate     Validate a sverka config\n  sverka plan         Bind Entry + inputs → Run Plan\n  sverka graph        Display the Definition Graph\n  sverka run          Execute the workflow locally\n  sverka discover     Discover and display project context\n  sverka check        Resolve proposed checks → StepDefinitions\n  sverka policy       Evaluate findings against policy\n  sverka synth        Alias for compile — compile to a target CI YAML\n  sverka compile      Compile to a target CI YAML\n  sverka mcp-server   Expose Sverka as an MCP server (stdio)\n  sverka doctor       Diagnose environment and dependencies\n  sverka view [file]  View SARIF findings in TUI or generate HTML report\n  sverka ui           Start local web dashboard server\n\nOptions:\n      --help     Show help                                             [boolean]\n      --version  Show version number                                   [boolean]\n  -f, --format        [string] [choices: \"text\", \"json\", \"html\", \"sarif\", \"web\"]\n  -c, --config                                                          [string]\n  -r, --root                                                  [string] [default:\n              \"/tmp/sandbox\"]\n  -q, --quiet                                         [boolean] [default: false]\n  -v, --verbose                                       [boolean] [default: false]","stderr":null},"s15 tool: Ran sverka: cd /tmp/sandbox && ./node_modules/.bin/sverka r…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec\n\n\n▶ run started (plan: rp-498a17c26d8af8cc1b3ea8ef5fc87ffa66ed78b206084912f3fbad07c7933cc6)\n  ○ ci/format  pending\n  ○ ci/lint  pending\n  ○ ci/typecheck  pending\n  ○ ci/test  pending\n  ○ ci/build  pending\n  ◇ ci/format  ready\n  ▶ ci/format  running\n  ◇ ci/lint  ready\n  ▶ ci/lint  running\n  ◇ ci/typecheck  ready\n  ▶ ci/typecheck  running\n  ✓ ci/lint  succeeded (156ms)\n  ✓ ci/format  succeeded (256ms)\n  ✓ ci/typecheck  succeeded (383ms)\n  ◇ ci/test  ready\n  ▶ ci/test  running\n  ✓ ci/test  succeeded (27ms)\n  ◇ ci/build  ready\n  ▶ ci/build  running\n  ✓ ci/build  succeeded (23ms)\n\n■ run completed: success (437ms)","stderr":null},"s16 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s17 think: All checks pass. The full sverka pipeline (`sverka run`) co…":{"state":"succeeded","durationMs":16476,"exitCode":null,"error":null,"stdout":"All checks pass. The full sverka pipeline (`sverka run`) completed successfully: format, lint, typecheck, test, and build all green.\n\nFixes applied to `src/index.ts` only — no test or config files touched:\n\n- **lint**: removed the unused `unused` variable in `slugify`\n- **typecheck + test**: `parseVersion` returned `number[]` instead of `number`; now returns `Number(v.split(\".\")[0])` (the major version, matching the test's expectation of `1`)\n- **test**: `countVowels` was case-sensitive; now lowercases each char before checking, so `\"APPLE\"` → `2`\n- **format**: rewrote the file to prettier defaults (double quotes, semicolons)","stderr":null}};
   </script>
   <script>
 (function() {
@@ -1208,6 +1332,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
+    // Keyboard activation has no pointerdown to reset the drag guard —
+    // without this, Enter/Space stop working after any DAG pan.
+    window.__dagClearMoved = function() { moved = 0; };
   })();
 
   // Step → findings filter: click any step element (gantt row, dag
@@ -1230,12 +1357,140 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   var stepsData = window.__STEPS_DATA__ || {};
   var drawer = document.getElementById("step-drawer");
   var drawerOpener = null;
+  var drawerStep = null; // {id, stdout, stderr}
+  var drawerTab = "overview";
 
   function drawerEl(tag, cls, text) {
     var el = document.createElement(tag);
     if (cls) el.className = cls;
     el.textContent = text;
     return el;
+  }
+
+  // Runtime caps captured output (MAX_OUTPUT_BYTES) and appends
+  // "[... truncated N bytes]" — surface that as a banner, not log text.
+  // Double backslashes — JS lives in a template literal, so s would
+  // collapse to s before the browser ever parses the regex.
+  // Two producers: host runtime appends "[... truncated N bytes]",
+  // the docker runtime appends a bare "[log truncated]".
+  var TRUNCATED_RE =
+    /\[\.\.\. truncated ([0-9]+) bytes\]\s*$|\[log truncated\]\s*$/;
+  function splitTruncated(text) {
+    var m = text && text.match(TRUNCATED_RE);
+    return m
+      ? {
+          text: text.slice(0, m.index).replace(/\n$/, ""),
+          truncated: true,
+          dropped: m[1] || null,
+        }
+      : { text: text || "", truncated: false, dropped: null };
+  }
+
+  function activeLogText() {
+    if (!drawerStep || drawerTab === "overview") return "";
+    var raw = drawerStep[drawerTab] || "";
+    return splitTruncated(raw).text;
+  }
+
+  // text.length counts UTF-16 units — label sizes are byte counts.
+  var textEncoder = new TextEncoder();
+  function byteLen(t) {
+    return t ? textEncoder.encode(t).length : 0;
+  }
+
+  // Actions act on the visible pane — disable them when it's empty.
+  function updateActionState() {
+    var text =
+      drawerTab === "overview"
+        ? (drawerStep && drawerStep.error) || ""
+        : activeLogText();
+    var copy = document.getElementById("drawer-copy");
+    // navigator.clipboard is undefined outside secure contexts (plain
+    // http, file://) — keep the button disabled there so it can't look
+    // usable and silently no-op.
+    if (copy) copy.disabled = !text || !navigator.clipboard;
+    var dl = document.getElementById("drawer-download");
+    if (dl) dl.disabled = !text;
+  }
+
+  // Rebuild the log <pre> with <mark> around query hits — text nodes
+  // only, never innerHTML.
+  var logMarks = [];
+  var logMarkIdx = -1;
+  function renderLogPane() {
+    var preOut = document.getElementById("drawer-log-stdout");
+    var preErr = document.getElementById("drawer-log-stderr");
+    var body = document.getElementById("drawer-body");
+    var banner = document.getElementById("drawer-truncated");
+    var pre = drawerTab === "stderr" ? preErr : preOut;
+    if (body) body.hidden = drawerTab !== "overview";
+    if (preOut) preOut.hidden = drawerTab !== "stdout";
+    if (preErr) preErr.hidden = drawerTab !== "stderr";
+    if (drawerTab === "overview" || !drawerStep || !pre) {
+      if (banner) banner.hidden = true;
+      // Leaving a log tab drops the search state — Enter must not cycle
+      // stale marks in a hidden pane.
+      logMarks = [];
+      logMarkIdx = -1;
+      var c0 = document.getElementById("drawer-search-count");
+      if (c0) c0.textContent = "";
+      updateActionState();
+      return;
+    }
+    var split = splitTruncated(drawerStep[drawerTab] || "");
+    if (banner) {
+      banner.hidden = !split.truncated;
+      if (split.truncated)
+        banner.textContent = split.dropped
+          ? "log truncated — " + split.dropped + " bytes dropped (capture cap)"
+          : "log truncated — output exceeded the capture cap";
+    }
+    var q = (document.getElementById("drawer-search") || {}).value || "";
+    pre.textContent = "";
+    logMarks = [];
+    logMarkIdx = -1;
+    if (!q) {
+      pre.textContent = split.text;
+    } else {
+      // Fold the whole text once (contextual folds like "ΟΣ" → "ος"
+      // need surrounding chars), then map folded offsets back: per-char
+      // fold LENGTHS agree with the contextual fold even when the folded
+      // char differs ("ς" vs "σ" are both one code unit), so each folded
+      // position maps to its originating original index.
+      var folded = split.text.toLowerCase();
+      var foldMap = [];
+      for (var ci = 0; ci < split.text.length; ci++) {
+        var fl = split.text[ci].toLowerCase().length;
+        for (var cj = 0; cj < fl; cj++) foldMap.push(ci);
+      }
+      var nq = q.toLowerCase();
+      var pos = 0;
+      var i = 0;
+      while ((pos = folded.indexOf(nq, pos)) !== -1) {
+        var from = foldMap[pos];
+        var to = foldMap[pos + nq.length - 1] + 1;
+        pre.appendChild(document.createTextNode(split.text.slice(i, from)));
+        var mark = document.createElement("mark");
+        mark.textContent = split.text.slice(from, to);
+        pre.appendChild(mark);
+        logMarks.push(mark);
+        i = to;
+        pos += nq.length;
+      }
+      pre.appendChild(document.createTextNode(split.text.slice(i)));
+    }
+    var count = document.getElementById("drawer-search-count");
+    if (count) count.textContent = q ? logMarks.length + " matches" : "";
+    updateActionState();
+  }
+
+  function selectTab(tab) {
+    drawerTab = tab;
+    document.querySelectorAll("#drawer-tabs .drawer-tab").forEach(function(b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+      b.setAttribute("aria-selected", b.getAttribute("data-tab") === tab);
+    });
+    renderLogPane();
   }
 
   function openStep(id, opener) {
@@ -1245,6 +1500,8 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       closeStep();
       return;
     }
+    drawerStep = s;
+    drawerStep.id = id;
     document.getElementById("drawer-title").textContent = id;
     var st = document.getElementById("drawer-state");
     st.textContent = s.state;
@@ -1281,18 +1538,28 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         body.appendChild(row);
       });
     }
-    if (s.stdout) {
-      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
-      body.appendChild(drawerEl("pre", "step-out", s.stdout));
-    }
-    if (s.stderr) {
-      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
-      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
-    }
     if (!s.error && !stepFindings.length && !s.stdout && !s.stderr)
       body.appendChild(drawerEl("span", "meta", "no output captured"));
-    var findingsBtn = document.getElementById("drawer-findings");
-    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+
+    // Tabs appear only when there are logs to tab between; labels carry
+    // the byte size so an empty stderr is obvious without clicking.
+    var tabs = document.getElementById("drawer-tabs");
+    var hasLogs = !!(s.stdout || s.stderr);
+    if (tabs) tabs.hidden = !hasLogs;
+    if (hasLogs) {
+      ["stdout", "stderr"].forEach(function(name) {
+        var b = tabs.querySelector('[data-tab="' + name + '"]');
+        if (!b) return;
+        var text = s[name] || "";
+        b.disabled = !text;
+        b.textContent =
+          name + (text ? " (" + byteLen(text) + "b)" : " (empty)");
+      });
+    }
+    // Fresh step, fresh search — no carried-over query or count.
+    var searchEl = document.getElementById("drawer-search");
+    if (searchEl) searchEl.value = "";
+    selectTab("overview");
     drawerOpener = opener || null;
     drawer.removeAttribute("inert");
     drawer.classList.add("open");
@@ -1309,6 +1576,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (!drawer) return;
     var opener = drawerOpener;
     drawerOpener = null;
+    drawerStep = null;
     drawer.classList.remove("open");
     drawer.setAttribute("aria-hidden", "true");
     drawer.setAttribute("inert", "");
@@ -1320,15 +1588,121 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   document.addEventListener("keydown", function(e) {
     if (e.key === "Escape") closeStep();
   });
+  document.querySelectorAll("#drawer-tabs .drawer-tab").forEach(function(b) {
+    b.addEventListener("click", function() {
+      selectTab(b.getAttribute("data-tab"));
+    });
+  });
+  var drawerTabs = document.getElementById("drawer-tabs");
+  if (drawerTabs) {
+    // Left/Right move across the enabled tabs — standard tablist keys.
+    drawerTabs.addEventListener("keydown", function(e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (!e.target.classList || !e.target.classList.contains("drawer-tab"))
+        return;
+      e.preventDefault();
+      var tabs = [];
+      drawerTabs
+        .querySelectorAll(".drawer-tab")
+        .forEach(function(t) { if (!t.disabled) tabs.push(t); });
+      var cur = tabs.indexOf(e.target);
+      if (cur === -1) return;
+      var next =
+        tabs[(cur + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus();
+      selectTab(next.getAttribute("data-tab"));
+    });
+  }
+  var drawerSearch = document.getElementById("drawer-search");
+  if (drawerSearch) {
+    drawerSearch.addEventListener("input", renderLogPane);
+    drawerSearch.addEventListener("keydown", function(e) {
+      // Enter cycles through matches inside the visible log.
+      if (e.key !== "Enter" || !logMarks.length) return;
+      if (logMarkIdx >= 0) logMarks[logMarkIdx].classList.remove("mark-cur");
+      logMarkIdx = (logMarkIdx + 1) % logMarks.length;
+      var next = logMarks[logMarkIdx];
+      next.classList.add("mark-cur");
+      var count = document.getElementById("drawer-search-count");
+      if (count)
+        count.textContent =
+          logMarkIdx + 1 + " of " + logMarks.length + " matches";
+      next.scrollIntoView({ block: "nearest" });
+    });
+  }
   var drawerFindings = document.getElementById("drawer-findings");
   if (drawerFindings) {
     drawerFindings.addEventListener("click", function() {
+      // Apply the step filter (not just scroll) — that is the drawer
+      // button's contract.
+      if (drawerStep && stepFilter !== drawerStep.id)
+        applyStepFilter(drawerStep.id);
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
+  var drawerCopy = document.getElementById("drawer-copy");
+  if (drawerCopy) {
+    drawerCopy.addEventListener("click", function() {
+      var text =
+        drawerTab === "overview" ? (drawerStep && drawerStep.error) || "" : activeLogText();
+      if (!text || !navigator.clipboard) return;
+      navigator.clipboard
+        .writeText(text)
+        .then(function() {
+          drawerCopy.textContent = "copied!";
+        })
+        .catch(function() {
+          drawerCopy.textContent = "copy failed";
+        })
+        .finally(function() {
+          setTimeout(function() { drawerCopy.textContent = "Copy log"; }, 1200);
+        });
+    });
+  }
+  var drawerDownload = document.getElementById("drawer-download");
+  if (drawerDownload) {
+    drawerDownload.addEventListener("click", function() {
+      if (!drawerStep) return;
+      var text = activeLogText() || (drawerStep.error || "");
+      var blob = new Blob([text], { type: "text/plain" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download =
+        drawerStep.id.replace(/[^\w.-]+/g, "_") + "." + drawerTab + ".txt";
+      // Firefox ignores download clicks on detached anchors; deferring
+      // the revoke keeps other engines from aborting the fetch.
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 0);
+    });
+  }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
+    // Keyboard activation for role=button elements (gantt rows, DAG
+    // nodes, tree spans) — native <button>/<summary> fire click on
+    // Enter/Space themselves; forwarding there would double-toggle.
+    if (el.getAttribute("role") === "button") {
+      el.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          // Held key repeats — swallow the default (Space would scroll
+          // the page) but only the first press may activate.
+          if (e.repeat) return;
+          // A DAG pan sets moved>4 until the next pointerdown — a
+          // keyboard activation has no pointer, so clear the guard or
+          // the synthetic click below gets swallowed as a drag.
+          if (window.__dagClearMoved) window.__dagClearMoved();
+          // SVGElement has no .click() — dispatch a synthetic click
+          // event so gantt/DAG <g> nodes activate like HTML elements.
+          el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        }
+      });
+    }
     el.addEventListener("click", function(e) {
       e.stopPropagation();
       // preventDefault keeps <details> in the list view from toggling

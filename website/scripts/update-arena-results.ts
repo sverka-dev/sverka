@@ -38,9 +38,21 @@ import { writeAggregateReport } from "../../packages/arena/src/aggregate-report.
 // (absolute paths, kernel build, session ids) and drop replayed context:
 // the emitter re-sends earlier steps on each flush, so identical stepIds
 // accumulate 2-6x in the raw trace.
+// ANSI escapes are writer noise — PTY output chunks can land mid-token,
+// splitting a path like /tmp/are<ESC>(B<ESC>[0m\nna-ship-... and defeating
+// the path patterns below. Strip them first; they render as garbage in
+// reports anyway.
+const ANSI_RE =
+  /[\u001b\u009b][[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-ntqry=><~]/g;
+
 function redactText(text: string): string {
   return (
     text
+      .replace(ANSI_RE, "")
+      // PTY wraps can split a path across lines — join word fragments so
+      // the whole thing gets redacted, not just the first line.
+      .replace(/\/home\/[\w.-]*(?:\n[\w.-]+)+/g, "/home/user")
+      .replace(/\/tmp\/[\w.-]*(?:\n[\w.-]+)+/g, "/tmp/sandbox")
       .replace(/\/home\/[^\s"']+/g, "/home/user")
       .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
       .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
@@ -179,9 +191,14 @@ async function writeJson(path: string, data: unknown): Promise<void> {
 // Two passes: generate everything to .tmp first, then rename the whole
 // batch, then results.json last — a render failure can never leave the
 // SPA pointing at a partial generation.
+// Sanitized once up front — the trace JSON, the sverka report, the
+// aggregate report, and arena-results.json all publish the same scrubbed
+// view of each run.
+const sanitizedRuns = (results.results ?? []).map(sanitizeRun);
+
 const tracesDir = join(benchDir, "traces");
 const staged: [tmp: string, target: string][] = [];
-for (const r of results.results ?? []) {
+for (const r of sanitizedRuns) {
   if (!r.trace) continue;
   const combo = r.pluginIds.length ? r.pluginIds.join("--") : "no-plugins";
   const dir = join(tracesDir, r.taskId);
@@ -196,7 +213,7 @@ for (const r of results.results ?? []) {
   const traceJson = {
     configs: {
       [comboLabel]: {
-        ...sanitizeTrace(r.trace),
+        ...r.trace,
         llmCallCount: r.metrics?.llmCallCount ?? 0,
       },
     },
@@ -204,10 +221,11 @@ for (const r of results.results ?? []) {
   await writeFile(traceTmp, JSON.stringify(traceJson, null, 2) + "\n");
   staged.push([traceTmp, tracePath]);
   // Sverka report — Gantt/DAG timeline of the agent run itself. The
-  // report embeds the trace, so render it from the sanitized clone too.
+  // report embeds the trace and check output, so render it from the
+  // sanitized clone too.
   const reportPath = join(dir, `${combo}.report.html`);
   const reportTmp = `${reportPath}.tmp`;
-  writeTraceReport({ ...r, trace: sanitizeTrace(r.trace) }, reportTmp);
+  writeTraceReport(r, reportTmp);
   staged.push([reportTmp, reportPath]);
 }
 const reportsWritten = staged.length / 2;
@@ -224,7 +242,7 @@ const arenaResult =
   Array.isArray(cfg.models) &&
   Array.isArray(cfg.plugins) &&
   Array.isArray(cfg.tasks)
-    ? ({ ...results, results: results.results ?? [] } as ArenaResult)
+    ? ({ ...results, results: sanitizedRuns } as ArenaResult)
     : undefined;
 const aggPath = join(benchDir, "aggregate.html");
 if (arenaResult !== undefined) {
@@ -236,15 +254,13 @@ if (arenaResult !== undefined) {
   await rm(aggPath);
 }
 
-// Results — the SPA's default data file. Traces get the same public
-// sanitization as the per-run files; a torn file must never reach the
-// page, so write via tmp+rename.
-const sanitizedResults = {
-  ...results,
-  results: (results.results ?? []).map((r) => ({
+// Sanitize a run for public artifacts — output/checkResults/verdicts carry
+// recorded commands and tool output, same host-path + secret leakage
+// surface as the trace. Used by both the JSON snapshot and the report
+// renderer, which embeds check output in the HTML.
+function sanitizeRun(r: RunResult): RunResult {
+  return {
     ...r,
-    // output/checkResults/verdicts carry recorded commands and tool
-    // output — same host path + secret leakage surface as the trace.
     ...(typeof r.output === "string" ? { output: redactText(r.output) } : {}),
     ...(r.checkResults
       ? {
@@ -262,7 +278,15 @@ const sanitizedResults = {
         }
       : {}),
     ...(r.trace ? { trace: sanitizeTrace(r.trace) } : {}),
-  })),
+  };
+}
+
+// Results — the SPA's default data file. Traces get the same public
+// sanitization as the per-run files; a torn file must never reach the
+// page, so write via tmp+rename.
+const sanitizedResults = {
+  ...results,
+  results: sanitizedRuns,
 };
 const resultsTmp = join(benchDir, "arena-results.json.tmp");
 await writeFile(resultsTmp, JSON.stringify(sanitizedResults, null, 2) + "\n");
