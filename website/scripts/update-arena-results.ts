@@ -61,14 +61,8 @@ function redactText(text: string): string {
       // PTY wraps can split a path across lines — join word/path
       // fragments (CRLF included) so the whole thing gets redacted, not
       // just the first line.
-      .replace(
-        /\/home\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g,
-        "/home/user",
-      )
-      .replace(
-        /\/tmp\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g,
-        "/tmp/sandbox",
-      )
+      .replace(/\/home\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g, "/home/user")
+      .replace(/\/tmp\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g, "/tmp/sandbox")
       .replace(/\/home\/[^\s"']+/g, "/home/user")
       .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
       .replace(HOST_USER_RE, "user")
