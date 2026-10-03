@@ -163,27 +163,35 @@ export async function loadArenaConfig(
       ...(t.fixture !== undefined ? { fixture: rel(t.fixture) } : {}),
     })) as ArenaConfig["tasks"],
     outputDir: rel(file.outputDir),
-    ...(file.workspace !== undefined ? { workspace: rel(file.workspace) } : {}),
-    ...(file.repetitions !== undefined
-      ? { repetitions: file.repetitions }
-      : {}),
-    ...(file.unshareNet !== undefined ? { unshareNet: file.unshareNet } : {}),
-    ...(file.judge
-      ? {
-          judge: {
-            model: file.judge.model as ModelConfig,
-            agent: resolveAdapter(file.judge.agent ?? file.agent),
-            ...(file.judge.repetitions !== undefined
-              ? { repetitions: file.judge.repetitions }
-              : {}),
-            ...(file.judge.revealPlugins !== undefined
-              ? { revealPlugins: file.judge.revealPlugins }
-              : {}),
-            ...(file.judge.systemPrompt !== undefined
-              ? { systemPrompt: file.judge.systemPrompt }
-              : {}),
-          },
-        }
-      : {}),
+    ...optionalFields({
+      workspace: file.workspace === undefined ? undefined : rel(file.workspace),
+      repetitions: file.repetitions,
+      unshareNet: file.unshareNet,
+    }),
+    ...(file.judge ? { judge: mapJudge(file.agent, file.judge) } : {}),
+  };
+}
+
+/** Spreadable optional fields — drops keys whose value is undefined. */
+function optionalFields<T extends Record<string, unknown>>(
+  fields: T,
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, v]) => v !== undefined),
+  ) as Partial<T>;
+}
+
+function mapJudge(
+  agentName: string,
+  j: NonNullable<z.infer<typeof configFileSchema>["judge"]>,
+): NonNullable<ArenaConfig["judge"]> {
+  return {
+    model: j.model as ModelConfig,
+    agent: resolveAdapter(j.agent ?? agentName),
+    ...optionalFields({
+      repetitions: j.repetitions,
+      revealPlugins: j.revealPlugins,
+      systemPrompt: j.systemPrompt,
+    }),
   };
 }
