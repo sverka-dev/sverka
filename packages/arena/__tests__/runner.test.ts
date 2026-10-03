@@ -720,6 +720,15 @@ describe("buildSandboxArgv", () => {
     }
   });
 
+  it("adds --unshare-net only when opted in", () => {
+    expect(buildSandboxArgv("/work", "/tmp/check-home")).not.toContain(
+      "--unshare-net",
+    );
+    expect(buildSandboxArgv("/work", "/tmp/check-home", true)).toContain(
+      "--unshare-net",
+    );
+  });
+
   it("keeps the command tail intact", () => {
     const argv = buildSandboxArgv("/work", "/tmp/check-home");
     expect(argv.slice(-3)).toEqual(["--", "bash", "-c"]);

@@ -78,6 +78,7 @@ const configFileSchema = z.object({
   tasks: z.array(taskSchema).min(1),
   workspace: z.string().optional(),
   repetitions: z.number().int().positive().optional(),
+  unshareNet: z.boolean().optional(),
   outputDir: z.string(),
   judge: z
     .object({
@@ -166,6 +167,7 @@ export async function loadArenaConfig(
     ...(file.repetitions !== undefined
       ? { repetitions: file.repetitions }
       : {}),
+    ...(file.unshareNet !== undefined ? { unshareNet: file.unshareNet } : {}),
     ...(file.judge
       ? {
           judge: {

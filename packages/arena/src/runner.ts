@@ -136,6 +136,7 @@ async function runMatrix(
             combo,
             rep,
             config.workspace,
+            config.unshareNet,
           );
           results.push(result);
           process.stderr.write(
@@ -184,6 +185,7 @@ async function runCell(
   combo: PluginConfig[],
   rep: number,
   workspaceBase?: string,
+  unshareNet = false,
 ): Promise<RunResult> {
   const tempWorkspace = await createTempWorkspace(
     task,
@@ -193,7 +195,14 @@ async function runCell(
     workspaceBase,
   );
   await installPlugins(tempWorkspace, combo);
-  const result = await executeRun(agent, task, model, combo, tempWorkspace);
+  const result = await executeRun(
+    agent,
+    task,
+    model,
+    combo,
+    tempWorkspace,
+    unshareNet,
+  );
   await rm(tempWorkspace, { recursive: true, force: true });
   return result;
 }
@@ -242,6 +251,7 @@ async function executeRun(
   model: ArenaConfig["models"][number],
   combo: PluginConfig[],
   tempWorkspace: string,
+  unshareNet = false,
 ): Promise<RunResult> {
   const setupError = await runSetup(tempWorkspace, task.setup);
   if (setupError) return errorResult(task, model, combo, setupError);
@@ -257,7 +267,11 @@ async function executeRun(
     if (!result.verdicts) result.verdicts = [];
     if (!result.checkResults) result.checkResults = [];
     if (task.checks && task.checks.length > 0) {
-      result.checkResults = await runChecks(tempWorkspace, task.checks);
+      result.checkResults = await runChecks(
+        tempWorkspace,
+        task.checks,
+        unshareNet,
+      );
       result.success =
         result.success && result.checkResults.every((c) => c.passed);
     }
@@ -508,6 +522,7 @@ function hasBwrap(): boolean {
 export function buildSandboxArgv(
   workspace: string,
   checkHome: string,
+  unshareNet = false,
 ): string[] {
   const argv = [
     "--die-with-parent",
@@ -517,6 +532,10 @@ export function buildSandboxArgv(
     "--gid",
     "0",
     "--unshare-pid",
+    // Opt-in: a fresh network namespace has no interfaces but loopback —
+    // checks that must not reach the network get full isolation. Off by
+    // default because checks legitimately install packages.
+    ...(unshareNet ? ["--unshare-net"] : []),
     "--new-session",
     "--dev",
     "/dev",
@@ -551,6 +570,7 @@ function execShell(
   command: string,
   env?: Record<string, string>,
   checkHome?: string,
+  unshareNet = false,
 ): Promise<{ output: string; exitCode: number }> {
   const opts: SpawnOptions = {
     cwd: workspace,
@@ -564,7 +584,10 @@ function execShell(
       const proc = sandboxed
         ? spawn(
             "bwrap", // NOSONAR — host PATH is trusted runner config
-            [...buildSandboxArgv(workspace, checkHome ?? ""), command],
+            [
+              ...buildSandboxArgv(workspace, checkHome ?? "", unshareNet),
+              command,
+            ],
             opts,
           )
         : spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
@@ -604,6 +627,7 @@ function execShell(
 async function runChecks(
   workspace: string,
   checks: Task["checks"],
+  unshareNet = false,
 ): Promise<CheckResult[]> {
   if (!checks) return [];
   const checkHome = mkdtempSync(join(tmpdir(), "arena-check-home-"));
@@ -623,6 +647,7 @@ async function runChecks(
           check.command,
           env,
           checkHome,
+          unshareNet,
         );
         results.push({
           checkId: check.id,
