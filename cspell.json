@@ -105,6 +105,7 @@
     "frontmatter",
     "fumadocs",
     "gantt",
+    "ghsa",
     "graphlib",
     "hardlink",
     "hermeticity",
