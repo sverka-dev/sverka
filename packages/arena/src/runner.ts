@@ -8,7 +8,7 @@
  */
 
 import { writeFile, mkdir, cp, rm, realpath } from "node:fs/promises";
-import { existsSync, mkdtempSync, realpathSync } from "node:fs";
+import { existsSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, spawnSync, type SpawnOptions } from "node:child_process";
@@ -455,31 +455,24 @@ function resolvConfTarget(hostHome: string | undefined): string | undefined {
 let bwrapDetected: boolean | undefined;
 function hasBwrap(): boolean {
   // Probe a real namespace launch — `bwrap --version` says nothing about
-  // whether unprivileged user namespaces are enabled on this kernel.
-  bwrapDetected ??=
-    process.platform === "linux" &&
-    spawnSync(
-      "bwrap", // NOSONAR — host PATH is trusted runner config
-      [
-        "--die-with-parent",
-        "--unshare-user",
-        "--uid",
-        "0",
-        "--gid",
-        "0",
-        "--unshare-pid",
-        "--dev",
-        "/dev",
-        "--proc",
-        "/proc",
-        ...sandboxRoBinds(process.env["HOME"]),
-        "--",
-        "bash",
-        "-c",
-        "true",
-      ],
-      { stdio: "ignore" },
-    ).status === 0;
+  // whether unprivileged user namespaces are enabled on this kernel. Run
+  // the full argv (tmpfs + ro/rw binds) against throwaway dirs so a
+  // mount-type failure surfaces here, not on the first check.
+  if (bwrapDetected !== undefined) return bwrapDetected;
+  if (process.platform !== "linux") return (bwrapDetected = false);
+  const probeWs = mkdtempSync(join(tmpdir(), "arena-probe-"));
+  const probeHome = mkdtempSync(join(tmpdir(), "arena-probe-home-"));
+  try {
+    bwrapDetected =
+      spawnSync(
+        "bwrap", // NOSONAR — host PATH is trusted runner config
+        [...buildSandboxArgv(probeWs, probeHome), "true"],
+        { stdio: "ignore" },
+      ).status === 0;
+  } finally {
+    rmSync(probeWs, { recursive: true, force: true });
+    rmSync(probeHome, { recursive: true, force: true });
+  }
   return bwrapDetected;
 }
 
@@ -513,15 +506,22 @@ export function buildSandboxArgv(
   const roDirs = [...SANDBOX_RO_DIRS, ...SANDBOX_RO_TOOL_DIRS];
   argv.push(...sandboxRoBinds(hostHome));
   if (hostHome) {
-    // If HOME sits inside a read-only bound dir (e.g. /opt/runner), mask
-    // it so the bind can't leak credentials, then re-expose only the
-    // known toolchain subdirs.
-    if (roDirs.some((d) => hostHome.startsWith(d + sep))) {
+    // HOME may be a symlink into a bound dir — a textual containment
+    // check would miss that /usr/runner is readable through /usr.
+    // Containment is tested on the resolved path; tool dirs are bound
+    // back at the textual HOME so PATH entries keep working.
+    const resolvedHome = existsSync(hostHome)
+      ? realpathSync(hostHome)
+      : hostHome;
+    const underBoundDir = (p: string) =>
+      roDirs.some((d) => p.startsWith(d + sep));
+    if (underBoundDir(resolvedHome)) argv.push("--tmpfs", resolvedHome);
+    if (hostHome !== resolvedHome && underBoundDir(hostHome)) {
       argv.push("--tmpfs", hostHome);
     }
     for (const sub of SANDBOX_HOME_TOOL_DIRS) {
-      const p = join(hostHome, sub);
-      if (existsSync(p)) argv.push("--ro-bind", p, p);
+      const src = join(resolvedHome, sub);
+      if (existsSync(src)) argv.push("--ro-bind", src, join(hostHome, sub));
     }
   }
   argv.push(
@@ -547,35 +547,48 @@ function execShell(
   env?: Record<string, string>,
   checkHome?: string,
 ): Promise<{ output: string; exitCode: number }> {
-  return new Promise((resolve, reject) => {
-    const opts: SpawnOptions = {
-      cwd: workspace,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: env ?? { ...process.env, CI: "true" },
-    };
-    const sandboxed = checkHome !== undefined && hasBwrap();
-    const proc = sandboxed
-      ? spawn(
-          "bwrap", // NOSONAR — host PATH is trusted runner config
-          [...buildSandboxArgv(workspace, checkHome), command],
-          opts,
-        )
-      : spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
-    // Cap captured output — a noisy command must not grow memory without
-    // bound. 256 KiB keeps tail diagnostics while bounding the worst case.
-    const MAX_OUTPUT = 256 * 1024;
-    let stdout = "";
-    const append = (d: Buffer): void => {
-      if (stdout.length < MAX_OUTPUT) stdout += d.toString();
-    };
-    proc.stdout?.on("data", append);
-    proc.stderr?.on("data", append);
-    proc.on("close", (code: number | null) => {
-      // null = killed by signal; treat as failure, not a crash source.
-      resolve({ output: stdout, exitCode: code ?? -1 });
+  const opts: SpawnOptions = {
+    cwd: workspace,
+    stdio: ["pipe", "pipe", "pipe"],
+    env: env ?? { ...process.env, CI: "true" },
+  };
+  const run = (
+    sandboxed: boolean,
+  ): Promise<{ output: string; exitCode: number }> =>
+    new Promise((resolve, reject) => {
+      const proc = sandboxed
+        ? spawn(
+            "bwrap", // NOSONAR — host PATH is trusted runner config
+            [...buildSandboxArgv(workspace, checkHome ?? ""), command],
+            opts,
+          )
+        : spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
+      // Cap captured output — a noisy command must not grow memory
+      // without bound. 256 KiB keeps tail diagnostics while bounding the
+      // worst case.
+      const MAX_OUTPUT = 256 * 1024;
+      let stdout = "";
+      const append = (d: Buffer): void => {
+        if (stdout.length < MAX_OUTPUT) stdout += d.toString();
+      };
+      proc.stdout?.on("data", append);
+      proc.stderr?.on("data", append);
+      proc.on("close", (code: number | null) => {
+        // null = killed by signal; treat as failure, not a crash source.
+        resolve({ output: stdout, exitCode: code ?? -1 });
+      });
+      proc.on("error", reject);
     });
-    proc.on("error", reject);
-  });
+  if (checkHome === undefined || !hasBwrap()) return run(false);
+  // A bwrap-level failure (spawn error, or its own "bwrap: ..." bind
+  // diagnostics — e.g. the workspace sits on a filesystem namespaces
+  // can't bind) must not kill every check on this host: retry once
+  // through the scrubbed-env path. Real check failures never carry the
+  // bwrap prefix on the first output line.
+  return run(true).then(
+    (r) => (r.exitCode !== 0 && r.output.startsWith("bwrap:") ? run(false) : r),
+    () => run(false),
+  );
 }
 
 /**
