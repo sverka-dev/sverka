@@ -20,6 +20,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { userInfo } from "node:os";
 import { fileURLToPath } from "node:url";
 // Source import — website/ is not an npm workspace member, so
 // @sverka/arena isn't resolvable by name. Bun runs TS directly;
@@ -38,20 +39,48 @@ import { writeAggregateReport } from "../../packages/arena/src/aggregate-report.
 // (absolute paths, kernel build, session ids) and drop replayed context:
 // the emitter re-sends earlier steps on each flush, so identical stepIds
 // accumulate 2-6x in the raw trace.
+// ANSI escapes are writer noise — PTY output chunks can land mid-token,
+// splitting a path like /tmp/are<ESC>(B<ESC>[0m\nna-ship-... and defeating
+// the path patterns below. Strip them first; they render as garbage in
+// reports anyway.
+// CSI: ESC + intermediates + params (digits + :;? separators) + one final
+// byte in 0x40–0x7e. `\x1b[m` (reset, zero params) and colon-parameter
+// SGR like `\x1b[38:5:1m` both match; a hand-rolled digit pattern misses
+// both and leaves path fragments behind.
+const ANSI_RE = /[\u001b\u009b][[\]()#;?]*[0-9;:?]*[\x40-\x7e]/g;
+
+// Bare username survives path redaction — `ls -la` owner/group columns,
+// `whoami` output, etc. Replaced with a generic "user". Guarded: effective
+// UID may have no resolvable passwd entry in minimal containers/CI.
+let HOST_USER_RE: RegExp | undefined;
+try {
+  const u = userInfo().username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  HOST_USER_RE = new RegExp(`\\b${u}\\b`, "g");
+} catch {
+  // Skip username redaction when the OS cannot resolve the current user.
+}
+
 function redactText(text: string): string {
-  return (
-    text
-      .replace(/\/home\/[^\s"']+/g, "/home/user")
-      .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
-      .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
-      // TLD must be ≥2 letters — otherwise package specifiers like
-      // `cli@0.1.29` get mangled into `[email]`.
-      .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-zA-Z]{2,}\b/g, "[email]")
-      .replace(
-        /(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi,
-        "$1=[redacted]",
-      )
-  );
+  const scrubbed = text
+    .replace(ANSI_RE, "")
+    // PTY wraps can split a path across lines — join word/path
+    // fragments (CRLF included) so the whole thing gets redacted, not
+    // just the first line.
+    .replace(/\/home\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g, "/home/user")
+    .replace(/\/tmp\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g, "/tmp/sandbox")
+    .replace(/\/home\/[^\s"']+/g, "/home/user")
+    .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
+    // Credential labels first — a host user literally named `token` or
+    // `secret` must not rewrite the label before masking sees it.
+    .replace(
+      /(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi,
+      "$1=[redacted]",
+    )
+    .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
+    // TLD must be ≥2 letters — otherwise package specifiers like
+    // `cli@0.1.29` get mangled into `[email]`.
+    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-zA-Z]{2,}\b/g, "[email]");
+  return HOST_USER_RE ? scrubbed.replace(HOST_USER_RE, "user") : scrubbed;
 }
 
 // Exact credential field names — a substring match would redact ordinary
@@ -179,9 +208,14 @@ async function writeJson(path: string, data: unknown): Promise<void> {
 // Two passes: generate everything to .tmp first, then rename the whole
 // batch, then results.json last — a render failure can never leave the
 // SPA pointing at a partial generation.
+// Sanitized once up front — the trace JSON, the sverka report, the
+// aggregate report, and arena-results.json all publish the same scrubbed
+// view of each run.
+const sanitizedRuns = (results.results ?? []).map(sanitizeRun);
+
 const tracesDir = join(benchDir, "traces");
 const staged: [tmp: string, target: string][] = [];
-for (const r of results.results ?? []) {
+for (const r of sanitizedRuns) {
   if (!r.trace) continue;
   const combo = r.pluginIds.length ? r.pluginIds.join("--") : "no-plugins";
   const dir = join(tracesDir, r.taskId);
@@ -196,7 +230,7 @@ for (const r of results.results ?? []) {
   const traceJson = {
     configs: {
       [comboLabel]: {
-        ...sanitizeTrace(r.trace),
+        ...r.trace,
         llmCallCount: r.metrics?.llmCallCount ?? 0,
       },
     },
@@ -204,10 +238,11 @@ for (const r of results.results ?? []) {
   await writeFile(traceTmp, JSON.stringify(traceJson, null, 2) + "\n");
   staged.push([traceTmp, tracePath]);
   // Sverka report — Gantt/DAG timeline of the agent run itself. The
-  // report embeds the trace, so render it from the sanitized clone too.
+  // report embeds the trace and check output, so render it from the
+  // sanitized clone too.
   const reportPath = join(dir, `${combo}.report.html`);
   const reportTmp = `${reportPath}.tmp`;
-  writeTraceReport({ ...r, trace: sanitizeTrace(r.trace) }, reportTmp);
+  writeTraceReport(r, reportTmp);
   staged.push([reportTmp, reportPath]);
 }
 const reportsWritten = staged.length / 2;
@@ -224,7 +259,13 @@ const arenaResult =
   Array.isArray(cfg.models) &&
   Array.isArray(cfg.plugins) &&
   Array.isArray(cfg.tasks)
-    ? ({ ...results, results: results.results ?? [] } as ArenaResult)
+    ? ({
+        ...results,
+        ...(results.analysis
+          ? { analysis: redactValue(results.analysis) }
+          : {}),
+        results: sanitizedRuns,
+      } as ArenaResult)
     : undefined;
 const aggPath = join(benchDir, "aggregate.html");
 if (arenaResult !== undefined) {
@@ -236,16 +277,15 @@ if (arenaResult !== undefined) {
   await rm(aggPath);
 }
 
-// Results — the SPA's default data file. Traces get the same public
-// sanitization as the per-run files; a torn file must never reach the
-// page, so write via tmp+rename.
-const sanitizedResults = {
-  ...results,
-  results: (results.results ?? []).map((r) => ({
+// Sanitize a run for public artifacts — output/checkResults/verdicts carry
+// recorded commands and tool output, same host-path + secret leakage
+// surface as the trace. Used by both the JSON snapshot and the report
+// renderer, which embeds check output in the HTML.
+function sanitizeRun(r: RunResult): RunResult {
+  return {
     ...r,
-    // output/checkResults/verdicts carry recorded commands and tool
-    // output — same host path + secret leakage surface as the trace.
     ...(typeof r.output === "string" ? { output: redactText(r.output) } : {}),
+    ...(typeof r.error === "string" ? { error: redactText(r.error) } : {}),
     ...(r.checkResults
       ? {
           checkResults: r.checkResults.map((c) => ({
@@ -262,7 +302,17 @@ const sanitizedResults = {
         }
       : {}),
     ...(r.trace ? { trace: sanitizeTrace(r.trace) } : {}),
-  })),
+  };
+}
+
+// Results — the SPA's default data file. Traces get the same public
+// sanitization as the per-run files; a torn file must never reach the
+// page, so write via tmp+rename.
+const sanitizedResults = {
+  ...results,
+  // Analysis summaries carry judge/task prose — same leak surface.
+  ...(results.analysis ? { analysis: redactValue(results.analysis) } : {}),
+  results: sanitizedRuns,
 };
 const resultsTmp = join(benchDir, "arena-results.json.tmp");
 await writeFile(resultsTmp, JSON.stringify(sanitizedResults, null, 2) + "\n");

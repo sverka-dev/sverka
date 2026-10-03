@@ -206,6 +206,48 @@ main.split:has(.step-drawer.open) {
   padding: 0.4rem 1rem;
   border-bottom: 1px solid #21262d;
 }
+.drawer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+.drawer-tablist { display: flex; gap: 0.25rem; }
+.drawer-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  color: #8b949e;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+.drawer-tab:hover { color: #f0f6fc; }
+.drawer-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+.drawer-tab:disabled { color: #484f58; cursor: default; }
+/* Author display rules beat the UA [hidden] rule \u2014 restore it. */
+.drawer-tabs[hidden] { display: none; }
+.drawer-log[hidden] { display: none; }
+#drawer-search {
+  margin-left: auto;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #e6edf3;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  width: 9rem;
+}
+.drawer-search-count { color: #8b949e; font-size: 0.75rem; white-space: nowrap; }
+.drawer-truncated {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  background: #2d2105;
+  color: #d29922;
+  font-size: 0.75rem;
+  border-bottom: 1px solid #21262d;
+}
 .drawer-log-title {
   margin: 0.75rem 0 0.25rem;
   font-size: 0.75rem;
@@ -215,6 +257,14 @@ main.split:has(.step-drawer.open) {
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
+.drawer-log {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 0.75rem 1rem 1.5rem;
+}
+.drawer-log mark { background: #9e6a03; color: #fff; padding: 0 1px; }
+.drawer-log mark.mark-cur { outline: 1px solid #f0f6fc; }
 .drawer-finding {
   font-size: 0.8rem;
   padding: 0.3rem 0;
@@ -308,6 +358,10 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 .dag-node { cursor: pointer; }
 .gantt-step, .tree-node { cursor: pointer; }
 .gantt-step:hover .row-label { fill: #58a6ff; }
+[role="button"]:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 1px;
+}
 .dag-node:hover .dag-card { stroke: #58a6ff; }
 .step-findings {
   margin-left: 0.5rem;
@@ -369,17 +423,17 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   <header>
     <h1>arena: fix-tests — sverka</h1>
     <div class="run-context">
-      <span class="ctx-label">Plan:</span> <span class="ctx-value status-fix-tests">fix-tests</span>
+      <span class="ctx-label">Plan:</span> <span class="ctx-value">fix-tests</span>
       <span class="ctx-label">Status:</span> <span class="ctx-value status-success">success</span>
-      <span class="ctx-label">Duration:</span> <span class="ctx-value status-16.0s">16.0s</span>
-      <span class="ctx-label">Command:</span> <span class="ctx-value status-sverka-arena run">sverka-arena run</span>
-      <span class="ctx-label">task:</span> <span class="ctx-value status-fix-tests">fix-tests</span>
-      <span class="ctx-label">model:</span> <span class="ctx-value status-swe-2-high">swe-2-high</span>
-      <span class="ctx-label">plugins:</span> <span class="ctx-value status-sverka">sverka</span>
-      <span class="ctx-label">success:</span> <span class="ctx-value status-true">true</span>
-      <span class="ctx-label">timing:</span> <span class="ctx-value status-durations from live ACP event times; total is real">durations from live ACP event times; total is real</span>
+      <span class="ctx-label">Duration:</span> <span class="ctx-value">16.3s</span>
+      <span class="ctx-label">Command:</span> <span class="ctx-value">sverka-arena run</span>
+      <span class="ctx-label">task:</span> <span class="ctx-value">fix-tests</span>
+      <span class="ctx-label">model:</span> <span class="ctx-value">swe-2-high</span>
+      <span class="ctx-label">plugins:</span> <span class="ctx-value">sverka</span>
+      <span class="ctx-label">success:</span> <span class="ctx-value">true</span>
+      <span class="ctx-label">timing:</span> <span class="ctx-value">durations from live ACP event times; total is real</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-09-30T23:06:35.464Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-10-03T02:38:39.941Z</span>
     </div>
   </header>
 
@@ -403,7 +457,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         <button class="seg-btn" data-view="list">List</button>
       </div>
     </div>
-    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 270" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="270" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="270" /><text class="tick" x="304" y="16" text-anchor="middle">3.2s</text><line class="grid" x1="428" y1="22" x2="428" y2="270" /><text class="tick" x="428" y="16" text-anchor="middle">6.4s</text><line class="grid" x1="552" y1="22" x2="552" y2="270" /><text class="tick" x="552" y="16" text-anchor="middle">9.6s</text><line class="grid" x1="676" y1="22" x2="676" y2="270" /><text class="tick" x="676" y="16" text-anchor="middle">12.8s</text><line class="grid" x1="800" y1="22" x2="800" y2="270" /><text class="tick" x="800" y="16" text-anchor="middle">16.0s</text><g class="gantt-step" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…"><text class="row-label" x="4" y="46">s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…</text><rect class="bar" x="180.0" y="33" width="3.0" height="16" rx="3" fill="#3fb950"><title>s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… — succeeded — 8ms</title></rect><text class="dur" x="189.0" y="46">8ms</text></g><g class="gantt-step" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…"><text class="row-label" x="4" y="72">s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</text><rect class="bar" x="180.3" y="59" width="82.9" height="16" rx="3" fill="#3fb950"><title>s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… — succeeded — 2.1s</title></rect><text class="dur" x="269.2" y="72">2.1s</text></g><g class="gantt-step" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…"><text class="row-label" x="4" y="98">s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</text><rect class="bar" x="263.2" y="85" width="3.0" height="16" rx="3" fill="#3fb950"><title>s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… — succeeded — 0ms</title></rect><text class="dur" x="272.2" y="98">0ms</text></g><g class="gantt-step" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…"><text class="row-label" x="4" y="124">s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</text><rect class="bar" x="263.2" y="111" width="164.7" height="16" rx="3" fill="#3fb950"><title>s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… — succeeded — 4.3s</title></rect><text class="dur" x="434.0" y="124">4.3s</text></g><g class="gantt-step" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…"><text class="row-label" x="4" y="150">s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</text><rect class="bar" x="428.0" y="137" width="3.0" height="16" rx="3" fill="#3fb950"><title>s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… — succeeded — 1ms</title></rect><text class="dur" x="437.0" y="150">1ms</text></g><g class="gantt-step" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…"><text class="row-label" x="4" y="176">s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</text><rect class="bar" x="428.0" y="163" width="72.3" height="16" rx="3" fill="#3fb950"><title>s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… — succeeded — 1.9s</title></rect><text class="dur" x="506.3" y="176">1.9s</text></g><g class="gantt-step" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…"><text class="row-label" x="4" y="202">s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</text><rect class="bar" x="500.3" y="189" width="3.0" height="16" rx="3" fill="#3fb950"><title>s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… — succeeded — 0ms</title></rect><text class="dur" x="509.3" y="202">0ms</text></g><g class="gantt-step" data-step="s08 think: exec"><text class="row-label" x="4" y="228">s08 think: exec</text><rect class="bar" x="500.3" y="215" width="3.0" height="16" rx="3" fill="#3fb950"><title>s08 think: exec — succeeded — 0ms</title></rect><text class="dur" x="509.3" y="228">0ms</text></g><g class="gantt-step" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…"><text class="row-label" x="4" y="254">s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…</text><rect class="bar" x="500.3" y="241" width="299.7" height="16" rx="3" fill="#3fb950"><title>s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU… — succeeded — 7.8s</title></rect><text class="dur" x="806.0" y="254">7.8s</text></g></svg></div>
+    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 296" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="296" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="296" /><text class="tick" x="304" y="16" text-anchor="middle">3.3s</text><line class="grid" x1="428" y1="22" x2="428" y2="296" /><text class="tick" x="428" y="16" text-anchor="middle">6.5s</text><line class="grid" x1="552" y1="22" x2="552" y2="296" /><text class="tick" x="552" y="16" text-anchor="middle">9.8s</text><line class="grid" x1="676" y1="22" x2="676" y2="296" /><text class="tick" x="676" y="16" text-anchor="middle">13.0s</text><line class="grid" x1="800" y1="22" x2="800" y2="296" /><text class="tick" x="800" y="16" text-anchor="middle">16.3s</text><g class="gantt-step" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox"><text class="row-label" x="4" y="46">s01 tool: Listed ./: ls -la /tmp/sandbox</text><rect class="bar" x="180.0" y="33" width="3.0" height="16" rx="3" fill="#3fb950"><title>s01 tool: Listed ./: ls -la /tmp/sandbox — succeeded — 19ms</title></rect><text class="dur" x="189.0" y="46">19ms</text></g><g class="gantt-step" data-step="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" tabindex="0" role="button" aria-label="step s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80"><text class="row-label" x="4" y="72">s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80</text><rect class="bar" x="180.7" y="59" width="55.6" height="16" rx="3" fill="#3fb950"><title>s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80 — succeeded — 1.5s</title></rect><text class="dur" x="242.3" y="72">1.5s</text></g><g class="gantt-step" data-step="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox"><text class="row-label" x="4" y="98">s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox</text><rect class="bar" x="236.3" y="85" width="64.7" height="16" rx="3" fill="#3fb950"><title>s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox — succeeded — 1.7s</title></rect><text class="dur" x="307.0" y="98">1.7s</text></g><g class="gantt-step" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="124">s04 tool: Read file: /tmp/sandbox</text><rect class="bar" x="301.0" y="111" width="3.0" height="16" rx="3" fill="#3fb950"><title>s04 tool: Read file: /tmp/sandbox — succeeded — 1ms</title></rect><text class="dur" x="310.0" y="124">1ms</text></g><g class="gantt-step" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox"><text class="row-label" x="4" y="150">s05 tool: Read file: /tmp/sandbox</text><rect class="bar" x="301.0" y="137" width="119.6" height="16" rx="3" fill="#3fb950"><title>s05 tool: Read file: /tmp/sandbox — succeeded — 3.1s</title></rect><text class="dur" x="426.6" y="150">3.1s</text></g><g class="gantt-step" data-step="s06 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Edit file: /tmp/sandbox"><text class="row-label" x="4" y="176">s06 tool: Edit file: /tmp/sandbox</text><rect class="bar" x="420.6" y="163" width="3.0" height="16" rx="3" fill="#3fb950"><title>s06 tool: Edit file: /tmp/sandbox — succeeded — 1ms</title></rect><text class="dur" x="429.6" y="176">1ms</text></g><g class="gantt-step" data-step="s07 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Edit file: /tmp/sandbox"><text class="row-label" x="4" y="202">s07 tool: Edit file: /tmp/sandbox</text><rect class="bar" x="420.7" y="189" width="57.6" height="16" rx="3" fill="#3fb950"><title>s07 tool: Edit file: /tmp/sandbox — succeeded — 1.5s</title></rect><text class="dur" x="484.3" y="202">1.5s</text></g><g class="gantt-step" data-step="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" tabindex="0" role="button" aria-label="step s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20"><text class="row-label" x="4" y="228">s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20</text><rect class="bar" x="478.3" y="215" width="3.0" height="16" rx="3" fill="#3fb950"><title>s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20 — succeeded — 0ms</title></rect><text class="dur" x="487.3" y="228">0ms</text></g><g class="gantt-step" data-step="s09 think: exec" tabindex="0" role="button" aria-label="step s09 think: exec"><text class="row-label" x="4" y="254">s09 think: exec</text><rect class="bar" x="478.3" y="241" width="3.0" height="16" rx="3" fill="#3fb950"><title>s09 think: exec — succeeded — 0ms</title></rect><text class="dur" x="487.3" y="254">0ms</text></g><g class="gantt-step" data-step="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" tabindex="0" role="button" aria-label="step s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …"><text class="row-label" x="4" y="280">s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …</text><rect class="bar" x="478.3" y="267" width="321.7" height="16" rx="3" fill="#3fb950"><title>s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. … — succeeded — 8.5s</title></rect><text class="dur" x="806.0" y="280">8.5s</text></g></svg></div>
     <div class="view hidden" id="view-dag"><div class="dag-viewport">
     <div class="dag-tools">
       <button type="button" class="dag-btn" data-dag-zoom="in" title="Zoom in">+</button>
@@ -411,270 +465,298 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
       <button type="button" class="dag-btn" data-dag-dir title="Switch direction (LR/TB)">⇄</button>
     </div>
-    <svg id="dag-svg" class="dag" viewBox="-40 -40 2686 140" data-vb-lr="-40 -40 2686 140" data-vb-tb="-40 -40 286 1372" role="img" aria-label="Workflow DAG">
+    <svg id="dag-svg" class="dag" viewBox="-40 -40 2986 140" data-vb-lr="-40 -40 2986 140" data-vb-tb="-40 -40 286 1526" role="img" aria-label="Workflow DAG">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" /></marker>
       <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="-40" y="-40"><circle cx="1" cy="1" r="1" /></pattern>
     </defs>
-    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" data-dst="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" data-dst="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" data-dst="s08 think: exec" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 think: exec" data-dst="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…">
-        <title>s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…</title>
+    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/sandbox" data-dst="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" data-dst="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" data-dst="s04 tool: Read file: /tmp/sandbox" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/sandbox" data-dst="s05 tool: Read file: /tmp/sandbox" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/sandbox" data-dst="s06 tool: Edit file: /tmp/sandbox" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Edit file: /tmp/sandbox" data-dst="s07 tool: Edit file: /tmp/sandbox" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Edit file: /tmp/sandbox" data-dst="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" data-dst="s09 think: exec" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" data-src="s09 think: exec" data-dst="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox">
+        <title>s01 tool: Listed ./: ls -la /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">s01 tool: Ran ls, find:…</text>
+        <text x="28" y="20">s01 tool: Listed ./: ls…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…">
-        <title>s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</title>
+      </g><g class="dag-node" data-step="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" tabindex="0" role="button" aria-label="step s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80">
+        <title>s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80</title>
         <rect class="dag-card" x="300" y="0" width="190" height="44" rx="8" />
         <circle cx="316" cy="22" r="4" fill="#3fb950" />
         <text x="328" y="20">s02 tool: Ran bun: cd /…</text>
         <text class="node-status" x="328" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox">
+        <title>s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox</title>
         <rect class="dag-card" x="600" y="0" width="190" height="44" rx="8" />
         <circle cx="616" cy="22" r="4" fill="#3fb950" />
-        <text x="628" y="20">s03 tool: Read file: /t…</text>
+        <text x="628" y="20">s03 tool: Ran ls: ls /t…</text>
         <text class="node-status" x="628" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox">
+        <title>s04 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="900" y="0" width="190" height="44" rx="8" />
         <circle cx="916" cy="22" r="4" fill="#3fb950" />
         <text x="928" y="20">s04 tool: Read file: /t…</text>
         <text class="node-status" x="928" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox">
+        <title>s05 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="1200" y="0" width="190" height="44" rx="8" />
         <circle cx="1216" cy="22" r="4" fill="#3fb950" />
-        <text x="1228" y="20">s05 tool: Edit file: /t…</text>
+        <text x="1228" y="20">s05 tool: Read file: /t…</text>
         <text class="node-status" x="1228" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s06 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Edit file: /tmp/sandbox">
+        <title>s06 tool: Edit file: /tmp/sandbox</title>
         <rect class="dag-card" x="1500" y="0" width="190" height="44" rx="8" />
         <circle cx="1516" cy="22" r="4" fill="#3fb950" />
         <text x="1528" y="20">s06 tool: Edit file: /t…</text>
         <text class="node-status" x="1528" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…">
-        <title>s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</title>
+      </g><g class="dag-node" data-step="s07 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Edit file: /tmp/sandbox">
+        <title>s07 tool: Edit file: /tmp/sandbox</title>
         <rect class="dag-card" x="1800" y="0" width="190" height="44" rx="8" />
         <circle cx="1816" cy="22" r="4" fill="#3fb950" />
-        <text x="1828" y="20">s07 tool: Ran bun: cd /…</text>
+        <text x="1828" y="20">s07 tool: Edit file: /t…</text>
         <text class="node-status" x="1828" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 think: exec">
-        <title>s08 think: exec</title>
+      </g><g class="dag-node" data-step="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" tabindex="0" role="button" aria-label="step s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20">
+        <title>s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20</title>
         <rect class="dag-card" x="2100" y="0" width="190" height="44" rx="8" />
         <circle cx="2116" cy="22" r="4" fill="#3fb950" />
-        <text x="2128" y="20">s08 think: exec</text>
+        <text x="2128" y="20">s08 tool: Ran bun: cd /…</text>
         <text class="node-status" x="2128" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…">
-        <title>s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…</title>
+      </g><g class="dag-node" data-step="s09 think: exec" tabindex="0" role="button" aria-label="step s09 think: exec">
+        <title>s09 think: exec</title>
         <rect class="dag-card" x="2400" y="0" width="190" height="44" rx="8" />
         <circle cx="2416" cy="22" r="4" fill="#3fb950" />
-        <text x="2428" y="20">s09 think: All 8 tests …</text>
+        <text x="2428" y="20">s09 think: exec</text>
         <text class="node-status" x="2428" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" tabindex="0" role="button" aria-label="step s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …">
+        <title>s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …</title>
+        <rect class="dag-card" x="2700" y="0" width="190" height="44" rx="8" />
+        <circle cx="2716" cy="22" r="4" fill="#3fb950" />
+        <text x="2728" y="20">s10 think: All 8 tests …</text>
+        <text class="node-status" x="2728" y="34" style="fill:#3fb950">succeeded</text>
       </g></g>
-    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" data-dst="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" data-dst="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" data-dst="s08 think: exec" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 think: exec" data-dst="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…">
-        <title>s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…</title>
+    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/sandbox" data-dst="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" data-dst="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" data-dst="s04 tool: Read file: /tmp/sandbox" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/sandbox" data-dst="s05 tool: Read file: /tmp/sandbox" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/sandbox" data-dst="s06 tool: Edit file: /tmp/sandbox" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Edit file: /tmp/sandbox" data-dst="s07 tool: Edit file: /tmp/sandbox" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Edit file: /tmp/sandbox" data-dst="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" data-dst="s09 think: exec" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><path class="edge" data-src="s09 think: exec" data-dst="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" d="M 95 1276 Q 95 1331 95 1358.5 L 95 1386" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1326" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox">
+        <title>s01 tool: Listed ./: ls -la /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">s01 tool: Ran ls, find:…</text>
+        <text x="28" y="20">s01 tool: Listed ./: ls…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…">
-        <title>s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</title>
+      </g><g class="dag-node" data-step="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" tabindex="0" role="button" aria-label="step s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80">
+        <title>s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80</title>
         <rect class="dag-card" x="0" y="154" width="190" height="44" rx="8" />
         <circle cx="16" cy="176" r="4" fill="#3fb950" />
         <text x="28" y="174">s02 tool: Ran bun: cd /…</text>
         <text class="node-status" x="28" y="188" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox">
+        <title>s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="308" width="190" height="44" rx="8" />
         <circle cx="16" cy="330" r="4" fill="#3fb950" />
-        <text x="28" y="328">s03 tool: Read file: /t…</text>
+        <text x="28" y="328">s03 tool: Ran ls: ls /t…</text>
         <text class="node-status" x="28" y="342" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox">
+        <title>s04 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="462" width="190" height="44" rx="8" />
         <circle cx="16" cy="484" r="4" fill="#3fb950" />
         <text x="28" y="482">s04 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="496" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox">
+        <title>s05 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="616" width="190" height="44" rx="8" />
         <circle cx="16" cy="638" r="4" fill="#3fb950" />
-        <text x="28" y="636">s05 tool: Edit file: /t…</text>
+        <text x="28" y="636">s05 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="650" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s06 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Edit file: /tmp/sandbox">
+        <title>s06 tool: Edit file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="770" width="190" height="44" rx="8" />
         <circle cx="16" cy="792" r="4" fill="#3fb950" />
         <text x="28" y="790">s06 tool: Edit file: /t…</text>
         <text class="node-status" x="28" y="804" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…">
-        <title>s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</title>
+      </g><g class="dag-node" data-step="s07 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Edit file: /tmp/sandbox">
+        <title>s07 tool: Edit file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="924" width="190" height="44" rx="8" />
         <circle cx="16" cy="946" r="4" fill="#3fb950" />
-        <text x="28" y="944">s07 tool: Ran bun: cd /…</text>
+        <text x="28" y="944">s07 tool: Edit file: /t…</text>
         <text class="node-status" x="28" y="958" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 think: exec">
-        <title>s08 think: exec</title>
+      </g><g class="dag-node" data-step="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" tabindex="0" role="button" aria-label="step s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20">
+        <title>s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20</title>
         <rect class="dag-card" x="0" y="1078" width="190" height="44" rx="8" />
         <circle cx="16" cy="1100" r="4" fill="#3fb950" />
-        <text x="28" y="1098">s08 think: exec</text>
+        <text x="28" y="1098">s08 tool: Ran bun: cd /…</text>
         <text class="node-status" x="28" y="1112" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…">
-        <title>s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…</title>
+      </g><g class="dag-node" data-step="s09 think: exec" tabindex="0" role="button" aria-label="step s09 think: exec">
+        <title>s09 think: exec</title>
         <rect class="dag-card" x="0" y="1232" width="190" height="44" rx="8" />
         <circle cx="16" cy="1254" r="4" fill="#3fb950" />
-        <text x="28" y="1252">s09 think: All 8 tests …</text>
+        <text x="28" y="1252">s09 think: exec</text>
         <text class="node-status" x="28" y="1266" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" tabindex="0" role="button" aria-label="step s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …">
+        <title>s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …</title>
+        <rect class="dag-card" x="0" y="1386" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1408" r="4" fill="#3fb950" />
+        <text x="28" y="1406">s10 think: All 8 tests …</text>
+        <text class="node-status" x="28" y="1420" style="fill:#3fb950">succeeded</text>
       </g></g>
     </svg>
     <div class="dag-minimap" id="dag-minimap">
-      <svg class="dag-mini" viewBox="-40 -40 2686 140" data-dir="LR"><path class="edge" data-src="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" data-dst="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" data-dst="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" data-dst="s08 think: exec" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 think: exec" data-dst="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…">
-        <title>s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…</title>
+      <svg class="dag-mini" viewBox="-40 -40 2986 140" data-dir="LR"><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/sandbox" data-dst="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" d="M 190 22 Q 245 22 272.5 22 L 300 22" marker-end="url(#arrow)" /><text class="edge-label" x="245" y="17" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" data-dst="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" d="M 490 22 Q 545 22 572.5 22 L 600 22" marker-end="url(#arrow)" /><text class="edge-label" x="545" y="17" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" data-dst="s04 tool: Read file: /tmp/sandbox" d="M 790 22 Q 845 22 872.5 22 L 900 22" marker-end="url(#arrow)" /><text class="edge-label" x="845" y="17" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/sandbox" data-dst="s05 tool: Read file: /tmp/sandbox" d="M 1090 22 Q 1145 22 1172.5 22 L 1200 22" marker-end="url(#arrow)" /><text class="edge-label" x="1145" y="17" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/sandbox" data-dst="s06 tool: Edit file: /tmp/sandbox" d="M 1390 22 Q 1445 22 1472.5 22 L 1500 22" marker-end="url(#arrow)" /><text class="edge-label" x="1445" y="17" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Edit file: /tmp/sandbox" data-dst="s07 tool: Edit file: /tmp/sandbox" d="M 1690 22 Q 1745 22 1772.5 22 L 1800 22" marker-end="url(#arrow)" /><text class="edge-label" x="1745" y="17" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Edit file: /tmp/sandbox" data-dst="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" d="M 1990 22 Q 2045 22 2072.5 22 L 2100 22" marker-end="url(#arrow)" /><text class="edge-label" x="2045" y="17" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" data-dst="s09 think: exec" d="M 2290 22 Q 2345 22 2372.5 22 L 2400 22" marker-end="url(#arrow)" /><text class="edge-label" x="2345" y="17" text-anchor="middle">control</text><path class="edge" data-src="s09 think: exec" data-dst="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" d="M 2590 22 Q 2645 22 2672.5 22 L 2700 22" marker-end="url(#arrow)" /><text class="edge-label" x="2645" y="17" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox">
+        <title>s01 tool: Listed ./: ls -la /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">s01 tool: Ran ls, find:…</text>
+        <text x="28" y="20">s01 tool: Listed ./: ls…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…">
-        <title>s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</title>
+      </g><g class="dag-node" data-step="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" tabindex="0" role="button" aria-label="step s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80">
+        <title>s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80</title>
         <rect class="dag-card" x="300" y="0" width="190" height="44" rx="8" />
         <circle cx="316" cy="22" r="4" fill="#3fb950" />
         <text x="328" y="20">s02 tool: Ran bun: cd /…</text>
         <text class="node-status" x="328" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox">
+        <title>s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox</title>
         <rect class="dag-card" x="600" y="0" width="190" height="44" rx="8" />
         <circle cx="616" cy="22" r="4" fill="#3fb950" />
-        <text x="628" y="20">s03 tool: Read file: /t…</text>
+        <text x="628" y="20">s03 tool: Ran ls: ls /t…</text>
         <text class="node-status" x="628" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox">
+        <title>s04 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="900" y="0" width="190" height="44" rx="8" />
         <circle cx="916" cy="22" r="4" fill="#3fb950" />
         <text x="928" y="20">s04 tool: Read file: /t…</text>
         <text class="node-status" x="928" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox">
+        <title>s05 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="1200" y="0" width="190" height="44" rx="8" />
         <circle cx="1216" cy="22" r="4" fill="#3fb950" />
-        <text x="1228" y="20">s05 tool: Edit file: /t…</text>
+        <text x="1228" y="20">s05 tool: Read file: /t…</text>
         <text class="node-status" x="1228" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s06 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Edit file: /tmp/sandbox">
+        <title>s06 tool: Edit file: /tmp/sandbox</title>
         <rect class="dag-card" x="1500" y="0" width="190" height="44" rx="8" />
         <circle cx="1516" cy="22" r="4" fill="#3fb950" />
         <text x="1528" y="20">s06 tool: Edit file: /t…</text>
         <text class="node-status" x="1528" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…">
-        <title>s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</title>
+      </g><g class="dag-node" data-step="s07 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Edit file: /tmp/sandbox">
+        <title>s07 tool: Edit file: /tmp/sandbox</title>
         <rect class="dag-card" x="1800" y="0" width="190" height="44" rx="8" />
         <circle cx="1816" cy="22" r="4" fill="#3fb950" />
-        <text x="1828" y="20">s07 tool: Ran bun: cd /…</text>
+        <text x="1828" y="20">s07 tool: Edit file: /t…</text>
         <text class="node-status" x="1828" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 think: exec">
-        <title>s08 think: exec</title>
+      </g><g class="dag-node" data-step="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" tabindex="0" role="button" aria-label="step s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20">
+        <title>s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20</title>
         <rect class="dag-card" x="2100" y="0" width="190" height="44" rx="8" />
         <circle cx="2116" cy="22" r="4" fill="#3fb950" />
-        <text x="2128" y="20">s08 think: exec</text>
+        <text x="2128" y="20">s08 tool: Ran bun: cd /…</text>
         <text class="node-status" x="2128" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…">
-        <title>s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…</title>
+      </g><g class="dag-node" data-step="s09 think: exec" tabindex="0" role="button" aria-label="step s09 think: exec">
+        <title>s09 think: exec</title>
         <rect class="dag-card" x="2400" y="0" width="190" height="44" rx="8" />
         <circle cx="2416" cy="22" r="4" fill="#3fb950" />
-        <text x="2428" y="20">s09 think: All 8 tests …</text>
+        <text x="2428" y="20">s09 think: exec</text>
         <text class="node-status" x="2428" y="34" style="fill:#3fb950">succeeded</text>
-      </g></svg><svg class="dag-mini" viewBox="-40 -40 286 1372" data-dir="TB" hidden><path class="edge" data-src="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" data-dst="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" data-dst="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" data-dst="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" data-dst="s08 think: exec" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 think: exec" data-dst="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…">
-        <title>s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…</title>
+      </g><g class="dag-node" data-step="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" tabindex="0" role="button" aria-label="step s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …">
+        <title>s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …</title>
+        <rect class="dag-card" x="2700" y="0" width="190" height="44" rx="8" />
+        <circle cx="2716" cy="22" r="4" fill="#3fb950" />
+        <text x="2728" y="20">s10 think: All 8 tests …</text>
+        <text class="node-status" x="2728" y="34" style="fill:#3fb950">succeeded</text>
+      </g></svg><svg class="dag-mini" viewBox="-40 -40 286 1526" data-dir="TB" hidden><path class="edge" data-src="s01 tool: Listed ./: ls -la /tmp/sandbox" data-dst="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" d="M 95 44 Q 95 99 95 126.5 L 95 154" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="94" text-anchor="middle">control</text><path class="edge" data-src="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" data-dst="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" d="M 95 198 Q 95 253 95 280.5 L 95 308" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="248" text-anchor="middle">control</text><path class="edge" data-src="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" data-dst="s04 tool: Read file: /tmp/sandbox" d="M 95 352 Q 95 407 95 434.5 L 95 462" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="402" text-anchor="middle">control</text><path class="edge" data-src="s04 tool: Read file: /tmp/sandbox" data-dst="s05 tool: Read file: /tmp/sandbox" d="M 95 506 Q 95 561 95 588.5 L 95 616" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="556" text-anchor="middle">control</text><path class="edge" data-src="s05 tool: Read file: /tmp/sandbox" data-dst="s06 tool: Edit file: /tmp/sandbox" d="M 95 660 Q 95 715 95 742.5 L 95 770" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="710" text-anchor="middle">control</text><path class="edge" data-src="s06 tool: Edit file: /tmp/sandbox" data-dst="s07 tool: Edit file: /tmp/sandbox" d="M 95 814 Q 95 869 95 896.5 L 95 924" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="864" text-anchor="middle">control</text><path class="edge" data-src="s07 tool: Edit file: /tmp/sandbox" data-dst="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" d="M 95 968 Q 95 1023 95 1050.5 L 95 1078" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1018" text-anchor="middle">control</text><path class="edge" data-src="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" data-dst="s09 think: exec" d="M 95 1122 Q 95 1177 95 1204.5 L 95 1232" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1172" text-anchor="middle">control</text><path class="edge" data-src="s09 think: exec" data-dst="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" d="M 95 1276 Q 95 1331 95 1358.5 L 95 1386" marker-end="url(#arrow)" /><text class="edge-label" x="95" y="1326" text-anchor="middle">control</text><g class="dag-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox">
+        <title>s01 tool: Listed ./: ls -la /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">s01 tool: Ran ls, find:…</text>
+        <text x="28" y="20">s01 tool: Listed ./: ls…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…">
-        <title>s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</title>
+      </g><g class="dag-node" data-step="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" tabindex="0" role="button" aria-label="step s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80">
+        <title>s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80</title>
         <rect class="dag-card" x="0" y="154" width="190" height="44" rx="8" />
         <circle cx="16" cy="176" r="4" fill="#3fb950" />
         <text x="28" y="174">s02 tool: Ran bun: cd /…</text>
         <text class="node-status" x="28" y="188" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox">
+        <title>s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="308" width="190" height="44" rx="8" />
         <circle cx="16" cy="330" r="4" fill="#3fb950" />
-        <text x="28" y="328">s03 tool: Read file: /t…</text>
+        <text x="28" y="328">s03 tool: Ran ls: ls /t…</text>
         <text class="node-status" x="28" y="342" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox">
+        <title>s04 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="462" width="190" height="44" rx="8" />
         <circle cx="16" cy="484" r="4" fill="#3fb950" />
         <text x="28" y="482">s04 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="496" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox">
+        <title>s05 tool: Read file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="616" width="190" height="44" rx="8" />
         <circle cx="16" cy="638" r="4" fill="#3fb950" />
-        <text x="28" y="636">s05 tool: Edit file: /t…</text>
+        <text x="28" y="636">s05 tool: Read file: /t…</text>
         <text class="node-status" x="28" y="650" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…">
-        <title>s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…</title>
+      </g><g class="dag-node" data-step="s06 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Edit file: /tmp/sandbox">
+        <title>s06 tool: Edit file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="770" width="190" height="44" rx="8" />
         <circle cx="16" cy="792" r="4" fill="#3fb950" />
         <text x="28" y="790">s06 tool: Edit file: /t…</text>
         <text class="node-status" x="28" y="804" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…">
-        <title>s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…</title>
+      </g><g class="dag-node" data-step="s07 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Edit file: /tmp/sandbox">
+        <title>s07 tool: Edit file: /tmp/sandbox</title>
         <rect class="dag-card" x="0" y="924" width="190" height="44" rx="8" />
         <circle cx="16" cy="946" r="4" fill="#3fb950" />
-        <text x="28" y="944">s07 tool: Ran bun: cd /…</text>
+        <text x="28" y="944">s07 tool: Edit file: /t…</text>
         <text class="node-status" x="28" y="958" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s08 think: exec">
-        <title>s08 think: exec</title>
+      </g><g class="dag-node" data-step="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" tabindex="0" role="button" aria-label="step s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20">
+        <title>s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20</title>
         <rect class="dag-card" x="0" y="1078" width="190" height="44" rx="8" />
         <circle cx="16" cy="1100" r="4" fill="#3fb950" />
-        <text x="28" y="1098">s08 think: exec</text>
+        <text x="28" y="1098">s08 tool: Ran bun: cd /…</text>
         <text class="node-status" x="28" y="1112" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…">
-        <title>s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…</title>
+      </g><g class="dag-node" data-step="s09 think: exec" tabindex="0" role="button" aria-label="step s09 think: exec">
+        <title>s09 think: exec</title>
         <rect class="dag-card" x="0" y="1232" width="190" height="44" rx="8" />
         <circle cx="16" cy="1254" r="4" fill="#3fb950" />
-        <text x="28" y="1252">s09 think: All 8 tests …</text>
+        <text x="28" y="1252">s09 think: exec</text>
         <text class="node-status" x="28" y="1266" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" tabindex="0" role="button" aria-label="step s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …">
+        <title>s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …</title>
+        <rect class="dag-card" x="0" y="1386" width="190" height="44" rx="8" />
+        <circle cx="16" cy="1408" r="4" fill="#3fb950" />
+        <text x="28" y="1406">s10 think: All 8 tests …</text>
+        <text class="node-status" x="28" y="1420" style="fill:#3fb950">succeeded</text>
       </g></svg>
       <div class="dag-mini-vp" id="dag-mini-vp"></div>
     </div>
   </div></div>
-    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" style="border-color:#3fb950">✓ s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" style="border-color:#3fb950">✓ s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" style="border-color:#3fb950">✓ s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" style="border-color:#3fb950">✓ s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" style="border-color:#3fb950">✓ s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" style="border-color:#3fb950">✓ s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" style="border-color:#3fb950">✓ s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 think: exec" style="border-color:#3fb950">✓ s08 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" style="border-color:#3fb950">✓ s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU… <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
+    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" tabindex="0" role="button" aria-label="step s01 tool: Listed ./: ls -la /tmp/sandbox" style="border-color:#3fb950">✓ s01 tool: Listed ./: ls -la /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" tabindex="0" role="button" aria-label="step s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" style="border-color:#3fb950">✓ s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80 <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" tabindex="0" role="button" aria-label="step s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" style="border-color:#3fb950">✓ s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s04 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s04 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s04 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s05 tool: Read file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s05 tool: Read file: /tmp/sandbox" style="border-color:#3fb950">✓ s05 tool: Read file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s06 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s06 tool: Edit file: /tmp/sandbox" style="border-color:#3fb950">✓ s06 tool: Edit file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s07 tool: Edit file: /tmp/sandbox" tabindex="0" role="button" aria-label="step s07 tool: Edit file: /tmp/sandbox" style="border-color:#3fb950">✓ s07 tool: Edit file: /tmp/sandbox <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" tabindex="0" role="button" aria-label="step s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" style="border-color:#3fb950">✓ s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20 <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s09 think: exec" tabindex="0" role="button" aria-label="step s09 think: exec" style="border-color:#3fb950">✓ s09 think: exec <span class="meta">succeeded</span></span><ul><li><span class="tree-node" data-step="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" tabindex="0" role="button" aria-label="step s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" style="border-color:#3fb950">✓ s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. … <span class="meta">succeeded</span></span></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka… <span class="step-state succeeded">succeeded</span> <span class="meta">8ms</span> <button type="button" class="step-findings" data-step="s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s01 tool: Listed ./: ls -la /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">19ms</span> <button type="button" class="step-findings" data-step="s01 tool: Listed ./: ls -la /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">2.1s</span> <button type="button" class="step-findings" data-step="s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80 <span class="step-state succeeded">succeeded</span> <span class="meta">1.5s</span> <button type="button" class="step-findings" data-step="s02 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | head -80" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">1.7s</span> <button type="button" class="step-findings" data-step="s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox &amp;&amp; cat /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">4.3s</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s04 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s04 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s05 tool: Read file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">3.1s</span> <button type="button" class="step-findings" data-step="s05 tool: Read file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790… <span class="step-state succeeded">succeeded</span> <span class="meta">1.9s</span> <button type="button" class="step-findings" data-step="s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s06 tool: Edit file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">1ms</span> <button type="button" class="step-findings" data-step="s06 tool: Edit file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179… <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s07 tool: Edit file: /tmp/sandbox <span class="step-state succeeded">succeeded</span> <span class="meta">1.5s</span> <button type="button" class="step-findings" data-step="s07 tool: Edit file: /tmp/sandbox" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s08 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 think: exec" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20 <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s08 tool: Ran bun: cd /tmp/sandbox &amp;&amp; bun test 2&gt;&amp;1 | tail -20" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU… <span class="step-state succeeded">succeeded</span> <span class="meta">7.8s</span> <button type="button" class="step-findings" data-step="s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> s09 think: exec <span class="step-state succeeded">succeeded</span> <span class="meta">0ms</span> <button type="button" class="step-findings" data-step="s09 think: exec" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. … <span class="step-state succeeded">succeeded</span> <span class="meta">8.5s</span> <button type="button" class="step-findings" data-step="s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details></div>
   </section>
@@ -686,10 +768,24 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <button type="button" id="drawer-close" title="Close (Esc)">&times;</button>
     </div>
     <div id="drawer-meta" class="drawer-meta"></div>
+    <div class="drawer-tabs" id="drawer-tabs" hidden>
+      <div class="drawer-tablist" role="tablist" aria-label="step output">
+        <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
+        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log-stdout">stdout</button>
+        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log-stderr">stderr</button>
+      </div>
+      <input id="drawer-search" type="search" placeholder="Search log…" aria-label="Search log">
+      <span id="drawer-search-count" class="drawer-search-count"></span>
+    </div>
     <div class="drawer-actions">
       <button type="button" id="drawer-findings" class="drawer-btn">Open in findings table</button>
+      <button type="button" id="drawer-copy" class="drawer-btn">Copy log</button>
+      <button type="button" id="drawer-download" class="drawer-btn">Download</button>
     </div>
-    <div id="drawer-body"></div>
+    <div id="drawer-truncated" class="drawer-truncated" hidden></div>
+    <div id="drawer-body" role="tabpanel" aria-label="overview" tabindex="0"></div>
+    <pre id="drawer-log-stdout" class="drawer-log step-out" role="tabpanel" aria-label="stdout" tabindex="0" hidden></pre>
+    <pre id="drawer-log-stderr" class="drawer-log step-out err" role="tabpanel" aria-label="stderr" tabindex="0" hidden></pre>
   </aside>
 
     <section id="findings">
@@ -728,7 +824,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 
   <script>
     var __FINDINGS_DATA__ = [];
-    var __STEPS_DATA__ = {"s01 tool: Ran ls, find: ls -la /tmp/arena-fix-tests-swe-2-high-sverka…":{"state":"succeeded","durationMs":8,"exitCode":null,"error":null,"stdout":"I'll start by looking at the project structure and running the tests to see what's failing.\n\ntotal 608\ndrwxr-xr-x    6 pepl pepl   4096 Sep 30 19:55 .\ndrwxrwxrwt 1058 root root 593920 Sep 30 19:55 ..\ndrwxr-xr-x    3 pepl pepl   4096 Sep 30 19:55 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 .devin\n-rw-r--r--    1 pepl pepl    113 Sep 30 19:55 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 src\ndrwxr-xr-x    2 pepl pepl   4096 Sep 30 19:55 test\n/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts\n/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/src/index.ts","stderr":null},"s02 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…":{"state":"succeeded","durationMs":2145,"exitCode":null,"error":null,"stdout":"I'll start by looking at the project structure and running the tests to see what's failing.\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [0.08ms]\n(pass) capitalize > handles empty string\n(pass) reverse > reverses a string [0.06ms]\n16 |   });\n17 | });\n18 |\n19 | describe(\"countUniqueWords\", () => {\n20 |   it(\"counts unique words case-insensitively\", () => {\n21 |     expect(countUniqueWords(\"hello world hello\")).toBe(2);\n                                                       ^\nerror: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:21:51)\n(fail) countUniqueWords > counts unique words case-insensitively [19.26ms]\n(pass) countUniqueWords > handles single word [0.11ms]\n22 |   });\n23 |   it(\"handles single word\", () => {\n24 |     expect(countUniqueWords(\"hello\")).toBe(1);\n25 |   });\n26 |   it(\"handles empty string\", () => {\n27 |     expect(countUniqueWords(\"\")).toBe(0);\n                                      ^\nerror: expect(received).toBe(expected)\n\nExpected: 0\nReceived: 1\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:27:34)\n(fail) countUniqueWords > handles empty string [0.42ms]\n28 |   });\n29 | });\n30 |\n31 | describe(\"truncate\", () => {\n32 |   it(\"truncates long strings with ellipsis\", () => {\n33 |     expect(truncate(\"hello world\", 8)).toBe(\"hello...\");\n                                            ^\nerror: expect(received).toBe(expected)\n\nExpected: \"hello...\"\nReceived: \"hell...\"\n\n      at \u003canonymous> (/tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790790923254/test/index.test.ts:33:40)\n(fail) truncate > truncates long strings with ellipsis [3.94ms]\n(pass) truncate > does not truncate short strings [0.04ms]\n\n 5 pass\n 3 fail\n 8 expect() calls\nRan 8 tests across 1 file. [28.00ms]","stderr":null},"s03 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"Small project — let me read the source and test files.\n\n33 lines","stderr":null},"s04 tool: Read file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":4263,"exitCode":null,"error":null,"stdout":"Small project — let me read the source and test files.\n\n38 lines","stderr":null},"s05 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"Two bugs. `countUniqueWords` counts all words instead of unique case-insensitive words (and `\"\".split(/\\s+/)` gives `[\"\"]` → 1, not 0). `truncate` slices `maxLen - 4` instead of `maxLen - 3`. Fixing both.","stderr":null},"s06 tool: Edit file: /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-1790…":{"state":"succeeded","durationMs":1872,"exitCode":null,"error":null,"stdout":"Two bugs. `countUniqueWords` counts all words instead of unique case-insensitive words (and `\"\".split(/\\s+/)` gives `[\"\"]` → 1, not 0). `truncate` slices `maxLen - 4` instead of `maxLen - 3`. Fixing both.","stderr":null},"s07 tool: Ran bun: cd /tmp/arena-fix-tests-swe-2-high-sverkaon-r0-179…":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [0.65ms]\n(pass) capitalize > handles empty string [0.02ms]\n(pass) reverse > reverses a string [2.48ms]\n(pass) countUniqueWords > counts unique words case-insensitively [3.01ms]\n(pass) countUniqueWords > handles single word [1.20ms]\n(pass) countUniqueWords > handles empty string [1.64ms]\n(pass) truncate > truncates long strings with ellipsis [0.04ms]\n(pass) truncate > does not truncate short strings [0.31ms]\n\n 8 pass\n 0 fail\n 8 expect() calls\nRan 8 tests across 1 file. [100.00ms]","stderr":null},"s08 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s09 think: All 8 tests pass. Two fixes in `src/index.ts`: 1. **`countU…":{"state":"succeeded","durationMs":7754,"exitCode":null,"error":null,"stdout":"All 8 tests pass. Two fixes in `src/index.ts`:\n\n1. **`countUniqueWords`** — was returning the total word count. Now it filters empty strings, lowercases each word, and returns the `Set` size.\n2. **`truncate`** — was slicing `maxLen - 4` chars, producing output 1 char short of `maxLen`. Now slices `maxLen - 3` so `\"...\"` brings the total to exactly `maxLen`.","stderr":null}};
+    var __STEPS_DATA__ = {"s01 tool: Listed ./: ls -la /tmp/sandbox":{"state":"succeeded","durationMs":19,"exitCode":null,"error":null,"stdout":"I'll start by exploring the project structure and running the tests.\n\ntotal 608\ndrwxr-xr-x    6 user user   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:18 ..\ndrwxr-xr-x    3 user user   4096 Oct  3 02:18 .agents\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 user user    113 Oct  3 02:18 package.json\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 src\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 test","stderr":null},"s02 tool: Ran bun: cd /tmp/sandbox && bun test 2>&1 | head -80":{"state":"succeeded","durationMs":1460,"exitCode":null,"error":null,"stdout":"I'll start by exploring the project structure and running the tests.\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [0.07ms]\n(pass) capitalize > handles empty string\n(pass) reverse > reverses a string [0.15ms]\n16 |   });\n17 | });\n18 |\n19 | describe(\"countUniqueWords\", () => {\n20 |   it(\"counts unique words case-insensitively\", () => {\n21 |     expect(countUniqueWords(\"hello world hello\")).toBe(2);\n                                                       ^\nerror: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3\n\n      at \u003canonymous> (/tmp/sandbox\n(fail) countUniqueWords > counts unique words case-insensitively [18.77ms]\n(pass) countUniqueWords > handles single word [0.09ms]\n22 |   });\n23 |   it(\"handles single word\", () => {\n24 |     expect(countUniqueWords(\"hello\")).toBe(1);\n25 |   });\n26 |   it(\"handles empty string\", () => {\n27 |     expect(countUniqueWords(\"\")).toBe(0);\n                                      ^\nerror: expect(received).toBe(expected)\n\nExpected: 0\nReceived: 1\n\n      at \u003canonymous> (/tmp/sandbox\n(fail) countUniqueWords > handles empty string [0.52ms]\n28 |   });\n29 | });\n30 |\n31 | describe(\"truncate\", () => {\n32 |   it(\"truncates long strings with ellipsis\", () => {\n33 |     expect(truncate(\"hello world\", 8)).toBe(\"hello...\");\n                                            ^\nerror: expect(received).toBe(expected)\n\nExpected: \"hello...\"\nReceived: \"hell...\"\n\n      at \u003canonymous> (/tmp/sandbox\n(fail) truncate > truncates long strings with ellipsis [4.28ms]\n(pass) truncate > does not truncate short strings [0.03ms]\n\n 5 pass\n 3 fail\n 8 expect() calls\nRan 8 tests across 1 file. [34.00ms]","stderr":null},"s03 tool: Ran ls: ls /tmp/sandbox /tmp/sandbox && cat /tmp/sandbox":{"state":"succeeded","durationMs":1700,"exitCode":null,"error":null,"stdout":"exec\n\n/tmp/sandbox\nindex.ts\n\n/tmp/sandbox\nindex.test.ts\n{\n  \"name\": \"ts-fix-test\",\n  \"version\": \"1.0.0\",\n  \"type\": \"module\",\n  \"scripts\": {\n    \"test\": \"bun test\"\n  }\n}","stderr":null},"s04 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"exec\n\n33 lines","stderr":null},"s05 tool: Read file: /tmp/sandbox":{"state":"succeeded","durationMs":3142,"exitCode":null,"error":null,"stdout":"read, read\n\n38 lines","stderr":null},"s06 tool: Edit file: /tmp/sandbox":{"state":"succeeded","durationMs":1,"exitCode":null,"error":null,"stdout":"read, read","stderr":null},"s07 tool: Edit file: /tmp/sandbox":{"state":"succeeded","durationMs":1513,"exitCode":null,"error":null,"stdout":"Two bugs to fix: `countUniqueWords` doesn't dedupe case-insensitively (and returns 1 for empty string), and `truncate` uses `maxLen - 4` instead of `maxLen - 3`.","stderr":null},"s08 tool: Ran bun: cd /tmp/sandbox && bun test 2>&1 | tail -20":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"Two bugs to fix: `countUniqueWords` doesn't dedupe case-insensitively (and returns 1 for empty string), and `truncate` uses `maxLen - 4` instead of `maxLen - 3`.\n\nbun test v1.4.2 (744846f84)\n\ntest/index.test.ts:\n(pass) capitalize > capitalizes first letter [0.12ms]\n(pass) capitalize > handles empty string [0.02ms]\n(pass) reverse > reverses a string [0.12ms]\n(pass) countUniqueWords > counts unique words case-insensitively [0.21ms]\n(pass) countUniqueWords > handles single word [0.03ms]\n(pass) countUniqueWords > handles empty string [0.01ms]\n(pass) truncate > truncates long strings with ellipsis [0.04ms]\n(pass) truncate > does not truncate short strings\n\n 8 pass\n 0 fail\n 8 expect() calls\nRan 8 tests across 1 file. [18.00ms]","stderr":null},"s09 think: exec":{"state":"succeeded","durationMs":0,"exitCode":null,"error":null,"stdout":"exec","stderr":null},"s10 think: All 8 tests pass now. Fixed two bugs in `src/index.ts`: 1. …":{"state":"succeeded","durationMs":8452,"exitCode":null,"error":null,"stdout":"All 8 tests pass now. Fixed two bugs in `src/index.ts`:\n\n1. **`countUniqueWords`** — it was returning the total word count instead of unique words, and returned `1` for an empty string (`\"\".split(/\\s+/)` yields `[\"\"]`). Now it lowercases, splits, and returns `new Set(words).size`, with an early `0` return for empty/whitespace input.\n\n2. **`truncate`** — off-by-one: `slice(0, maxLen - 4)` → `slice(0, maxLen - 3)`, so the result (content + `\"...\"`) totals exactly `maxLen` characters.","stderr":null}};
   </script>
   <script>
 (function() {
@@ -1040,6 +1136,9 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
 
     // A drag that ends on a node must not toggle the step filter.
     window.__dagMoved = function() { return moved > 4; };
+    // Keyboard activation has no pointerdown to reset the drag guard —
+    // without this, Enter/Space stop working after any DAG pan.
+    window.__dagClearMoved = function() { moved = 0; };
   })();
 
   // Step → findings filter: click any step element (gantt row, dag
@@ -1062,12 +1161,140 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   var stepsData = window.__STEPS_DATA__ || {};
   var drawer = document.getElementById("step-drawer");
   var drawerOpener = null;
+  var drawerStep = null; // {id, stdout, stderr}
+  var drawerTab = "overview";
 
   function drawerEl(tag, cls, text) {
     var el = document.createElement(tag);
     if (cls) el.className = cls;
     el.textContent = text;
     return el;
+  }
+
+  // Runtime caps captured output (MAX_OUTPUT_BYTES) and appends
+  // "[... truncated N bytes]" — surface that as a banner, not log text.
+  // Double backslashes — JS lives in a template literal, so s would
+  // collapse to s before the browser ever parses the regex.
+  // Two producers: host runtime appends "[... truncated N bytes]",
+  // the docker runtime appends a bare "[log truncated]".
+  var TRUNCATED_RE =
+    /\[\.\.\. truncated ([0-9]+) bytes\]\s*$|\[log truncated\]\s*$/;
+  function splitTruncated(text) {
+    var m = text && text.match(TRUNCATED_RE);
+    return m
+      ? {
+          text: text.slice(0, m.index).replace(/\n$/, ""),
+          truncated: true,
+          dropped: m[1] || null,
+        }
+      : { text: text || "", truncated: false, dropped: null };
+  }
+
+  function activeLogText() {
+    if (!drawerStep || drawerTab === "overview") return "";
+    var raw = drawerStep[drawerTab] || "";
+    return splitTruncated(raw).text;
+  }
+
+  // text.length counts UTF-16 units — label sizes are byte counts.
+  var textEncoder = new TextEncoder();
+  function byteLen(t) {
+    return t ? textEncoder.encode(t).length : 0;
+  }
+
+  // Actions act on the visible pane — disable them when it's empty.
+  function updateActionState() {
+    var text =
+      drawerTab === "overview"
+        ? (drawerStep && drawerStep.error) || ""
+        : activeLogText();
+    var copy = document.getElementById("drawer-copy");
+    // navigator.clipboard is undefined outside secure contexts (plain
+    // http, file://) — keep the button disabled there so it can't look
+    // usable and silently no-op.
+    if (copy) copy.disabled = !text || !navigator.clipboard;
+    var dl = document.getElementById("drawer-download");
+    if (dl) dl.disabled = !text;
+  }
+
+  // Rebuild the log <pre> with <mark> around query hits — text nodes
+  // only, never innerHTML.
+  var logMarks = [];
+  var logMarkIdx = -1;
+  function renderLogPane() {
+    var preOut = document.getElementById("drawer-log-stdout");
+    var preErr = document.getElementById("drawer-log-stderr");
+    var body = document.getElementById("drawer-body");
+    var banner = document.getElementById("drawer-truncated");
+    var pre = drawerTab === "stderr" ? preErr : preOut;
+    if (body) body.hidden = drawerTab !== "overview";
+    if (preOut) preOut.hidden = drawerTab !== "stdout";
+    if (preErr) preErr.hidden = drawerTab !== "stderr";
+    if (drawerTab === "overview" || !drawerStep || !pre) {
+      if (banner) banner.hidden = true;
+      // Leaving a log tab drops the search state — Enter must not cycle
+      // stale marks in a hidden pane.
+      logMarks = [];
+      logMarkIdx = -1;
+      var c0 = document.getElementById("drawer-search-count");
+      if (c0) c0.textContent = "";
+      updateActionState();
+      return;
+    }
+    var split = splitTruncated(drawerStep[drawerTab] || "");
+    if (banner) {
+      banner.hidden = !split.truncated;
+      if (split.truncated)
+        banner.textContent = split.dropped
+          ? "log truncated — " + split.dropped + " bytes dropped (capture cap)"
+          : "log truncated — output exceeded the capture cap";
+    }
+    var q = (document.getElementById("drawer-search") || {}).value || "";
+    pre.textContent = "";
+    logMarks = [];
+    logMarkIdx = -1;
+    if (!q) {
+      pre.textContent = split.text;
+    } else {
+      // Fold the whole text once (contextual folds like "ΟΣ" → "ος"
+      // need surrounding chars), then map folded offsets back: per-char
+      // fold LENGTHS agree with the contextual fold even when the folded
+      // char differs ("ς" vs "σ" are both one code unit), so each folded
+      // position maps to its originating original index.
+      var folded = split.text.toLowerCase();
+      var foldMap = [];
+      for (var ci = 0; ci < split.text.length; ci++) {
+        var fl = split.text[ci].toLowerCase().length;
+        for (var cj = 0; cj < fl; cj++) foldMap.push(ci);
+      }
+      var nq = q.toLowerCase();
+      var pos = 0;
+      var i = 0;
+      while ((pos = folded.indexOf(nq, pos)) !== -1) {
+        var from = foldMap[pos];
+        var to = foldMap[pos + nq.length - 1] + 1;
+        pre.appendChild(document.createTextNode(split.text.slice(i, from)));
+        var mark = document.createElement("mark");
+        mark.textContent = split.text.slice(from, to);
+        pre.appendChild(mark);
+        logMarks.push(mark);
+        i = to;
+        pos += nq.length;
+      }
+      pre.appendChild(document.createTextNode(split.text.slice(i)));
+    }
+    var count = document.getElementById("drawer-search-count");
+    if (count) count.textContent = q ? logMarks.length + " matches" : "";
+    updateActionState();
+  }
+
+  function selectTab(tab) {
+    drawerTab = tab;
+    document.querySelectorAll("#drawer-tabs .drawer-tab").forEach(function(b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+      b.setAttribute("aria-selected", b.getAttribute("data-tab") === tab);
+    });
+    renderLogPane();
   }
 
   function openStep(id, opener) {
@@ -1077,6 +1304,8 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       closeStep();
       return;
     }
+    drawerStep = s;
+    drawerStep.id = id;
     document.getElementById("drawer-title").textContent = id;
     var st = document.getElementById("drawer-state");
     st.textContent = s.state;
@@ -1113,18 +1342,28 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         body.appendChild(row);
       });
     }
-    if (s.stdout) {
-      body.appendChild(drawerEl("h4", "drawer-log-title", "stdout"));
-      body.appendChild(drawerEl("pre", "step-out", s.stdout));
-    }
-    if (s.stderr) {
-      body.appendChild(drawerEl("h4", "drawer-log-title", "stderr"));
-      body.appendChild(drawerEl("pre", "step-out err", s.stderr));
-    }
     if (!s.error && !stepFindings.length && !s.stdout && !s.stderr)
       body.appendChild(drawerEl("span", "meta", "no output captured"));
-    var findingsBtn = document.getElementById("drawer-findings");
-    if (findingsBtn) findingsBtn.setAttribute("data-step", id);
+
+    // Tabs appear only when there are logs to tab between; labels carry
+    // the byte size so an empty stderr is obvious without clicking.
+    var tabs = document.getElementById("drawer-tabs");
+    var hasLogs = !!(s.stdout || s.stderr);
+    if (tabs) tabs.hidden = !hasLogs;
+    if (hasLogs) {
+      ["stdout", "stderr"].forEach(function(name) {
+        var b = tabs.querySelector('[data-tab="' + name + '"]');
+        if (!b) return;
+        var text = s[name] || "";
+        b.disabled = !text;
+        b.textContent =
+          name + (text ? " (" + byteLen(text) + "b)" : " (empty)");
+      });
+    }
+    // Fresh step, fresh search — no carried-over query or count.
+    var searchEl = document.getElementById("drawer-search");
+    if (searchEl) searchEl.value = "";
+    selectTab("overview");
     drawerOpener = opener || null;
     drawer.removeAttribute("inert");
     drawer.classList.add("open");
@@ -1141,6 +1380,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     if (!drawer) return;
     var opener = drawerOpener;
     drawerOpener = null;
+    drawerStep = null;
     drawer.classList.remove("open");
     drawer.setAttribute("aria-hidden", "true");
     drawer.setAttribute("inert", "");
@@ -1152,15 +1392,121 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   document.addEventListener("keydown", function(e) {
     if (e.key === "Escape") closeStep();
   });
+  document.querySelectorAll("#drawer-tabs .drawer-tab").forEach(function(b) {
+    b.addEventListener("click", function() {
+      selectTab(b.getAttribute("data-tab"));
+    });
+  });
+  var drawerTabs = document.getElementById("drawer-tabs");
+  if (drawerTabs) {
+    // Left/Right move across the enabled tabs — standard tablist keys.
+    drawerTabs.addEventListener("keydown", function(e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (!e.target.classList || !e.target.classList.contains("drawer-tab"))
+        return;
+      e.preventDefault();
+      var tabs = [];
+      drawerTabs
+        .querySelectorAll(".drawer-tab")
+        .forEach(function(t) { if (!t.disabled) tabs.push(t); });
+      var cur = tabs.indexOf(e.target);
+      if (cur === -1) return;
+      var next =
+        tabs[(cur + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus();
+      selectTab(next.getAttribute("data-tab"));
+    });
+  }
+  var drawerSearch = document.getElementById("drawer-search");
+  if (drawerSearch) {
+    drawerSearch.addEventListener("input", renderLogPane);
+    drawerSearch.addEventListener("keydown", function(e) {
+      // Enter cycles through matches inside the visible log.
+      if (e.key !== "Enter" || !logMarks.length) return;
+      if (logMarkIdx >= 0) logMarks[logMarkIdx].classList.remove("mark-cur");
+      logMarkIdx = (logMarkIdx + 1) % logMarks.length;
+      var next = logMarks[logMarkIdx];
+      next.classList.add("mark-cur");
+      var count = document.getElementById("drawer-search-count");
+      if (count)
+        count.textContent =
+          logMarkIdx + 1 + " of " + logMarks.length + " matches";
+      next.scrollIntoView({ block: "nearest" });
+    });
+  }
   var drawerFindings = document.getElementById("drawer-findings");
   if (drawerFindings) {
     drawerFindings.addEventListener("click", function() {
+      // Apply the step filter (not just scroll) — that is the drawer
+      // button's contract.
+      if (drawerStep && stepFilter !== drawerStep.id)
+        applyStepFilter(drawerStep.id);
       var f = document.getElementById("findings");
       if (f) f.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
+  var drawerCopy = document.getElementById("drawer-copy");
+  if (drawerCopy) {
+    drawerCopy.addEventListener("click", function() {
+      var text =
+        drawerTab === "overview" ? (drawerStep && drawerStep.error) || "" : activeLogText();
+      if (!text || !navigator.clipboard) return;
+      navigator.clipboard
+        .writeText(text)
+        .then(function() {
+          drawerCopy.textContent = "copied!";
+        })
+        .catch(function() {
+          drawerCopy.textContent = "copy failed";
+        })
+        .finally(function() {
+          setTimeout(function() { drawerCopy.textContent = "Copy log"; }, 1200);
+        });
+    });
+  }
+  var drawerDownload = document.getElementById("drawer-download");
+  if (drawerDownload) {
+    drawerDownload.addEventListener("click", function() {
+      if (!drawerStep) return;
+      var text = activeLogText() || (drawerStep.error || "");
+      var blob = new Blob([text], { type: "text/plain" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download =
+        drawerStep.id.replace(/[^\w.-]+/g, "_") + "." + drawerTab + ".txt";
+      // Firefox ignores download clicks on detached anchors; deferring
+      // the revoke keeps other engines from aborting the fetch.
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 0);
+    });
+  }
 
   document.querySelectorAll("[data-step]").forEach(function(el) {
+    // Keyboard activation for role=button elements (gantt rows, DAG
+    // nodes, tree spans) — native <button>/<summary> fire click on
+    // Enter/Space themselves; forwarding there would double-toggle.
+    if (el.getAttribute("role") === "button") {
+      el.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          // Held key repeats — swallow the default (Space would scroll
+          // the page) but only the first press may activate.
+          if (e.repeat) return;
+          // A DAG pan sets moved>4 until the next pointerdown — a
+          // keyboard activation has no pointer, so clear the guard or
+          // the synthetic click below gets swallowed as a drag.
+          if (window.__dagClearMoved) window.__dagClearMoved();
+          // SVGElement has no .click() — dispatch a synthetic click
+          // event so gantt/DAG <g> nodes activate like HTML elements.
+          el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        }
+      });
+    }
     el.addEventListener("click", function(e) {
       e.stopPropagation();
       // preventDefault keeps <details> in the list view from toggling

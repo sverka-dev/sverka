@@ -228,7 +228,7 @@ main.split:has(.step-drawer.open) {
 .drawer-tab:disabled { color: #484f58; cursor: default; }
 /* Author display rules beat the UA [hidden] rule \u2014 restore it. */
 .drawer-tabs[hidden] { display: none; }
-#drawer-log[hidden] { display: none; }
+.drawer-log[hidden] { display: none; }
 #drawer-search {
   margin-left: auto;
   background: #0d1117;
@@ -257,14 +257,14 @@ main.split:has(.step-drawer.open) {
 }
 #drawer-body { flex: 1; overflow: auto; padding: 0.75rem 1rem 1.5rem; }
 #drawer-body .step-out { max-height: none; }
-#drawer-log {
+.drawer-log {
   flex: 1;
   overflow: auto;
   margin: 0;
   padding: 0.75rem 1rem 1.5rem;
 }
-#drawer-log mark { background: #9e6a03; color: #fff; padding: 0 1px; }
-#drawer-log mark.mark-cur { outline: 1px solid #f0f6fc; }
+.drawer-log mark { background: #9e6a03; color: #fff; padding: 0 1px; }
+.drawer-log mark.mark-cur { outline: 1px solid #f0f6fc; }
 .drawer-finding {
   font-size: 0.8rem;
   padding: 0.3rem 0;
@@ -424,16 +424,16 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     <h1>arena aggregate</h1>
     <div class="run-context">
       <span class="ctx-label">Plan:</span> <span class="ctx-value">arena</span>
-      <span class="ctx-label">Status:</span> <span class="ctx-value status-success">success</span>
-      <span class="ctx-label">Duration:</span> <span class="ctx-value">7m 38s</span>
+      <span class="ctx-label">Status:</span> <span class="ctx-value status-failure">failure</span>
+      <span class="ctx-label">Duration:</span> <span class="ctx-value">10m 50s</span>
       <span class="ctx-label">Command:</span> <span class="ctx-value">sverka-arena report --format html</span>
       <span class="ctx-label">models:</span> <span class="ctx-value">swe-2-high</span>
       <span class="ctx-label">plugins:</span> <span class="ctx-value">sverka</span>
-      <span class="ctx-label">tasks:</span> <span class="ctx-value">ship-package</span>
+      <span class="ctx-label">tasks:</span> <span class="ctx-value">fix-tests, verify-and-fix, ship-package</span>
       <span class="ctx-label">repetitions:</span> <span class="ctx-value">1</span>
-      <span class="ctx-label">runs:</span> <span class="ctx-value">2</span>
+      <span class="ctx-label">runs:</span> <span class="ctx-value">6</span>
       
-      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-10-02T13:49:41.076Z</span>
+      <span class="ctx-label">Generated:</span> <span class="ctx-value">2026-10-03T00:29:29.225Z</span>
     </div>
   </header>
 
@@ -457,7 +457,7 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         <button class="seg-btn" data-view="list">List</button>
       </div>
     </div>
-    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 88" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="88" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="88" /><text class="tick" x="304" y="16" text-anchor="middle">1m 32s</text><line class="grid" x1="428" y1="22" x2="428" y2="88" /><text class="tick" x="428" y="16" text-anchor="middle">3m 3s</text><line class="grid" x1="552" y1="22" x2="552" y2="88" /><text class="tick" x="552" y="16" text-anchor="middle">4m 35s</text><line class="grid" x1="676" y1="22" x2="676" y2="88" /><text class="tick" x="676" y="16" text-anchor="middle">6m 6s</text><line class="grid" x1="800" y1="22" x2="800" y2="88" /><text class="tick" x="800" y="16" text-anchor="middle">7m 38s</text><g class="gantt-step" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1"><text class="row-label" x="4" y="46">swe-2-high/no-plugins/r1</text><rect class="bar" x="180.0" y="33" width="543.2" height="16" rx="3" fill="#3fb950"><title>ship-package/swe-2-high/no-plugins/r1 — succeeded — 6m 41s</title></rect><text class="dur" x="729.2" y="46">6m 41s</text></g><g class="gantt-step" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1"><text class="row-label" x="4" y="72">swe-2-high/sverka/r1</text><rect class="bar" x="723.2" y="59" width="76.8" height="16" rx="3" fill="#3fb950"><title>ship-package/swe-2-high/sverka/r1 — succeeded — 56.7s</title></rect><text class="dur" x="806.0" y="72">56.7s</text></g></svg></div>
+    <div class="view" id="view-gantt"><svg class="gantt" viewBox="0 0 860 192" role="img" aria-label="Step timeline"><line class="grid" x1="180" y1="22" x2="180" y2="192" /><text class="tick" x="180" y="16" text-anchor="middle">0ms</text><line class="grid" x1="304" y1="22" x2="304" y2="192" /><text class="tick" x="304" y="16" text-anchor="middle">2m 10s</text><line class="grid" x1="428" y1="22" x2="428" y2="192" /><text class="tick" x="428" y="16" text-anchor="middle">4m 20s</text><line class="grid" x1="552" y1="22" x2="552" y2="192" /><text class="tick" x="552" y="16" text-anchor="middle">6m 30s</text><line class="grid" x1="676" y1="22" x2="676" y2="192" /><text class="tick" x="676" y="16" text-anchor="middle">8m 40s</text><line class="grid" x1="800" y1="22" x2="800" y2="192" /><text class="tick" x="800" y="16" text-anchor="middle">10m 50s</text><g class="gantt-step" data-step="fix-tests/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/no-plugins/r1"><text class="row-label" x="4" y="46">fix-tests/swe-2-high/no-plugins/r1</text><rect class="bar" x="180.0" y="33" width="19.3" height="16" rx="3" fill="#3fb950"><title>fix-tests/swe-2-high/no-plugins/r1 — succeeded — 20.2s</title></rect><text class="dur" x="205.3" y="46">20.2s</text></g><g class="gantt-step" data-step="fix-tests/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/sverka/r1"><text class="row-label" x="4" y="72">fix-tests/swe-2-high/sverka/r1</text><rect class="bar" x="199.3" y="59" width="15.5" height="16" rx="3" fill="#3fb950"><title>fix-tests/swe-2-high/sverka/r1 — succeeded — 16.3s</title></rect><text class="dur" x="220.8" y="72">16.3s</text></g><g class="gantt-step" data-step="verify-and-fix/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/no-plugins/r1"><text class="row-label" x="4" y="98">verify-and-fix/swe-2-high/no-plugins/r1</text><rect class="bar" x="214.8" y="85" width="62.1" height="16" rx="3" fill="#3fb950"><title>verify-and-fix/swe-2-high/no-plugins/r1 — succeeded — 1m 5s</title></rect><text class="dur" x="282.9" y="98">1m 5s</text></g><g class="gantt-step" data-step="verify-and-fix/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/sverka/r1"><text class="row-label" x="4" y="124">verify-and-fix/swe-2-high/sverka/r1</text><rect class="bar" x="276.9" y="111" width="17.8" height="16" rx="3" fill="#3fb950"><title>verify-and-fix/swe-2-high/sverka/r1 — succeeded — 18.6s</title></rect><text class="dur" x="300.7" y="124">18.6s</text></g><g class="gantt-step" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1"><text class="row-label" x="4" y="150">ship-package/swe-2-high/no-plugins/r1</text><rect class="bar" x="294.7" y="137" width="462.1" height="16" rx="3" fill="#f85149"><title>ship-package/swe-2-high/no-plugins/r1 — failed — 8m 4s</title></rect><text class="dur" x="762.8" y="150">8m 4s</text></g><g class="gantt-step" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1"><text class="row-label" x="4" y="176">ship-package/swe-2-high/sverka/r1</text><rect class="bar" x="756.8" y="163" width="43.2" height="16" rx="3" fill="#3fb950"><title>ship-package/swe-2-high/sverka/r1 — succeeded — 45.3s</title></rect><text class="dur" x="806.0" y="176">45.3s</text></g></svg></div>
     <div class="view hidden" id="view-dag"><div class="dag-viewport">
     <div class="dag-tools">
       <button type="button" class="dag-btn" data-dag-zoom="in" title="Zoom in">+</button>
@@ -465,74 +465,227 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       <button type="button" class="dag-btn" data-dag-zoom="fit" title="Fit to viewport">fit</button>
       <button type="button" class="dag-btn" data-dag-dir title="Switch direction (LR/TB)">⇄</button>
     </div>
-    <svg id="dag-svg" class="dag" viewBox="-40 -40 286 210" data-vb-lr="-40 -40 286 210" data-vb-tb="-40 -40 502 140" role="img" aria-label="Workflow DAG">
+    <svg id="dag-svg" class="dag" viewBox="-40 -40 286 490" data-vb-lr="-40 -40 286 490" data-vb-tb="-40 -40 1366 140" role="img" aria-label="Workflow DAG">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" /></marker>
       <pattern id="dag-dots" width="24" height="24" patternUnits="userSpaceOnUse" x="-40" y="-40"><circle cx="1" cy="1" r="1" /></pattern>
     </defs>
-    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
-        <title>ship-package/swe-2-high/no-plugins/r1</title>
+    <g class="dag-dir" data-dir="LR"><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><g class="dag-node" data-step="fix-tests/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/no-plugins/r1">
+        <title>fix-tests/swe-2-high/no-plugins/r1</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">swe-2-high/no-plugins/r1</text>
+        <text x="28" y="20">fix-tests/swe-2-high/no…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
-        <title>ship-package/swe-2-high/sverka/r1</title>
+      </g><g class="dag-node" data-step="fix-tests/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/sverka/r1">
+        <title>fix-tests/swe-2-high/sverka/r1</title>
         <rect class="dag-card" x="0" y="70" width="190" height="44" rx="8" />
         <circle cx="16" cy="92" r="4" fill="#3fb950" />
-        <text x="28" y="90">swe-2-high/sverka/r1</text>
+        <text x="28" y="90">fix-tests/swe-2-high/sv…</text>
         <text class="node-status" x="28" y="104" style="fill:#3fb950">succeeded</text>
-      </g></g>
-    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
+      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/no-plugins/r1">
+        <title>verify-and-fix/swe-2-high/no-plugins/r1</title>
+        <rect class="dag-card" x="0" y="140" width="190" height="44" rx="8" />
+        <circle cx="16" cy="162" r="4" fill="#3fb950" />
+        <text x="28" y="160">verify-and-fix/swe-2-hi…</text>
+        <text class="node-status" x="28" y="174" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/sverka/r1">
+        <title>verify-and-fix/swe-2-high/sverka/r1</title>
+        <rect class="dag-card" x="0" y="210" width="190" height="44" rx="8" />
+        <circle cx="16" cy="232" r="4" fill="#3fb950" />
+        <text x="28" y="230">verify-and-fix/swe-2-hi…</text>
+        <text class="node-status" x="28" y="244" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
         <title>ship-package/swe-2-high/no-plugins/r1</title>
-        <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
-        <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">swe-2-high/no-plugins/r1</text>
-        <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
+        <rect class="dag-card" x="0" y="280" width="190" height="44" rx="8" />
+        <circle cx="16" cy="302" r="4" fill="#f85149" />
+        <text x="28" y="300">ship-package/swe-2-high…</text>
+        <text class="node-status" x="28" y="314" style="fill:#f85149">failed</text>
       </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
         <title>ship-package/swe-2-high/sverka/r1</title>
+        <rect class="dag-card" x="0" y="350" width="190" height="44" rx="8" />
+        <circle cx="16" cy="372" r="4" fill="#3fb950" />
+        <text x="28" y="370">ship-package/swe-2-high…</text>
+        <text class="node-status" x="28" y="384" style="fill:#3fb950">succeeded</text>
+      </g></g>
+    <g class="dag-dir" data-dir="TB" hidden><rect class="dag-grid" x="-40" y="-40" width="100000" height="100000" fill="url(#dag-dots)" /><g class="dag-node" data-step="fix-tests/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/no-plugins/r1">
+        <title>fix-tests/swe-2-high/no-plugins/r1</title>
+        <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
+        <circle cx="16" cy="22" r="4" fill="#3fb950" />
+        <text x="28" y="20">fix-tests/swe-2-high/no…</text>
+        <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="fix-tests/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/sverka/r1">
+        <title>fix-tests/swe-2-high/sverka/r1</title>
         <rect class="dag-card" x="216" y="0" width="190" height="44" rx="8" />
         <circle cx="232" cy="22" r="4" fill="#3fb950" />
-        <text x="244" y="20">swe-2-high/sverka/r1</text>
+        <text x="244" y="20">fix-tests/swe-2-high/sv…</text>
         <text class="node-status" x="244" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
+        <title>ship-package/swe-2-high/no-plugins/r1</title>
+        <rect class="dag-card" x="864" y="0" width="190" height="44" rx="8" />
+        <circle cx="880" cy="22" r="4" fill="#f85149" />
+        <text x="892" y="20">ship-package/swe-2-high…</text>
+        <text class="node-status" x="892" y="34" style="fill:#f85149">failed</text>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
+        <title>ship-package/swe-2-high/sverka/r1</title>
+        <rect class="dag-card" x="1080" y="0" width="190" height="44" rx="8" />
+        <circle cx="1096" cy="22" r="4" fill="#3fb950" />
+        <text x="1108" y="20">ship-package/swe-2-high…</text>
+        <text class="node-status" x="1108" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/no-plugins/r1">
+        <title>verify-and-fix/swe-2-high/no-plugins/r1</title>
+        <rect class="dag-card" x="432" y="0" width="190" height="44" rx="8" />
+        <circle cx="448" cy="22" r="4" fill="#3fb950" />
+        <text x="460" y="20">verify-and-fix/swe-2-hi…</text>
+        <text class="node-status" x="460" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/sverka/r1">
+        <title>verify-and-fix/swe-2-high/sverka/r1</title>
+        <rect class="dag-card" x="648" y="0" width="190" height="44" rx="8" />
+        <circle cx="664" cy="22" r="4" fill="#3fb950" />
+        <text x="676" y="20">verify-and-fix/swe-2-hi…</text>
+        <text class="node-status" x="676" y="34" style="fill:#3fb950">succeeded</text>
       </g></g>
     </svg>
     <div class="dag-minimap" id="dag-minimap">
-      <svg class="dag-mini" viewBox="-40 -40 286 210" data-dir="LR"><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
-        <title>ship-package/swe-2-high/no-plugins/r1</title>
+      <svg class="dag-mini" viewBox="-40 -40 286 490" data-dir="LR"><g class="dag-node" data-step="fix-tests/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/no-plugins/r1">
+        <title>fix-tests/swe-2-high/no-plugins/r1</title>
         <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
         <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">swe-2-high/no-plugins/r1</text>
+        <text x="28" y="20">fix-tests/swe-2-high/no…</text>
         <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
-      </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
-        <title>ship-package/swe-2-high/sverka/r1</title>
+      </g><g class="dag-node" data-step="fix-tests/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/sverka/r1">
+        <title>fix-tests/swe-2-high/sverka/r1</title>
         <rect class="dag-card" x="0" y="70" width="190" height="44" rx="8" />
         <circle cx="16" cy="92" r="4" fill="#3fb950" />
-        <text x="28" y="90">swe-2-high/sverka/r1</text>
+        <text x="28" y="90">fix-tests/swe-2-high/sv…</text>
         <text class="node-status" x="28" y="104" style="fill:#3fb950">succeeded</text>
-      </g></svg><svg class="dag-mini" viewBox="-40 -40 502 140" data-dir="TB" hidden><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
+      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/no-plugins/r1">
+        <title>verify-and-fix/swe-2-high/no-plugins/r1</title>
+        <rect class="dag-card" x="0" y="140" width="190" height="44" rx="8" />
+        <circle cx="16" cy="162" r="4" fill="#3fb950" />
+        <text x="28" y="160">verify-and-fix/swe-2-hi…</text>
+        <text class="node-status" x="28" y="174" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/sverka/r1">
+        <title>verify-and-fix/swe-2-high/sverka/r1</title>
+        <rect class="dag-card" x="0" y="210" width="190" height="44" rx="8" />
+        <circle cx="16" cy="232" r="4" fill="#3fb950" />
+        <text x="28" y="230">verify-and-fix/swe-2-hi…</text>
+        <text class="node-status" x="28" y="244" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
         <title>ship-package/swe-2-high/no-plugins/r1</title>
-        <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
-        <circle cx="16" cy="22" r="4" fill="#3fb950" />
-        <text x="28" y="20">swe-2-high/no-plugins/r1</text>
-        <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
+        <rect class="dag-card" x="0" y="280" width="190" height="44" rx="8" />
+        <circle cx="16" cy="302" r="4" fill="#f85149" />
+        <text x="28" y="300">ship-package/swe-2-high…</text>
+        <text class="node-status" x="28" y="314" style="fill:#f85149">failed</text>
       </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
         <title>ship-package/swe-2-high/sverka/r1</title>
+        <rect class="dag-card" x="0" y="350" width="190" height="44" rx="8" />
+        <circle cx="16" cy="372" r="4" fill="#3fb950" />
+        <text x="28" y="370">ship-package/swe-2-high…</text>
+        <text class="node-status" x="28" y="384" style="fill:#3fb950">succeeded</text>
+      </g></svg><svg class="dag-mini" viewBox="-40 -40 1366 140" data-dir="TB" hidden><g class="dag-node" data-step="fix-tests/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/no-plugins/r1">
+        <title>fix-tests/swe-2-high/no-plugins/r1</title>
+        <rect class="dag-card" x="0" y="0" width="190" height="44" rx="8" />
+        <circle cx="16" cy="22" r="4" fill="#3fb950" />
+        <text x="28" y="20">fix-tests/swe-2-high/no…</text>
+        <text class="node-status" x="28" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="fix-tests/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/sverka/r1">
+        <title>fix-tests/swe-2-high/sverka/r1</title>
         <rect class="dag-card" x="216" y="0" width="190" height="44" rx="8" />
         <circle cx="232" cy="22" r="4" fill="#3fb950" />
-        <text x="244" y="20">swe-2-high/sverka/r1</text>
+        <text x="244" y="20">fix-tests/swe-2-high/sv…</text>
         <text class="node-status" x="244" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1">
+        <title>ship-package/swe-2-high/no-plugins/r1</title>
+        <rect class="dag-card" x="864" y="0" width="190" height="44" rx="8" />
+        <circle cx="880" cy="22" r="4" fill="#f85149" />
+        <text x="892" y="20">ship-package/swe-2-high…</text>
+        <text class="node-status" x="892" y="34" style="fill:#f85149">failed</text>
+      </g><g class="dag-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1">
+        <title>ship-package/swe-2-high/sverka/r1</title>
+        <rect class="dag-card" x="1080" y="0" width="190" height="44" rx="8" />
+        <circle cx="1096" cy="22" r="4" fill="#3fb950" />
+        <text x="1108" y="20">ship-package/swe-2-high…</text>
+        <text class="node-status" x="1108" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/no-plugins/r1">
+        <title>verify-and-fix/swe-2-high/no-plugins/r1</title>
+        <rect class="dag-card" x="432" y="0" width="190" height="44" rx="8" />
+        <circle cx="448" cy="22" r="4" fill="#3fb950" />
+        <text x="460" y="20">verify-and-fix/swe-2-hi…</text>
+        <text class="node-status" x="460" y="34" style="fill:#3fb950">succeeded</text>
+      </g><g class="dag-node" data-step="verify-and-fix/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/sverka/r1">
+        <title>verify-and-fix/swe-2-high/sverka/r1</title>
+        <rect class="dag-card" x="648" y="0" width="190" height="44" rx="8" />
+        <circle cx="664" cy="22" r="4" fill="#3fb950" />
+        <text x="676" y="20">verify-and-fix/swe-2-hi…</text>
+        <text class="node-status" x="676" y="34" style="fill:#3fb950">succeeded</text>
       </g></svg>
       <div class="dag-mini-vp" id="dag-mini-vp"></div>
     </div>
   </div></div>
-    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1" style="border-color:#3fb950">✓ swe-2-high/no-plugins/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1" style="border-color:#3fb950">✓ swe-2-high/sverka/r1 <span class="meta">succeeded</span></span></li></ul></div>
+    <div class="view hidden" id="view-tree"><ul class="tree"><li><span class="tree-node" data-step="fix-tests/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/no-plugins/r1" style="border-color:#3fb950">✓ fix-tests/swe-2-high/no-plugins/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="fix-tests/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step fix-tests/swe-2-high/sverka/r1" style="border-color:#3fb950">✓ fix-tests/swe-2-high/sverka/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="verify-and-fix/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/no-plugins/r1" style="border-color:#3fb950">✓ verify-and-fix/swe-2-high/no-plugins/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="verify-and-fix/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step verify-and-fix/swe-2-high/sverka/r1" style="border-color:#3fb950">✓ verify-and-fix/swe-2-high/sverka/r1 <span class="meta">succeeded</span></span></li><li><span class="tree-node" data-step="ship-package/swe-2-high/no-plugins/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/no-plugins/r1" style="border-color:#f85149">✗ ship-package/swe-2-high/no-plugins/r1 <span class="meta">failed</span></span></li><li><span class="tree-node" data-step="ship-package/swe-2-high/sverka/r1" tabindex="0" role="button" aria-label="step ship-package/swe-2-high/sverka/r1" style="border-color:#3fb950">✓ ship-package/swe-2-high/sverka/r1 <span class="meta">succeeded</span></span></li></ul></div>
     <div class="view hidden" id="view-list">      <details>
-        <summary><span class="step-icon">✓</span> swe-2-high/no-plugins/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">6m 41s</span> <button type="button" class="step-findings" data-step="ship-package/swe-2-high/no-plugins/r1" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> fix-tests/swe-2-high/no-plugins/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">20.2s</span> <button type="button" class="step-findings" data-step="fix-tests/swe-2-high/no-plugins/r1" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details>
       <details>
-        <summary><span class="step-icon">✓</span> swe-2-high/sverka/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">56.7s</span> <button type="button" class="step-findings" data-step="ship-package/swe-2-high/sverka/r1" title="Step logs, error details and findings">details</button></summary>
+        <summary><span class="step-icon">✓</span> fix-tests/swe-2-high/sverka/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">16.3s</span> <button type="button" class="step-findings" data-step="fix-tests/swe-2-high/sverka/r1" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> verify-and-fix/swe-2-high/no-plugins/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">1m 5s</span> <button type="button" class="step-findings" data-step="verify-and-fix/swe-2-high/no-plugins/r1" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> verify-and-fix/swe-2-high/sverka/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">18.6s</span> <button type="button" class="step-findings" data-step="verify-and-fix/swe-2-high/sverka/r1" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="meta">output captured — open step details</div></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✗</span> ship-package/swe-2-high/no-plugins/r1 <span class="step-state failed">failed</span> <span class="meta">8m 4s</span> <button type="button" class="step-findings" data-step="ship-package/swe-2-high/no-plugins/r1" title="Step logs, error details and findings">details</button></summary>
+        <div class="step-body"><div class="step-error">pipeline: $ bun run scripts/verify.ts
+[verify] verify/format — started
+[verify] verify/format stdout: Checking formatting...
+All matched files use Prettier code style!
+[verify] verify/format — ok (474ms)
+[verify] verify/lint — started
+[verify] verify/lint stdout: Found 0 warnings and 0 errors.
+Finished in 179ms on 12 files with 82 rules using 5 threads.
+[verify] verify/lint — ok (389ms)
+[verify] verify/typecheck — started
+[verify] verify/typecheck — ok (890ms)
+[verify] verify/test — started
+[verify] verify/test stdout: 
+ RUN  v5.0.3 /tmp/sandbox
+
+ ✓ src/__tests__/public-api.test.ts (5 tests) 4ms
+ ✓ src/__tests__/serialize.test.ts (15 tests) 7ms
+ ✓ src/__tests__/sqlite-store.test.ts (8 tests) 99ms
+ ✓ src/__tests__/file-store.test.ts (15 tests) 144ms
+ ✓ src/__tests__/errors.test.ts (6 tests) 5ms
+
+ Test Files  5 passed (5)
+      Tests  49 passed (49)
+   Start at  02:28:34
+   Duration  477ms (transform 55%, tests 28%, import 14%, worker 2%)
+[verify] verify/test — ok (840ms)
+[verify] verify/build — started
+[verify] verify/build stdout: ℹ tsdown v0.23.0 powered by rolldown v1.2.12
+ℹ config file: /tmp/sandbox 
+ℹ entry: src/index.ts
+ℹ target: node24.0.0
+ℹ tsconfig: tsconfig.json
+ℹ Build start
+ℹ Cleaning 2 files
+ℹ dist/index.mjs    12.84 kB │ gzip: 3.81 kB
+ℹ dist/index.d.mts   1.51 kB │ gzip: 0.72 kB
+ℹ 2 files, total: 14.35 kB
+✔ Build complete in 705ms
+[verify] verify/build — ok (939ms)
+[verify] run success in 3535ms
+[verify] all checks passed
+verify does not run the full pipeline</div><div class="meta">output captured — open step details</div></div>
+      </details>
+      <details>
+        <summary><span class="step-icon">✓</span> ship-package/swe-2-high/sverka/r1 <span class="step-state succeeded">succeeded</span> <span class="meta">45.3s</span> <button type="button" class="step-findings" data-step="ship-package/swe-2-high/sverka/r1" title="Step logs, error details and findings">details</button></summary>
         <div class="step-body"><div class="meta">output captured — open step details</div></div>
       </details></div>
   </section>
@@ -547,8 +700,8 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     <div class="drawer-tabs" id="drawer-tabs" hidden>
       <div class="drawer-tablist" role="tablist" aria-label="step output">
         <button type="button" class="drawer-tab" data-tab="overview" role="tab" aria-controls="drawer-body">overview</button>
-        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log">stdout</button>
-        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log">stderr</button>
+        <button type="button" class="drawer-tab" data-tab="stdout" role="tab" aria-controls="drawer-log-stdout">stdout</button>
+        <button type="button" class="drawer-tab" data-tab="stderr" role="tab" aria-controls="drawer-log-stderr">stderr</button>
       </div>
       <input id="drawer-search" type="search" placeholder="Search log…" aria-label="Search log">
       <span id="drawer-search-count" class="drawer-search-count"></span>
@@ -560,7 +713,8 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
     </div>
     <div id="drawer-truncated" class="drawer-truncated" hidden></div>
     <div id="drawer-body" role="tabpanel" aria-label="overview" tabindex="0"></div>
-    <pre id="drawer-log" class="step-out" role="tabpanel" aria-label="log" tabindex="0" hidden></pre>
+    <pre id="drawer-log-stdout" class="drawer-log step-out" role="tabpanel" aria-label="stdout" tabindex="0" hidden></pre>
+    <pre id="drawer-log-stderr" class="drawer-log step-out err" role="tabpanel" aria-label="stderr" tabindex="0" hidden></pre>
   </aside>
 
     <section id="findings">
@@ -591,15 +745,62 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
         </tr>
       </thead>
       <tbody>
-        <tr><td colspan="5" class="no-findings">No findings</td></tr>
+                <tr data-severity="high">
+          <td class="severity-high">high</td>
+          <td>ship-package/swe-2-high/no-plugins/r1:step-failure</td>
+          <td>—</td>
+          <td>—</td>
+          <td>pipeline: $ bun run scripts/verify.ts
+[verify] verify/format — started
+[verify] verify/format stdout: Checking formatting...
+All matched files use Prettier code style!
+[verify] verify/format — ok (474ms)
+[verify] verify/lint — started
+[verify] verify/lint stdout: Found 0 warnings and 0 errors.
+Finished in 179ms on 12 files with 82 rules using 5 threads.
+[verify] verify/lint — ok (389ms)
+[verify] verify/typecheck — started
+[verify] verify/typecheck — ok (890ms)
+[verify] verify/test — started
+[verify] verify/test stdout: 
+ RUN  v5.0.3 /tmp/sandbox
+
+ ✓ src/__tests__/public-api.test.ts (5 tests) 4ms
+ ✓ src/__tests__/serialize.test.ts (15 tests) 7ms
+ ✓ src/__tests__/sqlite-store.test.ts (8 tests) 99ms
+ ✓ src/__tests__/file-store.test.ts (15 tests) 144ms
+ ✓ src/__tests__/errors.test.ts (6 tests) 5ms
+
+ Test Files  5 passed (5)
+      Tests  49 passed (49)
+   Start at  02:28:34
+   Duration  477ms (transform 55%, tests 28%, import 14%, worker 2%)
+[verify] verify/test — ok (840ms)
+[verify] verify/build — started
+[verify] verify/build stdout: ℹ tsdown v0.23.0 powered by rolldown v1.2.12
+ℹ config file: /tmp/sandbox 
+ℹ entry: src/index.ts
+ℹ target: node24.0.0
+ℹ tsconfig: tsconfig.json
+ℹ Build start
+ℹ Cleaning 2 files
+ℹ dist/index.mjs    12.84 kB │ gzip: 3.81 kB
+ℹ dist/index.d.mts   1.51 kB │ gzip: 0.72 kB
+ℹ 2 files, total: 14.35 kB
+✔ Build complete in 705ms
+[verify] verify/build — ok (939ms)
+[verify] run success in 3535ms
+[verify] all checks passed
+verify does not run the full pipeline — 53.1k tokens, 44 tool calls, 74 llm calls</td>
+        </tr>
       </tbody>
     </table>
   </section>
   </main>
 
   <script>
-    var __FINDINGS_DATA__ = [];
-    var __STEPS_DATA__ = {"ship-package/swe-2-high/no-plugins/r1":{"state":"succeeded","durationMs":401013,"exitCode":null,"error":null,"stdout":"85.2k tokens, 51 tool calls, 86 llm calls","stderr":null},"ship-package/swe-2-high/sverka/r1":{"state":"succeeded","durationMs":56696,"exitCode":null,"error":null,"stdout":"32.5k tokens, 24 tool calls, 32 llm calls","stderr":null}};
+    var __FINDINGS_DATA__ = [{"severity":"high","checkId":"ship-package/swe-2-high/no-plugins/r1:step-failure","file":"—","startLine":"—","endLine":"—","message":"pipeline: $ bun run scripts/verify.ts\n[verify] verify/format — started\n[verify] verify/format stdout: Checking formatting...\nAll matched files use Prettier code style!\n[verify] verify/format — ok (474ms)\n[verify] verify/lint — started\n[verify] verify/lint stdout: Found 0 warnings and 0 errors.\nFinished in 179ms on 12 files with 82 rules using 5 threads.\n[verify] verify/lint — ok (389ms)\n[verify] verify/typecheck — started\n[verify] verify/typecheck — ok (890ms)\n[verify] verify/test — started\n[verify] verify/test stdout: \n RUN  v5.0.3 /tmp/sandbox\n\n ✓ src/__tests__/public-api.test.ts (5 tests) 4ms\n ✓ src/__tests__/serialize.test.ts (15 tests) 7ms\n ✓ src/__tests__/sqlite-store.test.ts (8 tests) 99ms\n ✓ src/__tests__/file-store.test.ts (15 tests) 144ms\n ✓ src/__tests__/errors.test.ts (6 tests) 5ms\n\n Test Files  5 passed (5)\n      Tests  49 passed (49)\n   Start at  02:28:34\n   Duration  477ms (transform 55%, tests 28%, import 14%, worker 2%)\n[verify] verify/test — ok (840ms)\n[verify] verify/build — started\n[verify] verify/build stdout: ℹ tsdown v0.23.0 powered by rolldown v1.2.12\nℹ config file: /tmp/sandbox \nℹ entry: src/index.ts\nℹ target: node24.0.0\nℹ tsconfig: tsconfig.json\nℹ Build start\nℹ Cleaning 2 files\nℹ dist/index.mjs    12.84 kB │ gzip: 3.81 kB\nℹ dist/index.d.mts   1.51 kB │ gzip: 0.72 kB\nℹ 2 files, total: 14.35 kB\n✔ Build complete in 705ms\n[verify] verify/build — ok (939ms)\n[verify] run success in 3535ms\n[verify] all checks passed\nverify does not run the full pipeline — 53.1k tokens, 44 tool calls, 74 llm calls","rule":"step-failure"}];
+    var __STEPS_DATA__ = {"fix-tests/swe-2-high/no-plugins/r1":{"state":"succeeded","durationMs":20208,"exitCode":null,"error":null,"stdout":"13.8k tokens, 8 tool calls, 10 llm calls","stderr":null},"fix-tests/swe-2-high/sverka/r1":{"state":"succeeded","durationMs":16288,"exitCode":null,"error":null,"stdout":"14.6k tokens, 8 tool calls, 12 llm calls","stderr":null},"verify-and-fix/swe-2-high/no-plugins/r1":{"state":"succeeded","durationMs":65090,"exitCode":null,"error":null,"stdout":"17.2k tokens, 15 tool calls, 20 llm calls","stderr":null},"verify-and-fix/swe-2-high/sverka/r1":{"state":"succeeded","durationMs":18609,"exitCode":null,"error":null,"stdout":"17.9k tokens, 10 tool calls, 12 llm calls","stderr":null},"ship-package/swe-2-high/no-plugins/r1":{"state":"failed","durationMs":484447,"exitCode":null,"error":"pipeline: $ bun run scripts/verify.ts\n[verify] verify/format — started\n[verify] verify/format stdout: Checking formatting...\nAll matched files use Prettier code style!\n[verify] verify/format — ok (474ms)\n[verify] verify/lint — started\n[verify] verify/lint stdout: Found 0 warnings and 0 errors.\nFinished in 179ms on 12 files with 82 rules using 5 threads.\n[verify] verify/lint — ok (389ms)\n[verify] verify/typecheck — started\n[verify] verify/typecheck — ok (890ms)\n[verify] verify/test — started\n[verify] verify/test stdout: \n RUN  v5.0.3 /tmp/sandbox\n\n ✓ src/__tests__/public-api.test.ts (5 tests) 4ms\n ✓ src/__tests__/serialize.test.ts (15 tests) 7ms\n ✓ src/__tests__/sqlite-store.test.ts (8 tests) 99ms\n ✓ src/__tests__/file-store.test.ts (15 tests) 144ms\n ✓ src/__tests__/errors.test.ts (6 tests) 5ms\n\n Test Files  5 passed (5)\n      Tests  49 passed (49)\n   Start at  02:28:34\n   Duration  477ms (transform 55%, tests 28%, import 14%, worker 2%)\n[verify] verify/test — ok (840ms)\n[verify] verify/build — started\n[verify] verify/build stdout: ℹ tsdown v0.23.0 powered by rolldown v1.2.12\nℹ config file: /tmp/sandbox \nℹ entry: src/index.ts\nℹ target: node24.0.0\nℹ tsconfig: tsconfig.json\nℹ Build start\nℹ Cleaning 2 files\nℹ dist/index.mjs    12.84 kB │ gzip: 3.81 kB\nℹ dist/index.d.mts   1.51 kB │ gzip: 0.72 kB\nℹ 2 files, total: 14.35 kB\n✔ Build complete in 705ms\n[verify] verify/build — ok (939ms)\n[verify] run success in 3535ms\n[verify] all checks passed\nverify does not run the full pipeline","stdout":"53.1k tokens, 44 tool calls, 74 llm calls","stderr":null},"ship-package/swe-2-high/sverka/r1":{"state":"succeeded","durationMs":45307,"exitCode":null,"error":null,"stdout":"21.3k tokens, 16 tool calls, 22 llm calls","stderr":null}};
   </script>
   <script>
 (function() {
@@ -997,13 +1198,15 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
   var logMarks = [];
   var logMarkIdx = -1;
   function renderLogPane() {
-    var pre = document.getElementById("drawer-log");
+    var preOut = document.getElementById("drawer-log-stdout");
+    var preErr = document.getElementById("drawer-log-stderr");
     var body = document.getElementById("drawer-body");
     var banner = document.getElementById("drawer-truncated");
-    var logTab = drawerTab !== "overview";
-    if (body) body.hidden = logTab;
-    if (pre) pre.hidden = !logTab;
-    if (!logTab || !drawerStep || !pre) {
+    var pre = drawerTab === "stderr" ? preErr : preOut;
+    if (body) body.hidden = drawerTab !== "overview";
+    if (preOut) preOut.hidden = drawerTab !== "stdout";
+    if (preErr) preErr.hidden = drawerTab !== "stderr";
+    if (drawerTab === "overview" || !drawerStep || !pre) {
       if (banner) banner.hidden = true;
       // Leaving a log tab drops the search state — Enter must not cycle
       // stale marks in a hidden pane.
@@ -1015,8 +1218,6 @@ svg.dag.focus .dag-node.node-lit { opacity: 1; }
       return;
     }
     var split = splitTruncated(drawerStep[drawerTab] || "");
-    // stderr keeps the red styling the stacked blocks had.
-    pre.className = "step-out" + (drawerTab === "stderr" ? " err" : "");
     if (banner) {
       banner.hidden = !split.truncated;
       if (split.truncated)
