@@ -425,23 +425,31 @@ function sandboxRoBinds(hostHome: string | undefined): string[] {
       continue;
     if (existsSync(dir)) argv.push("--ro-bind", dir, dir);
   }
-  // /etc/resolv.conf is often a symlink (/run/systemd/resolve/* on
-  // systemd-resolved, /mnt/wsl/resolv.conf on WSL) whose target lives
-  // outside the /etc bind — bind the resolved target alone so sandboxed
-  // checks keep DNS without exposing the whole parent dir. A target
-  // inside host HOME is skipped like any other HOME path.
+  const resolv = resolvConfTarget(hostHome);
+  if (resolv) argv.push("--ro-bind", resolv, resolv);
+  return argv;
+}
+
+/**
+ * Resolved /etc/resolv.conf target worth binding, or undefined. The file
+ * is often a symlink (/run/systemd/resolve/* on systemd-resolved,
+ * /mnt/wsl/resolv.conf on WSL) whose target lives outside the /etc bind —
+ * bind the target alone so sandboxed checks keep DNS without exposing
+ * the whole parent dir. A target inside host HOME is skipped like any
+ * other HOME path; a plain file stays covered by the /etc bind.
+ */
+function resolvConfTarget(hostHome: string | undefined): string | undefined {
   try {
     const resolv = realpathSync("/etc/resolv.conf");
+    if (resolv === "/etc/resolv.conf") return undefined;
     const insideHome =
       hostHome !== undefined &&
       (resolv === hostHome || resolv.startsWith(hostHome + sep));
-    if (!insideHome && resolv !== "/etc/resolv.conf") {
-      argv.push("--ro-bind", resolv, resolv);
-    }
+    return insideHome ? undefined : resolv;
   } catch {
     // No usable resolv.conf target — DNS is absent inside, like /run.
+    return undefined;
   }
-  return argv;
 }
 
 let bwrapDetected: boolean | undefined;
