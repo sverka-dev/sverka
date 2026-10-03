@@ -8,10 +8,10 @@
  */
 
 import { writeFile, mkdir, cp, rm, realpath } from "node:fs/promises";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
-import { spawn, type SpawnOptions } from "node:child_process";
+import { spawn, spawnSync, type SpawnOptions } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import type {
@@ -369,42 +369,237 @@ export function buildCheckEnv(
   return out;
 }
 
+/**
+ * Host dirs bound read-only into the check sandbox — the toolchain (bun,
+ * node, bash, git) plus /etc. Host $HOME is deliberately absent: that is
+ * what makes credentials unreachable by absolute path, not just by env.
+ */
+const SANDBOX_RO_DIRS = ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc"];
+
+/**
+ * Toolchain prefixes outside the system dirs bound read-only — never a
+ * wholesale parent like /opt or /home/linuxbrew, which would expose
+ * arbitrary host files.
+ */
+const SANDBOX_RO_TOOL_DIRS = [
+  "/opt/hostedtoolcache",
+  "/home/linuxbrew/.linuxbrew",
+];
+
+/**
+ * Toolchain subdirs under the host HOME bound read-only — binaries and
+ * version managers only, never credential-bearing dirs. `~/.bun` and
+ * `~/.local/bin` stay on PATH inside the sandbox without exposing
+ * ~/.config, ~/.ssh or ~/.npmrc.
+ */
+const SANDBOX_HOME_TOOL_DIRS = [
+  ".bun",
+  ".local/bin",
+  ".local/share/mise",
+  ".local/share/pnpm",
+  ".local/share/pipx",
+  ".local/share/uv",
+  ".cargo/bin",
+  ".rustup",
+  ".nvm",
+  ".volta",
+  ".asdf",
+  ".deno",
+  ".pyenv",
+  ".poetry",
+  ".rbenv",
+  ".sdkman",
+];
+
+/**
+ * Read-only bind args shared by the availability probe and the real
+ * sandbox — both must mount the same view or the probe lies. A dir that
+ * is inside, or equal to, the host HOME is never bound wholesale;
+ * toolchain subtrees under HOME are re-exposed explicitly by
+ * SANDBOX_HOME_TOOL_DIRS.
+ */
+function sandboxRoBinds(hostHome: string | undefined): string[] {
+  const argv: string[] = [];
+  for (const dir of [...SANDBOX_RO_DIRS, ...SANDBOX_RO_TOOL_DIRS]) {
+    if (hostHome && (dir === hostHome || dir.startsWith(hostHome + sep)))
+      continue;
+    if (existsSync(dir)) argv.push("--ro-bind", dir, dir);
+  }
+  const resolv = resolvConfTarget(hostHome);
+  if (resolv) argv.push("--ro-bind", resolv, resolv);
+  return argv;
+}
+
+/**
+ * Resolved /etc/resolv.conf target worth binding, or undefined. The file
+ * is often a symlink (/run/systemd/resolve/* on systemd-resolved,
+ * /mnt/wsl/resolv.conf on WSL) whose target lives outside the /etc bind —
+ * bind the target alone so sandboxed checks keep DNS without exposing
+ * the whole parent dir. A target inside host HOME is skipped like any
+ * other HOME path; a plain file stays covered by the /etc bind.
+ */
+function resolvConfTarget(hostHome: string | undefined): string | undefined {
+  try {
+    const resolv = realpathSync("/etc/resolv.conf");
+    if (resolv === "/etc/resolv.conf") return undefined;
+    const insideHome =
+      hostHome !== undefined &&
+      (resolv === hostHome || resolv.startsWith(hostHome + sep));
+    return insideHome ? undefined : resolv;
+  } catch {
+    // No usable resolv.conf target — DNS is absent inside, like /run.
+    return undefined;
+  }
+}
+
+/**
+ * Args masking the host HOME inside the sandbox and re-exposing only the
+ * allowlisted toolchain subdirs. HOME may be a symlink into a bound dir
+ * — a textual containment check would miss that /usr/runner is readable
+ * through /usr — so containment is tested on the resolved path while
+ * tool dirs bind back at the textual HOME so PATH entries keep working.
+ */
+function sandboxHomeBinds(hostHome: string, roDirs: string[]): string[] {
+  const resolvedHome = existsSync(hostHome) ? realpathSync(hostHome) : hostHome;
+  const underBoundDir = (p: string) =>
+    roDirs.some((d) => p.startsWith(d + sep));
+  const argv: string[] = [];
+  if (underBoundDir(resolvedHome)) argv.push("--tmpfs", resolvedHome);
+  if (hostHome !== resolvedHome && underBoundDir(hostHome)) {
+    argv.push("--tmpfs", hostHome);
+  }
+  for (const sub of SANDBOX_HOME_TOOL_DIRS) {
+    const src = join(resolvedHome, sub);
+    if (existsSync(src)) argv.push("--ro-bind", src, join(hostHome, sub));
+  }
+  return argv;
+}
+
+let bwrapDetected: boolean | undefined;
+function hasBwrap(): boolean {
+  // Probe a real namespace launch — `bwrap --version` says nothing about
+  // whether unprivileged user namespaces are enabled on this kernel. Run
+  // the full argv (tmpfs + ro/rw binds) against throwaway dirs so a
+  // mount-type failure surfaces here, not on the first check.
+  if (bwrapDetected !== undefined) return bwrapDetected;
+  if (process.platform !== "linux") return (bwrapDetected = false);
+  const probeWs = mkdtempSync(join(tmpdir(), "arena-probe-"));
+  const probeHome = mkdtempSync(join(tmpdir(), "arena-probe-home-"));
+  try {
+    bwrapDetected =
+      spawnSync(
+        "bwrap", // NOSONAR — host PATH is trusted runner config
+        [...buildSandboxArgv(probeWs, probeHome), "true"],
+        { stdio: "ignore" },
+      ).status === 0;
+  } finally {
+    rmSync(probeWs, { recursive: true, force: true });
+    rmSync(probeHome, { recursive: true, force: true });
+  }
+  return bwrapDetected;
+}
+
+/**
+ * bubblewrap argv wrapping a check command: fresh user+pid namespaces,
+ * only the workspace and check HOME writable, toolchain dirs read-only.
+ * Anything not bound (host $HOME, ~/.ssh, ~/.config) simply does not
+ * exist inside — a real filesystem boundary, unlike env scrubbing.
+ */
+export function buildSandboxArgv(
+  workspace: string,
+  checkHome: string,
+): string[] {
+  const argv = [
+    "--die-with-parent",
+    "--unshare-user",
+    "--uid",
+    "0",
+    "--gid",
+    "0",
+    "--unshare-pid",
+    "--new-session",
+    "--dev",
+    "/dev",
+    "--proc",
+    "/proc",
+    "--tmpfs",
+    "/tmp",
+  ];
+  const hostHome = process.env["HOME"];
+  const roDirs = [...SANDBOX_RO_DIRS, ...SANDBOX_RO_TOOL_DIRS];
+  argv.push(...sandboxRoBinds(hostHome));
+  if (hostHome) argv.push(...sandboxHomeBinds(hostHome, roDirs));
+  argv.push(
+    "--bind",
+    checkHome,
+    checkHome,
+    "--bind",
+    workspace,
+    workspace,
+    "--chdir",
+    workspace,
+    "--",
+    "bash",
+    "-c",
+  );
+  return argv;
+}
+
 /** Run a shell command in the workspace, capturing combined output. */
 function execShell(
   workspace: string,
   command: string,
   env?: Record<string, string>,
+  checkHome?: string,
 ): Promise<{ output: string; exitCode: number }> {
-  return new Promise((resolve, reject) => {
-    const opts: SpawnOptions = {
-      cwd: workspace,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: env ?? { ...process.env, CI: "true" },
-    };
-    const proc = spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
-    // Cap captured output — a noisy command must not grow memory without
-    // bound. 256 KiB keeps tail diagnostics while bounding the worst case.
-    const MAX_OUTPUT = 256 * 1024;
-    let stdout = "";
-    const append = (d: Buffer): void => {
-      if (stdout.length < MAX_OUTPUT) stdout += d.toString();
-    };
-    proc.stdout?.on("data", append);
-    proc.stderr?.on("data", append);
-    proc.on("close", (code: number | null) => {
-      // null = killed by signal; treat as failure, not a crash source.
-      resolve({ output: stdout, exitCode: code ?? -1 });
+  const opts: SpawnOptions = {
+    cwd: workspace,
+    stdio: ["pipe", "pipe", "pipe"],
+    env: env ?? { ...process.env, CI: "true" },
+  };
+  const run = (
+    sandboxed: boolean,
+  ): Promise<{ output: string; exitCode: number }> =>
+    new Promise((resolve, reject) => {
+      const proc = sandboxed
+        ? spawn(
+            "bwrap", // NOSONAR — host PATH is trusted runner config
+            [...buildSandboxArgv(workspace, checkHome ?? ""), command],
+            opts,
+          )
+        : spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
+      // Cap captured output — a noisy command must not grow memory
+      // without bound. 256 KiB keeps tail diagnostics while bounding the
+      // worst case.
+      const MAX_OUTPUT = 256 * 1024;
+      let stdout = "";
+      const append = (d: Buffer): void => {
+        if (stdout.length < MAX_OUTPUT) stdout += d.toString();
+      };
+      proc.stdout?.on("data", append);
+      proc.stderr?.on("data", append);
+      proc.on("close", (code: number | null) => {
+        // null = killed by signal; treat as failure, not a crash source.
+        resolve({ output: stdout, exitCode: code ?? -1 });
+      });
+      proc.on("error", reject);
     });
-    proc.on("error", reject);
-  });
+  if (checkHome === undefined || !hasBwrap()) return run(false);
+  // No retry on sandboxed failure: the check output is child-controlled,
+  // so a nonzero result can never prove the sandbox itself failed —
+  // treating any marker as "retry outside" would hand agent-authored
+  // commands an un-sandboxed second run. Coverage lives in hasBwrap(),
+  // which probes the full argv before the first check runs.
+  return run(true);
 }
 
 /**
  * Run deterministic checks in the workspace. Checks execute agent-written
  * scripts, so they get a scrubbed env (see {@link buildCheckEnv}) plus a
- * fresh empty HOME — host credentials under ~/.npmrc, ~/.config/gh etc.
- * are not reachable via $HOME. (Same-UID filesystem access is still
- * possible via absolute paths — this is env hygiene, not a sandbox.)
+ * fresh empty HOME. On Linux with bubblewrap available the command also
+ * runs in a mount/user/pid namespace ({@link buildSandboxArgv}) — host
+ * $HOME and credentials are unreachable even via absolute paths. Without
+ * bwrap the env scrub stands alone: hygiene, not a sandbox.
  */
 async function runChecks(
   workspace: string,
@@ -413,6 +608,12 @@ async function runChecks(
   if (!checks) return [];
   const checkHome = mkdtempSync(join(tmpdir(), "arena-check-home-"));
   const env = buildCheckEnv(process.env, checkHome);
+  if (hasBwrap()) {
+    // Host cache paths aren't bound inside the sandbox — point them at
+    // writable dirs under the fresh check HOME instead.
+    env["BUN_INSTALL_CACHE_DIR"] = join(checkHome, ".bun", "install", "cache");
+    env["npm_config_cache"] = join(checkHome, ".npm");
+  }
   const results: CheckResult[] = [];
   try {
     for (const check of checks) {
@@ -421,6 +622,7 @@ async function runChecks(
           workspace,
           check.command,
           env,
+          checkHome,
         );
         results.push({
           checkId: check.id,

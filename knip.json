@@ -22,6 +22,6 @@
     "packages/sdk/src/compat/**",
     "packages/workflow/src/ir/compat/**"
   ],
-  "ignoreBinaries": ["devin", "make", "deploy", "deploy.sh"],
+  "ignoreBinaries": ["devin", "make", "deploy", "deploy.sh", "bwrap"],
   "ignoreExportsUsedInFile": true
 }

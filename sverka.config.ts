@@ -60,7 +60,12 @@ const policy = new ShellStep(ci, "policy", {
 });
 
 // Dependency vulnerabilities (bun audit exits non-zero on findings).
-const audit = new ShellStep(ci, "audit", { command: "bun audit" });
+// GHSA-vfj7-8cjw-p6xm is unpatched upstream: braces@3.0.3 is the latest
+// release and only reachable via markdownlint-cli2 (dev dep, docs lint).
+// Re-check when a fixed braces ships.
+const audit = new ShellStep(ci, "audit", {
+  command: "bun audit --ignore GHSA-vfj7-8cjw-p6xm",
+});
 
 // Formatting gate — prettier version is pinned in devDependencies/lockfile.
 const format = new ShellStep(ci, "format", { command: "bun run format:check" });
