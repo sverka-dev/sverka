@@ -175,10 +175,10 @@ export async function loadArenaConfig(
 /** Spreadable optional fields — drops keys whose value is undefined. */
 function optionalFields<T extends Record<string, unknown>>(
   fields: T,
-): Partial<T> {
+): { [K in keyof T]?: Exclude<T[K], undefined> } {
   return Object.fromEntries(
     Object.entries(fields).filter(([, v]) => v !== undefined),
-  ) as Partial<T>;
+  ) as { [K in keyof T]?: Exclude<T[K], undefined> };
 }
 
 function mapJudge(
