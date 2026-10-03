@@ -184,7 +184,7 @@ function validatePlanSteps(steps: unknown): void {
       "plan.steps is missing or not an array",
     );
   }
-  steps.forEach(validatePlanStep);
+  steps.forEach((s, i) => validatePlanStep(s, i));
 }
 
 function validateCompletedSteps(obj: Record<string, unknown>): void {
