@@ -489,28 +489,35 @@ function sandboxHomeBinds(hostHome: string, roDirs: string[]): string[] {
   return argv;
 }
 
-let bwrapDetected: boolean | undefined;
-function hasBwrap(): boolean {
+const bwrapDetected = new Map<boolean, boolean>();
+function hasBwrap(unshareNet = false): boolean {
   // Probe a real namespace launch — `bwrap --version` says nothing about
   // whether unprivileged user namespaces are enabled on this kernel. Run
-  // the full argv (tmpfs + ro/rw binds) against throwaway dirs so a
-  // mount-type failure surfaces here, not on the first check.
-  if (bwrapDetected !== undefined) return bwrapDetected;
-  if (process.platform !== "linux") return (bwrapDetected = false);
+  // the full argv (tmpfs + ro/rw binds, plus --unshare-net when the config
+  // asks for it) against throwaway dirs so a mount/namespace-type failure
+  // surfaces here, not on the first check.
+  const cached = bwrapDetected.get(unshareNet);
+  if (cached !== undefined) return cached;
+  if (process.platform !== "linux") {
+    bwrapDetected.set(unshareNet, false);
+    return false;
+  }
   const probeWs = mkdtempSync(join(tmpdir(), "arena-probe-"));
   const probeHome = mkdtempSync(join(tmpdir(), "arena-probe-home-"));
+  let detected: boolean;
   try {
-    bwrapDetected =
+    detected =
       spawnSync(
         "bwrap", // NOSONAR — host PATH is trusted runner config
-        [...buildSandboxArgv(probeWs, probeHome), "true"],
+        [...buildSandboxArgv(probeWs, probeHome, unshareNet), "true"],
         { stdio: "ignore" },
       ).status === 0;
   } finally {
     rmSync(probeWs, { recursive: true, force: true });
     rmSync(probeHome, { recursive: true, force: true });
   }
-  return bwrapDetected;
+  bwrapDetected.set(unshareNet, detected);
+  return detected;
 }
 
 /**
@@ -607,7 +614,7 @@ function execShell(
       });
       proc.on("error", reject);
     });
-  if (checkHome === undefined || !hasBwrap()) return run(false);
+  if (checkHome === undefined || !hasBwrap(unshareNet)) return run(false);
   // No retry on sandboxed failure: the check output is child-controlled,
   // so a nonzero result can never prove the sandbox itself failed —
   // treating any marker as "retry outside" would hand agent-authored
@@ -632,7 +639,15 @@ async function runChecks(
   if (!checks) return [];
   const checkHome = mkdtempSync(join(tmpdir(), "arena-check-home-"));
   const env = buildCheckEnv(process.env, checkHome);
-  if (hasBwrap()) {
+  if (unshareNet && !hasBwrap(true)) {
+    // Requested network isolation is unavailable on this host — say so
+    // loudly instead of silently running checks with host network.
+    process.stderr.write(
+      "[arena] warning: unshareNet requested but the bwrap sandbox is " +
+        "unavailable — checks run with host network\n",
+    );
+  }
+  if (hasBwrap(unshareNet)) {
     // Host cache paths aren't bound inside the sandbox — point them at
     // writable dirs under the fresh check HOME instead.
     env["BUN_INSTALL_CACHE_DIR"] = join(checkHome, ".bun", "install", "cache");
