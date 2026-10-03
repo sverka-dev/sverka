@@ -385,13 +385,58 @@ const SANDBOX_RO_DIRS = [
   "/home/linuxbrew",
 ];
 
+/**
+ * Toolchain subdirs under the host HOME bound read-only — binaries and
+ * version managers only, never credential-bearing dirs. `~/.bun` and
+ * `~/.local/bin` stay on PATH inside the sandbox without exposing
+ * ~/.config, ~/.ssh or ~/.npmrc.
+ */
+const SANDBOX_HOME_TOOL_DIRS = [
+  ".bun",
+  ".local/bin",
+  ".local/share/mise",
+  ".local/share/pnpm",
+  ".local/share/pipx",
+  ".cargo/bin",
+  ".rustup",
+  ".nvm",
+  ".volta",
+  ".asdf",
+  ".deno",
+];
+
 let bwrapDetected: boolean | undefined;
 function hasBwrap(): boolean {
-  if (bwrapDetected === undefined) {
-    bwrapDetected =
-      process.platform === "linux" &&
-      spawnSync("bwrap", ["--version"], { stdio: "ignore" }).status === 0;
-  }
+  // Probe a real namespace launch — `bwrap --version` says nothing about
+  // whether unprivileged user namespaces are enabled on this kernel.
+  bwrapDetected ??=
+    process.platform === "linux" &&
+    spawnSync(
+      "bwrap", // NOSONAR — host PATH is trusted runner config
+      [
+        "--die-with-parent",
+        "--unshare-user",
+        "--uid",
+        "0",
+        "--gid",
+        "0",
+        "--unshare-pid",
+        "--dev",
+        "/dev",
+        "--proc",
+        "/proc",
+        ...SANDBOX_RO_DIRS.filter(existsSync).flatMap((d) => [
+          "--ro-bind",
+          d,
+          d,
+        ]),
+        "--",
+        "bash",
+        "-c",
+        "true",
+      ],
+      { stdio: "ignore" },
+    ).status === 0;
   return bwrapDetected;
 }
 
@@ -423,6 +468,19 @@ export function buildSandboxArgv(
   ];
   for (const dir of SANDBOX_RO_DIRS) {
     if (existsSync(dir)) argv.push("--ro-bind", dir, dir);
+  }
+  const hostHome = process.env["HOME"];
+  if (hostHome) {
+    // If HOME sits inside a read-only bound dir (e.g. /opt/runner), mask
+    // it so the bind can't leak credentials, then re-expose only the
+    // known toolchain subdirs.
+    if (SANDBOX_RO_DIRS.some((d) => hostHome.startsWith(d + sep))) {
+      argv.push("--tmpfs", hostHome);
+    }
+    for (const sub of SANDBOX_HOME_TOOL_DIRS) {
+      const p = join(hostHome, sub);
+      if (existsSync(p)) argv.push("--ro-bind", p, p);
+    }
   }
   argv.push(
     "--bind",
@@ -456,7 +514,7 @@ function execShell(
     const sandboxed = checkHome !== undefined && hasBwrap();
     const proc = sandboxed
       ? spawn(
-          "bwrap",
+          "bwrap", // NOSONAR — host PATH is trusted runner config
           [...buildSandboxArgv(workspace, checkHome), command],
           opts,
         )
