@@ -4,6 +4,7 @@ import {
   aggregateResults,
   computeAnalysis,
   buildCheckEnv,
+  buildSandboxArgv,
 } from "../src/runner.js";
 import type {
   PluginConfig,
@@ -660,5 +661,33 @@ describe("buildCheckEnv", () => {
     // Package-manager caches stay pointed at the host home.
     expect(env["BUN_INSTALL_CACHE_DIR"]).toBe("/home/u/.bun/install/cache");
     expect(env["npm_config_cache"]).toBe("/home/u/.npm");
+  });
+});
+
+describe("buildSandboxArgv", () => {
+  it("binds workspace and check home writable, system dirs read-only", () => {
+    const argv = buildSandboxArgv("/work", "/tmp/check-home");
+    // Namespace + lifecycle flags.
+    expect(argv).toContain("--unshare-user");
+    expect(argv).toContain("--unshare-pid");
+    expect(argv).toContain("--die-with-parent");
+    // Writable binds: check home and workspace only.
+    const binds: string[] = [];
+    for (let i = 0; i < argv.length - 1; i++) {
+      if (argv[i] === "--bind") binds.push(argv[i + 1]);
+    }
+    expect(binds).toEqual(["/tmp/check-home", "/work"]);
+    // Host HOME is never bound — read-only or otherwise.
+    const bound = new Set<string>();
+    for (let i = 0; i < argv.length - 1; i++) {
+      if (argv[i] === "--bind" || argv[i] === "--ro-bind") {
+        bound.add(argv[i + 1]);
+      }
+    }
+    expect(bound.has(process.env["HOME"] ?? "")).toBe(false);
+    // Command tail.
+    expect(argv.slice(-3)).toEqual(["--", "bash", "-c"]);
+    expect(argv.indexOf("--chdir")).toBeGreaterThan(-1);
+    expect(argv[argv.indexOf("--chdir") + 1]).toBe("/work");
   });
 });

@@ -8,10 +8,10 @@
  */
 
 import { writeFile, mkdir, cp, rm, realpath } from "node:fs/promises";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
-import { spawn, type SpawnOptions } from "node:child_process";
+import { spawn, spawnSync, type SpawnOptions } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import type {
@@ -369,11 +369,83 @@ export function buildCheckEnv(
   return out;
 }
 
+/**
+ * Host dirs bound read-only into the check sandbox — the toolchain (bun,
+ * node, bash, git) plus /etc. Host $HOME is deliberately absent: that is
+ * what makes credentials unreachable by absolute path, not just by env.
+ */
+const SANDBOX_RO_DIRS = [
+  "/usr",
+  "/bin",
+  "/sbin",
+  "/lib",
+  "/lib64",
+  "/etc",
+  "/opt",
+  "/home/linuxbrew",
+];
+
+let bwrapDetected: boolean | undefined;
+function hasBwrap(): boolean {
+  if (bwrapDetected === undefined) {
+    bwrapDetected =
+      process.platform === "linux" &&
+      spawnSync("bwrap", ["--version"], { stdio: "ignore" }).status === 0;
+  }
+  return bwrapDetected;
+}
+
+/**
+ * bubblewrap argv wrapping a check command: fresh user+pid namespaces,
+ * only the workspace and check HOME writable, toolchain dirs read-only.
+ * Anything not bound (host $HOME, ~/.ssh, ~/.config) simply does not
+ * exist inside — a real filesystem boundary, unlike env scrubbing.
+ */
+export function buildSandboxArgv(
+  workspace: string,
+  checkHome: string,
+): string[] {
+  const argv = [
+    "--die-with-parent",
+    "--unshare-user",
+    "--uid",
+    "0",
+    "--gid",
+    "0",
+    "--unshare-pid",
+    "--new-session",
+    "--dev",
+    "/dev",
+    "--proc",
+    "/proc",
+    "--tmpfs",
+    "/tmp",
+  ];
+  for (const dir of SANDBOX_RO_DIRS) {
+    if (existsSync(dir)) argv.push("--ro-bind", dir, dir);
+  }
+  argv.push(
+    "--bind",
+    checkHome,
+    checkHome,
+    "--bind",
+    workspace,
+    workspace,
+    "--chdir",
+    workspace,
+    "--",
+    "bash",
+    "-c",
+  );
+  return argv;
+}
+
 /** Run a shell command in the workspace, capturing combined output. */
 function execShell(
   workspace: string,
   command: string,
   env?: Record<string, string>,
+  checkHome?: string,
 ): Promise<{ output: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
     const opts: SpawnOptions = {
@@ -381,7 +453,14 @@ function execShell(
       stdio: ["pipe", "pipe", "pipe"],
       env: env ?? { ...process.env, CI: "true" },
     };
-    const proc = spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
+    const sandboxed = checkHome !== undefined && hasBwrap();
+    const proc = sandboxed
+      ? spawn(
+          "bwrap",
+          [...buildSandboxArgv(workspace, checkHome), command],
+          opts,
+        )
+      : spawn("bash", ["-c", command], opts); // NOSONAR — config-author shell commands
     // Cap captured output — a noisy command must not grow memory without
     // bound. 256 KiB keeps tail diagnostics while bounding the worst case.
     const MAX_OUTPUT = 256 * 1024;
@@ -402,9 +481,10 @@ function execShell(
 /**
  * Run deterministic checks in the workspace. Checks execute agent-written
  * scripts, so they get a scrubbed env (see {@link buildCheckEnv}) plus a
- * fresh empty HOME — host credentials under ~/.npmrc, ~/.config/gh etc.
- * are not reachable via $HOME. (Same-UID filesystem access is still
- * possible via absolute paths — this is env hygiene, not a sandbox.)
+ * fresh empty HOME. On Linux with bubblewrap available the command also
+ * runs in a mount/user/pid namespace ({@link buildSandboxArgv}) — host
+ * $HOME and credentials are unreachable even via absolute paths. Without
+ * bwrap the env scrub stands alone: hygiene, not a sandbox.
  */
 async function runChecks(
   workspace: string,
@@ -413,6 +493,12 @@ async function runChecks(
   if (!checks) return [];
   const checkHome = mkdtempSync(join(tmpdir(), "arena-check-home-"));
   const env = buildCheckEnv(process.env, checkHome);
+  if (hasBwrap()) {
+    // Host cache paths aren't bound inside the sandbox — point them at
+    // writable dirs under the fresh check HOME instead.
+    env["BUN_INSTALL_CACHE_DIR"] = join(checkHome, ".bun", "install", "cache");
+    env["npm_config_cache"] = join(checkHome, ".npm");
+  }
   const results: CheckResult[] = [];
   try {
     for (const check of checks) {
@@ -421,6 +507,7 @@ async function runChecks(
           workspace,
           check.command,
           env,
+          checkHome,
         );
         results.push({
           checkId: check.id,
