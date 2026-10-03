@@ -585,15 +585,12 @@ function execShell(
       proc.on("error", reject);
     });
   if (checkHome === undefined || !hasBwrap()) return run(false);
-  // A bwrap-level failure (spawn error, or its own "bwrap: ..." bind
-  // diagnostics — e.g. the workspace sits on a filesystem namespaces
-  // can't bind) must not kill every check on this host: retry once
-  // through the scrubbed-env path. Real check failures never carry the
-  // bwrap prefix on the first output line.
-  return run(true).then(
-    (r) => (r.exitCode !== 0 && r.output.startsWith("bwrap:") ? run(false) : r),
-    () => run(false),
-  );
+  // No retry on sandboxed failure: the check output is child-controlled,
+  // so a nonzero result can never prove the sandbox itself failed —
+  // treating any marker as "retry outside" would hand agent-authored
+  // commands an unsandboxed second run. Coverage lives in hasBwrap(),
+  // which probes the full argv before the first check runs.
+  return run(true);
 }
 
 /**
