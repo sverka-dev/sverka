@@ -1,3 +1,14 @@
+## 0.1.33 (2026-10-03)
+
+### 🩹 Fixes
+
+- **storage:** harden snapshot validation, permissions, and tmp cleanup ([#287](https://github.com/sverka-dev/sverka/pull/287))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.32 (2026-10-02)
 
 ### 🩹 Fixes
