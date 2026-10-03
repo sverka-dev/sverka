@@ -50,31 +50,37 @@ import { writeAggregateReport } from "../../packages/arena/src/aggregate-report.
 const ANSI_RE = /[\u001b\u009b][[\]()#;?]*[0-9;:?]*[\x40-\x7e]/g;
 
 // Bare username survives path redaction — `ls -la` owner/group columns,
-// `whoami` output, etc. Replaced with a generic "user".
-const HOST_USER = userInfo().username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const HOST_USER_RE = new RegExp(`\\b${HOST_USER}\\b`, "g");
+// `whoami` output, etc. Replaced with a generic "user". Guarded: effective
+// UID may have no resolvable passwd entry in minimal containers/CI.
+let HOST_USER_RE: RegExp | undefined;
+try {
+  const u = userInfo().username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  HOST_USER_RE = new RegExp(`\\b${u}\\b`, "g");
+} catch {
+  // Skip username redaction when the OS cannot resolve the current user.
+}
 
 function redactText(text: string): string {
-  return (
-    text
-      .replace(ANSI_RE, "")
-      // PTY wraps can split a path across lines — join word/path
-      // fragments (CRLF included) so the whole thing gets redacted, not
-      // just the first line.
-      .replace(/\/home\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g, "/home/user")
-      .replace(/\/tmp\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g, "/tmp/sandbox")
-      .replace(/\/home\/[^\s"']+/g, "/home/user")
-      .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
-      .replace(HOST_USER_RE, "user")
-      .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
-      // TLD must be ≥2 letters — otherwise package specifiers like
-      // `cli@0.1.29` get mangled into `[email]`.
-      .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-zA-Z]{2,}\b/g, "[email]")
-      .replace(
-        /(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi,
-        "$1=[redacted]",
-      )
-  );
+  const scrubbed = text
+    .replace(ANSI_RE, "")
+    // PTY wraps can split a path across lines — join word/path
+    // fragments (CRLF included) so the whole thing gets redacted, not
+    // just the first line.
+    .replace(/\/home\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g, "/home/user")
+    .replace(/\/tmp\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g, "/tmp/sandbox")
+    .replace(/\/home\/[^\s"']+/g, "/home/user")
+    .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
+    // Credential labels first — a host user literally named `token` or
+    // `secret` must not rewrite the label before masking sees it.
+    .replace(
+      /(bearer|token|api[_-]?key|secret)[=:]\s*["']?[\w.-]+/gi,
+      "$1=[redacted]",
+    )
+    .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
+    // TLD must be ≥2 letters — otherwise package specifiers like
+    // `cli@0.1.29` get mangled into `[email]`.
+    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-zA-Z]{2,}\b/g, "[email]");
+  return HOST_USER_RE ? scrubbed.replace(HOST_USER_RE, "user") : scrubbed;
 }
 
 // Exact credential field names — a substring match would redact ordinary
