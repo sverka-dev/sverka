@@ -1,3 +1,13 @@
+## 0.1.34 (2026-10-03)
+
+### 🚀 Features
+
+- **arena:** bwrap sandbox for task checks ([#289](https://github.com/sverka-dev/sverka/pull/289))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.33 (2026-10-03)
 
 ### 🩹 Fixes
