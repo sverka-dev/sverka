@@ -177,7 +177,7 @@
           "observations": [
             {
               "sourceCallId": "exec_0_e19c1608#991c42d4c14c491b82b336e9b654b829",
-              "content": "total 604\ndrwxr-xr-x    5 pepl pepl   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:18 ..\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 pepl pepl    113 Oct  3 02:18 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 src\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 test\nindex.ts"
+              "content": "total 604\ndrwxr-xr-x    5 user user   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:18 ..\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 user user    113 Oct  3 02:18 package.json\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 src\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 test\nindex.ts"
             }
           ]
         },

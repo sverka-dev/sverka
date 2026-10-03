@@ -194,7 +194,7 @@
           "observations": [
             {
               "sourceCallId": "exec:1#318f67bd181747078815dc331d0b18ae",
-              "content": "total 668\ndrwxr-xr-x    6 pepl pepl   4096 Oct  3 02:28 .\ndrwxrwxrwt 8082 root root 593920 Oct  3 02:28 ..\ndrwxr-xr-x    3 pepl pepl   4096 Oct  3 02:28 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:28 .devin\n-rw-r--r--    1 pepl pepl     37 Oct  3 02:28 .gitignore\n-rw-r--r--    1 pepl pepl     58 Oct  3 02:28 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:28 .prettierignore\n-rw-r--r--    1 pepl pepl      3 Oct  3 02:28 .prettierrc\n-rw-r--r--    1 pepl pepl  33456 Oct  3 02:28 bun.lock\ndrwxr-xr-x   61 pepl pepl   4096 Oct  3 02:28 node_modules\n-rw-r--r--    1 pepl pepl    893 Oct  3 02:28 package.json\ndrwxr-xr-x    4 pepl pepl   4096 Oct  3 02:28 src\n-rw-r--r--    1 pepl pepl    572 Oct  3 02:28 tsconfig.json\n-rw-r--r--    1 pepl pepl    148 Oct  3 02:28 tsdown.config.ts"
+              "content": "total 668\ndrwxr-xr-x    6 user user   4096 Oct  3 02:28 .\ndrwxrwxrwt 8082 root root 593920 Oct  3 02:28 ..\ndrwxr-xr-x    3 user user   4096 Oct  3 02:28 .agents\ndrwxr-xr-x    2 user user   4096 Oct  3 02:28 .devin\n-rw-r--r--    1 user user     37 Oct  3 02:28 .gitignore\n-rw-r--r--    1 user user     58 Oct  3 02:28 .oxlintrc.json\n-rw-r--r--    1 user user     42 Oct  3 02:28 .prettierignore\n-rw-r--r--    1 user user      3 Oct  3 02:28 .prettierrc\n-rw-r--r--    1 user user  33456 Oct  3 02:28 bun.lock\ndrwxr-xr-x   61 user user   4096 Oct  3 02:28 node_modules\n-rw-r--r--    1 user user    893 Oct  3 02:28 package.json\ndrwxr-xr-x    4 user user   4096 Oct  3 02:28 src\n-rw-r--r--    1 user user    572 Oct  3 02:28 tsconfig.json\n-rw-r--r--    1 user user    148 Oct  3 02:28 tsdown.config.ts"
             }
           ]
         },
@@ -240,7 +240,7 @@
           "observations": [
             {
               "sourceCallId": "exec:5#b6b05caf10124ad1bb36709a8d5fb6a3",
-              "content": "/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\nruntime\nworkflow\nnanoid\noxlint\nprettier\nrolldown\ntree-kill\ntsc\ntsdown\ntsserver\nvite\nvitest\nwhy-is-node-running"
+              "content": "/tmp/sandbox"
             }
           ]
         },

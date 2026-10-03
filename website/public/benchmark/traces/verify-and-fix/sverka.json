@@ -194,7 +194,7 @@
           "observations": [
             {
               "sourceCallId": "exec:1#6dfb0b072908448ca7d090aa916682a2",
-              "content": "total 672\ndrwxr-xr-x    7 pepl pepl   4096 Oct  3 02:20 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:20 ..\ndrwxr-xr-x    3 pepl pepl   4096 Oct  3 02:20 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:20 .devin\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:20 .gitignore\n-rw-r--r--    1 pepl pepl     51 Oct  3 02:20 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:20 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Oct  3 02:20 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Oct  3 02:20 node_modules\n-rw-r--r--    1 pepl pepl    449 Oct  3 02:20 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:20 src\n-rw-r--r--    1 pepl pepl    658 Oct  3 02:20 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:20 test\n-rw-r--r--    1 pepl pepl    201 Oct  3 02:20 tsconfig.json"
+              "content": "total 672\ndrwxr-xr-x    7 user user   4096 Oct  3 02:20 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:20 ..\ndrwxr-xr-x    3 user user   4096 Oct  3 02:20 .agents\ndrwxr-xr-x    2 user user   4096 Oct  3 02:20 .devin\n-rw-r--r--    1 user user     42 Oct  3 02:20 .gitignore\n-rw-r--r--    1 user user     51 Oct  3 02:20 .oxlintrc.json\n-rw-r--r--    1 user user     42 Oct  3 02:20 .prettierignore\n-rw-r--r--    1 user user  37773 Oct  3 02:20 bun.lock\ndrwxr-xr-x  146 user user   4096 Oct  3 02:20 node_modules\n-rw-r--r--    1 user user    449 Oct  3 02:20 package.json\ndrwxr-xr-x    2 user user   4096 Oct  3 02:20 src\n-rw-r--r--    1 user user    658 Oct  3 02:20 sverka.config.ts\ndrwxr-xr-x    2 user user   4096 Oct  3 02:20 test\n-rw-r--r--    1 user user    201 Oct  3 02:20 tsconfig.json"
             }
           ]
         },
@@ -217,7 +217,7 @@
           "observations": [
             {
               "sourceCallId": "exec:2#8a499cb475b84710b4c353176d86deb6",
-              "content": "/tmp/sandbox\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Oct  3 02:20 .\ndrwxr-xr-x 7 pepl pepl 4096 Oct  3 02:20 ..\n-rw-r--r-- 1 pepl pepl  509 Oct  3 02:20 index.ts\n\n/tmp/sandbox\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Oct  3 02:20 .\ndrwxr-xr-x 7 pepl pepl 4096 Oct  3 02:20 ..\n-rw-r--r-- 1 pepl pepl  616 Oct  3 02:20 index.test.ts"
+              "content": "/tmp/sandbox\ntotal 12\ndrwxr-xr-x 2 user user 4096 Oct  3 02:20 .\ndrwxr-xr-x 7 user user 4096 Oct  3 02:20 ..\n-rw-r--r-- 1 user user  509 Oct  3 02:20 index.ts\n\n/tmp/sandbox\ntotal 12\ndrwxr-xr-x 2 user user 4096 Oct  3 02:20 .\ndrwxr-xr-x 7 user user 4096 Oct  3 02:20 ..\n-rw-r--r-- 1 user user  616 Oct  3 02:20 index.test.ts"
             }
           ]
         },

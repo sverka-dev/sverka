@@ -206,7 +206,7 @@
             "observations": [
               {
                 "sourceCallId": "exec_0_e19c1608#991c42d4c14c491b82b336e9b654b829",
-                "content": "total 604\ndrwxr-xr-x    5 pepl pepl   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:18 ..\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 pepl pepl    113 Oct  3 02:18 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 src\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 test\nindex.ts"
+                "content": "total 604\ndrwxr-xr-x    5 user user   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:18 ..\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 user user    113 Oct  3 02:18 package.json\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 src\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 test\nindex.ts"
               }
             ]
           },
@@ -585,7 +585,7 @@
             "observations": [
               {
                 "sourceCallId": "exec_0_67e6e347#3517529811b9498186bb8afb8914dced",
-                "content": "total 608\ndrwxr-xr-x    6 pepl pepl   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:18 ..\ndrwxr-xr-x    3 pepl pepl   4096 Oct  3 02:18 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 pepl pepl    113 Oct  3 02:18 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 src\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 test"
+                "content": "total 608\ndrwxr-xr-x    6 user user   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:18 ..\ndrwxr-xr-x    3 user user   4096 Oct  3 02:18 .agents\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 user user    113 Oct  3 02:18 package.json\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 src\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 test"
               }
             ]
           },
@@ -981,7 +981,7 @@
             "observations": [
               {
                 "sourceCallId": "call_56b6c5debd7c4f6eb498dde2#896ad1e85d884c17a39f48880b3aa5ae",
-                "content": "total 668\ndrwxr-xr-x    6 pepl pepl   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:19 ..\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:18 .gitignore\n-rw-r--r--    1 pepl pepl     51 Oct  3 02:18 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:18 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Oct  3 02:18 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Oct  3 02:18 node_modules\n-rw-r--r--    1 pepl pepl    449 Oct  3 02:18 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 src\n-rw-r--r--    1 pepl pepl    658 Oct  3 02:18 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:18 test\n-rw-r--r--    1 pepl pepl    201 Oct  3 02:18 tsconfig.json"
+                "content": "total 668\ndrwxr-xr-x    6 user user   4096 Oct  3 02:18 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:19 ..\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 .devin\n-rw-r--r--    1 user user     42 Oct  3 02:18 .gitignore\n-rw-r--r--    1 user user     51 Oct  3 02:18 .oxlintrc.json\n-rw-r--r--    1 user user     42 Oct  3 02:18 .prettierignore\n-rw-r--r--    1 user user  37773 Oct  3 02:18 bun.lock\ndrwxr-xr-x  146 user user   4096 Oct  3 02:18 node_modules\n-rw-r--r--    1 user user    449 Oct  3 02:18 package.json\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 src\n-rw-r--r--    1 user user    658 Oct  3 02:18 sverka.config.ts\ndrwxr-xr-x    2 user user   4096 Oct  3 02:18 test\n-rw-r--r--    1 user user    201 Oct  3 02:18 tsconfig.json"
               }
             ]
           },
@@ -1591,7 +1591,7 @@
             "observations": [
               {
                 "sourceCallId": "exec:1#6dfb0b072908448ca7d090aa916682a2",
-                "content": "total 672\ndrwxr-xr-x    7 pepl pepl   4096 Oct  3 02:20 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:20 ..\ndrwxr-xr-x    3 pepl pepl   4096 Oct  3 02:20 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:20 .devin\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:20 .gitignore\n-rw-r--r--    1 pepl pepl     51 Oct  3 02:20 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:20 .prettierignore\n-rw-r--r--    1 pepl pepl  37773 Oct  3 02:20 bun.lock\ndrwxr-xr-x  146 pepl pepl   4096 Oct  3 02:20 node_modules\n-rw-r--r--    1 pepl pepl    449 Oct  3 02:20 package.json\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:20 src\n-rw-r--r--    1 pepl pepl    658 Oct  3 02:20 sverka.config.ts\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:20 test\n-rw-r--r--    1 pepl pepl    201 Oct  3 02:20 tsconfig.json"
+                "content": "total 672\ndrwxr-xr-x    7 user user   4096 Oct  3 02:20 .\ndrwxrwxrwt 7947 root root 593920 Oct  3 02:20 ..\ndrwxr-xr-x    3 user user   4096 Oct  3 02:20 .agents\ndrwxr-xr-x    2 user user   4096 Oct  3 02:20 .devin\n-rw-r--r--    1 user user     42 Oct  3 02:20 .gitignore\n-rw-r--r--    1 user user     51 Oct  3 02:20 .oxlintrc.json\n-rw-r--r--    1 user user     42 Oct  3 02:20 .prettierignore\n-rw-r--r--    1 user user  37773 Oct  3 02:20 bun.lock\ndrwxr-xr-x  146 user user   4096 Oct  3 02:20 node_modules\n-rw-r--r--    1 user user    449 Oct  3 02:20 package.json\ndrwxr-xr-x    2 user user   4096 Oct  3 02:20 src\n-rw-r--r--    1 user user    658 Oct  3 02:20 sverka.config.ts\ndrwxr-xr-x    2 user user   4096 Oct  3 02:20 test\n-rw-r--r--    1 user user    201 Oct  3 02:20 tsconfig.json"
               }
             ]
           },
@@ -1614,7 +1614,7 @@
             "observations": [
               {
                 "sourceCallId": "exec:2#8a499cb475b84710b4c353176d86deb6",
-                "content": "/tmp/sandbox\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Oct  3 02:20 .\ndrwxr-xr-x 7 pepl pepl 4096 Oct  3 02:20 ..\n-rw-r--r-- 1 pepl pepl  509 Oct  3 02:20 index.ts\n\n/tmp/sandbox\ntotal 12\ndrwxr-xr-x 2 pepl pepl 4096 Oct  3 02:20 .\ndrwxr-xr-x 7 pepl pepl 4096 Oct  3 02:20 ..\n-rw-r--r-- 1 pepl pepl  616 Oct  3 02:20 index.test.ts"
+                "content": "/tmp/sandbox\ntotal 12\ndrwxr-xr-x 2 user user 4096 Oct  3 02:20 .\ndrwxr-xr-x 7 user user 4096 Oct  3 02:20 ..\n-rw-r--r-- 1 user user  509 Oct  3 02:20 index.ts\n\n/tmp/sandbox\ntotal 12\ndrwxr-xr-x 2 user user 4096 Oct  3 02:20 .\ndrwxr-xr-x 7 user user 4096 Oct  3 02:20 ..\n-rw-r--r-- 1 user user  616 Oct  3 02:20 index.test.ts"
               }
             ]
           },
@@ -2023,7 +2023,7 @@
             "observations": [
               {
                 "sourceCallId": "call_5a2431b712b744e0aa68752d#23f65c59235449f9b048ce2e17905e52",
-                "content": "total 664\ndrwxr-xr-x    5 pepl pepl   4096 Oct  3 02:20 .\ndrwxrwxrwt 7948 root root 593920 Oct  3 02:20 ..\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:20 .devin\n-rw-r--r--    1 pepl pepl     37 Oct  3 02:20 .gitignore\n-rw-r--r--    1 pepl pepl     58 Oct  3 02:20 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:20 .prettierignore\n-rw-r--r--    1 pepl pepl      3 Oct  3 02:20 .prettierrc\n-rw-r--r--    1 pepl pepl  33456 Oct  3 02:20 bun.lock\ndrwxr-xr-x   61 pepl pepl   4096 Oct  3 02:20 node_modules\n-rw-r--r--    1 pepl pepl    893 Oct  3 02:20 package.json\ndrwxr-xr-x    4 pepl pepl   4096 Oct  3 02:20 src\n-rw-r--r--    1 pepl pepl    572 Oct  3 02:20 tsconfig.json\n-rw-r--r--    1 pepl pepl    148 Oct  3 02:20 tsdown.config.ts\n{\n  \"name\": \"@sverka/storage\",\n  \"version\": \"0.1.29\",\n  \"description\": \"Sverka storage — file and SQLite snapshot stores for run persistence\",\n  \"license\": \"MIT\",\n  \"private\": true,\n  \"sideEffects\": false,\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=24.0.0\"\n  },\n  \"main\": \"./dist/index.mjs\",\n  \"types\": \"./dist/index.d.mts\",\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.mts\",\n      \"import\": \"./dist/index.mjs\"\n    }\n  },\n  \"files\": [\n    \"dist\"\n  ],\n  \"scripts\": {\n    \"build\": \"tsdown\",\n    \"test\": \"vitest run\",\n    \"lint\": \"oxlint --deny-warnings src\",\n    \"typecheck\": \"tsc --noEmit\",\n    \"format\": \"prettier --check .\"\n  },\n  \"dependencies\": {\n    \"@sverka/runtime\": \"0.1.29\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^24.0.0\",\n    \"oxlint\": \"^1.0.0\",\n    \"prettier\": \"^3.0.0\",\n    \"tsdown\": \"^0.23.0\",\n    \"typescript\": \"^5.8.0\",\n    \"vitest\": \"^5.0.0\"\n  }\n}"
+                "content": "total 664\ndrwxr-xr-x    5 user user   4096 Oct  3 02:20 .\ndrwxrwxrwt 7948 root root 593920 Oct  3 02:20 ..\ndrwxr-xr-x    2 user user   4096 Oct  3 02:20 .devin\n-rw-r--r--    1 user user     37 Oct  3 02:20 .gitignore\n-rw-r--r--    1 user user     58 Oct  3 02:20 .oxlintrc.json\n-rw-r--r--    1 user user     42 Oct  3 02:20 .prettierignore\n-rw-r--r--    1 user user      3 Oct  3 02:20 .prettierrc\n-rw-r--r--    1 user user  33456 Oct  3 02:20 bun.lock\ndrwxr-xr-x   61 user user   4096 Oct  3 02:20 node_modules\n-rw-r--r--    1 user user    893 Oct  3 02:20 package.json\ndrwxr-xr-x    4 user user   4096 Oct  3 02:20 src\n-rw-r--r--    1 user user    572 Oct  3 02:20 tsconfig.json\n-rw-r--r--    1 user user    148 Oct  3 02:20 tsdown.config.ts\n{\n  \"name\": \"@sverka/storage\",\n  \"version\": \"0.1.29\",\n  \"description\": \"Sverka storage — file and SQLite snapshot stores for run persistence\",\n  \"license\": \"MIT\",\n  \"private\": true,\n  \"sideEffects\": false,\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=24.0.0\"\n  },\n  \"main\": \"./dist/index.mjs\",\n  \"types\": \"./dist/index.d.mts\",\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.mts\",\n      \"import\": \"./dist/index.mjs\"\n    }\n  },\n  \"files\": [\n    \"dist\"\n  ],\n  \"scripts\": {\n    \"build\": \"tsdown\",\n    \"test\": \"vitest run\",\n    \"lint\": \"oxlint --deny-warnings src\",\n    \"typecheck\": \"tsc --noEmit\",\n    \"format\": \"prettier --check .\"\n  },\n  \"dependencies\": {\n    \"@sverka/runtime\": \"0.1.29\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^24.0.0\",\n    \"oxlint\": \"^1.0.0\",\n    \"prettier\": \"^3.0.0\",\n    \"tsdown\": \"^0.23.0\",\n    \"typescript\": \"^5.8.0\",\n    \"vitest\": \"^5.0.0\"\n  }\n}"
               }
             ]
           },
@@ -2414,7 +2414,7 @@
             "observations": [
               {
                 "sourceCallId": "call_39b4bba546b94d1e9518071c#a1d946441d5d40fcafea5924e687efe0",
-                "content": "/home/user\n/home/user\n1.4.2\nv26.10.0"
+                "content": "/home/user"
               }
             ]
           },
@@ -3478,7 +3478,7 @@
             "observations": [
               {
                 "sourceCallId": "exec:1#318f67bd181747078815dc331d0b18ae",
-                "content": "total 668\ndrwxr-xr-x    6 pepl pepl   4096 Oct  3 02:28 .\ndrwxrwxrwt 8082 root root 593920 Oct  3 02:28 ..\ndrwxr-xr-x    3 pepl pepl   4096 Oct  3 02:28 .agents\ndrwxr-xr-x    2 pepl pepl   4096 Oct  3 02:28 .devin\n-rw-r--r--    1 pepl pepl     37 Oct  3 02:28 .gitignore\n-rw-r--r--    1 pepl pepl     58 Oct  3 02:28 .oxlintrc.json\n-rw-r--r--    1 pepl pepl     42 Oct  3 02:28 .prettierignore\n-rw-r--r--    1 pepl pepl      3 Oct  3 02:28 .prettierrc\n-rw-r--r--    1 pepl pepl  33456 Oct  3 02:28 bun.lock\ndrwxr-xr-x   61 pepl pepl   4096 Oct  3 02:28 node_modules\n-rw-r--r--    1 pepl pepl    893 Oct  3 02:28 package.json\ndrwxr-xr-x    4 pepl pepl   4096 Oct  3 02:28 src\n-rw-r--r--    1 pepl pepl    572 Oct  3 02:28 tsconfig.json\n-rw-r--r--    1 pepl pepl    148 Oct  3 02:28 tsdown.config.ts"
+                "content": "total 668\ndrwxr-xr-x    6 user user   4096 Oct  3 02:28 .\ndrwxrwxrwt 8082 root root 593920 Oct  3 02:28 ..\ndrwxr-xr-x    3 user user   4096 Oct  3 02:28 .agents\ndrwxr-xr-x    2 user user   4096 Oct  3 02:28 .devin\n-rw-r--r--    1 user user     37 Oct  3 02:28 .gitignore\n-rw-r--r--    1 user user     58 Oct  3 02:28 .oxlintrc.json\n-rw-r--r--    1 user user     42 Oct  3 02:28 .prettierignore\n-rw-r--r--    1 user user      3 Oct  3 02:28 .prettierrc\n-rw-r--r--    1 user user  33456 Oct  3 02:28 bun.lock\ndrwxr-xr-x   61 user user   4096 Oct  3 02:28 node_modules\n-rw-r--r--    1 user user    893 Oct  3 02:28 package.json\ndrwxr-xr-x    4 user user   4096 Oct  3 02:28 src\n-rw-r--r--    1 user user    572 Oct  3 02:28 tsconfig.json\n-rw-r--r--    1 user user    148 Oct  3 02:28 tsdown.config.ts"
               }
             ]
           },
@@ -3524,7 +3524,7 @@
             "observations": [
               {
                 "sourceCallId": "exec:5#b6b05caf10124ad1bb36709a8d5fb6a3",
-                "content": "/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\n/tmp/sandbox\nruntime\nworkflow\nnanoid\noxlint\nprettier\nrolldown\ntree-kill\ntsc\ntsdown\ntsserver\nvite\nvitest\nwhy-is-node-running"
+                "content": "/tmp/sandbox"
               }
             ]
           },

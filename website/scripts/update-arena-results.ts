@@ -20,6 +20,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { userInfo } from "node:os";
 import { fileURLToPath } from "node:url";
 // Source import — website/ is not an npm workspace member, so
 // @sverka/arena isn't resolvable by name. Bun runs TS directly;
@@ -42,19 +43,35 @@ import { writeAggregateReport } from "../../packages/arena/src/aggregate-report.
 // splitting a path like /tmp/are<ESC>(B<ESC>[0m\nna-ship-... and defeating
 // the path patterns below. Strip them first; they render as garbage in
 // reports anyway.
-const ANSI_RE =
-  /[\u001b\u009b][[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-ntqry=><~]/g;
+// CSI: ESC + intermediates + params (digits + :;? separators) + one final
+// byte in 0x40–0x7e. `\x1b[m` (reset, zero params) and colon-parameter
+// SGR like `\x1b[38:5:1m` both match; a hand-rolled digit pattern misses
+// both and leaves path fragments behind.
+const ANSI_RE = /[\u001b\u009b][[\]()#;?]*[0-9;:?]*[\x40-\x7e]/g;
+
+// Bare username survives path redaction — `ls -la` owner/group columns,
+// `whoami` output, etc. Replaced with a generic "user".
+const HOST_USER = userInfo().username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const HOST_USER_RE = new RegExp(`\\b${HOST_USER}\\b`, "g");
 
 function redactText(text: string): string {
   return (
     text
       .replace(ANSI_RE, "")
-      // PTY wraps can split a path across lines — join word fragments so
-      // the whole thing gets redacted, not just the first line.
-      .replace(/\/home\/[\w.-]*(?:\n[\w.-]+)+/g, "/home/user")
-      .replace(/\/tmp\/[\w.-]*(?:\n[\w.-]+)+/g, "/tmp/sandbox")
+      // PTY wraps can split a path across lines — join word/path
+      // fragments (CRLF included) so the whole thing gets redacted, not
+      // just the first line.
+      .replace(
+        /\/home\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g,
+        "/home/user",
+      )
+      .replace(
+        /\/tmp\/[\w./-]*(?:[ \t]*\r?\n[ \t]*[\w./-]+)+/g,
+        "/tmp/sandbox",
+      )
       .replace(/\/home\/[^\s"']+/g, "/home/user")
       .replace(/\/tmp\/[^\s"']+/g, "/tmp/sandbox")
+      .replace(HOST_USER_RE, "user")
       .replace(/OS Version: [^\n<]+/g, "OS Version: linux")
       // TLD must be ≥2 letters — otherwise package specifiers like
       // `cli@0.1.29` get mangled into `[email]`.
@@ -242,7 +259,13 @@ const arenaResult =
   Array.isArray(cfg.models) &&
   Array.isArray(cfg.plugins) &&
   Array.isArray(cfg.tasks)
-    ? ({ ...results, results: sanitizedRuns } as ArenaResult)
+    ? ({
+        ...results,
+        ...(results.analysis
+          ? { analysis: redactValue(results.analysis) }
+          : {}),
+        results: sanitizedRuns,
+      } as ArenaResult)
     : undefined;
 const aggPath = join(benchDir, "aggregate.html");
 if (arenaResult !== undefined) {
@@ -262,6 +285,7 @@ function sanitizeRun(r: RunResult): RunResult {
   return {
     ...r,
     ...(typeof r.output === "string" ? { output: redactText(r.output) } : {}),
+    ...(typeof r.error === "string" ? { error: redactText(r.error) } : {}),
     ...(r.checkResults
       ? {
           checkResults: r.checkResults.map((c) => ({
@@ -286,6 +310,8 @@ function sanitizeRun(r: RunResult): RunResult {
 // page, so write via tmp+rename.
 const sanitizedResults = {
   ...results,
+  // Analysis summaries carry judge/task prose — same leak surface.
+  ...(results.analysis ? { analysis: redactValue(results.analysis) } : {}),
   results: sanitizedRuns,
 };
 const resultsTmp = join(benchDir, "arena-results.json.tmp");
