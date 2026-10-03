@@ -588,7 +588,7 @@ function execShell(
   // No retry on sandboxed failure: the check output is child-controlled,
   // so a nonzero result can never prove the sandbox itself failed —
   // treating any marker as "retry outside" would hand agent-authored
-  // commands an unsandboxed second run. Coverage lives in hasBwrap(),
+  // commands an un-sandboxed second run. Coverage lives in hasBwrap(),
   // which probes the full argv before the first check runs.
   return run(true);
 }
