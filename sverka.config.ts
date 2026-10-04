@@ -5,6 +5,7 @@ import {
   Entry,
   push,
   manual,
+  schedule,
 } from "@sverka/workflow";
 
 const proj = new Project("sverka");
@@ -85,7 +86,7 @@ const doctor = new ShellStep(ci, "doctor", {
 // mask a failed compile when the emitted YAML happens to match.
 const drift = new ShellStep(ci, "workflow-drift", {
   command:
-    'f=$(mktemp) && trap \'rm -f "$f"\' EXIT && bun packages/cli/src/bin.ts compile --target github --pin > "$f" && diff "$f" .github/workflows/sverka.yml',
+    'd=$(mktemp -d) && trap \'rm -rf "$d"\' EXIT && bun packages/cli/src/bin.ts compile --target github --pin --output-dir "$d" && diff "$d/.github/workflows/ci.yml" .github/workflows/sverka.yml && diff "$d/.github/workflows/repo-health.yml" .github/workflows/repo-health.yml',
   runtime: { shell: "sh" },
   beforeScript: ["bun run build"],
 });
@@ -202,6 +203,81 @@ export const onPush = new Entry(ci, "on-push", {
 export const selfDemo = new Entry(ci, "self-demo", {
   trigger: manual(),
   roots: [lintSarif.node.id, depBoundary.node.id],
+});
+
+// ---------------------------------------------------------------------------
+// GitHub-side repo health — remote-state checks via the gh CLI. Unlike the
+// ci pipeline (which verifies code), these verify project hygiene on GitHub
+// itself: main CI green, no review debt, no merged-branch litter, no open
+// dependabot alerts. The secret GITHUB_TOKEN input lands as a workflow-level
+// env var in compiled output (gh reads GITHUB_TOKEN natively); locally it
+// stays empty and gh falls back to stored auth.
+// ---------------------------------------------------------------------------
+const repoHealth = new Pipeline(proj, "repo-health", {
+  permissions: {
+    contents: "read",
+    actions: "read",
+    "pull-requests": "read",
+    "security-events": "read",
+  },
+  inputs: {
+    GITHUB_TOKEN: { type: "string", secret: true, default: "" },
+  },
+});
+
+// Latest run on main must be green.
+const mainGreen = new ShellStep(repoHealth, "main-green", {
+  command:
+    'conclusion=$(gh run list --branch main --limit 1 --json conclusion --jq \'.[0].conclusion\') && echo "main: $conclusion" && [ "$conclusion" = "success" ]',
+  runtime: { shell: "sh" },
+});
+
+// Zero unresolved review threads across the last 20 merged PRs.
+const reviewDebt = new ShellStep(repoHealth, "review-debt", {
+  command:
+    "gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(last:20,states:MERGED){nodes{reviewThreads(first:100){nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '[.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length' | grep -qx 0",
+  runtime: { shell: "sh" },
+});
+
+// No remote branches left behind by merged PRs.
+const staleBranches = new ShellStep(repoHealth, "stale-branches", {
+  command:
+    'remote=$(git ls-remote --heads origin | sed \'s|.*/||\') && merged=$(gh pr list --state merged --limit 100 --json headRefName --jq \'.[].headRefName\'); stale=""; for b in $merged; do case " $remote " in *" $b "*) stale="$stale $b";; esac; done; if [ -n "$stale" ]; then echo "stale branches:$stale"; exit 1; fi',
+  runtime: { shell: "sh" },
+});
+
+// Zero open dependabot alerts.
+const dependabotAlerts = new ShellStep(repoHealth, "dependabot-alerts", {
+  command:
+    "gh api 'repos/{owner}/{repo}/dependabot/alerts?state=open&per_page=100' --jq 'length' | grep -qx 0",
+  runtime: { shell: "sh" },
+});
+
+// Informational: prints currently open PRs (always passes).
+const openPrs = new ShellStep(repoHealth, "open-prs", {
+  command:
+    "gh pr list --state open --json number,title,author --jq '.[] | \"#\\(.number) \\(.title) (@\\(.author.login))\"' ; exit 0",
+  runtime: { shell: "sh" },
+});
+
+const healthRoots = [
+  mainGreen.node.id,
+  reviewDebt.node.id,
+  staleBranches.node.id,
+  dependabotAlerts.node.id,
+  openPrs.node.id,
+];
+
+// On-demand: `sverka run --entry repo-health/check`.
+export const repoHealthCheck = new Entry(repoHealth, "check", {
+  trigger: manual(),
+  roots: healthRoots,
+});
+
+// Nightly sweep — compiles to `on: schedule` in the generated workflow.
+export const repoHealthNightly = new Entry(repoHealth, "nightly", {
+  trigger: schedule("17 6 * * *"),
+  roots: healthRoots,
 });
 
 export default proj;
