@@ -253,6 +253,16 @@ const staleBranches = new ShellStep(repoHealth, "stale-branches", {
   runtime: { shell: "sh" },
 });
 
+// Non-green or in-progress checks from non-Actions apps on main's HEAD
+// (SonarCloud, Socket, etc.) — reported for visibility, never gating:
+// external app checks are flaky by nature, so a red one must not fail
+// the pipeline. main-green above gates on GitHub Actions checks only.
+const externalChecks = new ShellStep(repoHealth, "external-checks", {
+  command:
+    'if ! out=$(gh api --paginate \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug != "github-actions") | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\((.app.slug|gsub("[\\\\x00-\\\\x1f\\\\x7f]";"")))\\t\\(.conclusion // .status)\\t\\((.name|gsub("[\\\\x00-\\\\x1f\\\\x7f]";"")))"\'); then echo "check-runs query failed — report skipped"; exit 0; fi; if [ -z "$out" ]; then echo "all non-Actions checks on main are green"; else echo "non-Actions checks not green on main (reported, not gating):"; echo "$out"; fi',
+  runtime: { shell: "sh" },
+});
+
 // Zero open dependabot alerts (--paginate covers all pages). The alerts
 // endpoint needs the vulnerability-alerts token scope, which is not yet
 // a stable GITHUB_TOKEN permission — a permission failure degrades to a
@@ -272,6 +282,7 @@ const openPrs = new ShellStep(repoHealth, "open-prs", {
 
 const healthRoots = [
   mainGreen.node.id,
+  externalChecks.node.id,
   reviewDebt.node.id,
   staleBranches.node.id,
   dependabotAlerts.node.id,
