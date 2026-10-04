@@ -85,7 +85,7 @@ sverka:
     - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   before_script:
-    - bun install -g @sverka/cli@latest
+    - bun install -g sverka@latest
   script:
     - sverka execute
   artifacts:
@@ -97,7 +97,7 @@ sverka:
 ### Image requirement
 
 The chosen `image` **must provide the Bun runtime**, because `before_script`
-runs `bun install -g @sverka/cli`. The default `oven/bun:latest` satisfies
+runs `bun install -g sverka`. The default `oven/bun:latest` satisfies
 this. If you override `image`, ensure Bun is available.
 
 ### Rules

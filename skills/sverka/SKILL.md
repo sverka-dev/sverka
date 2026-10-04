@@ -71,15 +71,15 @@ Key rules:
 
 ### Step 3: Install dependencies
 
-The config needs `@sverka/workflow`; the `sverka` binary comes from
-`@sverka/cli` (there is no unscoped `sverka` npm package — `npx sverka`
-resolves the locally installed bin):
+The config needs `@sverka/workflow`; the `sverka` binary comes from the
+`sverka` npm package (`npx sverka`/`bunx sverka` resolve the locally
+installed bin):
 
 ```bash
-npm install --save-dev @sverka/workflow @sverka/cli
+npm install --save-dev @sverka/workflow sverka
 ```
 
-Or install the CLI globally once: `bun add -g @sverka/cli`.
+Or install the CLI globally once: `bun add -g sverka`.
 
 ### Step 4: Run everything
 

@@ -36,7 +36,7 @@ describe("sverka binary (acceptance)", () => {
   });
 
   it.skipIf(!binBuilt)(
-    "--version prints the @sverka/cli version, not cwd's",
+    "--version prints the sverka version, not cwd's",
     async () => {
       const { writeFile, readFile } = await import("node:fs/promises");
       // A decoy package.json in cwd must not leak into --version output.

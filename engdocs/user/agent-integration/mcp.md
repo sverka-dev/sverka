@@ -104,7 +104,7 @@ servers. Both stdio and HTTP transports are supported.
 
 ## Implementation
 
-- `sverka mcp-server` — implemented in `@sverka/cli` (Spec 28)
+- `sverka mcp-server` — implemented in the `sverka` package (Spec 28)
 - `@sverka/plugin-mcp` — implemented (Spec 23), supports stdio and HTTP
   transports with SSE fallback
 - `AgentStep` — implemented in `@sverka/workflow` (Spec 27), with stub

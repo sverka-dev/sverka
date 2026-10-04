@@ -1,4 +1,4 @@
-// @sverka/cli — public types
+// sverka — public types
 
 /** Global flags parsed from the command line. */
 export interface GlobalFlags {

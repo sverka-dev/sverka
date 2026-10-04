@@ -78,7 +78,7 @@ The same workflow can be:
 
 ```bash
 # Install
-bun add -g @sverka/cli
+bun add -g sverka
 
 # Initialize in your project
 sverka init
@@ -160,7 +160,7 @@ devin plugins install sverka-dev/sverka
 | `@sverka/compiler`     | Target compilation: GitHub Actions, GitLab CI, Temporal, Dagger, Inngest, Drone |
 | `@sverka/sdk`          | Public TypeScript API (createSverka), planner                                   |
 | `@sverka/verification` | Optional profile: findings, policy, built-in checks                             |
-| `@sverka/cli`          | Command-line interface (includes `sverka mcp-server`)                           |
+| `sverka`               | Command-line interface (includes `sverka mcp-server`)                           |
 | `@sverka/plugin-mcp`   | MCP plugin: load external MCP servers as Sverka plugins                         |
 
 ## Development
