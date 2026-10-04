@@ -6,7 +6,8 @@
       "project": ["scripts/**/*.ts", "sverka.config.ts"],
       "ignoreDependencies": [
         "@nx/js",
-        "@secretlint/secretlint-rule-preset-recommend"
+        "@secretlint/secretlint-rule-preset-recommend",
+        "@sverka/cli"
       ]
     },
     "packages/*": {

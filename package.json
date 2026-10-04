@@ -28,6 +28,7 @@
     "@nx-devkit/typescript": "0.2.18",
     "@nx/js": "^23.2.1",
     "@secretlint/secretlint-rule-preset-recommend": "13.0.6",
+    "@sverka/cli": "workspace:*",
     "@sverka/workflow": "workspace:*",
     "@types/node": "26.5.1",
     "cspell": "10.3.4",
