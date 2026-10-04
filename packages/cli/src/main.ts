@@ -98,8 +98,7 @@ function addRunCommand(y: Argv): Argv {
     })
     .option("tui", {
       type: "boolean",
-      describe:
-        "Interactive terminal UI (default: on when stdout is a TTY and no --format)",
+      describe: "Interactive terminal UI (off by default; opt-in only)",
     })
     .option("jobs", {
       type: "number",
@@ -333,7 +332,6 @@ function dispatchRun(
   if (typeof parsed.output === "string") args.output = parsed.output;
   if (parsed.tui === true) args.tui = true;
   if (parsed.tui === false) args.tui = false;
-  args.formatExplicit = parsed.format !== undefined;
   return runCommand(args, global, output, start);
 }
 

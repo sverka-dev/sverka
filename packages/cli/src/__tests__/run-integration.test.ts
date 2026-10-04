@@ -168,6 +168,19 @@ describe("run command — format and evaluate", () => {
     expect(out.stdoutText).toContain("run completed");
   });
 
+  it("--quiet --tui does not select the TUI and prints nothing", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+
+    const out = new CaptureWriter();
+    const code = await main(["run", "--root", dir, "--quiet", "--tui"], {
+      output: out,
+    });
+
+    expect(code).toBe(0);
+    expect(out.stdoutText).toBe("");
+  });
+
   it("28. --evaluate collects findings and evaluates policy after run", async () => {
     const dir = getDir();
     await writefile(dir, "sverka.config.ts", SARIF_CONFIG);

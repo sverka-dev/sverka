@@ -38,13 +38,13 @@ and dependencies.
 Execute a Run Plan through the native engine with the host runtime driver.
 Emits step events: pending, started, succeeded/failed, run completion.
 
-| Flag         | Type    | Default | Description                                                                  |
-| ------------ | ------- | ------- | ---------------------------------------------------------------------------- |
-| `--entry`    | string  | —       | Entry ID to run                                                              |
-| `--executor` | string  | `host`  | Runtime executor to use (`host` or `docker`)                                 |
-| `--evaluate` | boolean | `false` | Collect SARIF findings and evaluate policy after the run                     |
-| `--output`   | string  | —       | Output file path for HTML report (implies `--format html`)                   |
-| `--tui`      | boolean | auto    | Interactive terminal UI (default: on when stdout is a TTY and no `--format`) |
+| Flag         | Type    | Default | Description                                                    |
+| ------------ | ------- | ------- | -------------------------------------------------------------- |
+| `--entry`    | string  | —       | Entry ID to run                                                |
+| `--executor` | string  | `host`  | Runtime executor to use (`host` or `docker`)                   |
+| `--evaluate` | boolean | `false` | Collect SARIF findings and evaluate policy after the run       |
+| `--output`   | string  | —       | Output file path for HTML report (implies `--format html`)     |
+| `--tui`      | boolean | `false` | Interactive terminal UI (opt-in; default output is plain text) |
 
 ### `sverka discover`
 
