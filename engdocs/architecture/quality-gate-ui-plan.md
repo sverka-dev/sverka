@@ -198,7 +198,7 @@ HTML template at build time, not a runtime dep of the package.
 6. FindingsCollector reads SARIF from `.sverka/artifacts/` and attributes to steps
 7. PolicyGate wraps existing evaluatePolicy + filterOnlyNew
 8. HTML report is self-contained (no external files, no server needed)
-9. TUI degrades gracefully to text when not a TTY
+9. `--tui` falls back to the text renderer if Ink fails to mount
 10. No `any` types, strict TypeScript, custom error classes
 
 ## Wave structure
