@@ -1,0 +1,138 @@
+name: repo-health
+on:
+  workflow_dispatch:
+    inputs:
+      GITHUB_TOKEN:
+        type: string
+        default: ""
+  schedule:
+    - cron: 17 6 * * *
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+permissions: {}
+jobs:
+  main-green:
+    name: main-green
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+      - run: out=$(gh api --paginate 'repos/{owner}/{repo}/commits/main/check-runs' --jq
+          '.check_runs[] | select(.app.slug=="github-actions") |
+          select(.conclusion != "success" and .conclusion != "skipped" and
+          .conclusion != "neutral") | "\(.name) (\(.conclusion // .status))"')
+          || exit 1; [ -z "$out" ] || { echo "non-green or in-progress checks on
+          main:"; echo "$out"; exit 1; }
+        shell: sh
+  review-debt:
+    name: review-debt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+      - run: |-
+          # shellcheck disable=SC2016
+          count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(first:20,states:MERGED,orderBy:{field:CREATED_AT,direction:DESC}){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ "$count" = "0" ] || { echo "unresolved threads or truncated thread pages: $count"; exit 1; }
+        shell: sh
+  stale-branches:
+    name: stale-branches
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+      - run: if ! heads=$(git ls-remote --heads origin); then echo "ls-remote failed";
+          exit 1; fi; if ! owner=$(gh repo view --json owner --jq
+          '.owner.login'); then echo "repo query failed"; exit 1; fi; stale="";
+          for b in $(echo "$heads" | sed 's|.*refs/heads/||'); do if [ "$b" !=
+          "main" ]; then if ! n=$(gh pr list --head "$owner:$b" --state merged
+          --json number --jq length); then echo "pr query failed for $b"; exit
+          1; fi; if [ "$n" -gt 0 ]; then stale="$stale $b"; fi; fi; done; [ -z
+          "$stale" ] || { echo "stale branches:$stale"; exit 1; }
+        shell: sh
+  dependabot-alerts:
+    name: dependabot-alerts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+      - run: out=$(gh api --paginate 'repos/{owner}/{repo}/dependabot/alerts?state=open'
+          --jq '.[].number' 2>&1) || { if echo "$out" | grep -qi "not
+          accessible\|403"; then echo "::warning::GITHUB_TOKEN cannot read
+          dependabot alerts (needs the vulnerability-alerts scope); check
+          skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo
+          "open dependabot alerts:"; echo "$out"; exit 1; }
+        shell: sh
+  open-prs:
+    name: open-prs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+      - run: gh pr list --state open --limit 100 --json number,title,author --jq '.[] |
+          "#\(.number) \(.title) (@\(.author.login))"' || true
+        shell: sh
