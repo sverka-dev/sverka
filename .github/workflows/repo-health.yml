@@ -88,6 +88,33 @@ jobs:
           1; fi; if [ "$n" -gt 0 ]; then stale="$stale $b"; fi; fi; done; [ -z
           "$stale" ] || { echo "stale branches:$stale"; exit 1; }
         shell: sh
+  external-checks:
+    name: external-checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+      - run: out=$(gh api --paginate 'repos/{owner}/{repo}/commits/main/check-runs' --jq
+          '.check_runs[] | select(.app.slug != "github-actions") |
+          select(.conclusion != "success" and .conclusion != "skipped" and
+          .conclusion != "neutral") | "\(.app.slug)\t\(.conclusion //
+          .status)\t\(.name)"') || exit 1; if [ -z "$out" ]; then echo "all
+          non-Actions checks on main are green"; else echo "non-Actions checks
+          not green on main (reported, not gating):"; echo "$out"; fi
+        shell: sh
   dependabot-alerts:
     name: dependabot-alerts
     runs-on: ubuntu-latest
