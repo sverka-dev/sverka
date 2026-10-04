@@ -186,6 +186,9 @@ export async function initCommand(
   let template: string;
 
   if (args.detect) {
+    // The scaffold root may not exist yet (e.g. a create-* style target
+    // directory) — create it before detection reads from it.
+    await mkdir(global.root, { recursive: true });
     output.debug(
       `init: root=${global.root} detect=true force=${Boolean(args.force)}`,
     );
@@ -207,7 +210,10 @@ export async function initCommand(
     output.debug(
       `init: root=${global.root} template=${template} pm=${pm} force=${Boolean(args.force)}`,
     );
+    // Resolve (and validate) the template before the root mkdir so an
+    // invalid --template leaves no directory behind.
     content = resolveTemplateContent(template, pm);
+    await mkdir(global.root, { recursive: true });
   }
 
   const declared = await ensureConstructsDependency(global.root);

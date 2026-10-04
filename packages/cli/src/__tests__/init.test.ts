@@ -33,6 +33,15 @@ describe("init command", () => {
     expect(content).toContain('"verify"');
   });
 
+  it("creates the root directory when --root does not exist", async () => {
+    const nested = join(dir, "new", "project");
+    const out = new CaptureWriter();
+    const code = await main(["init", "--root", nested], { output: out });
+    expect(code).toBe(0);
+    expect(existsSync(join(nested, "sverka.config.ts"))).toBe(true);
+    expect(existsSync(join(nested, "package.json"))).toBe(true);
+  });
+
   it("fails with CONFIG_EXISTS (exit 2) when config exists without --force", async () => {
     const out = new CaptureWriter();
     // First init creates the config
