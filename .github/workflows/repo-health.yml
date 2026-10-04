@@ -30,7 +30,7 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: out=$(gh api 'repos/{owner}/{repo}/commits/main/check-runs' --jq
+      - run: out=$(gh api --paginate 'repos/{owner}/{repo}/commits/main/check-runs' --jq
           '.check_runs[] | select(.app.slug=="github-actions") |
           select(.conclusion=="failure" or .conclusion=="cancelled" or
           .conclusion=="timed_out" or .conclusion=="action_required") | .name')
@@ -58,7 +58,7 @@ jobs:
         run: bun install --frozen-lockfile --ignore-scripts
       - run: |-
           # shellcheck disable=SC2016
-          count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(last:20,states:MERGED){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ "$count" = "0" ] || { echo "unresolved threads or truncated thread pages: $count"; exit 1; }
+          count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(first:20,states:MERGED,orderBy:{field:CREATED_AT,direction:DESC}){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ "$count" = "0" ] || { echo "unresolved threads or truncated thread pages: $count"; exit 1; }
         shell: sh
   stale-branches:
     name: stale-branches
@@ -80,12 +80,13 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: if ! heads=$(git ls-remote --heads origin); then echo "ls-remote failed";
-          exit 1; fi; if ! merged=$(gh pr list --state merged --limit 100 --json
-          headRefName --jq '.[].headRefName'); then echo "pr list failed"; exit
-          1; fi; remote=$(echo "$heads" | sed 's|.*refs/heads/||'); stale="";
-          for b in $merged; do if echo "$remote" | grep -qx "$b"; then
-          stale="$stale $b"; fi; done; [ -z "$stale" ] || { echo "stale
-          branches:$stale"; exit 1; }
+          exit 1; fi; if ! owner=$(gh repo view --json owner --jq
+          '.owner.login'); then echo "repo query failed"; exit 1; fi; stale="";
+          for b in $(echo "$heads" | sed 's|.*refs/heads/||'); do if [ "$b" !=
+          "main" ]; then if ! n=$(gh pr list --head "$owner:$b" --state merged
+          --json number --jq length); then echo "pr query failed for $b"; exit
+          1; fi; if [ "$n" -gt 0 ]; then stale="$stale $b"; fi; fi; done; [ -z
+          "$stale" ] || { echo "stale branches:$stale"; exit 1; }
         shell: sh
   dependabot-alerts:
     name: dependabot-alerts
@@ -107,8 +108,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: out=$(gh api --paginate 'repos/{owner}/{repo}/dependabot/alerts?state=open'
-          --jq '.[].number') || exit 1; [ -z "$out" ] || { echo "open dependabot
-          alerts:"; echo "$out"; exit 1; }
+          --jq '.[].number' 2>&1) || { if echo "$out" | grep -qi "not
+          accessible\|403"; then echo "::warning::GITHUB_TOKEN cannot read
+          dependabot alerts (needs the vulnerability-alerts scope); check
+          skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo
+          "open dependabot alerts:"; echo "$out"; exit 1; }
         shell: sh
   open-prs:
     name: open-prs
@@ -130,5 +134,5 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: gh pr list --state open --json number,title,author --jq '.[] | "#\(.number)
-          \(.title) (@\(.author.login))"' ; exit 0
+          \(.title) (@\(.author.login))"' || true
         shell: sh

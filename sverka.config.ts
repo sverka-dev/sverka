@@ -230,7 +230,7 @@ const repoHealth = new Pipeline(proj, "repo-health", {
 // green. External app checks (SonarCloud etc.) are a different signal.
 const mainGreen = new ShellStep(repoHealth, "main-green", {
   command:
-    'out=$(gh api \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug=="github-actions") | select(.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out" or .conclusion=="action_required") | .name\') || exit 1; [ -z "$out" ] || { echo "failing checks on main:"; echo "$out"; exit 1; }',
+    'out=$(gh api --paginate \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug=="github-actions") | select(.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out" or .conclusion=="action_required") | .name\') || exit 1; [ -z "$out" ] || { echo "failing checks on main:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
@@ -240,29 +240,33 @@ const mainGreen = new ShellStep(repoHealth, "main-green", {
 const reviewDebt = new ShellStep(repoHealth, "review-debt", {
   command:
     "# shellcheck disable=SC2016\n" +
-    "count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(last:20,states:MERGED){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ \"$count\" = \"0\" ] || { echo \"unresolved threads or truncated thread pages: $count\"; exit 1; }",
+    "count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(first:20,states:MERGED,orderBy:{field:CREATED_AT,direction:DESC}){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ \"$count\" = \"0\" ] || { echo \"unresolved threads or truncated thread pages: $count\"; exit 1; }",
   runtime: { shell: "sh" },
 });
 
-// No remote branches left behind by merged PRs. ls-remote/pr-list
-// failures abort the check — a query that cannot run is not a pass.
+// No remote branches left behind by merged PRs. Each remote head is
+// checked against same-repo merged PRs — exact branch match, fork heads
+// cannot collide, and there is no merged-PR pagination window.
 const staleBranches = new ShellStep(repoHealth, "stale-branches", {
   command:
-    'if ! heads=$(git ls-remote --heads origin); then echo "ls-remote failed"; exit 1; fi; if ! merged=$(gh pr list --state merged --limit 100 --json headRefName --jq \'.[].headRefName\'); then echo "pr list failed"; exit 1; fi; remote=$(echo "$heads" | sed \'s|.*refs/heads/||\'); stale=""; for b in $merged; do if echo "$remote" | grep -qx "$b"; then stale="$stale $b"; fi; done; [ -z "$stale" ] || { echo "stale branches:$stale"; exit 1; }',
+    'if ! heads=$(git ls-remote --heads origin); then echo "ls-remote failed"; exit 1; fi; if ! owner=$(gh repo view --json owner --jq \'.owner.login\'); then echo "repo query failed"; exit 1; fi; stale=""; for b in $(echo "$heads" | sed \'s|.*refs/heads/||\'); do if [ "$b" != "main" ]; then if ! n=$(gh pr list --head "$owner:$b" --state merged --json number --jq length); then echo "pr query failed for $b"; exit 1; fi; if [ "$n" -gt 0 ]; then stale="$stale $b"; fi; fi; done; [ -z "$stale" ] || { echo "stale branches:$stale"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
-// Zero open dependabot alerts (--paginate covers all pages).
+// Zero open dependabot alerts (--paginate covers all pages). The alerts
+// endpoint needs the vulnerability-alerts token scope, which is not yet
+// a stable GITHUB_TOKEN permission — a permission failure degrades to a
+// warning instead of a hard error; other failures still fail the check.
 const dependabotAlerts = new ShellStep(repoHealth, "dependabot-alerts", {
   command:
-    'out=$(gh api --paginate \'repos/{owner}/{repo}/dependabot/alerts?state=open\' --jq \'.[].number\') || exit 1; [ -z "$out" ] || { echo "open dependabot alerts:"; echo "$out"; exit 1; }',
+    'out=$(gh api --paginate \'repos/{owner}/{repo}/dependabot/alerts?state=open\' --jq \'.[].number\' 2>&1) || { if echo "$out" | grep -qi "not accessible\\|403"; then echo "::warning::GITHUB_TOKEN cannot read dependabot alerts (needs the vulnerability-alerts scope); check skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo "open dependabot alerts:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
 // Informational: prints currently open PRs (always passes).
 const openPrs = new ShellStep(repoHealth, "open-prs", {
   command:
-    "gh pr list --state open --json number,title,author --jq '.[] | \"#\\(.number) \\(.title) (@\\(.author.login))\"' ; exit 0",
+    "gh pr list --state open --json number,title,author --jq '.[] | \"#\\(.number) \\(.title) (@\\(.author.login))\"' || true",
   runtime: { shell: "sh" },
 });
 
