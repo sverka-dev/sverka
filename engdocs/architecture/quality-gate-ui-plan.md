@@ -104,7 +104,7 @@ self-contained HTML file with ReactFlow DAG, findings table, per-step logs.
 
 ### Phase 3: Ink TUI (MVP-3)
 
-**Goal:** `sverka run --tui` (default when TTY) shows live interactive TUI.
+**Goal:** `sverka run --tui` (opt-in) shows live interactive TUI.
 
 **Scope:**
 
@@ -115,8 +115,7 @@ self-contained HTML file with ReactFlow DAG, findings table, per-step logs.
   - DAG as tree view (not visual graph — that's HTML only)
   - Policy verdict footer
   - Respects terminal resize
-- Auto-detect TTY: if stdout is TTY and no --format flag, use ink; else text
-- `--no-tui` flag to force text mode
+- `--tui` opt-in flag: `sverka run` prints plain text by default, TTY included
 - Ink components: StepTree, FindingsList, FilterBar, VerdictFooter
 
 **Files:** ~600 lines impl + ~200 lines tests
@@ -163,7 +162,7 @@ sverka run [--format text|json|html] [--output <path>] [--tui|--no-tui]
 - `--evaluate` (new): after run completes, collect SARIF artifacts, run
   findings normalization + policy evaluation, pass to renderer
 - `--format html` implies `--evaluate`
-- `--tui` (new): force ink renderer (default when TTY)
+- `--tui` (new): enable ink renderer (opt-in; text is the default)
 - `--no-tui`: force text renderer
 - Exit codes: 0 success, 1 policy fail, 2 usage, 3 runtime error (unchanged)
 
@@ -193,7 +192,7 @@ HTML template at build time, not a runtime dep of the package.
 2. `sverka run --evaluate --format text` shows findings summary + policy verdict
 3. `sverka run --format html --output report.html` produces openable HTML with
    interactive DAG, findings table, policy verdict
-4. `sverka run --tui` (or default in TTY) shows live ink TUI with spinners,
+4. `sverka run --tui` shows live ink TUI with spinners,
    colored status, filterable findings, DAG tree
 5. All renderers consume the same `AsyncIterable<RunEvent>` stream
 6. FindingsCollector reads SARIF from `.sverka/artifacts/` and attributes to steps

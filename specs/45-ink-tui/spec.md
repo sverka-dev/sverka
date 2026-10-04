@@ -219,8 +219,11 @@ sverka run [--tui] [--no-tui] [--format text|json|html]
 - `--no-tui`: accepted for compatibility; text is the default anyway.
 - Default: `sverka run` always prints plain text, TTY included — there is
   no TTY auto-detection.
-- `--format` (any value) wins over `--tui`: `json` → JSON output,
-  `html` → HtmlRenderer; `--tui` only applies to the text format.
+- Any non-text `--format` wins over `--tui`: `json` → JSON output,
+  `html` → HtmlRenderer. `--tui` applies only to the text format
+  (`--tui --format text` selects the InkRenderer).
+- `--quiet` suppresses the TUI: Ink writes to `process.stdout` directly
+  and would bypass the quiet-filtered output writer.
 
 ### Exit codes
 

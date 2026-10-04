@@ -258,9 +258,12 @@ async function consumeEvents(
     (args.output !== undefined && !isSarif && !isWeb);
 
   // TUI is strictly opt-in via --tui: `sverka run` prints plain text on
-  // every stream, TTY included. Any non-text --format wins over --tui.
+  // every stream, TTY included. Any non-text --format wins over --tui,
+  // and --quiet suppresses the TUI (Ink writes to stdout, bypassing the
+  // quiet-filtered writer).
   const tuiWanted =
     args.tui === true &&
+    !global.quiet &&
     !isHtml &&
     !isSarif &&
     !isWeb &&
