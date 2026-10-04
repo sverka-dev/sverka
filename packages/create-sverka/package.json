@@ -1,0 +1,42 @@
+{
+  "name": "create-sverka",
+  "version": "0.1.35",
+  "description": "Scaffold a Sverka project — `npm create sverka` / `bun create sverka`",
+  "license": "MIT",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sverka-dev/sverka.git",
+    "directory": "packages/create-sverka"
+  },
+  "homepage": "https://sverka.dev",
+  "bugs": "https://github.com/sverka-dev/sverka/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "bin": {
+    "create-sverka": "dist/bin.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "sverka": "workspace:*"
+  }
+}
