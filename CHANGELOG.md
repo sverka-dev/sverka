@@ -1,3 +1,14 @@
+## 0.2.3 (2026-10-04)
+
+### 🚀 Features
+
+- **cli:** text output is the default for sverka run ([#299](https://github.com/sverka-dev/sverka/pull/299))
+- **repo-health:** report non-Actions check failures on main ([#298](https://github.com/sverka-dev/sverka/pull/298))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.2 (2026-10-04)
 
 ### 🩹 Fixes
