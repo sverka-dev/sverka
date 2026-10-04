@@ -79,11 +79,12 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: remote=$(git ls-remote --heads origin | sed 's|.*refs/heads/||') &&
-          merged=$(gh pr list --state merged --limit 100 --json headRefName --jq
-          '.[].headRefName') || { echo "branch query failed"; exit 1; };
-          stale=""; for b in $merged; do echo "$remote" | grep -qx "$b" &&
-          stale="$stale $b"; done; [ -z "$stale" ] || { echo "stale
+      - run: if ! heads=$(git ls-remote --heads origin); then echo "ls-remote failed";
+          exit 1; fi; if ! merged=$(gh pr list --state merged --limit 100 --json
+          headRefName --jq '.[].headRefName'); then echo "pr list failed"; exit
+          1; fi; remote=$(echo "$heads" | sed 's|.*refs/heads/||'); stale="";
+          for b in $merged; do if echo "$remote" | grep -qx "$b"; then
+          stale="$stale $b"; fi; done; [ -z "$stale" ] || { echo "stale
           branches:$stale"; exit 1; }
         shell: sh
   dependabot-alerts:

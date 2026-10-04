@@ -248,7 +248,7 @@ const reviewDebt = new ShellStep(repoHealth, "review-debt", {
 // failures abort the check — a query that cannot run is not a pass.
 const staleBranches = new ShellStep(repoHealth, "stale-branches", {
   command:
-    'remote=$(git ls-remote --heads origin | sed \'s|.*refs/heads/||\') && merged=$(gh pr list --state merged --limit 100 --json headRefName --jq \'.[].headRefName\') || { echo "branch query failed"; exit 1; }; stale=""; for b in $merged; do echo "$remote" | grep -qx "$b" && stale="$stale $b"; done; [ -z "$stale" ] || { echo "stale branches:$stale"; exit 1; }',
+    'if ! heads=$(git ls-remote --heads origin); then echo "ls-remote failed"; exit 1; fi; if ! merged=$(gh pr list --state merged --limit 100 --json headRefName --jq \'.[].headRefName\'); then echo "pr list failed"; exit 1; fi; remote=$(echo "$heads" | sed \'s|.*refs/heads/||\'); stale=""; for b in $merged; do if echo "$remote" | grep -qx "$b"; then stale="$stale $b"; fi; done; [ -z "$stale" ] || { echo "stale branches:$stale"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
