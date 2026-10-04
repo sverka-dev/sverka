@@ -259,7 +259,7 @@ const staleBranches = new ShellStep(repoHealth, "stale-branches", {
 // the pipeline. main-green above gates on GitHub Actions checks only.
 const externalChecks = new ShellStep(repoHealth, "external-checks", {
   command:
-    'if ! raw=$(gh api --paginate \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug != "github-actions") | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\(.app.slug)\\t\\(.conclusion // .status)\\t\\(.name)"\'); then echo "check-runs query failed — report skipped"; exit 0; fi; out=$(printf \'%s\' "$raw" | sed \'s/[^[:print:]\\t]//g\'); if [ -z "$out" ]; then echo "all non-Actions checks on main are green"; else echo "non-Actions checks not green on main (reported, not gating):"; echo "$out"; fi',
+    'if ! out=$(gh api --paginate \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug != "github-actions") | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\((.app.slug|gsub("[\\\\x00-\\\\x1f\\\\x7f]";"")))\\t\\(.conclusion // .status)\\t\\((.name|gsub("[\\\\x00-\\\\x1f\\\\x7f]";"")))"\'); then echo "check-runs query failed — report skipped"; exit 0; fi; if [ -z "$out" ]; then echo "all non-Actions checks on main are green"; else echo "non-Actions checks not green on main (reported, not gating):"; echo "$out"; fi',
   runtime: { shell: "sh" },
 });
 
