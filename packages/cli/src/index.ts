@@ -1,4 +1,4 @@
-// @sverka/cli — public API
+// sverka — public API
 
 export { main, type MainDeps } from "./main.js";
 export * from "./types.js";

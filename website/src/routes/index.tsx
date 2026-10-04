@@ -43,7 +43,7 @@ function Home() {
           them with one command, compile to CI when you need to.
         </p>
         <div className="mt-6 rounded-lg border bg-fd-muted/50 px-4 py-2 font-mono text-sm">
-          bun add -g @sverka/cli &amp;&amp; sverka run
+          bun add -g sverka &amp;&amp; sverka run
         </div>
         <div className="mt-12 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
           {cards.map((card) => {

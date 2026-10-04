@@ -9,7 +9,7 @@
 ## Install the CLI
 
 ```sh
-bun add -g @sverka/cli
+bun add -g sverka
 ```
 
 This installs the `sverka` command globally.

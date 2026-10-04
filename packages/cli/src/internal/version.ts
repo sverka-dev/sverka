@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Resolve the @sverka/cli version from its own package.json.
+ * Resolve the sverka CLI version from its own package.json.
  * Walks up from this module so it works from src/ (dev) and bundled
  * dist/ alike, and never picks up the consumer's cwd package.json
  * (which is what yargs' default --version resolution does).
@@ -18,7 +18,7 @@ export function cliVersion(): string {
         name?: string;
         version?: string;
       };
-      if (pkg.name === "@sverka/cli" && pkg.version) return pkg.version;
+      if (pkg.name === "sverka" && pkg.version) return pkg.version;
     } catch {
       // no readable package.json at this level — keep walking
     }

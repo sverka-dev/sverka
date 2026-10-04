@@ -7,7 +7,7 @@
       "ignoreDependencies": [
         "@nx/js",
         "@secretlint/secretlint-rule-preset-recommend",
-        "@sverka/cli"
+        "sverka"
       ]
     },
     "packages/*": {

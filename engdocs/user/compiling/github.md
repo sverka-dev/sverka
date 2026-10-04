@@ -107,7 +107,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           version: latest
-      - run: bun install -g @sverka/cli@latest
+      - run: bun install -g sverka@latest
       - run: sverka execute
       - uses: actions/upload-artifact@v4
         if: always()

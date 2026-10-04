@@ -13,7 +13,6 @@
         "@nx-devkit/typescript": "0.2.18",
         "@nx/js": "^23.2.1",
         "@secretlint/secretlint-rule-preset-recommend": "13.0.6",
-        "@sverka/cli": "workspace:*",
         "@sverka/workflow": "workspace:*",
         "@types/node": "26.5.1",
         "cspell": "10.3.4",
@@ -24,6 +23,7 @@
         "prettier": "3.9.9",
         "publint": "0.3.24",
         "secretlint": "13.0.6",
+        "sverka": "workspace:*",
         "tsdown": "0.23.0",
         "typescript": "5.9.3",
         "typescript-eslint": "8.70.1",
@@ -65,7 +65,7 @@
       },
     },
     "packages/cli": {
-      "name": "@sverka/cli",
+      "name": "sverka",
       "version": "0.1.35",
       "bin": {
         "sverka": "dist/bin.mjs",
@@ -888,8 +888,6 @@
     "@sverka/arena": ["@sverka/arena@workspace:packages/arena"],
 
     "@sverka/benchmark": ["@sverka/benchmark@workspace:packages/benchmark"],
-
-    "@sverka/cli": ["@sverka/cli@workspace:packages/cli"],
 
     "@sverka/compiler": ["@sverka/compiler@workspace:packages/compiler"],
 
@@ -1922,6 +1920,8 @@
     "supports-hyperlinks": ["supports-hyperlinks@3.2.0", "", { "dependencies": { "has-flag": "^4.0.0", "supports-color": "^7.0.0" } }, "sha512-zFObLMyZeEwzAoKCyu1B91U79K2t7ApXuQfo8OuxwXLDgcKxuwM+YvcbIhm6QWqz7mHUH1TVytR1PwVVjEuMig=="],
 
     "supports-preserve-symlinks-flag": ["supports-preserve-symlinks-flag@1.0.0", "", {}, "sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w=="],
+
+    "sverka": ["sverka@workspace:packages/cli"],
 
     "table": ["table@6.9.0", "", { "dependencies": { "ajv": "^8.0.1", "lodash.truncate": "^4.4.2", "slice-ansi": "^4.0.0", "string-width": "^4.2.3", "strip-ansi": "^6.0.1" } }, "sha512-9kY+CygyYM6j02t5YFHbNz2FN5QmYGv9zAjVp4lCDjlCw7amdckXlEt/bjMhUIfj4ThGRE4gCUH5+yGnNuPo5A=="],
 
