@@ -1,3 +1,14 @@
+## 0.2.0 (2026-10-04)
+
+### 🚀 Features
+
+- **ci:** repo-health pipeline — gh-based GitHub project checks ([#293](https://github.com/sverka-dev/sverka/pull/293))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.1.35 (2026-10-03)
 
 ### 🚀 Features
