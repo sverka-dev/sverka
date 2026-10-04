@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
       pull-requests: read
+      checks: read
       security-events: read
     steps:
       - name: Checkout
@@ -30,17 +30,20 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: "conclusion=$(gh run list --branch main --limit 1 --json conclusion --jq
-          '.[0].conclusion') && echo \"main: $conclusion\" && [ \"$conclusion\"
-          = \"success\" ]"
+      - run: out=$(gh api 'repos/{owner}/{repo}/commits/main/check-runs' --jq
+          '.check_runs[] | select(.app.slug=="github-actions") |
+          select(.conclusion=="failure" or .conclusion=="cancelled" or
+          .conclusion=="timed_out" or .conclusion=="action_required") | .name')
+          || exit 1; [ -z "$out" ] || { echo "failing checks on main:"; echo
+          "$out"; exit 1; }
         shell: sh
   review-debt:
     name: review-debt
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
       pull-requests: read
+      checks: read
       security-events: read
     steps:
       - name: Checkout
@@ -53,19 +56,17 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: gh api graphql -f
-          query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(last:20,states:MERGED){nodes{reviewThreads(first:100){nodes{isResolved}}}}}}'
-          -F owner='{owner}' -F name='{repo}' --jq
-          '[.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length'
-          | grep -qx 0
+      - run: |-
+          # shellcheck disable=SC2016
+          count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(last:20,states:MERGED){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ "$count" = "0" ] || { echo "unresolved threads or truncated thread pages: $count"; exit 1; }
         shell: sh
   stale-branches:
     name: stale-branches
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
       pull-requests: read
+      checks: read
       security-events: read
     steps:
       - name: Checkout
@@ -78,19 +79,20 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: remote=$(git ls-remote --heads origin | sed 's|.*/||') && merged=$(gh pr
-          list --state merged --limit 100 --json headRefName --jq
-          '.[].headRefName'); stale=""; for b in $merged; do case " $remote " in
-          *" $b "*) stale="$stale $b";; esac; done; if [ -n "$stale" ]; then
-          echo "stale branches:$stale"; exit 1; fi
+      - run: remote=$(git ls-remote --heads origin | sed 's|.*refs/heads/||') &&
+          merged=$(gh pr list --state merged --limit 100 --json headRefName --jq
+          '.[].headRefName') || { echo "branch query failed"; exit 1; };
+          stale=""; for b in $merged; do echo "$remote" | grep -qx "$b" &&
+          stale="$stale $b"; done; [ -z "$stale" ] || { echo "stale
+          branches:$stale"; exit 1; }
         shell: sh
   dependabot-alerts:
     name: dependabot-alerts
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
       pull-requests: read
+      checks: read
       security-events: read
     steps:
       - name: Checkout
@@ -103,16 +105,17 @@ jobs:
           bun-version: 1.4.0
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
-      - run: gh api 'repos/{owner}/{repo}/dependabot/alerts?state=open&per_page=100'
-          --jq 'length' | grep -qx 0
+      - run: out=$(gh api --paginate 'repos/{owner}/{repo}/dependabot/alerts?state=open'
+          --jq '.[].number') || exit 1; [ -z "$out" ] || { echo "open dependabot
+          alerts:"; echo "$out"; exit 1; }
         shell: sh
   open-prs:
     name: open-prs
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
       pull-requests: read
+      checks: read
       security-events: read
     steps:
       - name: Checkout

@@ -216,8 +216,8 @@ export const selfDemo = new Entry(ci, "self-demo", {
 const repoHealth = new Pipeline(proj, "repo-health", {
   permissions: {
     contents: "read",
-    actions: "read",
     "pull-requests": "read",
+    checks: "read",
     "security-events": "read",
   },
   inputs: {
@@ -225,31 +225,37 @@ const repoHealth = new Pipeline(proj, "repo-health", {
   },
 });
 
-// Latest run on main must be green.
+// Every GitHub Actions check-run on main's HEAD must be green — aggregated
+// across all workflows, so a red box on any workflow reports main as not
+// green. External app checks (SonarCloud etc.) are a different signal.
 const mainGreen = new ShellStep(repoHealth, "main-green", {
   command:
-    'conclusion=$(gh run list --branch main --limit 1 --json conclusion --jq \'.[0].conclusion\') && echo "main: $conclusion" && [ "$conclusion" = "success" ]',
+    'out=$(gh api \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug=="github-actions") | select(.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out" or .conclusion=="action_required") | .name\') || exit 1; [ -z "$out" ] || { echo "failing checks on main:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
 // Zero unresolved review threads across the last 20 merged PRs.
+// reviewThreads(first:100) may truncate — a truncated page counts as a
+// failure (conservative: we cannot verify what we cannot see).
 const reviewDebt = new ShellStep(repoHealth, "review-debt", {
   command:
-    "gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(last:20,states:MERGED){nodes{reviewThreads(first:100){nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '[.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length' | grep -qx 0",
+    "# shellcheck disable=SC2016\n" +
+    "count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(last:20,states:MERGED){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ \"$count\" = \"0\" ] || { echo \"unresolved threads or truncated thread pages: $count\"; exit 1; }",
   runtime: { shell: "sh" },
 });
 
-// No remote branches left behind by merged PRs.
+// No remote branches left behind by merged PRs. ls-remote/pr-list
+// failures abort the check — a query that cannot run is not a pass.
 const staleBranches = new ShellStep(repoHealth, "stale-branches", {
   command:
-    'remote=$(git ls-remote --heads origin | sed \'s|.*/||\') && merged=$(gh pr list --state merged --limit 100 --json headRefName --jq \'.[].headRefName\'); stale=""; for b in $merged; do case " $remote " in *" $b "*) stale="$stale $b";; esac; done; if [ -n "$stale" ]; then echo "stale branches:$stale"; exit 1; fi',
+    'remote=$(git ls-remote --heads origin | sed \'s|.*refs/heads/||\') && merged=$(gh pr list --state merged --limit 100 --json headRefName --jq \'.[].headRefName\') || { echo "branch query failed"; exit 1; }; stale=""; for b in $merged; do echo "$remote" | grep -qx "$b" && stale="$stale $b"; done; [ -z "$stale" ] || { echo "stale branches:$stale"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
-// Zero open dependabot alerts.
+// Zero open dependabot alerts (--paginate covers all pages).
 const dependabotAlerts = new ShellStep(repoHealth, "dependabot-alerts", {
   command:
-    "gh api 'repos/{owner}/{repo}/dependabot/alerts?state=open&per_page=100' --jq 'length' | grep -qx 0",
+    'out=$(gh api --paginate \'repos/{owner}/{repo}/dependabot/alerts?state=open\' --jq \'.[].number\') || exit 1; [ -z "$out" ] || { echo "open dependabot alerts:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
