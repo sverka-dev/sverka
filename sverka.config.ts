@@ -230,7 +230,7 @@ const repoHealth = new Pipeline(proj, "repo-health", {
 // green. External app checks (SonarCloud etc.) are a different signal.
 const mainGreen = new ShellStep(repoHealth, "main-green", {
   command:
-    'out=$(gh api --paginate \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug=="github-actions") | select(.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out" or .conclusion=="action_required") | .name\') || exit 1; [ -z "$out" ] || { echo "failing checks on main:"; echo "$out"; exit 1; }',
+    'out=$(gh api --paginate \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug=="github-actions") | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\(.name) (\\(.conclusion // .status))"\') || exit 1; [ -z "$out" ] || { echo "non-green or in-progress checks on main:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
@@ -266,7 +266,7 @@ const dependabotAlerts = new ShellStep(repoHealth, "dependabot-alerts", {
 // Informational: prints currently open PRs (always passes).
 const openPrs = new ShellStep(repoHealth, "open-prs", {
   command:
-    "gh pr list --state open --json number,title,author --jq '.[] | \"#\\(.number) \\(.title) (@\\(.author.login))\"' || true",
+    "gh pr list --state open --limit 100 --json number,title,author --jq '.[] | \"#\\(.number) \\(.title) (@\\(.author.login))\"' || true",
   runtime: { shell: "sh" },
 });
 
