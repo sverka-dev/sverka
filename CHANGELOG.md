@@ -1,3 +1,13 @@
+## 0.2.1 (2026-10-04)
+
+### 🚀 Features
+
+- add create-sverka scaffold shim ([#296](https://github.com/sverka-dev/sverka/pull/296))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.0 (2026-10-04)
 
 ### 🚀 Features
