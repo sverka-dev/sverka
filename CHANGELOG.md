@@ -1,3 +1,13 @@
+## 0.2.2 (2026-10-04)
+
+### 🩹 Fixes
+
+- include create-sverka in nx release projects ([#297](https://github.com/sverka-dev/sverka/pull/297))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.1 (2026-10-04)
 
 ### 🚀 Features
