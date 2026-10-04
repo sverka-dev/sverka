@@ -50,8 +50,9 @@ npm. After `npm login`:
 bunx nx run tools:prepare-for-release --trust --trustRepo=sverka-dev/sverka
 ```
 
-This publishes `0.0.0` placeholders for any unpublished `@sverka/*` package,
-then runs `npm trust github <pkg> --file release.yml --repo sverka-dev/sverka
+This publishes `0.0.0` placeholders for every unpublished package in
+`packages/*` — scoped and unscoped alike (`sverka`, `create-sverka`) — then
+runs `npm trust github <pkg> --file release.yml --repo sverka-dev/sverka
 --allow-publish` for all of them (the `--file` name is hardcoded in the
 executor — the workflow must stay `release.yml`). Idempotent; re-run it when
 adding a new publishable package. Requires npm >= 11.5.1 locally

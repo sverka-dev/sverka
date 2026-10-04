@@ -7,6 +7,7 @@
       "benchmark",
       "cli",
       "compiler",
+      "create-sverka",
       "playground",
       "plugin-mcp",
       "reporter",
