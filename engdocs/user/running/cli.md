@@ -44,7 +44,7 @@ Emits step events: pending, started, succeeded/failed, run completion.
 | `--executor` | string  | `host`  | Runtime executor to use (`host` or `docker`)                                 |
 | `--evaluate` | boolean | `false` | Collect SARIF findings and evaluate policy after the run                     |
 | `--output`   | string  | —       | Output file path for HTML report (implies `--format html`)                   |
-| `--tui`      | boolean | auto    | Interactive terminal UI (default: on when stdout is a TTY and no `--format`) |
+| `--tui`      | boolean | `false` | Interactive terminal UI (opt-in; default output is plain text)       |
 
 ### `sverka discover`
 

@@ -27,10 +27,8 @@ export interface RunArgs {
   executor?: "host" | "docker";
   evaluate?: boolean;
   output?: string;
-  /** Force TUI on (true) or off (false); undefined = auto-detect TTY. */
+  /** Enable the interactive TUI (opt-in; default output is plain text). */
   tui?: boolean;
-  /** Whether --format was passed explicitly (disables TUI auto-detect). */
-  formatExplicit?: boolean;
   /** Max steps running concurrently (--jobs). */
   jobs?: number;
 }
@@ -259,16 +257,14 @@ async function consumeEvents(
     global.format === "html" ||
     (args.output !== undefined && !isSarif && !isWeb);
 
-  // TUI auto-detect: stdout TTY + no explicit --format, unless --no-tui.
-  // --tui forces it on; any explicit --format forces it off.
-  const tuiDenied = args.tui === false || args.formatExplicit === true;
+  // TUI is strictly opt-in via --tui: `sverka run` prints plain text on
+  // every stream, TTY included. Any non-text --format wins over --tui.
   const tuiWanted =
+    args.tui === true &&
     !isHtml &&
     !isSarif &&
     !isWeb &&
-    global.format === "text" &&
-    !tuiDenied &&
-    (args.tui === true || process.stdout.isTTY === true);
+    global.format === "text";
 
   if (tuiWanted) {
     try {

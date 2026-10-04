@@ -5,8 +5,8 @@
 Phase 3 of the Quality Gate UI. Adds an `InkRenderer` — a live, interactive
 terminal UI built on `ink` + `react` — that renders the run as a DAG tree
 with per-step status, a filterable findings list, and a policy verdict
-footer. The CLI auto-detects TTY: `sverka run` uses the TUI when stdout is
-a TTY and no `--format` is given; otherwise it falls back to text.
+footer. The TUI is strictly opt-in: `sverka run` prints plain text on
+every stream (TTY included); `--tui` selects the InkRenderer.
 
 ## Goals
 
@@ -21,7 +21,7 @@ a TTY and no `--format` is given; otherwise it falls back to text.
   filter, `d` toggle step details, `q` quit.
 - Policy verdict footer (pass/fail) once `onVerdict` is called.
 - Respects terminal resize: layout adapts to `stdout.columns`/`rows`.
-- CLI: `--tui` / `--no-tui` flags + TTY auto-detection.
+- CLI: `--tui` opt-in flag (no TTY auto-detection; text is the default).
 
 ## Non-goals
 
@@ -215,14 +215,12 @@ viewport.
 sverka run [--tui] [--no-tui] [--format text|json|html]
 ```
 
-- `--tui`: force the InkRenderer even if stdout is not a TTY.
-- `--no-tui`: force text output even on a TTY.
-- Auto-detect: when neither flag is given and `--format` is not given,
-  use the TUI iff `process.stdout.isTTY`.
-- `--format` (any explicit value) always wins over auto-detection:
-  `text` → TextRenderer, `json` → JSON output, `html` → HtmlRenderer.
-- `--format` currently defaults to `text`; the CLI must distinguish an
-  explicit `--format text` (forces TextRenderer) from the default.
+- `--tui`: enable the InkRenderer (opt-in; works on non-TTY too).
+- `--no-tui`: accepted for compatibility; text is the default anyway.
+- Default: `sverka run` always prints plain text, TTY included — there is
+  no TTY auto-detection.
+- `--format` (any value) wins over `--tui`: `json` → JSON output,
+  `html` → HtmlRenderer; `--tui` only applies to the text format.
 
 ### Exit codes
 
@@ -283,8 +281,8 @@ tick on `useState` + interval); `ink-spinner` is not needed.
 22. **Public API**: exports `createInkRenderer`, `buildStepTree`,
     `filterFindings`, `stepGlyph`, `FindingFilter`, `StepGlyph`,
     `StepTreeRow`, `InkRenderer`, `InkRendererOptions`.
-23. **CLI integration**: `sverka run --no-tui` on a TTY uses the text
-    renderer (no TUI escape codes in output).
+23. **CLI integration**: `sverka run` on a TTY uses the text renderer by
+    default (no TUI escape codes in output).
 24. **CLI integration**: `--format text` explicitly forces text output.
-25. **CLI integration**: auto-detect picks TUI only when stdout is a TTY
-    and no `--format`/`--no-tui` is given.
+25. **CLI integration**: the TUI is only ever selected by an explicit
+    `--tui` flag; there is no TTY auto-detection.
