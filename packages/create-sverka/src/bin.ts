@@ -1,18 +1,14 @@
 #!/usr/bin/env node
 import process from "node:process";
-import { spawnSync } from "node:child_process";
+import { createSverka } from "./index.js";
 
-// `npm create sverka` / `bun create sverka` / `bunx create-sverka` resolve
-// this package by the create-* convention. It is a thin shim that delegates
-// to the latest published `sverka` CLI so project init logic lives in
-// exactly one place (sverka init).
-const args = ["--yes", "sverka@latest", "init", ...process.argv.slice(2)];
-const result = spawnSync("npx", args, { stdio: "inherit" });
-
-if (result.error) {
-  console.error(
-    `create-sverka: failed to launch npx — ${result.error.message}`,
-  );
-  process.exit(1);
+try {
+  // Set process.exitCode and let the event loop drain instead of calling
+  // process.exit() immediately — a forced exit can truncate buffered
+  // stdout/stderr writes when output is piped or large.
+  process.exitCode = await createSverka(process.argv.slice(2));
+} catch (e: unknown) {
+  const msg = e instanceof Error ? (e.stack ?? e.message) : String(e);
+  process.stderr.write(`fatal: ${msg}\n`);
+  process.exitCode = 3;
 }
-process.exit(result.status ?? 1);

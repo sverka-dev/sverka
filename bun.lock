@@ -110,6 +110,9 @@
       "bin": {
         "create-sverka": "dist/bin.mjs",
       },
+      "dependencies": {
+        "sverka": "workspace:*",
+      },
     },
     "packages/playground": {
       "name": "@sverka/playground",
