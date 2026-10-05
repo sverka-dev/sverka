@@ -688,8 +688,8 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
     expect(result.stderr).toBe("lint error");
   });
 
-  it("truncates stdout/stderr beyond 10KB", async () => {
-    const big = "x".repeat(12000);
+  it("truncates stdout/stderr beyond 10KB keeping the tail", async () => {
+    const big = "x".repeat(12000) + "FINAL-LINE";
     const driver = createMockDriver({
       executeFn: async () => ({
         exitCode: 0,
@@ -703,8 +703,11 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
       execOpts(makeStep([{ kind: "shell", command: "cat big" }]), driver),
     );
     expect(result.status).toBe("succeeded");
-    expect(result.stdout).toContain("truncated 2000 bytes");
+    expect(result.stdout).toContain("truncated");
     expect(result.stdout!.length).toBeLessThan(big.length);
+    // The tail is what users and renderers care about — keep the end.
+    expect(result.stdout).toContain("FINAL-LINE");
+    expect(result.stdout!.startsWith("xxx")).toBe(false);
   });
 
   const SARIF_STEP = [

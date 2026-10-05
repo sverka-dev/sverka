@@ -113,6 +113,16 @@ function printRunEvent(
   }
 }
 
+/** Strip terminal escapes and control bytes from a captured output line —
+ * a step's stdout/stderr is untrusted text that could spoof status lines
+ * or alter terminal state (OSC 8 links, CSI erasures, rogue colors). */
+function sanitizeLine(line: string): string {
+  return line
+    .replace(/\u001b\][^\x07\u001b]*(?:\x07|\u001b\\)/g, "") // OSC … BEL/ST
+    .replace(/\u001b\[[0-9;:>?]*[ -/]*[@-~]/g, "") // CSI
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, ""); // stray controls
+}
+
 /** Print the tail of a captured stream, dimmed and indented. */
 function printCaptured(
   text: string | undefined,
@@ -130,7 +140,7 @@ function printCaptured(
     writer.writeLine(`      … (${hidden} earlier lines)`);
   }
   for (const line of shown) {
-    writer.writeLine(`      ${paint(color, ANSI.dim, line)}`);
+    writer.writeLine(`      ${paint(color, ANSI.dim, sanitizeLine(line))}`);
   }
 }
 

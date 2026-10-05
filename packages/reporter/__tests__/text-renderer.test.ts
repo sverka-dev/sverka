@@ -219,6 +219,25 @@ describe("TextRenderer", () => {
     expect(writer.text).not.toContain("build log noise");
   });
 
+  it("strips ANSI escapes and control bytes from captured output", () => {
+    const writer = new MockWriter();
+    const renderer = createTextRenderer({ writer, color: true });
+
+    renderer.onEvent({
+      type: "step-succeeded",
+      stepId: "ci/evil",
+      durationMs: 5,
+      stdout:
+        "plain \u001b[32mgreen\u001b[0m text \u001b]8;;https://evil\u0007link\u001b]8;;\u0007",
+    });
+
+    const text = writer.text;
+    expect(text).toContain("plain green text link");
+    // Only the renderer's own dim wraps the line — no smuggled escapes.
+    expect(text).not.toContain("plain \u001b[32mgreen");
+    expect(text).not.toContain("https://evil");
+  });
+
   it("emits ANSI colors only when color is enabled", () => {
     const plain = new MockWriter();
     createTextRenderer({ writer: plain }).onEvent(
