@@ -269,14 +269,21 @@ async function consumeEvents(
     !isWeb &&
     global.format === "text";
 
+  // ANSI colors only on a real terminal that hasn't opted out.
+  const color =
+    process.stdout.isTTY === true &&
+    process.env.NO_COLOR === undefined &&
+    process.env.TERM !== "dumb";
+  const textRenderer = () => createTextRenderer({ writer: output, color });
+
   if (tuiWanted) {
     try {
       renderer = createInkRenderer({ graph });
     } catch {
-      renderer = createTextRenderer({ writer: output });
+      renderer = textRenderer();
     }
   } else if (global.format === "text" && !isHtml) {
-    renderer = createTextRenderer({ writer: output });
+    renderer = textRenderer();
   } else if (isHtml) {
     const outputPath =
       args.output ?? join(global.root, ".sverka", "report.html");

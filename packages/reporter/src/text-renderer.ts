@@ -13,13 +13,15 @@ import { createInitialState, reduceEvent } from "./reducer.js";
 /** Create a vitest-style text renderer. */
 export function createTextRenderer(options: TextRendererOptions): Renderer {
   const writer = options.writer;
+  const color = options.color === true;
+  const stepOutputLines = options.stepOutputLines ?? 20;
   let state: UIState = createInitialState();
   let evaluateMode = false;
 
   return {
     onEvent(event: RunEvent): void {
       state = reduceEvent(state, event);
-      printEvent(event, writer);
+      printEvent(event, writer, color, stepOutputLines);
     },
 
     onFindings(findings: readonly Finding[]): void {
@@ -41,79 +43,147 @@ export function createTextRenderer(options: TextRendererOptions): Renderer {
   };
 }
 
-/** Glyph + label for simple step events. */
-const STEP_GLYPHS: Record<string, string> = {
-  "step-pending": "\u25CB pending",
-  "step-ready": "\u25C7 ready",
-  "step-started": "\u25B6 running",
-  "step-skipped": "\u2298 skipped",
-  "step-cancelled": "\u2298 cancelled",
-  "step-cache-hit": "\u25D2 cache-hit",
-  "step-suspended": "\u23F8 suspended",
-  "step-compensating": "\u21BA compensating",
+const ANSI = {
+  bold: 1,
+  dim: 2,
+  red: 31,
+  green: 32,
+  yellow: 33,
+  cyan: 36,
+  gray: 90,
+} as const;
+
+function paint(enabled: boolean, code: number, text: string): string {
+  return enabled ? `\u001b[${code}m${text}\u001b[0m` : text;
+}
+
+/** Glyph + label + color for simple step events. */
+const STEP_STYLE: Record<
+  string,
+  { glyph: string; label: string; code: number }
+> = {
+  "step-pending": { glyph: "○", label: "pending", code: ANSI.gray },
+  "step-ready": { glyph: "◇", label: "ready", code: ANSI.gray },
+  "step-started": { glyph: "▶", label: "running", code: ANSI.cyan },
+  "step-skipped": { glyph: "⊘", label: "skipped", code: ANSI.gray },
+  "step-cancelled": { glyph: "⊘", label: "cancelled", code: ANSI.gray },
+  "step-cache-hit": { glyph: "◒", label: "cache-hit", code: ANSI.green },
+  "step-suspended": { glyph: "⏸", label: "suspended", code: ANSI.yellow },
+  "step-compensating": {
+    glyph: "↺",
+    label: "compensating",
+    code: ANSI.yellow,
+  },
 };
 
 /** Print run-level events. */
-function printRunEvent(event: RunEvent, writer: TextWriter): boolean {
+function printRunEvent(
+  event: RunEvent,
+  writer: TextWriter,
+  color: boolean,
+): boolean {
   switch (event.type) {
     case "run-started":
-      writer.writeLine(`\n\u25B6 run started (plan: ${event.planId})`);
-      return true;
-    case "run-completed":
       writer.writeLine(
-        `\n\u25A0 run completed: ${event.status} (${event.durationMs}ms)`,
+        `\n${paint(color, ANSI.cyan, "▶")} run started (plan: ${event.planId})`,
       );
       return true;
+    case "run-completed": {
+      const ok = event.status === "success";
+      const head = paint(
+        color,
+        ok ? ANSI.green : ANSI.red,
+        `■ run completed: ${event.status}`,
+      );
+      writer.writeLine(`\n${head} (${event.durationMs}ms)`);
+      return true;
+    }
     case "run-suspended":
-      writer.writeLine(`\n\u25A0 run suspended (${event.durationMs}ms)`);
+      writer.writeLine(
+        `\n${paint(color, ANSI.yellow, "■")} run suspended (${event.durationMs}ms)`,
+      );
       return true;
     case "run-resumed":
-      writer.writeLine(`\n\u25B6 run resumed (plan: ${event.planId})`);
+      writer.writeLine(
+        `\n${paint(color, ANSI.cyan, "▶")} run resumed (plan: ${event.planId})`,
+      );
       return true;
     default:
       return false;
   }
 }
 
+/** Print the tail of a captured stream, dimmed and indented. */
+function printCaptured(
+  text: string | undefined,
+  maxLines: number,
+  writer: TextWriter,
+  color: boolean,
+): void {
+  if (maxLines <= 0 || !text) return;
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  if (lines.length === 0) return;
+  const shown = lines.slice(-maxLines);
+  const hidden = lines.length - shown.length;
+  if (hidden > 0) {
+    writer.writeLine(`      … (${hidden} earlier lines)`);
+  }
+  for (const line of shown) {
+    writer.writeLine(`      ${paint(color, ANSI.dim, line)}`);
+  }
+}
+
 /** Print a single run event as a text line. */
-function printEvent(event: RunEvent, writer: TextWriter): void {
+function printEvent(
+  event: RunEvent,
+  writer: TextWriter,
+  color: boolean,
+  stepOutputLines: number,
+): void {
   // Simple step events with glyph + label
-  const simple = STEP_GLYPHS[event.type];
-  if (simple) {
+  const style = STEP_STYLE[event.type];
+  if (style) {
     const stepId = (event as { stepId: string }).stepId;
     writer.writeLine(
-      `  ${simple.split(" ")[0]} ${stepId}  ${simple.split(" ")[1]}`,
+      `  ${paint(color, style.code, style.glyph)} ${stepId}  ${paint(color, style.code, style.label)}`,
     );
     return;
   }
 
   // Run-level events
-  if (printRunEvent(event, writer)) return;
+  if (printRunEvent(event, writer, color)) return;
 
   // Complex step events with additional fields
   switch (event.type) {
     case "step-succeeded":
       writer.writeLine(
-        `  \u2713 ${event.stepId}  succeeded (${event.durationMs}ms)`,
+        `  ${paint(color, ANSI.green, "✓")} ${event.stepId}  ${paint(color, ANSI.green, "succeeded")} (${event.durationMs}ms)`,
       );
+      printCaptured(event.stdout, stepOutputLines, writer, color);
+      printCaptured(event.stderr, stepOutputLines, writer, color);
       break;
     case "step-failed":
       writer.writeLine(
-        `  \u2717 ${event.stepId}  failed (${event.durationMs}ms) \u2014 ${event.error}`,
+        `  ${paint(color, ANSI.red, "✗")} ${event.stepId}  ${paint(color, ANSI.red, "failed")} (${event.durationMs}ms) — ${event.error}`,
       );
+      printCaptured(event.stdout, stepOutputLines, writer, color);
+      printCaptured(event.stderr, stepOutputLines, writer, color);
       break;
     case "step-retry":
       writer.writeLine(
-        `  \u21BA ${event.stepId}  retry (attempt ${event.attempt})`,
+        `  ${paint(color, ANSI.yellow, "↺")} ${event.stepId}  retry (attempt ${event.attempt})`,
       );
       break;
     case "step-compensated":
       writer.writeLine(
-        `  \u21BA ${event.stepId}  compensated: ${event.status}`,
+        `  ${paint(color, ANSI.yellow, "↺")} ${event.stepId}  compensated: ${event.status}`,
       );
       break;
     case "diagnostic":
-      writer.writeLine(`  ! ${event.stepId}: ${event.message}`);
+      writer.writeLine(
+        `  ${paint(color, ANSI.yellow, "!")} ${event.stepId}: ${event.message}`,
+      );
       break;
   }
 }

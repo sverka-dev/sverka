@@ -37,6 +37,9 @@ and dependencies.
 
 Execute a Run Plan through the native engine with the host runtime driver.
 Emits step events: pending, started, succeeded/failed, run completion.
+After each finished step, prints the tail of its captured stdout/stderr
+(last 20 lines); on a TTY the status lines are ANSI-colored (`NO_COLOR`
+opts out).
 
 | Flag         | Type    | Default | Description                                                    |
 | ------------ | ------- | ------- | -------------------------------------------------------------- |

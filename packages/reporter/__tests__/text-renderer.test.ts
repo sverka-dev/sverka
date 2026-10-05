@@ -153,4 +153,84 @@ describe("TextRenderer", () => {
     renderer.onVerdict(PASS_RESULT);
     expect(writer.text).not.toContain("Policy:");
   });
+
+  it("prints captured stdout after a succeeded step", () => {
+    const writer = new MockWriter();
+    const renderer = createTextRenderer({ writer });
+
+    renderer.onEvent({
+      type: "step-succeeded",
+      stepId: "repo-health/external-checks",
+      durationMs: 1000,
+      stdout:
+        "non-Actions checks not green on main:\nsonarqubecloud\tfailure\tSonarCloud Code Analysis\n",
+    });
+
+    const text = writer.text;
+    expect(text).toContain("succeeded");
+    expect(text).toContain("sonarqubecloud\tfailure\tSonarCloud");
+  });
+
+  it("prints captured stderr after a failed step", () => {
+    const writer = new MockWriter();
+    const renderer = createTextRenderer({ writer });
+
+    renderer.onEvent({
+      type: "step-failed",
+      stepId: "ci/lint",
+      error: "exit code 1",
+      durationMs: 340,
+      stderr: "src/index.ts:4: error TS2322",
+    });
+
+    const text = writer.text;
+    expect(text).toContain("failed");
+    expect(text).toContain("error TS2322");
+  });
+
+  it("tails captured output to stepOutputLines with a marker", () => {
+    const writer = new MockWriter();
+    const renderer = createTextRenderer({ writer, stepOutputLines: 3 });
+
+    renderer.onEvent({
+      type: "step-succeeded",
+      stepId: "ci/build",
+      durationMs: 5,
+      stdout: "l1\nl2\nl3\nl4\nl5",
+    });
+
+    const text = writer.text;
+    expect(text).toContain("(2 earlier lines)");
+    expect(text).toContain("l5");
+    expect(text).not.toContain("l1");
+  });
+
+  it("stepOutputLines: 0 suppresses captured output", () => {
+    const writer = new MockWriter();
+    const renderer = createTextRenderer({ writer, stepOutputLines: 0 });
+
+    renderer.onEvent({
+      type: "step-succeeded",
+      stepId: "ci/build",
+      durationMs: 5,
+      stdout: "build log noise",
+    });
+
+    expect(writer.text).not.toContain("build log noise");
+  });
+
+  it("emits ANSI colors only when color is enabled", () => {
+    const plain = new MockWriter();
+    createTextRenderer({ writer: plain }).onEvent(
+      stepSucceeded("ci/lint", 100),
+    );
+    expect(plain.text).not.toContain("\u001b[32m");
+
+    const colored = new MockWriter();
+    createTextRenderer({ writer: colored, color: true }).onEvent(
+      stepSucceeded("ci/lint", 100),
+    );
+    expect(colored.text).toContain("\u001b[32m");
+    expect(colored.text).toContain("\u001b[0m");
+  });
 });
