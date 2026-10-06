@@ -84,6 +84,16 @@ export async function runCommand(
       ExitCode.UsageError,
     );
   }
+  if (
+    args.stepOutputLines !== undefined &&
+    (!Number.isInteger(args.stepOutputLines) || args.stepOutputLines < 0)
+  ) {
+    throw new CliError(
+      "--step-output-lines must be a non-negative integer",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
 
   const engine = createEngine({
     drivers: buildDrivers(executor),
