@@ -54,7 +54,14 @@ jobs:
 
 Triggers come from the pipeline's `Entry` definitions (`push` → `on.push`,
 `manual` → `workflow_dispatch`, `schedule` → cron). Declared step secrets map
-to `${{ secrets.<NAME> }}` in the job's `env`.
+to `${{ secrets.<NAME> }}` in the job's `env`. Pipeline inputs marked
+`secret: true` are not emitted as `workflow_dispatch` text fields — they
+resolve via `${{ secrets.<NAME> }}` (and via `secrets:` on `workflow_call`).
+
+Set `bootstrap` on a `Pipeline` to control per-job injection: `"toolchain"`
+(default) emits checkout + detected toolchain/dependency setup, `"checkout"`
+emits checkout only, and `"none"` emits neither — for pipelines whose steps
+only call external APIs (`gh api`, webhooks).
 
 ## Public API
 
