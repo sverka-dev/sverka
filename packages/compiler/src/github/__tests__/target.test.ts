@@ -1107,6 +1107,37 @@ describe("compileGithub — secrets (F-21)", () => {
     }
   });
 
+  it("keeps runtime env/secrets off injected setup run steps", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "npm publish",
+      beforeScript: ["echo prep"],
+      afterScript: ["echo done"],
+      runtime: { env: { NODE_ENV: "production" }, secrets: ["NPM_TOKEN"] },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const config: GithubTargetConfig = {
+      setup: [{ name: "Install deps", run: "npm ci" }],
+    };
+    const result = compileGithub(synthesize(proj), config);
+    const yaml = parse(result.artifacts[0]!.content);
+    // Installer scripts are plumbing, not the step's commands — no secrets.
+    const install = yaml.jobs.deploy.steps.find(
+      (s: { name?: string }) => s.name === "Install deps",
+    );
+    expect(install.env).toBeUndefined();
+    // beforeScript, the main command, and afterScript do carry the env.
+    const envSteps = yaml.jobs.deploy.steps.filter(
+      (s: { env?: Record<string, string> }) => s.env !== undefined,
+    );
+    expect(envSteps.length).toBe(3);
+    for (const s of envSteps) {
+      expect(s.env.NODE_ENV).toBe("production");
+      expect(s.env.NPM_TOKEN).toBe("${{ secrets.NPM_TOKEN }}");
+    }
+  });
+
   it("lowers pipeline secret inputs to ${{ secrets.X }} in workflow env", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci", {

@@ -914,11 +914,10 @@ function lowerStep(
   const mode = runtime.mode ?? "host";
   const runsOn = resolveRunsOn(step);
   const container = resolveContainer(step, mode);
-  const scopedSteps = applyStepEnv(steps, collectStepEnv(runtime));
 
   return assembleGithubJob({
     jobId,
-    steps: scopedSteps,
+    steps,
     needs,
     step,
     runsOn,
@@ -1258,18 +1257,17 @@ function collectStepEnv(
 }
 
 /**
- * Attach the step's env to every `run:` step in its job — and only those.
- * Job-level env would leak secrets into `uses:` steps (checkout, setup,
- * artifact upload), whose action code never needs them.
+ * Attach the step's env to one of its own `run:` steps — beforeScript,
+ * shell ops, and afterScript carry the step's commands and get the env;
+ * injected setup/plumbing steps (checkout, toolchain, delay, allowlist
+ * echo, artifact upload) never do.
  */
-function applyStepEnv(
-  steps: readonly GithubStep[],
+function withStepEnv(
+  step: GithubStep,
   stepEnv: Record<string, string>,
-): GithubStep[] {
-  if (Object.keys(stepEnv).length === 0) return [...steps];
-  return steps.map((s) =>
-    s.run !== undefined ? { ...s, env: { ...s.env, ...stepEnv } } : s,
-  );
+): GithubStep {
+  if (Object.keys(stepEnv).length === 0) return step;
+  return { ...step, env: { ...step.env, ...stepEnv } };
 }
 
 /**
@@ -1309,6 +1307,7 @@ function lowerOperations(
   const shortStepId = step.id.includes("/")
     ? step.id.split("/").pop()!
     : step.id;
+  const stepEnv = collectStepEnv(step.runtime);
 
   // Every job needs the repository checked out, then toolchain/dependency
   // setup runs before everything else — unless the pipeline opts out via
@@ -1334,7 +1333,7 @@ function lowerOperations(
   // beforeScript → run steps before main operations.
   if (step.beforeScript) {
     for (const cmd of step.beforeScript) {
-      steps.push({ run: cmd });
+      steps.push(withStepEnv({ run: cmd }, stepEnv));
     }
   }
 
@@ -1363,15 +1362,20 @@ function lowerOperations(
     if (runLines.length === 0) return;
     const combined = runLines.join("\n");
     const translated = translateCommand(combined, step.inputs, jobIdMap);
-    steps.push({
-      // Give the step an id when it contains exportOutput so job-level outputs can reference it.
-      ...(runHasOutput ? { id: "output" } : {}),
-      run: translated,
-      ...(step.runtime.workingDir
-        ? { workingDirectory: step.runtime.workingDir }
-        : {}),
-      ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
-    });
+    steps.push(
+      withStepEnv(
+        {
+          // Give the step an id when it contains exportOutput so job-level outputs can reference it.
+          ...(runHasOutput ? { id: "output" } : {}),
+          run: translated,
+          ...(step.runtime.workingDir
+            ? { workingDirectory: step.runtime.workingDir }
+            : {}),
+          ...(step.runtime.shell ? { shell: step.runtime.shell } : {}),
+        },
+        stepEnv,
+      ),
+    );
     for (const name of stdoutUploadNames) {
       // The runtime persists stdout artifacts even when the shell command
       // fails, so the upload must run unconditionally. The capture writes
@@ -1433,7 +1437,7 @@ function lowerOperations(
   // afterScript → run steps after main operations with if: always().
   if (step.afterScript) {
     for (const cmd of step.afterScript) {
-      steps.push({ run: cmd, if: "always()" });
+      steps.push(withStepEnv({ run: cmd, if: "always()" }, stepEnv));
     }
   }
 
