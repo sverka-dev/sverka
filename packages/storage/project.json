@@ -28,6 +28,9 @@
         "command": "bun run tsc --noEmit",
         "cwd": "packages/storage"
       }
-    }
+    },
+    "packlint": {},
+    "typelint": {},
+    "lint:sarif": {}
   }
 }

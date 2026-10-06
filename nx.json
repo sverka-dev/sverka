@@ -70,13 +70,24 @@
       "!{projectRoot}/**/__tests__/**/*",
       "!{projectRoot}/**/*.test.ts"
     ],
-    "sharedGlobals": []
+    "sharedGlobals": [
+      "{workspaceRoot}/bun.lock",
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/eslint.config.mjs",
+      "{workspaceRoot}/package.json"
+    ]
   },
   "targetDefaults": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "build:web": {
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist-web"],
       "cache": true
     },
     "test": {
@@ -91,6 +102,39 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "inputs": ["default", "^production"],
+      "cache": true
+    },
+    "packlint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "../../node_modules/.bin/publint --strict",
+        "cwd": "{projectRoot}",
+        "forwardAllArgs": false
+      },
+      "dependsOn": ["build"],
+      "inputs": ["production", "{projectRoot}/dist/**/*"],
+      "cache": true
+    },
+    "typelint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "../../node_modules/.bin/attw --pack . --profile esm-only --format table",
+        "cwd": "{projectRoot}",
+        "forwardAllArgs": false
+      },
+      "dependsOn": ["build", "^build"],
+      "inputs": ["production", "^production", "{projectRoot}/dist/**/*"],
+      "cache": true
+    },
+    "lint:sarif": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rm -f reports/eslint.sarif && mkdir -p reports && { rc=0; ../../node_modules/.bin/eslint src -f @microsoft/eslint-formatter-sarif -o reports/eslint.sarif || rc=$?; [ \"$rc\" -le 1 ] && test -s reports/eslint.sarif && jq -e .runs reports/eslint.sarif >/dev/null; }",
+        "cwd": "{projectRoot}",
+        "forwardAllArgs": false
+      },
+      "inputs": ["default", "{workspaceRoot}/eslint.config.mjs"],
+      "outputs": ["{projectRoot}/reports/eslint.sarif"],
       "cache": true
     }
   },

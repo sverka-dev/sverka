@@ -42,6 +42,9 @@
         "command": "bun run tsc --noEmit",
         "cwd": "packages/playground"
       }
-    }
+    },
+    "packlint": {},
+    "typelint": {},
+    "lint:sarif": {}
   }
 }

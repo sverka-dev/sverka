@@ -28,6 +28,9 @@
         "command": "bun run tsc --noEmit",
         "cwd": "packages/sarif-viewer-tui"
       }
-    }
+    },
+    "packlint": {},
+    "typelint": {},
+    "lint:sarif": {}
   }
 }

@@ -8,7 +8,7 @@
     "build": "nx run-many --target=build --all --exclude=skills-*,pack-skills-*",
     "test": "nx run-many --target=test --all",
     "lint": "nx run-many --target=lint --all",
-    "lint:sarif": "eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
+    "lint:sarif": "out=$(nx run-many -t lint:sarif --exclude=skills-*,pack-skills-* 2>&1) || { printf \"%s\\n\" \"$out\" >&2; exit 1; }; f=$(ls packages/*/reports/eslint.sarif); n=$(ls -d packages/*/ | wc -l); m=$(echo \"$f\" | wc -l); [ \"$m\" -eq \"$n\" ] || { echo \"sarif coverage: $m/$n package reports — a packages/* dir lacks a lint:sarif target\" >&2; exit 1; }; echo \"$f\" | xargs jq -s \"{version:\\\"2.1.0\\\",\\\"\\$schema\\\":.[0][\\\"\\$schema\\\"],runs:[.[].runs[]]}\"",
     "lint:md": "markdownlint-cli2",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -17,7 +17,9 @@
     "lint:spell": "cspell lint --no-progress",
     "lint:secrets": "secretlint \"**/*\"",
     "lint:deps": "knip",
-    "lint:attw": "for d in packages/*/; do echo \"== $d\"; (cd \"$d\" && attw --pack . --profile esm-only --format table) || exit 1; done"
+    "lint:attw": "nx run-many -t typelint --exclude=skills-*,pack-skills-*",
+    "lint:pack": "nx run-many -t packlint --exclude=skills-*,pack-skills-*",
+    "lint:actionlint": "b=\"$(go env GOBIN)\"; [ -n \"$b\" ] || b=\"$(go env GOPATH)/bin\"; go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && \"$b/actionlint\" .github/workflows/*.yml"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
