@@ -40,21 +40,24 @@ export const PAGES_STEP_MARKER = Symbol.for("sverka.PagesStep");
 export const AGENT_STEP_MARKER = Symbol.for("sverka.AgentStep");
 export const ENTRY_MARKER = Symbol.for("sverka.Entry");
 
-function marked(value: unknown, marker: symbol): boolean {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as Record<symbol, unknown>)[marker] === true
-  );
-}
+type Shaped = Record<string, unknown> & { node?: { scope?: unknown } };
 
 /** Duck-type fallback for objects built by a pre-marker @sverka/workflow
  * copy — they carry no symbols, so discrimination keys on fields the
  * constructor always assigns. `instanceof Map`/`Array.isArray` are safe:
  * two module copies share the realm's intrinsics — only identity differs. */
-type Shaped = Record<string, unknown> & { node?: { scope?: unknown } };
+const shaped = (v: unknown): v is Shaped =>
+  typeof v === "object" && v !== null;
 
-const shaped = (v: unknown): v is Shaped => typeof v === "object" && v !== null;
+/** Marker + Construct-shape: every construct exposes `.node`, so a plain
+ * object carrying only the symbol is still rejected. */
+function marked(value: unknown, marker: symbol): boolean {
+  return (
+    shaped(value) &&
+    shaped(value.node) &&
+    (value as Record<symbol, unknown>)[marker] === true
+  );
+}
 
 export function isProject(value: unknown): value is Project {
   return (
@@ -87,21 +90,21 @@ export function isStep(value: unknown): value is Step {
 export function isShellStep(value: unknown): value is ShellStep {
   return (
     marked(value, SHELL_STEP_MARKER) ||
-    (isStep(value) && typeof value.command === "string")
+    (isStep(value) && shaped(value) && typeof value.command === "string")
   );
 }
 
 export function isPipelineCallStep(value: unknown): value is PipelineCallStep {
   return (
     marked(value, PIPELINE_CALL_STEP_MARKER) ||
-    (isStep(value) && typeof value.callee === "string")
+    (isStep(value) && shaped(value) && typeof value.callee === "string")
   );
 }
 
 export function isComponentStep(value: unknown): value is ComponentStep {
   return (
     marked(value, COMPONENT_STEP_MARKER) ||
-    (isStep(value) && shaped(value.component))
+    (isStep(value) && shaped(value) && shaped(value.component))
   );
 }
 
@@ -110,27 +113,27 @@ export function isChildPipelineStep(
 ): value is ChildPipelineStep {
   return (
     marked(value, CHILD_PIPELINE_STEP_MARKER) ||
-    (isStep(value) && shaped(value.childPipeline))
+    (isStep(value) && shaped(value) && shaped(value.childPipeline))
   );
 }
 
 export function isDownstreamStep(value: unknown): value is DownstreamStep {
   return (
     marked(value, DOWNSTREAM_STEP_MARKER) ||
-    (isStep(value) && shaped(value.downstream))
+    (isStep(value) && shaped(value) && shaped(value.downstream))
   );
 }
 
 export function isReleaseStep(value: unknown): value is ReleaseStep {
   return (
     marked(value, RELEASE_STEP_MARKER) ||
-    (isStep(value) && shaped(value.release))
+    (isStep(value) && shaped(value) && shaped(value.release))
   );
 }
 
 export function isPagesStep(value: unknown): value is PagesStep {
   return (
-    marked(value, PAGES_STEP_MARKER) || (isStep(value) && shaped(value.pages))
+    marked(value, PAGES_STEP_MARKER) || (isStep(value) && shaped(value) && shaped(value.pages))
   );
 }
 
@@ -138,6 +141,7 @@ export function isAgentStep(value: unknown): value is AgentStep {
   return (
     marked(value, AGENT_STEP_MARKER) ||
     (isStep(value) &&
+      shaped(value) &&
       typeof value.engine === "string" &&
       typeof value.prompt === "string")
   );
