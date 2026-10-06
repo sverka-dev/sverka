@@ -93,6 +93,8 @@ jobs:
   dependabot-alerts:
     name: dependabot-alerts
     runs-on: ubuntu-latest
+    env:
+      REPO_HEALTH_TOKEN: ${{ secrets.REPO_HEALTH_TOKEN }}
     permissions:
       contents: read
       pull-requests: read
@@ -103,12 +105,16 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - run: out=$(gh api --paginate 'repos/{owner}/{repo}/dependabot/alerts?state=open'
-          --jq '.[].number' 2>&1) || { if echo "$out" | grep -qi "not
-          accessible\|403"; then echo "::warning::GITHUB_TOKEN cannot read
-          dependabot alerts (needs the vulnerability-alerts scope); check
-          skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo
-          "open dependabot alerts:"; echo "$out"; exit 1; }
+      - run: "[ -z \"$REPO_HEALTH_TOKEN\" ] || export GH_TOKEN=\"$REPO_HEALTH_TOKEN\";
+          out=$(gh api --paginate
+          'repos/{owner}/{repo}/dependabot/alerts?state=open' --jq '.[].number'
+          2>&1) || { if echo \"$out\" | grep -qi \"not accessible\\|403\"; then
+          if [ -n \"$REPO_HEALTH_TOKEN\" ]; then echo \"REPO_HEALTH_TOKEN cannot
+          read dependabot alerts — check its scopes (vulnerability-alerts read)
+          or remove the secret\"; exit 1; fi; echo \"::warning::GITHUB_TOKEN
+          cannot read dependabot alerts (needs the vulnerability-alerts scope);
+          check skipped\"; exit 0; fi; echo \"$out\"; exit 1; }; [ -z \"$out\" ]
+          || { echo \"open dependabot alerts:\"; echo \"$out\"; exit 1; }"
         shell: sh
   open-prs:
     name: open-prs

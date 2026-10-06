@@ -54,7 +54,18 @@ jobs:
 
 Triggers come from the pipeline's `Entry` definitions (`push` → `on.push`,
 `manual` → `workflow_dispatch`, `schedule` → cron). Declared step secrets map
-to `${{ secrets.<NAME> }}` in the job's `env`.
+to `${{ secrets.<NAME> }}` in the job's `env`. Pipeline inputs marked
+`secret: true` are not emitted as `workflow_dispatch` text fields — they
+resolve via `${{ secrets.<NAME> }}` (and via `secrets:` on `workflow_call`).
+
+Set `bootstrap` on a `Pipeline` to control injection into shell and action
+jobs (reusable-workflow call jobs are emitted as `uses:` jobs and receive no
+bootstrap steps): `"toolchain"` (default) emits checkout + detected
+toolchain/dependency setup, `"checkout"` emits checkout only, and `"none"`
+emits neither. Note that `gh api` calls using `{owner}/{repo}` placeholders
+need repository context — keep `"checkout"`, set `GH_REPO`, or use an
+explicit `repos/<owner>/<repo>` path; `"none"` suits only work that never
+touches the local repo (webhooks, external APIs).
 
 ## Public API
 

@@ -625,14 +625,30 @@ describe("compileGithub — typed inputs", () => {
       const proj = new Project(`t-${level}`);
       const p = new Pipeline(proj, "ci", { bootstrap: level });
       new ShellStep(p, "build", { command: "echo" });
-      new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+      new ComponentStep(p, "deploy", {
+        component: {
+          name: "org/deploy-action",
+          version: "v1",
+          inputs: { env: "staging" },
+        },
+      });
+      new Entry(p, "on-push", {
+        trigger: { kind: "push" },
+        roots: ["build", "deploy"],
+      });
       const result = compileGithub(synthesize(proj), config);
       const yaml = parse(result.artifacts[0]!.content);
-      const names = (yaml.jobs.build.steps as { name?: string }[]).map(
-        (s) => s.name,
-      );
-      expect(names.includes("Checkout"), level).toBe(wantCheckout);
-      expect(names.includes("Setup Bun"), level).toBe(wantSetup);
+      for (const jobId of ["build", "deploy"]) {
+        const names = (yaml.jobs[jobId].steps as { name?: string }[]).map(
+          (s) => s.name,
+        );
+        expect(names.includes("Checkout"), `${level}/${jobId}`).toBe(
+          wantCheckout,
+        );
+        expect(names.includes("Setup Bun"), `${level}/${jobId}`).toBe(
+          wantSetup,
+        );
+      }
     }
   });
 
