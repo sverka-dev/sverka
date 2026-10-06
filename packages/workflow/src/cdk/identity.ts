@@ -46,8 +46,7 @@ type Shaped = Record<string, unknown> & { node?: { scope?: unknown } };
  * copy — they carry no symbols, so discrimination keys on fields the
  * constructor always assigns. `instanceof Map`/`Array.isArray` are safe:
  * two module copies share the realm's intrinsics — only identity differs. */
-const shaped = (v: unknown): v is Shaped =>
-  typeof v === "object" && v !== null;
+const shaped = (v: unknown): v is Shaped => typeof v === "object" && v !== null;
 
 /** Marker + Construct-shape: every construct exposes `.node`, so a plain
  * object carrying only the symbol is still rejected. */
@@ -133,7 +132,8 @@ export function isReleaseStep(value: unknown): value is ReleaseStep {
 
 export function isPagesStep(value: unknown): value is PagesStep {
   return (
-    marked(value, PAGES_STEP_MARKER) || (isStep(value) && shaped(value) && shaped(value.pages))
+    marked(value, PAGES_STEP_MARKER) ||
+    (isStep(value) && shaped(value) && shaped(value.pages))
   );
 }
 
