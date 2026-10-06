@@ -1838,7 +1838,7 @@ function translateEnvConditionRef(
       "LOWER_FAILED",
     );
   }
-  return `'${literal.replaceAll("'", "''")}'`;
+  return `'${literal.replace(/'/g, "''")}'`;
 }
 
 /**
