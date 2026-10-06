@@ -264,5 +264,5 @@ the template as a JavaScript expression. See
 - GitHub: <https://docs.github.com/en/actions/learn-github-actions/contexts>
 - GitHub: <https://docs.github.com/en/actions/learn-github-actions/expressions>
 - GitLab: <https://docs.gitlab.com/ee/ci/variables/>
-- GitLab: <https://docs.gitlab.com/ee/ci/expressions.html>
+- GitLab: <https://docs.gitlab.com/ci/yaml/expressions/>
 - Architecture spec: §11, §12.3, §25, §31.2

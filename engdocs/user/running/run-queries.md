@@ -108,5 +108,6 @@ interface RunState {
   execution.
 - **Signals (write side) are deferred.** `Engine.signal(name, payload)` is
   not in v1. Suspend/resume + cancel cover the write side.
-- **CI targets are emulated.** The compiled workflow runs `sverka execute`,
-  which uses the native engine.
+- **No CI equivalent yet.** Compiled workflows lower steps to
+  target-native constructs (jobs, includes, trigger jobs); suspend/resume
+  is not lowered.
