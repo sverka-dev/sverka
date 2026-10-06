@@ -23,7 +23,8 @@
       "@sverka/sarif-viewer-web/html-generator": [
         "./packages/sarif-viewer-web/src/html-generator.ts"
       ],
-      "@sverka/*": ["./packages/*/src/index.ts"]
+      "@sverka/*": ["./packages/*/src/index.ts"],
+      "sverka": ["./packages/cli/src/index.ts"]
     },
     "jsx": "react-jsx"
   },

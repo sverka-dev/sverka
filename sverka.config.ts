@@ -161,8 +161,9 @@ const deps = new ShellStep(ci, "deps", {
 // Package metadata gate — publint per package via the `packlint` nx target
 // (per-package cache; the target's dependsOn build produces dist/ in-job).
 // Suggestions (e.g. missing sideEffects) don't fail; errors do.
-// Ordered after test: locally every nx dependsOn-build rewrites dist/, and
-// running these concurrently with dist-reading tests races mid-write.
+// Ordered after test: each target's internal nx dependsOn-build rewrites
+// dist/, while test-spawned dist readers (bin.test.ts, public-api.test.ts)
+// and the other lint step's reads can't tolerate a concurrent clean.
 const packlint = new ShellStep(ci, "packlint", {
   command: "bun run lint:pack",
   dependsOn: [test.node.id],
