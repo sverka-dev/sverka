@@ -1,3 +1,14 @@
+## 0.2.4 (2026-10-06)
+
+### 🚀 Features
+
+- **reporter:** ANSI colors + captured step output in text renderer ([#300](https://github.com/sverka-dev/sverka/pull/300))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.3 (2026-10-04)
 
 ### 🚀 Features
