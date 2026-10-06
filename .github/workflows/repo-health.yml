@@ -93,8 +93,6 @@ jobs:
   dependabot-alerts:
     name: dependabot-alerts
     runs-on: ubuntu-latest
-    env:
-      REPO_HEALTH_TOKEN: ${{ secrets.REPO_HEALTH_TOKEN }}
     permissions:
       contents: read
       pull-requests: read
@@ -115,6 +113,8 @@ jobs:
           cannot read dependabot alerts (needs the vulnerability-alerts scope);
           check skipped\"; exit 0; fi; echo \"$out\"; exit 1; }; [ -z \"$out\" ]
           || { echo \"open dependabot alerts:\"; echo \"$out\"; exit 1; }"
+        env:
+          REPO_HEALTH_TOKEN: ${{ secrets.REPO_HEALTH_TOKEN }}
         shell: sh
   open-prs:
     name: open-prs

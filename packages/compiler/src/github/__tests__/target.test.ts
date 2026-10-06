@@ -1034,9 +1034,9 @@ describe("compileGithub — diagnostic operation", () => {
   });
 });
 
-// F-20: Environment variables — runtime.env → job env block
+// F-20: Environment variables — runtime.env → per-step env on run steps
 describe("compileGithub — environment variables (F-20)", () => {
-  it("lowers runtime.env to job env block", () => {
+  it("lowers runtime.env to run-step env, not job env", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", {
@@ -1046,7 +1046,13 @@ describe("compileGithub — environment variables (F-20)", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.build.env).toEqual({ NODE_ENV: "production", CI: "true" });
+    expect(yaml.jobs.build.env).toBeUndefined();
+    const runStep = yaml.jobs.build.steps.find((s: { run?: string }) => s.run);
+    expect(runStep.env).toEqual({ NODE_ENV: "production", CI: "true" });
+    const checkout = yaml.jobs.build.steps.find(
+      (s: { uses?: string }) => s.uses,
+    );
+    expect(checkout.env).toBeUndefined();
   });
 
   it("lowers pipeline input defaults to workflow env", () => {
@@ -1078,9 +1084,9 @@ describe("compileGithub — environment variables (F-20)", () => {
   });
 });
 
-// F-21: Secrets — runtime.secrets → ${{ secrets.X }} in job env
+// F-21: Secrets — runtime.secrets → ${{ secrets.X }} on run steps only
 describe("compileGithub — secrets (F-21)", () => {
-  it("lowers runtime.secrets to ${{ secrets.X }} in job env", () => {
+  it("lowers runtime.secrets to ${{ secrets.X }} in run-step env, not job env", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "deploy", {
@@ -1090,8 +1096,46 @@ describe("compileGithub — secrets (F-21)", () => {
     new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
     const result = compileGithub(synthesize(proj));
     const yaml = parse(result.artifacts[0]!.content);
-    expect(yaml.jobs.deploy.env.NPM_TOKEN).toBe("${{ secrets.NPM_TOKEN }}");
-    expect(yaml.jobs.deploy.env.GH_TOKEN).toBe("${{ secrets.GH_TOKEN }}");
+    // Job env is gone — sibling steps must not inherit the credentials.
+    expect(yaml.jobs.deploy.env).toBeUndefined();
+    const runStep = yaml.jobs.deploy.steps.find((s: { run?: string }) => s.run);
+    expect(runStep.env.NPM_TOKEN).toBe("${{ secrets.NPM_TOKEN }}");
+    expect(runStep.env.GH_TOKEN).toBe("${{ secrets.GH_TOKEN }}");
+    // uses: steps (checkout, setup, upload) never see the secrets.
+    for (const s of yaml.jobs.deploy.steps) {
+      if (s.uses !== undefined) expect(s.env).toBeUndefined();
+    }
+  });
+
+  it("keeps runtime env/secrets off injected setup run steps", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "deploy", {
+      command: "npm publish",
+      beforeScript: ["echo prep"],
+      afterScript: ["echo done"],
+      runtime: { env: { NODE_ENV: "production" }, secrets: ["NPM_TOKEN"] },
+    });
+    new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["deploy"] });
+    const config: GithubTargetConfig = {
+      setup: [{ name: "Install deps", run: "npm ci" }],
+    };
+    const result = compileGithub(synthesize(proj), config);
+    const yaml = parse(result.artifacts[0]!.content);
+    // Installer scripts are plumbing, not the step's commands — no secrets.
+    const install = yaml.jobs.deploy.steps.find(
+      (s: { name?: string }) => s.name === "Install deps",
+    );
+    expect(install.env).toBeUndefined();
+    // beforeScript, the main command, and afterScript do carry the env.
+    const envSteps = yaml.jobs.deploy.steps.filter(
+      (s: { env?: Record<string, string> }) => s.env !== undefined,
+    );
+    expect(envSteps.length).toBe(3);
+    for (const s of envSteps) {
+      expect(s.env.NODE_ENV).toBe("production");
+      expect(s.env.NPM_TOKEN).toBe("${{ secrets.NPM_TOKEN }}");
+    }
   });
 
   it("lowers pipeline secret inputs to ${{ secrets.X }} in workflow env", () => {
