@@ -106,12 +106,12 @@
     },
     "packlint": {
       "dependsOn": ["build"],
-      "inputs": ["production", "{projectRoot}/dist"],
+      "inputs": ["production", "{projectRoot}/dist/**/*"],
       "cache": true
     },
     "typelint": {
       "dependsOn": ["build"],
-      "inputs": ["production", "{projectRoot}/dist"],
+      "inputs": ["production", "{projectRoot}/dist/**/*"],
       "cache": true
     },
     "lint:sarif": {

@@ -19,7 +19,7 @@
     "lint:deps": "knip",
     "lint:attw": "nx run-many -t typelint --exclude=skills-*,pack-skills-*",
     "lint:pack": "nx run-many -t packlint --exclude=skills-*,pack-skills-*",
-    "lint:actionlint": "go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && \"$(go env GOPATH)/bin/actionlint\" .github/workflows/*.yml"
+    "lint:actionlint": "b=\"$(go env GOBIN)\"; [ -n \"$b\" ] || b=\"$(go env GOPATH)/bin\"; go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && \"$b/actionlint\" .github/workflows/*.yml"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

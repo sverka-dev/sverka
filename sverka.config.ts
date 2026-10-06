@@ -177,7 +177,7 @@ const typelint = new ShellStep(ci, "typelint", {
 });
 
 // Workflow lint — actionlint checks the hand-written workflows AND the
-// generated sverka.yml via the cached `sverka:actionlint` nx target.
+// generated sverka.yml via the cached `repo-checks:actionlint` nx target.
 // Installed from source at a pinned tag; Go is preinstalled on GitHub
 // runners and in the devenv image.
 const actionlint = new ShellStep(ci, "actionlint", {
