@@ -64,8 +64,11 @@ const policy = new ShellStep(ci, "policy", {
 // GHSA-vfj7-8cjw-p6xm is unpatched upstream: braces@3.0.3 is the latest
 // release and only reachable via markdownlint-cli2 (dev dep, docs lint).
 // Re-check when a fixed braces ships.
+// GHSA-238p-pmpm-9mq7 (katex, low) is pinned to ^0.16 by markdownlint —
+// the 0.18 fix is a transitive major bump upstream doesn't allow yet.
 const audit = new ShellStep(ci, "audit", {
-  command: "bun audit --ignore GHSA-vfj7-8cjw-p6xm",
+  command:
+    "bun audit --ignore GHSA-vfj7-8cjw-p6xm --ignore GHSA-238p-pmpm-9mq7",
 });
 
 // Formatting gate — prettier version is pinned in devDependencies/lockfile.
