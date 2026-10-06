@@ -16,6 +16,10 @@ jobs:
       checks: read
       security-events: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: out=$(gh api --paginate 'repos/{owner}/{repo}/commits/main/check-runs' --jq
           '.check_runs[] | select(.app.slug=="github-actions") |
           select(.conclusion != "success" and .conclusion != "skipped" and
@@ -32,6 +36,10 @@ jobs:
       checks: read
       security-events: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: |-
           # shellcheck disable=SC2016
           count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(first:20,states:MERGED,orderBy:{field:CREATED_AT,direction:DESC}){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ "$count" = "0" ] || { echo "unresolved threads or truncated thread pages: $count"; exit 1; }
@@ -45,6 +53,10 @@ jobs:
       checks: read
       security-events: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: if ! heads=$(git ls-remote --heads origin); then echo "ls-remote failed";
           exit 1; fi; if ! owner=$(gh repo view --json owner --jq
           '.owner.login'); then echo "repo query failed"; exit 1; fi; stale="";
@@ -63,6 +75,10 @@ jobs:
       checks: read
       security-events: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: if ! out=$(gh api --paginate 'repos/{owner}/{repo}/commits/main/check-runs'
           --jq '.check_runs[] | select(.app.slug != "github-actions") |
           select(.conclusion != "success" and .conclusion != "skipped" and
@@ -83,6 +99,10 @@ jobs:
       checks: read
       security-events: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: out=$(gh api --paginate 'repos/{owner}/{repo}/dependabot/alerts?state=open'
           --jq '.[].number' 2>&1) || { if echo "$out" | grep -qi "not
           accessible\|403"; then echo "::warning::GITHUB_TOKEN cannot read
@@ -99,6 +119,10 @@ jobs:
       checks: read
       security-events: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - run: gh pr list --state open --limit 100 --json number,title,author --jq '.[] |
           "#\(.number) \(.title) (@\(.author.login))"' || true
         shell: sh
