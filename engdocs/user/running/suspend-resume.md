@@ -135,5 +135,5 @@ for await (const event of resumeIter) {
   in-flight steps are awaited before the snapshot is persisted.
 - **No mid-step checkpointing.** `suspend` must be the last operation in a
   step. Pre-suspend operations run normally; their outputs are captured.
-- **CI targets are emulated.** The compiled workflow runs `sverka execute`,
-  which uses the native engine for suspend/resume at runtime.
+- **CI targets are emulated.** The compiled workflow lowers steps to
+  native jobs; suspend/resume has no CI equivalent yet.

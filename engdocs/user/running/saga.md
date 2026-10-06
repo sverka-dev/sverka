@@ -1,7 +1,8 @@
 # Saga compensations
 
 > **Work in progress.** Saga compensations are implemented in the native
-> engine. CI targets emulate via `sverka execute`. APIs may change.
+> engine. CI targets lower steps to native jobs; compensation on CI is a
+> follow-up. APIs may change.
 
 When a run ends in `failure`, the engine automatically runs **compensation
 operations** for succeeded steps that declared one, in reverse completion
@@ -66,6 +67,5 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["notify"] });
   compensations — cancellation is intentional.
 - **No branch scoping.** v1 compensates ALL succeeded steps with a declared
   compensation, in reverse completion order.
-- **CI targets are emulated.** The compiled workflow runs `sverka execute`,
-  which uses the native engine for compensation at runtime. Native
-  `if: failure()` lowering is a follow-up.
+- **CI targets are emulated.** The compiled workflow lowers steps to
+  native jobs; `if: failure()`-style compensation lowering is a follow-up.
