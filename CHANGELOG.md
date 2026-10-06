@@ -1,3 +1,13 @@
+## 0.2.9 (2026-10-06)
+
+### 🚀 Features
+
+- **compiler:** scope runtime.env/secrets to GH step env, not job env ([#312](https://github.com/sverka-dev/sverka/pull/312))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.8 (2026-10-06)
 
 ### 🩹 Fixes
