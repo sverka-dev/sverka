@@ -11,9 +11,12 @@ import {
 
 const proj = new Project("sverka");
 
-// Least privilege for generated CI — same as hand-written ci.yml.
+// Least privilege for generated CI — contents:read only. This workflow
+// also runs on pull_request from forks with a read-only token; nothing in
+// the pipeline calls the Actions API, so actions:read would only widen
+// what PR-controlled code can reach (other runs' artifacts).
 const ci = new Pipeline(proj, "ci", {
-  permissions: { actions: "read", contents: "read" },
+  permissions: { contents: "read" },
 });
 
 // Build first: package tests resolve workspace deps via dist/.
@@ -78,9 +81,12 @@ const audit = new ShellStep(ci, "audit", {
 });
 const auditRecheck = new ShellStep(ci, "audit-recheck", {
   command:
-    'out=$(bun audit 2>&1 || true); missing=""; for id in ' +
+    "out=$(bun audit 2>&1); rc=$?; " +
+    'if [ "$rc" -ne 0 ] && ! echo "$out" | grep -q "GHSA-"; then echo "bun audit failed (registry/infra) — recheck skipped"; exit 0; fi; ' +
+    'missing=""; for id in ' +
     auditIgnoreIds +
-    '; do echo "$out" | grep -q "$id" || missing="$missing $id"; done; [ -z "$missing" ] || { echo "upstream fix shipped — remove audit ignores:$missing"; exit 1; }; echo "all ignored advisories still apply"',
+    '; do echo "$out" | grep -q "$id" || missing="$missing $id"; done; ' +
+    '[ -z "$missing" ] || { echo "upstream fix shipped — remove audit ignores:$missing"; exit 1; }; echo "all ignored advisories still apply"',
   runtime: { shell: "sh" },
 });
 
