@@ -43,26 +43,8 @@
         "cwd": "packages/playground"
       }
     },
-    "packlint": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "../../node_modules/.bin/publint",
-        "cwd": "packages/playground"
-      }
-    },
-    "typelint": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "../../node_modules/.bin/attw --pack . --profile esm-only --format table",
-        "cwd": "packages/playground"
-      }
-    },
-    "lint:sarif": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "rm -f reports/eslint.sarif && mkdir -p reports && ../../node_modules/.bin/eslint src -f @microsoft/eslint-formatter-sarif -o reports/eslint.sarif; test -s reports/eslint.sarif",
-        "cwd": "packages/playground"
-      }
-    }
+    "packlint": {},
+    "typelint": {},
+    "lint:sarif": {}
   }
 }

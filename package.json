@@ -8,7 +8,7 @@
     "build": "nx run-many --target=build --all --exclude=skills-*,pack-skills-*",
     "test": "nx run-many --target=test --all",
     "lint": "nx run-many --target=lint --all",
-    "lint:sarif": "nx run-many -t lint:sarif --exclude=skills-*,pack-skills-* >/dev/null 2>&1 && jq -s '{version:\"2.1.0\",\"$schema\":.[0][\"$schema\"],runs:[.[].runs[]]}' packages/*/reports/eslint.sarif",
+    "lint:sarif": "out=$(nx run-many -t lint:sarif --exclude=skills-*,pack-skills-* 2>&1) || { printf \"%s\\n\" \"$out\" >&2; exit 1; }; f=$(ls packages/*/reports/eslint.sarif); n=$(ls -d packages/*/ | wc -l); m=$(echo \"$f\" | wc -l); [ \"$m\" -eq \"$n\" ] || { echo \"sarif coverage: $m/$n package reports — a packages/* dir lacks a lint:sarif target\" >&2; exit 1; }; echo \"$f\" | xargs jq -s \"{version:\\\"2.1.0\\\",\\\"\\$schema\\\":.[0][\\\"\\$schema\\\"],runs:[.[].runs[]]}\"",
     "lint:md": "markdownlint-cli2",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

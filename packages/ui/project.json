@@ -29,26 +29,8 @@
         "cwd": "packages/ui"
       }
     },
-    "packlint": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "../../node_modules/.bin/publint",
-        "cwd": "packages/ui"
-      }
-    },
-    "typelint": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "../../node_modules/.bin/attw --pack . --profile esm-only --format table",
-        "cwd": "packages/ui"
-      }
-    },
-    "lint:sarif": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "rm -f reports/eslint.sarif && mkdir -p reports && ../../node_modules/.bin/eslint src -f @microsoft/eslint-formatter-sarif -o reports/eslint.sarif; test -s reports/eslint.sarif",
-        "cwd": "packages/ui"
-      }
-    }
+    "packlint": {},
+    "typelint": {},
+    "lint:sarif": {}
   }
 }

@@ -40,8 +40,9 @@
       },
       "inputs": [
         "{workspaceRoot}/**/*.md",
+        "{workspaceRoot}/.markdownlint-cli2.jsonc",
         "{workspaceRoot}/.markdownlint.json",
-        "{workspaceRoot}/.markdownlintignore"
+        "sharedGlobals"
       ],
       "cache": true
     },
@@ -61,7 +62,7 @@
     "actionlint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && \"$(go env GOPATH)/bin/actionlint\" .github/workflows/*.yml",
+        "command": "b=$(go env GOBIN); [ -n \"$b\" ] || b=$(go env GOPATH)/bin; go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && \"$b/actionlint\" .github/workflows/*.yml",
         "cwd": "{workspaceRoot}"
       },
       "inputs": [
