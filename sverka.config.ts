@@ -4,15 +4,19 @@ import {
   ShellStep,
   Entry,
   push,
+  changeRequest,
   manual,
   schedule,
 } from "@sverka/workflow";
 
 const proj = new Project("sverka");
 
-// Least privilege for generated CI — same as hand-written ci.yml.
+// Least privilege for generated CI — contents:read only. This workflow
+// also runs on pull_request from forks with a read-only token; nothing in
+// the pipeline calls the Actions API, so actions:read would only widen
+// what PR-controlled code can reach (other runs' artifacts).
 const ci = new Pipeline(proj, "ci", {
-  permissions: { actions: "read", contents: "read" },
+  permissions: { contents: "read" },
 });
 
 // Build first: package tests resolve workspace deps via dist/.
@@ -66,9 +70,26 @@ const policy = new ShellStep(ci, "policy", {
 // Re-check when a fixed braces ships.
 // GHSA-238p-pmpm-9mq7 (katex, low) is pinned to ^0.16 by markdownlint —
 // the 0.18 fix is a transitive major bump upstream doesn't allow yet.
+// audit-recheck below fails once an ignored advisory stops appearing —
+// i.e. the fix shipped and the lockfile picked it up — so stale ignores
+// get removed instead of silently masking new findings forever.
+const AUDIT_IGNORES = ["GHSA-vfj7-8cjw-p6xm", "GHSA-238p-pmpm-9mq7"];
+const auditIgnoreFlags = AUDIT_IGNORES.map((id) => `--ignore ${id}`).join(" ");
+const auditIgnoreIds = AUDIT_IGNORES.join(" ");
 const audit = new ShellStep(ci, "audit", {
+  command: "bun audit " + auditIgnoreFlags,
+});
+const auditRecheck = new ShellStep(ci, "audit-recheck", {
+  // `sh -e` aborts on a bare failing `out=$(...)` assignment, so
+  // `|| rc=$?` captures the exit code without tripping the shell.
   command:
-    "bun audit --ignore GHSA-vfj7-8cjw-p6xm --ignore GHSA-238p-pmpm-9mq7",
+    "rc=0; out=$(bun audit 2>&1) || rc=$?; " +
+    'if [ "$rc" -ne 0 ] && ! echo "$out" | grep -q "GHSA-"; then echo "bun audit failed (registry/infra) — recheck skipped"; exit 0; fi; ' +
+    'missing=""; for id in ' +
+    auditIgnoreIds +
+    '; do echo "$out" | grep -q "$id" || missing="$missing $id"; done; ' +
+    '[ -z "$missing" ] || { echo "upstream fix shipped — remove audit ignores:$missing"; exit 1; }; echo "all ignored advisories still apply"',
+  runtime: { shell: "sh" },
 });
 
 // Formatting gate — prettier version is pinned in devDependencies/lockfile.
@@ -163,6 +184,13 @@ const actionlint = new ShellStep(ci, "actionlint", {
   runtime: { shell: "sh" },
 });
 
+// Workflow security audit — zizmor lints every workflow file (generated
+// and hand-written) for template injection, unpinned actions, credential
+// leaks. Version pinned via pipx spec; pipx is preinstalled on GH runners.
+const zizmor = new ShellStep(ci, "zizmor", {
+  command: "pipx run --spec zizmor==1.30.1 zizmor .github/workflows/",
+});
+
 // Recursive dogfood — sverka runs itself inside CI. The inner run targets
 // the manual self-demo entry below (never this step — no recursion) and
 // exercises the whole local engine in one job: scheduling → step exec →
@@ -178,26 +206,39 @@ const selfRun = new ShellStep(ci, "self-run", {
   beforeScript: ["bun run build"],
 });
 
+// Shared roots for the push and pull_request entries — both triggers run
+// the full check set so forks and merge refs get identical coverage.
+const ciRoots = [
+  test.node.id, // pulls build → typecheck → lint via dependsOn
+  policy.node.id, // pulls lint-sarif via artifact input
+  audit.node.id,
+  auditRecheck.node.id,
+  format.node.id,
+  doctor.node.id,
+  drift.node.id,
+  docs.node.id,
+  cliSmoke.node.id,
+  depBoundary.node.id,
+  spell.node.id,
+  secrets.node.id,
+  deps.node.id,
+  packlint.node.id,
+  typelint.node.id,
+  actionlint.node.id,
+  zizmor.node.id,
+  selfRun.node.id,
+];
+
 export const onPush = new Entry(ci, "on-push", {
   trigger: push(),
-  roots: [
-    test.node.id, // pulls build → typecheck → lint via dependsOn
-    policy.node.id, // pulls lint-sarif via artifact input
-    audit.node.id,
-    format.node.id,
-    doctor.node.id,
-    drift.node.id,
-    docs.node.id,
-    cliSmoke.node.id,
-    depBoundary.node.id,
-    spell.node.id,
-    secrets.node.id,
-    deps.node.id,
-    packlint.node.id,
-    typelint.node.id,
-    actionlint.node.id,
-    selfRun.node.id,
-  ],
+  roots: ciRoots,
+});
+
+// PR trigger — every job permission is read-scoped, so fork PRs run the
+// same checks under the read-only token.
+export const onPr = new Entry(ci, "on-pr", {
+  trigger: changeRequest(),
+  roots: ciRoots,
 });
 
 // Manual entry — adds workflow_dispatch to the compiled workflow and is the
