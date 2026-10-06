@@ -914,16 +914,15 @@ function lowerStep(
   const mode = runtime.mode ?? "host";
   const runsOn = resolveRunsOn(step);
   const container = resolveContainer(step, mode);
-  const jobEnv = collectJobEnv(runtime);
+  const scopedSteps = applyStepEnv(steps, collectStepEnv(runtime));
 
   return assembleGithubJob({
     jobId,
-    steps,
+    steps: scopedSteps,
     needs,
     step,
     runsOn,
     container,
-    jobEnv,
     jobIdMap,
   });
 }
@@ -1079,7 +1078,6 @@ interface GithubJobParts {
   readonly step: StepDefinition;
   readonly runsOn: GithubRunsOn;
   readonly container: string | undefined;
-  readonly jobEnv: Record<string, string>;
   readonly jobIdMap: Map<string, string>;
 }
 
@@ -1087,8 +1085,7 @@ interface GithubJobParts {
  * Assemble the final GithubJob object from its constituent parts.
  */
 function assembleGithubJob(parts: GithubJobParts): GithubJob {
-  const { jobId, steps, needs, step, runsOn, container, jobEnv, jobIdMap } =
-    parts;
+  const { jobId, steps, needs, step, runsOn, container, jobIdMap } = parts;
   const jobOutputs = collectJobOutputs(step);
   const jobIf = resolveJobIf(step, jobIdMap);
   const jobPermissions = resolveJobPermissions(step);
@@ -1103,7 +1100,6 @@ function assembleGithubJob(parts: GithubJobParts): GithubJob {
     ...(step.timeout !== undefined
       ? { timeoutMinutes: Math.ceil(step.timeout / 60000) }
       : {}),
-    ...(Object.keys(jobEnv).length > 0 ? { env: jobEnv } : {}),
     ...(container ? { container } : {}),
     ...(step.matrix !== undefined
       ? { strategy: lowerStrategy(step.matrix) }
@@ -1241,19 +1237,39 @@ function resolveContainer(
   return mode === "container" ? step.runtime.image : undefined;
 }
 
-function collectJobEnv(
+/**
+ * Collect the environment a step's shell commands run under:
+ * `runtime.env` literals plus `runtime.secrets` resolved via
+ * `${{ secrets.<name> }}`.
+ */
+function collectStepEnv(
   runtime: StepDefinition["runtime"],
 ): Record<string, string> {
-  const jobEnv: Record<string, string> = {};
+  const stepEnv: Record<string, string> = {};
   if (runtime.env) {
-    Object.assign(jobEnv, runtime.env);
+    Object.assign(stepEnv, runtime.env);
   }
   if (runtime.secrets) {
     for (const secret of runtime.secrets) {
-      jobEnv[secret] = `\${{ secrets.${secret} }}`;
+      stepEnv[secret] = `\${{ secrets.${secret} }}`;
     }
   }
-  return jobEnv;
+  return stepEnv;
+}
+
+/**
+ * Attach the step's env to every `run:` step in its job — and only those.
+ * Job-level env would leak secrets into `uses:` steps (checkout, setup,
+ * artifact upload), whose action code never needs them.
+ */
+function applyStepEnv(
+  steps: readonly GithubStep[],
+  stepEnv: Record<string, string>,
+): GithubStep[] {
+  if (Object.keys(stepEnv).length === 0) return [...steps];
+  return steps.map((s) =>
+    s.run !== undefined ? { ...s, env: { ...s.env, ...stepEnv } } : s,
+  );
 }
 
 /**
