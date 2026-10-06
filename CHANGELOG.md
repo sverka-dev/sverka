@@ -1,3 +1,14 @@
+## 0.2.7 (2026-10-06)
+
+### 🩹 Fixes
+
+- **compiler:** secret inputs out of dispatch inputs + pipeline bootstrap opt-out ([#304](https://github.com/sverka-dev/sverka/pull/304))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.6 (2026-10-06)
 
 ### 🩹 Fixes
