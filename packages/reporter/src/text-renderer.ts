@@ -117,10 +117,11 @@ function printRunEvent(
  * a step's stdout/stderr is untrusted text that could spoof status lines
  * or alter terminal state (OSC 8 links, CSI erasures, rogue colors). */
 function sanitizeLine(line: string): string {
+  // Control-char patterns below are the point of a sanitizer (S6324).
   return line
-    .replace(/\u001b\][^\x07\u001b]*(?:\x07|\u001b\\)/g, "") // OSC … BEL/ST
-    .replace(/\u001b\[[0-9;:>?]*[ -/]*[@-~]/g, "") // CSI
-    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, ""); // stray controls
+    .replace(/\u001b\][^\x07\u001b]*(?:\x07|\u001b\\)/g, "") // NOSONAR — OSC … BEL/ST
+    .replace(/\u001b\[[0-9;:>?]*[ -/]*[@-~]/g, "") // NOSONAR — CSI
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, ""); // NOSONAR — stray controls
 }
 
 /** Print the tail of a captured stream, dimmed and indented. A `label`
@@ -136,7 +137,7 @@ function printCaptured(
   // Split on all line breaks — a lone \r would otherwise move the cursor
   // to column 0 and overwrite rendered lines in a real terminal.
   const lines = text.split(/\r\n|\r|\n/);
-  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  while (lines.length > 0 && lines.at(-1) === "") lines.pop();
   if (lines.length === 0) return;
   if (label !== undefined) {
     writer.writeLine(`      ${paint(color, ANSI.dim, label)}`);

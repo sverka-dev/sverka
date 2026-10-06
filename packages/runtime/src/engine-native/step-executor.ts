@@ -79,8 +79,8 @@ function truncateOutput(value: string): string {
   // and corrupts the boundary character.
   if (
     lo > 0 &&
-    value.charCodeAt(lo) >= 0xdc00 &&
-    value.charCodeAt(lo) <= 0xdfff
+    (value.codePointAt(lo) ?? 0) >= 0xdc00 &&
+    (value.codePointAt(lo) ?? 0) <= 0xdfff
   ) {
     lo += 1;
   }
