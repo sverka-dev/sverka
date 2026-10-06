@@ -71,11 +71,16 @@ const policy = new ShellStep(ci, "policy", {
 // i.e. the fix shipped and the lockfile picked it up — so stale ignores
 // get removed instead of silently masking new findings forever.
 const AUDIT_IGNORES = ["GHSA-vfj7-8cjw-p6xm", "GHSA-238p-pmpm-9mq7"];
+const auditIgnoreFlags = AUDIT_IGNORES.map((id) => `--ignore ${id}`).join(" ");
+const auditIgnoreIds = AUDIT_IGNORES.join(" ");
 const audit = new ShellStep(ci, "audit", {
-  command: `bun audit ${AUDIT_IGNORES.map((id) => `--ignore ${id}`).join(" ")}`,
+  command: "bun audit " + auditIgnoreFlags,
 });
 const auditRecheck = new ShellStep(ci, "audit-recheck", {
-  command: `out=$(bun audit 2>&1 || true); missing=""; for id in ${AUDIT_IGNORES.join(" ")}; do echo "$out" | grep -q "$id" || missing="$missing $id"; done; [ -z "$missing" ] || { echo "upstream fix shipped — remove audit ignores:$missing"; exit 1; }; echo "all ignored advisories still apply"`,
+  command:
+    'out=$(bun audit 2>&1 || true); missing=""; for id in ' +
+    auditIgnoreIds +
+    '; do echo "$out" | grep -q "$id" || missing="$missing $id"; done; [ -z "$missing" ] || { echo "upstream fix shipped — remove audit ignores:$missing"; exit 1; }; echo "all ignored advisories still apply"',
   runtime: { shell: "sh" },
 });
 
