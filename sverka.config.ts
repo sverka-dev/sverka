@@ -319,7 +319,7 @@ const externalChecks = new ShellStep(repoHealth, "external-checks", {
 const dependabotAlerts = new ShellStep(repoHealth, "dependabot-alerts", {
   command:
     '[ -z "$REPO_HEALTH_TOKEN" ] || export GH_TOKEN="$REPO_HEALTH_TOKEN"; ' +
-    'out=$(gh api --paginate \'repos/{owner}/{repo}/dependabot/alerts?state=open\' --jq \'.[].number\' 2>&1) || { if echo "$out" | grep -qi "not accessible\\|403"; then echo "::warning::GITHUB_TOKEN cannot read dependabot alerts (needs the vulnerability-alerts scope); check skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo "open dependabot alerts:"; echo "$out"; exit 1; }',
+    'out=$(gh api --paginate \'repos/{owner}/{repo}/dependabot/alerts?state=open\' --jq \'.[].number\' 2>&1) || { if echo "$out" | grep -qi "not accessible\\|403"; then if [ -n "$REPO_HEALTH_TOKEN" ]; then echo "REPO_HEALTH_TOKEN cannot read dependabot alerts — check its scopes (vulnerability-alerts read) or remove the secret"; exit 1; fi; echo "::warning::GITHUB_TOKEN cannot read dependabot alerts (needs the vulnerability-alerts scope); check skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo "open dependabot alerts:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh", secrets: ["REPO_HEALTH_TOKEN"] },
 });
 
