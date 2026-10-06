@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { Project, Pipeline, ShellStep, Entry, push } from "../../cdk/index.js";
-import type { Reference } from "../../cdk/index.js";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  Entry,
+  Construct,
+  push,
+  isEntry,
+  isPipeline,
+  isPipelineCallStep,
+  isProject,
+  isShellStep,
+  isStep,
+} from "../../cdk/index.js";
+import type { Reference, Step } from "../../cdk/index.js";
 import { synthesize, SynthesisError, type StepDefinition } from "../index.js";
 
 describe("synthesize — basic", () => {
@@ -668,5 +681,93 @@ describe("synthesize — safe-outputs: step permissions (Spec 25)", () => {
     const graph = synthesize(proj);
     const step = graph.project.pipelines[0]?.steps[0];
     expect(step?.permissions).toBeUndefined();
+  });
+});
+
+describe("synthesize — structural markers (dual-package installs)", () => {
+  // A config evaluated by a *different* @sverka/workflow copy produces objects
+  // that fail instanceof but carry Symbol.for markers — the constructs idiom.
+
+  it("is* predicates accept real constructs and reject unmarked objects", () => {
+    const proj = new Project("p");
+    const ci = new Pipeline(proj, "ci");
+    const step = new ShellStep(ci, "build", { command: "echo hi" });
+    const entry = new Entry(ci, "on-push", {
+      trigger: push(),
+      roots: ["build"],
+    });
+    expect(isPipeline(ci)).toBe(true);
+    expect(isProject(proj)).toBe(true);
+    expect(isStep(step)).toBe(true);
+    expect(isShellStep(step)).toBe(true);
+    expect(isPipelineCallStep(step)).toBe(false);
+    expect(isEntry(entry)).toBe(true);
+    expect(isPipeline({})).toBe(false);
+    expect(isStep(null)).toBe(false);
+  });
+
+  it("synthesizes a pipeline whose objects carry markers but are not our instances", () => {
+    const proj = new Project("foreign");
+    // Foreign "Pipeline": a bare Construct stamped with the global marker.
+    const foreignPipeline = new Construct(proj, "ci") as unknown as Pipeline;
+    (foreignPipeline as unknown as Record<symbol, unknown>)[
+      Symbol.for("sverka.Pipeline")
+    ] = true;
+    (foreignPipeline as unknown as Record<string, unknown>).inputs = new Map();
+    (foreignPipeline as unknown as Record<string, unknown>).rules = [];
+    (foreignPipeline as unknown as Record<string, unknown>).includes = [];
+    expect(foreignPipeline instanceof Pipeline).toBe(false);
+
+    // Foreign "ShellStep" inside it.
+    const foreignStep = new Construct(
+      foreignPipeline,
+      "build",
+    ) as unknown as Step;
+    const fs = foreignStep as unknown as Record<string | symbol, unknown>;
+    fs[Symbol.for("sverka.Step")] = true;
+    fs[Symbol.for("sverka.ShellStep")] = true;
+    fs.runtime = {};
+    fs.outputs = new Map();
+    fs.inputs = [];
+    fs.dependsOn = [];
+    fs.command = "echo foreign";
+    fs.background = false;
+
+    const graph = synthesize(proj);
+    const pipeline = graph.project.pipelines[0];
+    expect(pipeline?.id).toBe("ci");
+    expect(pipeline?.steps[0]?.id).toBe("ci/build");
+    expect(pipeline?.steps[0]?.operations).toEqual([
+      { kind: "shell", command: "echo foreign" },
+    ]);
+  });
+
+  it("synthesizes legacy pre-marker constructs via duck typing", () => {
+    const proj = new Project("legacy");
+    // A pipeline built by a @sverka/workflow copy from before markers existed:
+    // no symbols, just the shape its constructor always produced.
+    const legacyPipeline = new Construct(proj, "ci") as unknown as Pipeline;
+    (legacyPipeline as unknown as Record<string, unknown>).inputs = new Map();
+    (legacyPipeline as unknown as Record<string, unknown>).rules = [];
+    (legacyPipeline as unknown as Record<string, unknown>).includes = [];
+    expect(legacyPipeline instanceof Pipeline).toBe(false);
+
+    const legacyStep = new Construct(
+      legacyPipeline,
+      "build",
+    ) as unknown as Step;
+    const ls = legacyStep as unknown as Record<string, unknown>;
+    ls.runtime = {};
+    ls.outputs = new Map();
+    ls.inputs = [];
+    ls.dependsOn = [];
+    ls.command = "echo legacy";
+    ls.background = false;
+
+    const graph = synthesize(proj);
+    expect(graph.project.pipelines[0]?.id).toBe("ci");
+    expect(graph.project.pipelines[0]?.steps[0]?.operations).toEqual([
+      { kind: "shell", command: "echo legacy" },
+    ]);
   });
 });

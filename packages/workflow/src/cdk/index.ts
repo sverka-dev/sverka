@@ -16,6 +16,20 @@ export {
   collectConstructWarnings,
   WARNING_METADATA_TYPE,
 } from "./constructs.js";
+export {
+  isAgentStep,
+  isChildPipelineStep,
+  isComponentStep,
+  isDownstreamStep,
+  isEntry,
+  isPagesStep,
+  isPipeline,
+  isPipelineCallStep,
+  isProject,
+  isReleaseStep,
+  isShellStep,
+  isStep,
+} from "./identity.js";
 export { Construct } from "constructs";
 export type {
   PipelineProps,

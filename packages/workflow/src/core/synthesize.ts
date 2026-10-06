@@ -1,20 +1,20 @@
 // Synthesis: transforms a construct tree into a Definition Graph.
 // Spec 05 — §16, §11.3, §11.4. F-31: two-pass for pipeline calls.
 
+import type { Entry, Pipeline, Project, Step } from "../cdk/index.js";
 import {
-  Pipeline,
-  ShellStep,
-  PipelineCallStep,
-  ComponentStep,
-  ChildPipelineStep,
-  DownstreamStep,
-  ReleaseStep,
-  PagesStep,
-  AgentStep,
-  Entry,
-  Project,
-  Step,
-} from "../cdk/index.js";
+  isAgentStep,
+  isChildPipelineStep,
+  isComponentStep,
+  isDownstreamStep,
+  isEntry,
+  isPagesStep,
+  isPipeline,
+  isPipelineCallStep,
+  isReleaseStep,
+  isShellStep,
+  isStep,
+} from "../cdk/identity.js";
 import type {
   StepRef,
   Reference,
@@ -61,17 +61,19 @@ import { SynthesisError } from "./errors.js";
  */
 export function synthesize(project: Project): DefinitionGraph;
 export function synthesize(pipeline: Pipeline): DefinitionGraph;
+export function synthesize(root: Project | Pipeline): DefinitionGraph;
 export function synthesize(root: Project | Pipeline): DefinitionGraph {
   // A bare Pipeline root is legal for single-pipeline configs — its scope is
   // the auto-created default Project.
-  const project =
-    root instanceof Pipeline ? (root.node.scope as Project) : root;
+  const project = isPipeline(root)
+    ? (root.node.scope as Project)
+    : (root as Project);
   const projectId = project.node.id;
   const pipelines: PipelineDefinition[] = [];
 
   // Pass 1: synthesize each pipeline's steps/entries/outputs (no validation).
   for (const child of project.node.children) {
-    if (!(child instanceof Pipeline)) {
+    if (!isPipeline(child)) {
       throw new SynthesisError(
         "INVALID_SCOPE",
         `Project can only contain Pipelines, found '${child.node.id}'`,
@@ -118,9 +120,9 @@ function synthesizePipeline(
   const entries: EntryDefinition[] = [];
 
   for (const child of pipeline.node.children) {
-    if (child instanceof Step) {
+    if (isStep(child)) {
       steps.push(synthesizeStep(child, pipelineId));
-    } else if (child instanceof Entry) {
+    } else if (isEntry(child)) {
       entries.push(synthesizeEntry(child, pipelineId));
     } else {
       throw new SynthesisError(
@@ -174,7 +176,7 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
 
   // Pipeline-call step: set `call`, emit no shell operations (already empty).
   // Outputs are resolved in pass 2 (resolveCallOutputs).
-  if (step instanceof PipelineCallStep) {
+  if (isPipelineCallStep(step)) {
     // Collect dependencies from StepRef bindings in call inputs.
     collectCallInputDeps(step.callInputs, pipelineId, dependencies, seenDeps);
     const call: PipelineCall = {
@@ -185,7 +187,7 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   }
 
   // Component step: set `component`, emit no shell operations.
-  if (step instanceof ComponentStep) {
+  if (isComponentStep(step)) {
     // Collect dependencies from StepRef bindings in component inputs.
     collectCallInputDeps(
       step.component.inputs as Readonly<
@@ -199,12 +201,12 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
   }
 
   // Child-pipeline step: set `childPipeline`, emit no shell operations.
-  if (step instanceof ChildPipelineStep) {
+  if (isChildPipelineStep(step)) {
     return { ...base, childPipeline: step.childPipeline };
   }
 
   // Downstream step: set `downstream`, emit no shell operations.
-  if (step instanceof DownstreamStep) {
+  if (isDownstreamStep(step)) {
     // Collect dependencies from StepRef bindings in downstream inputs.
     collectCallInputDeps(
       step.downstream.inputs as Readonly<
@@ -222,7 +224,7 @@ function synthesizeStep(step: Step, pipelineId: string): StepDefinition {
 
 /** Build the primary operation (shell/release/pages) for a step, if any. */
 function collectPrimaryOperations(step: Step): OperationDefinition[] {
-  if (step instanceof ShellStep) {
+  if (isShellStep(step)) {
     return [
       {
         kind: "shell",
@@ -231,13 +233,13 @@ function collectPrimaryOperations(step: Step): OperationDefinition[] {
       },
     ];
   }
-  if (step instanceof ReleaseStep) {
+  if (isReleaseStep(step)) {
     return [{ kind: "release", ...step.release }];
   }
-  if (step instanceof PagesStep) {
+  if (isPagesStep(step)) {
     return [{ kind: "deployPages", ...step.pages }];
   }
-  if (step instanceof AgentStep) {
+  if (isAgentStep(step)) {
     return [
       {
         kind: "agent",

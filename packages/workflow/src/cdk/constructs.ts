@@ -35,6 +35,22 @@ import type {
   AgentToolRef,
 } from "./model.js";
 import type { OperationDefinition } from "../core/graph.js";
+import {
+  isPipeline,
+  isProject,
+  AGENT_STEP_MARKER,
+  CHILD_PIPELINE_STEP_MARKER,
+  COMPONENT_STEP_MARKER,
+  DOWNSTREAM_STEP_MARKER,
+  ENTRY_MARKER,
+  PAGES_STEP_MARKER,
+  PIPELINE_CALL_STEP_MARKER,
+  PIPELINE_MARKER,
+  PROJECT_MARKER,
+  RELEASE_STEP_MARKER,
+  SHELL_STEP_MARKER,
+  STEP_MARKER,
+} from "./identity.js";
 
 function isDuplicateConstructError(err: unknown): boolean {
   return (
@@ -71,6 +87,9 @@ function validateArtifactOutputs(
  * ```
  */
 export class Project extends Construct {
+  // Structural marker — see identity.ts (dual-package installs break instanceof).
+  readonly [PROJECT_MARKER]?: true = true;
+
   constructor(id: string) {
     // constructs.Construct accepts undefined scope at runtime for root.
     super(undefined as unknown as Construct, id);
@@ -127,7 +146,7 @@ function resolvePipelineArgs(
     id = scopeOrId;
     raw = idOrProps as PipelineProps | undefined;
   } else {
-    if (!(scopeOrId instanceof Project)) {
+    if (!isProject(scopeOrId)) {
       throw new ConstructError(
         "INVALID_SCOPE",
         "Pipeline must be created under a Project",
@@ -166,6 +185,7 @@ function resolvePipelineArgs(
  * ```
  */
 export class Pipeline extends Construct {
+  readonly [PIPELINE_MARKER]?: true = true;
   readonly inputs: ReadonlyMap<string, Input>;
   readonly name?: string;
   readonly runName?: Expression;
@@ -340,6 +360,7 @@ function applyOptionalStepProps(step: Step, props: StepProps): void {
 }
 
 export abstract class Step extends Construct {
+  readonly [STEP_MARKER]?: true = true;
   readonly runtime: Runtime;
   readonly outputs: ReadonlyMap<string, OutputDeclaration>;
   readonly inputs: ReadonlyArray<Reference>;
@@ -365,7 +386,7 @@ export abstract class Step extends Construct {
   readonly compensation?: OperationDefinition;
 
   constructor(scope: Pipeline, id: string, props: StepProps) {
-    if (!(scope instanceof Pipeline)) {
+    if (!isPipeline(scope)) {
       throw new ConstructError(
         "INVALID_SCOPE",
         "Step must be created under a Pipeline",
@@ -404,6 +425,7 @@ export interface ShellStepProps extends StepProps {
 }
 
 export class ShellStep extends Step {
+  readonly [SHELL_STEP_MARKER]?: true = true;
   readonly command: string;
   readonly background: boolean;
 
@@ -425,6 +447,7 @@ export interface PipelineCallStepProps extends StepProps {
 }
 
 export class PipelineCallStep extends Step {
+  readonly [PIPELINE_CALL_STEP_MARKER]?: true = true;
   readonly callee: string;
   readonly callInputs: ReadonlyMap<string, Reference | InputLiteral>;
 
@@ -447,6 +470,7 @@ export interface ComponentStepProps extends StepProps {
 }
 
 export class ComponentStep extends Step {
+  readonly [COMPONENT_STEP_MARKER]?: true = true;
   readonly component: ComponentRef;
 
   constructor(scope: Pipeline, id: string, props: ComponentStepProps) {
@@ -465,6 +489,7 @@ export interface ChildPipelineStepProps extends StepProps {
 }
 
 export class ChildPipelineStep extends Step {
+  readonly [CHILD_PIPELINE_STEP_MARKER]?: true = true;
   readonly childPipeline: ChildPipelineTrigger;
 
   constructor(scope: Pipeline, id: string, props: ChildPipelineStepProps) {
@@ -483,6 +508,7 @@ export interface DownstreamStepProps extends StepProps {
 }
 
 export class DownstreamStep extends Step {
+  readonly [DOWNSTREAM_STEP_MARKER]?: true = true;
   readonly downstream: DownstreamTrigger;
 
   constructor(scope: Pipeline, id: string, props: DownstreamStepProps) {
@@ -501,6 +527,7 @@ export interface ReleaseStepProps extends StepProps {
 }
 
 export class ReleaseStep extends Step {
+  readonly [RELEASE_STEP_MARKER]?: true = true;
   readonly release: ReleaseSpec;
 
   constructor(scope: Pipeline, id: string, props: ReleaseStepProps) {
@@ -519,6 +546,7 @@ export interface PagesStepProps extends StepProps {
 }
 
 export class PagesStep extends Step {
+  readonly [PAGES_STEP_MARKER]?: true = true;
   readonly pages: PagesSpec;
 
   constructor(scope: Pipeline, id: string, props: PagesStepProps) {
@@ -541,6 +569,7 @@ export interface AgentStepProps extends StepProps {
 }
 
 export class AgentStep extends Step {
+  readonly [AGENT_STEP_MARKER]?: true = true;
   readonly engine: string;
   readonly model?: string;
   readonly prompt: string;
@@ -576,11 +605,12 @@ export interface EntryProps {
 }
 
 export class Entry extends Construct {
+  readonly [ENTRY_MARKER]?: true = true;
   readonly trigger: Trigger;
   readonly roots: ReadonlyArray<string>;
 
   constructor(scope: Pipeline, id: string, props: EntryProps) {
-    if (!(scope instanceof Pipeline)) {
+    if (!isPipeline(scope)) {
       throw new ConstructError(
         "INVALID_SCOPE",
         "Entry must be created under a Pipeline",
