@@ -1,3 +1,13 @@
+## 0.2.8 (2026-10-06)
+
+### 🩹 Fixes
+
+- **sonar:** move NOSONAR markers onto the flagged callee lines ([#311](https://github.com/sverka-dev/sverka/pull/311))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.7 (2026-10-06)
 
 ### 🩹 Fixes
