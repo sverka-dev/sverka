@@ -1,4 +1,8 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import {
+  spawn,
+  type ChildProcess,
+  type SpawnOptions,
+} from "node:child_process";
 import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -184,12 +188,14 @@ function spawnAcpAgent(workspace: string, model: string): ChildProcess {
     workspace,
     plugins: [],
   });
-  return spawn("devin", ["acp", "--model", model], {
-    // NOSONAR — PATH needed for devin binary
+  const opts: SpawnOptions = {
     cwd: workspace,
     stdio: ["pipe", "pipe", "inherit"],
     env,
-  });
+  };
+  // NOSONAR suppresses only issues on the marker's own line — it must
+  // trail the spawn call, not sit inside the options literal.
+  return spawn("devin", ["acp", "--model", model], opts); // NOSONAR — PATH needed for devin binary
 }
 
 /** Write benchmark results to a JSON file. */
