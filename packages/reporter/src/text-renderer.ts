@@ -124,6 +124,10 @@ function sanitizeLine(line: string): string {
     .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, ""); // NOSONAR — stray controls
 }
 
+/** Head-of-buffer marker emitted by the runtime's byte truncation —
+ * kept visible even when the rendered tail drops it. */
+const TRUNCATION_MARKER = /^\[\.\.\. truncated \d+ bytes\]$/;
+
 /** Print the tail of a captured stream, dimmed and indented. A `label`
  * (e.g. "stderr") marks the stream when both may be present. */
 function printCaptured(
@@ -145,7 +149,17 @@ function printCaptured(
   const shown = lines.slice(-maxLines);
   const hidden = lines.length - shown.length;
   if (hidden > 0) {
-    writer.writeLine(`      … (${hidden} earlier lines)`);
+    // The runtime's byte-truncation marker sits at the head of the retained
+    // text — keep it visible when tail selection would drop it.
+    const marker = lines[0];
+    let omitted = hidden;
+    if (marker !== undefined && TRUNCATION_MARKER.test(marker)) {
+      writer.writeLine(`      ${paint(color, ANSI.dim, sanitizeLine(marker))}`);
+      omitted -= 1;
+    }
+    if (omitted > 0) {
+      writer.writeLine(`      … (${omitted} earlier lines)`);
+    }
   }
   for (const line of shown) {
     writer.writeLine(`      ${paint(color, ANSI.dim, sanitizeLine(line))}`);

@@ -89,6 +89,34 @@ function truncateOutput(value: string): string {
   return `[... truncated ${totalBytes - keptBytes} bytes]\n${kept}`;
 }
 
+const REDACTED = "***";
+
+/** Replace every known secret value in captured output before it reaches
+ * events, artifacts, or the console (sv-m52a). Applied to the full
+ * run-level secrets map — a step can leak a value it never declared.
+ * Longest-first per-value replaces in a bounded repeat-until-stable
+ * loop: a shorter secret processed first could leave a longer one's
+ * suffix behind, and a replacement could recreate another secret's
+ * value — re-scan until stable (pathological self-recreating secret
+ * sets are capped). */
+function maskSecrets(
+  text: string,
+  secrets: Readonly<Record<string, string>>,
+): string {
+  const values = Object.values(secrets)
+    .filter((v) => v.length > 0)
+    .sort((a, b) => b.length - a.length);
+  if (values.length === 0) return text;
+  let masked = text;
+  for (let i = 0; i < 8; i += 1) {
+    let next = masked;
+    for (const value of values) next = next.replaceAll(value, REDACTED);
+    if (next === masked) break;
+    masked = next;
+  }
+  return masked;
+}
+
 /** Execute all operations in a step in order. */
 export async function executeStep(
   opts: StepExecOptions,
@@ -138,17 +166,23 @@ export async function executeStep(
       // Persist declared stdout artifacts even on failure — tools like
       // `ruff --output-format=sarif` exit non-zero when findings exist, and
       // the SARIF report on stdout is exactly what --evaluate needs.
-      if (stdout !== undefined) {
-        await writeStdoutArtifacts(step, opts, stdout);
+      const maskedStdout =
+        stdout !== undefined ? maskSecrets(stdout, opts.secrets) : undefined;
+      if (maskedStdout !== undefined) {
+        await writeStdoutArtifacts(step, opts, maskedStdout);
       }
       return {
         status: "failed",
-        error,
+        error: maskSecrets(error, opts.secrets),
         durationMs: Date.now() - start,
         ...(exitCode !== undefined ? { exitCode } : {}),
         ...(timedOut ? { timedOut } : {}),
-        ...(stdout !== undefined ? { stdout: truncateOutput(stdout) } : {}),
-        ...(stderr !== undefined ? { stderr: truncateOutput(stderr) } : {}),
+        ...(maskedStdout !== undefined
+          ? { stdout: truncateOutput(maskedStdout) }
+          : {}),
+        ...(stderr !== undefined
+          ? { stderr: truncateOutput(maskSecrets(stderr, opts.secrets)) }
+          : {}),
       };
     }
     if (isCancelled()) {
@@ -161,8 +195,8 @@ export async function executeStep(
     durationMs: Date.now() - start,
     ...(lastOutput !== undefined
       ? {
-          stdout: truncateOutput(lastOutput.stdout),
-          stderr: truncateOutput(lastOutput.stderr),
+          stdout: truncateOutput(maskSecrets(lastOutput.stdout, opts.secrets)),
+          stderr: truncateOutput(maskSecrets(lastOutput.stderr, opts.secrets)),
           exitCode: lastOutput.exitCode,
         }
       : {}),
@@ -302,7 +336,12 @@ async function executeExportStdoutOperation(
       "ARTIFACT_ERROR",
     );
   }
-  await writeStdoutArtifact(step.id, artifactDir, op.name, lastOutput.stdout);
+  await writeStdoutArtifact(
+    step.id,
+    artifactDir,
+    op.name,
+    maskSecrets(lastOutput.stdout, opts.secrets),
+  );
 }
 
 async function writeStdoutArtifact(

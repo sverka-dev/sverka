@@ -205,6 +205,23 @@ describe("TextRenderer", () => {
     expect(text).not.toContain("l1");
   });
 
+  it("keeps the runtime truncation marker visible under tail selection", () => {
+    const writer = new MockWriter();
+    const renderer = createTextRenderer({ writer, stepOutputLines: 3 });
+
+    renderer.onEvent({
+      type: "step-succeeded",
+      stepId: "ci/build",
+      durationMs: 5,
+      stdout: "[... truncated 2010 bytes]\nl1\nl2\nl3\nl4\nl5",
+    });
+
+    const text = writer.text;
+    expect(text).toContain("[... truncated 2010 bytes]");
+    expect(text).toContain("l5");
+    expect(text).not.toContain("l1");
+  });
+
   it("stepOutputLines: 0 suppresses captured output", () => {
     const writer = new MockWriter();
     const renderer = createTextRenderer({ writer, stepOutputLines: 0 });
