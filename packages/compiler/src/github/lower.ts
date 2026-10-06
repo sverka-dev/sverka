@@ -1794,40 +1794,51 @@ function translateConditionContextRef(
   if (namespace === "inputs") {
     return `inputs.${field}`;
   }
-  if (
-    namespace === "env" ||
-    namespace === "secrets" ||
-    namespace === "matrix"
-  ) {
-    const secretOverride = jobSecrets?.includes(field) ?? false;
-    const literal =
-      namespace === "env" && !secretOverride && jobEnv !== undefined
-        ? Object.hasOwn(jobEnv, field)
-          ? jobEnv[field]
-          : undefined
-        : undefined;
-    if (
-      namespace === "env" &&
-      literal !== undefined &&
-      !literal.includes("${")
-    ) {
-      return `'${literal.replaceAll("'", "''")}'`;
-    }
-    const hint = secretOverride
-      ? `'${field}' is shadowed by runtime.secrets — secrets are only injected inside steps, so the gate cannot read it`
-      : namespace === "env"
-        ? literal !== undefined
-          ? `'${field}' holds a dynamic expression — gate it on a static literal or move the check into a run command`
-          : `declare '${field}' in the step's runtime.env so the literal can be inlined`
-        : namespace === "secrets"
-          ? "secrets are only injected inside steps — move the check into a run command"
-          : "the matrix expands after jobs.<id>.if is evaluated";
+  if (namespace === "env") {
+    return translateEnvConditionRef(field, jobEnv, jobSecrets);
+  }
+  if (namespace === "secrets" || namespace === "matrix") {
+    const hint =
+      namespace === "secrets"
+        ? "secrets are only injected inside steps — move the check into a run command"
+        : "the matrix expands after jobs.<id>.if is evaluated";
     throw new GithubTargetError(
       `'${namespace}.${field}' in a step condition cannot resolve at jobs.<id>.if — ${hint}`,
       "LOWER_FAILED",
     );
   }
   return stripBraces(translateContextRef(namespace, field));
+}
+
+/** env.X inside a job gate — inlines only own-key static literals. */
+function translateEnvConditionRef(
+  field: string,
+  jobEnv: Readonly<Record<string, string>> | undefined,
+  jobSecrets: readonly string[] | undefined,
+): string {
+  if (jobSecrets?.includes(field)) {
+    throw new GithubTargetError(
+      `'env.${field}' in a step condition cannot resolve at jobs.<id>.if — '${field}' is shadowed by runtime.secrets and secrets are only injected inside steps`,
+      "LOWER_FAILED",
+    );
+  }
+  const literal =
+    jobEnv !== undefined && Object.hasOwn(jobEnv, field)
+      ? jobEnv[field]
+      : undefined;
+  if (literal === undefined) {
+    throw new GithubTargetError(
+      `'env.${field}' in a step condition cannot resolve at jobs.<id>.if — declare '${field}' in the step's runtime.env so the literal can be inlined`,
+      "LOWER_FAILED",
+    );
+  }
+  if (literal.includes("${")) {
+    throw new GithubTargetError(
+      `'env.${field}' in a step condition cannot resolve at jobs.<id>.if — '${field}' holds a dynamic expression; gate on a static literal or move the check into a run command`,
+      "LOWER_FAILED",
+    );
+  }
+  return `'${literal.replaceAll("'", "''")}'`;
 }
 
 /**
