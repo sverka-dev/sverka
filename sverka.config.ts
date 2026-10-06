@@ -186,9 +186,15 @@ const actionlint = new ShellStep(ci, "actionlint", {
 
 // Workflow security audit — zizmor lints every workflow file (generated
 // and hand-written) for template injection, unpinned actions, credential
-// leaks. Version pinned via pipx spec; pipx is preinstalled on GH runners.
+// leaks. A PATH-installed zizmor (brew/uv) wins locally; otherwise pipx
+// runs the pinned spec — pipx is preinstalled on GH runners. if-form, not
+// && ||: a nonzero zizmor verdict must not trigger the pipx fallback.
+// shell: sh is required locally — the host driver spawns command[0]
+// directly when no shell is set, so a bare `if` would never reach a shell.
 const zizmor = new ShellStep(ci, "zizmor", {
-  command: "pipx run --spec zizmor==1.30.1 zizmor .github/workflows/",
+  command:
+    "if command -v zizmor >/dev/null 2>&1; then zizmor .github/workflows/; else pipx run --spec zizmor==1.30.1 zizmor .github/workflows/; fi",
+  runtime: { shell: "sh" },
 });
 
 // Recursive dogfood — sverka runs itself inside CI. The inner run targets
