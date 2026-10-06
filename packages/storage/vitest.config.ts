@@ -2,6 +2,9 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // Empty test block: knip's vitest plugin only registers default test
+  // entries (src/** __tests__) when `test` is present in a resolved config.
+  test: {},
   resolve: {
     alias: {
       // Resolve workspace deps from source, not dist/ — concurrent nx
