@@ -80,8 +80,10 @@ const audit = new ShellStep(ci, "audit", {
   command: "bun audit " + auditIgnoreFlags,
 });
 const auditRecheck = new ShellStep(ci, "audit-recheck", {
+  // `sh -e` aborts on a bare failing `out=$(...)` assignment, so
+  // `|| rc=$?` captures the exit code without tripping the shell.
   command:
-    "out=$(bun audit 2>&1); rc=$?; " +
+    "rc=0; out=$(bun audit 2>&1) || rc=$?; " +
     'if [ "$rc" -ne 0 ] && ! echo "$out" | grep -q "GHSA-"; then echo "bun audit failed (registry/infra) — recheck skipped"; exit 0; fi; ' +
     'missing=""; for id in ' +
     auditIgnoreIds +
