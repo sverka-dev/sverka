@@ -20,9 +20,10 @@ sverka compile --target github --pin
 
 ## Generated workflow shape
 
-Each `ShellStep` becomes a job. Steps the target runner does not provide —
-checkout, toolchain setup, `bun install` — are emitted before the step's own
-command:
+Each `ShellStep` becomes a job. Checkout is always emitted first; toolchain
+setup and `bun install` follow when configured — the CLI auto-detects the
+project toolchain and injects them, while direct `compileGithub` calls emit
+only what `config.setup` provides:
 
 ```yaml
 name: ci
@@ -67,8 +68,11 @@ const result = compileGithub(graph, config);
 ```
 
 `GithubTarget` implements the `Target` contract: `analyze` (capability +
-pinning diagnostics), `lower` (graph → `GithubTargetGraph`), `emit`
-(graph → YAML artifacts), `compile` (all three).
+pinning diagnostics), `lower` (graph → `GithubTargetGraph`, or
+`GithubTargetGraph[]` when the graph holds multiple pipelines — one
+workflow per pipeline that has entries or is called by a call step),
+`emit` (graph → YAML artifacts), `compile`
+(all three).
 
 ```ts
 export interface GithubTargetConfig {

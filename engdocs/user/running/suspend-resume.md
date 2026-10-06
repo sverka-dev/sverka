@@ -135,5 +135,5 @@ for await (const event of resumeIter) {
   in-flight steps are awaited before the snapshot is persisted.
 - **No mid-step checkpointing.** `suspend` must be the last operation in a
   step. Pre-suspend operations run normally; their outputs are captured.
-- **CI targets are emulated.** The compiled workflow lowers steps to
-  native jobs; suspend/resume has no CI equivalent yet.
+- **No CI equivalent yet.** Compiled workflows lower steps to native
+  jobs; suspend/resume is not lowered.

@@ -108,6 +108,6 @@ interface RunState {
   execution.
 - **Signals (write side) are deferred.** `Engine.signal(name, payload)` is
   not in v1. Suspend/resume + cancel cover the write side.
-- **CI targets are emulated.** The compiled workflow lowers each step to a
-  native job that runs the step's command directly; suspend/resume signals
-  have no CI equivalent yet.
+- **No CI equivalent yet.** Compiled workflows lower each step to a
+  native job that runs the step's command directly; suspend/resume is not
+  lowered.

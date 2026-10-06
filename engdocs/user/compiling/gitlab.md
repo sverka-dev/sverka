@@ -1,8 +1,14 @@
 # GitLab CI compiler
 
 The `gitlab` target compiles a Sverka **Definition Graph** (from
-`@sverka/workflow`) into a GitLab CI pipeline — one job per step, `needs:`
-edges from declared dependencies, stages derived from execution order.
+`@sverka/workflow`) into a GitLab CI pipeline — executable steps become
+jobs, `needs:` edges come from declared dependencies, and stages are
+derived from topological order. Special step kinds lower differently:
+component steps become `include:` entries, pipeline-call steps are inlined
+as namespaced jobs, and child-pipeline steps become trigger jobs.
+
+Only the **first root pipeline** is emitted — a single `.gitlab-ci.yml`
+cannot express multiple pipelines, so additional roots are dropped.
 
 ## CLI usage
 
@@ -17,16 +23,17 @@ sverka compile --target gitlab --output-dir out/
 ## Generated pipeline shape
 
 Each `ShellStep` becomes a job with its command in `script:`; dependency
-wiring lands in `needs:`:
+wiring lands in `needs:`. Stages are computed by topological level — the
+first level is `build`, each later level is `stage-N`:
 
 ```yaml
-stages: [build, verify]
+stages: [build, stage-1]
 build:
   stage: build
   script:
     - bun run build
 typecheck:
-  stage: verify
+  stage: stage-1
   needs: [build]
   script:
     - bun run typecheck
