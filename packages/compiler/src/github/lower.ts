@@ -700,13 +700,12 @@ function passThroughCalleeSecrets(
   calleeDef: PipelineDefinition | undefined,
   secretMap: Record<string, string>,
 ): void {
-  for (const [name, input] of Object.entries(calleeDef?.inputs ?? {})) {
+  if (!calleeDef) return;
+  for (const [name, input] of Object.entries(calleeDef.inputs)) {
     if (input.secret) secretMap[name] ??= `\${{ secrets.${name} }}`;
   }
-  if (calleeDef) {
-    for (const name of runtimeSecretNames(calleeDef)) {
-      secretMap[name] ??= `\${{ secrets.${name} }}`;
-    }
+  for (const name of runtimeSecretNames(calleeDef)) {
+    secretMap[name] ??= `\${{ secrets.${name} }}`;
   }
 }
 
