@@ -94,7 +94,7 @@ jobs:
         run: bun install --frozen-lockfile --ignore-scripts
       - run: |-
           sverka_rc=0
-          { bun run lint:sarif || true
+          { bun run lint:sarif
           } > 'eslint.sarif' || sverka_rc=$?
           cat 'eslint.sarif'
           if [ "$sverka_rc" -gt 0 ]; then exit "$sverka_rc"; fi

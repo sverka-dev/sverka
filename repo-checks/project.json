@@ -12,19 +12,32 @@
     },
     "secrets": {
       "executor": "nx:run-commands",
-      "options": { "command": "secretlint \"**/*\"", "cwd": "{workspaceRoot}" },
-      "inputs": ["{workspaceRoot}/**/*", "{workspaceRoot}/.secretlintignore"],
+      "options": {
+        "command": "secretlint \"**/*\"",
+        "cwd": "{workspaceRoot}"
+      },
+      "inputs": [
+        "{workspaceRoot}/**/*",
+        "{workspaceRoot}/.secretlintignore",
+        "{workspaceRoot}/.secretlintrc.json"
+      ],
       "cache": true
     },
     "deps": {
       "executor": "nx:run-commands",
-      "options": { "command": "knip", "cwd": "{workspaceRoot}" },
+      "options": {
+        "command": "knip",
+        "cwd": "{workspaceRoot}"
+      },
       "inputs": ["{workspaceRoot}/**/*", "{workspaceRoot}/knip.json"],
       "cache": true
     },
     "docs": {
       "executor": "nx:run-commands",
-      "options": { "command": "markdownlint-cli2", "cwd": "{workspaceRoot}" },
+      "options": {
+        "command": "markdownlint-cli2",
+        "cwd": "{workspaceRoot}"
+      },
       "inputs": [
         "{workspaceRoot}/**/*.md",
         "{workspaceRoot}/.markdownlint.json",
@@ -34,7 +47,10 @@
     },
     "format": {
       "executor": "nx:run-commands",
-      "options": { "command": "prettier --check .", "cwd": "{workspaceRoot}" },
+      "options": {
+        "command": "prettier --check .",
+        "cwd": "{workspaceRoot}"
+      },
       "inputs": [
         "{workspaceRoot}/**/*",
         "{workspaceRoot}/.prettierrc",
