@@ -2,19 +2,12 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: {
-    include: ["__tests__/**/*.test.ts"],
-    exclude: ["fixtures/**", "node_modules/**", "dist/**"],
-  },
   resolve: {
     alias: {
       // Resolve workspace deps from source, not dist/ — concurrent nx
       // builds (e.g. beforeScript `bun run build` during `sverka run`)
       // rewrite dist/ mid-resolution and flake the suite with
       // "Failed to resolve entry for package".
-      "@sverka/reporter": fileURLToPath(
-        new URL("../reporter/src/index.ts", import.meta.url),
-      ),
       "@sverka/runtime": fileURLToPath(
         new URL("../runtime/src/index.ts", import.meta.url),
       ),
