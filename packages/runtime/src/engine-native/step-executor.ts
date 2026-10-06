@@ -89,24 +89,32 @@ function truncateOutput(value: string): string {
   return `[... truncated ${totalBytes - keptBytes} bytes]\n${kept}`;
 }
 
-/** Secret values shorter than this are not masked — common low-entropy
- * strings ("true", "main", "0") would corrupt normal output. */
-const SECRET_MIN_LENGTH = 6;
-
-const SECRET_MASK = "***";
+const REDACTED = "***";
 
 /** Replace every known secret value in captured output before it reaches
  * events, artifacts, or the console (sv-m52a). Applied to the full
- * run-level secrets map — a step can leak a value it never declared. */
+ * run-level secrets map — a step can leak a value it never declared.
+ * Longest-first alternation in a bounded repeat-until-stable loop: one
+ * pass could leave a longer secret's suffix behind, and a replacement
+ * could recreate another secret's value — re-scan until stable
+ * (pathological self-recreating secret sets are capped). */
 function maskSecrets(
   text: string,
   secrets: Readonly<Record<string, string>>,
 ): string {
+  const values = Object.values(secrets)
+    .filter((v) => v.length > 0)
+    .sort((a, b) => b.length - a.length);
+  if (values.length === 0) return text;
+  const pattern = new RegExp(
+    values.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+    "g",
+  );
   let masked = text;
-  for (const value of Object.values(secrets)) {
-    if (value.length >= SECRET_MIN_LENGTH) {
-      masked = masked.split(value).join(SECRET_MASK);
-    }
+  for (let i = 0; i < 8; i += 1) {
+    const next = masked.replace(pattern, REDACTED);
+    if (next === masked) break;
+    masked = next;
   }
   return masked;
 }

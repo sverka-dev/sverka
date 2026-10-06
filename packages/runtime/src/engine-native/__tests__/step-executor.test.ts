@@ -837,7 +837,7 @@ describe("StepExecutor — secret masking (sv-m52a)", () => {
     };
   }
 
-  const SECRET = "ghp_supersecrettoken";
+  const SECRET = "ghp_example_token_42";
 
   it("masks secret values in captured stdout on success", async () => {
     const driver = createMockDriver({
@@ -889,7 +889,74 @@ describe("StepExecutor — secret masking (sv-m52a)", () => {
     expect(result.stderr).not.toContain(SECRET);
   });
 
-  it("does not mask short low-entropy secret values", async () => {
+  it("masks a thrown driver error message that contains a secret", async () => {
+    const driver = createMockDriver({
+      executeFn: async () => {
+        throw new Error(`auth failed for ${SECRET}`);
+      },
+    });
+    const result = await executeStep({
+      step: makeStep([{ kind: "shell", command: "boom" }]),
+      driver,
+      workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(),
+      secrets: { TOKEN: SECRET },
+      emit: () => {},
+      isCancelled: () => false,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.error).toBe("auth failed for ***");
+    expect(result.error).not.toContain(SECRET);
+  });
+
+  it("masks a secret that is a prefix of another secret", async () => {
+    const driver = createMockDriver({
+      executeFn: async () => ({
+        exitCode: 0,
+        stdout: `short=abcdef long=abcdefgh`,
+        stderr: "",
+        durationMs: 1,
+        timedOut: false,
+      }),
+    });
+    const result = await executeStep({
+      step: makeStep([{ kind: "shell", command: "echo x" }]),
+      driver,
+      workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(),
+      secrets: { SHORT: "abcdef", LONG: "abcdefgh" },
+      emit: () => {},
+      isCancelled: () => false,
+    });
+    expect(result.stdout).toBe("short=*** long=***");
+  });
+
+  it("does not recreate a secret from an earlier replacement", async () => {
+    const driver = createMockDriver({
+      executeFn: async () => ({
+        exitCode: 0,
+        stdout: "value=password123456",
+        stderr: "",
+        durationMs: 1,
+        timedOut: false,
+      }),
+    });
+    const result = await executeStep({
+      step: makeStep([{ kind: "shell", command: "echo x" }]),
+      driver,
+      workspace: testDir,
+      artifactStore: createArtifactStore(join(testDir, "art")),
+      valueStore: createValueStore(),
+      secrets: { A: "***123456", B: "password" },
+      emit: () => {},
+      isCancelled: () => false,
+    });
+    expect(result.stdout).toBe("value=***");
+  });
+
+  it("masks every non-empty secret value, including short ones", async () => {
     const driver = createMockDriver({
       executeFn: async () => ({
         exitCode: 0,
@@ -909,7 +976,7 @@ describe("StepExecutor — secret masking (sv-m52a)", () => {
       emit: () => {},
       isCancelled: () => false,
     });
-    expect(result.stdout).toBe("mode=prod ok");
+    expect(result.stdout).toBe("mode=*** ok");
   });
 
   it("masks secrets inside exported stdout artifacts", async () => {

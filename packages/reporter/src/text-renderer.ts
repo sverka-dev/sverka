@@ -150,12 +150,16 @@ function printCaptured(
   const hidden = lines.length - shown.length;
   if (hidden > 0) {
     // The runtime's byte-truncation marker sits at the head of the retained
-    // text — keep it visible when tail selection would drop it (sv-mvvx).
+    // text — keep it visible when tail selection would drop it.
     const marker = lines[0];
+    let omitted = hidden;
     if (marker !== undefined && TRUNCATION_MARKER.test(marker)) {
       writer.writeLine(`      ${paint(color, ANSI.dim, sanitizeLine(marker))}`);
+      omitted -= 1;
     }
-    writer.writeLine(`      … (${hidden} earlier lines)`);
+    if (omitted > 0) {
+      writer.writeLine(`      … (${omitted} earlier lines)`);
+    }
   }
   for (const line of shown) {
     writer.writeLine(`      ${paint(color, ANSI.dim, sanitizeLine(line))}`);
