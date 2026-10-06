@@ -247,6 +247,35 @@ function lowerPipelineInGraph(
 }
 
 /**
+ * Every per-step `runtime.secrets` name a pipeline references.
+ */
+function* runtimeSecretNames(pipeline: PipelineDefinition): Generator<string> {
+  for (const step of pipeline.steps) {
+    yield* step.runtime.secrets ?? [];
+  }
+}
+
+function lowerWorkflowCallInput(input: Input): Record<string, unknown> {
+  let type = "string";
+  if (input.type === "number") {
+    type = "number";
+  } else if (input.type === "boolean") {
+    type = "boolean";
+  }
+  const ghInput: Record<string, unknown> = {
+    type,
+    required: input.required ?? false,
+  };
+  if (input.default !== undefined) {
+    ghInput.default = input.default;
+  }
+  if (input.description !== undefined) {
+    ghInput.description = input.description;
+  }
+  return ghInput;
+}
+
+/**
  * Add workflow_call trigger with inputs to a GithubTriggers object.
  */
 function addWorkflowCall(
@@ -270,34 +299,14 @@ function addWorkflowCall(
       workflowSecrets[name] = { required: input.required ?? false };
       continue;
     }
-    let type = "string";
-    if (input.type === "number") {
-      type = "number";
-    } else if (input.type === "boolean") {
-      type = "boolean";
-    }
-    const ghInput: Record<string, unknown> = {
-      type,
-      required: input.required ?? false,
-    };
-    if (input.default !== undefined) {
-      ghInput.default = input.default;
-    }
-    if (input.description !== undefined) {
-      ghInput.description = input.description;
-    }
-    workflowInputs[name] = ghInput;
+    workflowInputs[name] = lowerWorkflowCallInput(input);
   }
 
   // Steps referencing ${{ secrets.X }} inside the callee need those names
   // declared on workflow_call.secrets too — GitHub rejects a caller-supplied
   // secret the called workflow does not declare.
-  for (const step of pipeline.steps) {
-    for (const name of step.runtime.secrets ?? []) {
-      if (workflowSecrets[name] === undefined) {
-        workflowSecrets[name] = { required: false };
-      }
-    }
+  for (const name of runtimeSecretNames(pipeline)) {
+    workflowSecrets[name] ??= { required: false };
   }
 
   return {
@@ -561,6 +570,20 @@ function assemblePullRequestTrigger(
  * Secret inputs are skipped — a dispatch text field would invite pasting a
  * credential unmasked; they resolve via `${{ secrets.<name> }}` instead.
  */
+function lowerDispatchInput(input: Input): GithubInput {
+  return {
+    type: input.type === "array" ? "string" : input.type,
+    ...(input.description !== undefined
+      ? { description: input.description }
+      : {}),
+    ...(input.required !== undefined ? { required: input.required } : {}),
+    ...(input.default !== undefined && typeof input.default !== "object"
+      ? { default: input.default as string | number | boolean }
+      : {}),
+    ...(input.options !== undefined ? { options: input.options } : {}),
+  };
+}
+
 function lowerInputs(
   inputs: Readonly<Record<string, Input>>,
 ): Readonly<Record<string, GithubInput>> | undefined {
@@ -568,18 +591,7 @@ function lowerInputs(
   const result: Record<string, GithubInput> = {};
   for (const [name, input] of Object.entries(inputs)) {
     if (input.secret) continue;
-    const ghInput: GithubInput = {
-      type: input.type === "array" ? "string" : input.type,
-      ...(input.description !== undefined
-        ? { description: input.description }
-        : {}),
-      ...(input.required !== undefined ? { required: input.required } : {}),
-      ...(input.default !== undefined && typeof input.default !== "object"
-        ? { default: input.default as string | number | boolean }
-        : {}),
-      ...(input.options !== undefined ? { options: input.options } : {}),
-    };
-    result[name] = ghInput;
+    result[name] = lowerDispatchInput(input);
   }
   return Object.keys(result).length === 0 ? undefined : result;
 }
@@ -654,6 +666,51 @@ function lowerReferenceExpr(
 }
 
 /**
+ * Lower one secret callee-input binding to a `secrets:` map value.
+ * GH allows only github/needs/secrets contexts in that map; anything else
+ * (inputs/env/matrix/…) is invalid — fail with a clear error. Literal
+ * bindings fall back to the same-named caller secret rather than embedding
+ * a credential into the workflow file.
+ */
+function lowerSecretBinding(
+  name: string,
+  value: unknown,
+  callee: string,
+  jobIdMap: Map<string, string>,
+): string {
+  const lowered = lowerReferenceExpr(value, jobIdMap, true);
+  if (
+    typeof lowered === "string" &&
+    !/^\$\{\{ (secrets|github|needs)\./.test(lowered)
+  ) {
+    throw new GithubTargetError(
+      `secret input '${name}' of callee '${callee}' is bound to '${lowered}' — only secrets.*, github.*, and needs.* contexts are allowed in a call job's secrets map`,
+      "LOWER_FAILED",
+    );
+  }
+  return typeof lowered === "string" ? lowered : `\${{ secrets.${name} }}`;
+}
+
+/**
+ * With an explicit secrets map there is no `inherit`, so pass through
+ * every other secret the callee can reference — its declared secret
+ * inputs and per-step runtime.secrets resolve by name.
+ */
+function passThroughCalleeSecrets(
+  calleeDef: PipelineDefinition | undefined,
+  secretMap: Record<string, string>,
+): void {
+  for (const [name, input] of Object.entries(calleeDef?.inputs ?? {})) {
+    if (input.secret) secretMap[name] ??= `\${{ secrets.${name} }}`;
+  }
+  if (calleeDef) {
+    for (const name of runtimeSecretNames(calleeDef)) {
+      secretMap[name] ??= `\${{ secrets.${name} }}`;
+    }
+  }
+}
+
+/**
  * Lower a call step to a GitHub reusable workflow call job.
  */
 function lowerCallStep(
@@ -674,46 +731,17 @@ function lowerCallStep(
   const withMap: Record<string, unknown> = {};
   const secretMap: Record<string, string> = {};
   for (const [name, value] of Object.entries(call.inputs)) {
+    // Secret callee inputs are declared under workflow_call.secrets, so
+    // they must be passed via the job's `secrets:` map — a `with:` entry
+    // would be an undeclared input and could leak a literal credential.
     if (calleeDef?.inputs?.[name]?.secret) {
-      // Secret callee inputs are declared under workflow_call.secrets, so
-      // they must be passed via the job's `secrets:` map — a `with:` entry
-      // would be an undeclared input and could leak a literal credential.
-      // GH allows only github/needs/secrets contexts in that map; anything
-      // else (inputs/env/matrix/…) is invalid — fail with a clear error.
-      // Literal bindings fall back to the same-named caller secret rather
-      // than embedding a credential into the workflow file.
-      const lowered = lowerReferenceExpr(value, jobIdMap, true);
-      if (
-        typeof lowered === "string" &&
-        !/^\$\{\{ (secrets|github|needs)\./.test(lowered)
-      ) {
-        throw new GithubTargetError(
-          `secret input '${name}' of callee '${callee}' is bound to '${lowered}' — only secrets.*, github.*, and needs.* contexts are allowed in a call job's secrets map`,
-          "LOWER_FAILED",
-        );
-      }
-      secretMap[name] =
-        typeof lowered === "string" ? lowered : `\${{ secrets.${name} }}`;
+      secretMap[name] = lowerSecretBinding(name, value, callee, jobIdMap);
       continue;
     }
     withMap[name] = lowerReferenceExpr(value, jobIdMap, true) ?? value;
   }
   if (Object.keys(secretMap).length > 0) {
-    // With an explicit secrets map there is no `inherit`, so pass through
-    // every other secret the callee can reference — its declared secret
-    // inputs and per-step runtime.secrets resolve by name.
-    for (const [name, input] of Object.entries(calleeDef?.inputs ?? {})) {
-      if (input.secret && secretMap[name] === undefined) {
-        secretMap[name] = `\${{ secrets.${name} }}`;
-      }
-    }
-    for (const calleeStep of calleeDef?.steps ?? []) {
-      for (const name of calleeStep.runtime.secrets ?? []) {
-        if (secretMap[name] === undefined) {
-          secretMap[name] = `\${{ secrets.${name} }}`;
-        }
-      }
-    }
+    passThroughCalleeSecrets(calleeDef, secretMap);
   }
 
   return {
