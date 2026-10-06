@@ -172,3 +172,4 @@ tmp/
 .sverka/
 eslint.sarif
 .arena/
+reports/

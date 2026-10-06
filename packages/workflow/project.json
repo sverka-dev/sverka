@@ -28,6 +28,27 @@
         "command": "bun run tsc --noEmit",
         "cwd": "packages/workflow"
       }
+    },
+    "packlint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "../../node_modules/.bin/publint",
+        "cwd": "packages/workflow"
+      }
+    },
+    "typelint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "../../node_modules/.bin/attw --pack . --profile esm-only --format table",
+        "cwd": "packages/workflow"
+      }
+    },
+    "lint:sarif": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mkdir -p reports && ../../node_modules/.bin/eslint src -f @microsoft/eslint-formatter-sarif -o reports/eslint.sarif || true",
+        "cwd": "packages/workflow"
+      }
     }
   }
 }

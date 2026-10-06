@@ -37,7 +37,9 @@ const test = new ShellStep(ci, "test", {
 });
 
 // Emits SARIF on stdout → collected as a finding artifact for the policy
-// gate. Always exits 0: eslint exits 1 on findings, and a failed step would
+// gate. Per-package `lint:sarif` nx targets cache each eslint run; the
+// script merges their reports/eslint.sarif into one document on stdout.
+// Always exits 0: eslint exits 1 on findings, and a failed step would
 // skip the artifact export — policy is the gate, not eslint's exit code.
 const lintSarif = new ShellStep(ci, "lint-sarif", {
   command: "bun run lint:sarif || true",
@@ -93,7 +95,9 @@ const auditRecheck = new ShellStep(ci, "audit-recheck", {
 });
 
 // Formatting gate — prettier version is pinned in devDependencies/lockfile.
-const format = new ShellStep(ci, "format", { command: "bun run format:check" });
+const format = new ShellStep(ci, "format", {
+  command: "bunx nx run repo-checks:format",
+});
 
 // Self-check: runs the CLI from source — needs built workspace deps.
 // CI jobs are isolated runners, so beforeScript builds them in-job.
@@ -119,7 +123,7 @@ const drift = new ShellStep(ci, "workflow-drift", {
 // markdownlint-cli2 and .markdownlint.json were already in the repo;
 // this step is what makes them a gate instead of decoration.
 const docs = new ShellStep(ci, "docs", {
-  command: "bun run lint:md",
+  command: "bunx nx run repo-checks:docs",
 });
 
 // CLI dogfood — every read-only command must work on this repo.
@@ -141,47 +145,42 @@ const depBoundary = new ShellStep(ci, "dep-boundary", {
 // Spelling gate — cspell with the project dictionary in cspell.json
 // (Sverka/SARIF domain vocabulary is whitelisted there, not disabled).
 const spell = new ShellStep(ci, "spell", {
-  command: "bun run lint:spell",
+  command: "bunx nx run repo-checks:spell",
 });
 
 // Secret scanning — secretlint recommend preset; .secretlintignore scopes
 // out vendor, lockfiles and generated output.
 const secrets = new ShellStep(ci, "secrets", {
-  command: "bun run lint:secrets",
+  command: "bunx nx run repo-checks:secrets",
 });
 
 // Dead code / dependency hygiene — knip.json scopes out vendor, generated
 // output, fixtures and the intentional compat surface. Configuration
 // hints are advisory; findings fail the gate.
 const deps = new ShellStep(ci, "deps", {
-  command: "bun run lint:deps",
+  command: "bunx nx run repo-checks:deps",
 });
 
-// Package metadata gate — publint over every publishable package. CI jobs
-// are isolated runners, so beforeScript rebuilds dist/ in-job. Suggestions
-// (e.g. missing sideEffects) don't fail; errors do.
+// Package metadata gate — publint per package via the `packlint` nx target
+// (per-package cache; the target's dependsOn build produces dist/ in-job).
+// Suggestions (e.g. missing sideEffects) don't fail; errors do.
 const packlint = new ShellStep(ci, "packlint", {
-  command:
-    'for d in packages/*/; do echo "== $d"; (cd "$d" && ../../node_modules/.bin/publint) || exit 1; done',
-  runtime: { shell: "sh" },
-  beforeScript: ["bun run build"],
+  command: "bun run lint:pack",
 });
 
 // Types-in-package gate — attw validates that published types actually
 // resolve under the esm-only profile (all packages are "type": "module";
-// the CJS matrix is deliberately out of scope). Rebuilds dist/ in-job.
+// the CJS matrix is deliberately out of scope). Per-package nx cache.
 const typelint = new ShellStep(ci, "typelint", {
   command: "bun run lint:attw",
-  beforeScript: ["bun run build"],
 });
 
 // Workflow lint — actionlint checks the hand-written workflows AND the
-// generated sverka.yml. Installed from source at a pinned tag; Go is
-// preinstalled on GitHub runners and in the devenv image.
+// generated sverka.yml via the cached `sverka:actionlint` nx target.
+// Installed from source at a pinned tag; Go is preinstalled on GitHub
+// runners and in the devenv image.
 const actionlint = new ShellStep(ci, "actionlint", {
-  command:
-    'go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && "$(go env GOPATH)/bin/actionlint" .github/workflows/*.yml',
-  runtime: { shell: "sh" },
+  command: "bunx nx run repo-checks:actionlint",
 });
 
 // Workflow security audit — zizmor lints every workflow file (generated

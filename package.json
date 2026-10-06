@@ -8,7 +8,7 @@
     "build": "nx run-many --target=build --all --exclude=skills-*,pack-skills-*",
     "test": "nx run-many --target=test --all",
     "lint": "nx run-many --target=lint --all",
-    "lint:sarif": "eslint packages/*/src -f @microsoft/eslint-formatter-sarif",
+    "lint:sarif": "nx run-many -t lint:sarif --exclude=skills-*,pack-skills-* >/dev/null 2>&1 || true; jq -s '{version:\"2.1.0\",\"$schema\":.[0][\"$schema\"],runs:[.[].runs[]]}' packages/*/reports/eslint.sarif",
     "lint:md": "markdownlint-cli2",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -17,7 +17,9 @@
     "lint:spell": "cspell lint --no-progress",
     "lint:secrets": "secretlint \"**/*\"",
     "lint:deps": "knip",
-    "lint:attw": "for d in packages/*/; do echo \"== $d\"; (cd \"$d\" && attw --pack . --profile esm-only --format table) || exit 1; done"
+    "lint:attw": "nx run-many -t typelint --exclude=skills-*,pack-skills-*",
+    "lint:pack": "nx run-many -t packlint --exclude=skills-*,pack-skills-*",
+    "lint:actionlint": "go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && \"$(go env GOPATH)/bin/actionlint\" .github/workflows/*.yml"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

@@ -70,13 +70,24 @@
       "!{projectRoot}/**/__tests__/**/*",
       "!{projectRoot}/**/*.test.ts"
     ],
-    "sharedGlobals": []
+    "sharedGlobals": [
+      "{workspaceRoot}/bun.lock",
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/eslint.config.mjs",
+      "{workspaceRoot}/package.json"
+    ]
   },
   "targetDefaults": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "build:web": {
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist-web"],
       "cache": true
     },
     "test": {
@@ -91,6 +102,21 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "inputs": ["default", "^production"],
+      "cache": true
+    },
+    "packlint": {
+      "dependsOn": ["build"],
+      "inputs": ["production", "{projectRoot}/dist"],
+      "cache": true
+    },
+    "typelint": {
+      "dependsOn": ["build"],
+      "inputs": ["production", "{projectRoot}/dist"],
+      "cache": true
+    },
+    "lint:sarif": {
+      "inputs": ["default", "{workspaceRoot}/eslint.config.mjs"],
+      "outputs": ["{projectRoot}/reports/eslint.sarif"],
       "cache": true
     }
   },
