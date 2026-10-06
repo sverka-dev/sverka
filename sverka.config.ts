@@ -64,7 +64,6 @@ const policy = new ShellStep(ci, "policy", {
       type: "artifact",
     },
   ],
-  beforeScript: ["bun run build"],
 });
 
 // Dependency vulnerabilities (bun audit exits non-zero on findings).
@@ -100,11 +99,10 @@ const format = new ShellStep(ci, "format", {
   command: "bunx nx run repo-checks:format",
 });
 
-// Self-check: runs the CLI from source — needs built workspace deps.
-// CI jobs are isolated runners, so beforeScript builds them in-job.
+// Self-check: runs the CLI from source — tsconfig paths resolve @sverka/*
+// deps to src/, so no in-job build is needed even on a fresh runner.
 const doctor = new ShellStep(ci, "doctor", {
   command: "bun packages/cli/src/bin.ts doctor",
-  beforeScript: ["bun run build"],
 });
 
 // Drift guard: .github/workflows/sverka.yml must equal `compile --pin`
@@ -117,7 +115,6 @@ const drift = new ShellStep(ci, "workflow-drift", {
   command:
     'd=$(mktemp -d) && trap \'rm -rf "$d"\' EXIT && bun packages/cli/src/bin.ts compile --target github --pin --output-dir "$d" && diff "$d/.github/workflows/ci.yml" .github/workflows/sverka.yml && diff "$d/.github/workflows/repo-health.yml" .github/workflows/repo-health.yml',
   runtime: { shell: "sh" },
-  beforeScript: ["bun run build"],
 });
 
 // Docs gate — markdownlint over engdocs/specs/website/root docs.
@@ -132,7 +129,6 @@ const cliSmoke = new ShellStep(ci, "cli-smoke", {
   command:
     "bun packages/cli/src/bin.ts validate && bun packages/cli/src/bin.ts plan --format json && bun packages/cli/src/bin.ts discover --format json && bun packages/cli/src/bin.ts graph && bun packages/cli/src/bin.ts check --format json",
   runtime: { shell: "sh" },
-  beforeScript: ["bun run build"],
 });
 
 // Dependency boundary — UI frameworks (ink/react/web servers) must stay
@@ -165,8 +161,11 @@ const deps = new ShellStep(ci, "deps", {
 // Package metadata gate — publint per package via the `packlint` nx target
 // (per-package cache; the target's dependsOn build produces dist/ in-job).
 // Suggestions (e.g. missing sideEffects) don't fail; errors do.
+// Ordered after test: locally every nx dependsOn-build rewrites dist/, and
+// running these concurrently with dist-reading tests races mid-write.
 const packlint = new ShellStep(ci, "packlint", {
   command: "bun run lint:pack",
+  dependsOn: [test.node.id],
 });
 
 // Types-in-package gate — attw validates that published types actually
@@ -174,6 +173,7 @@ const packlint = new ShellStep(ci, "packlint", {
 // the CJS matrix is deliberately out of scope). Per-package nx cache.
 const typelint = new ShellStep(ci, "typelint", {
   command: "bun run lint:attw",
+  dependsOn: [packlint.node.id],
 });
 
 // Workflow lint — actionlint checks the hand-written workflows AND the
@@ -211,7 +211,6 @@ const selfRun = new ShellStep(ci, "self-run", {
   outputs: {
     "sverka-report": { type: "artifact", path: ".sverka/report.html" },
   },
-  beforeScript: ["bun run build"],
 });
 
 // Shared roots for the push and pull_request entries — both triggers run
