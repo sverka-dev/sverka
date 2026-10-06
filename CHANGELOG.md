@@ -1,3 +1,14 @@
+## 0.2.5 (2026-10-06)
+
+### 🩹 Fixes
+
+- **workflow:** structural kind markers for dual-package installs ([#301](https://github.com/sverka-dev/sverka/pull/301))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.4 (2026-10-06)
 
 ### 🚀 Features
