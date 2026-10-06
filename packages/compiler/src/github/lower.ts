@@ -659,7 +659,7 @@ function lowerReferenceExpr(
       return `\${{ needs.${producerJobId}.outputs.${ref.output} }}`;
     }
     if (ref.kind === "context") {
-      return translateContextRef(ref.namespace, ref.field, false, forWithInput);
+      return translateContextRef(ref.namespace, ref.field, forWithInput);
     }
   }
   return undefined;
@@ -1009,7 +1009,7 @@ function resolveJobIf(
     return { if: lowerRulesIf(step.rules) };
   }
   if (step.condition !== undefined) {
-    return { if: lowerCondition(step.condition, jobIdMap) };
+    return { if: lowerCondition(step.condition, jobIdMap, step.runtime?.env) };
   }
   return {};
 }
@@ -1728,13 +1728,10 @@ const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
  *   as a literal string. The `secrets` context is the correct syntax here.
  * - In `run:` commands (`forWithInput = false`): `$FIELD` (env var, avoids
  *   exposing secret values in run logs).
- * In conditions, secrets are not supported by GitHub's if: context and are
- * emitted as env var references instead.
  */
 function translateContextRef(
   namespace: string,
   field: string,
-  inCondition = false,
   forWithInput = false,
 ): string {
   const key = `${namespace}.${field}`;
@@ -1754,13 +1751,7 @@ function translateContextRef(
   // secrets.X in with: inputs → ${{ secrets.FIELD }} (GitHub expands the
   //   secrets context in with: values, but does NOT expand $FIELD there).
   // secrets.X in commands → $FIELD (env var, avoids exposing value in logs)
-  // secrets.X in conditions → not supported by GitHub if: context
   if (namespace === "secrets") {
-    if (inCondition) {
-      // GitHub does not support secrets context in if: expressions.
-      // Use env var reference instead (secret is injected as env var).
-      return `\${{ env.${field} }}`;
-    }
     if (forWithInput) {
       return `\${{ secrets.${field} }}`;
     }
@@ -1771,6 +1762,47 @@ function translateContextRef(
     `unsupported context namespace '${namespace}' in GitHub lowering`,
     "LOWER_FAILED",
   );
+}
+
+/**
+ * Translate a context ref inside a job-level `if:` condition, returning the
+ * inner expression (unwrapped, for embedding into a larger ${{ }}).
+ *
+ * GitHub evaluates `jobs.<id>.if` before the matrix and outside any env —
+ * its context allowlist is github/needs/vars/inputs only. env.X therefore
+ * inlines the literal declared in the step's runtime.env; secrets.X,
+ * inputs.X, and matrix.X have no valid job-level expression and fail
+ * lowering rather than emitting a silently-unresolvable gate.
+ */
+function translateConditionContextRef(
+  namespace: string,
+  field: string,
+  jobEnv: Readonly<Record<string, string>> | undefined,
+): string {
+  if (
+    namespace === "env" ||
+    namespace === "inputs" ||
+    namespace === "secrets" ||
+    namespace === "matrix"
+  ) {
+    const literal = jobEnv?.[field];
+    if (namespace === "env" && literal !== undefined) {
+      return `'${literal.replaceAll("'", "''")}'`;
+    }
+    const hint =
+      namespace === "env"
+        ? `declare '${field}' in the step's runtime.env so the literal can be inlined`
+        : namespace === "secrets"
+          ? "secrets are only injected inside steps — move the check into a run command"
+          : namespace === "inputs"
+            ? "pipeline inputs lower to workflow env, which jobs.<id>.if cannot read"
+            : "the matrix expands after jobs.<id>.if is evaluated";
+    throw new GithubTargetError(
+      `'${namespace}.${field}' in a step condition cannot resolve at jobs.<id>.if — ${hint}`,
+      "LOWER_FAILED",
+    );
+  }
+  return stripBraces(translateContextRef(namespace, field));
 }
 
 /**
@@ -1818,7 +1850,7 @@ function translateCommand(
       return `\${${key}}`;
     }
     if (ref.kind === "context") {
-      return translateContextRef(ref.namespace, ref.field, false);
+      return translateContextRef(ref.namespace, ref.field);
     }
     return translateStepRef(ref, jobIdMap);
   });
@@ -1851,6 +1883,7 @@ function lowerRulesIf(rules: readonly Rule[]): string {
 function lowerCondition(
   condition: Reference | Expression | StatusCondition,
   jobIdMap: Map<string, string>,
+  jobEnv?: Readonly<Record<string, string>>,
 ): string {
   if (condition.kind === "status") {
     // GitHub status conditions map to built-in condition functions
@@ -1860,7 +1893,7 @@ function lowerCondition(
     return "${{ success() }}";
   }
   if (condition.kind === "context") {
-    return `\${{ ${stripBraces(translateContextRef(condition.namespace, condition.field, true))} }}`;
+    return `\${{ ${translateConditionContextRef(condition.namespace, condition.field, jobEnv)} }}`;
   }
   if (condition.kind === "step") {
     return translateStepRef(condition, jobIdMap);
@@ -1873,7 +1906,7 @@ function lowerCondition(
       const ref = lookup.get(key);
       if (ref === undefined) return `\${${key}}`;
       if (ref.kind === "context") {
-        return stripBraces(translateContextRef(ref.namespace, ref.field, true));
+        return translateConditionContextRef(ref.namespace, ref.field, jobEnv);
       }
       return stripBraces(translateStepRef(ref, jobIdMap));
     },

@@ -1540,3 +1540,84 @@ describe("compileGithub — background execution (F-49)", () => {
     expect(runStep.run).toBe("npm start &");
   });
 });
+
+describe("compileGithub — env refs in job conditions", () => {
+  function makeConditionGraph(
+    condition: Parameters<typeof ShellStep.prototype.constructor>[2]["condition"],
+    env?: Record<string, string>,
+  ) {
+    const proj = new Project("test");
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "deploy", {
+      command: "echo deploy",
+      condition,
+      ...(env ? { runtime: { env } } : {}),
+    });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["deploy"],
+    });
+    return synthesize(proj);
+  }
+
+  it("inlines a runtime.env literal for env.X conditions", () => {
+    const graph = makeConditionGraph(
+      { kind: "context", namespace: "env", field: "NODE_ENV" },
+      { NODE_ENV: "production" },
+    );
+    const yaml = parse(compileGithub(graph).artifacts[0]!.content);
+    expect(yaml.jobs.deploy.if).toBe("${{ 'production' }}");
+  });
+
+  it("escapes single quotes in inlined env literals", () => {
+    const graph = makeConditionGraph(
+      { kind: "context", namespace: "env", field: "MSG" },
+      { MSG: "it's" },
+    );
+    const yaml = parse(compileGithub(graph).artifacts[0]!.content);
+    expect(yaml.jobs.deploy.if).toBe("${{ 'it''s' }}");
+  });
+
+  it("inlines env.X inside expression conditions", () => {
+    const graph = makeConditionGraph(
+      {
+        kind: "expression",
+        template: "${env.TIER} == 'prod'",
+        refs: [{ kind: "context", namespace: "env", field: "TIER" }],
+      },
+      { TIER: "prod" },
+    );
+    const yaml = parse(compileGithub(graph).artifacts[0]!.content);
+    expect(yaml.jobs.deploy.if).toBe("${{ 'prod' == 'prod' }}");
+  });
+
+  it("fails lowering for undeclared env.X instead of emitting unresolvable env context", () => {
+    const graph = makeConditionGraph({
+      kind: "context",
+      namespace: "env",
+      field: "MISSING",
+    });
+    expect(() => compileGithub(graph)).toThrow(GithubTargetError);
+    try {
+      compileGithub(graph);
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("LOWER_FAILED");
+      expect((err as GithubTargetError).message).toContain("runtime.env");
+    }
+  });
+
+  it("fails lowering for secrets.X in conditions — env context cannot resolve it at job level", () => {
+    const graph = makeConditionGraph({
+      kind: "context",
+      namespace: "secrets",
+      field: "TOKEN",
+    });
+    try {
+      compileGithub(graph);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("LOWER_FAILED");
+      expect((err as GithubTargetError).message).toContain("run command");
+    }
+  });
+});
