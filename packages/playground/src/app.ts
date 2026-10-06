@@ -86,14 +86,10 @@ function evaluateUserCode(code: string): Project {
   // Dynamic code execution is intentional for the playground sandbox.
   // SonarCloud S1523: safe — user code runs in the browser sandbox with the
   // same trust model as a local REPL or `node -e` (see comment above).
-  const fn = new Function(
-    // NOSONAR — intentional dynamic evaluation in sandbox
-    "Project",
-    "Pipeline",
-    "FunctionStep",
-    "Entry",
-    processed,
-  );
+  const params = ["Project", "Pipeline", "FunctionStep", "Entry", processed];
+  // NOSONAR suppresses only issues on the marker's own line — it must
+  // trail the `new Function` callee, not sit inside the argument list.
+  const fn = new Function(...params); // NOSONAR — intentional dynamic evaluation in sandbox
   const result = fn(Project, Pipeline, FunctionStep, Entry); // NOSONAR
   if (!(result instanceof Project)) {
     throw new Error("Code must export a Project instance");
