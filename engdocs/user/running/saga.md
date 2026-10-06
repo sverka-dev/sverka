@@ -67,5 +67,6 @@ new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["notify"] });
   compensations — cancellation is intentional.
 - **No branch scoping.** v1 compensates ALL succeeded steps with a declared
   compensation, in reverse completion order.
-- **No CI equivalent yet.** Compiled workflows lower steps to native
-  jobs; `if: failure()`-style compensation lowering is a follow-up.
+- **No CI equivalent yet.** Compiled workflows lower steps to
+  target-native constructs; `if: failure()`-style compensation lowering
+  is a follow-up.
