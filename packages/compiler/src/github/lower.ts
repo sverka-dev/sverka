@@ -251,7 +251,14 @@ function addWorkflowCall(
   }
 
   const workflowInputs: Record<string, unknown> = {};
+  const workflowSecrets: Record<string, { required?: boolean }> = {};
   for (const [name, input] of inputEntries) {
+    // Secret inputs go to workflow_call.secrets — GH requires them there,
+    // and a text input would invite pasting a credential unmasked.
+    if (input.secret) {
+      workflowSecrets[name] = { required: input.required ?? false };
+      continue;
+    }
     let type = "string";
     if (input.type === "number") {
       type = "number";
@@ -271,7 +278,15 @@ function addWorkflowCall(
     workflowInputs[name] = ghInput;
   }
 
-  return { ...triggers, workflow_call: { inputs: workflowInputs } };
+  return {
+    ...triggers,
+    workflow_call: {
+      inputs: workflowInputs,
+      ...(Object.keys(workflowSecrets).length > 0
+        ? { secrets: workflowSecrets }
+        : {}),
+    },
+  };
 }
 
 /**
@@ -521,6 +536,8 @@ function assemblePullRequestTrigger(
  * Returns undefined if no inputs are present.
  * Maps Sverka types to GitHub types: choice→choice, array→unsupported (dropped),
  * others map directly. pattern is dropped (unsupported on GitHub).
+ * Secret inputs are skipped — a dispatch text field would invite pasting a
+ * credential unmasked; they resolve via `${{ secrets.<name> }}` instead.
  */
 function lowerInputs(
   inputs: Readonly<Record<string, Input>>,
@@ -528,6 +545,7 @@ function lowerInputs(
   if (Object.keys(inputs).length === 0) return undefined;
   const result: Record<string, GithubInput> = {};
   for (const [name, input] of Object.entries(inputs)) {
+    if (input.secret) continue;
     const ghInput: GithubInput = {
       type: input.type === "array" ? "string" : input.type,
       ...(input.description !== undefined
@@ -541,7 +559,7 @@ function lowerInputs(
     };
     result[name] = ghInput;
   }
-  return result;
+  return Object.keys(result).length === 0 ? undefined : result;
 }
 
 /**

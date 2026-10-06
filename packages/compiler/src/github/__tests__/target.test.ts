@@ -529,6 +529,68 @@ describe("compileGithub — typed inputs", () => {
     expect(yaml.on.workflow_dispatch.inputs.debug.type).toBe("boolean");
   });
 
+  it("skips secret inputs in workflow_dispatch.inputs", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: {
+        token: { type: "string", secret: true },
+        environment: { type: "string", default: "staging" },
+      },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["build"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.workflow_dispatch.inputs.token).toBeUndefined();
+    expect(yaml.on.workflow_dispatch.inputs.environment).toBeDefined();
+  });
+
+  it("emits no inputs key when every dispatch input is a secret", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: { token: { type: "string", secret: true } },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["build"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.workflow_dispatch).toBeNull();
+  });
+
+  it("emits secret inputs under workflow_call.secrets", () => {
+    const proj = new Project("test");
+    const caller = new Pipeline(proj, "caller");
+    new ShellStep(caller, "build", { command: "echo" });
+    const callee = new Pipeline(proj, "callee", {
+      inputs: {
+        token: { type: "string", secret: true, required: true },
+        environment: { type: "string" },
+      },
+    });
+    new ShellStep(callee, "test", { command: "echo" });
+    new PipelineCallStep(caller, "call-callee", {
+      callee: "callee",
+      callInputs: { token: "bound", environment: "staging" },
+    });
+    new Entry(caller, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["call-callee"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const calleeYaml = parse(
+      result.artifacts.find((a) => a.path.includes("callee"))!.content,
+    );
+    expect(calleeYaml.on.workflow_call.inputs.token).toBeUndefined();
+    expect(calleeYaml.on.workflow_call.inputs.environment).toBeDefined();
+    expect(calleeYaml.on.workflow_call.secrets.token.required).toBe(true);
+  });
+
   it("emits error diagnostic for array input (unsupported on GitHub)", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci", {
