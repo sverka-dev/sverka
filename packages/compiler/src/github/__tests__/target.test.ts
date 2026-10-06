@@ -13,7 +13,7 @@ import {
   Entry,
 } from "@sverka/workflow";
 import { synthesize } from "@sverka/workflow";
-import type { DefinitionGraph } from "@sverka/workflow";
+import type { Condition, DefinitionGraph } from "@sverka/workflow";
 import {
   GithubTarget,
   compileGithub,
@@ -1543,7 +1543,7 @@ describe("compileGithub — background execution (F-49)", () => {
 
 describe("compileGithub — env refs in job conditions", () => {
   function makeConditionGraph(
-    condition: Parameters<typeof ShellStep.prototype.constructor>[2]["condition"],
+    condition: Condition,
     env?: Record<string, string>,
   ) {
     const proj = new Project("test");
@@ -1618,6 +1618,81 @@ describe("compileGithub — env refs in job conditions", () => {
     } catch (err) {
       expect((err as GithubTargetError).code).toBe("LOWER_FAILED");
       expect((err as GithubTargetError).message).toContain("run command");
+    }
+  });
+
+  it("lowers inputs.X conditions to the GitHub inputs context", () => {
+    const graph = makeConditionGraph({
+      kind: "context",
+      namespace: "inputs",
+      field: "tier",
+    });
+    const yaml = parse(compileGithub(graph).artifacts[0]!.content);
+    expect(yaml.jobs.deploy.if).toBe("${{ inputs.tier }}");
+  });
+
+  it("fails lowering for matrix.X — the matrix expands after the job gate", () => {
+    const graph = makeConditionGraph({
+      kind: "context",
+      namespace: "matrix",
+      field: "node",
+    });
+    try {
+      compileGithub(graph);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("LOWER_FAILED");
+      expect((err as GithubTargetError).message).toContain("matrix");
+    }
+  });
+
+  it("fails lowering when the env literal is a dynamic expression", () => {
+    const graph = makeConditionGraph(
+      { kind: "context", namespace: "env", field: "REF" },
+      { REF: "${{ github.ref_name }}" },
+    );
+    try {
+      compileGithub(graph);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("LOWER_FAILED");
+      expect((err as GithubTargetError).message).toContain(
+        "dynamic expression",
+      );
+    }
+  });
+
+  it("fails lowering when runtime.secrets shadows the env name", () => {
+    const proj = new Project("test");
+    const ci = new Pipeline(proj, "ci");
+    new ShellStep(ci, "deploy", {
+      command: "echo deploy",
+      condition: { kind: "context", namespace: "env", field: "TOKEN" },
+      runtime: { env: { TOKEN: "plain" }, secrets: ["TOKEN"] },
+    });
+    new Entry(ci, "on-push", {
+      trigger: { kind: "push" },
+      roots: ["deploy"],
+    });
+    try {
+      compileGithub(synthesize(proj));
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("LOWER_FAILED");
+      expect((err as GithubTargetError).message).toContain("runtime.secrets");
+    }
+  });
+
+  it("does not inline inherited Object properties like env.toString", () => {
+    const graph = makeConditionGraph(
+      { kind: "context", namespace: "env", field: "toString" },
+      { REAL: "x" },
+    );
+    try {
+      compileGithub(graph);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect((err as GithubTargetError).code).toBe("LOWER_FAILED");
     }
   });
 });
