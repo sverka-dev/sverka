@@ -226,6 +226,8 @@ const repoHealth = new Pipeline(proj, "repo-health", {
   inputs: {
     GITHUB_TOKEN: { type: "string", secret: true, default: "" },
   },
+  // Jobs only call `gh api` — no repo files needed, skip checkout/toolchain.
+  bootstrap: "none",
 });
 
 // Every GitHub Actions check-run on main's HEAD must be green — aggregated

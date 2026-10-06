@@ -20,6 +20,7 @@ import {
   GithubTargetError,
   type GithubTargetGraph,
   type GithubJob,
+  type GithubTargetConfig,
 } from "../../index.js";
 
 function makeSimpleGraph(): ReturnType<typeof synthesize> {
@@ -599,6 +600,29 @@ describe("compileGithub — typed inputs", () => {
     expect(callJob.with?.token).toBeUndefined();
     expect(callJob.with?.environment).toBe("staging");
     expect(callJob.secrets.token).toBe("${{ secrets.token }}");
+  });
+
+  it("bootstrap levels control checkout/setup injection per pipeline", () => {
+    const config: GithubTargetConfig = {
+      setup: [{ name: "Setup Bun", uses: "oven-sh/setup-bun@v2" }],
+    };
+    for (const [level, wantCheckout, wantSetup] of [
+      ["none", false, false],
+      ["checkout", true, false],
+      ["toolchain", true, true],
+    ] as const) {
+      const proj = new Project(`t-${level}`);
+      const p = new Pipeline(proj, "ci", { bootstrap: level });
+      new ShellStep(p, "build", { command: "echo" });
+      new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+      const result = compileGithub(synthesize(proj), config);
+      const yaml = parse(result.artifacts[0]!.content);
+      const names = (yaml.jobs.build.steps as { name?: string }[]).map(
+        (s) => s.name,
+      );
+      expect(names.includes("Checkout"), level).toBe(wantCheckout);
+      expect(names.includes("Setup Bun"), level).toBe(wantSetup);
+    }
   });
 
   it("emits error diagnostic for array input (unsupported on GitHub)", () => {

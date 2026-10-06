@@ -30,6 +30,7 @@ export type {
   AgentStepProps,
   EntryProps,
   PermissionLevel,
+  BootstrapLevel,
 } from "./constructs.js";
 
 export type {

@@ -152,6 +152,9 @@ function synthesizePipeline(
       : {}),
     ...(pipeline.rules.length > 0 ? { rules: pipeline.rules } : {}),
     ...(pipeline.includes.length > 0 ? { includes: pipeline.includes } : {}),
+    ...(pipeline.bootstrap !== undefined
+      ? { bootstrap: pipeline.bootstrap }
+      : {}),
   };
 }
 

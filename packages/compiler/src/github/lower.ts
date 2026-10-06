@@ -22,6 +22,7 @@ import type {
   ServiceContainer,
   CacheSpec,
   Rule,
+  BootstrapLevel,
 } from "@sverka/workflow";
 import type {
   GithubTargetGraph,
@@ -106,6 +107,7 @@ function lowerSinglePipeline(
     jobIdMap,
     pipeline.id,
     new Map([[pipeline.id, pipeline]]),
+    pipeline.bootstrap,
     config,
   );
 
@@ -238,6 +240,7 @@ function lowerPipelineInGraph(
     jobIdMap,
     pipeline.id,
     pipelineMap,
+    pipeline.bootstrap,
     config,
   );
   return assemblePipelineTarget(pipeline, triggers, jobs);
@@ -577,6 +580,7 @@ function lowerStepsWithCalls(
   jobIdMap: Map<string, string>,
   pipelineId: string,
   pipelineMap: ReadonlyMap<string, PipelineDefinition>,
+  bootstrap?: BootstrapLevel,
   config?: GithubTargetConfig,
 ): readonly GithubJob[] {
   return steps.map((step) => {
@@ -584,7 +588,7 @@ function lowerStepsWithCalls(
       return lowerCallStep(step, jobIdMap, pipelineId, pipelineMap);
     }
     if (step.component) {
-      return lowerComponentStep(step, jobIdMap, config);
+      return lowerComponentStep(step, jobIdMap, bootstrap, config);
     }
     if (step.childPipeline) {
       return lowerChildPipelineStep(step, jobIdMap);
@@ -592,7 +596,7 @@ function lowerStepsWithCalls(
     if (step.downstream) {
       return lowerDownstreamStep(step, jobIdMap);
     }
-    return lowerStep(step, jobIdMap, config);
+    return lowerStep(step, jobIdMap, bootstrap, config);
   });
 }
 
@@ -706,6 +710,7 @@ function lowerCallStep(
 function lowerComponentStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  bootstrap: BootstrapLevel | undefined,
   config?: GithubTargetConfig,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
@@ -731,8 +736,10 @@ function lowerComponentStep(
       runsOn: resolveRunsOn(step),
       needs,
       steps: [
-        checkoutStep(config),
-        ...setupSteps(config),
+        ...(bootstrap !== "none" ? [checkoutStep(config)] : []),
+        ...(bootstrap === undefined || bootstrap === "toolchain"
+          ? setupSteps(config)
+          : []),
         {
           name: `Component ${comp.name}`,
           uses: `${comp.name}@${comp.version}`,
@@ -830,10 +837,11 @@ function lowerDownstreamStep(
 function lowerStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  bootstrap: BootstrapLevel | undefined,
   config?: GithubTargetConfig,
 ): GithubJob {
   const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const rawSteps = lowerOperations(step, jobIdMap, config);
+  const rawSteps = lowerOperations(step, jobIdMap, bootstrap, config);
 
   // GitHub only supports boolean continue-on-error, not exit-code mapping.
   if (
@@ -1226,6 +1234,7 @@ function lowerDependencies(
 function lowerOperations(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  bootstrap: BootstrapLevel | undefined,
   config?: GithubTargetConfig,
 ): readonly GithubStep[] {
   const steps: GithubStep[] = [];
@@ -1234,8 +1243,14 @@ function lowerOperations(
     : step.id;
 
   // Every job needs the repository checked out, then toolchain/dependency
-  // setup runs before everything else.
-  steps.push(checkoutStep(config), ...setupSteps(config));
+  // setup runs before everything else — unless the pipeline opts out via
+  // bootstrap ("checkout" skips setup; "none" skips both).
+  if (bootstrap !== "none") {
+    steps.push(checkoutStep(config));
+  }
+  if (bootstrap === undefined || bootstrap === "toolchain") {
+    steps.push(...setupSteps(config));
+  }
 
   // F-48: delay → sleep after toolchain setup, before the step's own work.
   applyDelay(steps, step);
