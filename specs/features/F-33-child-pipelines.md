@@ -121,6 +121,6 @@ Dynamic child pipelines are a GitLab-specific feature with no GitHub equivalent.
 ## References
 
 - GitLab: <https://docs.gitlab.com/ee/ci/yaml/#triggerinclude>
-- GitLab: <https://docs.gitlab.com/ee/ci/parent_child_pipelines.html>
+- GitLab: <https://docs.gitlab.com/ci/pipelines/downstream_pipelines/>
 - GitHub: <https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_run>
 - Architecture spec: §25, §32 (deferred)
