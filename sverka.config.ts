@@ -37,12 +37,13 @@ const test = new ShellStep(ci, "test", {
 });
 
 // Emits SARIF on stdout → collected as a finding artifact for the policy
-// gate. Per-package `lint:sarif` nx targets cache each eslint run; the
-// script merges their reports/eslint.sarif into one document on stdout.
-// Always exits 0: eslint exits 1 on findings, and a failed step would
-// skip the artifact export — policy is the gate, not eslint's exit code.
+// gate. Per-package `lint:sarif` nx targets cache each eslint run; a
+// package only passes its target when eslint wrote a non-empty report
+// (findings still exit 0 — the report exists), so a fatal eslint crash
+// fails the step instead of silently dropping the package from the merge.
+// Policy is the gate on findings, not eslint's exit code.
 const lintSarif = new ShellStep(ci, "lint-sarif", {
-  command: "bun run lint:sarif || true",
+  command: "bun run lint:sarif",
   runtime: { shell: "sh" },
   outputs: { "eslint.sarif": { type: "artifact", fromStdout: true } },
 });

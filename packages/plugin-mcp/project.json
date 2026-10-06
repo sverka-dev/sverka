@@ -46,7 +46,7 @@
     "lint:sarif": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "mkdir -p reports && ../../node_modules/.bin/eslint src -f @microsoft/eslint-formatter-sarif -o reports/eslint.sarif || true",
+        "command": "rm -f reports/eslint.sarif && mkdir -p reports && ../../node_modules/.bin/eslint src -f @microsoft/eslint-formatter-sarif -o reports/eslint.sarif; test -s reports/eslint.sarif",
         "cwd": "packages/plugin-mcp"
       }
     }
