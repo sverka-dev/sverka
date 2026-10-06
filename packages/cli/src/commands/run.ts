@@ -31,6 +31,8 @@ export interface RunArgs {
   tui?: boolean;
   /** Max steps running concurrently (--jobs). */
   jobs?: number;
+  /** Captured stdout/stderr tail lines printed per step (0 disables). */
+  stepOutputLines?: number;
 }
 
 /**
@@ -78,6 +80,16 @@ export async function runCommand(
   ) {
     throw new CliError(
       "--jobs must be an integer in [1, 64]",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+  if (
+    args.stepOutputLines !== undefined &&
+    (!Number.isInteger(args.stepOutputLines) || args.stepOutputLines < 0)
+  ) {
+    throw new CliError(
+      "--step-output-lines must be a non-negative integer",
       "INVALID_FLAG",
       ExitCode.UsageError,
     );
@@ -269,14 +281,28 @@ async function consumeEvents(
     !isWeb &&
     global.format === "text";
 
+  // ANSI colors only on a real terminal that hasn't opted out.
+  const color =
+    process.stdout.isTTY === true &&
+    process.env.NO_COLOR === undefined &&
+    process.env.TERM !== "dumb";
+  const textRenderer = () =>
+    createTextRenderer({
+      writer: output,
+      color,
+      ...(args.stepOutputLines !== undefined
+        ? { stepOutputLines: args.stepOutputLines }
+        : {}),
+    });
+
   if (tuiWanted) {
     try {
       renderer = createInkRenderer({ graph });
     } catch {
-      renderer = createTextRenderer({ writer: output });
+      renderer = textRenderer();
     }
   } else if (global.format === "text" && !isHtml) {
-    renderer = createTextRenderer({ writer: output });
+    renderer = textRenderer();
   } else if (isHtml) {
     const outputPath =
       args.output ?? join(global.root, ".sverka", "report.html");

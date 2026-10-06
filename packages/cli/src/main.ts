@@ -104,6 +104,11 @@ function addRunCommand(y: Argv): Argv {
       type: "number",
       alias: "j",
       describe: "Max steps running concurrently (default: 4)",
+    })
+    .option("step-output-lines", {
+      type: "number",
+      describe:
+        "Captured stdout/stderr tail lines printed per step (0 disables; default 20)",
     });
 }
 
@@ -327,6 +332,16 @@ function dispatchRun(
         ExitCode.UsageError,
       );
     args.jobs = jobs;
+  }
+  if (parsed.stepOutputLines !== undefined) {
+    const lines = Number(parsed.stepOutputLines);
+    if (!Number.isInteger(lines) || lines < 0)
+      throw new CliError(
+        "--step-output-lines must be a non-negative integer",
+        "INVALID_FLAG",
+        ExitCode.UsageError,
+      );
+    args.stepOutputLines = lines;
   }
   if (typeof parsed.entry === "string") args.entryId = parsed.entry;
   if (typeof parsed.output === "string") args.output = parsed.output;

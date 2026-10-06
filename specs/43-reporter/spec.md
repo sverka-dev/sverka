@@ -150,6 +150,12 @@ code. `filterOnlyNew` is NOT needed — `evaluatePolicy` handles it.
 /** Options for creating a text renderer. */
 export interface TextRendererOptions {
   readonly writer: OutputWriter;
+  /** Emit ANSI colors (the CLI passes process.stdout.isTTY, respecting
+   * NO_COLOR and TERM=dumb). Default false. */
+  readonly color?: boolean;
+  /** Captured stdout/stderr tail lines printed after each terminal step
+   * event (sanitized of terminal escapes). 0 disables. Default: 20. */
+  readonly stepOutputLines?: number;
 }
 
 /** Create a vitest-style text renderer. */
@@ -212,7 +218,9 @@ sverka run [--format text|json] [--evaluate] [--executor host|docker] [--entry <
   ◇ ci/lint        ready
   ▶ ci/lint        running
   ✓ ci/lint        succeeded (120ms)
+      <tail of captured step stdout, dimmed>
   ✗ ci/test        failed (340ms) — exit code 1
+      <tail of captured step stderr, dimmed>
   ⊘ ci/deploy      skipped
 
 ■ run completed: success (560ms)
@@ -224,6 +232,12 @@ Findings (12 total):
 
 Policy: FAIL — 3 high findings exceed threshold
 ```
+
+Terminal step events print the tail of the step's captured stdout/stderr
+(last 20 lines per stream, `… (N earlier lines)` marker when truncated)
+so failures and check reports are visible without opening artifacts.
+When stdout is a TTY (and `NO_COLOR`/`TERM=dumb` do not opt out), status
+lines are ANSI-colored: green ✓, red ✗, cyan ▶, gray ○/◇, yellow !/↺.
 
 When `--evaluate` is not set, the findings and policy sections are omitted.
 

@@ -92,6 +92,14 @@ export interface PolicyGateResult {
 /** Options for creating a text renderer. */
 export interface TextRendererOptions {
   readonly writer: TextWriter;
+  /** Emit ANSI colors (pass process.stdout.isTTY). Default false. */
+  readonly color?: boolean;
+  /**
+   * Print captured step stdout/stderr after each terminal step event.
+   * The number is the max tail lines per stream (0 disables output
+   * printing). Default: 20.
+   */
+  readonly stepOutputLines?: number;
 }
 
 /** Minimal write interface for the text renderer (subset of OutputWriter). */

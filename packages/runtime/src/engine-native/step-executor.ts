@@ -58,24 +58,35 @@ export interface ShellOutput {
 const MAX_OUTPUT_BYTES = 10000;
 
 /** Truncate to a UTF-8 byte budget — value.length counts UTF-16 units, so
- * non-ASCII output can exceed the limit if measured in characters. */
+ * non-ASCII output can exceed the limit if measured in characters. Keeps
+ * the TAIL: errors and final summaries live at the end of a step's output,
+ * and renderers print the tail of what they receive. */
 function truncateOutput(value: string): string {
   const totalBytes = Buffer.byteLength(value, "utf8");
   if (totalBytes <= MAX_OUTPUT_BYTES) return value;
-  // Binary search for the largest UTF-16 prefix within the byte budget.
+  // Binary search for the smallest UTF-16 suffix start within the budget.
   let lo = 0;
   let hi = value.length;
   while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (Buffer.byteLength(value.slice(0, mid), "utf8") <= MAX_OUTPUT_BYTES) {
-      lo = mid;
+    const mid = Math.floor((lo + hi) / 2);
+    if (Buffer.byteLength(value.slice(mid), "utf8") <= MAX_OUTPUT_BYTES) {
+      hi = mid;
     } else {
-      hi = mid - 1;
+      lo = mid + 1;
     }
   }
-  const kept = value.slice(0, lo);
+  // Don't start the kept suffix on a low surrogate — that splits a pair
+  // and corrupts the boundary character.
+  if (
+    lo > 0 &&
+    (value.codePointAt(lo) ?? 0) >= 0xdc00 &&
+    (value.codePointAt(lo) ?? 0) <= 0xdfff
+  ) {
+    lo += 1;
+  }
+  const kept = value.slice(lo);
   const keptBytes = Buffer.byteLength(kept, "utf8");
-  return `${kept}\n[... truncated ${totalBytes - keptBytes} bytes]`;
+  return `[... truncated ${totalBytes - keptBytes} bytes]\n${kept}`;
 }
 
 /** Execute all operations in a step in order. */
