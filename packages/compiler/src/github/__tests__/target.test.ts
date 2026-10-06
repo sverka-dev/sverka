@@ -589,6 +589,16 @@ describe("compileGithub — typed inputs", () => {
     expect(calleeYaml.on.workflow_call.inputs.token).toBeUndefined();
     expect(calleeYaml.on.workflow_call.inputs.environment).toBeDefined();
     expect(calleeYaml.on.workflow_call.secrets.token.required).toBe(true);
+
+    // The call job passes the secret binding via `secrets:` — a `with:`
+    // entry would be an undeclared input on the callee.
+    const callerYaml = parse(
+      result.artifacts.find((a) => a.path.includes("caller"))!.content,
+    );
+    const callJob = callerYaml.jobs["call-callee"];
+    expect(callJob.with?.token).toBeUndefined();
+    expect(callJob.with?.environment).toBe("staging");
+    expect(callJob.secrets.token).toBe("${{ secrets.token }}");
   });
 
   it("emits error diagnostic for array input (unsupported on GitHub)", () => {

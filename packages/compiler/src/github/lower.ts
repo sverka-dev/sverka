@@ -105,6 +105,7 @@ function lowerSinglePipeline(
     reachableSteps,
     jobIdMap,
     pipeline.id,
+    new Map([[pipeline.id, pipeline]]),
     config,
   );
 
@@ -174,12 +175,14 @@ function lowerMultiPipeline(
 ): readonly GithubTargetGraph[] {
   const pipelines = graph.project.pipelines;
   const calledPipelineIds = collectCalledPipelineIds(pipelines);
+  const pipelineMap = new Map(pipelines.map((p) => [p.id, p]));
 
   const result: GithubTargetGraph[] = [];
   for (const pipeline of pipelines) {
     const target = lowerPipelineInGraph(
       pipeline,
       calledPipelineIds.has(pipeline.id),
+      pipelineMap,
       config,
     );
     if (target !== undefined) result.push(target);
@@ -211,6 +214,7 @@ function collectCalledPipelineIds(
 function lowerPipelineInGraph(
   pipeline: PipelineDefinition,
   isCalled: boolean,
+  pipelineMap: ReadonlyMap<string, PipelineDefinition>,
   config?: GithubTargetConfig,
 ): GithubTargetGraph | undefined {
   const hasEntries = pipeline.entries.length > 0;
@@ -233,6 +237,7 @@ function lowerPipelineInGraph(
     reachableSteps,
     jobIdMap,
     pipeline.id,
+    pipelineMap,
     config,
   );
   return assemblePipelineTarget(pipeline, triggers, jobs);
@@ -571,11 +576,12 @@ function lowerStepsWithCalls(
   steps: readonly StepDefinition[],
   jobIdMap: Map<string, string>,
   pipelineId: string,
+  pipelineMap: ReadonlyMap<string, PipelineDefinition>,
   config?: GithubTargetConfig,
 ): readonly GithubJob[] {
   return steps.map((step) => {
     if (step.call) {
-      return lowerCallStep(step, jobIdMap, pipelineId);
+      return lowerCallStep(step, jobIdMap, pipelineId, pipelineMap);
     }
     if (step.component) {
       return lowerComponentStep(step, jobIdMap, config);
@@ -636,18 +642,49 @@ function lowerCallStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
   pipelineId: string,
+  pipelineMap: ReadonlyMap<string, PipelineDefinition>,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
   const call = step.call!;
   const callee = call.callee;
+  const calleeDef = pipelineMap.get(callee);
 
   // Build `with:` from bound inputs.
   // Secrets in `with:` inputs must use ${{ secrets.FIELD }} — GitHub Actions
   // does not expand $FIELD in with: values (it treats it as a literal string).
   const withMap: Record<string, unknown> = {};
+  const secretMap: Record<string, string> = {};
   for (const [name, value] of Object.entries(call.inputs)) {
+    if (calleeDef?.inputs?.[name]?.secret) {
+      // Secret callee inputs are declared under workflow_call.secrets, so
+      // they must be passed via the job's `secrets:` map — a `with:` entry
+      // would be an undeclared input and could leak a literal credential.
+      // A non-expression binding falls back to the same-named caller secret
+      // rather than embedding a literal into the workflow file.
+      const lowered = lowerReferenceExpr(value, jobIdMap, true);
+      secretMap[name] =
+        typeof lowered === "string" ? lowered : `\${{ secrets.${name} }}`;
+      continue;
+    }
     withMap[name] = lowerReferenceExpr(value, jobIdMap, true) ?? value;
+  }
+  if (Object.keys(secretMap).length > 0) {
+    // With an explicit secrets map there is no `inherit`, so pass through
+    // every other secret the callee can reference — its declared secret
+    // inputs and per-step runtime.secrets resolve by name.
+    for (const [name, input] of Object.entries(calleeDef?.inputs ?? {})) {
+      if (input.secret && secretMap[name] === undefined) {
+        secretMap[name] = `\${{ secrets.${name} }}`;
+      }
+    }
+    for (const calleeStep of calleeDef?.steps ?? []) {
+      for (const name of calleeStep.runtime.secrets ?? []) {
+        if (secretMap[name] === undefined) {
+          secretMap[name] = `\${{ secrets.${name} }}`;
+        }
+      }
+    }
   }
 
   return {
@@ -658,7 +695,7 @@ function lowerCallStep(
     steps: [],
     uses: `./.github/workflows/${callee}.yml`,
     ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
-    secrets: "inherit",
+    secrets: Object.keys(secretMap).length > 0 ? secretMap : "inherit",
   };
 }
 
