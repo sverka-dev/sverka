@@ -75,6 +75,15 @@ function truncateOutput(value: string): string {
       lo = mid + 1;
     }
   }
+  // Don't start the kept suffix on a low surrogate — that splits a pair
+  // and corrupts the boundary character.
+  if (
+    lo > 0 &&
+    value.charCodeAt(lo) >= 0xdc00 &&
+    value.charCodeAt(lo) <= 0xdfff
+  ) {
+    lo += 1;
+  }
   const kept = value.slice(lo);
   const keptBytes = Buffer.byteLength(kept, "utf8");
   return `[... truncated ${totalBytes - keptBytes} bytes]\n${kept}`;

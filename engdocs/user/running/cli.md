@@ -38,16 +38,17 @@ and dependencies.
 Execute a Run Plan through the native engine with the host runtime driver.
 Emits step events: pending, started, succeeded/failed, run completion.
 After each finished step, prints the tail of its captured stdout/stderr
-(last 20 lines); on a TTY the status lines are ANSI-colored (`NO_COLOR`
-opts out).
+(last 20 lines, `--step-output-lines` tunes or disables); on a TTY the
+status lines are ANSI-colored (`NO_COLOR` or `TERM=dumb` opt out).
 
-| Flag         | Type    | Default | Description                                                    |
-| ------------ | ------- | ------- | -------------------------------------------------------------- |
-| `--entry`    | string  | —       | Entry ID to run                                                |
-| `--executor` | string  | `host`  | Runtime executor to use (`host` or `docker`)                   |
-| `--evaluate` | boolean | `false` | Collect SARIF findings and evaluate policy after the run       |
-| `--output`   | string  | —       | Output file path for HTML report (implies `--format html`)     |
-| `--tui`      | boolean | `false` | Interactive terminal UI (opt-in; default output is plain text) |
+| Flag                  | Type    | Default | Description                                                    |
+| --------------------- | ------- | ------- | -------------------------------------------------------------- |
+| `--entry`             | string  | —       | Entry ID to run                                                |
+| `--executor`          | string  | `host`  | Runtime executor to use (`host` or `docker`)                   |
+| `--evaluate`          | boolean | `false` | Collect SARIF findings and evaluate policy after the run       |
+| `--output`            | string  | —       | Output file path for HTML report (implies `--format html`)     |
+| `--tui`               | boolean | `false` | Interactive terminal UI (opt-in; default output is plain text) |
+| `--step-output-lines` | number  | `20`    | Captured stdout/stderr tail lines per step (`0` disables)      |
 
 ### `sverka discover`
 

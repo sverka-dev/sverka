@@ -703,7 +703,7 @@ describe("StepExecutor — shell output capture (stdout/stderr/exitCode)", () =>
       execOpts(makeStep([{ kind: "shell", command: "cat big" }]), driver),
     );
     expect(result.status).toBe("succeeded");
-    expect(result.stdout).toContain("truncated");
+    expect(result.stdout).toContain("truncated 2010 bytes");
     expect(result.stdout!.length).toBeLessThan(big.length);
     // The tail is what users and renderers care about — keep the end.
     expect(result.stdout).toContain("FINAL-LINE");

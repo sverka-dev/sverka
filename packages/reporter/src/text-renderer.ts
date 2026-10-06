@@ -123,17 +123,24 @@ function sanitizeLine(line: string): string {
     .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, ""); // stray controls
 }
 
-/** Print the tail of a captured stream, dimmed and indented. */
+/** Print the tail of a captured stream, dimmed and indented. A `label`
+ * (e.g. "stderr") marks the stream when both may be present. */
 function printCaptured(
   text: string | undefined,
   maxLines: number,
   writer: TextWriter,
   color: boolean,
+  label?: string,
 ): void {
   if (maxLines <= 0 || !text) return;
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  // Split on all line breaks — a lone \r would otherwise move the cursor
+  // to column 0 and overwrite rendered lines in a real terminal.
+  const lines = text.split(/\r\n|\r|\n/);
   while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
   if (lines.length === 0) return;
+  if (label !== undefined) {
+    writer.writeLine(`      ${paint(color, ANSI.dim, label)}`);
+  }
   const shown = lines.slice(-maxLines);
   const hidden = lines.length - shown.length;
   if (hidden > 0) {
@@ -171,14 +178,14 @@ function printEvent(
         `  ${paint(color, ANSI.green, "✓")} ${event.stepId}  ${paint(color, ANSI.green, "succeeded")} (${event.durationMs}ms)`,
       );
       printCaptured(event.stdout, stepOutputLines, writer, color);
-      printCaptured(event.stderr, stepOutputLines, writer, color);
+      printCaptured(event.stderr, stepOutputLines, writer, color, "stderr:");
       break;
     case "step-failed":
       writer.writeLine(
         `  ${paint(color, ANSI.red, "✗")} ${event.stepId}  ${paint(color, ANSI.red, "failed")} (${event.durationMs}ms) — ${event.error}`,
       );
       printCaptured(event.stdout, stepOutputLines, writer, color);
-      printCaptured(event.stderr, stepOutputLines, writer, color);
+      printCaptured(event.stderr, stepOutputLines, writer, color, "stderr:");
       break;
     case "step-retry":
       writer.writeLine(

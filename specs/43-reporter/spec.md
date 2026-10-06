@@ -150,6 +150,12 @@ code. `filterOnlyNew` is NOT needed — `evaluatePolicy` handles it.
 /** Options for creating a text renderer. */
 export interface TextRendererOptions {
   readonly writer: OutputWriter;
+  /** Emit ANSI colors (the CLI passes process.stdout.isTTY, respecting
+   * NO_COLOR and TERM=dumb). Default false. */
+  readonly color?: boolean;
+  /** Captured stdout/stderr tail lines printed after each terminal step
+   * event (sanitized of terminal escapes). 0 disables. Default: 20. */
+  readonly stepOutputLines?: number;
 }
 
 /** Create a vitest-style text renderer. */

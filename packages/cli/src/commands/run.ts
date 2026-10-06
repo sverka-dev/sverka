@@ -31,6 +31,8 @@ export interface RunArgs {
   tui?: boolean;
   /** Max steps running concurrently (--jobs). */
   jobs?: number;
+  /** Captured stdout/stderr tail lines printed per step (0 disables). */
+  stepOutputLines?: number;
 }
 
 /**
@@ -274,7 +276,14 @@ async function consumeEvents(
     process.stdout.isTTY === true &&
     process.env.NO_COLOR === undefined &&
     process.env.TERM !== "dumb";
-  const textRenderer = () => createTextRenderer({ writer: output, color });
+  const textRenderer = () =>
+    createTextRenderer({
+      writer: output,
+      color,
+      ...(args.stepOutputLines !== undefined
+        ? { stepOutputLines: args.stepOutputLines }
+        : {}),
+    });
 
   if (tuiWanted) {
     try {
