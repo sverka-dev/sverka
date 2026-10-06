@@ -22,6 +22,7 @@ import type {
   RetryPolicy,
   BackoffSpec,
   PermissionLevel,
+  BootstrapLevel,
   RunnerSpec,
   IdentitySpec,
   Rule,
@@ -60,6 +61,7 @@ export type {
   ContinueOnError,
   RetryPolicy,
   PermissionLevel,
+  BootstrapLevel,
   RunnerSpec,
   IdentitySpec,
   Rule,
@@ -113,6 +115,7 @@ export interface PipelineDefinition {
   readonly concurrency?: ConcurrencySpec;
   readonly rules?: readonly PipelineRule[];
   readonly includes?: readonly IncludeRef[];
+  readonly bootstrap?: BootstrapLevel;
 }
 
 export interface EntryDefinition {

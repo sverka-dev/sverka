@@ -20,6 +20,7 @@ import {
   GithubTargetError,
   type GithubTargetGraph,
   type GithubJob,
+  type GithubTargetConfig,
 } from "../../index.js";
 
 function makeSimpleGraph(): ReturnType<typeof synthesize> {
@@ -527,6 +528,112 @@ describe("compileGithub — typed inputs", () => {
       "production",
     ]);
     expect(yaml.on.workflow_dispatch.inputs.debug.type).toBe("boolean");
+  });
+
+  it("skips secret inputs in workflow_dispatch.inputs", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: {
+        token: { type: "string", secret: true },
+        environment: { type: "string", default: "staging" },
+      },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["build"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.workflow_dispatch.inputs.token).toBeUndefined();
+    expect(yaml.on.workflow_dispatch.inputs.environment).toBeDefined();
+  });
+
+  it("emits no inputs key when every dispatch input is a secret", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci", {
+      inputs: { token: { type: "string", secret: true } },
+    });
+    new ShellStep(p, "build", { command: "echo" });
+    new Entry(p, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["build"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const yaml = parse(result.artifacts[0]!.content);
+    expect(yaml.on.workflow_dispatch).toBeNull();
+  });
+
+  it("emits secret inputs under workflow_call.secrets", () => {
+    const proj = new Project("test");
+    const caller = new Pipeline(proj, "caller");
+    new ShellStep(caller, "build", { command: "echo" });
+    const callee = new Pipeline(proj, "callee", {
+      inputs: {
+        token: { type: "string", secret: true, required: true },
+        environment: { type: "string" },
+      },
+    });
+    new ShellStep(callee, "test", {
+      command: "echo",
+      runtime: { secrets: ["DEPLOY_KEY"] },
+    });
+    new PipelineCallStep(caller, "call-callee", {
+      callee: "callee",
+      callInputs: { token: "bound", environment: "staging" },
+    });
+    new Entry(caller, "on-manual", {
+      trigger: { kind: "manual" },
+      roots: ["call-callee"],
+    });
+    const result = compileGithub(synthesize(proj));
+    const calleeYaml = parse(
+      result.artifacts.find((a) => a.path.includes("callee"))!.content,
+    );
+    expect(calleeYaml.on.workflow_call.inputs.token).toBeUndefined();
+    expect(calleeYaml.on.workflow_call.inputs.environment).toBeDefined();
+    expect(calleeYaml.on.workflow_call.secrets.token.required).toBe(true);
+    // Step-level runtime.secrets must be declared too — GitHub rejects
+    // caller-supplied secrets the called workflow does not declare.
+    expect(calleeYaml.on.workflow_call.secrets.DEPLOY_KEY).toEqual({
+      required: false,
+    });
+
+    // The call job passes the secret binding via `secrets:` — a `with:`
+    // entry would be an undeclared input on the callee.
+    const callerYaml = parse(
+      result.artifacts.find((a) => a.path.includes("caller"))!.content,
+    );
+    const callJob = callerYaml.jobs["call-callee"];
+    expect(callJob.with?.token).toBeUndefined();
+    expect(callJob.with?.environment).toBe("staging");
+    expect(callJob.secrets.token).toBe("${{ secrets.token }}");
+    // Step-level runtime secrets are forwarded by name too — without this
+    // the callee job's env would resolve DEPLOY_KEY to an empty string.
+    expect(callJob.secrets.DEPLOY_KEY).toBe("${{ secrets.DEPLOY_KEY }}");
+  });
+
+  it("bootstrap levels control checkout/setup injection per pipeline", () => {
+    const config: GithubTargetConfig = {
+      setup: [{ name: "Setup Bun", uses: "oven-sh/setup-bun@v2" }],
+    };
+    for (const [level, wantCheckout, wantSetup] of [
+      ["none", false, false],
+      ["checkout", true, false],
+      ["toolchain", true, true],
+    ] as const) {
+      const proj = new Project(`t-${level}`);
+      const p = new Pipeline(proj, "ci", { bootstrap: level });
+      new ShellStep(p, "build", { command: "echo" });
+      new Entry(p, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+      const result = compileGithub(synthesize(proj), config);
+      const yaml = parse(result.artifacts[0]!.content);
+      const names = (yaml.jobs.build.steps as { name?: string }[]).map(
+        (s) => s.name,
+      );
+      expect(names.includes("Checkout"), level).toBe(wantCheckout);
+      expect(names.includes("Setup Bun"), level).toBe(wantSetup);
+    }
   });
 
   it("emits error diagnostic for array input (unsupported on GitHub)", () => {

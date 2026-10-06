@@ -30,6 +30,7 @@ export interface GithubTriggers {
   }[];
   readonly workflow_call?: {
     readonly inputs?: Record<string, unknown>;
+    readonly secrets?: Record<string, { readonly required?: boolean }>;
   } | null;
 }
 

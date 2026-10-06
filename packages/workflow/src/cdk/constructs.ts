@@ -102,6 +102,11 @@ export class Project extends Construct {
 
 export type PermissionLevel = "read" | "write" | "none";
 
+/** Runner bootstrap level for compiled CI jobs. `"toolchain"` (default)
+ * emits checkout + toolchain/dependency setup; `"checkout"` emits checkout
+ * only; `"none"` emits neither — for steps that only call external APIs. */
+export type BootstrapLevel = "none" | "checkout" | "toolchain";
+
 /** Props for constructing a Pipeline. */
 export interface PipelineProps {
   readonly inputs?: Readonly<Record<string, Input>>;
@@ -112,6 +117,7 @@ export interface PipelineProps {
   readonly concurrency?: ConcurrencySpec;
   readonly rules?: readonly PipelineRule[];
   readonly includes?: readonly IncludeRef[];
+  readonly bootstrap?: BootstrapLevel;
 }
 
 const PIPELINE_PROPS: ReadonlySet<string> = new Set([
@@ -123,6 +129,7 @@ const PIPELINE_PROPS: ReadonlySet<string> = new Set([
   "concurrency",
   "rules",
   "includes",
+  "bootstrap",
 ]);
 
 /** PipelineProps with collection fields normalized to non-optional. */
@@ -194,6 +201,7 @@ export class Pipeline extends Construct {
   readonly concurrency?: ConcurrencySpec;
   readonly rules: ReadonlyArray<PipelineRule>;
   readonly includes: ReadonlyArray<IncludeRef>;
+  readonly bootstrap?: BootstrapLevel;
 
   constructor(scope: Project, id: string, props?: PipelineProps);
   constructor(id: string, props?: PipelineProps);
@@ -237,6 +245,9 @@ export class Pipeline extends Construct {
     }
     this.rules = [...pipelineProps.rules];
     this.includes = [...pipelineProps.includes];
+    if (pipelineProps.bootstrap !== undefined) {
+      this.bootstrap = pipelineProps.bootstrap;
+    }
     warnUnknownProps(this, pipelineProps, PIPELINE_PROPS);
   }
 }
