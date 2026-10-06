@@ -1,3 +1,14 @@
+## 0.2.6 (2026-10-06)
+
+### 🩹 Fixes
+
+- **runtime,reporter:** mask secrets in captured output; keep truncation marker ([#302](https://github.com/sverka-dev/sverka/pull/302))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.5 (2026-10-06)
 
 ### 🩹 Fixes
