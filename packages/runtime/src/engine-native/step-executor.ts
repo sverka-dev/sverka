@@ -94,10 +94,11 @@ const REDACTED = "***";
 /** Replace every known secret value in captured output before it reaches
  * events, artifacts, or the console (sv-m52a). Applied to the full
  * run-level secrets map — a step can leak a value it never declared.
- * Longest-first alternation in a bounded repeat-until-stable loop: one
- * pass could leave a longer secret's suffix behind, and a replacement
- * could recreate another secret's value — re-scan until stable
- * (pathological self-recreating secret sets are capped). */
+ * Longest-first per-value replaces in a bounded repeat-until-stable
+ * loop: a shorter secret processed first could leave a longer one's
+ * suffix behind, and a replacement could recreate another secret's
+ * value — re-scan until stable (pathological self-recreating secret
+ * sets are capped). */
 function maskSecrets(
   text: string,
   secrets: Readonly<Record<string, string>>,
@@ -106,13 +107,10 @@ function maskSecrets(
     .filter((v) => v.length > 0)
     .sort((a, b) => b.length - a.length);
   if (values.length === 0) return text;
-  const pattern = new RegExp(
-    values.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
-    "g",
-  );
   let masked = text;
   for (let i = 0; i < 8; i += 1) {
-    const next = masked.replace(pattern, REDACTED);
+    let next = masked;
+    for (const value of values) next = next.replaceAll(value, REDACTED);
     if (next === masked) break;
     masked = next;
   }
