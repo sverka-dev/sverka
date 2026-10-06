@@ -574,7 +574,10 @@ describe("compileGithub — typed inputs", () => {
         environment: { type: "string" },
       },
     });
-    new ShellStep(callee, "test", { command: "echo" });
+    new ShellStep(callee, "test", {
+      command: "echo",
+      runtime: { secrets: ["DEPLOY_KEY"] },
+    });
     new PipelineCallStep(caller, "call-callee", {
       callee: "callee",
       callInputs: { token: "bound", environment: "staging" },
@@ -590,6 +593,11 @@ describe("compileGithub — typed inputs", () => {
     expect(calleeYaml.on.workflow_call.inputs.token).toBeUndefined();
     expect(calleeYaml.on.workflow_call.inputs.environment).toBeDefined();
     expect(calleeYaml.on.workflow_call.secrets.token.required).toBe(true);
+    // Step-level runtime.secrets must be declared too — GitHub rejects
+    // caller-supplied secrets the called workflow does not declare.
+    expect(calleeYaml.on.workflow_call.secrets.DEPLOY_KEY).toEqual({
+      required: false,
+    });
 
     // The call job passes the secret binding via `secrets:` — a `with:`
     // entry would be an undeclared input on the callee.

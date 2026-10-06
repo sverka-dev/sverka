@@ -232,7 +232,7 @@ function lowerPipelineInGraph(
   // Triggers: root triggers + workflow_call if called.
   let triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
   if (isCalled) {
-    triggers = addWorkflowCall(triggers, pipeline.inputs);
+    triggers = addWorkflowCall(triggers, pipeline);
   }
 
   const jobs = lowerStepsWithCalls(
@@ -251,10 +251,13 @@ function lowerPipelineInGraph(
  */
 function addWorkflowCall(
   triggers: GithubTriggers,
-  inputs: Readonly<Record<string, Input>>,
+  pipeline: PipelineDefinition,
 ): GithubTriggers {
-  const inputEntries = Object.entries(inputs);
-  if (inputEntries.length === 0) {
+  const inputEntries = Object.entries(pipeline.inputs);
+  if (
+    inputEntries.length === 0 &&
+    pipeline.steps.every((s) => !s.runtime.secrets?.length)
+  ) {
     return { ...triggers, workflow_call: null };
   }
 
@@ -284,6 +287,17 @@ function addWorkflowCall(
       ghInput.description = input.description;
     }
     workflowInputs[name] = ghInput;
+  }
+
+  // Steps referencing ${{ secrets.X }} inside the callee need those names
+  // declared on workflow_call.secrets too — GitHub rejects a caller-supplied
+  // secret the called workflow does not declare.
+  for (const step of pipeline.steps) {
+    for (const name of step.runtime.secrets ?? []) {
+      if (workflowSecrets[name] === undefined) {
+        workflowSecrets[name] = { required: false };
+      }
+    }
   }
 
   return {
@@ -664,9 +678,20 @@ function lowerCallStep(
       // Secret callee inputs are declared under workflow_call.secrets, so
       // they must be passed via the job's `secrets:` map — a `with:` entry
       // would be an undeclared input and could leak a literal credential.
-      // A non-expression binding falls back to the same-named caller secret
-      // rather than embedding a literal into the workflow file.
+      // GH allows only github/needs/secrets contexts in that map; anything
+      // else (inputs/env/matrix/…) is invalid — fail with a clear error.
+      // Literal bindings fall back to the same-named caller secret rather
+      // than embedding a credential into the workflow file.
       const lowered = lowerReferenceExpr(value, jobIdMap, true);
+      if (
+        typeof lowered === "string" &&
+        !/^\$\{\{ (secrets|github|needs)\./.test(lowered)
+      ) {
+        throw new GithubTargetError(
+          `secret input '${name}' of callee '${callee}' is bound to '${lowered}' — only secrets.*, github.*, and needs.* contexts are allowed in a call job's secrets map`,
+          "LOWER_FAILED",
+        );
+      }
       secretMap[name] =
         typeof lowered === "string" ? lowered : `\${{ secrets.${name} }}`;
       continue;
