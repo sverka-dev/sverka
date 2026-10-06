@@ -741,4 +741,33 @@ describe("synthesize — structural markers (dual-package installs)", () => {
       { kind: "shell", command: "echo foreign" },
     ]);
   });
+
+  it("synthesizes legacy pre-marker constructs via duck typing", () => {
+    const proj = new Project("legacy");
+    // A pipeline built by a @sverka/workflow copy from before markers existed:
+    // no symbols, just the shape its constructor always produced.
+    const legacyPipeline = new Construct(proj, "ci") as unknown as Pipeline;
+    (legacyPipeline as unknown as Record<string, unknown>).inputs = new Map();
+    (legacyPipeline as unknown as Record<string, unknown>).rules = [];
+    (legacyPipeline as unknown as Record<string, unknown>).includes = [];
+    expect(legacyPipeline instanceof Pipeline).toBe(false);
+
+    const legacyStep = new Construct(
+      legacyPipeline,
+      "build",
+    ) as unknown as Step;
+    const ls = legacyStep as unknown as Record<string, unknown>;
+    ls.runtime = {};
+    ls.outputs = new Map();
+    ls.inputs = [];
+    ls.dependsOn = [];
+    ls.command = "echo legacy";
+    ls.background = false;
+
+    const graph = synthesize(proj);
+    expect(graph.project.pipelines[0]?.id).toBe("ci");
+    expect(graph.project.pipelines[0]?.steps[0]?.operations).toEqual([
+      { kind: "shell", command: "echo legacy" },
+    ]);
+  });
 });

@@ -7,6 +7,8 @@
 //
 // Each class stamps its own symbol as an instance field; the `is*` helpers
 // are the ONLY supported way to check construct kinds across package copies.
+// They also duck-type constructs built by PRE-MARKER copies, so a new CLI
+// still accepts a config whose @sverka/workflow predates this scheme.
 
 import type {
   Project,
@@ -46,52 +48,104 @@ function marked(value: unknown, marker: symbol): boolean {
   );
 }
 
+/** Duck-type fallback for objects built by a pre-marker @sverka/workflow
+ * copy — they carry no symbols, so discrimination keys on fields the
+ * constructor always assigns. `instanceof Map`/`Array.isArray` are safe:
+ * two module copies share the realm's intrinsics — only identity differs. */
+type Shaped = Record<string, unknown> & { node?: { scope?: unknown } };
+
+const shaped = (v: unknown): v is Shaped => typeof v === "object" && v !== null;
+
 export function isProject(value: unknown): value is Project {
-  return marked(value, PROJECT_MARKER);
+  return (
+    marked(value, PROJECT_MARKER) ||
+    // Only Project is constructed with no scope — a root Construct.
+    (shaped(value) &&
+      value.node !== undefined &&
+      value.node.scope === undefined)
+  );
 }
 
 export function isPipeline(value: unknown): value is Pipeline {
-  return marked(value, PIPELINE_MARKER);
+  return (
+    marked(value, PIPELINE_MARKER) ||
+    // inputs is a Map only on Pipeline — on Step it's a readonly array.
+    (shaped(value) && value.inputs instanceof Map)
+  );
 }
 
 export function isStep(value: unknown): value is Step {
-  return marked(value, STEP_MARKER);
+  return (
+    marked(value, STEP_MARKER) ||
+    (shaped(value) &&
+      shaped(value.runtime) &&
+      value.outputs instanceof Map &&
+      Array.isArray(value.dependsOn))
+  );
 }
 
 export function isShellStep(value: unknown): value is ShellStep {
-  return marked(value, SHELL_STEP_MARKER);
+  return (
+    marked(value, SHELL_STEP_MARKER) ||
+    (isStep(value) && typeof value.command === "string")
+  );
 }
 
 export function isPipelineCallStep(value: unknown): value is PipelineCallStep {
-  return marked(value, PIPELINE_CALL_STEP_MARKER);
+  return (
+    marked(value, PIPELINE_CALL_STEP_MARKER) ||
+    (isStep(value) && typeof value.callee === "string")
+  );
 }
 
 export function isComponentStep(value: unknown): value is ComponentStep {
-  return marked(value, COMPONENT_STEP_MARKER);
+  return (
+    marked(value, COMPONENT_STEP_MARKER) ||
+    (isStep(value) && shaped(value.component))
+  );
 }
 
 export function isChildPipelineStep(
   value: unknown,
 ): value is ChildPipelineStep {
-  return marked(value, CHILD_PIPELINE_STEP_MARKER);
+  return (
+    marked(value, CHILD_PIPELINE_STEP_MARKER) ||
+    (isStep(value) && shaped(value.childPipeline))
+  );
 }
 
 export function isDownstreamStep(value: unknown): value is DownstreamStep {
-  return marked(value, DOWNSTREAM_STEP_MARKER);
+  return (
+    marked(value, DOWNSTREAM_STEP_MARKER) ||
+    (isStep(value) && shaped(value.downstream))
+  );
 }
 
 export function isReleaseStep(value: unknown): value is ReleaseStep {
-  return marked(value, RELEASE_STEP_MARKER);
+  return (
+    marked(value, RELEASE_STEP_MARKER) ||
+    (isStep(value) && shaped(value.release))
+  );
 }
 
 export function isPagesStep(value: unknown): value is PagesStep {
-  return marked(value, PAGES_STEP_MARKER);
+  return (
+    marked(value, PAGES_STEP_MARKER) || (isStep(value) && shaped(value.pages))
+  );
 }
 
 export function isAgentStep(value: unknown): value is AgentStep {
-  return marked(value, AGENT_STEP_MARKER);
+  return (
+    marked(value, AGENT_STEP_MARKER) ||
+    (isStep(value) &&
+      typeof value.engine === "string" &&
+      typeof value.prompt === "string")
+  );
 }
 
 export function isEntry(value: unknown): value is Entry {
-  return marked(value, ENTRY_MARKER);
+  return (
+    marked(value, ENTRY_MARKER) ||
+    (shaped(value) && Array.isArray(value.roots) && shaped(value.trigger))
+  );
 }
