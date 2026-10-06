@@ -1,3 +1,15 @@
+## 0.2.10 (2026-10-06)
+
+### 🩹 Fixes
+
+- resolve @sverka/* from src to kill the dist/ read race ([#314](https://github.com/sverka-dev/sverka/pull/314))
+- **compiler:** fail or inline env/secrets refs in job-level if conditions ([#313](https://github.com/sverka-dev/sverka/pull/313))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.9 (2026-10-06)
 
 ### 🚀 Features
