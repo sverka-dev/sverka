@@ -608,6 +608,9 @@ describe("compileGithub — typed inputs", () => {
     expect(callJob.with?.token).toBeUndefined();
     expect(callJob.with?.environment).toBe("staging");
     expect(callJob.secrets.token).toBe("${{ secrets.token }}");
+    // Step-level runtime secrets are forwarded by name too — without this
+    // the callee job's env would resolve DEPLOY_KEY to an empty string.
+    expect(callJob.secrets.DEPLOY_KEY).toBe("${{ secrets.DEPLOY_KEY }}");
   });
 
   it("bootstrap levels control checkout/setup injection per pipeline", () => {
