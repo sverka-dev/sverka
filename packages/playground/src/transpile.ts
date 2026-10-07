@@ -1,5 +1,5 @@
 // @sverka/playground — toSverkaConfig (Spec 53): the "take it home" bridge.
-// Transpiles playground source into a real sverka.config.ts: the authoring
+// Converts playground source into a real sverka.config.ts: the authoring
 // surface (Project/Pipeline/Entry/roots) transfers verbatim — only the step
 // kind differs. FunctionStep bodies cannot run as shell commands, so each
 // becomes a ShellStep carrying a TODO echo the user replaces.
@@ -128,7 +128,7 @@ function extractProp(props: string, key: string): string | undefined {
           j++;
           while (j < props.length && /\s/.test(props[j] ?? "")) j++;
           // Value ends at the next top-level comma or at end of props.
-          let vdepth = 0;
+          let valueDepth = 0;
           let k = j;
           while (k < props.length) {
             const v = props[k];
@@ -136,9 +136,9 @@ function extractProp(props: string, key: string): string | undefined {
               k = skipOpaque(props, k);
               continue;
             }
-            if (v === "{" || v === "[" || v === "(") vdepth++;
-            else if (v === "}" || v === "]" || v === ")") vdepth--;
-            else if (v === "," && vdepth === 0) break;
+            if (v === "{" || v === "[" || v === "(") valueDepth++;
+            else if (v === "}" || v === "]" || v === ")") valueDepth--;
+            else if (v === "," && valueDepth === 0) break;
             k++;
           }
           return props.slice(j, k).trim();

@@ -16,6 +16,11 @@
     "packages/*": {
       "entry": ["src/index.ts!", "src/bin.ts!"],
       "project": ["src/**/*.ts", "src/**/*.tsx"]
+    },
+    "packages/playground": {
+      "entry": ["src/index.ts!", "src/bin.ts!"],
+      "project": ["src/**/*.ts", "src/**/*.tsx"],
+      "ignoreDependencies": ["@sverka/workflow", "jsdom"]
     }
   },
   "ignore": [
