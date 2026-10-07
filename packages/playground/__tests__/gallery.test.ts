@@ -39,8 +39,8 @@ describe("examples gallery (spec 53.6)", () => {
     // The demo finding never echoes the shell command — it may carry
     // inline secrets, and findings end up in share links. The example's
     // commands are `bun run …`.
-    expect(
-      result.findings.some((f) => f.message.includes("bun run")),
-    ).toBe(false);
+    expect(result.findings.some((f) => f.message.includes("bun run"))).toBe(
+      false,
+    );
   });
 });
