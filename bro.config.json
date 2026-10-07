@@ -1,0 +1,62 @@
+{
+  "act": {
+    "docsPaths": ["*.md", "specs/", "engdocs/"]
+  },
+  "debt": {
+    "sources": [
+      "review-threads",
+      "dependabot",
+      "code-scanning",
+      "secret-scanning",
+      "stale-prs",
+      "failed-ci"
+    ]
+  },
+  "sdd": {
+    "mode": "gate"
+  },
+  "guard": {
+    "defs": [
+      {
+        "name": "test-coverage-on-stop",
+        "when": {
+          "on": ["stop"],
+          "state": {
+            "diff": {
+              "changed": ["packages/*/src/**"],
+              "without": ["**/*.test.*", "**/*.spec.*"]
+            }
+          }
+        },
+        "say": "packages/*/src changed and no test file moved — TDD repo, is the new behavior covered?"
+      },
+      {
+        "name": "retro-on-stop",
+        "when": { "on": ["stop"] },
+        "say": "session ending — loose ends: hand-rolled mechanics → bd gap beads, bro learn capture, bro debt collect"
+      }
+    ]
+  },
+  "agents": {
+    "native": {
+      "command": "devin -p --prompt-file {promptFile}"
+    },
+    "devin": {
+      "maxSessions": 6
+    }
+  },
+  "fleet": {
+    "maxConcurrent": 3,
+    "profiles": {
+      "devin-acp": {
+        "provider": "devin-acp"
+      }
+    }
+  },
+  "providers": {
+    "devin-acp": {
+      "type": "acp",
+      "command": "devin acp"
+    }
+  }
+}
