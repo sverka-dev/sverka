@@ -47,9 +47,6 @@ export async function runCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
-  if (args.watch === true) {
-    return runWatch(args, global, output);
-  }
   const executor = args.executor ?? "host";
   // --format html or --output (without sarif/web) implies HTML format
   const isSarif = global.format === "sarif";
@@ -99,6 +96,12 @@ export async function runCommand(
       "INVALID_FLAG",
       ExitCode.UsageError,
     );
+  }
+  if (args.watch === true) {
+    // Watch is dispatched after the flag guards above — a bad --jobs or
+    // --step-output-lines must fail fast, not enter the supervisor and
+    // surface as a recurring run failure.
+    return runWatch(args, global, output);
   }
 
   const engine = createEngine({
@@ -198,13 +201,21 @@ async function runWatch(
     );
   }
   const ac = new AbortController();
-  const onSigint = () => ac.abort();
+  let forced = false;
+  const onSigint = () => {
+    // First Ctrl+C asks the watcher to stop gracefully — the in-flight
+    // run settles and its code wins. A second Ctrl+C means the user wants
+    // out now: a hung run must not pin the terminal.
+    if (forced) process.exit(130);
+    forced = true;
+    ac.abort();
+  };
   process.on("SIGINT", onSigint);
   try {
     // An explicit --config outside the watched root would otherwise never
-    // retrigger a re-plan.
+    // retrigger a re-plan. Resolve against the root, same as the loader.
     const configPath =
-      global.config === null ? null : resolve(global.config);
+      global.config === null ? null : resolve(global.root, global.config);
     const extraPaths =
       configPath !== null && !configPath.startsWith(`${resolve(global.root)}/`)
         ? [configPath]

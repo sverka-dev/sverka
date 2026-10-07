@@ -138,6 +138,14 @@ export function watchLoop(opts: WatchLoopOptions): WatchLoopHandle {
     // its output isn't cut mid-flight.
     if (!running) settleDone(lastCode);
   };
+  // An already-aborted signal never fires "abort" again — honor it
+  // up-front instead of starting a run whose `done` would never resolve.
+  if (opts.signal?.aborted === true) {
+    stopped = true;
+    void watcher.close();
+    settleDone(lastCode);
+    return { ready, done };
+  }
   opts.signal?.addEventListener("abort", () => void stop(), { once: true });
 
   // First run happens immediately — the watcher's job is re-runs.

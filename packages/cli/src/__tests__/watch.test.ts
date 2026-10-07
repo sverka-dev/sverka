@@ -91,6 +91,9 @@ describe("watchLoop (spec 53.2)", () => {
     await until(() => runs === 1);
     await touchable(dir);
     await touchable(dir);
+    // Keep run #1 in flight past the debounce window so the burst is
+    // guaranteed to land in the pending path, not the idle path.
+    await new Promise((r) => setTimeout(r, 120));
     resolveSlow!();
     await until(() => runs === 2);
     await new Promise((r) => setTimeout(r, 300));
