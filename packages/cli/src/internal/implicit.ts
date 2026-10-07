@@ -52,17 +52,19 @@ async function implicitGraph(root: string): Promise<RunGraph> {
 
   const project = new Project("default");
   const pipeline = new Pipeline(project, "default");
-  for (const check of checks) {
-    new ShellStep(pipeline, check.checkId, shellStepProps(check));
-  }
-  new Entry(pipeline, "run", {
+  // Constructs self-register into their scope on `new` — the handles are
+  // the wiring: the entry's roots are the detected step ids.
+  const steps = checks.map(
+    (check) => new ShellStep(pipeline, check.checkId, shellStepProps(check)),
+  );
+  const entry = new Entry(pipeline, "run", {
     trigger: manual(),
-    roots: checks.map((c) => c.checkId),
+    roots: steps.map((step) => step.node.id),
   });
   return {
     graph: synthesize(project),
     warnings: collectConstructWarnings(project),
-    detected: checks.map((c) => c.checkId),
+    detected: entry.roots,
   };
 }
 

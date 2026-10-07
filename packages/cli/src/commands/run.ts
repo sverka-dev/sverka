@@ -157,17 +157,7 @@ export async function runCommand(
     output,
   );
 
-  // Tell the user where the HTML report went (sarif/web print their own).
-  if (fmt.isHtml && renderer) {
-    const reportPath =
-      args.output ?? join(global.root, ".sverka", "report.html");
-    output.writeLine(`Wrote HTML report to ${reportPath}`);
-  }
-
-  // Interactive renderers stay mounted until the user quits (q / Ctrl+C).
-  if (renderer && "waitUntilExit" in renderer) {
-    await (renderer as { waitUntilExit(): Promise<void> }).waitUntilExit();
-  }
+  await finalizeRenderer(fmt, renderer, args, global, output);
 
   // When --evaluate fails with a collection error, the error was already
   // written in the requested format — skip normal output and return.
@@ -187,20 +177,7 @@ export async function runCommand(
     ...(detected !== undefined ? { detected } : {}),
   });
 
-  // Human-mode tail (Spec 53): findings summary, then the report location —
-  // the report is discoverable, not hidden. The `sverka view` hint applies
-  // only when report.html sits at the default path — view resolves
-  // .sverka/runs/<latest>/report.html, not a --report relocation.
-  if (report !== undefined && global.format === "text") {
-    output.writeLine(`  findings: ${report.findings}`);
-    output.writeLine(
-      report.html !== null
-        ? args.report !== undefined
-          ? `  report: ${report.html}  (open in a browser)`
-          : `  report: ${report.html}  (sverka view to open)`
-        : `  report: ${report.json}`,
-    );
-  }
+  printReportTail(report, args.report, global, output);
 
   // When --evaluate is set, policy exit code takes precedence
   if (evaluation.exitCode !== 0) {
@@ -208,6 +185,54 @@ export async function runCommand(
   }
 
   return exitCodeForStatus(runStatus);
+}
+
+/** The per-run report artifacts a run produced (Spec 53). */
+interface RunReport {
+  readonly html: string | null;
+  readonly json: string;
+  readonly findings: number;
+}
+
+/** Post-run: announce the HTML report path (sarif/web print their own),
+ *  then keep interactive renderers mounted until the user quits. */
+async function finalizeRenderer(
+  fmt: RunFormats,
+  renderer: Renderer | null,
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+): Promise<void> {
+  if (fmt.isHtml && renderer) {
+    const reportPath =
+      args.output ?? join(global.root, ".sverka", "report.html");
+    output.writeLine(`Wrote HTML report to ${reportPath}`);
+  }
+  // Interactive renderers stay mounted until the user quits (q / Ctrl+C).
+  if (renderer && "waitUntilExit" in renderer) {
+    await (renderer as { waitUntilExit(): Promise<void> }).waitUntilExit();
+  }
+}
+
+/** Human-mode tail (Spec 53): findings summary, then the report location —
+ *  the report is discoverable, not hidden. The `sverka view` hint applies
+ *  only when report.html sits at the default path — view resolves
+ *  .sverka/runs/<latest>/report.html, not a --report relocation. */
+function printReportTail(
+  report: RunReport | undefined,
+  reportFlag: string | undefined,
+  global: GlobalFlags,
+  output: OutputWriter,
+): void {
+  if (report === undefined || global.format !== "text") return;
+  output.writeLine(`  findings: ${report.findings}`);
+  if (report.html === null) {
+    output.writeLine(`  report: ${report.json}`);
+    return;
+  }
+  const hint =
+    reportFlag !== undefined ? "(open in a browser)" : "(sverka view to open)";
+  output.writeLine(`  report: ${report.html}  ${hint}`);
 }
 
 interface RunFormats {
@@ -309,9 +334,7 @@ async function writeReportSafe(
   ctx: ReportContext,
   events: readonly RunEvent[],
   output: OutputWriter,
-): Promise<
-  { html: string | null; json: string; findings: number } | undefined
-> {
+): Promise<RunReport | undefined> {
   const runId = findRunId(events);
   if (runId === undefined) return undefined;
   try {
@@ -729,7 +752,7 @@ interface WriteRunOutputArgs {
     verdict: string;
     summary: string;
   } | null;
-  report: { html: string | null; json: string; findings: number } | undefined;
+  report: RunReport | undefined;
   detected?: readonly string[];
 }
 
