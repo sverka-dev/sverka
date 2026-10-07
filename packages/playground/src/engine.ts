@@ -30,15 +30,15 @@ import {
  *  `push({ branches: ["main"] })` keeps its restriction. */
 const push = (filter?: Record<string, unknown>) => ({
   kind: "push",
-  ...(filter ?? {}),
+  ...filter,
 });
 const changeRequest = (filter?: Record<string, unknown>) => ({
   kind: "changeRequest",
-  ...(filter ?? {}),
+  ...filter,
 });
 const manual = (filter?: Record<string, unknown>) => ({
   kind: "manual",
-  ...(filter ?? {}),
+  ...filter,
 });
 const schedule = (cron: string, timezone?: string) => ({
   kind: "schedule",
@@ -422,7 +422,8 @@ export function evaluateUserCode(code: string): Project {
   // NOSONAR suppresses only issues on the marker's own line — it must
   // trail the `new Function` callee, not sit inside the argument list.
   const fn = new Function(...params); // NOSONAR — intentional dynamic evaluation in sandbox
-  const result = fn(
+  // NOSONAR anchors per line — the invocation line carries it too.
+  const result = fn( // NOSONAR — intentional dynamic evaluation in sandbox
     Project,
     Pipeline,
     FunctionStep,
@@ -432,7 +433,7 @@ export function evaluateUserCode(code: string): Project {
     changeRequest,
     manual,
     schedule,
-  ); // NOSONAR
+  );
   if (!(result instanceof Project)) {
     throw new TypeError("Code must export a Project instance");
   }
