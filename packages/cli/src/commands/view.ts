@@ -48,22 +48,7 @@ export async function viewCommand(
       return ExitCode.RuntimeError;
     }
   } else {
-    // Interactive with no input — open the latest run report (Spec 53:
-    // `sverka run` tails with `report: <path>  (sverka view to open)`).
-    const report = findLatestReportHtml(global.root);
-    if (report === undefined) {
-      output.errorLine(
-        "sverka view: no input. Provide a SARIF file argument, pipe SARIF via stdin, or run `sverka run` first — no run report found under .sverka/runs/.",
-      );
-      return ExitCode.UsageError;
-    }
-    output.writeLine(`report: ${report}`);
-    if (!openReportInBrowser(report)) {
-      output.errorLine(
-        "sverka view: could not open a browser — open the report path above manually.",
-      );
-    }
-    return ExitCode.Success;
+    return openLatestReport(global, output);
   }
 
   let sarif: unknown;
@@ -81,6 +66,25 @@ export async function viewCommand(
   }
 
   return renderTui(sarif, output);
+}
+
+/** Interactive with no input — open the latest run report (Spec 53:
+ *  `sverka run` tails with `report: <path>  (sverka view to open)`). */
+function openLatestReport(global: GlobalFlags, output: OutputWriter): number {
+  const report = findLatestReportHtml(global.root);
+  if (report === undefined) {
+    output.errorLine(
+      "sverka view: no input. Provide a SARIF file argument, pipe SARIF via stdin, or run `sverka run` first — no run report found under .sverka/runs/.",
+    );
+    return ExitCode.UsageError;
+  }
+  output.writeLine(`report: ${report}`);
+  if (!openReportInBrowser(report)) {
+    output.errorLine(
+      "sverka view: could not open a browser — open the report path above manually.",
+    );
+  }
+  return ExitCode.Success;
 }
 
 /** Launch the TUI viewer using @sverka/sarif-viewer-tui. */
