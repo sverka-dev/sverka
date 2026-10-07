@@ -1,6 +1,6 @@
 {
   "name": "create-sverka",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "description": "Scaffold a Sverka project — `npm create sverka` / `bun create sverka`",
   "license": "MIT",
   "sideEffects": false,
