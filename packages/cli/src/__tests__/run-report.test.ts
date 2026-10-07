@@ -112,4 +112,23 @@ describe("run command — per-run report artifacts (spec 53)", () => {
     expect(existsSync(payload.data.report.html)).toBe(true);
     expect(existsSync(payload.data.report.json)).toBe(true);
   });
+
+  it("refuses to write the report through a symlinked .sverka dir", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    // .sverka → outside the root: every report path would escape.
+    const outside = await makeTempDir("sverka-escape-");
+    const { symlinkSync } = await import("node:fs");
+    try {
+      symlinkSync(outside, join(dir, ".sverka"));
+      const out = new CaptureWriter();
+      const code = await main(["run", "--root", dir, "--format", "text"], {
+        output: out,
+      });
+      expect(code).not.toBe(0);
+      expect(existsSync(join(outside, "runs"))).toBe(false);
+    } finally {
+      await cleanupTempDir(outside);
+    }
+  });
 });

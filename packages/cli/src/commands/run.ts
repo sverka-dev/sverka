@@ -3,7 +3,12 @@
 
 import process from "node:process";
 import { join, dirname, resolve, sep } from "node:path";
-import { writeFileSync, mkdirSync, realpathSync } from "node:fs";
+import {
+  writeFileSync,
+  mkdirSync,
+  realpathSync,
+  existsSync,
+} from "node:fs";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { RuntimeDriver } from "@sverka/runtime";
 import { createEngine } from "@sverka/runtime";
@@ -139,6 +144,7 @@ export async function runCommand(
       events,
       renderer,
       args,
+      start,
     );
     policyExitCode = result.exitCode;
     evalResult = result.summary;
@@ -443,6 +449,9 @@ async function runEvaluation(
   _events: readonly RunEvent[],
   renderer: Renderer | null,
   args: RunArgs,
+  /** Run start — scopes collection so stale SARIF from earlier runs
+   *  (same shared artifactDir) can't leak into this run's gate. */
+  sinceMs: number,
 ): Promise<{
   exitCode: number;
   summary: {
@@ -455,7 +464,7 @@ async function runEvaluation(
     await import("@sverka/reporter");
   let rows: readonly FindingRow[];
   try {
-    rows = await collectFindings({ artifactDir });
+    rows = await collectFindings({ artifactDir, sinceMs });
   } catch (e) {
     if (e instanceof ReporterError) {
       if (global.format === "json") {
@@ -638,15 +647,20 @@ function writeRunOutput(
 
 /** Cap captured step output in the durable report — verbatim stdout/stderr
  *  persists whatever scrolled by, including secrets. The live payload keeps
- *  full output; the on-disk report keeps the last 4 KiB per stream. */
+ *  full output; the on-disk report keeps the last 4 KiB per stream, counted
+ *  in UTF-8 bytes so a multibyte stream can't overrun the stated limit. */
 const REPORT_OUTPUT_CAP = 4096;
 
 function boundStepOutput(steps: readonly StepSummary[]): StepSummary[] {
   return steps.map((step) => {
-    const bound = (text: string | undefined): string | undefined =>
-      text !== undefined && text.length > REPORT_OUTPUT_CAP
-        ? text.slice(-REPORT_OUTPUT_CAP)
-        : text;
+    const bound = (text: string | undefined): string | undefined => {
+      if (text === undefined) return undefined;
+      const buf = Buffer.from(text, "utf8");
+      if (buf.length <= REPORT_OUTPUT_CAP) return text;
+      // The tail cut may split a UTF-8 sequence — a U+FFFD seam is
+      // acceptable; the cap is in bytes, not UTF-16 units.
+      return buf.subarray(buf.length - REPORT_OUTPUT_CAP).toString("utf8");
+    };
     const stdout = bound(step.stdout);
     const stderr = bound(step.stderr);
     if (stdout === step.stdout && stderr === step.stderr) return step;
@@ -682,14 +696,29 @@ async function writeRunArtifacts(opts: {
   sinceMs: number;
 }): Promise<{ dir: string; htmlPath: string | null }> {
   const dir = join(opts.root, ".sverka", "runs", opts.runId);
-  mkdirSync(dir, { recursive: true });
   // A symlinked .sverka/… component would smuggle report writes outside
-  // the project root — refuse before touching any file.
+  // the project root — check the nearest existing ancestor BEFORE mkdir,
+  // since mkdir through a symlink is itself the escape.
   const realRoot = realpathSync(opts.root);
-  const realDir = realpathSync(dir);
   // `--root /` already ends in the separator — a naive `${root}${sep}`
   // prefix would be `//` and reject every in-root path.
   const prefix = realRoot.endsWith(sep) ? realRoot : `${realRoot}${sep}`;
+  let ancestor = dir;
+  while (!existsSync(ancestor)) {
+    const parent = dirname(ancestor);
+    if (parent === ancestor) break; // reached fs root
+    ancestor = parent;
+  }
+  const realAncestor = realpathSync(ancestor);
+  if (realAncestor !== realRoot && !realAncestor.startsWith(prefix)) {
+    throw new CliError(
+      `refusing to write run report through symlinked path: ${dir}`,
+      "REPORT_PATH_ESCAPE",
+      ExitCode.RuntimeError,
+    );
+  }
+  mkdirSync(dir, { recursive: true });
+  const realDir = realpathSync(dir);
   if (realDir !== realRoot && !realDir.startsWith(prefix)) {
     throw new CliError(
       `refusing to write run report through symlinked path: ${dir}`,
