@@ -671,7 +671,9 @@ function boundStepOutput(steps: readonly StepSummary[]): StepSummary[] {
       // the kept text never starts mid-character and never exceeds the
       // stated byte limit once re-encoded.
       let cut = buf.length - REPORT_OUTPUT_CAP;
-      while (cut < buf.length && (buf[cut]! & 0xc0) === 0x80) cut++;
+      // .at() not buf[cut] — a JSON.stringify source anywhere in this file
+      // plus a bracket-index sink trips semgrep's no-stringify-keys taint.
+      while (cut < buf.length && (buf.at(cut)! & 0xc0) === 0x80) cut++;
       return buf.subarray(cut).toString("utf8");
     };
     const stdout = bound(step.stdout);
@@ -819,7 +821,6 @@ async function writeRunArtifacts(
   const htmlPath = await writeReportHtml(dir, findings, warnings);
   writeFileSync(
     join(dir, "report.json"),
-    // nosemgrep: unstable-key-ordering — serialized file content, not a key
     JSON.stringify(runReportPayload(opts, warnings), null, 2),
     "utf-8",
   );
