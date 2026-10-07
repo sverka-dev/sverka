@@ -19,8 +19,8 @@ export function isWsChar(c: string | undefined): boolean {
   return (n >= 0x2000 && n <= 0x200a) || WS_POINTS.has(n);
 }
 
-/** ASCII alphanumeric — digits and both letter cases. */
-function isAsciiAlnum(n: number): boolean {
+/** ASCII letter-or-digit — digits and both letter cases. */
+function isAsciiLetterOrDigit(n: number): boolean {
   return (n >= 48 && n <= 57) || (n >= 65 && n <= 90) || (n >= 97 && n <= 122);
 }
 
@@ -32,7 +32,7 @@ export function isIdentChar(c: string | undefined): boolean {
   if (c === undefined) return false;
   const n = c.codePointAt(0) ?? 0;
   if (n >= 0x80) return !isWsChar(c);
-  return isAsciiAlnum(n) || c === "_" || c === "$";
+  return isAsciiLetterOrDigit(n) || c === "_" || c === "$";
 }
 
 export function isQuote(c: string | undefined): boolean {
