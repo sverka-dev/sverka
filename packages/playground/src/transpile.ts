@@ -55,7 +55,7 @@ function propToken(
 }
 
 /** Apply a bracket/other punctuation char to depth + operand state. */
-function applyPunct(
+function applyPunctuation(
   c: string | undefined,
   st: { depth: number; operandEnd: boolean },
 ): void {
@@ -80,7 +80,7 @@ function findPropKey(props: string, key: string): number {
   while (i < props.length) {
     const tok = propToken(props, i, st.operandEnd);
     if (tok === null) {
-      applyPunct(props[i], st);
+      applyPunctuation(props[i], st);
       i++;
       continue;
     }
@@ -121,7 +121,7 @@ function propValueEnd(props: string, j: number): number {
       continue;
     }
     if (props[k] === "," && st.depth === 0) return k;
-    applyPunct(props[k], st);
+    applyPunctuation(props[k], st);
     k++;
   }
   return k;
@@ -323,7 +323,7 @@ function scanScopeEnd(code: string, from: number): number {
     const c = code[k];
     if (c === "," && st.depth === 0) return k;
     if (isCloseBracket(c) && st.depth === 0) return -1;
-    applyPunct(c, st);
+    applyPunctuation(c, st);
     k++;
   }
   return -1;
