@@ -2,11 +2,6 @@
 // Loads Monaco editor, evaluates user pipeline code, runs checks, shows findings.
 
 import {
-  Project,
-  Pipeline,
-  FunctionStep,
-  Entry,
-  runPipeline,
   encodeShareLink,
   decodeShareLink,
   PlaygroundError,
@@ -14,93 +9,12 @@ import {
 } from "./index.js";
 import type { Finding } from "./index.js";
 import { generateSarifHtml } from "@sverka/sarif-viewer-web/html-generator";
-
-/** Default template shown in the editor. */
-const DEFAULT_CODE = `import { Project, Pipeline, FunctionStep, Entry } from "@sverka/playground";
-
-const proj = new Project("demo");
-const checks = new Pipeline(proj, "checks");
-
-new FunctionStep(checks, "lint", {
-  fn: () => [
-    { rule: "no-unused-vars", file: "src/index.ts", line: 5, severity: "high", message: "Variable 'x' is declared but never used" },
-    { rule: "no-console", file: "src/utils.ts", line: 12, severity: "medium", message: "Unexpected console.log statement" },
-  ],
-});
-
-new FunctionStep(checks, "typecheck", {
-  fn: () => [
-    { rule: "ts2322", file: "src/types.ts", line: 8, severity: "critical", message: "Type 'string' is not assignable to type 'number'" },
-  ],
-});
-
-new FunctionStep(checks, "test", {
-  fn: () => [
-    { rule: "assertion-failed", file: "test/index.test.ts", line: 23, severity: "high", message: "Expected 5 but got 3" },
-    { rule: "assertion-failed", file: "test/index.test.ts", line: 45, severity: "low", message: "Expected 'hello' but got 'world'" },
-  ],
-});
-
-new Entry(checks, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
-
-export default proj;
-`;
-
-/** Escape HTML special characters to prevent XSS. */
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-/**
- * Strip import/export statements from user code for eval.
- * Note: TypeScript-specific syntax (type annotations, interfaces, enums)
- * is not stripped — the playground uses Monaco's TypeScript language mode
- * for editing, but evaluation is plain JavaScript. Users should write
- * JS-compatible code or use the `as any` escape hatch sparingly.
- */
-function preprocessCode(code: string): string {
-  return (
-    code
-      // Remove import statements
-      .replace(/^\s*import\s+.*?from\s+["'][^"']+["'];?\s*$/gm, "")
-      // Replace "export default" with "return"
-      .replace(/^\s*export\s+default\s+/m, "return ")
-      // Replace "export { ... }" with nothing (named exports not supported in playground)
-      .replace(/^\s*export\s+\{[^}]*\};?\s*$/gm, "")
-  );
-}
-
-/**
- * Evaluate user code and return the Project.
- *
- * SECURITY: This uses `new Function()` to execute user-provided code.
- * This is intentional — the playground is a local development tool where
- * the user writes and runs their own pipeline code. The code runs in the
- * browser's main page context (not a sandboxed iframe or worker) because
- * the playground needs to support synchronous FunctionStep execution and
- * direct access to the pipeline constructs. This is the same trust model
- * as a local REPL or `node -e`.
- */
-function evaluateUserCode(code: string): Project {
-  const processed = preprocessCode(code);
-  // Dynamic code execution is intentional for the playground sandbox.
-  // SonarCloud S1523: safe — user code runs in the browser sandbox with the
-  // same trust model as a local REPL or `node -e` (see comment above).
-  const params = ["Project", "Pipeline", "FunctionStep", "Entry", processed];
-  // NOSONAR suppresses only issues on the marker's own line — it must
-  // trail the `new Function` callee, not sit inside the argument list.
-  const fn = new Function(...params); // NOSONAR — intentional dynamic evaluation in sandbox
-  const result = fn(Project, Pipeline, FunctionStep, Entry); // NOSONAR
-  if (!(result instanceof Project)) {
-    throw new Error("Code must export a Project instance");
-  }
-  return result as Project;
-}
+import {
+  DEFAULT_CODE,
+  escapeHtml,
+  evaluateUserCode,
+  runPipelineWithTimeout,
+} from "./engine.js";
 
 const SHARE_PREFIX_LEN = "#c=".length;
 
@@ -171,50 +85,14 @@ async function loadMonaco(): Promise<void> {
   });
 }
 
-/**
- * Run a pipeline with a timeout. If a step returns a never-resolving
- * promise, the timeout ensures the UI recovers instead of staying
- * stuck in "Running" state forever.
- */
-async function runPipelineWithTimeout(
-  project: Project,
-  timeoutMs: number,
-): Promise<Awaited<ReturnType<typeof runPipeline>>> {
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(
-      () => reject(new Error(`Pipeline timed out after ${timeoutMs}ms`)),
-      timeoutMs,
-    ),
-  );
-  return Promise.race([runPipeline(project), timeoutPromise]);
-}
-
-interface EditorApi {
-  getCode: () => string;
-  setCode: (code: string) => void;
-}
-
-/** Findings are shareable only when they came from the code currently in
- *  the editor — `lastRunCode` pins the pair so edits/failed runs can't
- *  ship stale results next to new source. */
-interface RunState {
-  lastFindings: readonly Finding[] | undefined;
-  lastRunCode: string | undefined;
-}
-
-const NO_FINDINGS_HTML = `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#3fb950;font-family:monospace;padding:2rem;}</style></head><body><h2>No findings — all checks passed</h2><p>DETAIL</p></body></html>`;
-
-function showNoFindings(detail: string): void {
-  showFindings(NO_FINDINGS_HTML.replace("DETAIL", detail));
-}
-
-async function initEditor(): Promise<EditorApi | null> {
+/** Main entry point. */
+async function main(): Promise<void> {
   // Load Monaco
   try {
     await loadMonaco();
   } catch (e) {
     // Fallback: use a textarea
-    console.warn("Monaco failed to load, using textarea fallback", e);
+    console.warn("Monaco failed to load, using textarea fallback");
   }
 
   const monaco = (
@@ -230,10 +108,13 @@ async function initEditor(): Promise<EditorApi | null> {
     }
   ).monaco;
 
+  let getCode: () => string;
+  let setCode: (code: string) => void;
+
   const editorEl = document.getElementById("editor") as HTMLDivElement | null;
   if (!editorEl) {
     console.error("Editor element not found");
-    return null;
+    return;
   }
 
   if (monaco) {
@@ -247,59 +128,69 @@ async function initEditor(): Promise<EditorApi | null> {
       automaticLayout: true,
       tabSize: 2,
     });
-    return {
-      getCode: () => editor.getValue(),
-      setCode: (code) => editor.setValue(code),
+    getCode = () => editor.getValue();
+    setCode = (code) => editor.setValue(code);
+  } else {
+    // Textarea fallback
+    const textarea = document.createElement("textarea");
+    textarea.value = DEFAULT_CODE;
+    textarea.style.cssText =
+      "width:100%;height:100%;background:#0d1117;color:#c9d1d9;border:none;font-family:monospace;font-size:13px;padding:1rem;resize:none;outline:none;";
+    editorEl.appendChild(textarea);
+    getCode = () => textarea.value;
+    setCode = (code) => {
+      textarea.value = code;
     };
   }
 
-  // Textarea fallback
-  const textarea = document.createElement("textarea");
-  textarea.value = DEFAULT_CODE;
-  textarea.style.cssText =
-    "width:100%;height:100%;background:#0d1117;color:#c9d1d9;border:none;font-family:monospace;font-size:13px;padding:1rem;resize:none;outline:none;";
-  editorEl.appendChild(textarea);
-  return {
-    getCode: () => textarea.value,
-    setCode: (code) => {
-      textarea.value = code;
-    },
-  };
-}
-
-async function executeRun(
-  getCode: () => string,
-  state: RunState,
-): Promise<void> {
-  try {
-    const code = getCode();
-    const project = evaluateUserCode(code);
-    const result = await runPipelineWithTimeout(project, 30_000);
-    state.lastFindings = result.findings;
-    state.lastRunCode = code;
-
-    if (result.findings.length === 0) {
-      showNoFindings(
-        `${result.steps.length} steps completed in ${result.totalDurationMs}ms`,
-      );
-    } else {
-      showFindings(generateSarifHtml(result.findings));
-    }
-
-    setStatus(
-      `${result.findings.length} findings · ${result.totalDurationMs}ms`,
-      result.success ? "success" : "failure",
-    );
-  } catch (e) {
-    state.lastFindings = undefined;
-    state.lastRunCode = undefined;
-    const msg = e instanceof Error ? e.message : String(e);
-    showError(msg);
-    setStatus("Error", "failure");
+  // Run button
+  const runBtn = document.getElementById("run-btn") as HTMLButtonElement | null;
+  if (!runBtn) {
+    console.error("Run button not found");
+    return;
   }
-}
 
-function wireSplitter(): void {
+  // Findings are shareable only when they came from the code currently in
+  // the editor — `lastRunCode` pins the pair so edits/failed runs can't
+  // ship stale results next to new source.
+  let lastFindings: readonly Finding[] | undefined;
+  let lastRunCode: string | undefined;
+  runBtn.addEventListener("click", async () => {
+    runBtn.disabled = true;
+    setStatus("Running...", "running");
+
+    try {
+      const code = getCode();
+      const project = evaluateUserCode(code);
+      const result = await runPipelineWithTimeout(project, 30_000);
+      lastFindings = result.findings;
+      lastRunCode = code;
+
+      if (result.findings.length === 0) {
+        showFindings(
+          `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#3fb950;font-family:monospace;padding:2rem;}</style></head><body><h2>No findings — all checks passed</h2><p>${result.steps.length} steps completed in ${result.totalDurationMs}ms</p></body></html>`,
+        );
+      } else {
+        const html = generateSarifHtml(result.findings);
+        showFindings(html);
+      }
+
+      setStatus(
+        `${result.findings.length} findings · ${result.totalDurationMs}ms`,
+        result.success ? "success" : "failure",
+      );
+    } catch (e) {
+      lastFindings = undefined;
+      lastRunCode = undefined;
+      const msg = e instanceof Error ? e.message : String(e);
+      showError(msg);
+      setStatus("Error", "failure");
+    } finally {
+      runBtn.disabled = false;
+    }
+  });
+
+  // Splitter drag
   const splitter = document.getElementById("splitter") as HTMLDivElement | null;
   const editorPanel = document.querySelector(
     ".editor-panel",
@@ -307,139 +198,111 @@ function wireSplitter(): void {
   const findingsPanel = document.querySelector(
     ".findings-panel",
   ) as HTMLElement | null;
-  if (!splitter || !editorPanel || !findingsPanel) return;
 
-  let dragging = false;
-  splitter.addEventListener("mousedown", (e) => {
-    dragging = true;
-    e.preventDefault();
-  });
-  document.addEventListener("mousemove", (e) => {
-    if (!dragging) return;
-    const container = document.querySelector(".main") as HTMLElement | null;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const editorWidth = e.clientX - rect.left;
-    const findingsWidth = rect.width - editorWidth - 4;
-    if (editorWidth > 100 && findingsWidth > 100) {
-      editorPanel.style.flex = `${editorWidth}`;
-      findingsPanel.style.flex = `${findingsWidth}`;
-    }
-  });
-  document.addEventListener("mouseup", () => {
-    dragging = false;
-  });
-}
+  if (splitter && editorPanel && findingsPanel) {
+    let dragging = false;
+    splitter.addEventListener("mousedown", (e) => {
+      dragging = true;
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const container = document.querySelector(".main") as HTMLElement | null;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const editorWidth = e.clientX - rect.left;
+      const findingsWidth = rect.width - editorWidth - 4;
+      if (editorWidth > 100 && findingsWidth > 100) {
+        editorPanel.style.flex = `${editorWidth}`;
+        findingsPanel.style.flex = `${findingsWidth}`;
+      }
+    });
+    document.addEventListener("mouseup", () => {
+      dragging = false;
+    });
+  }
 
-/** Share button — serialize code + last findings into a #c= fragment link. */
-function wireShareButton(getCode: () => string, state: RunState): void {
+  // Share button — serialize code + last findings into a #c= fragment link.
   const shareBtn = document.getElementById(
     "share-btn",
   ) as HTMLButtonElement | null;
-  if (!shareBtn) return;
-
-  shareBtn.addEventListener("click", async () => {
-    const base = `${location.origin}${location.pathname}`;
-    const code = getCode();
-    const run = {
-      schema: "sverka.playground/v1" as const,
-      code,
-      ...(state.lastFindings !== undefined && state.lastRunCode === code
-        ? { findings: state.lastFindings }
-        : {}),
-    };
-    const url = encodeShareLink(run, base);
-    history.replaceState(null, "", url);
-    // Payload size excludes the "#c=" marker — measure the fragment tail.
-    const oversized =
-      url.length - base.length - SHARE_PREFIX_LEN > SHARE_PAYLOAD_WARN_BYTES;
-    const detail = oversized
-      ? "payload exceeds 32 KB, recipients may not load it"
-      : "";
-    try {
-      await navigator.clipboard.writeText(url);
-      setStatus(
-        detail ? `Link copied — ${detail}` : "Share link copied",
-        oversized ? "failure" : "success",
-      );
-    } catch {
-      setStatus(
-        detail ? `Link in address bar — ${detail}` : "Link in address bar",
-        oversized ? "failure" : "success",
-      );
-    }
-  });
-}
-
-/** Share link restore (Spec 53): #c= fragments restore editor state and the
- *  last run result. A corrupt link falls back to the default template with a
- *  warning — never a blank page.
- *
- *  SECURITY: code from a link never auto-runs — executing shared code on
- *  page load would let a URL execute arbitrary script in the page context.
- *  Seeded findings render directly (validated at decode); code-only links
- *  wait for an explicit Run click. */
-function restoreShareLink(
-  setCode: (c: string) => void,
-  state: RunState,
-): boolean {
-  if (!location.hash.startsWith("#c=")) return false;
-  try {
-    const shared = decodeShareLink(location.hash);
-    setCode(shared.code);
-    if (shared.findings !== undefined) {
-      state.lastFindings = shared.findings;
-      state.lastRunCode = shared.code;
-      if (shared.findings.length === 0) {
-        showNoFindings("Restored from a shared run");
-      } else {
-        showFindings(generateSarifHtml(shared.findings));
+  if (shareBtn) {
+    shareBtn.addEventListener("click", async () => {
+      const base = `${location.origin}${location.pathname}`;
+      const code = getCode();
+      const run = {
+        schema: "sverka.playground/v1" as const,
+        code,
+        ...(lastFindings !== undefined && lastRunCode === code
+          ? { findings: lastFindings }
+          : {}),
+      };
+      const url = encodeShareLink(run, base);
+      history.replaceState(null, "", url);
+      // Payload size excludes the "#c=" marker — measure the fragment tail.
+      const oversized =
+        url.length - base.length - SHARE_PREFIX_LEN > SHARE_PAYLOAD_WARN_BYTES;
+      try {
+        await navigator.clipboard.writeText(url);
+        setStatus(
+          oversized
+            ? "Link copied — payload exceeds 32 KB, recipients may not load it"
+            : "Share link copied",
+          oversized ? "failure" : "success",
+        );
+      } catch {
+        setStatus(
+          oversized
+            ? "Link in address bar — payload exceeds 32 KB, recipients may not load it"
+            : "Link in address bar",
+          oversized ? "failure" : "success",
+        );
       }
-      setStatus("Restored shared run", "success");
-    } else {
-      setStatus("Shared code loaded — press Run", "success");
-    }
-  } catch (e) {
-    const msg = e instanceof PlaygroundError ? e.message : String(e);
-    showFindings(
-      `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#d29922;font-family:monospace;padding:2rem;}</style></head><body><h2>Share link could not be loaded</h2><p>${escapeHtml(msg)}</p><p>Loaded the default template instead.</p></body></html>`,
-    );
-    setStatus("Share link invalid — default loaded", "failure");
-  }
-  return true;
-}
-
-/** Main entry point. */
-async function main(): Promise<void> {
-  const editor = await initEditor();
-  if (!editor) return;
-
-  const runBtn = document.getElementById("run-btn") as HTMLButtonElement | null;
-  if (!runBtn) {
-    console.error("Run button not found");
-    return;
+    });
   }
 
-  const state: RunState = {
-    lastFindings: undefined,
-    lastRunCode: undefined,
-  };
-  runBtn.addEventListener("click", async () => {
-    runBtn.disabled = true;
-    setStatus("Running...", "running");
+  // Share link restore (Spec 53): #c= fragments restore editor state and the
+  // last run result. A corrupt link falls back to the default template with a
+  // warning — never a blank page.
+  //
+  // SECURITY: code from a link never auto-runs — executing shared code on
+  // page load would let a URL execute arbitrary script in the page context.
+  // Seeded findings render directly (validated at decode); code-only links
+  // wait for an explicit Run click.
+  let restored = false;
+  if (location.hash.startsWith("#c=")) {
     try {
-      await executeRun(editor.getCode, state);
-    } finally {
-      runBtn.disabled = false;
+      const shared = decodeShareLink(location.hash);
+      setCode(shared.code);
+      restored = true;
+      if (shared.findings !== undefined) {
+        lastFindings = shared.findings;
+        lastRunCode = shared.code;
+        if (shared.findings.length === 0) {
+          showFindings(
+            `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#3fb950;font-family:monospace;padding:2rem;}</style></head><body><h2>No findings — all checks passed</h2><p>Restored from a shared run</p></body></html>`,
+          );
+        } else {
+          showFindings(generateSarifHtml(shared.findings));
+        }
+        setStatus("Restored shared run", "success");
+      } else {
+        setStatus("Shared code loaded — press Run", "success");
+      }
+    } catch (e) {
+      // Mark restored so the warning isn't overwritten by the auto-run.
+      restored = true;
+      const msg = e instanceof PlaygroundError ? e.message : String(e);
+      showFindings(
+        `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#d29922;font-family:monospace;padding:2rem;}</style></head><body><h2>Share link could not be loaded</h2><p>${escapeHtml(msg)}</p><p>Loaded the default template instead.</p></body></html>`,
+      );
+      setStatus("Share link invalid — default loaded", "failure");
     }
-  });
-
-  wireSplitter();
-  wireShareButton(editor.getCode, state);
+  }
 
   // Auto-run on load unless a share link already filled the page (restored
   // state, seeded findings, or the invalid-link warning).
-  if (!restoreShareLink(editor.setCode, state)) {
+  if (!restored) {
     runBtn.click();
   }
 }

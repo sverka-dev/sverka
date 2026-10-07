@@ -25,3 +25,14 @@ export {
   SHARE_PAYLOAD_WARN_BYTES,
 } from "./share.js";
 export type { ShareableRun, PlaygroundErrorCode } from "./share.js";
+
+// Embed API (Spec 53)
+export { mountRunner } from "./embed.js";
+export type { MountRunnerOptions, MountedRunner } from "./embed.js";
+
+// Engine plumbing shared by the app and embeds
+export {
+  DEFAULT_CODE,
+  evaluateUserCode,
+  runPipelineWithTimeout,
+} from "./engine.js";
