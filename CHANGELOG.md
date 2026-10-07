@@ -1,3 +1,15 @@
+## 0.2.13 (2026-10-07)
+
+### 🚀 Features
+
+- **playground:** toSverkaConfig transpile (spec 53.5) ([#321](https://github.com/sverka-dev/sverka/pull/321))
+- **run:** per-run report artifacts + report tail (spec 53.1) ([#317](https://github.com/sverka-dev/sverka/pull/317))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.12 (2026-10-07)
 
 ### 🚀 Features
