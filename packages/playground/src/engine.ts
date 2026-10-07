@@ -46,23 +46,177 @@ export function escapeHtml(text: string): string {
     .replaceAll("'", "&#39;");
 }
 
+const IDENT = /[A-Za-z0-9_$]/;
+
+/** End index of the string literal starting at `at` (quote char). */
+function scanString(code: string, at: number): number {
+  const quote = code[at];
+  let i = at + 1;
+  while (i < code.length) {
+    const c = code[i];
+    if (c === "\\") {
+      i += 2;
+      continue;
+    }
+    if (c === quote) return i + 1;
+    // Template literals may nest `${}` expressions — track brace depth.
+    if (quote === "`" && c === "$" && code[i + 1] === "{") {
+      let depth = 1;
+      i += 2;
+      while (i < code.length && depth > 0) {
+        if (code[i] === "{") depth++;
+        else if (code[i] === "}") depth--;
+        else if (code[i] === "`") {
+          i = scanString(code, i);
+          continue;
+        }
+        i++;
+      }
+      continue;
+    }
+    i++;
+  }
+  return i;
+}
+
+/** End index of the statement starting at `at`: first top-level `;`, or
+ *  the first newline after the module-specifier string (covers multiline
+ *  `import {…}\n from "x"` and `import "x"` without a semicolon). */
+function scanStatementEnd(code: string, at: number): number {
+  let i = at;
+  let depth = 0;
+  let specSeen = false;
+  while (i < code.length) {
+    const c = code[i];
+    if (c === '"' || c === "'" || c === "`") {
+      i = scanString(code, i);
+      specSeen = true;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "/") {
+      while (i < code.length && code[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "*") {
+      const end = code.indexOf("*/", i + 2);
+      i = end === -1 ? code.length : end + 2;
+      continue;
+    }
+    if (c === "{" || c === "(" || c === "[") depth++;
+    else if (c === "}" || c === ")" || c === "]") depth--;
+    else if (c === ";" && depth <= 0) return i + 1;
+    else if (c === "\n" && depth <= 0 && specSeen) return i;
+    i++;
+  }
+  return i;
+}
+
+function keywordAt(code: string, at: number, word: string): boolean {
+  return (
+    code.startsWith(word, at) &&
+    !IDENT.test(code[at + word.length] ?? "")
+  );
+}
+
 /**
- * Strip import/export statements from user code for eval.
+ * Strip import/export statements from user code for eval — a linear
+ * single-pass scan, so multiline imports and comments/strings are handled
+ * and pathological spacing cannot cause quadratic backtracking.
+ *
+ * `import …` statements are removed whole. `export default` becomes
+ * `return`, `export {…}`/`export *` are removed, and `export` before a
+ * declaration is dropped (the eval context is a function body, where
+ * `export const` would be a syntax error).
+ *
  * Note: TypeScript-specific syntax (type annotations, interfaces, enums)
  * is not stripped — the playground uses Monaco's TypeScript language mode
  * for editing, but evaluation is plain JavaScript. Users should write
  * JS-compatible code or use the `as any` escape hatch sparingly.
  */
 export function preprocessCode(code: string): string {
-  return (
-    code
-      // Remove import statements
-      .replace(/^\s*import\s+.*?from\s+["'][^"']+["'];?\s*$/gm, "")
-      // Replace "export default" with "return"
-      .replace(/^\s*export\s+default\s+/m, "return ")
-      // Replace "export { ... }" with nothing (named exports not supported in playground)
-      .replace(/^\s*export\s+\{[^}]*\};?\s*$/gm, "")
-  );
+  const out: string[] = [];
+  let i = 0;
+  const n = code.length;
+  // True while only whitespace has been seen on the current line — import/
+  // export keywords only count at statement position, never mid-expression
+  // (dynamic `import()` and `import.meta` are left untouched).
+  let stmtStart = true;
+  let exportDefaultDone = false;
+
+  while (i < n) {
+    const c = code[i];
+    if (c === undefined) break;
+    if (c === '"' || c === "'" || c === "`") {
+      const end = scanString(code, i);
+      out.push(code.slice(i, end));
+      stmtStart = false;
+      i = end;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "/") {
+      const end = code.indexOf("\n", i + 2);
+      const stop = end === -1 ? n : end;
+      out.push(code.slice(i, stop));
+      i = stop;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "*") {
+      const end = code.indexOf("*/", i + 2);
+      const stop = end === -1 ? n : end + 2;
+      out.push(code.slice(i, stop));
+      i = stop;
+      continue;
+    }
+    if (c === "\n" || c === ";" || c === "{" || c === "}") {
+      stmtStart = true;
+      out.push(c);
+      i++;
+      continue;
+    }
+    if (c === " " || c === "\t" || c === "\r") {
+      out.push(c);
+      i++;
+      continue;
+    }
+    if (stmtStart && keywordAt(code, i, "import")) {
+      const next = code[i + 6];
+      // `import(` is a dynamic import expression, `import.` is meta — both
+      // are expressions, not statements; copy the keyword through.
+      if (next !== "(" && next !== ".") {
+        i = scanStatementEnd(code, i + 6);
+        stmtStart = false;
+        continue;
+      }
+    }
+    if (stmtStart && keywordAt(code, i, "export")) {
+      let j = i + 6;
+      while (j < n && (code[j] === " " || code[j] === "\t")) j++;
+      if (
+        !exportDefaultDone &&
+        code.startsWith("default", j) &&
+        !IDENT.test(code[j + 7] ?? "")
+      ) {
+        out.push("return ");
+        exportDefaultDone = true;
+        i = j + 7;
+        stmtStart = false;
+        continue;
+      }
+      if (code[j] === "{" || code[j] === "*") {
+        i = scanStatementEnd(code, j);
+        stmtStart = false;
+        continue;
+      }
+      // `export <decl>` — drop the keyword, keep the declaration.
+      i = j;
+      stmtStart = false;
+      continue;
+    }
+    stmtStart = false;
+    out.push(c);
+    i++;
+  }
+  return out.join("");
 }
 
 /**
@@ -101,11 +255,20 @@ export async function runPipelineWithTimeout(
   project: Project,
   timeoutMs: number,
 ): Promise<Awaited<ReturnType<typeof runPipeline>>> {
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(
-      () => reject(new Error(`Pipeline timed out after ${timeoutMs}ms`)),
-      timeoutMs,
-    ),
-  );
-  return Promise.race([runPipeline(project), timeoutPromise]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      runPipeline(project),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Pipeline timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    // Without this, every completed run leaves a live timer that rejects
+    // into an unhandled rejection timeoutMs later.
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }

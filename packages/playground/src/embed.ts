@@ -18,6 +18,10 @@ export interface MountRunnerOptions {
   readonly code?: string;
   /** Render the source as a fixed listing instead of an editable field. */
   readonly readonly?: boolean;
+  /** Run `code` immediately on mount. Defaults to false — embed code may
+   *  come from a share link or CMS, so mounting never executes it unless
+   *  the embedder opts in or the user clicks Run. */
+  readonly autoRun?: boolean;
   /** Called once per completed run. */
   readonly onRun?: (result: PipelineResult) => void;
 }
@@ -35,8 +39,10 @@ const STYLE = `
 `;
 
 /**
- * Mount a self-contained runner inside `el`. Runs `code` once on mount so
- * embeds show a result immediately; `dispose()` tears the mount down.
+ * Mount a self-contained runner inside `el`. `dispose()` tears the mount
+ * down. With `autoRun: true` the runner executes `code` once on mount;
+ * otherwise it waits for the Run button — embeds never auto-execute code
+ * the embedder didn't explicitly allow.
  */
 export function mountRunner(
   el: HTMLElement,
@@ -101,8 +107,10 @@ export function mountRunner(
 
   el.appendChild(root);
 
+  // Branch on the option, not instanceof — a container owned by another
+  // window would produce a cross-realm textarea that fails the check.
   const getCode = (): string =>
-    codeEl instanceof HTMLTextAreaElement ? codeEl.value : code;
+    opts.readonly === true ? code : (codeEl as HTMLTextAreaElement).value;
 
   const showFindings = (html: string): void => {
     frame.srcdoc = html;
@@ -111,34 +119,48 @@ export function mountRunner(
   const run = async (): Promise<void> => {
     runBtn.disabled = true;
     status.textContent = "Running...";
+    let result: PipelineResult;
     try {
       const project = evaluateUserCode(getCode());
-      const result = await runPipelineWithTimeout(project, 30_000);
-      if (result.findings.length === 0) {
+      result = await runPipelineWithTimeout(project, 30_000);
+      if (!result.success) {
+        const failed = result.steps.filter((s) => s.status === "failure");
         showFindings(
-          `<!DOCTYPE html><html><body style="background:#0d1117;color:#3fb950;font-family:monospace;padding:1rem;"><h3>No findings — all checks passed</h3><p>${result.steps.length} steps in ${result.totalDurationMs}ms</p></body></html>`,
+          `<!DOCTYPE html><html><body style="background:#0d1117;color:#f85149;font-family:monospace;padding:1rem;"><h3>Run failed</h3><pre>${escapeHtml(
+            failed.map((s) => `${s.stepId}: ${s.error ?? "failed"}`).join("\n") ||
+              `${result.steps.length} steps failed`,
+          )}</pre></body></html>`,
+        );
+      } else if (result.findings.length === 0) {
+        showFindings(
+          `<!DOCTYPE html><html><body style="background:#0d1117;color:#3fb950;font-family:monospace;padding:1rem;"><h3>No findings — all checks passed</h3><p>${escapeHtml(String(result.steps.length))} steps in ${escapeHtml(String(result.totalDurationMs))}ms</p></body></html>`,
         );
       } else {
         showFindings(generateSarifHtml(result.findings));
       }
-      status.textContent = `${result.findings.length} findings · ${result.totalDurationMs}ms`;
-      opts.onRun?.(result);
+      status.textContent = result.success
+        ? `${result.findings.length} findings · ${result.totalDurationMs}ms`
+        : `${result.steps.filter((s) => s.status === "failure").length} step(s) failed · ${result.findings.length} findings`;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       showFindings(
         `<!DOCTYPE html><html><body style="background:#0d1117;color:#f85149;font-family:monospace;padding:1rem;"><h3>Error</h3><pre>${escapeHtml(msg)}</pre></body></html>`,
       );
       status.textContent = "Error";
-    } finally {
       runBtn.disabled = false;
+      return;
     }
+    runBtn.disabled = false;
+    // Outside the try — a throwing callback must not corrupt the findings
+    // view or get misreported as a runner failure.
+    opts.onRun?.(result);
   };
 
   const onClick = (): void => {
     void run();
   };
   runBtn.addEventListener("click", onClick);
-  void run();
+  if (opts.autoRun === true) void run();
 
   return {
     dispose() {
