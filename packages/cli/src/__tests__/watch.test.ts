@@ -213,10 +213,9 @@ describe("watchLoop (spec 53.2)", () => {
     const out = new CaptureWriter();
     // If the guard regressed below the dispatch, this call would enter the
     // watcher and hang the test — the nonzero exit is the assertion.
-    const code = await main(
-      ["run", "--root", dir, "--watch", "--jobs", "0"],
-      { output: out },
-    );
+    const code = await main(["run", "--root", dir, "--watch", "--jobs", "0"], {
+      output: out,
+    });
     expect(code).not.toBe(0);
   });
 });
