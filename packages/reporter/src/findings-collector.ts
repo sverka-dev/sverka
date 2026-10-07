@@ -96,10 +96,7 @@ async function scanDir(
       // round a just-written file's mtime below the run start, so the
       // cutoff carries an epsilon — a file written moments before this
       // run is a far smaller evil than silently dropping its findings.
-      if (
-        sinceMs !== undefined &&
-        st.mtimeMs < sinceMs - MTIME_EPSILON_MS
-      )
+      if (sinceMs !== undefined && st.mtimeMs < sinceMs - MTIME_EPSILON_MS)
         continue;
       await processSarif(entryPath, dir, artifactDir, rows);
     }
