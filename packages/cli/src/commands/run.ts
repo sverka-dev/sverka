@@ -910,6 +910,7 @@ interface WriteArtifactsOpts {
 
 function runReportPayload(
   opts: WriteArtifactsOpts,
+  findingsCount: number,
   warnings: readonly string[],
 ): Record<string, unknown> {
   return {
@@ -919,9 +920,12 @@ function runReportPayload(
       status: opts.runStatus,
       steps: boundStepOutput(summarizeSteps(opts.events)),
       ...(opts.detected !== undefined ? { detected: opts.detected } : {}),
+      // Always present — the count data.report.findings advertises, taken
+      // from the same collection report.html rendered (eval findings when
+      // the gate ran). verdict/summary stay evaluation-only.
+      findings: findingsCount,
       ...(opts.evalResult
         ? {
-            findings: opts.evalResult.findings.length,
             verdict: opts.evalResult.verdict,
             summary: opts.evalResult.summary,
           }
@@ -950,7 +954,11 @@ async function writeRunArtifacts(
   );
   writeFileSync(
     join(dir, "report.json"),
-    JSON.stringify(runReportPayload(opts, warnings), null, 2),
+    JSON.stringify(
+      runReportPayload(opts, findings.length, warnings),
+      null,
+      2,
+    ),
     "utf-8",
   );
   return { dir, htmlPath, findingsCount: findings.length };
