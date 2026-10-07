@@ -2,7 +2,7 @@
 // Spec 17 — §30.
 
 import process from "node:process";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { writeFileSync, mkdirSync } from "node:fs";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { RuntimeDriver } from "@sverka/runtime";
@@ -21,6 +21,7 @@ import { loadProjectGraph } from "../internal/config.js";
 import { resolveDefaultEntryId, entryExists } from "../internal/graph.js";
 import { isBinaryAvailable } from "../internal/runtime-check.js";
 import { collectReportContext } from "../internal/report-context.js";
+import { watchLoop } from "../internal/watch.js";
 
 export interface RunArgs {
   entryId?: string;
@@ -29,10 +30,37 @@ export interface RunArgs {
   output?: string;
   /** Enable the interactive TUI (opt-in; default output is plain text). */
   tui?: boolean;
+  /** Re-run on file changes (Spec 53: debounced, keeps watching on failure). */
+  watch?: boolean;
   /** Max steps running concurrently (--jobs). */
   jobs?: number;
   /** Captured stdout/stderr tail lines printed per step (0 disables). */
   stepOutputLines?: number;
+}
+
+/** Pure-argument guards — an invalid flag fails fast instead of surfacing
+ *  as a recurring run failure inside the watch supervisor. */
+function validateRunFlags(args: RunArgs): void {
+  if (
+    args.jobs !== undefined &&
+    (!Number.isInteger(args.jobs) || args.jobs < 1 || args.jobs > 64)
+  ) {
+    throw new CliError(
+      "--jobs must be an integer in [1, 64]",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+  if (
+    args.stepOutputLines !== undefined &&
+    (!Number.isInteger(args.stepOutputLines) || args.stepOutputLines < 0)
+  ) {
+    throw new CliError(
+      "--step-output-lines must be a non-negative integer",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
 }
 
 /**
@@ -44,6 +72,12 @@ export async function runCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
+  validateRunFlags(args);
+  if (args.watch === true) {
+    // Dispatch before any graph load: an invalid config is a run result,
+    // not a reason to kill the watcher.
+    return runWatch(args, global, output);
+  }
   const executor = args.executor ?? "host";
   // --format html or --output (without sarif/web) implies HTML format
   const isSarif = global.format === "sarif";
@@ -71,29 +105,6 @@ export async function runCommand(
   // directories under .sverka/workspace inside the root.
   const workspace = global.root;
   const artifactDir = join(global.root, ".sverka", "artifacts");
-
-  // runCommand is exported — re-validate, don't rely on argv parsing alone.
-  // Upper bound: an absurd --jobs value can exhaust local/CI resources.
-  if (
-    args.jobs !== undefined &&
-    (!Number.isInteger(args.jobs) || args.jobs < 1 || args.jobs > 64)
-  ) {
-    throw new CliError(
-      "--jobs must be an integer in [1, 64]",
-      "INVALID_FLAG",
-      ExitCode.UsageError,
-    );
-  }
-  if (
-    args.stepOutputLines !== undefined &&
-    (!Number.isInteger(args.stepOutputLines) || args.stepOutputLines < 0)
-  ) {
-    throw new CliError(
-      "--step-output-lines must be a non-negative integer",
-      "INVALID_FLAG",
-      ExitCode.UsageError,
-    );
-  }
 
   const engine = createEngine({
     drivers: buildDrivers(executor),
@@ -172,6 +183,65 @@ export async function runCommand(
   }
 
   return exitCodeForStatus(runStatus);
+}
+
+/**
+ * Watch mode (Spec 53): delegate to the supervisor, which re-invokes
+ * runCommand per change — each cycle re-plans, so sverka.config.ts edits
+ * are picked up too. Ctrl+C aborts the watcher and exits cleanly.
+ */
+async function runWatch(
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+): Promise<number> {
+  if (args.tui === true) {
+    throw new CliError(
+      "--watch is incompatible with --tui (the TUI owns the terminal until exit)",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+  const ac = new AbortController();
+  let forced = false;
+  const onSigint = () => {
+    // First Ctrl+C asks the watcher to stop gracefully — the in-flight
+    // run settles and its code wins. A second Ctrl+C means the user wants
+    // out now: a hung run must not pin the terminal.
+    if (forced) process.exit(130);
+    forced = true;
+    ac.abort();
+  };
+  process.on("SIGINT", onSigint);
+  try {
+    // An explicit --config outside the watched root would otherwise never
+    // retrigger a re-plan. Resolve against the root, same as the loader.
+    const configPath =
+      global.config === null ? null : resolve(global.root, global.config);
+    const extraPaths =
+      configPath !== null && !configPath.startsWith(`${resolve(global.root)}/`)
+        ? [configPath]
+        : [];
+    // An in-root --output file is rewritten by every run — watching it
+    // would make the run's own artifact retrigger the loop forever.
+    const ignored: string[] = [];
+    if (args.output !== undefined) {
+      const out = resolve(global.root, args.output);
+      if (out.startsWith(`${resolve(global.root)}/`)) ignored.push(out);
+    }
+    const watcher = watchLoop({
+      root: global.root,
+      extraPaths,
+      ignored,
+      output,
+      signal: ac.signal,
+      run: () =>
+        runCommand({ ...args, watch: false }, global, output, Date.now()),
+    });
+    return await watcher.done;
+  } finally {
+    process.removeListener("SIGINT", onSigint);
+  }
 }
 
 function assertExecutorAvailable(executor: "host" | "docker"): void {
