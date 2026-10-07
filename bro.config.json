@@ -39,7 +39,7 @@
   },
   "agents": {
     "native": {
-      "command": "devin -p --permission-mode dangerous --prompt-file {promptFile} --respect-workspace-trust false"
+      "command": "devin -p --prompt-file {promptFile}"
     },
     "devin": {
       "maxSessions": 6
