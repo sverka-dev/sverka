@@ -809,6 +809,8 @@ async function writeRunArtifacts(
   const htmlPath = await writeReportHtml(dir, findings, warnings);
   writeFileSync(
     join(dir, "report.json"),
+    // nosemgrep — report.json is file content, not an object key; the
+    // "unstable key ordering" pattern does not apply to serialization.
     JSON.stringify(runReportPayload(opts, warnings), null, 2),
     "utf-8",
   );
