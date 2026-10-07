@@ -47,6 +47,33 @@ export async function runCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
+  // Pure-argument guards run first — an invalid flag fails fast instead
+  // of surfacing as a recurring run failure inside the watch supervisor.
+  if (
+    args.jobs !== undefined &&
+    (!Number.isInteger(args.jobs) || args.jobs < 1 || args.jobs > 64)
+  ) {
+    throw new CliError(
+      "--jobs must be an integer in [1, 64]",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+  if (
+    args.stepOutputLines !== undefined &&
+    (!Number.isInteger(args.stepOutputLines) || args.stepOutputLines < 0)
+  ) {
+    throw new CliError(
+      "--step-output-lines must be a non-negative integer",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+  if (args.watch === true) {
+    // Dispatch before any graph load: an invalid config is a run result,
+    // not a reason to kill the watcher.
+    return runWatch(args, global, output);
+  }
   const executor = args.executor ?? "host";
   // --format html or --output (without sarif/web) implies HTML format
   const isSarif = global.format === "sarif";
@@ -74,35 +101,6 @@ export async function runCommand(
   // directories under .sverka/workspace inside the root.
   const workspace = global.root;
   const artifactDir = join(global.root, ".sverka", "artifacts");
-
-  // runCommand is exported — re-validate, don't rely on argv parsing alone.
-  // Upper bound: an absurd --jobs value can exhaust local/CI resources.
-  if (
-    args.jobs !== undefined &&
-    (!Number.isInteger(args.jobs) || args.jobs < 1 || args.jobs > 64)
-  ) {
-    throw new CliError(
-      "--jobs must be an integer in [1, 64]",
-      "INVALID_FLAG",
-      ExitCode.UsageError,
-    );
-  }
-  if (
-    args.stepOutputLines !== undefined &&
-    (!Number.isInteger(args.stepOutputLines) || args.stepOutputLines < 0)
-  ) {
-    throw new CliError(
-      "--step-output-lines must be a non-negative integer",
-      "INVALID_FLAG",
-      ExitCode.UsageError,
-    );
-  }
-  if (args.watch === true) {
-    // Watch is dispatched after the flag guards above — a bad --jobs or
-    // --step-output-lines must fail fast, not enter the supervisor and
-    // surface as a recurring run failure.
-    return runWatch(args, global, output);
-  }
 
   const engine = createEngine({
     drivers: buildDrivers(executor),

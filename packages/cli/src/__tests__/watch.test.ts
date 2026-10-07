@@ -6,6 +6,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { watchLoop } from "../internal/watch.js";
+import { main } from "../main.js";
 import {
   CaptureWriter,
   makeTempDir,
@@ -205,5 +206,17 @@ describe("watchLoop (spec 53.2)", () => {
     expect(runs).toBe(1);
     ac.abort();
     await loop.done;
+  });
+
+  it("rejects invalid flags before entering the watch loop", async () => {
+    const dir = await getDir();
+    const out = new CaptureWriter();
+    // If the guard regressed below the dispatch, this call would enter the
+    // watcher and hang the test — the nonzero exit is the assertion.
+    const code = await main(
+      ["run", "--root", dir, "--watch", "--jobs", "0"],
+      { output: out },
+    );
+    expect(code).not.toBe(0);
   });
 });
