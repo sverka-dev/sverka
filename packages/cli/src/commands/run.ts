@@ -84,13 +84,7 @@ export async function runCommand(
     return runWatch(args, global, output);
   }
   const executor = args.executor ?? "host";
-  // --format html or --output (without sarif/web) implies HTML format
-  const isSarif = global.format === "sarif";
-  const isWeb = global.format === "web";
-  const isHtml =
-    global.format === "html" ||
-    (args.output !== undefined && !isSarif && !isWeb);
-  const evaluate = args.evaluate || isHtml || isSarif || isWeb;
+  const fmt = resolveFormats(args, global);
   output.debug(
     `run: root=${global.root} executor=${executor} entry=${args.entryId ?? "(first)"} format=${global.format}`,
   );
@@ -108,7 +102,6 @@ export async function runCommand(
   // Use the project root as the engine workspace so executed commands run
   // against the checked-out project. The engine places per-step scratch
   // directories under .sverka/workspace inside the root.
-  const workspace = global.root;
   const artifactDir = join(global.root, ".sverka", "artifacts");
 
   const engine = createEngine({
@@ -119,7 +112,7 @@ export async function runCommand(
   const { events, runStatus, renderer } = await consumeEvents(
     engine,
     plan,
-    { workspace, artifactDir },
+    { workspace: global.root, artifactDir },
     global,
     output,
     graph,
@@ -129,73 +122,37 @@ export async function runCommand(
   const durationMs = Date.now() - start;
 
   // If --evaluate (or --format html), collect findings and run policy gate
-  let policyExitCode = 0;
-  let evalResult: {
-    findings: readonly Finding[];
-    verdict: string;
-    summary: string;
-  } | null = null;
-  let collectionFailed = false;
-  if (evaluate) {
-    const result = await runEvaluation(
-      artifactDir,
-      global,
-      output,
-      events,
-      renderer,
-      args,
-      start,
-    );
-    policyExitCode = result.exitCode;
-    evalResult = result.summary;
-    collectionFailed =
-      result.summary === null && result.exitCode === ExitCode.RuntimeError;
-  }
+  const evaluation = await evaluateRun(
+    fmt.evaluate,
+    artifactDir,
+    global,
+    output,
+    events,
+    renderer,
+    args,
+    start,
+  );
 
   // Flush the renderer (HtmlRenderer writes the file on flush)
   renderer?.flush();
 
   // Per-run report artifacts (Spec 53): .sverka/runs/<runId>/report.{json,html}
-  const runId =
-    events.find(
-      (e): e is Extract<RunEvent, { type: "run-completed" }> =>
-        e.type === "run-completed",
-    )?.runId ??
-    events.find(
-      (e): e is Extract<RunEvent, { type: "run-started" }> =>
-        e.type === "run-started",
-    )?.runId;
-  let report: { html: string | null; json: string } | undefined;
-  if (runId !== undefined) {
-    try {
-      const artifacts = await writeRunArtifacts({
-        root: global.root,
-        runId,
-        planId: plan.id,
-        runStatus,
-        events,
-        durationMs,
-        evalResult,
-        artifactDir,
-        sinceMs: start,
-      });
-      report = {
-        html: artifacts.htmlPath,
-        json: join(artifacts.dir, "report.json"),
-      };
-    } catch (err) {
-      // REPORT_PATH_ESCAPE is the deliberate security failure — propagate.
-      // Anything else (ENOSPC, EACCES) must not turn a successful run into
-      // a runtime error: report output is best-effort, warn and move on.
-      if (err instanceof CliError) throw err;
-      output.errorLine(
-        `warning: run report not written: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
+  const report = await writeReportSafe(
+    {
+      root: global.root,
+      planId: plan.id,
+      runStatus,
+      durationMs,
+      evalResult: evaluation.summary,
+      artifactDir,
+      sinceMs: start,
+    },
+    events,
+    output,
+  );
 
   // Tell the user where the HTML report went (sarif/web print their own).
-  if (isHtml && renderer) {
+  if (fmt.isHtml && renderer) {
     const reportPath =
       args.output ?? join(global.root, ".sverka", "report.html");
     output.writeLine(`Wrote HTML report to ${reportPath}`);
@@ -208,20 +165,20 @@ export async function runCommand(
 
   // When --evaluate fails with a collection error, the error was already
   // written in the requested format — skip normal output and return.
-  if (collectionFailed) {
-    return policyExitCode;
+  if (evaluation.collectionFailed) {
+    return evaluation.exitCode;
   }
 
-  writeRunOutput(
-    plan.id,
+  writeRunOutput({
+    planId: plan.id,
     runStatus,
     events,
     durationMs,
     global,
     output,
-    evalResult,
+    evalResult: evaluation.summary,
     report,
-  );
+  });
 
   // Human-mode tail (Spec 53): the report is discoverable, not hidden.
   if (report !== undefined && global.format === "text") {
@@ -229,11 +186,139 @@ export async function runCommand(
   }
 
   // When --evaluate is set, policy exit code takes precedence
-  if (evaluate && policyExitCode !== 0) {
-    return policyExitCode;
+  if (evaluation.exitCode !== 0) {
+    return evaluation.exitCode;
   }
 
   return exitCodeForStatus(runStatus);
+}
+
+interface RunFormats {
+  isSarif: boolean;
+  isWeb: boolean;
+  isHtml: boolean;
+  evaluate: boolean;
+}
+
+/** Derive output modes — `--format html`, or `--output` without
+ *  sarif/web, implies HTML; evaluation runs for any structured format. */
+function resolveFormats(args: RunArgs, global: GlobalFlags): RunFormats {
+  const isSarif = global.format === "sarif";
+  const isWeb = global.format === "web";
+  const isHtml =
+    global.format === "html" ||
+    (args.output !== undefined && !isSarif && !isWeb);
+  return {
+    isSarif,
+    isWeb,
+    isHtml,
+    evaluate: args.evaluate || isHtml || isSarif || isWeb,
+  };
+}
+
+interface EvaluationOutcome {
+  exitCode: number;
+  summary: {
+    findings: readonly Finding[];
+    verdict: string;
+    summary: string;
+  } | null;
+  collectionFailed: boolean;
+}
+
+/** Run findings collection + policy gate when requested; a no-op
+ *  success outcome otherwise. */
+async function evaluateRun(
+  evaluate: boolean,
+  artifactDir: string,
+  global: GlobalFlags,
+  output: OutputWriter,
+  events: readonly RunEvent[],
+  renderer: Renderer | null,
+  args: RunArgs,
+  start: number,
+): Promise<EvaluationOutcome> {
+  if (!evaluate) {
+    return { exitCode: 0, summary: null, collectionFailed: false };
+  }
+  const result = await runEvaluation(
+    artifactDir,
+    global,
+    output,
+    events,
+    renderer,
+    args,
+    start,
+  );
+  return {
+    exitCode: result.exitCode,
+    summary: result.summary,
+    collectionFailed:
+      result.summary === null && result.exitCode === ExitCode.RuntimeError,
+  };
+}
+
+interface ReportContext {
+  root: string;
+  planId: string;
+  runStatus: string;
+  durationMs: number;
+  evalResult: EvaluationOutcome["summary"];
+  artifactDir: string;
+  sinceMs: number;
+}
+
+/** Locate the run id — prefer the completion event, fall back to the
+ *  start event (a run that failed mid-flight still reports). */
+function findRunId(events: readonly RunEvent[]): string | undefined {
+  return (
+    events.find(
+      (e): e is Extract<RunEvent, { type: "run-completed" }> =>
+        e.type === "run-completed",
+    )?.runId ??
+    events.find(
+      (e): e is Extract<RunEvent, { type: "run-started" }> =>
+        e.type === "run-started",
+    )?.runId
+  );
+}
+
+/** Write .sverka/runs/<runId>/report.{json,html} — best-effort: ordinary
+ *  FS failures degrade to a warning; REPORT_PATH_ESCAPE (a CliError)
+ *  stays a hard failure. */
+async function writeReportSafe(
+  ctx: ReportContext,
+  events: readonly RunEvent[],
+  output: OutputWriter,
+): Promise<{ html: string | null; json: string } | undefined> {
+  const runId = findRunId(events);
+  if (runId === undefined) return undefined;
+  try {
+    const artifacts = await writeRunArtifacts({
+      root: ctx.root,
+      runId,
+      planId: ctx.planId,
+      runStatus: ctx.runStatus,
+      events,
+      durationMs: ctx.durationMs,
+      evalResult: ctx.evalResult,
+      artifactDir: ctx.artifactDir,
+      sinceMs: ctx.sinceMs,
+    });
+    return {
+      html: artifacts.htmlPath,
+      json: join(artifacts.dir, "report.json"),
+    };
+  } catch (err) {
+    // REPORT_PATH_ESCAPE is the deliberate security failure — propagate.
+    // Anything else (ENOSPC, EACCES) must not turn a successful run into
+    // a runtime error: report output is best-effort, warn and move on.
+    if (err instanceof CliError) throw err;
+    output.errorLine(
+      `warning: run report not written: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return undefined;
+  }
 }
 
 /**
@@ -606,20 +691,24 @@ interface StepSummary {
   readonly truncated?: boolean;
 }
 
-function writeRunOutput(
-  planId: string,
-  runStatus: string,
-  events: readonly RunEvent[],
-  durationMs: number,
-  global: GlobalFlags,
-  output: OutputWriter,
+interface WriteRunOutputArgs {
+  planId: string;
+  runStatus: string;
+  events: readonly RunEvent[];
+  durationMs: number;
+  global: GlobalFlags;
+  output: OutputWriter;
   evalResult: {
     findings: readonly Finding[];
     verdict: string;
     summary: string;
-  } | null,
-  report?: { html: string | null; json: string },
-): void {
+  } | null;
+  report: { html: string | null; json: string } | undefined;
+}
+
+function writeRunOutput(opts: WriteRunOutputArgs): void {
+  const { planId, runStatus, events, durationMs, global, output } = opts;
+  const { evalResult, report } = opts;
   if (global.format === "json") {
     const steps = summarizeSteps(events);
     output.writeLine(
