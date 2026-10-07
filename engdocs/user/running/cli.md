@@ -41,14 +41,25 @@ After each finished step, prints the tail of its captured stdout/stderr
 (last 20 lines, `--step-output-lines` tunes or disables); on a TTY the
 status lines are ANSI-colored (`NO_COLOR` or `TERM=dumb` opt out).
 
-| Flag                  | Type    | Default | Description                                                    |
-| --------------------- | ------- | ------- | -------------------------------------------------------------- |
-| `--entry`             | string  | —       | Entry ID to run                                                |
-| `--executor`          | string  | `host`  | Runtime executor to use (`host` or `docker`)                   |
-| `--evaluate`          | boolean | `false` | Collect SARIF findings and evaluate policy after the run       |
-| `--output`            | string  | —       | Output file path for HTML report (implies `--format html`)     |
-| `--tui`               | boolean | `false` | Interactive terminal UI (opt-in; default output is plain text) |
-| `--step-output-lines` | number  | `20`    | Captured stdout/stderr tail lines per step (`0` disables)      |
+With no `sverka.config.*` on disk, `sverka run` still works: the same
+detection `sverka check` uses becomes an implicit `default` pipeline —
+one host step per detected check — and the run proceeds as usual. When
+nothing is detectable the command exits 2 and points at `sverka init`.
+Each run also writes `.sverka/runs/<runId>/report.json` (schema
+`sverka.run/v1`, append-only) and `report.html`; human output ends with
+a `findings:` count and the report path.
+
+| Flag                  | Type    | Default | Description                                                       |
+| --------------------- | ------- | ------- | ----------------------------------------------------------------- |
+| `--entry`             | string  | —       | Entry ID to run                                                   |
+| `--executor`          | string  | `host`  | Runtime executor to use (`host` or `docker`)                      |
+| `--evaluate`          | boolean | `false` | Collect SARIF findings and evaluate policy after the run          |
+| `--output`            | string  | —       | Output file path for HTML report (implies `--format html`)        |
+| `--report`            | string  | —       | Relocate the per-run HTML report (`report.json` stays put)        |
+| `--tui`               | boolean | `false` | Interactive terminal UI (opt-in; default output is plain text)    |
+| `--jobs`, `-j`        | number  | `4`     | Max steps running concurrently                                    |
+| `--step-output-lines` | number  | `20`    | Captured stdout/stderr tail lines per step (`0` disables)         |
+| `--watch`, `-w`       | boolean | `false` | Re-run on file changes (debounced; keeps watching after failures) |
 
 ### `sverka discover`
 

@@ -96,6 +96,11 @@ function addRunCommand(y: Argv): Argv {
       alias: "o",
       describe: "Output file path for HTML report (implies --format html)",
     })
+    .option("report", {
+      type: "string",
+      describe:
+        "Relocate the per-run HTML report (report.json stays under .sverka/runs/)",
+    })
     .option("tui", {
       type: "boolean",
       describe: "Interactive terminal UI (off by default; opt-in only)",
@@ -351,6 +356,7 @@ function dispatchRun(
   }
   if (typeof parsed.entry === "string") args.entryId = parsed.entry;
   if (typeof parsed.output === "string") args.output = parsed.output;
+  if (typeof parsed.report === "string") args.report = parsed.report;
   if (parsed.tui === true) args.tui = true;
   if (parsed.tui === false) args.tui = false;
   if (parsed.watch === true) args.watch = true;

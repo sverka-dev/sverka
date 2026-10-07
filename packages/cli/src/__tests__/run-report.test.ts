@@ -84,6 +84,9 @@ describe("run command — per-run report artifacts (spec 53)", () => {
     );
     expect(report.schema).toBe("sverka.run/v1");
     expect(report.data.status).toBe("success");
+    // Findings count is part of the payload even without --evaluate —
+    // data.report.findings advertises it to report.json readers.
+    expect(report.data.findings).toEqual(expect.any(Number));
     expect(existsSync(join(runsDir, runId, "report.html"))).toBe(true);
   });
 
@@ -108,12 +111,18 @@ describe("run command — per-run report artifacts (spec 53)", () => {
         report: {
           html: expect.any(String),
           json: expect.any(String),
+          findings: expect.any(Number),
         },
       },
       durationMs: expect.any(Number),
     });
     expect(existsSync(payload.data.report.html)).toBe(true);
     expect(existsSync(payload.data.report.json)).toBe(true);
+    // report.json exposes the same findings count the CLI advertised.
+    const report = JSON.parse(
+      readFileSync(payload.data.report.json, "utf-8"),
+    ) as { data: { findings: number } };
+    expect(report.data.findings).toBe(payload.data.report.findings);
   });
 
   it("refuses to write the report through a symlinked .sverka dir", async () => {
