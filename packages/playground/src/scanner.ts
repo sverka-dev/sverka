@@ -9,7 +9,7 @@
  *  space separators, and ZWNBSP. */
 export function isWsChar(c: string | undefined): boolean {
   if (c === undefined) return false;
-  const n = c.charCodeAt(0);
+  const n = c.codePointAt(0) ?? 0;
   if ((n >= 9 && n <= 13) || n === 32) return true;
   return (
     n === 0xa0 ||
@@ -30,7 +30,7 @@ export function isWsChar(c: string | undefined): boolean {
  *  a false keyword match — it never corrupts code. */
 export function isIdentChar(c: string | undefined): boolean {
   if (c === undefined) return false;
-  const n = c.charCodeAt(0);
+  const n = c.codePointAt(0) ?? 0;
   if (n >= 0x80) return !isWsChar(c);
   return (
     (n >= 48 && n <= 57) ||
@@ -67,11 +67,6 @@ export function blockCommentEnd(code: string, at: number): number {
 /** True when `at` starts a `//` or `/*` comment. */
 export function commentAt(code: string, at: number): boolean {
   return code[at] === "/" && (code[at + 1] === "/" || code[at + 1] === "*");
-}
-
-/** True when `at` opens a string literal or a comment. */
-export function isOpaqueStart(code: string, at: number): boolean {
-  return isQuote(code[at]) || commentAt(code, at);
 }
 
 /** End index of the string literal starting at `at` (quote char).
@@ -191,6 +186,45 @@ export function operandAfterWord(word: string): boolean {
   return !NON_OPERAND_WORDS.has(word);
 }
 
+interface TokenStep {
+  /** Index just past the consumed token. */
+  end: number;
+  /** Whether the token ends an operand — a following `/` divides. */
+  operandEnd: boolean;
+  /** +1 for `{`, −1 for `}`, 0 otherwise. */
+  brace: -1 | 0 | 1;
+}
+
+/** Consume one token at `i` for the brace-matching scans: opaque regions
+ *  and regex literals advance wholesale, idents update operand state from
+ *  the keyword table, braces report a depth delta. */
+function scanToken(code: string, i: number, operandEnd: boolean): TokenStep {
+  const opaque = scanOpaqueEnd(code, i);
+  if (opaque.end > i + 1) {
+    return {
+      end: opaque.end,
+      operandEnd: opaque.isString || operandEnd,
+      brace: 0,
+    };
+  }
+  const ch = code[i];
+  if (ch === "/" && !operandEnd) {
+    return { end: scanRegex(code, i), operandEnd: true, brace: 0 };
+  }
+  if (isWsChar(ch)) return { end: i + 1, operandEnd, brace: 0 };
+  if (isIdentChar(ch)) {
+    const wend = skipIdent(code, i);
+    return {
+      end: wend,
+      operandEnd: operandAfterWord(code.slice(i, wend)),
+      brace: 0,
+    };
+  }
+  if (ch === "{") return { end: i + 1, operandEnd: false, brace: 1 };
+  if (ch === "}") return { end: i + 1, operandEnd: true, brace: -1 };
+  return { end: i + 1, operandEnd: false, brace: 0 };
+}
+
 /**
  * End index of the `${` expression whose `{` is at `at`. Strings,
  *  comments, nested templates, and regex literals inside the expression
@@ -202,38 +236,10 @@ export function scanTemplateExpr(code: string, at: number): number {
   let i = at + 1;
   let operandEnd = false;
   while (i < code.length && depth > 0) {
-    const ch = code[i];
-    const opaque = scanOpaqueEnd(code, i);
-    if (opaque.end > i + 1) {
-      if (opaque.isString) operandEnd = true;
-      i = opaque.end;
-      continue;
-    }
-    if (ch === "/" && !operandEnd) {
-      i = scanRegex(code, i);
-      operandEnd = true;
-      continue;
-    }
-    if (isWsChar(ch)) {
-      i++;
-      continue;
-    }
-    if (isIdentChar(ch)) {
-      const wend = skipIdent(code, i);
-      operandEnd = operandAfterWord(code.slice(i, wend));
-      i = wend;
-      continue;
-    }
-    if (ch === "{") {
-      depth++;
-      operandEnd = false;
-    } else if (ch === "}") {
-      depth--;
-      operandEnd = true;
-    } else {
-      operandEnd = false;
-    }
-    i++;
+    const step = scanToken(code, i, operandEnd);
+    depth += step.brace;
+    operandEnd = step.operandEnd;
+    i = step.end;
   }
   return i;
 }
@@ -248,39 +254,11 @@ export function matchBrace(code: string, open: number): number {
   let i = open;
   let operandEnd = false;
   while (i < code.length) {
-    const c = code[i];
-    if (isOpaqueStart(code, i)) {
-      const opaque = scanOpaqueEnd(code, i);
-      if (opaque.isString) operandEnd = true;
-      i = opaque.end;
-      continue;
-    }
-    if (c === "/" && !operandEnd) {
-      i = scanRegex(code, i);
-      operandEnd = true;
-      continue;
-    }
-    if (isWsChar(c)) {
-      i++;
-      continue;
-    }
-    if (isIdentChar(c)) {
-      const wend = skipIdent(code, i);
-      operandEnd = operandAfterWord(code.slice(i, wend));
-      i = wend;
-      continue;
-    }
-    if (c === "{") {
-      depth++;
-      operandEnd = false;
-    } else if (c === "}") {
-      depth--;
-      operandEnd = true;
-      if (depth === 0) return i;
-    } else {
-      operandEnd = false;
-    }
-    i++;
+    const step = scanToken(code, i, operandEnd);
+    depth += step.brace;
+    operandEnd = step.operandEnd;
+    i = step.end;
+    if (step.brace === -1 && depth === 0) return i - 1;
   }
   return -1;
 }

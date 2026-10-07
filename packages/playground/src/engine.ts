@@ -54,11 +54,11 @@ export const DEFAULT_CODE = [
 /** Escape HTML special characters to prevent XSS. */
 export function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 /** End index of the statement starting at `at`: first top-level `;`, or
@@ -146,7 +146,7 @@ interface ScanState {
 }
 
 function atStmtLevel(st: ScanState): boolean {
-  return st.stack.length === 0 || st.stack[st.stack.length - 1] === "block";
+  return st.stack.length === 0 || st.stack.at(-1) === "block";
 }
 
 /** Copy a string literal or comment verbatim into `out`. */
@@ -292,6 +292,28 @@ function tryWord(code: string, st: ScanState, out: string[]): boolean {
   return true;
 }
 
+/** Char handlers tried in order — first true wins. Any char left over is
+ *  copied verbatim as a non-operand punctuation token. */
+const HANDLERS: ((code: string, st: ScanState, out: string[]) => boolean)[] = [
+  copyOpaque,
+  applyBracket,
+  applyTerminator,
+  applySlash,
+  tryImport,
+  tryExport,
+  tryWord,
+];
+
+function advanceScan(code: string, st: ScanState, out: string[]): void {
+  for (const handle of HANDLERS) {
+    if (handle(code, st, out)) return;
+  }
+  st.stmtStart = false;
+  st.operandEnd = false;
+  out.push(code[st.i] ?? "");
+  st.i++;
+}
+
 /**
  * Strip import/export statements from user code for eval — a linear
  * single-pass scan, so multiline imports and comments/strings are handled
@@ -318,17 +340,7 @@ export function preprocessCode(code: string): string {
   };
   while (st.i < code.length) {
     if (code[st.i] === undefined) break;
-    if (copyOpaque(code, st, out)) continue;
-    if (applyBracket(code, st, out)) continue;
-    if (applyTerminator(code, st, out)) continue;
-    if (applySlash(code, st, out)) continue;
-    if (tryImport(code, st, out)) continue;
-    if (tryExport(code, st, out)) continue;
-    if (tryWord(code, st, out)) continue;
-    st.stmtStart = false;
-    st.operandEnd = false;
-    out.push(code[st.i] ?? "");
-    st.i++;
+    advanceScan(code, st, out);
   }
   return out.join("");
 }
@@ -355,7 +367,7 @@ export function evaluateUserCode(code: string): Project {
   const fn = new Function(...params); // NOSONAR — intentional dynamic evaluation in sandbox
   const result = fn(Project, Pipeline, FunctionStep, Entry); // NOSONAR
   if (!(result instanceof Project)) {
-    throw new Error("Code must export a Project instance");
+    throw new TypeError("Code must export a Project instance");
   }
   return result as Project;
 }
