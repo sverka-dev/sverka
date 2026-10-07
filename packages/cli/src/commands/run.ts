@@ -954,11 +954,7 @@ async function writeRunArtifacts(
   );
   writeFileSync(
     join(dir, "report.json"),
-    JSON.stringify(
-      runReportPayload(opts, findings.length, warnings),
-      null,
-      2,
-    ),
+    JSON.stringify(runReportPayload(opts, findings.length, warnings), null, 2),
     "utf-8",
   );
   return { dir, htmlPath, findingsCount: findings.length };
