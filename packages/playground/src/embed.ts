@@ -89,6 +89,9 @@ export function mountRunner(
   root.appendChild(codeEl);
 
   const frame = doc.createElement("iframe");
+  // Shared findings render via srcdoc — sandboxed so a crafted payload can
+  // never run script inside the host page.
+  frame.setAttribute("sandbox", "allow-same-origin");
   frame.setAttribute(
     "style",
     "flex:1;min-height:10rem;width:100%;border:none;background:#0d1117;",
