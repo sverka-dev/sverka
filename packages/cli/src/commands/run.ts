@@ -149,6 +149,30 @@ export async function runCommand(
   // Flush the renderer (HtmlRenderer writes the file on flush)
   renderer?.flush();
 
+  // Per-run report artifacts (Spec 53): .sverka/runs/<runId>/report.{json,html}
+  const runId =
+    events.find(
+      (e): e is Extract<RunEvent, { type: "run-completed" }> =>
+        e.type === "run-completed",
+    )?.runId ??
+    events.find(
+      (e): e is Extract<RunEvent, { type: "run-started" }> =>
+        e.type === "run-started",
+    )?.runId;
+  let reportDir: string | undefined;
+  if (runId !== undefined) {
+    reportDir = await writeRunArtifacts({
+      root: global.root,
+      runId,
+      planId: plan.id,
+      runStatus,
+      events,
+      durationMs,
+      evalResult,
+      artifactDir,
+    });
+  }
+
   // Tell the user where the HTML report went (sarif/web print their own).
   if (isHtml && renderer) {
     const reportPath =
@@ -175,7 +199,13 @@ export async function runCommand(
     global,
     output,
     evalResult,
+    reportDir,
   );
+
+  // Human-mode tail (Spec 53): the report is discoverable, not hidden.
+  if (reportDir !== undefined && global.format === "text") {
+    output.writeLine(`  report: ${join(reportDir, "report.html")}`);
+  }
 
   // When --evaluate is set, policy exit code takes precedence
   if (evaluate && policyExitCode !== 0) {
@@ -563,6 +593,7 @@ function writeRunOutput(
     verdict: string;
     summary: string;
   } | null,
+  reportDir?: string,
 ): void {
   if (global.format === "json") {
     const steps = summarizeSteps(events);
@@ -580,6 +611,15 @@ function writeRunOutput(
                 summary: evalResult.summary,
               }
             : {}),
+          // sverka.run/v1 is append-only — new fields land, never rename.
+          ...(reportDir !== undefined
+            ? {
+                report: {
+                  html: join(reportDir, "report.html"),
+                  json: join(reportDir, "report.json"),
+                },
+              }
+            : {}),
         },
         durationMs,
       }),
@@ -587,6 +627,76 @@ function writeRunOutput(
   }
   // Text format: renderer already printed all output including run-completed line.
   // No additional summary needed.
+}
+
+/** Write the per-run report artifacts (Spec 53): report.json carries the
+ *  sverka.run/v1 payload; report.html renders whatever findings the run
+ *  produced (an empty-findings report is still a report). Best-effort —
+ *  a render failure never fails the run. */
+async function writeRunArtifacts(opts: {
+  root: string;
+  runId: string;
+  planId: string;
+  runStatus: string;
+  events: readonly RunEvent[];
+  durationMs: number;
+  evalResult: {
+    findings: readonly Finding[];
+    verdict: string;
+    summary: string;
+  } | null;
+  artifactDir: string;
+}): Promise<string> {
+  const dir = join(opts.root, ".sverka", "runs", opts.runId);
+  mkdirSync(dir, { recursive: true });
+
+  writeFileSync(
+    join(dir, "report.json"),
+    JSON.stringify(
+      {
+        schema: "sverka.run/v1",
+        data: {
+          planId: opts.planId,
+          status: opts.runStatus,
+          steps: summarizeSteps(opts.events),
+          ...(opts.evalResult
+            ? {
+                findings: opts.evalResult.findings.length,
+                verdict: opts.evalResult.verdict,
+                summary: opts.evalResult.summary,
+              }
+            : {}),
+        },
+        durationMs: opts.durationMs,
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  );
+
+  let findings: readonly Finding[] = opts.evalResult?.findings ?? [];
+  if (findings.length === 0) {
+    try {
+      const { collectFindings } = await import("@sverka/reporter");
+      findings = (await collectFindings({ artifactDir: opts.artifactDir })).map(
+        (r) => r.finding,
+      );
+    } catch {
+      // No readable artifacts — an empty-findings report is still valid.
+    }
+  }
+  try {
+    const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
+    writeFileSync(
+      join(dir, "report.html"),
+      generateSarifHtml(findings),
+      "utf-8",
+    );
+  } catch {
+    // report.json alone is still a report — never fail the run over HTML.
+  }
+  return dir;
 }
 
 function exitCodeForStatus(runStatus: string): ExitCode {
