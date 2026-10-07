@@ -1,3 +1,14 @@
+## 0.2.15 (2026-10-07)
+
+### 🚀 Features
+
+- **cli:** sverka view opens latest run report (spec 53) ([#325](https://github.com/sverka-dev/sverka/pull/325))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.14 (2026-10-07)
 
 ### 🚀 Features
