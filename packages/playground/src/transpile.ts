@@ -9,10 +9,61 @@ import { PlaygroundError } from "./share.js";
 // ---------------------------------------------------------------------------
 // Mini-scanner: every matcher below is string- and comment-aware, so braces
 // inside comments or quotes never count as syntax, and a `\\` escape can
-// never run past the end of input. All scans are linear.
+// never run past the end of input. All scans are linear — no regexes at
+// all: a pattern evaluated against user source is ReDoS surface.
 // ---------------------------------------------------------------------------
 
-const IDENT = /[A-Za-z0-9_$]/;
+/** Whitespace per the JS grammar (the chars `\s` covers for our use). */
+function isWsChar(c: string | undefined): boolean {
+  return (
+    c === " " ||
+    c === "\t" ||
+    c === "\n" ||
+    c === "\r" ||
+    c === "\f" ||
+    c === "\v"
+  );
+}
+
+/** Identifier chars: `[A-Za-z0-9_$]`. */
+function isIdentChar(c: string | undefined): boolean {
+  if (c === undefined) return false;
+  const n = c.charCodeAt(0);
+  return (
+    (n >= 48 && n <= 57) ||
+    (n >= 65 && n <= 90) ||
+    (n >= 97 && n <= 122) ||
+    c === "_" ||
+    c === "$"
+  );
+}
+
+function skipWs(source: string, i: number): number {
+  while (i < source.length && isWsChar(source[i])) i++;
+  return i;
+}
+
+function skipIdent(source: string, i: number): number {
+  while (i < source.length && isIdentChar(source[i])) i++;
+  return i;
+}
+
+/** Index just past the `}` closing the `${` expression opened at `at`. */
+function skipTemplateExpr(source: string, at: number): number {
+  let depth = 1;
+  let i = at + 1;
+  while (i < source.length && depth > 0) {
+    const c = source[i];
+    if (c === "{") depth++;
+    else if (c === "}") depth--;
+    else if (c === "`") {
+      i = skipString(source, i);
+      continue;
+    }
+    i++;
+  }
+  return i;
+}
 
 /** Index just past the string literal opening at `at`. */
 function skipString(source: string, at: number): number {
@@ -27,17 +78,7 @@ function skipString(source: string, at: number): number {
     if (c === quote) return i + 1;
     // Template literals nest `${}` expressions — track brace depth.
     if (quote === "`" && c === "$" && source[i + 1] === "{") {
-      let depth = 1;
-      i += 2;
-      while (i < source.length && depth > 0) {
-        if (source[i] === "{") depth++;
-        else if (source[i] === "}") depth--;
-        else if (source[i] === "`") {
-          i = skipString(source, i);
-          continue;
-        }
-        i++;
-      }
+      i = skipTemplateExpr(source, i + 2);
       continue;
     }
     i++;
@@ -62,6 +103,12 @@ function commentAt(source: string, at: number): boolean {
   );
 }
 
+/** True when `at` opens a string literal or a comment. */
+function isOpaqueStart(source: string, at: number): boolean {
+  const c = source[at];
+  return c === '"' || c === "'" || c === "`" || commentAt(source, at);
+}
+
 /** Advance past a string or comment, or return at+1 for ordinary chars. */
 function skipOpaque(source: string, at: number): number {
   const c = source[at];
@@ -73,35 +120,12 @@ function skipOpaque(source: string, at: number): number {
   return at + 1;
 }
 
-/**
- * Spans of string literals and comments — positions where a regex match
- * must never count as code. Each entry is [start, end).
- */
-function opaqueSpans(source: string): Array<readonly [number, number]> {
-  const spans: Array<readonly [number, number]> = [];
-  let i = 0;
-  while (i < source.length) {
-    const end = skipOpaque(source, i);
-    if (end > i + 1) spans.push([i, end]);
-    i = end;
-  }
-  return spans;
+function isOpenBracket(c: string | undefined): boolean {
+  return c === "{" || c === "[" || c === "(";
 }
 
-/**
- * True when `pos` lies inside a string/comment span. `startIdx` is an
- * in/out cursor: spans are ordered, so repeated calls while scanning
- * left-to-right stay amortized-linear.
- */
-function inOpaque(
-  spans: Array<readonly [number, number]>,
-  pos: number,
-  startIdx: number,
-): { inside: boolean; idx: number } {
-  let idx = startIdx;
-  while (idx < spans.length && (spans[idx]?.[1] ?? 0) <= pos) idx++;
-  const s = spans[idx];
-  return { inside: s !== undefined && s[0] <= pos, idx };
+function isCloseBracket(c: string | undefined): boolean {
+  return c === "}" || c === "]" || c === ")";
 }
 
 /** Index of the `}` matching the `{` at `open`; -1 when unbalanced. */
@@ -110,7 +134,7 @@ function matchBrace(source: string, open: number): number {
   let i = open;
   while (i < source.length) {
     const c = source[i];
-    if (c === '"' || c === "'" || c === "`" || commentAt(source, i)) {
+    if (isOpaqueStart(source, i)) {
       i = skipOpaque(source, i);
       continue;
     }
@@ -125,87 +149,155 @@ function matchBrace(source: string, open: number): number {
 }
 
 /**
+ * Index of the `:` following a depth-0 `key` in a props object body, or -1.
+ * A `dependencies` declared inside `fn` never counts — only top-level keys.
+ */
+function findPropKey(props: string, key: string): number {
+  let depth = 0;
+  let i = 0;
+  while (i < props.length) {
+    const c = props[i];
+    if (isOpaqueStart(props, i)) {
+      i = skipOpaque(props, i);
+      continue;
+    }
+    if (isOpenBracket(c)) depth++;
+    else if (isCloseBracket(c)) depth--;
+    else if (depth === 0 && isIdentChar(c)) {
+      const wend = skipIdent(props, i);
+      if (props.slice(i, wend) === key && props[skipWs(props, wend)] === ":")
+        return skipWs(props, wend);
+      i = wend;
+      continue;
+    }
+    i++;
+  }
+  return -1;
+}
+
+/** True when the comment at `k` is a top-level tail comment — `deps: [] //
+ *  note` — and therefore not part of the value. Emitting it would comment
+ *  out the generated `}` after `dependsOn: <value>`. */
+function isTailComment(props: string, k: number, after: number): boolean {
+  if (!commentAt(props, k)) return false;
+  const ahead = skipWs(props, after);
+  return ahead >= props.length || props[ahead] === ",";
+}
+
+/** End index of a prop value starting at `j` — the next top-level comma
+ *  or the end of the props body, with strings/comments/brackets balanced. */
+function propValueEnd(props: string, j: number): number {
+  let depth = 0;
+  let k = j;
+  while (k < props.length) {
+    const v = props[k];
+    if (isOpaqueStart(props, k)) {
+      const after = skipOpaque(props, k);
+      if (depth === 0 && isTailComment(props, k, after)) return k;
+      k = after;
+      continue;
+    }
+    if (isOpenBracket(v)) depth++;
+    else if (isCloseBracket(v)) depth--;
+    else if (v === "," && depth === 0) break;
+    k++;
+  }
+  return k;
+}
+
+/**
  * Extract a top-level `key: <value>` span from a props object body.
  * Only depth-0 keys match — a `dependencies` declared inside `fn` never
  * counts. The value runs to the next top-level `,`, with strings,
  * comments, and nested brackets all balanced.
  */
 function extractProp(props: string, key: string): string | undefined {
-  let depth = 0;
-  let i = 0;
-  while (i < props.length) {
-    const c = props[i];
-    if (c === '"' || c === "'" || c === "`" || commentAt(props, i)) {
-      i = skipOpaque(props, i);
-      continue;
-    }
-    if (c === "{" || c === "[" || c === "(") {
-      depth++;
-      i++;
-      continue;
-    }
-    if (c === "}" || c === "]" || c === ")") {
-      depth--;
-      i++;
-      continue;
-    }
-    if (depth === 0 && IDENT.test(c ?? "")) {
-      // Read the whole identifier, then compare — never a substring match.
-      let wend = i;
-      while (wend < props.length && IDENT.test(props[wend] ?? "")) wend++;
-      const word = props.slice(i, wend);
-      if (word === key) {
-        let j = wend;
-        while (j < props.length && /\s/.test(props[j] ?? "")) j++;
-        if (props[j] === ":") {
-          j++;
-          while (j < props.length && /\s/.test(props[j] ?? "")) j++;
-          // Value ends at the next top-level comma or at end of props.
-          let valueDepth = 0;
-          let k = j;
-          while (k < props.length) {
-            const v = props[k];
-            if (v === '"' || v === "'" || v === "`") {
-              k = skipOpaque(props, k);
-              continue;
-            }
-            if (commentAt(props, k)) {
-              const cStart = k;
-              k = skipOpaque(props, k);
-              if (valueDepth === 0) {
-                // A top-level tail comment like `deps: [] // note` is not
-                // part of the value — emitting it would comment out the
-                // generated `}` after `dependsOn: <value>`.
-                let ahead = k;
-                while (ahead < props.length && /\s/.test(props[ahead] ?? ""))
-                  ahead++;
-                if (ahead >= props.length || props[ahead] === ",") {
-                  return props.slice(j, cStart).trim();
-                }
-              }
-              continue;
-            }
-            if (v === "{" || v === "[" || v === "(") valueDepth++;
-            else if (v === "}" || v === "]" || v === ")") valueDepth--;
-            else if (v === "," && valueDepth === 0) break;
-            k++;
-          }
-          return props.slice(j, k).trim();
-        }
-      }
-      i = wend;
-      continue;
-    }
-    i++;
+  const colon = findPropKey(props, key);
+  if (colon < 0) return undefined;
+  const j = skipWs(props, colon + 1);
+  return props.slice(j, propValueEnd(props, j)).trim();
+}
+
+/** Consume trailing spaces/tabs plus one optional `;` — never the newline.
+ *  Eating it would fuse the emitted import with the next line
+ *  (`from "@sverka/workflow"const x = …`). */
+function stmtEndPos(source: string, i: number): number {
+  let end = i;
+  while (source[end] === " " || source[end] === "\t") end++;
+  if (source[end] === ";") end++;
+  return end;
+}
+
+/** Parse one import specifier: `Name` or `Name as alias`. */
+function parseImportSpec(spec: string): { orig: string; local: string } {
+  const a = skipWs(spec, 0);
+  const wend = skipIdent(spec, a);
+  const orig = spec.slice(a, wend);
+  const asPos = skipWs(spec, wend);
+  if (!spec.startsWith("as", asPos) || isIdentChar(spec[asPos + 2])) {
+    return { orig, local: orig };
   }
-  return undefined;
+  const b = skipWs(spec, asPos + 2);
+  const local = spec.slice(b, skipIdent(spec, b));
+  return local === "" ? { orig, local: orig } : { orig, local };
+}
+
+interface MappedImports {
+  mapped: string;
+  fnStepLocals: string[];
+}
+
+/** Map `{…}` import specifiers; FunctionStep becomes ShellStep (aliases
+ *  survive: `FunctionStep as Fn` → `ShellStep as Fn`). */
+function mapImportSpecifiers(inner: string): MappedImports {
+  const mapped: string[] = [];
+  const fnStepLocals: string[] = [];
+  for (const spec of inner.split(",")) {
+    const trimmed = spec.trim();
+    if (trimmed === "") continue;
+    const { orig, local } = parseImportSpec(trimmed);
+    if (orig === "FunctionStep") {
+      fnStepLocals.push(local);
+      mapped.push(orig === local ? "ShellStep" : `ShellStep as ${local}`);
+    } else {
+      mapped.push(trimmed);
+    }
+  }
+  return { mapped: mapped.join(", "), fnStepLocals };
+}
+
+interface PlaygroundImport {
+  stmtEnd: number;
+  mapped: string;
+  fnStepLocals: string[];
+}
+
+/** Parse `import {…} from "@sverka/playground"` at `i`, or null when the
+ *  statement has another shape/module. Caller guarantees "import" at `i`. */
+function parsePlaygroundImport(
+  source: string,
+  i: number,
+): PlaygroundImport | null {
+  const j = skipWs(source, i + 6);
+  if (source[j] !== "{") return null;
+  const namesEnd = matchBrace(source, j);
+  if (namesEnd < 0) return null;
+  const fromKw = skipWs(source, namesEnd + 1);
+  if (!source.startsWith("from", fromKw) || isIdentChar(source[fromKw + 4]))
+    return null;
+  const qPos = skipWs(source, fromKw + 4);
+  const q = source[qPos];
+  if (q !== '"' && q !== "'") return null;
+  const specEnd = skipString(source, qPos);
+  if (source.slice(qPos + 1, specEnd - 1) !== "@sverka/playground") return null;
+  const { mapped, fnStepLocals } = mapImportSpecifiers(
+    source.slice(j + 1, namesEnd),
+  );
+  return { stmtEnd: stmtEndPos(source, specEnd), mapped, fnStepLocals };
 }
 
 /**
- * Rewrite `import {…} from "@sverka/playground"` statements linearly —
- * manual scanning instead of a global regex (a `[^}]*` pattern can do
- * quadratic work on inputs like `import{{import{{…`). Aliases survive:
- * `FunctionStep as Fn` becomes `ShellStep as Fn`.
+ * Rewrite `import {…} from "@sverka/playground"` statements linearly.
  *
  * Returns the rewritten source plus every local name bound to
  * FunctionStep, so constructor calls under an alias are transpiled too.
@@ -219,82 +311,189 @@ function rewritePlaygroundImports(source: string): {
   let cursor = 0;
   let i = 0;
   while (i < source.length) {
-    const c = source[i];
-    if (c === '"' || c === "'" || c === "`" || commentAt(source, i)) {
-      i = skipOpaque(source, i);
+    const end = skipOpaque(source, i);
+    if (end > i + 1) {
+      i = end;
       continue;
     }
-    if (!source.startsWith("import", i) || IDENT.test(source[i + 6] ?? "")) {
-      i++;
-      continue;
+    if (source.startsWith("import", i) && !isIdentChar(source[i + 6])) {
+      const stmt = parsePlaygroundImport(source, i);
+      if (stmt !== null) {
+        out += source.slice(cursor, i);
+        out += `import { ${stmt.mapped} } from "@sverka/workflow"`;
+        if (source[stmt.stmtEnd - 1] === ";") out += ";";
+        fnStepNames.push(...stmt.fnStepLocals);
+        cursor = stmt.stmtEnd;
+        i = stmt.stmtEnd;
+        continue;
+      }
     }
-    // import {…} from "…"
-    let j = i + 6;
-    while (j < source.length && /\s/.test(source[j] ?? "")) j++;
-    if (source[j] !== "{") {
-      i++;
-      continue;
-    }
-    const namesEnd = matchBrace(source, j);
-    if (namesEnd < 0) {
-      i++;
-      continue;
-    }
-    let k = namesEnd + 1;
-    while (k < source.length && /\s/.test(source[k] ?? "")) k++;
-    if (!source.startsWith("from", k) || IDENT.test(source[k + 4] ?? "")) {
-      i++;
-      continue;
-    }
-    k += 4;
-    while (k < source.length && /\s/.test(source[k] ?? "")) k++;
-    const q = source[k];
-    if (q !== '"' && q !== "'") {
-      i++;
-      continue;
-    }
-    const specEnd = skipString(source, k);
-    if (source.slice(k + 1, specEnd - 1) !== "@sverka/playground") {
-      i++;
-      continue;
-    }
-    // Consume the statement end: same-line whitespace and an optional
-    // `;` — but never the newline. Eating it would fuse the emitted
-    // import with the next line (`from "@sverka/workflow"const x = …`).
-    let stmtEnd = specEnd;
-    while (
-      stmtEnd < source.length &&
-      (source[stmtEnd] === " " || source[stmtEnd] === "\t")
-    )
-      stmtEnd++;
-    if (source[stmtEnd] === ";") stmtEnd++;
-
-    const mapped = source
-      .slice(j + 1, namesEnd)
-      .split(",")
-      .map((n) => n.trim())
-      .filter((n) => n.length > 0)
-      .map((n) => {
-        const am = /^(\w+)\s+as\s+(\w+)$/.exec(n);
-        const orig = am?.[1] ?? n;
-        const local = am?.[2] ?? n;
-        if (orig === "FunctionStep") {
-          fnStepNames.push(local);
-          return am ? `ShellStep as ${local}` : "ShellStep";
-        }
-        return n;
-      });
-    out += source.slice(cursor, i);
-    out += `import { ${mapped.join(", ")} } from "@sverka/workflow"`;
-    if (source[stmtEnd - 1] === ";") out += ";";
-    cursor = stmtEnd;
-    i = stmtEnd;
+    i++;
   }
   return { code: out + source.slice(cursor), fnStepNames };
 }
 
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Index of `(` after `new <name>` where <name> ∈ names, or null. */
+function stepCallParen(
+  code: string,
+  afterNew: number,
+  names: readonly string[],
+): number | null {
+  const j = skipWs(code, afterNew);
+  for (const name of names) {
+    const next = code[j + name.length];
+    if (code.startsWith(name, j) && !isIdentChar(next)) {
+      const paren = skipWs(code, j + name.length);
+      if (code[paren] === "(") return paren;
+    }
+  }
+  return null;
+}
+
+/**
+ * Locate the next `new <name>(` call where <name> ∈ names. Manual scan —
+ * opaque regions are skipped inline, so a `new FunctionStep(` inside a
+ * comment or string is documentation, not a call.
+ */
+function findStepCall(
+  code: string,
+  names: readonly string[],
+  from: number,
+): { start: number; paren: number } | null {
+  let i = from;
+  while (i < code.length) {
+    const end = skipOpaque(code, i);
+    if (end > i + 1) {
+      i = end;
+      continue;
+    }
+    if (
+      code.startsWith("new", i) &&
+      !isIdentChar(code[i - 1]) &&
+      !isIdentChar(code[i + 3])
+    ) {
+      const paren = stepCallParen(code, i + 3, names);
+      if (paren !== null) return { start: i, paren };
+    }
+    i++;
+  }
+  return null;
+}
+
+/** End of the scope expression — the first top-level comma after `from`,
+ *  or -1 when the argument list closes/ends first. */
+function scanScopeEnd(code: string, from: number): number {
+  let depth = 0;
+  let k = from;
+  while (k < code.length) {
+    const c = code[k];
+    if (isOpaqueStart(code, k)) {
+      k = skipOpaque(code, k);
+      continue;
+    }
+    if (isOpenBracket(c)) depth++;
+    else if (isCloseBracket(c)) {
+      if (depth === 0) return -1;
+      depth--;
+    } else if (c === "," && depth === 0) return k;
+    k++;
+  }
+  return -1;
+}
+
+interface StepArgs {
+  scope: string;
+  id: string;
+  propsOpen: number;
+}
+
+/** Parse `(scope, "id", {` after the `(` at `paren`; null when the call
+ *  shape differs. A template id throws immediately — never half-converts. */
+function parseStepArgs(code: string, paren: number): StepArgs | null {
+  const scopeStart = skipWs(code, paren + 1);
+  const comma = scanScopeEnd(code, scopeStart);
+  if (comma < 0) return null;
+  const qPos = skipWs(code, comma + 1);
+  const q = code[qPos];
+  if (q === "`")
+    throw new PlaygroundError(
+      "TRANSPILE_FAILED",
+      "cannot parse FunctionStep — template-literal step id",
+    );
+  if (q !== '"' && q !== "'") return null;
+  const idEnd = skipString(code, qPos);
+  const afterId = skipWs(code, idEnd);
+  if (code[afterId] !== ",") return null;
+  const propsOpen = skipWs(code, afterId + 1);
+  if (code[propsOpen] !== "{") return null;
+  return {
+    scope: code.slice(scopeStart, comma).trim(),
+    id: code.slice(qPos + 1, idEnd - 1),
+    propsOpen,
+  };
+}
+
+/** Emit the ShellStep placeholder replacing one FunctionStep call. */
+function shellStepCall(args: StepArgs, dependencies: string | undefined) {
+  // The id lands inside shell single quotes — $()/backticks can never
+  // expand. `'` is already impossible (the id is a plain string literal).
+  return (
+    `new ShellStep(${args.scope}, "${args.id}", ` +
+    `{ command: "echo 'TODO: port '${args.id}' — replace with the real shell command'"` +
+    `${dependencies !== undefined ? `, dependsOn: ${dependencies}` : ""} }`
+  );
+}
+
+/** Rewrite every `new Fn(scope, "id", {…})` call under the given local
+ *  names into ShellStep placeholders; `dependencies` → `dependsOn`. */
+function rewriteStepCalls(code: string, names: readonly string[]): string {
+  let result = "";
+  let cursor = 0;
+  for (;;) {
+    const call = findStepCall(code, names, cursor);
+    if (call === null) break;
+    const args = parseStepArgs(code, call.paren);
+    if (args === null) {
+      // A `new Fn(` whose shape we don't own — skip `new` and let the
+      // leftover check name it, rather than silently dropping it.
+      result += code.slice(cursor, call.start + 3);
+      cursor = call.start + 3;
+      continue;
+    }
+    const propsClose = matchBrace(code, args.propsOpen);
+    if (propsClose < 0)
+      throw new PlaygroundError(
+        "TRANSPILE_FAILED",
+        `cannot parse FunctionStep "${args.id}" — unbalanced props object`,
+      );
+    const dependencies = extractProp(
+      code.slice(args.propsOpen + 1, propsClose),
+      "dependencies",
+    );
+    result +=
+      code.slice(cursor, call.start) + shellStepCall(args, dependencies);
+    cursor = propsClose + 1;
+  }
+  return result + code.slice(cursor);
+}
+
+/** A surviving step call means a shape we could not convert — computed
+ *  scope/id or a malformed alias call. Fail loud rather than emit a
+ *  half-converted file. */
+function assertNoLeftoverSteps(code: string, names: readonly string[]): void {
+  let i = 0;
+  for (;;) {
+    const call = findStepCall(code, names, i);
+    if (call === null) return;
+    const scopeStart = skipWs(code, call.paren + 1);
+    const scopeEnd = scanScopeEnd(code, scopeStart);
+    const scope =
+      scopeEnd < 0 ? "?" : code.slice(scopeStart, scopeEnd).trim() || "?";
+    throw new PlaygroundError(
+      "TRANSPILE_FAILED",
+      `cannot parse FunctionStep with scope '${scope}' — unsupported expression`,
+    );
+  }
 }
 
 /**
@@ -310,90 +509,9 @@ function escapeRe(s: string): string {
  * a FunctionStep cannot be parsed — a half-converted file is never emitted.
  */
 export function toSverkaConfig(source: string): string {
-  // 1. Import rewrite — collects every local FunctionStep alias.
   const { code, fnStepNames } = rewritePlaygroundImports(source);
-  let out = code;
   if (fnStepNames.length === 0) fnStepNames.push("FunctionStep");
-
-  // 2. FunctionStep → ShellStep, props rewritten.
-  const stepRe = new RegExp(
-    `new\\s+(?:${fnStepNames.map(escapeRe).join("|")})` +
-      `\\s*\\(\\s*([^,]+?)\\s*,\\s*(["'\`])([^"'\`]+)\\2\\s*,\\s*\\{`,
-    "g",
-  );
-  // A `new FunctionStep(` inside a comment or string is documentation,
-  // not a call — rewriting it would corrupt the config.
-  const spans = opaqueSpans(out);
-  let spanIdx = 0;
-  let result = "";
-  let cursor = 0;
-  for (;;) {
-    const m = stepRe.exec(out);
-    if (!m) break;
-    const opaque = inOpaque(spans, m.index, spanIdx);
-    spanIdx = opaque.idx;
-    if (opaque.inside) {
-      stepRe.lastIndex = m.index + 1;
-      continue;
-    }
-    const [full, scope, quote, id] = m;
-    if (
-      quote === "`" ||
-      id === undefined ||
-      scope === undefined ||
-      id.includes("${")
-    ) {
-      throw new PlaygroundError(
-        "TRANSPILE_FAILED",
-        `cannot parse FunctionStep "${id ?? "?"}" — template-literal or unsupported step id`,
-      );
-    }
-    const propsOpen = m.index + full.length - 1; // index of '{'
-    const propsClose = matchBrace(out, propsOpen);
-    if (propsClose < 0) {
-      throw new PlaygroundError(
-        "TRANSPILE_FAILED",
-        `cannot parse FunctionStep "${id}" — unbalanced props object`,
-      );
-    }
-    const props = out.slice(propsOpen + 1, propsClose);
-    const dependencies = extractProp(props, "dependencies");
-    // The id lands inside shell single quotes — $()/backticks can never
-    // expand. `'` is already impossible (the id regex excludes quotes).
-    const todo =
-      `new ShellStep(${scope}, "${id}", ` +
-      `{ command: "echo 'TODO: port '${id}' — replace with the real shell command'"` +
-      `${dependencies !== undefined ? `, dependsOn: ${dependencies}` : ""} }`;
-    result += out.slice(cursor, m.index) + todo;
-    cursor = propsClose + 1;
-    stepRe.lastIndex = cursor;
-  }
-  out = result + out.slice(cursor);
-
-  // A surviving step call means the regex matched nothing usable — e.g.
-  // computed scope/id or an alias whose call is malformed. Fail loud
-  // rather than emit a half-converted file.
-  const leftoverRe = new RegExp(
-    `new\\s+(?:${fnStepNames.map(escapeRe).join("|")})\\s*\\(\\s*([^,\\n]*)`,
-    "g",
-  );
-  // The rewritten code has different offsets — recompute opaque spans.
-  const outSpans = opaqueSpans(out);
-  let outSpanIdx = 0;
-  for (;;) {
-    const leftover = leftoverRe.exec(out);
-    if (leftover === null) break;
-    const opaque = inOpaque(outSpans, leftover.index, outSpanIdx);
-    outSpanIdx = opaque.idx;
-    if (opaque.inside) {
-      leftoverRe.lastIndex = leftover.index + 1;
-      continue;
-    }
-    throw new PlaygroundError(
-      "TRANSPILE_FAILED",
-      `cannot parse FunctionStep with scope '${leftover[1]?.trim() ?? "?"}' — unsupported expression`,
-    );
-  }
-
+  const out = rewriteStepCalls(code, fnStepNames);
+  assertNoLeftoverSteps(out, fnStepNames);
   return out;
 }
