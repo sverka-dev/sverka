@@ -37,7 +37,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/sarif-viewer-web": "workspace:*"
+    "@sverka/sarif-viewer-web": "workspace:*",
+    "fflate": "0.8.2"
   },
   "devDependencies": {
     "tsdown": "^0.23.0",

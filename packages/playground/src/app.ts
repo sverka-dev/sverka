@@ -7,7 +7,12 @@ import {
   FunctionStep,
   Entry,
   runPipeline,
+  encodeShareLink,
+  decodeShareLink,
+  PlaygroundError,
+  SHARE_PAYLOAD_WARN_BYTES,
 } from "./index.js";
+import type { Finding } from "./index.js";
 import { generateSarifHtml } from "@sverka/sarif-viewer-web/html-generator";
 
 /** Default template shown in the editor. */
@@ -199,13 +204,14 @@ async function main(): Promise<void> {
           create: (
             el: HTMLElement,
             opts: unknown,
-          ) => { getValue: () => string };
+          ) => { getValue: () => string; setValue: (v: string) => void };
         };
       };
     }
   ).monaco;
 
   let getCode: () => string;
+  let setCode: (code: string) => void;
 
   const editorEl = document.getElementById("editor") as HTMLDivElement | null;
   if (!editorEl) {
@@ -225,6 +231,7 @@ async function main(): Promise<void> {
       tabSize: 2,
     });
     getCode = () => editor.getValue();
+    setCode = (code) => editor.setValue(code);
   } else {
     // Textarea fallback
     const textarea = document.createElement("textarea");
@@ -233,6 +240,9 @@ async function main(): Promise<void> {
       "width:100%;height:100%;background:#0d1117;color:#c9d1d9;border:none;font-family:monospace;font-size:13px;padding:1rem;resize:none;outline:none;";
     editorEl.appendChild(textarea);
     getCode = () => textarea.value;
+    setCode = (code) => {
+      textarea.value = code;
+    };
   }
 
   // Run button
@@ -242,6 +252,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  let lastFindings: readonly Finding[] | undefined;
   runBtn.addEventListener("click", async () => {
     runBtn.disabled = true;
     setStatus("Running...", "running");
@@ -250,6 +261,7 @@ async function main(): Promise<void> {
       const code = getCode();
       const project = evaluateUserCode(code);
       const result = await runPipelineWithTimeout(project, 30_000);
+      lastFindings = result.findings;
 
       if (result.findings.length === 0) {
         showFindings(
@@ -305,8 +317,76 @@ async function main(): Promise<void> {
     });
   }
 
-  // Auto-run on load
-  runBtn.click();
+  // Share button — serialize code + last findings into a #c= fragment link.
+  const shareBtn = document.getElementById(
+    "share-btn",
+  ) as HTMLButtonElement | null;
+  if (shareBtn) {
+    shareBtn.addEventListener("click", async () => {
+      const base = `${location.origin}${location.pathname}`;
+      const run = {
+        schema: "sverka.playground/v1" as const,
+        code: getCode(),
+        ...(lastFindings !== undefined ? { findings: lastFindings } : {}),
+      };
+      const url = encodeShareLink(run, base);
+      history.replaceState(null, "", url);
+      const oversized = url.length - base.length > SHARE_PAYLOAD_WARN_BYTES;
+      try {
+        await navigator.clipboard.writeText(url);
+        setStatus(
+          oversized
+            ? "Link copied — payload exceeds 32 KB, recipients may not load it"
+            : "Share link copied",
+          oversized ? "failure" : "success",
+        );
+      } catch {
+        setStatus(
+          oversized
+            ? "Link in address bar — payload exceeds 32 KB, recipients may not load it"
+            : "Link in address bar",
+          oversized ? "failure" : "success",
+        );
+      }
+    });
+  }
+
+  // Share link restore (Spec 53): #c= fragments restore editor state and the
+  // last run result. A corrupt link falls back to the default template with a
+  // warning — never a blank page.
+  let restored = false;
+  if (location.hash.startsWith("#c=")) {
+    try {
+      const shared = decodeShareLink(location.hash);
+      setCode(shared.code);
+      restored = true;
+      lastFindings = shared.findings;
+      if (shared.findings !== undefined) {
+        if (shared.findings.length === 0) {
+          showFindings(
+            `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#3fb950;font-family:monospace;padding:2rem;}</style></head><body><h2>No findings — all checks passed</h2><p>Restored from a shared run</p></body></html>`,
+          );
+        } else {
+          showFindings(generateSarifHtml(shared.findings));
+        }
+        setStatus("Restored shared run", "success");
+      } else {
+        runBtn.click();
+      }
+    } catch (e) {
+      const msg = e instanceof PlaygroundError ? e.message : String(e);
+      showFindings(
+        `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#d29922;font-family:monospace;padding:2rem;}</style></head><body><h2>Share link could not be loaded</h2><p>${escapeHtml(msg)}</p><p>Loaded the default template instead.</p></body></html>`,
+      );
+      setStatus("Share link invalid — default loaded", "failure");
+    }
+  }
+
+  // Auto-run on load unless a shared run already seeded the findings panel
+  // (shared runs with no findings still run once to produce output).
+  if (!restored) {
+    runBtn.click();
+  }
 }
 
 main().catch((e) => {
