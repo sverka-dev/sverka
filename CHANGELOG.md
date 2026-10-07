@@ -1,3 +1,14 @@
+## 0.2.14 (2026-10-07)
+
+### 🚀 Features
+
+- **playground:** examples gallery + ShellStep demo stub (spec 53.6) ([#322](https://github.com/sverka-dev/sverka/pull/322))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.13 (2026-10-07)
 
 ### 🚀 Features
