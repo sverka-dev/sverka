@@ -196,8 +196,8 @@ interface TokenStep {
 }
 
 /** Consume one token at `i` for the brace-matching scans: opaque regions
- *  and regex literals advance wholesale, idents update operand state from
- *  the keyword table, braces report a depth delta. */
+ *  and regex literals advance wholesale, identifiers update operand
+ *  state from the keyword table, braces report a depth delta. */
 function scanToken(code: string, i: number, operandEnd: boolean): TokenStep {
   const opaque = scanOpaqueEnd(code, i);
   if (opaque.end > i + 1) {
