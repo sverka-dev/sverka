@@ -35,11 +35,11 @@ const SHARE_PREFIX = "#c=";
 function toBase64Url(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function fromBase64Url(text: string): Uint8Array {
-  const b64 = text.replaceAll("-", "+").replaceAll("_", "/");
+  const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
   // Browser atob() is strict about padding — restore what the encoder
   // stripped. (Node's atob tolerates missing padding, which is why the
   // round-trip test alone did not catch this.)
@@ -87,21 +87,20 @@ const SEVERITIES: readonly string[] = [
   "critical",
 ];
 
+const FINDING_STRING_FIELDS = ["rule", "file", "message"] as const;
+const FINDING_NUMBER_FIELDS = ["startLine", "endLine"] as const;
+
 /** Structural check — a shared finding reaches the HTML report, so every
  *  field that gets rendered must be the expected scalar. */
 function isFindingShape(v: unknown): v is Finding {
   if (typeof v !== "object" || v === null) return false;
   const f = v as Record<string, unknown>;
-  return (
-    typeof f.rule === "string" &&
-    typeof f.file === "string" &&
-    typeof f.message === "string" &&
-    typeof f.severity === "string" &&
-    SEVERITIES.includes(f.severity as Severity) &&
-    typeof f.startLine === "number" &&
-    Number.isFinite(f.startLine) &&
-    typeof f.endLine === "number" &&
-    Number.isFinite(f.endLine)
+  if (!FINDING_STRING_FIELDS.every((k) => typeof f[k] === "string")) {
+    return false;
+  }
+  if (!SEVERITIES.includes(f.severity as Severity)) return false;
+  return FINDING_NUMBER_FIELDS.every(
+    (k) => typeof f[k] === "number" && Number.isFinite(f[k]),
   );
 }
 
@@ -114,37 +113,41 @@ export function encodeShareLink(run: ShareableRun, base = ""): string {
   return `${base}${SHARE_PREFIX}${payload}`;
 }
 
+/** Extract the payload tail from a `#c=` fragment or a bare payload. */
+function shareFragment(hash: string): string {
+  const marker = hash.indexOf(SHARE_PREFIX);
+  if (marker >= 0) return hash.slice(marker + SHARE_PREFIX.length);
+  return hash.startsWith("#") ? hash.slice(1) : hash;
+}
+
+/** Shape assertion — anything else is a corrupt or hostile payload. */
+function assertRunShape(parsed: unknown): asserts parsed is ShareableRun {
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    (parsed as ShareableRun).schema !== "sverka.playground/v1" ||
+    typeof (parsed as ShareableRun).code !== "string"
+  ) {
+    throw new Error("payload is not a sverka.playground/v1 run");
+  }
+  const findings = (parsed as ShareableRun).findings;
+  if (findings === undefined) return;
+  if (!Array.isArray(findings) || !findings.every(isFindingShape)) {
+    throw new Error("payload findings failed shape validation");
+  }
+}
+
 /** Decode a `#c=` fragment back into a ShareableRun. Corrupt, oversized, or
  *  shape-invalid payloads throw PlaygroundError — callers fall back to the
  *  default template. */
 export function decodeShareLink(hash: string): ShareableRun {
-  const marker = hash.indexOf(SHARE_PREFIX);
-  const fragment =
-    marker >= 0
-      ? hash.slice(marker + SHARE_PREFIX.length)
-      : hash.startsWith("#")
-        ? hash.slice(1)
-        : hash;
   try {
     const json = new TextDecoder().decode(
-      inflateBounded(fromBase64Url(fragment)),
+      inflateBounded(fromBase64Url(shareFragment(hash))),
     );
     const parsed: unknown = JSON.parse(json);
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      (parsed as ShareableRun).schema !== "sverka.playground/v1" ||
-      typeof (parsed as ShareableRun).code !== "string"
-    ) {
-      throw new Error("payload is not a sverka.playground/v1 run");
-    }
-    const findings = (parsed as ShareableRun).findings;
-    if (findings !== undefined) {
-      if (!Array.isArray(findings) || !findings.every(isFindingShape)) {
-        throw new Error("payload findings failed shape validation");
-      }
-    }
-    return parsed as ShareableRun;
+    assertRunShape(parsed);
+    return parsed;
   } catch (e) {
     if (e instanceof PlaygroundError) throw e;
     throw new PlaygroundError(
