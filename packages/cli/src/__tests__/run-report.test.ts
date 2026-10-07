@@ -50,7 +50,9 @@ describe("run command — per-run report artifacts (spec 53)", () => {
       match,
       `tail line should be 'report: <path>', got: ${tail}`,
     ).not.toBeNull();
-    expect(existsSync(match![1])).toBe(true);
+    const reportPath = match?.[1];
+    expect(typeof reportPath).toBe("string");
+    expect(existsSync(reportPath as string)).toBe(true);
   });
 
   it("writes report.json + report.html under .sverka/runs/<runId>/", async () => {
@@ -68,12 +70,16 @@ describe("run command — per-run report artifacts (spec 53)", () => {
     );
     expect(runIds.length).toBeGreaterThan(0);
 
+    const runId = runIds[0];
+    expect(typeof runId).toBe("string");
     const report = JSON.parse(
-      readFileSync(join(runsDir, runIds[0], "report.json"), "utf-8"),
+      readFileSync(join(runsDir, runId as string, "report.json"), "utf-8"),
     );
     expect(report.schema).toBe("sverka.run/v1");
     expect(report.data.status).toBe("success");
-    expect(existsSync(join(runsDir, runIds[0], "report.html"))).toBe(true);
+    expect(existsSync(join(runsDir, runId as string, "report.html"))).toBe(
+      true,
+    );
   });
 
   it("--format json carries data.report paths (sverka.run/v1 field set)", async () => {
