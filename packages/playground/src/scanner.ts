@@ -65,6 +65,11 @@ export function commentAt(code: string, at: number): boolean {
   return code[at] === "/" && (code[at + 1] === "/" || code[at + 1] === "*");
 }
 
+/** True when `at` opens a string literal or a comment. */
+export function isOpaqueStart(code: string, at: number): boolean {
+  return isQuote(code[at]) || commentAt(code, at);
+}
+
 /** End index of the string literal starting at `at` (quote char).
  *  Template literals may nest `${}` expressions — tracked by brace depth. */
 export function scanString(code: string, at: number): number {
@@ -219,6 +224,36 @@ function scanToken(code: string, i: number, operandEnd: boolean): TokenStep {
   if (ch === "{") return { end: i + 1, operandEnd: false, brace: 1 };
   if (ch === "}") return { end: i + 1, operandEnd: true, brace: -1 };
   return { end: i + 1, operandEnd: false, brace: 0 };
+}
+
+/**
+ * Scan one operand-context token — an opaque span, a regex-or-division,
+ * or an identifier run — returning where it ends and whether it leaves
+ * an operand behind. Comments are transparent (operand context passes
+ * through unchanged). Returns null for punctuation/whitespace the
+ * caller's own loop owns.
+ */
+export function scanOperand(
+  code: string,
+  i: number,
+  operandEnd: boolean,
+): { end: number; operandEnd: boolean } | null {
+  const opaque = scanOpaqueEnd(code, i);
+  if (opaque.end > i + 1)
+    return { end: opaque.end, operandEnd: operandEnd || opaque.isString };
+  const c = code[i];
+  if (c === "/")
+    return operandEnd
+      ? { end: i + 1, operandEnd: false }
+      : { end: scanRegex(code, i), operandEnd: true };
+  if (isIdentChar(c)) {
+    const wend = skipIdent(code, i);
+    return {
+      end: wend,
+      operandEnd: operandAfterWord(code.slice(i, wend)),
+    };
+  }
+  return null;
 }
 
 /**
