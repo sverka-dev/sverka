@@ -1,3 +1,14 @@
+## 0.2.12 (2026-10-07)
+
+### 🚀 Features
+
+- **playground:** mountRunner embed API (spec 53.4) ([#320](https://github.com/sverka-dev/sverka/pull/320))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.11 (2026-10-07)
 
 ### 🚀 Features
