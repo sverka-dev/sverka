@@ -423,7 +423,8 @@ export function evaluateUserCode(code: string): Project {
   // trail the `new Function` callee, not sit inside the argument list.
   const fn = new Function(...params); // NOSONAR — intentional dynamic evaluation in sandbox
   // NOSONAR anchors per line — the invocation line carries it too.
-  const result = fn( // NOSONAR — intentional dynamic evaluation in sandbox
+  const result = fn(
+    // NOSONAR — intentional dynamic evaluation in sandbox
     Project,
     Pipeline,
     FunctionStep,
