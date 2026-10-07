@@ -124,6 +124,56 @@ describe("watchLoop (spec 53.2)", () => {
     await loop.done;
   });
 
+  it("keeps watch progress on stderr, stdout clean for --format json", async () => {
+    const dir = await getDir();
+    const ac = new AbortController();
+    const out = new CaptureWriter();
+    const loop = watchLoop({
+      root: dir,
+      run: async () => 0,
+      output: out,
+      signal: ac.signal,
+      debounceMs: 30,
+    });
+    await loop.ready;
+    await until(() => out.stderrText.includes("watch: run #1"));
+    expect(out.stdoutText).not.toContain("watch: run");
+    ac.abort();
+    await loop.done;
+  });
+
+  it("abort waits for the in-flight run to settle", async () => {
+    const dir = await getDir();
+    const ac = new AbortController();
+    let release: (() => void) | undefined;
+    let runs = 0;
+    const loop = watchLoop({
+      root: dir,
+      run: async () => {
+        runs++;
+        await new Promise<void>((r) => {
+          release = r;
+        });
+        return 7;
+      },
+      output: new CaptureWriter(),
+      signal: ac.signal,
+      debounceMs: 30,
+    });
+    await loop.ready;
+    await until(() => runs === 1);
+    ac.abort();
+    // done must NOT resolve while the run is still in flight.
+    let settled = false;
+    void loop.done.then(() => {
+      settled = true;
+    });
+    await new Promise((r) => setTimeout(r, 120));
+    expect(settled).toBe(false);
+    release!();
+    await expect(loop.done).resolves.toBe(7);
+  });
+
   it("ignores .sverka/ churn from its own artifacts", async () => {
     const dir = await getDir();
     let runs = 0;

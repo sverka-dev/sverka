@@ -2,7 +2,7 @@
 // Spec 17 — §30.
 
 import process from "node:process";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { writeFileSync, mkdirSync } from "node:fs";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { RuntimeDriver } from "@sverka/runtime";
@@ -201,8 +201,17 @@ async function runWatch(
   const onSigint = () => ac.abort();
   process.on("SIGINT", onSigint);
   try {
+    // An explicit --config outside the watched root would otherwise never
+    // retrigger a re-plan.
+    const configPath =
+      global.config === null ? null : resolve(global.config);
+    const extraPaths =
+      configPath !== null && !configPath.startsWith(`${resolve(global.root)}/`)
+        ? [configPath]
+        : [];
     const watcher = watchLoop({
       root: global.root,
+      extraPaths,
       output,
       signal: ac.signal,
       run: () =>
