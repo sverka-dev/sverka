@@ -657,9 +657,12 @@ function boundStepOutput(steps: readonly StepSummary[]): StepSummary[] {
       if (text === undefined) return undefined;
       const buf = Buffer.from(text, "utf8");
       if (buf.length <= REPORT_OUTPUT_CAP) return text;
-      // The tail cut may split a UTF-8 sequence — a U+FFFD seam is
-      // acceptable; the cap is in bytes, not UTF-16 units.
-      return buf.subarray(buf.length - REPORT_OUTPUT_CAP).toString("utf8");
+      // Tail cut in bytes — advance past a split UTF-8 continuation so
+      // the kept text never starts mid-character and never exceeds the
+      // stated byte limit once re-encoded.
+      let cut = buf.length - REPORT_OUTPUT_CAP;
+      while (cut < buf.length && (buf[cut]! & 0xc0) === 0x80) cut++;
+      return buf.subarray(cut).toString("utf8");
     };
     const stdout = bound(step.stdout);
     const stderr = bound(step.stderr);
