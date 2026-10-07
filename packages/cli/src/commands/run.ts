@@ -176,8 +176,14 @@ export async function runCommand(
   });
 
   // Human-mode tail (Spec 53): the report is discoverable, not hidden.
+  // The `sverka view` hint applies only when report.html was written —
+  // view resolves .sverka/runs/<latest>/report.html.
   if (report !== undefined && global.format === "text") {
-    output.writeLine(`  report: ${report.html ?? report.json}`);
+    output.writeLine(
+      report.html !== null
+        ? `  report: ${report.html}  (sverka view to open)`
+        : `  report: ${report.json}`,
+    );
   }
 
   // When --evaluate is set, policy exit code takes precedence

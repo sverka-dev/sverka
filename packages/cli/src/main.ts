@@ -167,7 +167,8 @@ function addViewCommand(y: Argv): Argv {
   return y
     .positional("file", {
       type: "string",
-      describe: "Path to a .sarif file (reads from stdin if omitted)",
+      describe:
+        "Path to a .sarif file (piped stdin when omitted; bare `view` opens the latest run report)",
     })
     .option("format", {
       type: "string",
@@ -230,7 +231,7 @@ function buildParser(): Argv {
     .command("doctor", "Diagnose environment and dependencies")
     .command(
       "view [file]",
-      "View SARIF findings in TUI or generate HTML report",
+      "Open the latest run report, or view SARIF findings (TUI/HTML)",
       addViewCommand,
     )
     .command("ui", "Start local web dashboard server", addUiCommand)

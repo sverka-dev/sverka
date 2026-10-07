@@ -35,7 +35,7 @@ function useTempDir() {
 describe("run command — per-run report artifacts (spec 53)", () => {
   const getDir = useTempDir();
 
-  it("human output ends with a report: line pointing at an existing file", async () => {
+  it("human output ends with a report: line + view hint pointing at an existing file", async () => {
     const dir = getDir();
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
     const out = new CaptureWriter();
@@ -46,11 +46,14 @@ describe("run command — per-run report artifacts (spec 53)", () => {
 
     const tail = out.stdoutText.trimEnd().split("\n").pop() ?? "";
     // This fixture's HTML write must succeed — require report.html so a
-    // silent fallback to report.json can't pass.
-    const match = tail.match(/^\s*report: (.+report\.html)$/);
+    // silent fallback to report.json can't pass. The '(sverka view to
+    // open)' tail is the Spec 53 funnel contract.
+    const match = tail.match(
+      /^\s*report: (.+report\.html)\s+\(sverka view to open\)$/,
+    );
     if (match === null || match[1] === undefined) {
       throw new Error(
-        `tail line should be 'report: <…report.html>', got: ${tail}`,
+        `tail line should be 'report: <…report.html>  (sverka view to open)', got: ${tail}`,
       );
     }
     expect(existsSync(match[1])).toBe(true);
