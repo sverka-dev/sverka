@@ -8,6 +8,9 @@ import type { SarifLog } from "@sverka/verification";
 import type { FindingsCollectorOptions, FindingRow } from "./types.js";
 import { ReporterError } from "./errors.js";
 
+/** Tolerance for coarse filesystem timestamp granularity (FAT32: 2 s). */
+const MTIME_EPSILON_MS = 2_000;
+
 /** Collect findings from SARIF files in the artifact directory. */
 export async function collectFindings(
   options: FindingsCollectorOptions,
@@ -89,7 +92,15 @@ async function scanDir(
     } else if (entry.endsWith(".sarif") || entry.endsWith(".sarif.json")) {
       // Stale artifacts from earlier runs share this directory — only
       // files (re)written during the current run belong in its report.
-      if (sinceMs !== undefined && st.mtimeMs < sinceMs) continue;
+      // Filesystems with coarse timestamp granularity (FAT32: 2s) can
+      // round a just-written file's mtime below the run start, so the
+      // cutoff carries an epsilon — a file written moments before this
+      // run is a far smaller evil than silently dropping its findings.
+      if (
+        sinceMs !== undefined &&
+        st.mtimeMs < sinceMs - MTIME_EPSILON_MS
+      )
+        continue;
       await processSarif(entryPath, dir, artifactDir, rows);
     }
   }

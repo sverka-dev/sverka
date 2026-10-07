@@ -45,9 +45,13 @@ describe("run command — per-run report artifacts (spec 53)", () => {
     expect(code).toBe(0);
 
     const tail = out.stdoutText.trimEnd().split("\n").pop() ?? "";
-    const match = tail.match(/^\s*report: (.+report\.(html|json))$/);
+    // This fixture's HTML write must succeed — require report.html so a
+    // silent fallback to report.json can't pass.
+    const match = tail.match(/^\s*report: (.+report\.html)$/);
     if (match === null || match[1] === undefined) {
-      throw new Error(`tail line should be 'report: <path>', got: ${tail}`);
+      throw new Error(
+        `tail line should be 'report: <…report.html>', got: ${tail}`,
+      );
     }
     expect(existsSync(match[1])).toBe(true);
   });

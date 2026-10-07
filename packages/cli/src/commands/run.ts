@@ -687,7 +687,10 @@ async function writeRunArtifacts(opts: {
   // the project root — refuse before touching any file.
   const realRoot = realpathSync(opts.root);
   const realDir = realpathSync(dir);
-  if (realDir !== realRoot && !realDir.startsWith(`${realRoot}${sep}`)) {
+  // `--root /` already ends in the separator — a naive `${root}${sep}`
+  // prefix would be `//` and reject every in-root path.
+  const prefix = realRoot.endsWith(sep) ? realRoot : `${realRoot}${sep}`;
+  if (realDir !== realRoot && !realDir.startsWith(prefix)) {
     throw new CliError(
       `refusing to write run report through symlinked path: ${dir}`,
       "REPORT_PATH_ESCAPE",
