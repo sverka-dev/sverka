@@ -46,6 +46,17 @@
     }
   },
   "fleet": {
-    "maxConcurrent": 3
+    "maxConcurrent": 3,
+    "profiles": {
+      "devin-acp": {
+        "provider": "devin-acp"
+      }
+    }
+  },
+  "providers": {
+    "devin-acp": {
+      "type": "acp",
+      "command": "devin acp"
+    }
   }
 }
