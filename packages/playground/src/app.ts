@@ -8,7 +8,7 @@ import {
   SHARE_PAYLOAD_WARN_BYTES,
   listExamples,
 } from "./index.js";
-import type { Finding } from "./index.js";
+import type { Finding, StepResult } from "./index.js";
 import { generateSarifHtml } from "@sverka/sarif-viewer-web/html-generator";
 import {
   DEFAULT_CODE,
@@ -164,6 +164,18 @@ async function initEditor(): Promise<EditorApi | null> {
   };
 }
 
+/** A failed run with zero findings still isn't "all checks passed" —
+ *  render the failed steps, not the green card. */
+function showRunFailed(steps: readonly StepResult[]): void {
+  const failed = steps.filter((s) => s.status === "failure");
+  const lines =
+    failed.map((s) => `${s.stepId}: ${s.error ?? "failed"}`).join("\n") ||
+    `${steps.length} steps failed`;
+  showFindings(
+    `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#f85149;font-family:monospace;padding:2rem;}</style></head><body><h2>Run failed</h2><pre>${escapeHtml(lines)}</pre></body></html>`,
+  );
+}
+
 async function executeRun(
   getCode: () => string,
   state: RunState,
@@ -175,7 +187,9 @@ async function executeRun(
     state.lastFindings = result.findings;
     state.lastRunCode = code;
 
-    if (result.findings.length === 0) {
+    if (!result.success && result.findings.length === 0) {
+      showRunFailed(result.steps);
+    } else if (result.findings.length === 0) {
       showNoFindings(
         `${result.steps.length} steps completed in ${result.totalDurationMs}ms`,
       );
@@ -232,9 +246,11 @@ function wireSplitter(): void {
  *  sverka.config.ts source loads into the editor and runs once.
  *  The glob is eager — examples are bundled at build time, no network. */
 function wireExamplePicker(
+  picker: HTMLSelectElement | null,
   setCode: (c: string) => void,
   runBtn: HTMLButtonElement,
 ): void {
+  if (!picker) return;
   const examples = listExamples(
     import.meta.glob("../../../examples/*/sverka.config.ts", {
       query: "?raw",
@@ -242,10 +258,6 @@ function wireExamplePicker(
       eager: true,
     }) as Record<string, string>,
   );
-  const picker = document.getElementById(
-    "example-picker",
-  ) as HTMLSelectElement | null;
-  if (!picker) return;
 
   for (const ex of examples) {
     const opt = document.createElement("option");
@@ -351,22 +363,27 @@ async function main(): Promise<void> {
     return;
   }
 
+  const picker = document.getElementById(
+    "example-picker",
+  ) as HTMLSelectElement | null;
   const state: RunState = {
     lastFindings: undefined,
     lastRunCode: undefined,
   };
   runBtn.addEventListener("click", async () => {
     runBtn.disabled = true;
+    if (picker !== null) picker.disabled = true;
     setStatus("Running...", "running");
     try {
       await executeRun(editor.getCode, state);
     } finally {
       runBtn.disabled = false;
+      if (picker !== null) picker.disabled = false;
     }
   });
 
   wireSplitter();
-  wireExamplePicker(editor.setCode, runBtn);
+  wireExamplePicker(picker, editor.setCode, runBtn);
   wireShareButton(editor.getCode, state);
 
   // Auto-run on load unless a share link already filled the page (restored

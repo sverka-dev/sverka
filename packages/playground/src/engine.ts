@@ -25,10 +25,21 @@ import {
 } from "./scanner.js";
 
 /** Trigger helpers mirroring @sverka/workflow — real configs use
- *  `trigger: push()`/`manual()`/`schedule()`/`changeRequest()`. */
-const push = () => ({ kind: "push" });
-const changeRequest = () => ({ kind: "changeRequest" });
-const manual = () => ({ kind: "manual" });
+ *  `trigger: push()`/`manual()`/`schedule()`/`changeRequest()`. The
+ *  optional filter argument is preserved, not silently discarded —
+ *  `push({ branches: ["main"] })` keeps its restriction. */
+const push = (filter?: Record<string, unknown>) => ({
+  kind: "push",
+  ...(filter ?? {}),
+});
+const changeRequest = (filter?: Record<string, unknown>) => ({
+  kind: "changeRequest",
+  ...(filter ?? {}),
+});
+const manual = (filter?: Record<string, unknown>) => ({
+  kind: "manual",
+  ...(filter ?? {}),
+});
 const schedule = (cron: string, timezone?: string) => ({
   kind: "schedule",
   cron,

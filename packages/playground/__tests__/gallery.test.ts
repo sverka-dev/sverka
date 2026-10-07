@@ -32,8 +32,15 @@ describe("examples gallery (spec 53.6)", () => {
     const result = await runPipeline(proj);
     expect(result.steps.length).toBeGreaterThan(0);
     // Shell steps report an info finding instead of executing.
+    expect(result.findings.length).toBeGreaterThan(0);
     expect(
       result.findings.every((f) => f.rule === "playground/shell-step"),
     ).toBe(true);
+    // The demo finding never echoes the shell command — it may carry
+    // inline secrets, and findings end up in share links. The example's
+    // commands are `bun run …`.
+    expect(
+      result.findings.some((f) => f.message.includes("bun run")),
+    ).toBe(false);
   });
 });

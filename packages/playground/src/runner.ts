@@ -86,13 +86,21 @@ export async function runPipeline(project: Project): Promise<PipelineResult> {
   const allFindings: Finding[] = [];
 
   for (const pipeline of project.pipelines) {
-    // Determine which steps to run based on entry roots.
+    // Determine which steps to run based on entry roots. A root's
+    // dependency closure comes along — a step depending on another can't
+    // sensibly run without it, and its demo findings belong in the report.
     let stepsToRun = pipeline.steps;
     const entriesWithRoots = pipeline.entries.filter((e) => e.roots.length > 0);
     if (entriesWithRoots.length > 0) {
+      const byId = new Map(pipeline.steps.map((s) => [s.id, s]));
       const rootSet = new Set<string>();
+      const addWithDeps = (id: string): void => {
+        if (rootSet.has(id)) return;
+        rootSet.add(id);
+        for (const dep of byId.get(id)?.dependencies ?? []) addWithDeps(dep);
+      };
       for (const entry of entriesWithRoots) {
-        for (const root of entry.roots) rootSet.add(root);
+        for (const root of entry.roots) addWithDeps(root);
       }
       stepsToRun = pipeline.steps.filter((s) => rootSet.has(s.id));
     }

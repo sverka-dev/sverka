@@ -123,7 +123,9 @@ export class ShellStep extends Step {
         file: "sverka.config.ts",
         line: 1,
         severity: "info",
-        message: `'${this.id}' is a shell step — the browser cannot run it. Locally it runs: ${this.command}`,
+        // The command text is deliberately not echoed — a real command may
+        // carry inline secrets, and findings end up in share links.
+        message: `'${this.id}' is a shell step — the browser cannot run it. Run the exported config locally to execute it.`,
       },
     ];
   }
