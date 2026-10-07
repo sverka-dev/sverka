@@ -65,6 +65,11 @@ export function commentAt(code: string, at: number): boolean {
   return code[at] === "/" && (code[at + 1] === "/" || code[at + 1] === "*");
 }
 
+/** True when `at` opens a string literal or a comment. */
+export function isOpaqueStart(code: string, at: number): boolean {
+  return isQuote(code[at]) || commentAt(code, at);
+}
+
 /** End index of the string literal starting at `at` (quote char).
  *  Template literals may nest `${}` expressions — tracked by brace depth. */
 export function scanString(code: string, at: number): number {

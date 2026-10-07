@@ -2,7 +2,7 @@
 // Converts playground source into a real sverka.config.ts: the authoring
 // surface (Project/Pipeline/Entry/roots) transfers verbatim — only the step
 // kind differs. FunctionStep bodies cannot run as shell commands, so each
-// becomes a ShellStep carrying a TODO echo the user replaces.
+// becomes a ShellStep carrying a placeholder echo the user replaces.
 
 import { PlaygroundError } from "./share.js";
 import {
@@ -11,7 +11,6 @@ import {
   isWsChar,
   keywordAt,
   matchBrace,
-  operandAfterWord,
   scanOpaqueEnd,
   scanOperand,
   scanString,
@@ -39,45 +38,58 @@ function skipWs(code: string, i: number): number {
 // and all scans are linear (no regexes over user source at all).
 // ---------------------------------------------------------------------------
 
+/** One token of an operand-tracking scan — identifiers (with `word`),
+ *  opaque spans, and regex-vs-division resolve through the shared
+ *  scanner; whitespace passes through. Null when `i` sits on
+ *  punctuation the caller's own depth/branch logic owns. */
+function propToken(
+  s: string,
+  i: number,
+  operandEnd: boolean,
+): { end: number; operandEnd: boolean; word?: string } | null {
+  if (isWsChar(s[i])) return { end: i + 1, operandEnd };
+  const op = scanOperand(s, i, operandEnd);
+  if (op === null) return null;
+  if (isIdentChar(s[i])) return { ...op, word: s.slice(i, op.end) };
+  return op;
+}
+
+/** Apply a bracket/other punctuation char to depth + operand state. */
+function applyPunct(
+  c: string | undefined,
+  st: { depth: number; operandEnd: boolean },
+): void {
+  if (isOpenBracket(c)) {
+    st.depth++;
+    st.operandEnd = false;
+  } else if (isCloseBracket(c)) {
+    st.depth--;
+    st.operandEnd = true;
+  } else {
+    st.operandEnd = false;
+  }
+}
+
 /**
  * Index of the `:` following a depth-0 `key` in a props object body, or -1.
  * A `dependencies` declared inside `fn` never counts — only top-level keys.
  */
 function findPropKey(props: string, key: string): number {
-  let depth = 0;
-  let operandEnd = false;
+  const st = { depth: 0, operandEnd: false };
   let i = 0;
   while (i < props.length) {
-    const c = props[i];
-    if (isIdentChar(c)) {
-      const wend = skipIdent(props, i);
-      const word = props.slice(i, wend);
-      const hit = depth === 0 && word === key ? skipWs(props, wend) : -1;
-      if (hit >= 0 && props[hit] === ":") return hit;
-      operandEnd = operandAfterWord(word);
-      i = wend;
-      continue;
-    }
-    const op = scanOperand(props, i, operandEnd);
-    if (op !== null) {
-      operandEnd = op.operandEnd;
-      i = op.end;
-      continue;
-    }
-    if (isWsChar(c)) {
+    const tok = propToken(props, i, st.operandEnd);
+    if (tok === null) {
+      applyPunct(props[i], st);
       i++;
       continue;
     }
-    if (isOpenBracket(c)) {
-      depth++;
-      operandEnd = false;
-    } else if (isCloseBracket(c)) {
-      depth--;
-      operandEnd = true;
-    } else {
-      operandEnd = false;
+    if (st.depth === 0 && tok.word === key) {
+      const hit = skipWs(props, tok.end);
+      if (props[hit] === ":") return hit;
     }
-    i++;
+    st.operandEnd = tok.operandEnd;
+    i = tok.end;
   }
   return -1;
 }
@@ -93,38 +105,23 @@ function isTailComment(props: string, k: number, after: number): boolean {
 /** End index of a prop value starting at `j` — the next top-level comma
  *  or the end of the props body, with strings/comments/brackets balanced. */
 function propValueEnd(props: string, j: number): number {
-  let depth = 0;
-  let operandEnd = false;
+  const st = { depth: 0, operandEnd: false };
   let k = j;
   while (k < props.length) {
-    const v = props[k];
     if (isOpaqueStart(props, k)) {
       const after = scanOpaqueEnd(props, k).end;
-      if (depth === 0 && isTailComment(props, k, after)) return k;
+      if (st.depth === 0 && isTailComment(props, k, after)) return k;
       k = after;
       continue;
     }
-    const op = scanOperand(props, k, operandEnd);
-    if (op !== null) {
-      operandEnd = op.operandEnd;
-      k = op.end;
+    const tok = propToken(props, k, st.operandEnd);
+    if (tok !== null) {
+      st.operandEnd = tok.operandEnd;
+      k = tok.end;
       continue;
     }
-    if (isWsChar(v)) {
-      k++;
-      continue;
-    }
-    if (isOpenBracket(v)) {
-      depth++;
-      operandEnd = false;
-    } else if (isCloseBracket(v)) {
-      depth--;
-      operandEnd = true;
-    } else if (v === "," && depth === 0) {
-      return k;
-    } else {
-      operandEnd = false;
-    }
+    if (props[k] === "," && st.depth === 0) return k;
+    applyPunct(props[k], st);
     k++;
   }
   return k;
@@ -295,24 +292,17 @@ function findStepCall(
   let operandEnd = false;
   let i = from;
   while (i < code.length) {
-    if (isIdentChar(code[i])) {
-      const wend = skipIdent(code, i);
-      const word = code.slice(i, wend);
-      if (word === "new") {
-        const paren = stepCallParen(code, wend, names);
+    const tok = propToken(code, i, operandEnd);
+    if (tok !== null) {
+      if (tok.word === "new") {
+        const paren = stepCallParen(code, tok.end, names);
         if (paren !== null) return { start: i, paren };
       }
-      operandEnd = operandAfterWord(word);
-      i = wend;
+      operandEnd = tok.operandEnd;
+      i = tok.end;
       continue;
     }
-    const op = scanOperand(code, i, operandEnd);
-    if (op !== null) {
-      operandEnd = op.operandEnd;
-      i = op.end;
-      continue;
-    }
-    if (!isWsChar(code[i])) operandEnd = punctuationOperandEnd(code[i]);
+    operandEnd = punctuationOperandEnd(code[i]);
     i++;
   }
   return null;
@@ -321,33 +311,19 @@ function findStepCall(
 /** End of the scope expression — the first top-level comma after `from`,
  *  or -1 when the argument list closes/ends first. */
 function scanScopeEnd(code: string, from: number): number {
-  let depth = 0;
-  let operandEnd = false;
+  const st = { depth: 0, operandEnd: false };
   let k = from;
   while (k < code.length) {
-    const op = scanOperand(code, k, operandEnd);
-    if (op !== null) {
-      operandEnd = op.operandEnd;
-      k = op.end;
+    const tok = propToken(code, k, st.operandEnd);
+    if (tok !== null) {
+      st.operandEnd = tok.operandEnd;
+      k = tok.end;
       continue;
     }
     const c = code[k];
-    if (isWsChar(c)) {
-      k++;
-      continue;
-    }
-    if (isOpenBracket(c)) {
-      depth++;
-      operandEnd = false;
-    } else if (isCloseBracket(c)) {
-      if (depth === 0) return -1;
-      depth--;
-      operandEnd = true;
-    } else if (c === "," && depth === 0) {
-      return k;
-    } else {
-      operandEnd = false;
-    }
+    if (c === "," && st.depth === 0) return k;
+    if (isCloseBracket(c) && st.depth === 0) return -1;
+    applyPunct(c, st);
     k++;
   }
   return -1;
@@ -392,7 +368,8 @@ function shellStepCall(args: StepArgs, dependencies: string | undefined) {
   return (
     `new ShellStep(${args.scope}, "${args.id}", ` +
     `{ command: "echo 'TODO: port '${args.id}' — replace with the real shell command'"` +
-    `${dependencies !== undefined ? `, dependsOn: ${dependencies}` : ""} }`
+    (dependencies !== undefined ? ", dependsOn: " + dependencies : "") +
+    " }"
   );
 }
 
@@ -433,19 +410,16 @@ function rewriteStepCalls(code: string, names: readonly string[]): string {
  *  scope/id or a malformed alias call. Fail loud rather than emit a
  *  half-converted file. */
 function assertNoLeftoverSteps(code: string, names: readonly string[]): void {
-  let i = 0;
-  for (;;) {
-    const call = findStepCall(code, names, i);
-    if (call === null) return;
-    const scopeStart = skipWs(code, call.paren + 1);
-    const scopeEnd = scanScopeEnd(code, scopeStart);
-    const scope =
-      scopeEnd < 0 ? "?" : code.slice(scopeStart, scopeEnd).trim() || "?";
-    throw new PlaygroundError(
-      "TRANSPILE_FAILED",
-      `cannot parse FunctionStep with scope '${scope}' — unsupported expression`,
-    );
-  }
+  const call = findStepCall(code, names, 0);
+  if (call === null) return;
+  const scopeStart = skipWs(code, call.paren + 1);
+  const scopeEnd = scanScopeEnd(code, scopeStart);
+  const scope =
+    scopeEnd < 0 ? "?" : code.slice(scopeStart, scopeEnd).trim() || "?";
+  throw new PlaygroundError(
+    "TRANSPILE_FAILED",
+    `cannot parse FunctionStep with scope '${scope}' — unsupported expression`,
+  );
 }
 
 /**
@@ -453,7 +427,8 @@ function assertNoLeftoverSteps(code: string, names: readonly string[]): void {
  *
  * Rewrites the `@sverka/playground` import to `@sverka/workflow` and each
  * `new FunctionStep(scope, "id", { fn, dependencies })` into a ShellStep
- * whose command echoes a TODO — the function body has no shell equivalent.
+ * whose command echoes a placeholder — the function body has no shell
+ * equivalent.
  * `dependencies` maps onto `dependsOn`. Aliased FunctionStep imports
  * (`FunctionStep as Fn`) are followed too.
  *
