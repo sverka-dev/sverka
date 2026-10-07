@@ -8,8 +8,6 @@ import { PlaygroundError } from "./share.js";
 import {
   isIdentChar,
   isOpaqueStart,
-  isOpenBracket,
-  isCloseBracket,
   isWsChar,
   keywordAt,
   matchBrace,
@@ -18,8 +16,22 @@ import {
   scanOperand,
   scanString,
   skipIdent,
-  skipWs,
 } from "./scanner.js";
+
+// --- local char helpers (only transpile needs these) ----------------------
+
+function isOpenBracket(c: string | undefined): boolean {
+  return c === "{" || c === "[" || c === "(";
+}
+
+function isCloseBracket(c: string | undefined): boolean {
+  return c === "}" || c === "]" || c === ")";
+}
+
+function skipWs(code: string, i: number): number {
+  while (i < code.length && isWsChar(code[i])) i++;
+  return i;
+}
 
 // ---------------------------------------------------------------------------
 // Every matcher below is string-, comment-, and regex-literal-aware via the
