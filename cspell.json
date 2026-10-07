@@ -148,6 +148,7 @@
     "nxignore",
     "opencode",
     "orama",
+    "osrelease",
     "packlint",
     "pepl",
     "pinnable",
@@ -212,6 +213,8 @@
     "vout",
     "worktrees",
     "wrongdigest",
+    "wslu",
+    "wslview",
     "wthn",
     "zizmor"
   ],
