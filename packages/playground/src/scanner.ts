@@ -5,23 +5,23 @@
 
 // --- char classes --------------------------------------------------------
 
+/** Non-ASCII whitespace code points beyond the Latin-1 range. */
+const WS_POINTS = new Set([
+  0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
+]);
+
 /** Whitespace per the JS grammar: \t \n \v \f \r space, NBSP, the unicode
- *  space separators, and ZWNBSP. */
+ *  space separators (0x2000–0x200a), and ZWNBSP. */
 export function isWsChar(c: string | undefined): boolean {
   if (c === undefined) return false;
   const n = c.codePointAt(0) ?? 0;
   if ((n >= 9 && n <= 13) || n === 32) return true;
-  return (
-    n === 0xa0 ||
-    n === 0x1680 ||
-    (n >= 0x2000 && n <= 0x200a) ||
-    n === 0x2028 ||
-    n === 0x2029 ||
-    n === 0x202f ||
-    n === 0x205f ||
-    n === 0x3000 ||
-    n === 0xfeff
-  );
+  return (n >= 0x2000 && n <= 0x200a) || WS_POINTS.has(n);
+}
+
+/** ASCII alphanumeric — digits and both letter cases. */
+function isAsciiAlnum(n: number): boolean {
+  return (n >= 48 && n <= 57) || (n >= 65 && n <= 90) || (n >= 97 && n <= 122);
 }
 
 /** Identifier-part chars, approximated: ASCII ident chars plus any
@@ -32,13 +32,7 @@ export function isIdentChar(c: string | undefined): boolean {
   if (c === undefined) return false;
   const n = c.codePointAt(0) ?? 0;
   if (n >= 0x80) return !isWsChar(c);
-  return (
-    (n >= 48 && n <= 57) ||
-    (n >= 65 && n <= 90) ||
-    (n >= 97 && n <= 122) ||
-    c === "_" ||
-    c === "$"
-  );
+  return isAsciiAlnum(n) || c === "_" || c === "$";
 }
 
 export function isQuote(c: string | undefined): boolean {

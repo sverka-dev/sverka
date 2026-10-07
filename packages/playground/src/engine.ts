@@ -54,11 +54,30 @@ export const DEFAULT_CODE = [
 /** Escape HTML special characters to prevent XSS. */
 export function escapeHtml(text: string): string {
   return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** +1/−1 for bracket chars, 0 otherwise. */
+function bracketDelta(c: string | undefined): number {
+  if (c === "{" || c === "(" || c === "[") return 1;
+  if (c === "}" || c === ")" || c === "]") return -1;
+  return 0;
+}
+
+/** Chars that end an import statement at depth ≤0: `;` (consumed) or a
+ *  newline after the module-specifier string (left in place). */
+function stmtTerminator(
+  c: string | undefined,
+  depth: number,
+  specSeen: boolean,
+): "past" | "at" | null {
+  if (c === ";" && depth <= 0) return "past";
+  if (c === "\n" && depth <= 0 && specSeen) return "at";
+  return null;
 }
 
 /** End index of the statement starting at `at`: first top-level `;`, or
@@ -69,17 +88,16 @@ function scanStatementEnd(code: string, at: number): number {
   let depth = 0;
   let specSeen = false;
   while (i < code.length) {
-    const c = code[i];
     const opaque = scanOpaqueEnd(code, i);
     if (opaque.end > i + 1) {
       specSeen = specSeen || opaque.isString;
       i = opaque.end;
       continue;
     }
-    if (c === "{" || c === "(" || c === "[") depth++;
-    else if (c === "}" || c === ")" || c === "]") depth--;
-    else if (c === ";" && depth <= 0) return i + 1;
-    else if (c === "\n" && depth <= 0 && specSeen) return i;
+    const term = stmtTerminator(code[i], depth, specSeen);
+    if (term === "past") return i + 1;
+    if (term === "at") return i;
+    depth += bracketDelta(code[i]);
     i++;
   }
   return i;
