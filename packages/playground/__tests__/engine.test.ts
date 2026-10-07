@@ -1,6 +1,7 @@
 // engine.ts — preprocessCode scanner regression tests (Spec 53.4 review).
 // The scanner rewrites module syntax for `new Function` eval; every case
 // below was a review finding where valid code was corrupted.
+// cspell:ignore exporté
 
 import { describe, it, expect } from "vitest";
 import { preprocessCode, evaluateUserCode } from "../src/engine.js";
@@ -70,7 +71,7 @@ export default m;`;
     expect(out).toContain("return 1");
   });
 
-  it("does not eat the statement after a semicolonless export list", () => {
+  it("does not eat the statement after a semicolon-less export list", () => {
     const src = `const a = 1;
 export { a }
 const proj = a;
