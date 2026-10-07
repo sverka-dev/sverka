@@ -1,6 +1,7 @@
 // @sverka/reporter — FindingsCollector (I/O). Spec 43.
 
 import { readdir, readFile, lstat } from "node:fs/promises";
+import type { Stats } from "node:fs";
 import { join, relative, sep, resolve } from "node:path";
 import { normalizeSarif } from "@sverka/verification";
 import type { SarifLog } from "@sverka/verification";
@@ -11,7 +12,7 @@ import { ReporterError } from "./errors.js";
 export async function collectFindings(
   options: FindingsCollectorOptions,
 ): Promise<readonly FindingRow[]> {
-  const { artifactDir } = options;
+  const { artifactDir, sinceMs } = options;
   const root = resolve(artifactDir);
   let entries: readonly string[];
   try {
@@ -46,7 +47,7 @@ export async function collectFindings(
 
     // Recursively find .sarif files under this entry; stepId is the
     // relative path from artifactDir to the directory containing the file.
-    await scanDir(entryPath, root, rows);
+    await scanDir(entryPath, root, rows, sinceMs);
   }
 
   return rows;
@@ -56,6 +57,7 @@ async function scanDir(
   dir: string,
   artifactDir: string,
   rows: FindingRow[],
+  sinceMs?: number,
 ): Promise<void> {
   let entries: readonly string[];
   try {
@@ -66,9 +68,9 @@ async function scanDir(
 
   for (const entry of entries) {
     const entryPath = join(dir, entry);
-    let isDir: boolean;
+    let st: Stats;
     try {
-      isDir = (await lstat(entryPath)).isDirectory();
+      st = await lstat(entryPath);
     } catch {
       continue;
     }
@@ -82,9 +84,12 @@ async function scanDir(
       continue;
     }
 
-    if (isDir) {
-      await scanDir(entryPath, artifactDir, rows);
+    if (st.isDirectory()) {
+      await scanDir(entryPath, artifactDir, rows, sinceMs);
     } else if (entry.endsWith(".sarif") || entry.endsWith(".sarif.json")) {
+      // Stale artifacts from earlier runs share this directory — only
+      // files (re)written during the current run belong in its report.
+      if (sinceMs !== undefined && st.mtimeMs < sinceMs) continue;
       await processSarif(entryPath, dir, artifactDir, rows);
     }
   }

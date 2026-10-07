@@ -41,6 +41,7 @@ export type CliErrorCode =
   | "INVALID_FLAG"
   | "CONFIG_EXISTS"
   | "RUNTIME_NOT_AVAILABLE"
+  | "REPORT_PATH_ESCAPE"
   | "SDK_ERROR"
   | "PACKAGE_ERROR";
 

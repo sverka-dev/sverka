@@ -45,14 +45,11 @@ describe("run command — per-run report artifacts (spec 53)", () => {
     expect(code).toBe(0);
 
     const tail = out.stdoutText.trimEnd().split("\n").pop() ?? "";
-    const match = tail.match(/^\s*report: (.+report\.html)$/);
-    expect(
-      match,
-      `tail line should be 'report: <path>', got: ${tail}`,
-    ).not.toBeNull();
-    const reportPath = match?.[1];
-    expect(typeof reportPath).toBe("string");
-    expect(existsSync(reportPath as string)).toBe(true);
+    const match = tail.match(/^\s*report: (.+report\.(html|json))$/);
+    if (match === null || match[1] === undefined) {
+      throw new Error(`tail line should be 'report: <path>', got: ${tail}`);
+    }
+    expect(existsSync(match[1])).toBe(true);
   });
 
   it("writes report.json + report.html under .sverka/runs/<runId>/", async () => {
@@ -65,21 +62,22 @@ describe("run command — per-run report artifacts (spec 53)", () => {
     expect(code).toBe(0);
 
     const runsDir = join(dir, ".sverka", "runs");
+    if (!existsSync(runsDir)) {
+      throw new Error(`expected ${runsDir} to exist after a run`);
+    }
     const runIds = readdirSync(runsDir).filter((d) =>
       existsSync(join(runsDir, d, "report.json")),
     );
-    expect(runIds.length).toBeGreaterThan(0);
-
     const runId = runIds[0];
-    expect(typeof runId).toBe("string");
+    if (runId === undefined) {
+      throw new Error(`no run directories with report.json in ${runsDir}`);
+    }
     const report = JSON.parse(
-      readFileSync(join(runsDir, runId as string, "report.json"), "utf-8"),
+      readFileSync(join(runsDir, runId, "report.json"), "utf-8"),
     );
     expect(report.schema).toBe("sverka.run/v1");
     expect(report.data.status).toBe("success");
-    expect(existsSync(join(runsDir, runId as string, "report.html"))).toBe(
-      true,
-    );
+    expect(existsSync(join(runsDir, runId, "report.html"))).toBe(true);
   });
 
   it("--format json carries data.report paths (sverka.run/v1 field set)", async () => {
@@ -92,19 +90,21 @@ describe("run command — per-run report artifacts (spec 53)", () => {
     expect(code).toBe(0);
 
     const payload = JSON.parse(out.stdoutText.trim());
-    // The frozen field set: append-only contract, pinned by snapshot.
-    expect(Object.keys(payload).sort()).toEqual([
-      "command",
-      "data",
-      "durationMs",
-    ]);
-    expect(Object.keys(payload.data).sort()).toEqual([
-      "planId",
-      "report",
-      "status",
-      "steps",
-    ]);
-    expect(Object.keys(payload.data.report).sort()).toEqual(["html", "json"]);
+    // Append-only contract: required fields exist; new fields must not
+    // break this assertion.
+    expect(payload).toMatchObject({
+      command: "run",
+      data: {
+        planId: expect.any(String),
+        status: "success",
+        steps: expect.any(Array),
+        report: {
+          html: expect.any(String),
+          json: expect.any(String),
+        },
+      },
+      durationMs: expect.any(Number),
+    });
     expect(existsSync(payload.data.report.html)).toBe(true);
     expect(existsSync(payload.data.report.json)).toBe(true);
   });

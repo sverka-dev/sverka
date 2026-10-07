@@ -2,8 +2,8 @@
 // Spec 17 — §30.
 
 import process from "node:process";
-import { join, dirname, resolve } from "node:path";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { join, dirname, resolve, sep } from "node:path";
+import { writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { RuntimeDriver } from "@sverka/runtime";
 import { createEngine } from "@sverka/runtime";
@@ -159,9 +159,9 @@ export async function runCommand(
       (e): e is Extract<RunEvent, { type: "run-started" }> =>
         e.type === "run-started",
     )?.runId;
-  let reportDir: string | undefined;
+  let report: { html: string | null; json: string } | undefined;
   if (runId !== undefined) {
-    reportDir = await writeRunArtifacts({
+    const artifacts = await writeRunArtifacts({
       root: global.root,
       runId,
       planId: plan.id,
@@ -170,7 +170,12 @@ export async function runCommand(
       durationMs,
       evalResult,
       artifactDir,
+      sinceMs: start,
     });
+    report = {
+      html: artifacts.htmlPath,
+      json: join(artifacts.dir, "report.json"),
+    };
   }
 
   // Tell the user where the HTML report went (sarif/web print their own).
@@ -199,12 +204,12 @@ export async function runCommand(
     global,
     output,
     evalResult,
-    reportDir,
+    report,
   );
 
   // Human-mode tail (Spec 53): the report is discoverable, not hidden.
-  if (reportDir !== undefined && global.format === "text") {
-    output.writeLine(`  report: ${join(reportDir, "report.html")}`);
+  if (report !== undefined && global.format === "text") {
+    output.writeLine(`  report: ${report.html ?? report.json}`);
   }
 
   // When --evaluate is set, policy exit code takes precedence
@@ -579,6 +584,7 @@ interface StepSummary {
   readonly stdout?: string;
   readonly stderr?: string;
   readonly exitCode?: number;
+  readonly truncated?: boolean;
 }
 
 function writeRunOutput(
@@ -593,7 +599,7 @@ function writeRunOutput(
     verdict: string;
     summary: string;
   } | null,
-  reportDir?: string,
+  report?: { html: string | null; json: string },
 ): void {
   if (global.format === "json") {
     const steps = summarizeSteps(events);
@@ -612,11 +618,12 @@ function writeRunOutput(
               }
             : {}),
           // sverka.run/v1 is append-only — new fields land, never rename.
-          ...(reportDir !== undefined
+          // html is exposed only when the file was actually written.
+          ...(report !== undefined
             ? {
                 report: {
-                  html: join(reportDir, "report.html"),
-                  json: join(reportDir, "report.json"),
+                  json: report.json,
+                  ...(report.html !== null ? { html: report.html } : {}),
                 },
               }
             : {}),
@@ -629,10 +636,34 @@ function writeRunOutput(
   // No additional summary needed.
 }
 
+/** Cap captured step output in the durable report — verbatim stdout/stderr
+ *  persists whatever scrolled by, including secrets. The live payload keeps
+ *  full output; the on-disk report keeps the last 4 KiB per stream. */
+const REPORT_OUTPUT_CAP = 4096;
+
+function boundStepOutput(steps: readonly StepSummary[]): StepSummary[] {
+  return steps.map((step) => {
+    const bound = (text: string | undefined): string | undefined =>
+      text !== undefined && text.length > REPORT_OUTPUT_CAP
+        ? text.slice(-REPORT_OUTPUT_CAP)
+        : text;
+    const stdout = bound(step.stdout);
+    const stderr = bound(step.stderr);
+    if (stdout === step.stdout && stderr === step.stderr) return step;
+    return {
+      ...step,
+      ...(stdout !== undefined ? { stdout } : {}),
+      ...(stderr !== undefined ? { stderr } : {}),
+      truncated: true,
+    };
+  });
+}
+
 /** Write the per-run report artifacts (Spec 53): report.json carries the
  *  sverka.run/v1 payload; report.html renders whatever findings the run
  *  produced (an empty-findings report is still a report). Best-effort —
- *  a render failure never fails the run. */
+ *  a render failure never fails the run, but it is recorded in the
+ *  report's `warnings` instead of being silently dropped. */
 async function writeRunArtifacts(opts: {
   root: string;
   runId: string;
@@ -646,9 +677,53 @@ async function writeRunArtifacts(opts: {
     summary: string;
   } | null;
   artifactDir: string;
-}): Promise<string> {
+  /** Run start timestamp — scopes artifact collection to this run so a
+   *  zero-finding run does not pick up stale SARIF from prior runs. */
+  sinceMs: number;
+}): Promise<{ dir: string; htmlPath: string | null }> {
   const dir = join(opts.root, ".sverka", "runs", opts.runId);
   mkdirSync(dir, { recursive: true });
+  // A symlinked .sverka/… component would smuggle report writes outside
+  // the project root — refuse before touching any file.
+  const realRoot = realpathSync(opts.root);
+  const realDir = realpathSync(dir);
+  if (realDir !== realRoot && !realDir.startsWith(`${realRoot}${sep}`)) {
+    throw new CliError(
+      `refusing to write run report through symlinked path: ${dir}`,
+      "REPORT_PATH_ESCAPE",
+      ExitCode.RuntimeError,
+    );
+  }
+
+  const warnings: string[] = [];
+  let findings: readonly Finding[] = opts.evalResult?.findings ?? [];
+  if (findings.length === 0) {
+    try {
+      const { collectFindings } = await import("@sverka/reporter");
+      findings = (
+        await collectFindings({
+          artifactDir: opts.artifactDir,
+          sinceMs: opts.sinceMs,
+        })
+      ).map((r) => r.finding);
+    } catch (e) {
+      warnings.push(
+        `findings collection failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  let htmlPath: string | null = null;
+  try {
+    const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
+    const candidate = join(dir, "report.html");
+    writeFileSync(candidate, generateSarifHtml(findings), "utf-8");
+    htmlPath = candidate;
+  } catch (e) {
+    warnings.push(
+      `report.html generation failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
 
   writeFileSync(
     join(dir, "report.json"),
@@ -658,7 +733,7 @@ async function writeRunArtifacts(opts: {
         data: {
           planId: opts.planId,
           status: opts.runStatus,
-          steps: summarizeSteps(opts.events),
+          steps: boundStepOutput(summarizeSteps(opts.events)),
           ...(opts.evalResult
             ? {
                 findings: opts.evalResult.findings.length,
@@ -666,6 +741,7 @@ async function writeRunArtifacts(opts: {
                 summary: opts.evalResult.summary,
               }
             : {}),
+          ...(warnings.length > 0 ? { warnings } : {}),
         },
         durationMs: opts.durationMs,
       },
@@ -675,28 +751,7 @@ async function writeRunArtifacts(opts: {
     "utf-8",
   );
 
-  let findings: readonly Finding[] = opts.evalResult?.findings ?? [];
-  if (findings.length === 0) {
-    try {
-      const { collectFindings } = await import("@sverka/reporter");
-      findings = (await collectFindings({ artifactDir: opts.artifactDir })).map(
-        (r) => r.finding,
-      );
-    } catch {
-      // No readable artifacts — an empty-findings report is still valid.
-    }
-  }
-  try {
-    const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
-    writeFileSync(
-      join(dir, "report.html"),
-      generateSarifHtml(findings),
-      "utf-8",
-    );
-  } catch {
-    // report.json alone is still a report — never fail the run over HTML.
-  }
-  return dir;
+  return { dir, htmlPath };
 }
 
 function exitCodeForStatus(runStatus: string): ExitCode {
