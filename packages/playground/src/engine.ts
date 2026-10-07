@@ -2,7 +2,13 @@
 // Code template, user-code evaluation, and a timeout-wrapped run used by
 // both the full playground app and the embeddable mountRunner.
 
-import { Project, Pipeline, FunctionStep, Entry } from "./pipeline.js";
+import {
+  Project,
+  Pipeline,
+  FunctionStep,
+  ShellStep,
+  Entry,
+} from "./pipeline.js";
 import { runPipeline } from "./runner.js";
 import {
   commentAt,
@@ -17,6 +23,17 @@ import {
   skipIdent,
   skipTrivia,
 } from "./scanner.js";
+
+/** Trigger helpers mirroring @sverka/workflow — real configs use
+ *  `trigger: push()`/`manual()`/`schedule()`/`changeRequest()`. */
+const push = () => ({ kind: "push" });
+const changeRequest = () => ({ kind: "changeRequest" });
+const manual = () => ({ kind: "manual" });
+const schedule = (cron: string, timezone?: string) => ({
+  kind: "schedule",
+  cron,
+  ...(timezone ? { timezone } : {}),
+});
 
 /** Default template shown in the editor. */
 export const DEFAULT_CODE = [
@@ -379,11 +396,32 @@ export function evaluateUserCode(code: string): Project {
   // Dynamic code execution is intentional for the playground sandbox.
   // SonarCloud S1523: safe — user code runs in the browser sandbox with the
   // same trust model as a local REPL or `node -e` (see comment above).
-  const params = ["Project", "Pipeline", "FunctionStep", "Entry", processed];
+  const params = [
+    "Project",
+    "Pipeline",
+    "FunctionStep",
+    "ShellStep",
+    "Entry",
+    "push",
+    "changeRequest",
+    "manual",
+    "schedule",
+    processed,
+  ];
   // NOSONAR suppresses only issues on the marker's own line — it must
   // trail the `new Function` callee, not sit inside the argument list.
   const fn = new Function(...params); // NOSONAR — intentional dynamic evaluation in sandbox
-  const result = fn(Project, Pipeline, FunctionStep, Entry); // NOSONAR
+  const result = fn(
+    Project,
+    Pipeline,
+    FunctionStep,
+    ShellStep,
+    Entry,
+    push,
+    changeRequest,
+    manual,
+    schedule,
+  ); // NOSONAR
   if (!(result instanceof Project)) {
     throw new TypeError("Code must export a Project instance");
   }

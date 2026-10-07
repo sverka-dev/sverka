@@ -6,6 +6,7 @@ import {
   decodeShareLink,
   PlaygroundError,
   SHARE_PAYLOAD_WARN_BYTES,
+  listExamples,
 } from "./index.js";
 import type { Finding } from "./index.js";
 import { generateSarifHtml } from "@sverka/sarif-viewer-web/html-generator";
@@ -227,6 +228,40 @@ function wireSplitter(): void {
   });
 }
 
+/** Examples gallery (Spec 53): pick an examples/*\/ entry → its
+ *  sverka.config.ts source loads into the editor and runs once.
+ *  The glob is eager — examples are bundled at build time, no network. */
+function wireExamplePicker(
+  setCode: (c: string) => void,
+  runBtn: HTMLButtonElement,
+): void {
+  const examples = listExamples(
+    import.meta.glob("../../../examples/*/sverka.config.ts", {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    }) as Record<string, string>,
+  );
+  const picker = document.getElementById(
+    "example-picker",
+  ) as HTMLSelectElement | null;
+  if (!picker) return;
+
+  for (const ex of examples) {
+    const opt = document.createElement("option");
+    opt.value = ex.id;
+    opt.textContent = ex.title;
+    picker.appendChild(opt);
+  }
+  picker.addEventListener("change", () => {
+    const ex = examples.find((e) => e.id === picker.value);
+    if (!ex) return;
+    setCode(ex.code);
+    history.replaceState(null, "", location.pathname);
+    runBtn.click();
+  });
+}
+
 /** Share button — serialize code + last findings into a #c= fragment link. */
 function wireShareButton(getCode: () => string, state: RunState): void {
   const shareBtn = document.getElementById(
@@ -331,6 +366,7 @@ async function main(): Promise<void> {
   });
 
   wireSplitter();
+  wireExamplePicker(editor.setCode, runBtn);
   wireShareButton(editor.getCode, state);
 
   // Auto-run on load unless a share link already filled the page (restored
