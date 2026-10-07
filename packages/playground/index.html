@@ -41,6 +41,9 @@
         display: flex;
         gap: 0.5rem;
         align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        min-width: 0;
       }
       .status {
         font-size: 0.8rem;
@@ -71,6 +74,15 @@
       button:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+      }
+      select {
+        padding: 0.3rem 0.5rem;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        background: #0d1117;
+        color: #c9d1d9;
+        font-size: 0.8rem;
+        max-width: 14rem;
       }
       .main {
         display: flex;
@@ -123,6 +135,13 @@
     <header>
       <h1>Sverka Playground</h1>
       <div class="actions">
+        <select
+          id="example-picker"
+          title="Load an example"
+          aria-label="Load an example"
+        >
+          <option value="">Examples…</option>
+        </select>
         <span class="status" id="status">Ready</span>
         <button id="share-btn" title="Copy share link">Share</button>
         <button id="run-btn">Run</button>

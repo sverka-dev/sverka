@@ -1,7 +1,13 @@
 // @sverka/playground — public API. Browser-safe.
 
 // Pipeline model
-export { Project, Pipeline, FunctionStep, Entry } from "./pipeline.js";
+export {
+  Project,
+  Pipeline,
+  FunctionStep,
+  ShellStep,
+  Entry,
+} from "./pipeline.js";
 export type { Construct, Step } from "./pipeline.js";
 
 // Runner
@@ -39,3 +45,7 @@ export {
 
 // Transpile playground source → sverka.config.ts (Spec 53)
 export { toSverkaConfig } from "./transpile.js";
+
+// Examples gallery (Spec 53)
+export { listExamples } from "./gallery.js";
+export type { GalleryExample } from "./gallery.js";

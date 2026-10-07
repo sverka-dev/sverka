@@ -92,6 +92,45 @@ export class FunctionStep extends Step {
   }
 }
 
+/**
+ * Browser stub of the real `@sverka/workflow` ShellStep. Real configs load
+ * verbatim in the playground, but a shell command cannot execute in a
+ * browser — execute() surfaces an info finding explaining the demo
+ * boundary instead of pretending the command ran.
+ */
+export class ShellStep extends Step {
+  readonly command: string;
+
+  constructor(
+    pipeline: Pipeline,
+    id: string,
+    options: {
+      command: string;
+      dependsOn?: string[];
+      runtime?: unknown;
+      outputs?: unknown;
+      background?: boolean;
+    },
+  ) {
+    super(pipeline, id, options.dependsOn ?? []);
+    this.command = options.command;
+  }
+
+  execute(): PlaygroundFinding[] {
+    return [
+      {
+        rule: "playground/shell-step",
+        file: "sverka.config.ts",
+        line: 1,
+        severity: "info",
+        // The command text is deliberately not echoed — a real command may
+        // carry inline secrets, and findings end up in share links.
+        message: `'${this.id}' is a shell step — the browser cannot run it. Run the exported config locally to execute it.`,
+      },
+    ];
+  }
+}
+
 /** An entry point that triggers a pipeline. */
 export class Entry {
   readonly pipeline: Pipeline;
