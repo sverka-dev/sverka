@@ -676,12 +676,87 @@ function boundStepOutput(steps: readonly StepSummary[]): StepSummary[] {
   });
 }
 
-/** Write the per-run report artifacts (Spec 53): report.json carries the
- *  sverka.run/v1 payload; report.html renders whatever findings the run
- *  produced (an empty-findings report is still a report). Best-effort —
- *  a render failure never fails the run, but it is recorded in the
- *  report's `warnings` instead of being silently dropped. */
-async function writeRunArtifacts(opts: {
+/** Refuse to write through a path whose real location escapes the project
+ *  root — a symlinked `.sverka/…` component is exactly that escape. */
+function assertWithinRoot(real: string, realRoot: string, dir: string): void {
+  // `--root /` already ends in the separator — a naive `${root}${sep}`
+  // prefix would be `//` and reject every in-root path.
+  const prefix = realRoot.endsWith(sep) ? realRoot : `${realRoot}${sep}`;
+  if (real === realRoot || real.startsWith(prefix)) return;
+  throw new CliError(
+    `refusing to write run report through symlinked path: ${dir}`,
+    "REPORT_PATH_ESCAPE",
+    ExitCode.RuntimeError,
+  );
+}
+
+/** Resolve the per-run report dir, checking the nearest existing ancestor
+ *  BEFORE mkdir — mkdir through a symlink is itself the escape. */
+function reportDir(root: string, runId: string): string {
+  const dir = join(root, ".sverka", "runs", runId);
+  const realRoot = realpathSync(root);
+  let ancestor = dir;
+  while (!existsSync(ancestor)) {
+    const parent = dirname(ancestor);
+    if (parent === ancestor) break; // reached fs root
+    ancestor = parent;
+  }
+  assertWithinRoot(realpathSync(ancestor), realRoot, dir);
+  mkdirSync(dir, { recursive: true });
+  assertWithinRoot(realpathSync(dir), realRoot, dir);
+  return dir;
+}
+
+/** Findings for the report — the eval result when present, else a
+ *  collection pass over the artifact dir scoped to this run so a
+ *  zero-finding run does not pick up stale SARIF from prior runs. */
+async function collectRunFindings(
+  opts: {
+    evalResult: { findings: readonly Finding[] } | null;
+    artifactDir: string;
+    sinceMs: number;
+  },
+  warnings: string[],
+): Promise<readonly Finding[]> {
+  const fromEval = opts.evalResult?.findings ?? [];
+  if (fromEval.length > 0) return fromEval;
+  try {
+    const { collectFindings } = await import("@sverka/reporter");
+    return (
+      await collectFindings({
+        artifactDir: opts.artifactDir,
+        sinceMs: opts.sinceMs,
+      })
+    ).map((r) => r.finding);
+  } catch (e) {
+    warnings.push(
+      `findings collection failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return [];
+  }
+}
+
+/** Best-effort report.html — a render failure never fails the run; it is
+ *  recorded in the report's `warnings` instead of being dropped silently. */
+async function writeReportHtml(
+  dir: string,
+  findings: readonly Finding[],
+  warnings: string[],
+): Promise<string | null> {
+  try {
+    const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
+    const candidate = join(dir, "report.html");
+    writeFileSync(candidate, generateSarifHtml(findings), "utf-8");
+    return candidate;
+  } catch (e) {
+    warnings.push(
+      `report.html generation failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return null;
+  }
+}
+
+interface WriteArtifactsOpts {
   root: string;
   runId: string;
   planId: string;
@@ -697,95 +772,46 @@ async function writeRunArtifacts(opts: {
   /** Run start timestamp — scopes artifact collection to this run so a
    *  zero-finding run does not pick up stale SARIF from prior runs. */
   sinceMs: number;
-}): Promise<{ dir: string; htmlPath: string | null }> {
-  const dir = join(opts.root, ".sverka", "runs", opts.runId);
-  // A symlinked .sverka/… component would smuggle report writes outside
-  // the project root — check the nearest existing ancestor BEFORE mkdir,
-  // since mkdir through a symlink is itself the escape.
-  const realRoot = realpathSync(opts.root);
-  // `--root /` already ends in the separator — a naive `${root}${sep}`
-  // prefix would be `//` and reject every in-root path.
-  const prefix = realRoot.endsWith(sep) ? realRoot : `${realRoot}${sep}`;
-  let ancestor = dir;
-  while (!existsSync(ancestor)) {
-    const parent = dirname(ancestor);
-    if (parent === ancestor) break; // reached fs root
-    ancestor = parent;
-  }
-  const realAncestor = realpathSync(ancestor);
-  if (realAncestor !== realRoot && !realAncestor.startsWith(prefix)) {
-    throw new CliError(
-      `refusing to write run report through symlinked path: ${dir}`,
-      "REPORT_PATH_ESCAPE",
-      ExitCode.RuntimeError,
-    );
-  }
-  mkdirSync(dir, { recursive: true });
-  const realDir = realpathSync(dir);
-  if (realDir !== realRoot && !realDir.startsWith(prefix)) {
-    throw new CliError(
-      `refusing to write run report through symlinked path: ${dir}`,
-      "REPORT_PATH_ESCAPE",
-      ExitCode.RuntimeError,
-    );
-  }
+}
 
+function runReportPayload(
+  opts: WriteArtifactsOpts,
+  warnings: readonly string[],
+): Record<string, unknown> {
+  return {
+    schema: "sverka.run/v1",
+    data: {
+      planId: opts.planId,
+      status: opts.runStatus,
+      steps: boundStepOutput(summarizeSteps(opts.events)),
+      ...(opts.evalResult
+        ? {
+            findings: opts.evalResult.findings.length,
+            verdict: opts.evalResult.verdict,
+            summary: opts.evalResult.summary,
+          }
+        : {}),
+      ...(warnings.length > 0 ? { warnings } : {}),
+    },
+    durationMs: opts.durationMs,
+  };
+}
+
+/** Write the per-run report artifacts (Spec 53): report.json carries the
+ *  sverka.run/v1 payload; report.html renders whatever findings the run
+ *  produced (an empty-findings report is still a report). */
+async function writeRunArtifacts(
+  opts: WriteArtifactsOpts,
+): Promise<{ dir: string; htmlPath: string | null }> {
+  const dir = reportDir(opts.root, opts.runId);
   const warnings: string[] = [];
-  let findings: readonly Finding[] = opts.evalResult?.findings ?? [];
-  if (findings.length === 0) {
-    try {
-      const { collectFindings } = await import("@sverka/reporter");
-      findings = (
-        await collectFindings({
-          artifactDir: opts.artifactDir,
-          sinceMs: opts.sinceMs,
-        })
-      ).map((r) => r.finding);
-    } catch (e) {
-      warnings.push(
-        `findings collection failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
-  }
-
-  let htmlPath: string | null = null;
-  try {
-    const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
-    const candidate = join(dir, "report.html");
-    writeFileSync(candidate, generateSarifHtml(findings), "utf-8");
-    htmlPath = candidate;
-  } catch (e) {
-    warnings.push(
-      `report.html generation failed: ${e instanceof Error ? e.message : String(e)}`,
-    );
-  }
-
+  const findings = await collectRunFindings(opts, warnings);
+  const htmlPath = await writeReportHtml(dir, findings, warnings);
   writeFileSync(
     join(dir, "report.json"),
-    JSON.stringify(
-      {
-        schema: "sverka.run/v1",
-        data: {
-          planId: opts.planId,
-          status: opts.runStatus,
-          steps: boundStepOutput(summarizeSteps(opts.events)),
-          ...(opts.evalResult
-            ? {
-                findings: opts.evalResult.findings.length,
-                verdict: opts.evalResult.verdict,
-                summary: opts.evalResult.summary,
-              }
-            : {}),
-          ...(warnings.length > 0 ? { warnings } : {}),
-        },
-        durationMs: opts.durationMs,
-      },
-      null,
-      2,
-    ),
+    JSON.stringify(runReportPayload(opts, warnings), null, 2),
     "utf-8",
   );
-
   return { dir, htmlPath };
 }
 
