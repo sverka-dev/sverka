@@ -4,6 +4,19 @@
 
 import { Project, Pipeline, FunctionStep, Entry } from "./pipeline.js";
 import { runPipeline } from "./runner.js";
+import {
+  commentAt,
+  isIdentChar,
+  isWsChar,
+  keywordAt,
+  matchBrace,
+  operandAfterWord,
+  scanOpaqueEnd,
+  scanRegex,
+  scanString,
+  skipIdent,
+  skipTrivia,
+} from "./scanner.js";
 
 /** Default template shown in the editor. */
 export const DEFAULT_CODE = [
@@ -48,109 +61,6 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
-// ---------------------------------------------------------------------------
-// Mini-scanner — same family as transpile.ts: char-class checks instead of
-// regexes (a pattern on user source is ReDoS surface), and every helper is
-// string/comment aware so quoted braces never count as syntax.
-// ---------------------------------------------------------------------------
-
-/** Identifier chars: `[A-Za-z0-9_$]`. */
-function isIdentChar(c: string | undefined): boolean {
-  if (c === undefined) return false;
-  const n = c.charCodeAt(0);
-  return (
-    (n >= 48 && n <= 57) ||
-    (n >= 65 && n <= 90) ||
-    (n >= 97 && n <= 122) ||
-    c === "_" ||
-    c === "$"
-  );
-}
-
-function isQuote(c: string | undefined): boolean {
-  return c === '"' || c === "'" || c === "`";
-}
-
-/** True when `at` starts a `//` or `/*` comment. */
-function commentAt(code: string, at: number): boolean {
-  return code[at] === "/" && (code[at + 1] === "/" || code[at + 1] === "*");
-}
-
-/** Index of the `\n` ending the `//` comment at `at` (code.length if none). */
-function lineCommentEnd(code: string, at: number): number {
-  const end = code.indexOf("\n", at + 2);
-  return end === -1 ? code.length : end;
-}
-
-/** Index just past the `*/ ` ending the `; /*` comment at `at`. */
-function blockCommentEnd(code: string, at: number): number {
-  const end = code.indexOf("*/", at + 2);
-  return end === -1 ? code.length : end + 2;
-}
-
-/** End index of the `${` expression opened at `at` (inside a template).
- *  The expression itself can hold strings, comments, and nested templates:
- *  `` `${ x["`"] }` `` must not treat a quoted backtick as syntax. */
-function scanTemplateExpr(code: string, at: number): number {
-  let depth = 1;
-  let i = at + 1;
-  while (i < code.length && depth > 0) {
-    const ch = code[i];
-    if (isQuote(ch)) {
-      i = scanString(code, i);
-      continue;
-    }
-    if (ch === "/" && code[i + 1] === "/") {
-      i = lineCommentEnd(code, i);
-      continue;
-    }
-    if (ch === "/" && code[i + 1] === "*") {
-      i = blockCommentEnd(code, i);
-      continue;
-    }
-    if (ch === "{") depth++;
-    else if (ch === "}") depth--;
-    i++;
-  }
-  return i;
-}
-
-/** End index of the string literal starting at `at` (quote char). */
-function scanString(code: string, at: number): number {
-  const quote = code[at];
-  let i = at + 1;
-  while (i < code.length) {
-    const c = code[i];
-    if (c === "\\") {
-      i += 2;
-      continue;
-    }
-    if (c === quote) return i + 1;
-    // Template literals may nest `${}` expressions — track brace depth.
-    if (quote === "`" && c === "$" && code[i + 1] === "{") {
-      i = scanTemplateExpr(code, i + 2);
-      continue;
-    }
-    i++;
-  }
-  return i;
-}
-
-/** End index of the opaque region at `i`, or i+1 for ordinary chars —
- *  and whether the region was a string literal. */
-function scanOpaqueEnd(
-  code: string,
-  i: number,
-): { end: number; isString: boolean } {
-  const c = code[i];
-  if (isQuote(c)) return { end: scanString(code, i), isString: true };
-  if (c === "/" && code[i + 1] === "/")
-    return { end: lineCommentEnd(code, i), isString: false };
-  if (c === "/" && code[i + 1] === "*")
-    return { end: blockCommentEnd(code, i), isString: false };
-  return { end: i + 1, isString: false };
-}
-
 /** End index of the statement starting at `at`: first top-level `;`, or
  *  the first newline after the module-specifier string (covers multiline
  *  `import {…}\n from "x"` and `import "x"` without a semicolon). */
@@ -173,55 +83,6 @@ function scanStatementEnd(code: string, at: number): number {
     i++;
   }
   return i;
-}
-
-function keywordAt(code: string, at: number, word: string): boolean {
-  return code.startsWith(word, at) && !isIdentChar(code[at + word.length]);
-}
-
-function isTriviaWs(c: string | undefined): boolean {
-  return c === " " || c === "\t" || c === "\r" || c === "\n";
-}
-
-/** Skip whitespace and comments (including newlines). */
-function skipTrivia(code: string, at: number): number {
-  let i = at;
-  for (;;) {
-    const c = code[i];
-    if (isTriviaWs(c)) {
-      i++;
-      continue;
-    }
-    if (c === "/" && code[i + 1] === "/") {
-      i = lineCommentEnd(code, i);
-      continue;
-    }
-    if (c === "/" && code[i + 1] === "*") {
-      i = blockCommentEnd(code, i);
-      continue;
-    }
-    return i;
-  }
-}
-
-/** Index of the `}` matching the `{` at `open`; code.length when unbalanced. */
-function matchBrace(code: string, open: number): number {
-  let depth = 0;
-  let i = open;
-  while (i < code.length) {
-    const c = code[i];
-    if (isQuote(c) || commentAt(code, i)) {
-      i = scanOpaqueEnd(code, i).end;
-      continue;
-    }
-    if (c === "{") depth++;
-    else if (c === "}") {
-      depth--;
-      if (depth === 0) return i;
-    }
-    i++;
-  }
-  return code.length;
 }
 
 /** Same-line statement tail: horizontal whitespace then an optional `;`.
@@ -249,7 +110,7 @@ function scanExportStar(code: string, at: number): number {
   let i = skipTrivia(code, at + 1);
   if (keywordAt(code, i, "as")) {
     i = skipTrivia(code, i + 2);
-    while (i < code.length && isIdentChar(code[i])) i++;
+    i = skipIdent(code, i);
   }
   const next = skipTrivia(code, i);
   if (keywordAt(code, next, "from")) return scanFromClause(code, next);
@@ -264,7 +125,8 @@ function scanExportStar(code: string, at: number): number {
  */
 function scanExportListEnd(code: string, at: number): number {
   if (code[at] === "*") return scanExportStar(code, at);
-  const i = matchBrace(code, at) + 1;
+  const close = matchBrace(code, at);
+  const i = close < 0 ? code.length : close + 1;
   const next = skipTrivia(code, i);
   if (keywordAt(code, next, "from")) return scanFromClause(code, next);
   return scanStmtTail(code, i);
@@ -277,6 +139,10 @@ interface ScanState {
   /** `block` vs `expr` — separates block braces from object literals, so
    *  `{ export: 1 }` is a key, not a statement. */
   stack: ("block" | "expr")[];
+  /** True when the previous token ended an operand — `/` then divides.
+   *  Regex literals never update the delimiter stack, so `/[{]/` can't
+   *  leave an unclosed `{` that keeps `export default` alive to eval. */
+  operandEnd: boolean;
 }
 
 function atStmtLevel(st: ScanState): boolean {
@@ -288,12 +154,17 @@ function copyOpaque(code: string, st: ScanState, out: string[]): boolean {
   const opaque = scanOpaqueEnd(code, st.i);
   if (opaque.end <= st.i + 1) return false;
   out.push(code.slice(st.i, opaque.end));
-  if (opaque.isString) st.stmtStart = false;
+  if (opaque.isString) {
+    st.stmtStart = false;
+    st.operandEnd = true;
+  }
   st.i = opaque.end;
   return true;
 }
 
-/** Handle `{}`/`()`/`[]` — pushes onto the block/expr stack. */
+/** Handle `{}`/`()`/`[]` — pushes onto the block/expr stack and sets the
+ *  operand context: `}` closing an object literal ends a value, `}`
+ *  closing a block ends a statement. */
 function applyBracket(code: string, st: ScanState, out: string[]): boolean {
   const c = code[st.i];
   if (c === "{") {
@@ -301,33 +172,60 @@ function applyBracket(code: string, st: ScanState, out: string[]): boolean {
     // object literal. Inside a block the next token is a statement;
     // inside an object it's a key — `export:` there is not a keyword.
     st.stack.push(st.stmtStart ? "block" : "expr");
+    st.operandEnd = false;
   } else if (c === "}") {
-    // Closing a block ends the statement — closing an object literal
-    // leaves the surrounding expression mid-flight.
-    st.stmtStart = st.stack.pop() === "block";
+    const popped = st.stack.pop();
+    st.stmtStart = popped === "block";
+    st.operandEnd = popped === "expr";
   } else if (c === "(" || c === "[") {
     st.stack.push("expr");
     st.stmtStart = false;
+    st.operandEnd = false;
   } else if (c === ")" || c === "]") {
     st.stack.pop();
     st.stmtStart = false;
+    st.operandEnd = true;
   } else {
     return false;
   }
-  out.push(c);
+  out.push(c ?? "");
   st.i++;
   return true;
 }
 
-/** Handle `\n`, `;`, and horizontal whitespace — statement boundaries at
- *  statement level only (a `;` inside `for (;;)` doesn't count). */
+/** Handle `\n`, `;`, and whitespace — statement boundaries at statement
+ *  level only (a `;` inside `for (;;)` doesn't count). A newline never
+ *  resets operand context: `foo\n/bar/` divides, per ASI rules. */
 function applyTerminator(code: string, st: ScanState, out: string[]): boolean {
   const c = code[st.i];
-  if (c !== "\n" && c !== ";" && c !== " " && c !== "\t" && c !== "\r")
-    return false;
-  if ((c === "\n" || c === ";") && atStmtLevel(st)) st.stmtStart = true;
-  out.push(c);
+  if (c !== ";" && c !== "\n" && !isWsChar(c)) return false;
+  if (c === ";") {
+    if (atStmtLevel(st)) st.stmtStart = true;
+    st.operandEnd = false;
+  } else if (c === "\n" && atStmtLevel(st)) {
+    st.stmtStart = true;
+  }
+  out.push(c ?? "");
   st.i++;
+  return true;
+}
+
+/** Handle `/` — a regex literal when an operand is expected, a division
+ *  operator when one just ended. Comments never reach here (copyOpaque
+ *  already consumed them). */
+function applySlash(code: string, st: ScanState, out: string[]): boolean {
+  if (code[st.i] !== "/" || commentAt(code, st.i)) return false;
+  if (st.operandEnd) {
+    out.push("/");
+    st.i++;
+    st.operandEnd = false;
+  } else {
+    const end = scanRegex(code, st.i);
+    out.push(code.slice(st.i, end));
+    st.i = end;
+    st.operandEnd = true;
+  }
+  st.stmtStart = false;
   return true;
 }
 
@@ -341,10 +239,12 @@ function tryImport(code: string, st: ScanState, out: string[]): boolean {
     out.push("import");
     st.i += 6;
     st.stmtStart = false;
+    st.operandEnd = true;
     return true;
   }
   st.i = scanStatementEnd(code, st.i + 6);
   st.stmtStart = false;
+  st.operandEnd = false;
   return true;
 }
 
@@ -365,15 +265,30 @@ function tryExport(code: string, st: ScanState, out: string[]): boolean {
     st.exportDefaultDone = true;
     st.i = skipTrivia(code, j + 7);
     st.stmtStart = false;
+    st.operandEnd = false;
     return true;
   }
   if (code[j] === "{" || code[j] === "*") {
     st.i = scanExportListEnd(code, j);
     st.stmtStart = false;
+    st.operandEnd = false;
     return true;
   }
   st.i = j;
   st.stmtStart = false;
+  st.operandEnd = false;
+  return true;
+}
+
+/** Emit an identifier run — keyword table decides whether `/` after it
+ *  divides (`foo /x/`) or opens a regex (`return /x/`). */
+function tryWord(code: string, st: ScanState, out: string[]): boolean {
+  if (!isIdentChar(code[st.i])) return false;
+  const wend = skipIdent(code, st.i);
+  out.push(code.slice(st.i, wend));
+  st.operandEnd = operandAfterWord(code.slice(st.i, wend));
+  st.stmtStart = false;
+  st.i = wend;
   return true;
 }
 
@@ -399,15 +314,19 @@ export function preprocessCode(code: string): string {
     stmtStart: true,
     exportDefaultDone: false,
     stack: [],
+    operandEnd: false,
   };
   while (st.i < code.length) {
     if (code[st.i] === undefined) break;
     if (copyOpaque(code, st, out)) continue;
     if (applyBracket(code, st, out)) continue;
     if (applyTerminator(code, st, out)) continue;
+    if (applySlash(code, st, out)) continue;
     if (tryImport(code, st, out)) continue;
     if (tryExport(code, st, out)) continue;
+    if (tryWord(code, st, out)) continue;
     st.stmtStart = false;
+    st.operandEnd = false;
     out.push(code[st.i] ?? "");
     st.i++;
   }
