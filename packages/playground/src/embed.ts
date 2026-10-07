@@ -125,13 +125,25 @@ export function mountRunner(
       result = await runPipelineWithTimeout(project, 30_000);
       if (!result.success) {
         const failed = result.steps.filter((s) => s.status === "failure");
-        showFindings(
-          `<!DOCTYPE html><html><body style="background:#0d1117;color:#f85149;font-family:monospace;padding:1rem;"><h3>Run failed</h3><pre>${escapeHtml(
-            failed
-              .map((s) => `${s.stepId}: ${s.error ?? "failed"}`)
-              .join("\n") || `${result.steps.length} steps failed`,
-          )}</pre></body></html>`,
-        );
+        const banner = `<div style="background:#3d1d1f;color:#f85149;padding:0.6rem 1rem;font-family:monospace;border-bottom:1px solid #30363d;"><strong>Run failed</strong><pre style="margin:0.4rem 0 0;white-space:pre-wrap;">${escapeHtml(
+          failed.map((s) => `${s.stepId}: ${s.error ?? "failed"}`).join("\n") ||
+            `${result.steps.length} steps failed`,
+        )}</pre></div>`;
+        if (result.findings.length > 0) {
+          // Steps that finished before the failure still produced
+          // findings — show the report with the failure note on top
+          // rather than hiding the findings behind the error.
+          const sarif = generateSarifHtml(result.findings);
+          showFindings(
+            sarif.includes("<body>")
+              ? sarif.replace("<body>", `<body>${banner}`)
+              : banner + sarif,
+          );
+        } else {
+          showFindings(
+            `<!DOCTYPE html><html><body style="background:#0d1117;color:#f85149;font-family:monospace;padding:1rem;">${banner}</body></html>`,
+          );
+        }
       } else if (result.findings.length === 0) {
         showFindings(
           `<!DOCTYPE html><html><body style="background:#0d1117;color:#3fb950;font-family:monospace;padding:1rem;"><h3>No findings — all checks passed</h3><p>${escapeHtml(String(result.steps.length))} steps in ${escapeHtml(String(result.totalDurationMs))}ms</p></body></html>`,

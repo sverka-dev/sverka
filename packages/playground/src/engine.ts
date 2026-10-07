@@ -60,16 +60,30 @@ function scanString(code: string, at: number): number {
     }
     if (c === quote) return i + 1;
     // Template literals may nest `${}` expressions — track brace depth.
+    // The expression itself can hold strings, comments, and nested
+    // templates: `` `${ x["`"] }` `` must not treat a quoted backtick
+    // as syntax.
     if (quote === "`" && c === "$" && code[i + 1] === "{") {
       let depth = 1;
       i += 2;
       while (i < code.length && depth > 0) {
-        if (code[i] === "{") depth++;
-        else if (code[i] === "}") depth--;
-        else if (code[i] === "`") {
+        const ch = code[i];
+        if (ch === '"' || ch === "'" || ch === "`") {
           i = scanString(code, i);
           continue;
         }
+        if (ch === "/" && code[i + 1] === "/") {
+          const end = code.indexOf("\n", i + 2);
+          i = end === -1 ? code.length : end;
+          continue;
+        }
+        if (ch === "/" && code[i + 1] === "*") {
+          const end = code.indexOf("*/", i + 2);
+          i = end === -1 ? code.length : end + 2;
+          continue;
+        }
+        if (ch === "{") depth++;
+        else if (ch === "}") depth--;
         i++;
       }
       continue;
@@ -115,6 +129,98 @@ function keywordAt(code: string, at: number, word: string): boolean {
   return code.startsWith(word, at) && !IDENT.test(code[at + word.length] ?? "");
 }
 
+/** Skip whitespace and comments (including newlines). */
+function skipTrivia(code: string, at: number): number {
+  let i = at;
+  for (;;) {
+    const c = code[i];
+    if (c === " " || c === "\t" || c === "\r" || c === "\n") {
+      i++;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "/") {
+      const end = code.indexOf("\n", i + 2);
+      i = end === -1 ? code.length : end;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "*") {
+      const end = code.indexOf("*/", i + 2);
+      i = end === -1 ? code.length : end + 2;
+      continue;
+    }
+    return i;
+  }
+}
+
+/** Index of the `}` matching the `{` at `open`; code.length when unbalanced. */
+function matchBrace(code: string, open: number): number {
+  let depth = 0;
+  let i = open;
+  while (i < code.length) {
+    const c = code[i];
+    if (c === '"' || c === "'" || c === "`") {
+      i = scanString(code, i);
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "/") {
+      const end = code.indexOf("\n", i + 2);
+      i = end === -1 ? code.length : end;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "*") {
+      const end = code.indexOf("*/", i + 2);
+      i = end === -1 ? code.length : end + 2;
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+    i++;
+  }
+  return code.length;
+}
+
+/** Same-line statement tail: horizontal whitespace then an optional `;`.
+ *  Never eats the newline — the following line is the next statement. */
+function scanStmtTail(code: string, at: number): number {
+  let i = at;
+  while (i < code.length && (code[i] === " " || code[i] === "\t")) i++;
+  if (code[i] === ";") i++;
+  return i;
+}
+
+/**
+ * End index of `export {…}` / `export * [as ns] [from "…"]` starting at
+ * the `{` or `*`. A bare list ends at its `;` or newline — unlike an
+ * import, a newline after the closing brace must end the statement or
+ * the next line would be eaten with it.
+ */
+function scanExportListEnd(code: string, at: number): number {
+  let i = at;
+  if (code[i] === "{") {
+    i = matchBrace(code, i) + 1;
+  } else {
+    i++; // `*`
+    i = skipTrivia(code, i);
+    if (keywordAt(code, i, "as")) {
+      i = skipTrivia(code, i + 2);
+      while (i < code.length && IDENT.test(code[i] ?? "")) i++;
+    }
+  }
+  const next = skipTrivia(code, i);
+  if (keywordAt(code, next, "from")) {
+    const specAt = skipTrivia(code, next + 4);
+    const q = code[specAt];
+    if (q === '"' || q === "'") {
+      return scanStmtTail(code, scanString(code, specAt));
+    }
+    return next; // malformed — let the evaluator complain
+  }
+  return scanStmtTail(code, i);
+}
+
 /**
  * Strip import/export statements from user code for eval — a linear
  * single-pass scan, so multiline imports and comments/strings are handled
@@ -134,9 +240,13 @@ export function preprocessCode(code: string): string {
   const out: string[] = [];
   let i = 0;
   const n = code.length;
-  // True while only whitespace has been seen on the current line — import/
-  // export keywords only count at statement position, never mid-expression
-  // (dynamic `import()` and `import.meta` are left untouched).
+  // `stmtStart` — the next token may begin a statement, so `import`/
+  // `export` count only here (never mid-expression: `import()` and
+  // `import.meta` are left untouched). A brace stack separates blocks
+  // from object literals — `{ export: 1 }` is a key, not a statement.
+  const stack: ("block" | "expr")[] = [];
+  const atStmtLevel = (): boolean =>
+    stack.length === 0 || stack[stack.length - 1] === "block";
   let stmtStart = true;
   let exportDefaultDone = false;
 
@@ -164,8 +274,41 @@ export function preprocessCode(code: string): string {
       i = stop;
       continue;
     }
-    if (c === "\n" || c === ";" || c === "{" || c === "}") {
-      stmtStart = true;
+    if (c === "{") {
+      // A `{` at statement position opens a block; anywhere else it's an
+      // object literal. Inside a block the next token is a statement;
+      // inside an object it's a key — `export:` there is not a keyword.
+      stack.push(stmtStart ? "block" : "expr");
+      out.push(c);
+      i++;
+      continue;
+    }
+    if (c === "}") {
+      // Closing a block ends the statement — closing an object literal
+      // leaves the surrounding expression mid-flight.
+      stmtStart = stack.pop() === "block";
+      out.push(c);
+      i++;
+      continue;
+    }
+    if (c === "(" || c === "[") {
+      stack.push("expr");
+      stmtStart = false;
+      out.push(c);
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]") {
+      stack.pop();
+      stmtStart = false;
+      out.push(c);
+      i++;
+      continue;
+    }
+    if (c === "\n" || c === ";") {
+      // Statement boundary only at statement level — a `;` inside
+      // `for (;;)` or a newline inside an object literal doesn't count.
+      if (atStmtLevel()) stmtStart = true;
       out.push(c);
       i++;
       continue;
@@ -176,31 +319,39 @@ export function preprocessCode(code: string): string {
       continue;
     }
     if (stmtStart && keywordAt(code, i, "import")) {
-      const next = code[i + 6];
-      // `import(` is a dynamic import expression, `import.` is meta — both
-      // are expressions, not statements; copy the keyword through.
-      if (next !== "(" && next !== ".") {
-        i = scanStatementEnd(code, i + 6);
+      const next = skipTrivia(code, i + 6);
+      const nc = code[next];
+      // `import (…)` is a dynamic-import expression and `import.meta` is
+      // meta — whitespace and comments may sit between the keyword and
+      // the paren. Anything else is a static import statement.
+      if (nc === "(" || nc === ".") {
+        out.push("import");
+        i += 6;
         stmtStart = false;
         continue;
       }
+      i = scanStatementEnd(code, i + 6);
+      stmtStart = false;
+      continue;
     }
     if (stmtStart && keywordAt(code, i, "export")) {
-      let j = i + 6;
-      while (j < n && (code[j] === " " || code[j] === "\t")) j++;
+      const j = skipTrivia(code, i + 6);
       if (
         !exportDefaultDone &&
         code.startsWith("default", j) &&
         !IDENT.test(code[j + 7] ?? "")
       ) {
+        // `return` must touch the expression — a newline between
+        // `default` and the value would trigger ASI and return
+        // undefined.
         out.push("return ");
         exportDefaultDone = true;
-        i = j + 7;
+        i = skipTrivia(code, j + 7);
         stmtStart = false;
         continue;
       }
       if (code[j] === "{" || code[j] === "*") {
-        i = scanStatementEnd(code, j);
+        i = scanExportListEnd(code, j);
         stmtStart = false;
         continue;
       }
