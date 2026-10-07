@@ -71,6 +71,37 @@ function skipOpaque(source: string, at: number): number {
   return at + 1;
 }
 
+/**
+ * Spans of string literals and comments — positions where a regex match
+ * must never count as code. Each entry is [start, end).
+ */
+function opaqueSpans(source: string): Array<readonly [number, number]> {
+  const spans: Array<readonly [number, number]> = [];
+  let i = 0;
+  while (i < source.length) {
+    const end = skipOpaque(source, i);
+    if (end > i + 1) spans.push([i, end]);
+    i = end;
+  }
+  return spans;
+}
+
+/**
+ * True when `pos` lies inside a string/comment span. `startIdx` is an
+ * in/out cursor: spans are ordered, so repeated calls while scanning
+ * left-to-right stay amortized-linear.
+ */
+function inOpaque(
+  spans: Array<readonly [number, number]>,
+  pos: number,
+  startIdx: number,
+): { inside: boolean; idx: number } {
+  let idx = startIdx;
+  while (idx < spans.length && (spans[idx]?.[1] ?? 0) <= pos) idx++;
+  const s = spans[idx];
+  return { inside: s !== undefined && s[0] <= pos, idx };
+}
+
 /** Index of the `}` matching the `{` at `open`; -1 when unbalanced. */
 function matchBrace(source: string, open: number): number {
   let depth = 0;
@@ -132,8 +163,24 @@ function extractProp(props: string, key: string): string | undefined {
           let k = j;
           while (k < props.length) {
             const v = props[k];
-            if (v === '"' || v === "'" || v === "`" || commentAt(props, k)) {
+            if (v === '"' || v === "'" || v === "`") {
               k = skipOpaque(props, k);
+              continue;
+            }
+            if (commentAt(props, k)) {
+              const cStart = k;
+              k = skipOpaque(props, k);
+              if (valueDepth === 0) {
+                // A top-level tail comment like `deps: [] // note` is not
+                // part of the value — emitting it would comment out the
+                // generated `}` after `dependsOn: <value>`.
+                let ahead = k;
+                while (ahead < props.length && /\s/.test(props[ahead] ?? ""))
+                  ahead++;
+                if (ahead >= props.length || props[ahead] === ",") {
+                  return props.slice(j, cStart).trim();
+                }
+              }
               continue;
             }
             if (v === "{" || v === "[" || v === "(") valueDepth++;
@@ -209,9 +256,14 @@ function rewritePlaygroundImports(source: string): {
       i++;
       continue;
     }
-    // Consume the statement end (optional `;`).
+    // Consume the statement end: same-line whitespace and an optional
+    // `;` — but never the newline. Eating it would fuse the emitted
+    // import with the next line (`from "@sverka/workflow"const x = …`).
     let stmtEnd = specEnd;
-    while (stmtEnd < source.length && /\s/.test(source[stmtEnd] ?? ""))
+    while (
+      stmtEnd < source.length &&
+      (source[stmtEnd] === " " || source[stmtEnd] === "\t")
+    )
       stmtEnd++;
     if (source[stmtEnd] === ";") stmtEnd++;
 
@@ -267,11 +319,21 @@ export function toSverkaConfig(source: string): string {
       `\\s*\\(\\s*([^,]+?)\\s*,\\s*(["'\`])([^"'\`]+)\\2\\s*,\\s*\\{`,
     "g",
   );
+  // A `new FunctionStep(` inside a comment or string is documentation,
+  // not a call — rewriting it would corrupt the config.
+  const spans = opaqueSpans(out);
+  let spanIdx = 0;
   let result = "";
   let cursor = 0;
   for (;;) {
     const m = stepRe.exec(out);
     if (!m) break;
+    const opaque = inOpaque(spans, m.index, spanIdx);
+    spanIdx = opaque.idx;
+    if (opaque.inside) {
+      stepRe.lastIndex = m.index + 1;
+      continue;
+    }
     const [full, scope, quote, id] = m;
     if (
       quote === "`" ||
@@ -311,9 +373,20 @@ export function toSverkaConfig(source: string): string {
   // rather than emit a half-converted file.
   const leftoverRe = new RegExp(
     `new\\s+(?:${fnStepNames.map(escapeRe).join("|")})\\s*\\(\\s*([^,\\n]*)`,
+    "g",
   );
-  const leftover = leftoverRe.exec(out);
-  if (leftover) {
+  // The rewritten code has different offsets — recompute opaque spans.
+  const outSpans = opaqueSpans(out);
+  let outSpanIdx = 0;
+  for (;;) {
+    const leftover = leftoverRe.exec(out);
+    if (leftover === null) break;
+    const opaque = inOpaque(outSpans, leftover.index, outSpanIdx);
+    outSpanIdx = opaque.idx;
+    if (opaque.inside) {
+      leftoverRe.lastIndex = leftover.index + 1;
+      continue;
+    }
     throw new PlaygroundError(
       "TRANSPILE_FAILED",
       `cannot parse FunctionStep with scope '${leftover[1]?.trim() ?? "?"}' — unsupported expression`,

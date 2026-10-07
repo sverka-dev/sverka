@@ -163,4 +163,42 @@ export default proj;
     const out = toSverkaConfig(src);
     expect(out).not.toContain("dependsOn");
   });
+
+  it("keeps the newline after a semicolon-free import", () => {
+    const src = `import { Project, Pipeline } from "@sverka/playground"
+const proj = new Project("p");
+export default proj;
+`;
+    const out = toSverkaConfig(src);
+    expect(out).toContain('from "@sverka/workflow"\n');
+    expect(out).not.toContain('"@sverka/workflow"const');
+  });
+
+  it("does not rewrite a FunctionStep call inside a comment or string", () => {
+    const src = `import { Project, Pipeline, FunctionStep } from "@sverka/playground";
+const proj = new Project("p");
+const pl = new Pipeline(proj, "checks");
+// new FunctionStep(pl, "doc-only", { fn: () => [] })
+const doc = "new FunctionStep(pl, \\"in-string\\", { fn: () => [] })";
+new FunctionStep(pl, "real", { fn: () => [] });
+export default proj;
+`;
+    const out = toSverkaConfig(src);
+    expect(out).toContain('new FunctionStep(pl, "doc-only"');
+    // The string literal survives verbatim — quotes escaped as authored.
+    expect(out).toContain('"new FunctionStep(pl, \\"in-string\\"');
+    expect(out).toContain('new ShellStep(pl, "real"');
+  });
+
+  it("strips a tail comment after a final dependencies prop", () => {
+    const src = `import { Project, Pipeline, FunctionStep } from "@sverka/playground";
+const proj = new Project("p");
+const pl = new Pipeline(proj, "checks");
+new FunctionStep(pl, "a", { dependencies: [] // no deps
+});
+export default proj;
+`;
+    const out = toSverkaConfig(src);
+    expect(out).toContain("dependsOn: [] }");
+  });
 });
