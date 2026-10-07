@@ -276,13 +276,13 @@ function stepCallParen(
 
 /** Operand context after punctuation — closers end a value, everything
  *  else (openers, operators, separators) expects one. */
-function punctOperandEnd(c: string | undefined): boolean {
+function punctuationOperandEnd(c: string | undefined): boolean {
   return c === ")" || c === "]" || c === "}";
 }
 
 /**
  * Locate the next `new <name>(` call where <name> ∈ names. Whole-word
- * scanning makes boundary checks free — `mynew` or `newer` never match.
+ * scanning makes boundary checks free — `myNew` or `newer` never match.
  * Opaque regions and regex literals are skipped inline, so a
  * `new FunctionStep(` inside a comment, string, or `/new Fn(/` pattern
  * is documentation, not a call.
@@ -312,7 +312,7 @@ function findStepCall(
       i = op.end;
       continue;
     }
-    if (!isWsChar(code[i])) operandEnd = punctOperandEnd(code[i]);
+    if (!isWsChar(code[i])) operandEnd = punctuationOperandEnd(code[i]);
     i++;
   }
   return null;
