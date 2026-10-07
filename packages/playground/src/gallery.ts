@@ -13,7 +13,7 @@ export interface GalleryExample {
   readonly code: string;
 }
 
-function titleize(id: string): string {
+function toTitle(id: string): string {
   return id
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -29,7 +29,7 @@ export function listExamples(
     .map(([path, code]) => {
       const id =
         /examples\/([^/]+)\/sverka\.config\.ts$/.exec(path)?.[1] ?? path;
-      return { id, title: titleize(id), code };
+      return { id, title: toTitle(id), code };
     })
     .sort((a, b) => a.id.localeCompare(b.id));
 }
