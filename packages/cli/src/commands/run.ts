@@ -38,17 +38,9 @@ export interface RunArgs {
   stepOutputLines?: number;
 }
 
-/**
- * Execute a Run Plan through the native engine and print events.
- */
-export async function runCommand(
-  args: RunArgs,
-  global: GlobalFlags,
-  output: OutputWriter,
-  start: number,
-): Promise<number> {
-  // Pure-argument guards run first — an invalid flag fails fast instead
-  // of surfacing as a recurring run failure inside the watch supervisor.
+/** Pure-argument guards — an invalid flag fails fast instead of surfacing
+ *  as a recurring run failure inside the watch supervisor. */
+function validateRunFlags(args: RunArgs): void {
   if (
     args.jobs !== undefined &&
     (!Number.isInteger(args.jobs) || args.jobs < 1 || args.jobs > 64)
@@ -69,6 +61,18 @@ export async function runCommand(
       ExitCode.UsageError,
     );
   }
+}
+
+/**
+ * Execute a Run Plan through the native engine and print events.
+ */
+export async function runCommand(
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  validateRunFlags(args);
   if (args.watch === true) {
     // Dispatch before any graph load: an invalid config is a run result,
     // not a reason to kill the watcher.
