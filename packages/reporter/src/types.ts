@@ -74,6 +74,9 @@ export interface FindingRow {
 /** Options for collecting findings from the artifact directory. */
 export interface FindingsCollectorOptions {
   readonly artifactDir: string;
+  /** Skip SARIF files modified before this timestamp (ms) — scopes
+   *  collection to a single run in a shared artifact directory. */
+  readonly sinceMs?: number;
 }
 
 /** Options for evaluating the policy gate. */

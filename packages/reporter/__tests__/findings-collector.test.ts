@@ -112,4 +112,27 @@ describe("FindingsCollector", () => {
     const rows = await collectFindings({ artifactDir: dir });
     expect(rows).toHaveLength(0);
   });
+
+  it("skips SARIF files older than sinceMs, keeps fresh ones", async () => {
+    const { utimes } = await import("node:fs/promises");
+    const staleDir = join(dir, "ci/stale");
+    const freshDir = join(dir, "ci/fresh");
+    await mkdir(staleDir, { recursive: true });
+    await mkdir(freshDir, { recursive: true });
+    const staleFile = join(staleDir, "results.sarif");
+    await writeFile(staleFile, JSON.stringify(SAMPLE_SARIF));
+    await writeFile(
+      join(freshDir, "results.sarif"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
+
+    const now = Date.now();
+    // Stale = minutes before the run start, well past the mtime epsilon.
+    const staleTime = (now - 60_000) / 1000;
+    await utimes(staleFile, staleTime, staleTime);
+
+    const rows = await collectFindings({ artifactDir: dir, sinceMs: now });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.stepId).toBe("ci/fresh");
+  });
 });
