@@ -222,6 +222,36 @@ function scanToken(code: string, i: number, operandEnd: boolean): TokenStep {
 }
 
 /**
+ * Scan one operand-context token — an opaque span, a regex-or-division,
+ * or an identifier run — returning where it ends and whether it leaves
+ * an operand behind. Comments are transparent (operand context passes
+ * through unchanged). Returns null for punctuation/whitespace the
+ * caller's own loop owns.
+ */
+export function scanOperand(
+  code: string,
+  i: number,
+  operandEnd: boolean,
+): { end: number; operandEnd: boolean } | null {
+  const opaque = scanOpaqueEnd(code, i);
+  if (opaque.end > i + 1)
+    return { end: opaque.end, operandEnd: operandEnd || opaque.isString };
+  const c = code[i];
+  if (c === "/")
+    return operandEnd
+      ? { end: i + 1, operandEnd: false }
+      : { end: scanRegex(code, i), operandEnd: true };
+  if (isIdentChar(c)) {
+    const wend = skipIdent(code, i);
+    return {
+      end: wend,
+      operandEnd: operandAfterWord(code.slice(i, wend)),
+    };
+  }
+  return null;
+}
+
+/**
  * End index of the `${` expression whose `{` is at `at`. Strings,
  *  comments, nested templates, and regex literals inside the expression
  *  are all skipped correctly: `` `${ x["`"] }` `` and `` `${ /"/ }` ``

@@ -5,148 +5,27 @@
 // becomes a ShellStep carrying a TODO echo the user replaces.
 
 import { PlaygroundError } from "./share.js";
+import {
+  isIdentChar,
+  isOpaqueStart,
+  isOpenBracket,
+  isCloseBracket,
+  isWsChar,
+  keywordAt,
+  matchBrace,
+  operandAfterWord,
+  scanOpaqueEnd,
+  scanOperand,
+  scanString,
+  skipIdent,
+  skipWs,
+} from "./scanner.js";
 
 // ---------------------------------------------------------------------------
-// Mini-scanner: every matcher below is string- and comment-aware, so braces
-// inside comments or quotes never count as syntax, and a `\\` escape can
-// never run past the end of input. All scans are linear — no regexes at
-// all: a pattern evaluated against user source is ReDoS surface.
+// Every matcher below is string-, comment-, and regex-literal-aware via the
+// shared scanner — braces inside `/[{]/` or quotes never count as syntax,
+// and all scans are linear (no regexes over user source at all).
 // ---------------------------------------------------------------------------
-
-/** Whitespace per the JS grammar (the chars `\s` covers for our use). */
-function isWsChar(c: string | undefined): boolean {
-  return (
-    c === " " ||
-    c === "\t" ||
-    c === "\n" ||
-    c === "\r" ||
-    c === "\f" ||
-    c === "\v"
-  );
-}
-
-/** Identifier chars: `[A-Za-z0-9_$]`. */
-function isIdentChar(c: string | undefined): boolean {
-  if (c === undefined) return false;
-  const n = c.charCodeAt(0);
-  return (
-    (n >= 48 && n <= 57) ||
-    (n >= 65 && n <= 90) ||
-    (n >= 97 && n <= 122) ||
-    c === "_" ||
-    c === "$"
-  );
-}
-
-function skipWs(source: string, i: number): number {
-  while (i < source.length && isWsChar(source[i])) i++;
-  return i;
-}
-
-function skipIdent(source: string, i: number): number {
-  while (i < source.length && isIdentChar(source[i])) i++;
-  return i;
-}
-
-/** Index just past the `}` closing the `${` expression opened at `at`. */
-function skipTemplateExpr(source: string, at: number): number {
-  let depth = 1;
-  let i = at + 1;
-  while (i < source.length && depth > 0) {
-    const c = source[i];
-    if (c === "{") depth++;
-    else if (c === "}") depth--;
-    else if (c === "`") {
-      i = skipString(source, i);
-      continue;
-    }
-    i++;
-  }
-  return i;
-}
-
-/** Index just past the string literal opening at `at`. */
-function skipString(source: string, at: number): number {
-  const quote = source[at];
-  let i = at + 1;
-  while (i < source.length) {
-    const c = source[i];
-    if (c === "\\") {
-      i += 2;
-      continue;
-    }
-    if (c === quote) return i + 1;
-    // Template literals nest `${}` expressions — track brace depth.
-    if (quote === "`" && c === "$" && source[i + 1] === "{") {
-      i = skipTemplateExpr(source, i + 2);
-      continue;
-    }
-    i++;
-  }
-  return i;
-}
-
-function skipLineComment(source: string, at: number): number {
-  const end = source.indexOf("\n", at + 2);
-  return end === -1 ? source.length : end;
-}
-
-function skipBlockComment(source: string, at: number): number {
-  const end = source.indexOf("*/", at + 2);
-  return end === -1 ? source.length : end + 2;
-}
-
-/** True when `at` starts a `//` or `/*` comment. */
-function commentAt(source: string, at: number): boolean {
-  return (
-    source[at] === "/" && (source[at + 1] === "/" || source[at + 1] === "*")
-  );
-}
-
-/** True when `at` opens a string literal or a comment. */
-function isOpaqueStart(source: string, at: number): boolean {
-  const c = source[at];
-  return c === '"' || c === "'" || c === "`" || commentAt(source, at);
-}
-
-/** Advance past a string or comment, or return at+1 for ordinary chars. */
-function skipOpaque(source: string, at: number): number {
-  const c = source[at];
-  if (c === '"' || c === "'" || c === "`") return skipString(source, at);
-  if (source[at] === "/" && source[at + 1] === "/")
-    return skipLineComment(source, at);
-  if (source[at] === "/" && source[at + 1] === "*")
-    return skipBlockComment(source, at);
-  return at + 1;
-}
-
-function isOpenBracket(c: string | undefined): boolean {
-  return c === "{" || c === "[" || c === "(";
-}
-
-function isCloseBracket(c: string | undefined): boolean {
-  return c === "}" || c === "]" || c === ")";
-}
-
-/** Index of the `}` matching the `{` at `open`; -1 when unbalanced. */
-function matchBrace(source: string, open: number): number {
-  let depth = 0;
-  let i = open;
-  while (i < source.length) {
-    const c = source[i];
-    if (isOpaqueStart(source, i)) {
-      i = skipOpaque(source, i);
-      continue;
-    }
-    if (c === "{") depth++;
-    else if (c === "}") {
-      depth--;
-      if (depth === 0) return i;
-    }
-    i++;
-  }
-  return -1;
-}
 
 /**
  * Index of the `:` following a depth-0 `key` in a props object body, or -1.
@@ -154,21 +33,37 @@ function matchBrace(source: string, open: number): number {
  */
 function findPropKey(props: string, key: string): number {
   let depth = 0;
+  let operandEnd = false;
   let i = 0;
   while (i < props.length) {
     const c = props[i];
-    if (isOpaqueStart(props, i)) {
-      i = skipOpaque(props, i);
-      continue;
-    }
-    if (isOpenBracket(c)) depth++;
-    else if (isCloseBracket(c)) depth--;
-    else if (depth === 0 && isIdentChar(c)) {
+    if (isIdentChar(c)) {
       const wend = skipIdent(props, i);
-      if (props.slice(i, wend) === key && props[skipWs(props, wend)] === ":")
-        return skipWs(props, wend);
+      const word = props.slice(i, wend);
+      const hit = depth === 0 && word === key ? skipWs(props, wend) : -1;
+      if (hit >= 0 && props[hit] === ":") return hit;
+      operandEnd = operandAfterWord(word);
       i = wend;
       continue;
+    }
+    const op = scanOperand(props, i, operandEnd);
+    if (op !== null) {
+      operandEnd = op.operandEnd;
+      i = op.end;
+      continue;
+    }
+    if (isWsChar(c)) {
+      i++;
+      continue;
+    }
+    if (isOpenBracket(c)) {
+      depth++;
+      operandEnd = false;
+    } else if (isCloseBracket(c)) {
+      depth--;
+      operandEnd = true;
+    } else {
+      operandEnd = false;
     }
     i++;
   }
@@ -179,7 +74,6 @@ function findPropKey(props: string, key: string): number {
  *  note` — and therefore not part of the value. Emitting it would comment
  *  out the generated `}` after `dependsOn: <value>`. */
 function isTailComment(props: string, k: number, after: number): boolean {
-  if (!commentAt(props, k)) return false;
   const ahead = skipWs(props, after);
   return ahead >= props.length || props[ahead] === ",";
 }
@@ -188,18 +82,37 @@ function isTailComment(props: string, k: number, after: number): boolean {
  *  or the end of the props body, with strings/comments/brackets balanced. */
 function propValueEnd(props: string, j: number): number {
   let depth = 0;
+  let operandEnd = false;
   let k = j;
   while (k < props.length) {
     const v = props[k];
     if (isOpaqueStart(props, k)) {
-      const after = skipOpaque(props, k);
+      const after = scanOpaqueEnd(props, k).end;
       if (depth === 0 && isTailComment(props, k, after)) return k;
       k = after;
       continue;
     }
-    if (isOpenBracket(v)) depth++;
-    else if (isCloseBracket(v)) depth--;
-    else if (v === "," && depth === 0) break;
+    const op = scanOperand(props, k, operandEnd);
+    if (op !== null) {
+      operandEnd = op.operandEnd;
+      k = op.end;
+      continue;
+    }
+    if (isWsChar(v)) {
+      k++;
+      continue;
+    }
+    if (isOpenBracket(v)) {
+      depth++;
+      operandEnd = false;
+    } else if (isCloseBracket(v)) {
+      depth--;
+      operandEnd = true;
+    } else if (v === "," && depth === 0) {
+      return k;
+    } else {
+      operandEnd = false;
+    }
     k++;
   }
   return k;
@@ -283,12 +196,11 @@ function parsePlaygroundImport(
   const namesEnd = matchBrace(source, j);
   if (namesEnd < 0) return null;
   const fromKw = skipWs(source, namesEnd + 1);
-  if (!source.startsWith("from", fromKw) || isIdentChar(source[fromKw + 4]))
-    return null;
+  if (!keywordAt(source, fromKw, "from")) return null;
   const qPos = skipWs(source, fromKw + 4);
   const q = source[qPos];
   if (q !== '"' && q !== "'") return null;
-  const specEnd = skipString(source, qPos);
+  const specEnd = scanString(source, qPos);
   if (source.slice(qPos + 1, specEnd - 1) !== "@sverka/playground") return null;
   const { mapped, fnStepLocals } = mapImportSpecifiers(
     source.slice(j + 1, namesEnd),
@@ -311,7 +223,7 @@ function rewritePlaygroundImports(source: string): {
   let cursor = 0;
   let i = 0;
   while (i < source.length) {
-    const end = skipOpaque(source, i);
+    const end = scanOpaqueEnd(source, i).end;
     if (end > i + 1) {
       i = end;
       continue;
@@ -350,31 +262,45 @@ function stepCallParen(
   return null;
 }
 
+/** Operand context after punctuation — closers end a value, everything
+ *  else (openers, operators, separators) expects one. */
+function punctOperandEnd(c: string | undefined): boolean {
+  return c === ")" || c === "]" || c === "}";
+}
+
 /**
- * Locate the next `new <name>(` call where <name> ∈ names. Manual scan —
- * opaque regions are skipped inline, so a `new FunctionStep(` inside a
- * comment or string is documentation, not a call.
+ * Locate the next `new <name>(` call where <name> ∈ names. Whole-word
+ * scanning makes boundary checks free — `mynew` or `newer` never match.
+ * Opaque regions and regex literals are skipped inline, so a
+ * `new FunctionStep(` inside a comment, string, or `/new Fn(/` pattern
+ * is documentation, not a call.
  */
 function findStepCall(
   code: string,
   names: readonly string[],
   from: number,
 ): { start: number; paren: number } | null {
+  let operandEnd = false;
   let i = from;
   while (i < code.length) {
-    const end = skipOpaque(code, i);
-    if (end > i + 1) {
-      i = end;
+    if (isIdentChar(code[i])) {
+      const wend = skipIdent(code, i);
+      const word = code.slice(i, wend);
+      if (word === "new") {
+        const paren = stepCallParen(code, wend, names);
+        if (paren !== null) return { start: i, paren };
+      }
+      operandEnd = operandAfterWord(word);
+      i = wend;
       continue;
     }
-    if (
-      code.startsWith("new", i) &&
-      !isIdentChar(code[i - 1]) &&
-      !isIdentChar(code[i + 3])
-    ) {
-      const paren = stepCallParen(code, i + 3, names);
-      if (paren !== null) return { start: i, paren };
+    const op = scanOperand(code, i, operandEnd);
+    if (op !== null) {
+      operandEnd = op.operandEnd;
+      i = op.end;
+      continue;
     }
+    if (!isWsChar(code[i])) operandEnd = punctOperandEnd(code[i]);
     i++;
   }
   return null;
@@ -384,18 +310,32 @@ function findStepCall(
  *  or -1 when the argument list closes/ends first. */
 function scanScopeEnd(code: string, from: number): number {
   let depth = 0;
+  let operandEnd = false;
   let k = from;
   while (k < code.length) {
-    const c = code[k];
-    if (isOpaqueStart(code, k)) {
-      k = skipOpaque(code, k);
+    const op = scanOperand(code, k, operandEnd);
+    if (op !== null) {
+      operandEnd = op.operandEnd;
+      k = op.end;
       continue;
     }
-    if (isOpenBracket(c)) depth++;
-    else if (isCloseBracket(c)) {
+    const c = code[k];
+    if (isWsChar(c)) {
+      k++;
+      continue;
+    }
+    if (isOpenBracket(c)) {
+      depth++;
+      operandEnd = false;
+    } else if (isCloseBracket(c)) {
       if (depth === 0) return -1;
       depth--;
-    } else if (c === "," && depth === 0) return k;
+      operandEnd = true;
+    } else if (c === "," && depth === 0) {
+      return k;
+    } else {
+      operandEnd = false;
+    }
     k++;
   }
   return -1;
@@ -421,7 +361,7 @@ function parseStepArgs(code: string, paren: number): StepArgs | null {
       "cannot parse FunctionStep — template-literal step id",
     );
   if (q !== '"' && q !== "'") return null;
-  const idEnd = skipString(code, qPos);
+  const idEnd = scanString(code, qPos);
   const afterId = skipWs(code, idEnd);
   if (code[afterId] !== ",") return null;
   const propsOpen = skipWs(code, afterId + 1);
