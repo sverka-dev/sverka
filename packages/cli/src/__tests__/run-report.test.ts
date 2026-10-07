@@ -131,4 +131,21 @@ describe("run command — per-run report artifacts (spec 53)", () => {
       await cleanupTempDir(outside);
     }
   });
+
+  it("warns and still emits the result when the report dir can't be created", async () => {
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+    // .sverka/runs as a FILE: the workspace tree still works (steps run),
+    // but mkdir .sverka/runs/<id> fails ENOTDIR — an ordinary fs failure
+    // must degrade to a warning, not kill the successful run.
+    const { writeFileSync, mkdirSync } = await import("node:fs");
+    mkdirSync(join(dir, ".sverka"));
+    writeFileSync(join(dir, ".sverka", "runs"), "not a dir");
+    const out = new CaptureWriter();
+    const code = await main(["run", "--root", dir, "--format", "text"], {
+      output: out,
+    });
+    expect(code).toBe(0);
+    expect(out.stderrText).toContain("run report not written");
+  });
 });

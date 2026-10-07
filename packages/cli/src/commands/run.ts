@@ -167,21 +167,31 @@ export async function runCommand(
     )?.runId;
   let report: { html: string | null; json: string } | undefined;
   if (runId !== undefined) {
-    const artifacts = await writeRunArtifacts({
-      root: global.root,
-      runId,
-      planId: plan.id,
-      runStatus,
-      events,
-      durationMs,
-      evalResult,
-      artifactDir,
-      sinceMs: start,
-    });
-    report = {
-      html: artifacts.htmlPath,
-      json: join(artifacts.dir, "report.json"),
-    };
+    try {
+      const artifacts = await writeRunArtifacts({
+        root: global.root,
+        runId,
+        planId: plan.id,
+        runStatus,
+        events,
+        durationMs,
+        evalResult,
+        artifactDir,
+        sinceMs: start,
+      });
+      report = {
+        html: artifacts.htmlPath,
+        json: join(artifacts.dir, "report.json"),
+      };
+    } catch (err) {
+      // REPORT_PATH_ESCAPE is the deliberate security failure — propagate.
+      // Anything else (ENOSPC, EACCES) must not turn a successful run into
+      // a runtime error: report output is best-effort, warn and move on.
+      if (err instanceof CliError) throw err;
+      output.errorLine(
+        `warning: run report not written: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   // Tell the user where the HTML report went (sarif/web print their own).
@@ -809,8 +819,7 @@ async function writeRunArtifacts(
   const htmlPath = await writeReportHtml(dir, findings, warnings);
   writeFileSync(
     join(dir, "report.json"),
-    // nosemgrep — report.json is file content, not an object key; the
-    // "unstable key ordering" pattern does not apply to serialization.
+    // nosemgrep: unstable-key-ordering — serialized file content, not a key
     JSON.stringify(runReportPayload(opts, warnings), null, 2),
     "utf-8",
   );
