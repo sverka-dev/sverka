@@ -112,10 +112,7 @@ function scanStatementEnd(code: string, at: number): number {
 }
 
 function keywordAt(code: string, at: number, word: string): boolean {
-  return (
-    code.startsWith(word, at) &&
-    !IDENT.test(code[at + word.length] ?? "")
-  );
+  return code.startsWith(word, at) && !IDENT.test(code[at + word.length] ?? "");
 }
 
 /**

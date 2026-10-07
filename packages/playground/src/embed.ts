@@ -127,8 +127,9 @@ export function mountRunner(
         const failed = result.steps.filter((s) => s.status === "failure");
         showFindings(
           `<!DOCTYPE html><html><body style="background:#0d1117;color:#f85149;font-family:monospace;padding:1rem;"><h3>Run failed</h3><pre>${escapeHtml(
-            failed.map((s) => `${s.stepId}: ${s.error ?? "failed"}`).join("\n") ||
-              `${result.steps.length} steps failed`,
+            failed
+              .map((s) => `${s.stepId}: ${s.error ?? "failed"}`)
+              .join("\n") || `${result.steps.length} steps failed`,
           )}</pre></body></html>`,
         );
       } else if (result.findings.length === 0) {
