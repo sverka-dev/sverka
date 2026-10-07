@@ -57,7 +57,9 @@ function skipBlockComment(source: string, at: number): number {
 
 /** True when `at` starts a `//` or `/*` comment. */
 function commentAt(source: string, at: number): boolean {
-  return source[at] === "/" && (source[at + 1] === "/" || source[at + 1] === "*");
+  return (
+    source[at] === "/" && (source[at + 1] === "/" || source[at + 1] === "*")
+  );
 }
 
 /** Advance past a string or comment, or return at+1 for ordinary chars. */
