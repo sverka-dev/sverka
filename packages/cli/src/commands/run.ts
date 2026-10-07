@@ -21,6 +21,7 @@ import { loadProjectGraph } from "../internal/config.js";
 import { resolveDefaultEntryId, entryExists } from "../internal/graph.js";
 import { isBinaryAvailable } from "../internal/runtime-check.js";
 import { collectReportContext } from "../internal/report-context.js";
+import { watchLoop } from "../internal/watch.js";
 
 export interface RunArgs {
   entryId?: string;
@@ -29,6 +30,8 @@ export interface RunArgs {
   output?: string;
   /** Enable the interactive TUI (opt-in; default output is plain text). */
   tui?: boolean;
+  /** Re-run on file changes (Spec 53: debounced, keeps watching on failure). */
+  watch?: boolean;
   /** Max steps running concurrently (--jobs). */
   jobs?: number;
   /** Captured stdout/stderr tail lines printed per step (0 disables). */
@@ -44,6 +47,9 @@ export async function runCommand(
   output: OutputWriter,
   start: number,
 ): Promise<number> {
+  if (args.watch === true) {
+    return runWatch(args, global, output);
+  }
   const executor = args.executor ?? "host";
   // --format html or --output (without sarif/web) implies HTML format
   const isSarif = global.format === "sarif";
@@ -172,6 +178,40 @@ export async function runCommand(
   }
 
   return exitCodeForStatus(runStatus);
+}
+
+/**
+ * Watch mode (Spec 53): delegate to the supervisor, which re-invokes
+ * runCommand per change — each cycle re-plans, so sverka.config.ts edits
+ * are picked up too. Ctrl+C aborts the watcher and exits cleanly.
+ */
+async function runWatch(
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+): Promise<number> {
+  if (args.tui === true) {
+    throw new CliError(
+      "--watch is incompatible with --tui (the TUI owns the terminal until exit)",
+      "INVALID_FLAG",
+      ExitCode.UsageError,
+    );
+  }
+  const ac = new AbortController();
+  const onSigint = () => ac.abort();
+  process.on("SIGINT", onSigint);
+  try {
+    const watcher = watchLoop({
+      root: global.root,
+      output,
+      signal: ac.signal,
+      run: () =>
+        runCommand({ ...args, watch: false }, global, output, Date.now()),
+    });
+    return await watcher.done;
+  } finally {
+    process.removeListener("SIGINT", onSigint);
+  }
 }
 
 function assertExecutorAvailable(executor: "host" | "docker"): void {

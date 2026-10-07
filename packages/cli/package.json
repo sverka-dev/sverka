@@ -37,16 +37,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/workflow": "workspace:*",
-    "@sverka/sdk": "workspace:*",
-    "@sverka/runtime": "workspace:*",
-    "@sverka/verification": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@sverka/compiler": "workspace:*",
     "@sverka/reporter": "workspace:*",
+    "@sverka/runtime": "workspace:*",
     "@sverka/sarif-viewer-tui": "workspace:*",
     "@sverka/sarif-viewer-web": "workspace:*",
+    "@sverka/sdk": "workspace:*",
     "@sverka/ui": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@sverka/verification": "workspace:*",
+    "@sverka/workflow": "workspace:*",
+    "chokidar": "4.0.3",
     "yargs": "^18.2.0",
     "zod": "^4.6.5"
   },

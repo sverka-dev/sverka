@@ -109,6 +109,11 @@ function addRunCommand(y: Argv): Argv {
       type: "number",
       describe:
         "Captured stdout/stderr tail lines printed per step (0 disables; default 20)",
+    })
+    .option("watch", {
+      type: "boolean",
+      alias: "w",
+      describe: "Re-run on file changes (debounced 300ms)",
     });
 }
 
@@ -347,6 +352,7 @@ function dispatchRun(
   if (typeof parsed.output === "string") args.output = parsed.output;
   if (parsed.tui === true) args.tui = true;
   if (parsed.tui === false) args.tui = false;
+  if (parsed.watch === true) args.watch = true;
   return runCommand(args, global, output, start);
 }
 
