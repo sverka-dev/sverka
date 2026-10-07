@@ -22,8 +22,13 @@ export function findLatestReportHtml(root: string): string | undefined {
     let stat;
     try {
       stat = statSync(candidate);
-    } catch {
-      continue; // not a run dir, or report.html missing
+    } catch (e) {
+      // ENOENT = report.html missing; ENOTDIR = name isn't a run dir — both
+      // expected. Anything else (e.g. EACCES) is a real failure: surface it
+      // rather than silently opening an older report.
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTDIR") continue;
+      throw e;
     }
     if (stat.isFile() && (best === undefined || stat.mtimeMs > best.mtimeMs)) {
       best = { path: candidate, mtimeMs: stat.mtimeMs };

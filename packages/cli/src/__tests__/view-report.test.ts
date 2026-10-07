@@ -9,8 +9,13 @@ vi.mock("node:child_process", async (importOriginal) => {
   return { ...actual, spawnSync: vi.fn() };
 });
 
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return { ...actual, statSync: vi.fn(actual.statSync) };
+});
+
 import { spawnSync } from "node:child_process";
-import { utimesSync } from "node:fs";
+import { statSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { main } from "../index.js";
 import {
@@ -21,6 +26,8 @@ import {
 } from "./helpers/fixtures.js";
 
 const mockedSpawnSync = vi.mocked(spawnSync);
+const mockedStatSync = vi.mocked(statSync);
+const realFs = await vi.importActual<typeof import("node:fs")>("node:fs");
 
 /** Force the interactive branch — vitest stdin is never a TTY. */
 let stdinIsTTY: PropertyDescriptor | undefined;
@@ -61,6 +68,8 @@ describe("view command — latest run report (spec 53)", () => {
     dir = await makeTempDir("sverka-view-report-");
     stubInteractiveStdin();
     mockedSpawnSync.mockReset();
+    mockedStatSync.mockReset();
+    mockedStatSync.mockImplementation(realFs.statSync);
     mockedSpawnSync.mockReturnValue({
       status: 0,
       error: undefined,
@@ -99,6 +108,41 @@ describe("view command — latest run report (spec 53)", () => {
 
     expect(code).toBe(0);
     expect(out.stdoutText).toContain(`report: ${older}`);
+  });
+
+  it("skips non-directory entries under .sverka/runs (ENOTDIR)", async () => {
+    const report = await fakeRunReport(dir, "run-a", new Date("2026-01-01"));
+    await writefile(dir, join(".sverka", "runs", "stray-file"), "x");
+
+    const out = new CaptureWriter();
+    const code = await main(["view", "--root", dir], { output: out });
+
+    expect(code).toBe(0);
+    expect(out.stdoutText).toContain(`report: ${report}`);
+  });
+
+  it("fails loudly when a run report exists but cannot be stat'ed", async () => {
+    await fakeRunReport(dir, "run-a", new Date("2026-01-01"));
+    await fakeRunReport(dir, "run-b", new Date("2026-02-01"));
+    // Newest run's report errors with EACCES (not ENOENT) — view must
+    // surface it, not silently fall back to the older report.
+    mockedStatSync.mockImplementation(((...args: unknown[]) => {
+      if (typeof args[0] === "string" && args[0].includes("run-b")) {
+        const e = new Error(
+          "EACCES: permission denied",
+        ) as NodeJS.ErrnoException;
+        e.code = "EACCES";
+        throw e;
+      }
+      return realFs.statSync(args[0] as never, args[1] as never);
+    }) as typeof statSync);
+
+    const out = new CaptureWriter();
+    const code = await main(["view", "--root", dir], { output: out });
+
+    expect(code).toBe(3);
+    expect(out.stderrText).toContain("EACCES");
+    expect(mockedSpawnSync).not.toHaveBeenCalled();
   });
 
   it("exits UsageError when no run report exists", async () => {
