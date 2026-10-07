@@ -16,3 +16,12 @@ export type {
   StepResult,
   PipelineResult,
 } from "./types.js";
+
+// Share links (Spec 53)
+export {
+  encodeShareLink,
+  decodeShareLink,
+  PlaygroundError,
+  SHARE_PAYLOAD_WARN_BYTES,
+} from "./share.js";
+export type { ShareableRun, PlaygroundErrorCode } from "./share.js";

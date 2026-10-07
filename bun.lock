@@ -120,6 +120,7 @@
       "version": "0.2.10",
       "dependencies": {
         "@sverka/sarif-viewer-web": "workspace:*",
+        "fflate": "0.8.3",
       },
       "devDependencies": {
         "tsdown": "^0.23.0",
