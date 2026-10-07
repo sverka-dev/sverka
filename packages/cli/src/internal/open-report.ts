@@ -3,6 +3,7 @@
 
 import process from "node:process";
 import { spawnSync } from "node:child_process";
+import type { SpawnSyncOptions } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -45,9 +46,26 @@ function isWsl(): boolean {
 
 function openerCandidates(
   path: string,
-): readonly (readonly [string, string[]])[] {
+): readonly (readonly [string, string[], SpawnSyncOptions?])[] {
   if (process.platform === "darwin") return [["open", [path]]];
-  if (process.platform === "win32") return [["cmd", ["/c", "start", "", path]]];
+  if (process.platform === "win32") {
+    // `cmd /c` re-parses shell metacharacters (& | ^ < > %) anywhere on the
+    // command line, and Node's default arg escaping can't produce quoting
+    // cmd understands — so the path must not appear on the line at all. It
+    // travels via the environment instead: %VAR% expands once, after the
+    // line is tokenized into commands, so every metacharacter in the value
+    // stays literal.
+    return [
+      [
+        "cmd",
+        ["/c", "start", '""', '"%SVERKA_VIEW_TARGET%"'],
+        {
+          windowsVerbatimArguments: true,
+          env: { ...process.env, SVERKA_VIEW_TARGET: path },
+        },
+      ],
+    ];
+  }
   return isWsl()
     ? [
         ["wslview", [path]],
@@ -59,8 +77,12 @@ function openerCandidates(
 /** Open a file with the platform's default handler. Returns false when no
  *  opener binary exists or every attempt failed — callers print the path. */
 export function openReportInBrowser(path: string): boolean {
-  for (const [cmd, args] of openerCandidates(path)) {
-    const res = spawnSync(cmd, args, { stdio: "ignore", timeout: 5000 });
+  for (const [cmd, args, options] of openerCandidates(path)) {
+    const res = spawnSync(cmd, args, {
+      stdio: "ignore",
+      timeout: 5000,
+      ...options,
+    });
     if (res.error === undefined && res.status === 0) return true;
   }
   return false;

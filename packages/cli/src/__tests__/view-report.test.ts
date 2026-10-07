@@ -124,4 +124,34 @@ describe("view command — latest run report (spec 53)", () => {
     expect(out.stdoutText).toContain(`report: ${report}`);
     expect(out.stderrText).toContain("could not open a browser");
   });
+
+  it("win32: keeps the report path off the cmd line — passed via env instead", async () => {
+    // `cmd /c` re-parses & | ^ < > % on the command line, so an inline path
+    // is injectable (CWE-78); the path must ride in SVERKA_VIEW_TARGET.
+    const report = await fakeRunReport(dir, "run-a", new Date("2026-01-01"));
+    const platform = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      const out = new CaptureWriter();
+      const code = await main(["view", "--root", dir], { output: out });
+      expect(code).toBe(0);
+    } finally {
+      if (platform !== undefined) {
+        Object.defineProperty(process, "platform", platform);
+      }
+    }
+
+    const call = mockedSpawnSync.mock.calls[0];
+    expect(call?.[0]).toBe("cmd");
+    const args = (call?.[1] ?? []) as readonly string[];
+    expect(args.join(" ")).not.toContain(report);
+    const options = call?.[2] as
+      | {
+          env?: Record<string, string | undefined>;
+          windowsVerbatimArguments?: boolean;
+        }
+      | undefined;
+    expect(options?.env?.SVERKA_VIEW_TARGET).toBe(report);
+    expect(options?.windowsVerbatimArguments).toBe(true);
+  });
 });
