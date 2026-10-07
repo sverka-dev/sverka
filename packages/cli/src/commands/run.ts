@@ -218,9 +218,17 @@ async function runWatch(
       configPath !== null && !configPath.startsWith(`${resolve(global.root)}/`)
         ? [configPath]
         : [];
+    // An in-root --output file is rewritten by every run — watching it
+    // would make the run's own artifact retrigger the loop forever.
+    const ignored: string[] = [];
+    if (args.output !== undefined) {
+      const out = resolve(global.root, args.output);
+      if (out.startsWith(`${resolve(global.root)}/`)) ignored.push(out);
+    }
     const watcher = watchLoop({
       root: global.root,
       extraPaths,
+      ignored,
       output,
       signal: ac.signal,
       run: () =>
