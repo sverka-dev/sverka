@@ -58,7 +58,9 @@ export function lineCommentEnd(code: string, at: number): number {
   return end === -1 ? code.length : end;
 }
 
-/** Index just past the `*/ ` ending the `; /*` comment at `at`. */
+/** Index just past the closing star-slash ending the block comment at
+ *  `at` — the literal marker is never written inside this doc comment
+ *  or it would terminate the comment itself. */
 export function blockCommentEnd(code: string, at: number): number {
   const end = code.indexOf("*/", at + 2);
   return end === -1 ? code.length : end + 2;
