@@ -40,9 +40,11 @@ single job — the "hosted engine mode" of §28 strategy 2, using
 the provider's compute. Agent steps run `emulated` this way today
 (Spec 27). Work item: **documentation only** — an
 `engdocs/user/execution/hosted-bootstrap.md` page showing the
-trade-off (one provider job, full engine semantics incl.
-suspend/resume, less provider UI granularity) versus per-step
-native lowering.
+trade-off (one provider job running the engine's feature set —
+suspend/resume excluded: `Engine.resume()` throws
+`RESUME_NOT_IMPLEMENTED` today and the bootstrap job wires no
+snapshot store — with less provider UI granularity) versus
+per-step native lowering.
 
 ### Stage B — Self-hosted worker (build when demanded)
 

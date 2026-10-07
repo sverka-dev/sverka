@@ -35,8 +35,18 @@ Two service halves:
 ## Goals
 
 - `sverka-arena run --publish` (or `arena publish results.json`):
-  validates against `arena.result/v1` schema, writes to the
-  registry at `results/<pack>/<agent>/<YYYY-MM-DD>/<runId>.json`.
+  `runArena` emits a matrix `ArenaResult` (Spec 42 — one agent ×
+  models × plugin sets × tasks), which publish **explodes into one
+  `arena.result/v1` document per `(model, plugin-set)` cell**:
+  `agent` = the run's `AgentAdapter.id`, `tasks[]` = that cell's
+  `RunResult`s mapped (`taskId`→`task`, `promptHash` = sha256 of
+  the task's `prompt`, `success`+`checkResults`→`score`,
+  `RunMetrics`→`metrics`, trace → `traceRef` file written under
+  `traces/`). `arena publish <file>` accepts a matrix
+  `results.json` (same explosion) or an already-shaped
+  `arena.result/v1` doc. Every emitted document validates against
+  the `arena.result/v1` schema and lands at
+  `results/<pack>/<agent>/<YYYY-MM-DD>/<runId>.json`.
 - Registry backends: `git` (clone → write → commit → push; default,
   auditable, PR-reviewable) and `s3` (put-object; for volume).
 - `sverka-arena board --pack <name>` renders the leaderboard
@@ -51,9 +61,10 @@ Two service halves:
   pass/fail score. **LLM-judge scoring is out of scope**; a
   `judge:` field is reserved in the schema for a later spec.
 - Comparability metadata: every published result records agent
-  version, model id, plugin set, prompt hash, and sverka version —
-  leaderboard rows are only comparable within the same pack +
-  task + sverka version cohort.
+  version, model id, plugin set, and sverka version, and every
+  `TaskResult` records its prompt's `promptHash` — leaderboard
+  rows are only comparable within the same pack + task + sverka
+  version + prompt hash cohort.
 
 ## Non-goals
 
@@ -88,6 +99,8 @@ export interface ArenaResultV1 {
 
 export interface TaskResult {
   readonly task: string;
+  /** sha256 of the task prompt — a prompt edit breaks comparability. */
+  readonly promptHash: string;
   readonly score: { readonly passed: boolean; readonly findings: number };
   readonly metrics: {
     readonly tokens?: number;
@@ -132,9 +145,21 @@ scored by the sverka engine, not by the agent's self-report.
 
 ### Leaderboard aggregation
 
-`arena board` computes per `(pack, agent, model)`:
+`arena board` groups published results into cohorts keyed
+`(pack, task, sverkaVersion, promptHash)` — results from
+different tasks, sverka versions, or prompts never merge into one
+score — and renders one `BoardRow` per `(agent, model)` inside
+each cohort:
 
 ```ts
+interface BoardCohort {
+  readonly pack: string;
+  readonly task: string;
+  readonly sverkaVersion: string;
+  readonly promptHash: string;
+  readonly rows: readonly BoardRow[]; // one per (agent, model)
+}
+
 interface BoardRow {
   readonly agent: string;
   readonly model: string;

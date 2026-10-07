@@ -40,8 +40,9 @@ A run MUST NOT fail because the hub is down.
 ## Goals
 
 - `RemoteCacheStore implements CacheStore` (Spec 19 contract):
-  `restore(req)` → `GET /v1/cache/{key}`; `store(req)` →
-  `PUT /v1/cache/{key}` with the archived `paths` payload.
+  `restore(req)` → `GET /v1/cache/{project}/{key}`; `store(req)` →
+  `PUT /v1/cache/{project}/{key}` with the archived `paths`
+  payload (`project` from `RemoteStoreConfig.project`).
   Content-addressed by the same key derivation as the file cache —
   no second key scheme.
 - `RemoteSnapshotStore implements SnapshotStore` (Spec 31):
@@ -99,6 +100,7 @@ export function uploadRunReport(
   c: RemoteStoreConfig,
   report: RunReport,
   findings: readonly Finding[],
+  meta: { readonly entry: string }, // entry id the run executed
 ): Promise<void>;
 ```
 
@@ -107,8 +109,8 @@ export function uploadRunReport(
 ```text
 PUT    /v1/cache/{project}/{key}          body: tar.zst blob
 GET    /v1/cache/{project}/{key}          → 200 blob | 404
-POST   /v1/runs                           body: RunReport + findings
-GET    /v1/runs?project=&limit=&before=   → RunSummary[]
+POST   /v1/runs                           body: { project, entry, report: RunReport, findings }
+GET    /v1/runs?project=&limit=&before=   → HubRunSummary[]
 GET    /v1/runs/{runId}                   → RunReport + findings
 PUT    /v1/snapshots/{project}/{runId}    body: RunSnapshot
 GET    /v1/snapshots/{project}/{runId}    → RunSnapshot | 404
@@ -144,9 +146,13 @@ remote: {
 - Cache blob: `tar.zst` of the step's declared `paths`, identical
   payload to the file cache entry (Spec 19) — one format, two
   backends.
-- `RunSummary`: `{ runId, project, entry, status, startedAt,
-durationMs, findingCounts, policyVerdict? }` — index rows for
-  the list view; `POST /v1/runs` returns `{ runId, url }`.
+- `HubRunSummary` (distinct from Spec 38's `RunSummary` aggregate
+  inside `RunReport.summary`): `{ runId, project, entry, status,
+startedAt, durationMs, findingCounts, policyVerdict? }` — index
+  rows for the list view. `project` and `entry` come from the
+  upload envelope (`RemoteStoreConfig.project` and the run's entry
+  id — `RunReport` carries neither); `POST /v1/runs` returns
+  `{ runId, url }`.
 - Flaky aggregation is computed server-side over stored reports —
   no client-side scan.
 

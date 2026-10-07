@@ -67,10 +67,15 @@ consequence, not the pitch).
 - **GitLab safe-apply pattern**: a step declaring
   `permissions.write` lowers to a separate `apply` job in a
   protected stage that receives a scoped token variable
-  (`SVERKA_APPLY_TOKEN`, protected+masked CI/CD variable) and
-  re-executes only the declared write operations from a validated
-  artifact produced by the agent job. The agent job itself remains
-  read-only (`GITLAB_TOKEN`/`CI_JOB_TOKEN` with read scope only).
+  (`SVERKA_APPLY_TOKEN`, masked CI/CD variable **scoped to the
+  `sverka-apply` environment** — the `__apply` job declares
+  `environment: sverka-apply`. Variable protection alone is
+  ref-scoped and would leak the token to the agent job on a
+  protected ref; environment scoping is what isolates it per job)
+  and re-executes only the declared write operations from a
+  validated artifact produced by the agent job. The agent job
+  itself remains read-only (`GITLAB_TOKEN`/`CI_JOB_TOKEN` with
+  read scope only).
 - Agent driver conventions: `AgentStep.engine` resolved against
   env vars — `SVERKA_AGENT_ANTHROPIC_KEY`, `SVERKA_AGENT_OPENAI_KEY`,
   `GITLAB_DUO_TOKEN` (optional, Duo where available). The compiled
@@ -107,9 +112,14 @@ wiring is:
 ```text
 GitLab webhook (note events)
   → project CI/CD trigger token
-  → POST /projects/:id/trigger/pipeline  (variables: SVERKA_EVENT=comment,
-      COMMENT_BODY=..., MR_IID=..., ISSUE_IID=...)
-  → pipeline with rules matching $SVERKA_EVENT
+  → POST /projects/:id/trigger/pipeline  (variables:
+      SVERKA_EVENT=comment|issue, COMMENT_BODY=..., MR_IID=...,
+      ISSUE_IID=..., plus the filter variables the rules match on:
+      SVERKA_COMMENT_ON=<noteable_type: merge_request|issue|commit>,
+      SVERKA_ISSUE_ACTION=<webhook action>,
+      SVERKA_ISSUE_LABELS=<comma-joined label titles>)
+  → pipeline with rules matching $SVERKA_EVENT + the filter
+    variables
 ```
 
 Sverka defines the **contract** (variable names + rules mapping)
@@ -138,22 +148,33 @@ export function issue(opts?: {
 
 ### GitLab lowering (`@sverka/compiler`)
 
-- `comment` → job-level `rules:if` on `SVERKA_EVENT` +
-  `CI_PIPELINE_SOURCE` in (`trigger`,`web`), plus a
-  `sverka:mention:` annotation comment consumed by the agent's
-  prompt template (`{{ event.comment.body }}` context ref —
-  `event` namespace already exists, architecture spec §12 /
-  feature F-35).
-- `issue` → same `SVERKA_EVENT` mechanism with
-  `SVERKA_EVENT=issue`.
+- `comment` → job-level `rules:if` on `$SVERKA_EVENT == "comment"`
+  - `CI_PIPELINE_SOURCE` in (`trigger`,`web`), plus the declared
+    filters lowered into the same rule: `on` adds
+    `&& $SVERKA_COMMENT_ON == "<noteable_type>"`
+    (`mergeRequest`→`merge_request`), and `mention` adds
+    `&& $COMMENT_BODY =~ /<mention>/`. A `sverka:mention:` annotation
+    comment is still emitted and consumed by the agent's prompt
+    template (`{{ event.comment.body }}` context ref — `event`
+    namespace already exists, architecture spec §12 / feature F-35)
+    as a defense-in-depth re-check inside the sandboxed job.
+- `issue` → `$SVERKA_EVENT == "issue"` plus declared filters:
+  `action` adds `&& $SVERKA_ISSUE_ACTION == "<action>"`, and each
+  `labels` entry adds `&& $SVERKA_ISSUE_LABELS =~
+/(^|,)<label>(,|$)/`.
 - `schedule` → `rules:if: '$CI_PIPELINE_SOURCE == "schedule" &&
- $CI_SCHEDULE_NAME == "<entry>"'` (schedule name is created
-  manually per docs; rules must not silently assume it exists).
+$CI_PIPELINE_SCHEDULE_DESCRIPTION == "<entry>"'` (the schedule's
+  **description** — set manually per the docs — must equal the
+  entry name; `CI_SCHEDULE_NAME` does not exist as a predefined
+  variable and rules must not silently assume it).
 - `permissions.write` step → emits an additional job
   `<step>__apply` in stage `sverka-apply` (after the agent stage):
   - input: `sverka-writes.json` artifact emitted by the agent job
     (validated against the step's `WriteDeclaration[]`);
-  - environment: `SVERKA_APPLY_TOKEN` masked+protected;
+  - environment: the job declares `environment: sverka-apply`;
+    `SVERKA_APPLY_TOKEN` is a masked CI/CD variable scoped to that
+    environment, so no other job — including the agent job on a
+    protected ref — receives it;
   - the agent job artifact is the _only_ channel — the agent job
     gets no token at all.
 
@@ -178,21 +199,26 @@ SVERKA_APPLY_TOKEN    # write-scoped, present in __apply job only
   the job loudly; it never guesses writes.
 - Missing agent key env var at runtime → `NO_AGENT_DRIVER`
   (Spec 27 semantics) naming the expected env var.
-- `schedule` entry without matching GitLab schedule name → the
-  rules simply never match; docs must state this is by design
-  (GitLab owns schedule existence).
+- `schedule` entry without a GitLab schedule whose description
+  matches the entry name → the rules simply never match; docs must
+  state this is by design (GitLab owns schedule existence).
 
 ## Test plan
 
 1. `comment({ mention: "@sverka", on: "mergeRequest" })` entry
-   lowers to GitLab `rules:` containing `SVERKA_EVENT == "comment"`.
-2. `issue({ action: "opened" })` lowers to `SVERKA_EVENT == "issue"`
-   rule.
+   lowers to GitLab `rules:` containing `SVERKA_EVENT ==
+"comment"`, `$SVERKA_COMMENT_ON == "merge_request"`, and
+   `$COMMENT_BODY =~ /@sverka/`; a comment event missing the
+   mention or on the wrong object kind does not match the rule.
+2. `issue({ action: "opened", labels: ["agent"] })` lowers to
+   `SVERKA_EVENT == "issue"` plus `$SVERKA_ISSUE_ACTION ==
+"opened"` and a `SVERKA_ISSUE_LABELS` regex per label.
 3. `schedule("0 9 * * 1")` entry lowers to `CI_PIPELINE_SOURCE ==
-"schedule"` + `CI_SCHEDULE_NAME` guard, with the entry name.
+"schedule"` + `CI_PIPELINE_SCHEDULE_DESCRIPTION` guard, with the
+   entry name.
 4. Step with `permissions.write` emits exactly one `<step>__apply`
-   job in stage `sverka-apply`; agent job env contains no
-   `SVERKA_APPLY_TOKEN`.
+   job in stage `sverka-apply` declaring `environment:
+sverka-apply`; agent job env contains no `SVERKA_APPLY_TOKEN`.
 5. `sverka-writes.json` validation: artifact declaring a write
    kind not in `WriteDeclaration[]` → apply job fails (fixture
    test on the apply runner).
