@@ -1,3 +1,15 @@
+## 0.2.11 (2026-10-07)
+
+### 🚀 Features
+
+- **playground:** share links via #c= fragment (spec 53.3) ([#318](https://github.com/sverka-dev/sverka/pull/318))
+- **run:** sverka run --watch (spec 53.2) ([#324](https://github.com/sverka-dev/sverka/pull/324))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.10 (2026-10-06)
 
 ### 🩹 Fixes
