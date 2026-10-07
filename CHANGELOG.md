@@ -1,3 +1,13 @@
+## 0.2.16 (2026-10-07)
+
+### 🚀 Features
+
+- **cli:** zero-config sverka run + --report flag (spec 53) ([#326](https://github.com/sverka-dev/sverka/pull/326))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.15 (2026-10-07)
 
 ### 🚀 Features
