@@ -36,3 +36,6 @@ export {
   evaluateUserCode,
   runPipelineWithTimeout,
 } from "./engine.js";
+
+// Transpile playground source → sverka.config.ts (Spec 53)
+export { toSverkaConfig } from "./transpile.js";
