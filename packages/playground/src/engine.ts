@@ -422,8 +422,7 @@ export function evaluateUserCode(code: string): Project {
   // NOSONAR suppresses only issues on the marker's own line — it must
   // trail the `new Function` callee, not sit inside the argument list.
   const fn = new Function(...params); // NOSONAR — intentional dynamic evaluation in sandbox
-  // prettier-ignore — one line so NOSONAR anchors the invocation itself
-  const result = fn(
+  const fnArgs = [
     Project,
     Pipeline,
     FunctionStep,
@@ -433,7 +432,10 @@ export function evaluateUserCode(code: string): Project {
     changeRequest,
     manual,
     schedule,
-  ); // NOSONAR — intentional dynamic evaluation in sandbox
+  ];
+  // NOSONAR suppresses only issues on the marker's own line — it must
+  // trail the `fn(...)` invocation, not sit inside an argument list.
+  const result = fn(...fnArgs); // NOSONAR — intentional dynamic evaluation in sandbox
   if (!(result instanceof Project)) {
     throw new TypeError("Code must export a Project instance");
   }
