@@ -6,47 +6,114 @@ import { Project, Pipeline, FunctionStep, Entry } from "./pipeline.js";
 import { runPipeline } from "./runner.js";
 
 /** Default template shown in the editor. */
-export const DEFAULT_CODE = `import { Project, Pipeline, FunctionStep, Entry } from "@sverka/playground";
-
-const proj = new Project("demo");
-const checks = new Pipeline(proj, "checks");
-
-new FunctionStep(checks, "lint", {
-  fn: () => [
-    { rule: "no-unused-vars", file: "src/index.ts", line: 5, severity: "high", message: "Variable 'x' is declared but never used" },
-    { rule: "no-console", file: "src/utils.ts", line: 12, severity: "medium", message: "Unexpected console.log statement" },
-  ],
-});
-
-new FunctionStep(checks, "typecheck", {
-  fn: () => [
-    { rule: "ts2322", file: "src/types.ts", line: 8, severity: "critical", message: "Type 'string' is not assignable to type 'number'" },
-  ],
-});
-
-new FunctionStep(checks, "test", {
-  fn: () => [
-    { rule: "assertion-failed", file: "test/index.test.ts", line: 23, severity: "high", message: "Expected 5 but got 3" },
-    { rule: "assertion-failed", file: "test/index.test.ts", line: 45, severity: "low", message: "Expected 'hello' but got 'world'" },
-  ],
-});
-
-new Entry(checks, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
-
-export default proj;
-`;
+export const DEFAULT_CODE = [
+  'import { Project, Pipeline, FunctionStep, Entry } from "@sverka/playground";',
+  "",
+  'const proj = new Project("demo");',
+  'const checks = new Pipeline(proj, "checks");',
+  "",
+  'new FunctionStep(checks, "lint", {',
+  "  fn: () => [",
+  '    { rule: "no-unused-vars", file: "src/index.ts", line: 5, severity: "high", message: "Variable \'x\' is declared but never used" },',
+  '    { rule: "no-console", file: "src/utils.ts", line: 12, severity: "medium", message: "Unexpected console.log statement" },',
+  "  ],",
+  "});",
+  "",
+  'new FunctionStep(checks, "typecheck", {',
+  "  fn: () => [",
+  '    { rule: "ts2322", file: "src/types.ts", line: 8, severity: "critical", message: "Type \'string\' is not assignable to type \'number\'" },',
+  "  ],",
+  "});",
+  "",
+  'new FunctionStep(checks, "test", {',
+  "  fn: () => [",
+  '    { rule: "assertion-failed", file: "test/index.test.ts", line: 23, severity: "high", message: "Expected 5 but got 3" },',
+  '    { rule: "assertion-failed", file: "test/index.test.ts", line: 45, severity: "low", message: "Expected \'hello\' but got \'world\'" },',
+  "  ],",
+  "});",
+  "",
+  'new Entry(checks, "on-push", { trigger: { kind: "push" }, roots: ["test"] });',
+  "",
+  "export default proj;",
+  "",
+].join("\n");
 
 /** Escape HTML special characters to prevent XSS. */
 export function escapeHtml(text: string): string {
   return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-const IDENT = /[A-Za-z0-9_$]/;
+// ---------------------------------------------------------------------------
+// Mini-scanner — same family as transpile.ts: char-class checks instead of
+// regexes (a pattern on user source is ReDoS surface), and every helper is
+// string/comment aware so quoted braces never count as syntax.
+// ---------------------------------------------------------------------------
+
+/** Identifier chars: `[A-Za-z0-9_$]`. */
+function isIdentChar(c: string | undefined): boolean {
+  if (c === undefined) return false;
+  const n = c.charCodeAt(0);
+  return (
+    (n >= 48 && n <= 57) ||
+    (n >= 65 && n <= 90) ||
+    (n >= 97 && n <= 122) ||
+    c === "_" ||
+    c === "$"
+  );
+}
+
+function isQuote(c: string | undefined): boolean {
+  return c === '"' || c === "'" || c === "`";
+}
+
+/** True when `at` starts a `//` or `/*` comment. */
+function commentAt(code: string, at: number): boolean {
+  return code[at] === "/" && (code[at + 1] === "/" || code[at + 1] === "*");
+}
+
+/** Index of the `\n` ending the `//` comment at `at` (code.length if none). */
+function lineCommentEnd(code: string, at: number): number {
+  const end = code.indexOf("\n", at + 2);
+  return end === -1 ? code.length : end;
+}
+
+/** Index just past the `*/ ` ending the `; /*` comment at `at`. */
+function blockCommentEnd(code: string, at: number): number {
+  const end = code.indexOf("*/", at + 2);
+  return end === -1 ? code.length : end + 2;
+}
+
+/** End index of the `${` expression opened at `at` (inside a template).
+ *  The expression itself can hold strings, comments, and nested templates:
+ *  `` `${ x["`"] }` `` must not treat a quoted backtick as syntax. */
+function scanTemplateExpr(code: string, at: number): number {
+  let depth = 1;
+  let i = at + 1;
+  while (i < code.length && depth > 0) {
+    const ch = code[i];
+    if (isQuote(ch)) {
+      i = scanString(code, i);
+      continue;
+    }
+    if (ch === "/" && code[i + 1] === "/") {
+      i = lineCommentEnd(code, i);
+      continue;
+    }
+    if (ch === "/" && code[i + 1] === "*") {
+      i = blockCommentEnd(code, i);
+      continue;
+    }
+    if (ch === "{") depth++;
+    else if (ch === "}") depth--;
+    i++;
+  }
+  return i;
+}
 
 /** End index of the string literal starting at `at` (quote char). */
 function scanString(code: string, at: number): number {
@@ -60,37 +127,28 @@ function scanString(code: string, at: number): number {
     }
     if (c === quote) return i + 1;
     // Template literals may nest `${}` expressions — track brace depth.
-    // The expression itself can hold strings, comments, and nested
-    // templates: `` `${ x["`"] }` `` must not treat a quoted backtick
-    // as syntax.
     if (quote === "`" && c === "$" && code[i + 1] === "{") {
-      let depth = 1;
-      i += 2;
-      while (i < code.length && depth > 0) {
-        const ch = code[i];
-        if (ch === '"' || ch === "'" || ch === "`") {
-          i = scanString(code, i);
-          continue;
-        }
-        if (ch === "/" && code[i + 1] === "/") {
-          const end = code.indexOf("\n", i + 2);
-          i = end === -1 ? code.length : end;
-          continue;
-        }
-        if (ch === "/" && code[i + 1] === "*") {
-          const end = code.indexOf("*/", i + 2);
-          i = end === -1 ? code.length : end + 2;
-          continue;
-        }
-        if (ch === "{") depth++;
-        else if (ch === "}") depth--;
-        i++;
-      }
+      i = scanTemplateExpr(code, i + 2);
       continue;
     }
     i++;
   }
   return i;
+}
+
+/** End index of the opaque region at `i`, or i+1 for ordinary chars —
+ *  and whether the region was a string literal. */
+function scanOpaqueEnd(
+  code: string,
+  i: number,
+): { end: number; isString: boolean } {
+  const c = code[i];
+  if (isQuote(c)) return { end: scanString(code, i), isString: true };
+  if (c === "/" && code[i + 1] === "/")
+    return { end: lineCommentEnd(code, i), isString: false };
+  if (c === "/" && code[i + 1] === "*")
+    return { end: blockCommentEnd(code, i), isString: false };
+  return { end: i + 1, isString: false };
 }
 
 /** End index of the statement starting at `at`: first top-level `;`, or
@@ -102,18 +160,10 @@ function scanStatementEnd(code: string, at: number): number {
   let specSeen = false;
   while (i < code.length) {
     const c = code[i];
-    if (c === '"' || c === "'" || c === "`") {
-      i = scanString(code, i);
-      specSeen = true;
-      continue;
-    }
-    if (c === "/" && code[i + 1] === "/") {
-      while (i < code.length && code[i] !== "\n") i++;
-      continue;
-    }
-    if (c === "/" && code[i + 1] === "*") {
-      const end = code.indexOf("*/", i + 2);
-      i = end === -1 ? code.length : end + 2;
+    const opaque = scanOpaqueEnd(code, i);
+    if (opaque.end > i + 1) {
+      specSeen = specSeen || opaque.isString;
+      i = opaque.end;
       continue;
     }
     if (c === "{" || c === "(" || c === "[") depth++;
@@ -126,7 +176,11 @@ function scanStatementEnd(code: string, at: number): number {
 }
 
 function keywordAt(code: string, at: number, word: string): boolean {
-  return code.startsWith(word, at) && !IDENT.test(code[at + word.length] ?? "");
+  return code.startsWith(word, at) && !isIdentChar(code[at + word.length]);
+}
+
+function isTriviaWs(c: string | undefined): boolean {
+  return c === " " || c === "\t" || c === "\r" || c === "\n";
 }
 
 /** Skip whitespace and comments (including newlines). */
@@ -134,18 +188,16 @@ function skipTrivia(code: string, at: number): number {
   let i = at;
   for (;;) {
     const c = code[i];
-    if (c === " " || c === "\t" || c === "\r" || c === "\n") {
+    if (isTriviaWs(c)) {
       i++;
       continue;
     }
     if (c === "/" && code[i + 1] === "/") {
-      const end = code.indexOf("\n", i + 2);
-      i = end === -1 ? code.length : end;
+      i = lineCommentEnd(code, i);
       continue;
     }
     if (c === "/" && code[i + 1] === "*") {
-      const end = code.indexOf("*/", i + 2);
-      i = end === -1 ? code.length : end + 2;
+      i = blockCommentEnd(code, i);
       continue;
     }
     return i;
@@ -158,18 +210,8 @@ function matchBrace(code: string, open: number): number {
   let i = open;
   while (i < code.length) {
     const c = code[i];
-    if (c === '"' || c === "'" || c === "`") {
-      i = scanString(code, i);
-      continue;
-    }
-    if (c === "/" && code[i + 1] === "/") {
-      const end = code.indexOf("\n", i + 2);
-      i = end === -1 ? code.length : end;
-      continue;
-    }
-    if (c === "/" && code[i + 1] === "*") {
-      const end = code.indexOf("*/", i + 2);
-      i = end === -1 ? code.length : end + 2;
+    if (isQuote(c) || commentAt(code, i)) {
+      i = scanOpaqueEnd(code, i).end;
       continue;
     }
     if (c === "{") depth++;
@@ -191,6 +233,29 @@ function scanStmtTail(code: string, at: number): number {
   return i;
 }
 
+/** End index of the `from "…"` clause starting after `from`, or `at` when
+ *  the clause is malformed — let the evaluator complain. */
+function scanFromClause(code: string, next: number): number {
+  const specAt = skipTrivia(code, next + 4);
+  const q = code[specAt];
+  if (q === '"' || q === "'") {
+    return scanStmtTail(code, scanString(code, specAt));
+  }
+  return next;
+}
+
+/** End index of `export * [as ns] [from "…"]` — the `*` is at `at`. */
+function scanExportStar(code: string, at: number): number {
+  let i = skipTrivia(code, at + 1);
+  if (keywordAt(code, i, "as")) {
+    i = skipTrivia(code, i + 2);
+    while (i < code.length && isIdentChar(code[i])) i++;
+  }
+  const next = skipTrivia(code, i);
+  if (keywordAt(code, next, "from")) return scanFromClause(code, next);
+  return scanStmtTail(code, i);
+}
+
 /**
  * End index of `export {…}` / `export * [as ns] [from "…"]` starting at
  * the `{` or `*`. A bare list ends at its `;` or newline — unlike an
@@ -198,27 +263,118 @@ function scanStmtTail(code: string, at: number): number {
  * the next line would be eaten with it.
  */
 function scanExportListEnd(code: string, at: number): number {
-  let i = at;
-  if (code[i] === "{") {
-    i = matchBrace(code, i) + 1;
-  } else {
-    i++; // `*`
-    i = skipTrivia(code, i);
-    if (keywordAt(code, i, "as")) {
-      i = skipTrivia(code, i + 2);
-      while (i < code.length && IDENT.test(code[i] ?? "")) i++;
-    }
-  }
+  if (code[at] === "*") return scanExportStar(code, at);
+  const i = matchBrace(code, at) + 1;
   const next = skipTrivia(code, i);
-  if (keywordAt(code, next, "from")) {
-    const specAt = skipTrivia(code, next + 4);
-    const q = code[specAt];
-    if (q === '"' || q === "'") {
-      return scanStmtTail(code, scanString(code, specAt));
-    }
-    return next; // malformed — let the evaluator complain
-  }
+  if (keywordAt(code, next, "from")) return scanFromClause(code, next);
   return scanStmtTail(code, i);
+}
+
+interface ScanState {
+  i: number;
+  stmtStart: boolean;
+  exportDefaultDone: boolean;
+  /** `block` vs `expr` — separates block braces from object literals, so
+   *  `{ export: 1 }` is a key, not a statement. */
+  stack: ("block" | "expr")[];
+}
+
+function atStmtLevel(st: ScanState): boolean {
+  return st.stack.length === 0 || st.stack[st.stack.length - 1] === "block";
+}
+
+/** Copy a string literal or comment verbatim into `out`. */
+function copyOpaque(code: string, st: ScanState, out: string[]): boolean {
+  const opaque = scanOpaqueEnd(code, st.i);
+  if (opaque.end <= st.i + 1) return false;
+  out.push(code.slice(st.i, opaque.end));
+  if (opaque.isString) st.stmtStart = false;
+  st.i = opaque.end;
+  return true;
+}
+
+/** Handle `{}`/`()`/`[]` — pushes onto the block/expr stack. */
+function applyBracket(code: string, st: ScanState, out: string[]): boolean {
+  const c = code[st.i];
+  if (c === "{") {
+    // A `{` at statement position opens a block; anywhere else it's an
+    // object literal. Inside a block the next token is a statement;
+    // inside an object it's a key — `export:` there is not a keyword.
+    st.stack.push(st.stmtStart ? "block" : "expr");
+  } else if (c === "}") {
+    // Closing a block ends the statement — closing an object literal
+    // leaves the surrounding expression mid-flight.
+    st.stmtStart = st.stack.pop() === "block";
+  } else if (c === "(" || c === "[") {
+    st.stack.push("expr");
+    st.stmtStart = false;
+  } else if (c === ")" || c === "]") {
+    st.stack.pop();
+    st.stmtStart = false;
+  } else {
+    return false;
+  }
+  out.push(c);
+  st.i++;
+  return true;
+}
+
+/** Handle `\n`, `;`, and horizontal whitespace — statement boundaries at
+ *  statement level only (a `;` inside `for (;;)` doesn't count). */
+function applyTerminator(code: string, st: ScanState, out: string[]): boolean {
+  const c = code[st.i];
+  if (c !== "\n" && c !== ";" && c !== " " && c !== "\t" && c !== "\r")
+    return false;
+  if ((c === "\n" || c === ";") && atStmtLevel(st)) st.stmtStart = true;
+  out.push(c);
+  st.i++;
+  return true;
+}
+
+/** Handle an `import` keyword at statement start. Dynamic `import (…)`
+ *  and `import.meta` pass through verbatim — whitespace and comments may
+ *  sit between the keyword and the paren. */
+function tryImport(code: string, st: ScanState, out: string[]): boolean {
+  if (!st.stmtStart || !keywordAt(code, st.i, "import")) return false;
+  const nc = code[skipTrivia(code, st.i + 6)];
+  if (nc === "(" || nc === ".") {
+    out.push("import");
+    st.i += 6;
+    st.stmtStart = false;
+    return true;
+  }
+  st.i = scanStatementEnd(code, st.i + 6);
+  st.stmtStart = false;
+  return true;
+}
+
+/** Handle `export default` (→ `return`), `export {…}`/`export *` (removed)
+ *  and `export <decl>` (keyword dropped — the eval context is a function
+ *  body, where `export const` would be a syntax error). */
+function tryExport(code: string, st: ScanState, out: string[]): boolean {
+  if (!st.stmtStart || !keywordAt(code, st.i, "export")) return false;
+  const j = skipTrivia(code, st.i + 6);
+  if (
+    !st.exportDefaultDone &&
+    code.startsWith("default", j) &&
+    !isIdentChar(code[j + 7])
+  ) {
+    // `return` must touch the expression — a newline between `default`
+    // and the value would trigger ASI and return undefined.
+    out.push("return ");
+    st.exportDefaultDone = true;
+    st.i = skipTrivia(code, j + 7);
+    st.stmtStart = false;
+    return true;
+  }
+  if (code[j] === "{" || code[j] === "*") {
+    st.i = scanExportListEnd(code, j);
+    st.stmtStart = false;
+    return true;
+  }
+  st.i = j;
+  st.stmtStart = false;
+  return true;
 }
 
 /**
@@ -238,131 +394,22 @@ function scanExportListEnd(code: string, at: number): number {
  */
 export function preprocessCode(code: string): string {
   const out: string[] = [];
-  let i = 0;
-  const n = code.length;
-  // `stmtStart` — the next token may begin a statement, so `import`/
-  // `export` count only here (never mid-expression: `import()` and
-  // `import.meta` are left untouched). A brace stack separates blocks
-  // from object literals — `{ export: 1 }` is a key, not a statement.
-  const stack: ("block" | "expr")[] = [];
-  const atStmtLevel = (): boolean =>
-    stack.length === 0 || stack[stack.length - 1] === "block";
-  let stmtStart = true;
-  let exportDefaultDone = false;
-
-  while (i < n) {
-    const c = code[i];
-    if (c === undefined) break;
-    if (c === '"' || c === "'" || c === "`") {
-      const end = scanString(code, i);
-      out.push(code.slice(i, end));
-      stmtStart = false;
-      i = end;
-      continue;
-    }
-    if (c === "/" && code[i + 1] === "/") {
-      const end = code.indexOf("\n", i + 2);
-      const stop = end === -1 ? n : end;
-      out.push(code.slice(i, stop));
-      i = stop;
-      continue;
-    }
-    if (c === "/" && code[i + 1] === "*") {
-      const end = code.indexOf("*/", i + 2);
-      const stop = end === -1 ? n : end + 2;
-      out.push(code.slice(i, stop));
-      i = stop;
-      continue;
-    }
-    if (c === "{") {
-      // A `{` at statement position opens a block; anywhere else it's an
-      // object literal. Inside a block the next token is a statement;
-      // inside an object it's a key — `export:` there is not a keyword.
-      stack.push(stmtStart ? "block" : "expr");
-      out.push(c);
-      i++;
-      continue;
-    }
-    if (c === "}") {
-      // Closing a block ends the statement — closing an object literal
-      // leaves the surrounding expression mid-flight.
-      stmtStart = stack.pop() === "block";
-      out.push(c);
-      i++;
-      continue;
-    }
-    if (c === "(" || c === "[") {
-      stack.push("expr");
-      stmtStart = false;
-      out.push(c);
-      i++;
-      continue;
-    }
-    if (c === ")" || c === "]") {
-      stack.pop();
-      stmtStart = false;
-      out.push(c);
-      i++;
-      continue;
-    }
-    if (c === "\n" || c === ";") {
-      // Statement boundary only at statement level — a `;` inside
-      // `for (;;)` or a newline inside an object literal doesn't count.
-      if (atStmtLevel()) stmtStart = true;
-      out.push(c);
-      i++;
-      continue;
-    }
-    if (c === " " || c === "\t" || c === "\r") {
-      out.push(c);
-      i++;
-      continue;
-    }
-    if (stmtStart && keywordAt(code, i, "import")) {
-      const next = skipTrivia(code, i + 6);
-      const nc = code[next];
-      // `import (…)` is a dynamic-import expression and `import.meta` is
-      // meta — whitespace and comments may sit between the keyword and
-      // the paren. Anything else is a static import statement.
-      if (nc === "(" || nc === ".") {
-        out.push("import");
-        i += 6;
-        stmtStart = false;
-        continue;
-      }
-      i = scanStatementEnd(code, i + 6);
-      stmtStart = false;
-      continue;
-    }
-    if (stmtStart && keywordAt(code, i, "export")) {
-      const j = skipTrivia(code, i + 6);
-      if (
-        !exportDefaultDone &&
-        code.startsWith("default", j) &&
-        !IDENT.test(code[j + 7] ?? "")
-      ) {
-        // `return` must touch the expression — a newline between
-        // `default` and the value would trigger ASI and return
-        // undefined.
-        out.push("return ");
-        exportDefaultDone = true;
-        i = skipTrivia(code, j + 7);
-        stmtStart = false;
-        continue;
-      }
-      if (code[j] === "{" || code[j] === "*") {
-        i = scanExportListEnd(code, j);
-        stmtStart = false;
-        continue;
-      }
-      // `export <decl>` — drop the keyword, keep the declaration.
-      i = j;
-      stmtStart = false;
-      continue;
-    }
-    stmtStart = false;
-    out.push(c);
-    i++;
+  const st: ScanState = {
+    i: 0,
+    stmtStart: true,
+    exportDefaultDone: false,
+    stack: [],
+  };
+  while (st.i < code.length) {
+    if (code[st.i] === undefined) break;
+    if (copyOpaque(code, st, out)) continue;
+    if (applyBracket(code, st, out)) continue;
+    if (applyTerminator(code, st, out)) continue;
+    if (tryImport(code, st, out)) continue;
+    if (tryExport(code, st, out)) continue;
+    st.stmtStart = false;
+    out.push(code[st.i] ?? "");
+    st.i++;
   }
   return out.join("");
 }
