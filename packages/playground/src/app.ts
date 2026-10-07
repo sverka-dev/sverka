@@ -102,6 +102,8 @@ function evaluateUserCode(code: string): Project {
   return result as Project;
 }
 
+const SHARE_PREFIX_LEN = "#c=".length;
+
 /** Show findings HTML in the iframe. */
 function showFindings(html: string): void {
   const frame = document.getElementById(
@@ -252,7 +254,11 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Findings are shareable only when they came from the code currently in
+  // the editor — `lastRunCode` pins the pair so edits/failed runs can't
+  // ship stale results next to new source.
   let lastFindings: readonly Finding[] | undefined;
+  let lastRunCode: string | undefined;
   runBtn.addEventListener("click", async () => {
     runBtn.disabled = true;
     setStatus("Running...", "running");
@@ -262,6 +268,7 @@ async function main(): Promise<void> {
       const project = evaluateUserCode(code);
       const result = await runPipelineWithTimeout(project, 30_000);
       lastFindings = result.findings;
+      lastRunCode = code;
 
       if (result.findings.length === 0) {
         showFindings(
@@ -277,6 +284,8 @@ async function main(): Promise<void> {
         result.success ? "success" : "failure",
       );
     } catch (e) {
+      lastFindings = undefined;
+      lastRunCode = undefined;
       const msg = e instanceof Error ? e.message : String(e);
       showError(msg);
       setStatus("Error", "failure");
@@ -324,14 +333,19 @@ async function main(): Promise<void> {
   if (shareBtn) {
     shareBtn.addEventListener("click", async () => {
       const base = `${location.origin}${location.pathname}`;
+      const code = getCode();
       const run = {
         schema: "sverka.playground/v1" as const,
-        code: getCode(),
-        ...(lastFindings !== undefined ? { findings: lastFindings } : {}),
+        code,
+        ...(lastFindings !== undefined && lastRunCode === code
+          ? { findings: lastFindings }
+          : {}),
       };
       const url = encodeShareLink(run, base);
       history.replaceState(null, "", url);
-      const oversized = url.length - base.length > SHARE_PAYLOAD_WARN_BYTES;
+      // Payload size excludes the "#c=" marker — measure the fragment tail.
+      const oversized =
+        url.length - base.length - SHARE_PREFIX_LEN > SHARE_PAYLOAD_WARN_BYTES;
       try {
         await navigator.clipboard.writeText(url);
         setStatus(
@@ -354,14 +368,20 @@ async function main(): Promise<void> {
   // Share link restore (Spec 53): #c= fragments restore editor state and the
   // last run result. A corrupt link falls back to the default template with a
   // warning — never a blank page.
+  //
+  // SECURITY: code from a link never auto-runs — executing shared code on
+  // page load would let a URL execute arbitrary script in the page context.
+  // Seeded findings render directly (validated at decode); code-only links
+  // wait for an explicit Run click.
   let restored = false;
   if (location.hash.startsWith("#c=")) {
     try {
       const shared = decodeShareLink(location.hash);
       setCode(shared.code);
       restored = true;
-      lastFindings = shared.findings;
       if (shared.findings !== undefined) {
+        lastFindings = shared.findings;
+        lastRunCode = shared.code;
         if (shared.findings.length === 0) {
           showFindings(
             `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#3fb950;font-family:monospace;padding:2rem;}</style></head><body><h2>No findings — all checks passed</h2><p>Restored from a shared run</p></body></html>`,
@@ -371,9 +391,11 @@ async function main(): Promise<void> {
         }
         setStatus("Restored shared run", "success");
       } else {
-        runBtn.click();
+        setStatus("Shared code loaded — press Run", "success");
       }
     } catch (e) {
+      // Mark restored so the warning isn't overwritten by the auto-run.
+      restored = true;
       const msg = e instanceof PlaygroundError ? e.message : String(e);
       showFindings(
         `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#d29922;font-family:monospace;padding:2rem;}</style></head><body><h2>Share link could not be loaded</h2><p>${escapeHtml(msg)}</p><p>Loaded the default template instead.</p></body></html>`,
@@ -382,8 +404,8 @@ async function main(): Promise<void> {
     }
   }
 
-  // Auto-run on load unless a shared run already seeded the findings panel
-  // (shared runs with no findings still run once to produce output).
+  // Auto-run on load unless a share link already filled the page (restored
+  // state, seeded findings, or the invalid-link warning).
   if (!restored) {
     runBtn.click();
   }

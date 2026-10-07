@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { deflateSync } from "fflate";
 import {
   encodeShareLink,
   decodeShareLink,
@@ -85,5 +86,78 @@ describe("share links (spec 53)", () => {
 
   it("warn threshold constant is exported and positive", () => {
     expect(SHARE_PAYLOAD_WARN_BYTES).toBe(32 * 1024);
+  });
+
+  it("round-trips payloads of every padding length (browser atob is strict)", () => {
+    for (let i = 0; i < 12; i++) {
+      const run: ShareableRun = {
+        schema: "sverka.playground/v1",
+        code: "x".repeat(i * 7 + 1),
+      };
+      expect(decodeShareLink(encodeShareLink(run))).toEqual(run);
+    }
+  });
+
+  it("decodes fragments containing base64url - and _ characters", () => {
+    // Craft a payload whose deflate output produces -/_ under base64url —
+    // scanned deterministically over fixed candidates.
+    let payload = "";
+    for (let i = 0; i < 10000; i++) {
+      const json = JSON.stringify({
+        schema: "sverka.playground/v1",
+        code: `probe-${i}-${String.fromCharCode(...Array.from({ length: 64 }, (_, j) => (i * 31 + j * 17) % 256))}`,
+      });
+      const b64url = Buffer.from(deflateSync(new TextEncoder().encode(json)))
+        .toString("base64")
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replace(/=+$/, "");
+      if (b64url.includes("-") && b64url.includes("_")) {
+        payload = b64url;
+        break;
+      }
+    }
+    expect(payload).not.toBe("");
+    const decoded = decodeShareLink(`#c=${payload}`);
+    expect(decoded.code).toContain("probe-");
+  });
+
+  it("rejects findings: null and malformed finding shapes", () => {
+    const mk = (findings: unknown): string => {
+      const json = JSON.stringify({
+        schema: "sverka.playground/v1",
+        code: "x",
+        findings,
+      });
+      // hand-encode the way encodeShareLink does
+      const b64url = Buffer.from(
+        deflateSync(new TextEncoder().encode(json)),
+      ).toString("base64url");
+      return `#c=${b64url}`;
+    };
+    expect(() => decodeShareLink(mk(null))).toThrow(PlaygroundError);
+    expect(() =>
+      decodeShareLink(mk([{ rule: "r", file: "f", startLine: "not-a-num" }])),
+    ).toThrow(PlaygroundError);
+    // valid findings still decode
+    const ok = decodeShareLink(mk([finding]));
+    expect(ok.findings).toEqual([finding]);
+  });
+
+  it("refuses inflated payloads past the cap (deflate bomb)", () => {
+    const run: ShareableRun = {
+      schema: "sverka.playground/v1",
+      code: "x".repeat(2 * 1024 * 1024),
+    };
+    // ~2 MB of JSON compresses to ~2 KB — tiny link, huge inflation.
+    const url = encodeShareLink(run);
+    expect(url.length).toBeLessThan(SHARE_PAYLOAD_WARN_BYTES);
+    try {
+      decodeShareLink(url);
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(PlaygroundError);
+      expect((e as PlaygroundError).code).toBe("PAYLOAD_TOO_LARGE");
+    }
   });
 });
