@@ -25,9 +25,9 @@ export function isWsChar(c: string | undefined): boolean {
 }
 
 /** Identifier-part chars, approximated: ASCII ident chars plus any
- *  non-ASCII char that isn't JS whitespace — `exporté` keeps its boundary.
- *  Over-approximation only ever suppresses a false keyword match — it
- *  never corrupts code. */
+ *  non-ASCII char that isn't JS whitespace — `export` + a non-ASCII
+ *  letter keeps its boundary. Over-approximation only ever suppresses
+ *  a false keyword match — it never corrupts code. */
 export function isIdentChar(c: string | undefined): boolean {
   if (c === undefined) return false;
   const n = c.charCodeAt(0);
@@ -45,20 +45,7 @@ export function isQuote(c: string | undefined): boolean {
   return c === '"' || c === "'" || c === "`";
 }
 
-export function isOpenBracket(c: string | undefined): boolean {
-  return c === "{" || c === "[" || c === "(";
-}
-
-export function isCloseBracket(c: string | undefined): boolean {
-  return c === "}" || c === "]" || c === ")";
-}
-
 // --- skips ---------------------------------------------------------------
-
-export function skipWs(code: string, i: number): number {
-  while (i < code.length && isWsChar(code[i])) i++;
-  return i;
-}
 
 export function skipIdent(code: string, i: number): number {
   while (i < code.length && isIdentChar(code[i])) i++;
@@ -144,9 +131,9 @@ export function scanOpaqueEnd(
   return { end: i + 1, isString: false };
 }
 
-/** Keywords and contextuals after which `/` opens a regex rather than
- *  divides. Everything else — plain identifiers plus literals such as
- *  `this`/`true` — ends an operand, making `/` a division. */
+/** Keywords and contextual keywords after which `/` opens a regex rather
+ *  than divides. Everything else — plain identifiers plus literals such
+ *  as `this`/`true` — ends an operand, making `/` a division. */
 const NON_OPERAND_WORDS = new Set([
   "await",
   "break",
