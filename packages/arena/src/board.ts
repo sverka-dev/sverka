@@ -1,8 +1,9 @@
 /**
  * Leaderboard aggregation — groups published `arena.result/v1` documents
  * into cohorts keyed (pack, task, sverkaVersion, promptHash) and renders
- * one row per (agent, model). Results from different tasks, sverka
- * versions, or prompts never merge into one score.
+ * one row per (agent, model, plugin set). Results from different tasks,
+ * sverka versions, prompts, or plugin configurations never merge into
+ * one score.
  * Spec: specs/56-arena-eval-service.
  */
 import type { ArenaResultV1 } from "./registry.js";
@@ -10,6 +11,8 @@ import type { ArenaResultV1 } from "./registry.js";
 export interface BoardRow {
   readonly agent: string;
   readonly model: string;
+  /** Canonical plugin set — sorted, deduplicated. Empty for a bare run. */
+  readonly plugins: readonly string[];
   /** passed runs / total runs, 0..1 */
   readonly successRate: number;
   readonly medianTokens?: number;
@@ -45,6 +48,16 @@ function isoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Canonical plugin-set identity — sorted and deduplicated. */
+function canonicalPlugins(plugins: readonly string[]): string[] {
+  return [...new Set(plugins)].sort((a, b) => a.localeCompare(b));
+}
+
+/** Row label for a plugin set — "a+b" or "no-plugins". */
+function pluginLabel(plugins: readonly string[]): string {
+  return plugins.length === 0 ? "no-plugins" : plugins.join("+");
+}
+
 const TREND_DAYS = 30;
 
 export interface BuildBoardOptions {
@@ -68,7 +81,15 @@ export function buildBoard(
     string,
     {
       key: Omit<BoardCohort, "rows">;
-      rows: Map<string, { agent: string; model: string; samples: Sample[] }>;
+      rows: Map<
+        string,
+        {
+          agent: string;
+          model: string;
+          plugins: readonly string[];
+          samples: Sample[];
+        }
+      >;
     }
   >();
 
@@ -94,10 +115,11 @@ export function buildBoard(
         };
         cohorts.set(ck, cohort);
       }
-      const rk = JSON.stringify([doc.agent, doc.model]);
+      const plugins = canonicalPlugins(doc.plugins);
+      const rk = JSON.stringify([doc.agent, doc.model, plugins]);
       let row = cohort.rows.get(rk);
       if (row === undefined) {
-        row = { agent: doc.agent, model: doc.model, samples: [] };
+        row = { agent: doc.agent, model: doc.model, plugins, samples: [] };
         cohort.rows.set(rk, row);
       }
       row.samples.push({
@@ -144,6 +166,7 @@ export function buildBoard(
       return {
         agent: r.agent,
         model: r.model,
+        plugins: r.plugins,
         successRate: n === 0 ? 0 : passes / n,
         ...(tokens !== undefined ? { medianTokens: tokens } : {}),
         medianDurationMs: median(r.samples.map((s) => s.durationMs)) ?? 0,
@@ -156,7 +179,8 @@ export function buildBoard(
         b.successRate - a.successRate ||
         (a.medianTokens ?? Infinity) - (b.medianTokens ?? Infinity) ||
         a.agent.localeCompare(b.agent) ||
-        a.model.localeCompare(b.model),
+        a.model.localeCompare(b.model) ||
+        pluginLabel(a.plugins).localeCompare(pluginLabel(b.plugins)),
     );
     out.push({ ...key, rows: boardRows });
   }
@@ -214,6 +238,7 @@ export function renderBoard(cohorts: readonly BoardCohort[]): string {
     const header = [
       "AGENT",
       "MODEL",
+      "PLUGINS",
       "SUCCESS",
       "MED-TOK",
       "MED-DUR",
@@ -223,6 +248,7 @@ export function renderBoard(cohorts: readonly BoardCohort[]): string {
     const lines = c.rows.map((r) => [
       r.agent,
       r.model,
+      pluginLabel(r.plugins),
       `${(r.successRate * 100).toFixed(1)}%`,
       formatTokens(r.medianTokens),
       formatDuration(r.medianDurationMs),
@@ -279,6 +305,7 @@ export function renderBoardHtml(
           return `        <tr>
           <td>${esc(r.agent)}</td>
           <td>${esc(r.model)}</td>
+          <td>${esc(pluginLabel(r.plugins))}</td>
           <td class="num ${rateClass(r.successRate)}">${(r.successRate * 100).toFixed(1)}%</td>
           <td class="num">${formatTokens(r.medianTokens)}</td>
           <td class="num">${formatDuration(r.medianDurationMs)}</td>
@@ -290,7 +317,7 @@ export function renderBoardHtml(
       return `      <section class="cohort">
         <h2>${esc(cohortTitle(c))}</h2>
         <table>
-          <thead><tr><th>agent</th><th>model</th><th class="num">success</th><th class="num">med&nbsp;tokens</th><th class="num">med&nbsp;duration</th><th class="num">runs</th><th>trend</th></tr></thead>
+          <thead><tr><th>agent</th><th>model</th><th>plugins</th><th class="num">success</th><th class="num">med&nbsp;tokens</th><th class="num">med&nbsp;duration</th><th class="num">runs</th><th>trend</th></tr></thead>
           <tbody>
 ${rows}
           </tbody>
@@ -348,7 +375,7 @@ footer { color: var(--text-muted); font-size: 0.75rem; margin-top: 2rem; }
 </head>
 <body>
   <h1>${esc(title)}</h1>
-  <p class="subtitle">verification-grounded agent evals — cohorts are (pack · task · sverka version · prompt hash); rows compare agent×model inside one cohort only</p>
+  <p class="subtitle">verification-grounded agent evals — cohorts are (pack · task · sverka version · prompt hash); rows compare agent×model×plugins inside one cohort only</p>
 ${body}
   <footer>generated ${esc(generatedAt)} — deterministic checks as ground truth, no LLM judge</footer>
 </body>
