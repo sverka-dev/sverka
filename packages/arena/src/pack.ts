@@ -404,13 +404,40 @@ async function privateDir(dir: string): Promise<void> {
   await chmod(dir, 0o700);
 }
 
+/**
+ * Refresh a cached clone for reuse as a pack/fixture source. The tree
+ * must come back pristine — `pull --ff-only` can succeed while unrelated
+ * local edits or untracked files remain, and callers copy the whole
+ * directory into run workspaces (or load tasks from it).
+ */
+async function refreshClone(dir: string, what: string): Promise<void> {
+  const res = await git(["-C", dir, "pull", "--ff-only"]);
+  if (res.code !== 0) {
+    throw new ArenaError(
+      `cannot update ${what}: ${res.stderr.trim()}`,
+      "PACK_NOT_FOUND",
+    );
+  }
+  try {
+    await gitOrThrow(["-C", dir, "reset", "--hard", "HEAD"]);
+    // -x: a fresh clone has no ignored files either — match it exactly.
+    await gitOrThrow(["-C", dir, "clean", "-fdx"]);
+  } catch (err) {
+    throw new ArenaError(
+      `cannot clean ${what}: ${err instanceof Error ? err.message : String(err)}`,
+      "PACK_NOT_FOUND",
+      err,
+    );
+  }
+}
+
 async function cloneRepo(url: string, opts: LoadOptions): Promise<string> {
   const dest = join(
     opts.cacheDir ?? tmpdir(),
     `arena-pack-repo-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
   );
   if (existsSync(join(dest, ".git"))) {
-    await git(["-C", dest, "pull", "--ff-only"]); // best-effort refresh
+    await refreshClone(dest, `repo clone '${url}'`);
     return dest;
   }
   try {
@@ -432,13 +459,7 @@ async function clonePack(url: string, opts: LoadOptions): Promise<string> {
     `arena-pack-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
   );
   if (existsSync(join(dest, ".git"))) {
-    const res = await git(["-C", dest, "pull", "--ff-only"]);
-    if (res.code !== 0) {
-      throw new ArenaError(
-        `cannot update pack clone '${url}': ${res.stderr.trim()}`,
-        "PACK_NOT_FOUND",
-      );
-    }
+    await refreshClone(dest, `pack clone '${url}'`);
     return dest;
   }
   try {

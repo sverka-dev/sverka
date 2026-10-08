@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -10,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ArenaError } from "../src/config.js";
+import { gitOrThrow } from "../src/internal/git.js";
 import { initPack, lintPack, loadPack, resolvePack } from "../src/pack.js";
 
 const dir = mkdtempSync(join(tmpdir(), "arena-pack-"));
@@ -273,5 +275,106 @@ describe("resolvePack", () => {
       resolvePack("absent", { registry: regDir }),
       "PACK_NOT_FOUND",
     );
+  });
+});
+
+describe("loadPack repo: cached clone refresh", () => {
+  const gitEnv = {
+    GIT_AUTHOR_NAME: "arena-test",
+    GIT_AUTHOR_EMAIL: "arena@test.dev",
+    GIT_COMMITTER_NAME: "arena-test",
+    GIT_COMMITTER_EMAIL: "arena@test.dev",
+  };
+  const gitIn = (cwd: string, ...args: string[]) =>
+    gitOrThrow([...args], { cwd, env: gitEnv });
+
+  /** A git repo at dir/<name> with one committed file. */
+  async function makeUpstream(name: string): Promise<string> {
+    const upstream = join(dir, name);
+    mkdirSync(upstream, { recursive: true });
+    await gitIn(upstream, "init");
+    writeFileSync(join(upstream, "file.txt"), "v1");
+    await gitIn(upstream, "add", "-A");
+    await gitIn(upstream, "commit", "-m", "v1");
+    return upstream;
+  }
+
+  async function packWithRepo(name: string, repo: string): Promise<string> {
+    const packDir = join(dir, name);
+    mkdirSync(join(packDir, "tasks"), { recursive: true });
+    writeFileSync(join(packDir, "pack.json"), JSON.stringify({ name }));
+    writeFileSync(
+      join(packDir, "tasks", "a.json"),
+      JSON.stringify({ prompt: "p", repo }),
+    );
+    return packDir;
+  }
+
+  it("fast-forwards a clean cached clone", async () => {
+    const repo = await makeUpstream("up-ff");
+    const packDir = await packWithRepo("pack-ff", repo);
+    const cacheDir = join(dir, "cache-ff");
+
+    const first = await loadPack(packDir, { cacheDir });
+    const cached = first.tasks[0]?.fixture;
+    expect(cached).toBeDefined();
+    expect(existsSync(join(cached!, "file.txt"))).toBe(true);
+
+    writeFileSync(join(repo, "v2.txt"), "v2");
+    await gitIn(repo, "add", "-A");
+    await gitIn(repo, "commit", "-m", "v2");
+
+    const second = await loadPack(packDir, { cacheDir });
+    expect(second.tasks[0]?.fixture).toBe(cached);
+    expect(existsSync(join(cached!, "v2.txt"))).toBe(true);
+  });
+
+  it("fails on a dirty cached clone instead of silently reusing it", async () => {
+    const repo = await makeUpstream("up-dirty");
+    const packDir = await packWithRepo("pack-dirty", repo);
+    const cacheDir = join(dir, "cache-dirty");
+
+    const first = await loadPack(packDir, { cacheDir });
+    const cached = first.tasks[0]?.fixture;
+    expect(cached).toBeDefined();
+
+    // Upstream moved on and the cache has uncommitted edits, so
+    // `pull --ff-only` cannot apply — the stale tree must not be used.
+    writeFileSync(join(repo, "file.txt"), "v2");
+    await gitIn(repo, "add", "-A");
+    await gitIn(repo, "commit", "-m", "v2");
+    writeFileSync(join(cached!, "file.txt"), "dirty local edit");
+
+    const err = await expectPackError(
+      loadPack(packDir, { cacheDir }),
+      "PACK_NOT_FOUND",
+    );
+    expect(err.message).toContain("cannot update repo clone");
+  });
+
+  it("scrubs unrelated edits and untracked files on refresh", async () => {
+    const repo = await makeUpstream("up-stray");
+    const packDir = await packWithRepo("pack-stray", repo);
+    const cacheDir = join(dir, "cache-stray");
+
+    const first = await loadPack(packDir, { cacheDir });
+    const cached = first.tasks[0]?.fixture;
+    expect(cached).toBeDefined();
+
+    // Upstream adds a file without touching file.txt, so `pull --ff-only`
+    // applies despite the unrelated local edit + stray untracked file.
+    // Without a pristine restore the runner would copy both into every
+    // workspace.
+    writeFileSync(join(repo, "v2.txt"), "v2");
+    await gitIn(repo, "add", "-A");
+    await gitIn(repo, "commit", "-m", "v2");
+    writeFileSync(join(cached!, "file.txt"), "unrelated local edit");
+    writeFileSync(join(cached!, "stray.txt"), "stray");
+
+    const second = await loadPack(packDir, { cacheDir });
+    expect(second.tasks[0]?.fixture).toBe(cached);
+    expect(readFileSync(join(cached!, "file.txt"), "utf8")).toBe("v1");
+    expect(existsSync(join(cached!, "v2.txt"))).toBe(true);
+    expect(existsSync(join(cached!, "stray.txt"))).toBe(false);
   });
 });
