@@ -123,10 +123,16 @@ describe("arena.result/v1 schema", () => {
   it("resultPath builds the canonical layout and guards segments", () => {
     const doc = v1Doc({ runId: "r1" });
     expect(resultPath(doc)).toBe("results/node-ci/devin/2026-10-01/r1.json");
+    expect(resultPath(doc, "2026-09-30")).toBe(
+      "results/node-ci/devin/2026-09-30/r1.json",
+    );
     expectArenaError(
       () => resultPath(v1Doc({ pack: "../escape" })),
       "SCHEMA_INVALID",
     );
+    // The date partition goes into a filesystem path — traversal is rejected.
+    expectArenaError(() => resultPath(doc, "../../tmp/out"), "SCHEMA_INVALID");
+    expectArenaError(() => resultPath(doc, "next-tuesday"), "SCHEMA_INVALID");
   });
 
   it("promptHash is sha256 of the prompt", () => {
@@ -193,6 +199,71 @@ describe("file registry", () => {
     expect(
       (await reg.list({ since: "2026-09-15" })).map((d) => d.runId),
     ).toEqual(["r-new"]);
+  });
+
+  it("list --since compares instants, not strings (offset-aware)", async () => {
+    const reg = createFileRegistry(join(dir, "reg-since"));
+    await reg.publish(
+      v1Doc({ runId: "r-z", startedAt: "2026-10-01T00:00:00.000Z" }),
+    );
+    // since=01:00+02:00 == 2026-09-30T23:00Z — the run IS after since.
+    expect(
+      (await reg.list({ since: "2026-10-01T01:00:00+02:00" })).map(
+        (d) => d.runId,
+      ),
+    ).toEqual(["r-z"]);
+    // since=02:00+02:00 == 2026-10-01T00:00Z — same instant, inclusive.
+    expect(
+      (await reg.list({ since: "2026-10-01T02:00:00+02:00" })).map(
+        (d) => d.runId,
+      ),
+    ).toEqual(["r-z"]);
+    // since=03:00+02:00 == 2026-10-01T01:00Z — the run is before since.
+    expect(
+      (await reg.list({ since: "2026-10-01T03:00:00+02:00" })).length,
+    ).toBe(0);
+  });
+
+  it("a pack named 'constructor' publishes and lists", async () => {
+    // index.packs["constructor"] would resolve an inherited property on
+    // a plain {} — lookups must be own-property only.
+    const reg = createFileRegistry(join(dir, "reg-ctor"));
+    await reg.publish(v1Doc({ runId: "r-ctor", pack: "constructor" }));
+    expect(
+      (await reg.list({ pack: "constructor" })).map((d) => d.runId),
+    ).toEqual(["r-ctor"]);
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["r-ctor"]);
+  });
+
+  it("a malformed index.json (packs: null) is ignored, not crashed on", async () => {
+    const regDir = join(dir, "reg-nullidx");
+    const reg = createFileRegistry(regDir);
+    await reg.publish(v1Doc({ runId: "r-ok" }));
+    writeFileSync(
+      join(regDir, "index.json"),
+      JSON.stringify({
+        schema: "arena.index/v1",
+        updatedAt: "",
+        packs: null,
+      }),
+    );
+    // Corrupt index → treated as absent → falls back to the tree scan.
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["r-ok"]);
+  });
+
+  it("list surfaces non-ENOENT failures instead of returning empty", async () => {
+    // results/ replaced by a regular file → readdir fails ENOTDIR
+    // deterministically (even as root). A silent empty list here would
+    // let `reindex` wipe index.json.
+    const regDir = join(dir, "reg-list-err");
+    mkdirSync(regDir, { recursive: true });
+    writeFileSync(
+      join(regDir, "index.json"),
+      JSON.stringify({ schema: "arena.index/v1", updatedAt: "", packs: {} }),
+    );
+    writeFileSync(join(regDir, "results"), "not a dir");
+    const reg = createFileRegistry(regDir);
+    await expectArenaError(() => reg.list(), "REGISTRY_UNAVAILABLE");
   });
 
   it("list scans the results/ tree when there is no index", async () => {

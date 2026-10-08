@@ -28,8 +28,9 @@ export function git(
         maxBuffer: MAX_BUFFER,
       },
       (error, stdout, stderr) => {
-        if (error && error.code === undefined) {
-          // Spawn failure (ENOENT etc.) — reject so callers wrap it.
+        // Spawn failures (ENOENT), aborts, and signal kills report a
+        // non-numeric error.code — the process never exited, so reject.
+        if (error !== null && typeof error.code !== "number") {
           reject(error);
           return;
         }

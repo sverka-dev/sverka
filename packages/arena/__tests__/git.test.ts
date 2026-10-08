@@ -6,6 +6,14 @@ import { join } from "node:path";
 import { git, gitOrThrow } from "../src/internal/git.js";
 
 describe("internal git seam", () => {
+  it("git rejects on spawn failure — ENOENT is not exit code 0", async () => {
+    // PATH without git: execFile reports error.code as the string
+    // "ENOENT" — a spawn failure must reject, not resolve as success.
+    await expect(
+      git(["--version"], { env: { PATH: "/definitely-no-git-here" } }),
+    ).rejects.toThrow();
+  });
+
   it("git resolves with the exit code on failure (never rejects)", async () => {
     const res = await git(["rev-parse", "--git-dir"], {
       cwd: mkdtempSync(join(tmpdir(), "arena-git-")),
