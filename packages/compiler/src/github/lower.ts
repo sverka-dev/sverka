@@ -574,7 +574,7 @@ function refFiltersClauses(
   // would skip jobs on refs the `on:` union admits — drop the whole ref
   // set instead. Only reachable with a single push entry (refsRequired
   // throws above), where the union already scopes firing to this entry.
-  if (patterns.some((c) => c === undefined)) return clauses;
+  if (patterns.includes(undefined)) return clauses;
   const refs = patterns.filter((c): c is string => c !== undefined);
   if (refs.length === 1) clauses.push(refs[0]!);
   else if (refs.length > 1) clauses.push(`(${refs.join(" || ")})`);

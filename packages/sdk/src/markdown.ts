@@ -387,7 +387,7 @@ function parseBulletLine(
   const isSpace = (c: string | undefined) => c !== undefined && /\s/.test(c);
   const isKeyChar = (c: string | undefined) =>
     c !== undefined && /[\w-]/.test(c);
-  if (line[0] !== "-" || !isSpace(line[1])) return null;
+  if (!line.startsWith("-") || !isSpace(line[1])) return null;
   let i = skipWhile(line, 1, isSpace);
   if (!isKeyStart(line[i])) return null;
   const keyStart = i;
@@ -536,21 +536,23 @@ function buildMarkdownPipeline(
     ...(fm.inputs !== undefined ? { inputs: fm.inputs } : {}),
   });
   const steps = parseSteps(body);
-  for (const step of steps) {
-    // Construct registers into `pipeline` on construction — no value used.
-    void new ShellStep(pipeline, step.id, {
-      command: step.command,
-      ...(step.dependsOn !== undefined ? { dependsOn: step.dependsOn } : {}),
-      ...(step.image !== undefined
-        ? { runtime: { mode: "container", image: step.image } }
-        : {}),
-      ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
-      ...(step.outputs !== undefined ? { outputs: step.outputs } : {}),
-    });
-  }
+  // Construct registers into `pipeline` on construction — handles are kept
+  // to read back the registered step ids as entry roots.
+  const shellSteps = steps.map(
+    (step) =>
+      new ShellStep(pipeline, step.id, {
+        command: step.command,
+        ...(step.dependsOn !== undefined ? { dependsOn: step.dependsOn } : {}),
+        ...(step.image !== undefined
+          ? { runtime: { mode: "container", image: step.image } }
+          : {}),
+        ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
+        ...(step.outputs !== undefined ? { outputs: step.outputs } : {}),
+      }),
+  );
   // Entry roots: every step — `on:` triggers the whole pipeline, matching
   // gh-aw semantics (reachability walks dependencies back to producers).
-  const roots = steps.map((s) => s.id);
+  const roots = shellSteps.map((s) => s.node.id);
   const triggers = frontmatterTriggers(fm);
   const usedIds = new Set<string>();
   for (const trigger of triggers) {
@@ -561,8 +563,8 @@ function buildMarkdownPipeline(
       id = `${base}-${n}`;
       n++;
     }
-    usedIds.add(id);
-    void new Entry(pipeline, id, { trigger, roots });
+    const entry = new Entry(pipeline, id, { trigger, roots });
+    usedIds.add(entry.node.id);
   }
 }
 
