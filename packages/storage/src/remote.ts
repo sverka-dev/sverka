@@ -122,35 +122,38 @@ async function hubRequest(
   const base = hubBaseUrl(config);
   const connectMs = config.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
   const bodyMs = config.bodyTimeoutMs ?? DEFAULT_BODY_TIMEOUT_MS;
+  // One controller for both phases: headers arrive only after an upload
+  // has fully streamed, and aborting it is the only way to cancel a slow
+  // body read — a detached timer would leave the stream running.
+  const ac = new AbortController();
+  const init: RequestInit = { method, signal: ac.signal };
+  const headers: Record<string, string> = {
+    // codeql[js/file-access-to-http]
+    authorization: `Bearer ${config.token}`,
+  };
+  if (body !== undefined) headers["content-type"] = contentType;
+  init.headers = headers; // codeql[js/file-access-to-http]
+  // Packed workspace files flowing into the request body is this
+  // adapter's purpose (hub upload). The base URL is user config — this
+  // adapter IS the configured remote — scheme-validated http(s) above.
+  if (body !== undefined) init.body = body; // codeql[js/file-access-to-http]
+  const reqUrl = new URL(path.replace(/^\/+/, ""), base);
   let res: Response;
   try {
-    // Packed workspace files flowing into the request body is this
-    // adapter's purpose (hub upload). The base URL is user config — this
-    // adapter IS the configured remote — scheme-validated http(s) above.
-    const reqUrl = new URL(path.replace(/^\/+/, ""), base);
-    const init: RequestInit = {
-      method,
-      // codeql[js/file-access-to-http]
-      headers: {
-        authorization: `Bearer ${config.token}`,
-        ...(body !== undefined ? { "content-type": contentType } : {}),
-      },
-      ...(body !== undefined ? { body } : {}), // codeql[js/file-access-to-http]
-      signal: AbortSignal.timeout(connectMs),
-    };
+    // Uploads get the body budget (headers arrive after the blob
+    // streams); bodyless requests get the connect budget.
+    const firstMs = body !== undefined ? bodyMs : connectMs;
     // codeql[js/file-access-to-http]
-    res = await fetch(reqUrl, init); // nosemgrep
+    res = await withAbortOnTimeout(
+      fetch(reqUrl, init), // codeql[js/file-access-to-http] nosemgrep
+      firstMs,
+      ac,
+      `connect/upload timeout after ${firstMs}ms`,
+    );
   } catch (e) {
-    const timedOut = e instanceof Error && e.name === "TimeoutError";
     throw new HubError(
       "REMOTE_UNAVAILABLE",
-      `hub unreachable (${method} ${path}): ${
-        timedOut
-          ? `connect timeout after ${connectMs}ms`
-          : e instanceof Error
-            ? e.message
-            : String(e)
-      }`,
+      `hub unreachable (${method} ${path}): ${e instanceof Error ? e.message : String(e)}`,
       e,
     );
   }
@@ -164,9 +167,10 @@ async function hubRequest(
   // Response headers arrived — the body gets its own, longer budget.
   try {
     const buf = new Uint8Array(
-      await withTimeout(
+      await withAbortOnTimeout(
         res.arrayBuffer(),
         bodyMs,
+        ac,
         `body timeout after ${bodyMs}ms`,
       ),
     );
@@ -180,21 +184,25 @@ async function hubRequest(
   }
 }
 
-/** Race a promise against a rejecting timer; the timer is cancelled once
- *  the promise settles so it never keeps the event loop alive. */
-async function withTimeout<T>(
+/** Race a promise against a timeout that aborts `ac` — the abort (not a
+ *  detached rejection) is what cancels the in-flight request or stream.
+ *  The timer itself is cancelled once the promise settles. */
+async function withAbortOnTimeout<T>(
   promise: Promise<T>,
   ms: number,
+  ac: AbortController,
   message: string,
 ): Promise<T> {
-  const ac = new AbortController();
-  const timer = delay(ms, undefined, { signal: ac.signal }).then(() => {
-    throw new Error(message);
+  const cancel = new AbortController();
+  const armed = delay(ms, undefined, { signal: cancel.signal }).then(() => {
+    const e = new DOMException(message, "TimeoutError");
+    ac.abort(e);
+    throw e;
   });
   try {
-    return await Promise.race([promise, timer]);
+    return await Promise.race([promise, armed]);
   } finally {
-    ac.abort();
+    cancel.abort();
   }
 }
 
@@ -464,6 +472,9 @@ async function extractFileEntry(dest: string, entry: TarEntry): Promise<void> {
   );
   try {
     await handle.writeFile(entry.data ?? new Uint8Array());
+    // The mode arg only applies on create — an existing file opened with
+    // O_TRUNC keeps its permissions, so chmod restores the cached mode.
+    if (entry.mode !== undefined) await handle.chmod(entry.mode);
   } finally {
     await handle.close();
   }
