@@ -16,6 +16,7 @@ function doc(over: {
   pack?: string;
   agent?: string;
   model?: string;
+  plugins?: readonly string[];
   sverkaVersion?: string;
   startedAt?: string;
   task?: string;
@@ -30,7 +31,7 @@ function doc(over: {
     pack: over.pack ?? "node-ci",
     agent: over.agent ?? "devin",
     model: over.model ?? "m1",
-    plugins: [],
+    plugins: over.plugins ?? [],
     sverkaVersion: over.sverkaVersion ?? "0.9.0",
     startedAt: over.startedAt ?? "2026-10-01T00:00:00.000Z",
     tasks: [
@@ -169,6 +170,35 @@ describe("buildBoard", () => {
       rows[rows.length - 1]!.successRate,
     );
   });
+
+  it("never merges same agent+model runs with different plugin sets", () => {
+    const cohorts = buildBoard([
+      doc({ runId: "a", plugins: ["sverka"], passed: true }),
+      doc({ runId: "b", plugins: ["sverka"], passed: true }),
+      doc({ runId: "c", plugins: [], passed: false }),
+    ]);
+    expect(cohorts.length).toBe(1);
+    const rows = cohorts[0]!.rows;
+    expect(rows.length).toBe(2);
+    const withPlugin = rows.find((r) => r.plugins.join("+") === "sverka")!;
+    const bare = rows.find((r) => r.plugins.length === 0)!;
+    expect(withPlugin.runs).toBe(2);
+    expect(withPlugin.successRate).toBe(1);
+    expect(bare.runs).toBe(1);
+    expect(bare.successRate).toBe(0);
+  });
+
+  it("canonicalizes plugin sets — order and duplicates do not split rows", () => {
+    const cohorts = buildBoard([
+      doc({ runId: "a", plugins: ["x", "y"] }),
+      doc({ runId: "b", plugins: ["y", "x", "y"] }),
+    ]);
+    expect(cohorts.length).toBe(1);
+    const rows = cohorts[0]!.rows;
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.plugins).toEqual(["x", "y"]);
+    expect(rows[0]!.runs).toBe(2);
+  });
 });
 
 describe("render", () => {
@@ -191,6 +221,31 @@ describe("render", () => {
     expect(text).toContain("lint-fix");
     expect(text).toContain("devin");
     expect(text).toContain("50.0%");
+  });
+
+  it("renderBoard renders the plugin-set identity in each row", () => {
+    const text = renderBoard(
+      buildBoard([
+        doc({ runId: "a", plugins: ["sverka", "mcp"] }),
+        doc({ runId: "b" }),
+      ]),
+    );
+    expect(text).toContain("PLUGINS");
+    // Canonical (sorted) order — input was ["sverka", "mcp"].
+    expect(text).toContain("mcp+sverka");
+    expect(text).toContain("no-plugins");
+  });
+
+  it("renderBoardHtml renders the plugin-set identity in each row", () => {
+    const html = renderBoardHtml(
+      buildBoard([
+        doc({ runId: "a", plugins: ["sverka"] }),
+        doc({ runId: "b" }),
+      ]),
+    );
+    expect(html).toContain("<th>plugins</th>");
+    expect(html).toContain("sverka");
+    expect(html).toContain("no-plugins");
   });
 
   it("renderBoardHtml emits a static page with cohort tables", () => {
