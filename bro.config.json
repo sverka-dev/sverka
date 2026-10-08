@@ -40,9 +40,6 @@
   "agents": {
     "native": {
       "command": "devin -p --prompt-file {promptFile}"
-    },
-    "devin": {
-      "maxSessions": 6
     }
   },
   "fleet": {
