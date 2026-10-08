@@ -755,24 +755,47 @@ interface RegistryIndex {
 
 const INDEX_PATH = "index.json";
 
+const indexRunSchema = z.object({
+  runId: z.string(),
+  agent: z.string(),
+  date: z.string(),
+  path: z.string(),
+});
+
+const registryIndexSchema = z.object({
+  schema: z.literal("arena.index/v1"),
+  updatedAt: z.string(),
+  packs: z.record(z.string(), z.object({ runs: z.array(indexRunSchema) })),
+});
+
+function emptyIndex(): RegistryIndex {
+  return { schema: "arena.index/v1", updatedAt: "", packs: {} };
+}
+
+/**
+ * Parse index.json — null when it isn't a whole valid arena.index/v1
+ * document (bad JSON, wrong schema, malformed pack entries). Callers
+ * decide what corrupt means: readers fall back to a results/ scan,
+ * writers rebuild the index.
+ */
+function parseIndex(raw: string): RegistryIndex | null {
+  let doc: unknown;
+  try {
+    doc = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const parsed = registryIndexSchema.safeParse(doc);
+  return parsed.success ? (parsed.data as RegistryIndex) : null;
+}
+
 async function readIndex(tree: TreeStore): Promise<RegistryIndex> {
   const raw = await tree.readFile(INDEX_PATH);
-  if (raw === null) {
-    return { schema: "arena.index/v1", updatedAt: "", packs: {} };
-  }
-  try {
-    const parsed = JSON.parse(raw) as RegistryIndex;
-    if (
-      parsed.schema !== "arena.index/v1" ||
-      typeof parsed.packs !== "object" ||
-      parsed.packs === null
-    ) {
-      return { schema: "arena.index/v1", updatedAt: "", packs: {} };
-    }
-    return parsed;
-  } catch {
-    return { schema: "arena.index/v1", updatedAt: "", packs: {} };
-  }
+  if (raw === null) return emptyIndex();
+  // Corrupt reads as empty — safe for readers only: list falls back to
+  // scanning results/. Writers must not share this shortcut (see
+  // updateIndex).
+  return parseIndex(raw) ?? emptyIndex();
 }
 
 async function writeIndex(
@@ -802,7 +825,18 @@ async function updateIndex(
   doc: ArenaResultV1,
   relPath: string,
 ): Promise<void> {
-  const index = await readIndex(tree);
+  const raw = await tree.readFile(INDEX_PATH);
+  // A corrupt index must not be treated as empty on the write path —
+  // that would persist an index holding only this run, dropping every
+  // earlier run from list/board until a manual reindex. Rebuild from
+  // the results/ tree instead: it is the same denormalization reindex
+  // runs, and the new result file is already written so the rebuild
+  // covers it. A tree that can't be scanned fails REGISTRY_UNAVAILABLE
+  // out of listFiles.
+  const index =
+    raw === null
+      ? emptyIndex()
+      : (parseIndex(raw) ?? (await buildIndex(tree)).index);
   const date = relPath.split("/")[3] ?? doc.startedAt.slice(0, 10);
   const pack = indexPack(index, doc.pack) ?? { runs: [] };
   pack.runs = [

@@ -251,6 +251,54 @@ describe("file registry", () => {
     expect((await reg.list()).map((d) => d.runId)).toEqual(["r-ok"]);
   });
 
+  it("publish on a corrupt index.json rebuilds it — earlier runs kept", async () => {
+    const regDir = join(dir, "reg-corrupt-idx");
+    const reg = createFileRegistry(regDir);
+    await reg.publish(v1Doc({ runId: "r-first" }));
+    await reg.publish(v1Doc({ runId: "r-second" }));
+    // Corrupt the index — a write that treated this as empty would
+    // persist an index holding only the new run.
+    writeFileSync(join(regDir, "index.json"), "{ not json");
+    await reg.publish(v1Doc({ runId: "r-third" }));
+    const index = JSON.parse(
+      readFileSync(join(regDir, "index.json"), "utf8"),
+    ) as { packs: Record<string, { runs: { runId: string }[] }> };
+    expect(index.packs["node-ci"]!.runs.map((r) => r.runId).sort()).toEqual([
+      "r-first",
+      "r-second",
+      "r-third",
+    ]);
+    expect((await reg.list()).map((d) => d.runId).sort()).toEqual([
+      "r-first",
+      "r-second",
+      "r-third",
+    ]);
+  });
+
+  it("publish on a shape-corrupt index.json (valid JSON, bad entries) rebuilds it", async () => {
+    const regDir = join(dir, "reg-corrupt-shape");
+    const reg = createFileRegistry(regDir);
+    await reg.publish(v1Doc({ runId: "r-first" }));
+    // Valid envelope, malformed pack entry — an upsert would crash on
+    // runs.filter; treat as corrupt and rebuild from results/.
+    writeFileSync(
+      join(regDir, "index.json"),
+      JSON.stringify({
+        schema: "arena.index/v1",
+        updatedAt: "",
+        packs: { "node-ci": { runs: "corrupt" } },
+      }),
+    );
+    await reg.publish(v1Doc({ runId: "r-second" }));
+    const index = JSON.parse(
+      readFileSync(join(regDir, "index.json"), "utf8"),
+    ) as { packs: Record<string, { runs: { runId: string }[] }> };
+    expect(index.packs["node-ci"]!.runs.map((r) => r.runId).sort()).toEqual([
+      "r-first",
+      "r-second",
+    ]);
+  });
+
   it("list surfaces non-ENOENT failures instead of returning empty", async () => {
     // results/ replaced by a regular file → readdir fails ENOTDIR
     // deterministically (even as root). A silent empty list here would
@@ -384,6 +432,32 @@ describe("s3 registry", () => {
       },
     });
     await expectArenaError(() => reg.publish(v1Doc()), "REGISTRY_UNAVAILABLE");
+  });
+
+  it("corrupt index.json + unscannable results/ → REGISTRY_UNAVAILABLE, index untouched", async () => {
+    const client = fakeS3();
+    const reg = createS3Registry({ bucket: "b", prefix: "reg", client });
+    await reg.publish(v1Doc({ runId: "run-a" }));
+    await reg.publish(v1Doc({ runId: "run-b" }));
+    client.objects.set("reg/index.json", "{ not json");
+    // Reads work, the tree scan doesn't — the rebuild must fail rather
+    // than overwrite the index with a single-run document.
+    const dead = createS3Registry({
+      bucket: "b",
+      prefix: "reg",
+      client: {
+        putObject: client.putObject,
+        getObject: client.getObject,
+        async listObjectsV2() {
+          throw new Error("denied");
+        },
+      },
+    });
+    await expectArenaError(
+      () => dead.publish(v1Doc({ runId: "run-c" })),
+      "REGISTRY_UNAVAILABLE",
+    );
+    expect(client.objects.get("reg/index.json")).toBe("{ not json");
   });
 });
 
