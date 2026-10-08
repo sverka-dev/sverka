@@ -4,7 +4,7 @@
 
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
-import { storeCredentials } from "../internal/hub.js";
+import { normalizeHubUrl, storeCredentials } from "../internal/hub.js";
 
 export interface LoginArgs {
   hub?: string;
@@ -50,7 +50,7 @@ export async function loginCommand(
       ExitCode.UsageError,
     );
   }
-  const normalized = url.replace(/\/+$/, "");
+  const normalized = normalizeHubUrl(url);
   const path = storeCredentials(normalized, token);
   output.writeLine(`stored credentials for ${normalized} in ${path}`);
   return ExitCode.Success;

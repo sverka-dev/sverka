@@ -9,13 +9,13 @@
 import {
   lstat,
   mkdir,
+  open,
   readdir,
-  readFile,
   readlink,
   symlink,
-  writeFile,
 } from "node:fs/promises";
-import { join, dirname, resolve, sep } from "node:path";
+import { constants } from "node:fs";
+import { join, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { zstdCompressSync, zstdDecompressSync } from "node:zlib";
 import type {
   CacheRestoreRequest,
@@ -117,7 +117,7 @@ async function hubRequest(
       `hub auth failed earlier this run — treated as hub-down (${method} ${path})`,
     );
   }
-  const base = config.url.replace(/\/+$/, "");
+  const base = trimTrailingSlashes(config.url);
   const ac = new AbortController();
   let timer = setTimeout(
     () =>
@@ -179,6 +179,30 @@ async function hubRequest(
   }
 }
 
+/** Strip trailing slashes without a regex — a `+$` pattern over a
+ *  slash-heavy string is a ReDoS-scan false positive waiting to happen. */
+function trimTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 0x2f) end--;
+  return url.slice(0, end);
+}
+
+/** Parse a 2xx body as JSON, keeping the file's contract that every
+ *  remote failure surfaces as a HubError (a proxy error page or truncated
+ *  body would otherwise escape as a raw SyntaxError). */
+function parseJsonBody<T>(res: HubResponse, path: string): T {
+  try {
+    return JSON.parse(new TextDecoder().decode(res.body)) as T;
+  } catch (e) {
+    throw new HubError(
+      "REMOTE_REJECTED",
+      `hub ${path} returned malformed JSON`,
+      e,
+      res.status,
+    );
+  }
+}
+
 function rejected(method: string, path: string, res: HubResponse): HubError {
   const detail = new TextDecoder().decode(res.body).slice(0, 200);
   const authHint =
@@ -204,7 +228,12 @@ async function collectTarEntries(
   const st = await lstat(abs);
   const name = relPath.split("\\").join("/");
   if (st.isDirectory()) {
-    out.push({ name, type: "dir", mtime: Math.floor(st.mtimeMs / 1000) });
+    out.push({
+      name,
+      type: "dir",
+      mode: st.mode & 0o777,
+      mtime: Math.floor(st.mtimeMs / 1000),
+    });
     const children = await readdir(abs);
     children.sort();
     for (const child of children) {
@@ -218,12 +247,23 @@ async function collectTarEntries(
       mtime: Math.floor(st.mtimeMs / 1000),
     });
   } else if (st.isFile()) {
-    out.push({
-      name,
-      type: "file",
-      data: new Uint8Array(await readFile(abs)),
-      mtime: Math.floor(st.mtimeMs / 1000),
-    });
+    // O_NOFOLLOW: if `abs` swapped to a symlink between lstat and open,
+    // fail loudly rather than pack a file outside the declared paths.
+    const handle = await open(
+      abs,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    try {
+      out.push({
+        name,
+        type: "file",
+        data: new Uint8Array(await handle.readFile()),
+        mode: st.mode & 0o777,
+        mtime: Math.floor(st.mtimeMs / 1000),
+      });
+    } finally {
+      await handle.close();
+    }
   }
   // Sockets/fifos/devices are not cached — skipped silently.
 }
@@ -266,16 +306,93 @@ function assertEntryName(name: string): void {
   }
 }
 
-/** Extract a tar.zst blob's declared paths into targetDir. */
+/**
+ * Reject the entry's parent path when any *existing* ancestor component
+ * under targetDir is a symlink (or a non-directory). Writes must never be
+ * redirected outside the cache root — a hostile blob could declare a
+ * contained symlink first and then write through it, and targetDir may
+ * carry links left by an earlier restore.
+ *
+ * Missing components are fine: mkdir creates them under the verified
+ * prefix. (There is an inherent POSIX TOCTOU window between this check
+ * and the write; the leaf O_NOFOLLOW narrows it to ancestor components.)
+ */
+async function assertNoSymlinkAncestors(
+  targetDir: string,
+  parent: string,
+  name: string,
+): Promise<void> {
+  const rel = relative(targetDir, parent);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new HubError(
+      "REMOTE_REJECTED",
+      `cache blob entry escapes the target dir: ${name}`,
+    );
+  }
+  if (rel === "") return;
+  let cur = targetDir;
+  for (const seg of rel.split(sep)) {
+    cur = join(cur, seg);
+    const st = await lstat(cur).catch(() => undefined);
+    if (st === undefined) return; // mkdir will create the rest inside
+    if (st.isSymbolicLink() || !st.isDirectory()) {
+      throw new HubError(
+        "REMOTE_REJECTED",
+        `cache blob entry traverses a symlink or non-directory: ${name}`,
+      );
+    }
+  }
+}
+
+/**
+ * Extract a tar.zst blob's declared paths into targetDir. Returns the set
+ * of declared paths that were actually restored — a blob that lacks a
+ * declared path is a partial entry and must count as a miss, not a hit
+ * (otherwise the engine skips rebuilding outputs that never landed).
+ */
 async function extractCacheBlob(
   blob: Uint8Array,
   paths: readonly string[],
   targetDir: string,
-): Promise<void> {
+): Promise<ReadonlySet<string>> {
   const tar = unpackTar(new Uint8Array(zstdDecompressSync(Buffer.from(blob))));
   const wanted = new Set(paths.map((p) => p.split("\\").join("/")));
+  const targetRoot = resolve(targetDir);
+
+  // Link targets must stay inside the target dir — a blob that plants a
+  // symlink to /etc would escape the cache sandbox. resolve() (not join())
+  // so absolute targets fail containment rather than being re-rooted.
+  const containedLink = (dest: string, link: string): boolean => {
+    if (link === "" || link.startsWith("/") || link.includes("\\")) {
+      return false;
+    }
+    const resolved = resolve(dirname(dest), link);
+    return (
+      resolved === targetRoot || resolved.startsWith(`${targetRoot}${sep}`)
+    );
+  };
+
+  // Validate names and coverage up front: a blob missing a declared path
+  // (or covering it only with an unwritable entry) is a miss — bail before
+  // writing so a partial entry leaves no half-restored tree.
+  const covered = new Set<string>();
   for (const entry of tar) {
     assertEntryName(entry.name);
+    if (
+      entry.type === "symlink" &&
+      !containedLink(join(targetDir, entry.name), entry.linkname ?? "")
+    ) {
+      continue;
+    }
+    for (const p of wanted) {
+      if (entry.name === p || entry.name.startsWith(`${p}/`)) {
+        covered.add(p);
+      }
+    }
+  }
+  if (covered.size < wanted.size) return covered;
+
+  for (const entry of tar) {
     if (entry.name === MANIFEST_NAME) continue;
     // Only extract declared paths (or children of declared dirs).
     if (
@@ -286,30 +403,45 @@ async function extractCacheBlob(
       continue;
     }
     const dest = join(targetDir, entry.name);
+    await assertNoSymlinkAncestors(targetDir, dirname(dest), entry.name);
     if (entry.type === "dir") {
-      await mkdir(dest, { recursive: true });
+      // A leaf symlink would silently redirect later writes — refuse it.
+      const st = await lstat(dest).catch(() => undefined);
+      if (st?.isSymbolicLink()) {
+        throw new HubError(
+          "REMOTE_REJECTED",
+          `cache blob dir entry collides with a symlink: ${entry.name}`,
+        );
+      }
+      await mkdir(dest, {
+        recursive: true,
+        ...(entry.mode !== undefined ? { mode: entry.mode } : {}),
+      });
     } else if (entry.type === "file" && entry.data !== undefined) {
       await mkdir(dirname(dest), { recursive: true });
-      await writeFile(dest, entry.data);
-    } else if (entry.type === "symlink" && entry.linkname !== undefined) {
-      // Link targets must stay inside the target dir — a blob that plants
-      // a symlink to /etc would escape the cache sandbox. resolve() (not
-      // join()) so absolute targets fail containment rather than being
-      // silently re-rooted.
-      const link = entry.linkname;
-      if (link.startsWith("/") || link.includes("\\")) continue;
-      const resolved = resolve(dirname(dest), link);
-      const realTarget = resolve(targetDir);
-      if (
-        resolved !== realTarget &&
-        !resolved.startsWith(`${realTarget}${sep}`)
-      ) {
-        continue;
+      // O_NOFOLLOW refuses a leaf symlink — the write cannot be
+      // redirected onto an existing link's target. The recorded mode is
+      // applied on create so restored executables keep their +x.
+      const handle = await open(
+        dest,
+        constants.O_WRONLY |
+          constants.O_CREAT |
+          constants.O_TRUNC |
+          (constants.O_NOFOLLOW ?? 0),
+        entry.mode ?? 0o644,
+      );
+      try {
+        await handle.writeFile(entry.data);
+      } finally {
+        await handle.close();
       }
+    } else if (entry.type === "symlink" && entry.linkname !== undefined) {
+      if (!containedLink(dest, entry.linkname)) continue;
       await mkdir(dirname(dest), { recursive: true });
-      await symlink(link, dest);
+      await symlink(entry.linkname, dest);
     }
   }
+  return covered;
 }
 
 /**
@@ -330,11 +462,27 @@ export function createRemoteCacheStore(config: RemoteStoreConfig): CacheStore {
     async restore(
       req: CacheRestoreRequest,
     ): Promise<CacheRestoreResult | undefined> {
-      for (const key of [req.key, ...req.restoreKeys]) {
-        const res = await hubRequest(config, "GET", pathFor(key));
+      const wanted = new Set(req.paths.map((p) => p.split("\\").join("/")));
+      // File-cache semantics: the primary key is exact-only; restoreKeys
+      // opt into prefix matching via ?prefix=1 (the hub must not return a
+      // different key's blob to an exact-key GET).
+      const attempts: { key: string; prefix: boolean }[] = [
+        { key: req.key, prefix: false },
+        ...req.restoreKeys.map((key) => ({ key, prefix: true })),
+      ];
+      for (const { key, prefix } of attempts) {
+        const path = `${pathFor(key)}${prefix ? "?prefix=1" : ""}`;
+        const res = await hubRequest(config, "GET", path);
         if (res.status === 404) continue;
         if (res.status !== 200) throw rejected("GET", pathFor(key), res);
-        await extractCacheBlob(res.body, req.paths, req.targetDir);
+        const covered = await extractCacheBlob(
+          res.body,
+          req.paths,
+          req.targetDir,
+        );
+        // A blob missing a declared path is a partial entry — treating it
+        // as a hit would skip rebuilding outputs that never landed.
+        if (covered.size < wanted.size) continue;
         return { key: res.headers.get("x-sverka-cache-key") ?? key };
       }
       return undefined;
@@ -418,10 +566,10 @@ export async function uploadRunReport(
   if (res.status !== 200 && res.status !== 201) {
     throw rejected("POST", "/v1/runs", res);
   }
-  const parsed = JSON.parse(new TextDecoder().decode(res.body)) as {
-    runId?: unknown;
-    url?: unknown;
-  };
+  const parsed = parseJsonBody<{ runId?: unknown; url?: unknown }>(
+    res,
+    "POST /v1/runs",
+  );
   return {
     runId: typeof parsed.runId === "string" ? parsed.runId : "unknown",
     url: typeof parsed.url === "string" ? parsed.url : "",
@@ -438,7 +586,7 @@ export async function listRuns(
   if (opts?.before !== undefined) params.set("before", String(opts.before));
   const res = await hubRequest(config, "GET", `/v1/runs?${params}`);
   if (res.status !== 200) throw rejected("GET", "/v1/runs", res);
-  return JSON.parse(new TextDecoder().decode(res.body)) as HubRunSummary[];
+  return parseJsonBody<HubRunSummary[]>(res, "GET /v1/runs");
 }
 
 /** Fetch one stored run (report + findings). 404 → undefined. */
@@ -453,5 +601,5 @@ export async function getRun(
   );
   if (res.status === 404) return undefined;
   if (res.status !== 200) throw rejected("GET", `/v1/runs/${runId}`, res);
-  return JSON.parse(new TextDecoder().decode(res.body)) as HubRunDetail;
+  return parseJsonBody<HubRunDetail>(res, `GET /v1/runs/${runId}`);
 }

@@ -174,8 +174,19 @@ export function unpackTar(archive: Uint8Array): TarEntry[] {
     const namePart = readString(archive, offset, NAME_MAX);
     const name = prefix === "" ? namePart : `${prefix}/${namePart}`;
     const size = readOctal(archive, offset + 124, 12);
+    // A non-octal size parses to NaN — unchecked, it would silently end
+    // the loop (NaN comparisons are false), reporting a truncated archive
+    // as a valid restore. Reject anything that isn't a usable length.
+    if (!Number.isSafeInteger(size) || size < 0) {
+      throw new StorageError(
+        "CORRUPT_SNAPSHOT",
+        "tar entry has an invalid size field",
+      );
+    }
     const typeflag = archive[offset + 156];
     const mtime = readOctal(archive, offset + 136, 12);
+    const rawMode = readOctal(archive, offset + 100, 8);
+    const mode = Number.isSafeInteger(rawMode) ? rawMode & 0o777 : undefined;
     const linkname =
       typeflag === 0x32
         ? readString(archive, offset + 157, LINKNAME_MAX)
@@ -192,10 +203,16 @@ export function unpackTar(archive: Uint8Array): TarEntry[] {
         name,
         type: "file",
         data: archive.slice(offset, offset + size),
+        ...(mode !== undefined ? { mode } : {}),
         mtime,
       });
     } else if (typeflag === 0x35) {
-      entries.push({ name: name.replace(/\/$/, ""), type: "dir", mtime });
+      entries.push({
+        name: name.replace(/\/$/, ""),
+        type: "dir",
+        ...(mode !== undefined ? { mode } : {}),
+        mtime,
+      });
     } else if (typeflag === 0x32) {
       entries.push({
         name,

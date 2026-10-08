@@ -65,4 +65,34 @@ describe("tar pack/unpack", () => {
     padded.set(blob);
     expect(unpackTar(padded)).toHaveLength(1);
   });
+
+  it("rejects an entry whose size field is not a usable number", () => {
+    const blob = packTar([
+      { name: "f", type: "file", data: new Uint8Array([1]) },
+    ]);
+    // Overwrite the size field with non-octal digits ("9…"), then repair
+    // the checksum so only the size validation trips.
+    blob.fill(0x39, 124, 136);
+    blob.fill(0x20, 148, 156);
+    let sum = 0;
+    for (let i = 0; i < 512; i++) sum += blob[i]!;
+    const chk = sum.toString(8).padStart(6, "0");
+    for (let i = 0; i < 6; i++) blob[148 + i] = chk.charCodeAt(i);
+    blob[154] = 0;
+    blob[155] = 0x20;
+    expect(() => unpackTar(blob)).toThrow(/invalid size/i);
+  });
+
+  it("round-trips file and dir modes", () => {
+    const entries: TarEntry[] = [
+      { name: "d", type: "dir", mode: 0o700 },
+      { name: "d/x.sh", type: "file", data: new Uint8Array([1]), mode: 0o755 },
+      { name: "d/y.txt", type: "file", data: new Uint8Array([2]) },
+    ];
+    const unpacked = unpackTar(packTar(entries));
+    expect(unpacked[0]!.mode).toBe(0o700);
+    expect(unpacked[1]!.mode).toBe(0o755);
+    // Missing mode falls back to the type default and still round-trips.
+    expect(unpacked[2]!.mode).toBe(0o644);
+  });
 });

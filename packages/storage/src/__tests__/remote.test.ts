@@ -12,6 +12,8 @@ import { mkdtemp, rm, writeFile, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
+import { zstdCompressSync } from "node:zlib";
+import { packTar } from "../internal/tar.js";
 import {
   createRemoteCacheStore,
   createRemoteSnapshotStore,
@@ -93,15 +95,18 @@ async function startFixtureHub(opts?: { token?: string }): Promise<FixtureHub> {
             res.end(exact.blob);
             return;
           }
-          // Prefix fallback — newest write whose raw key starts with `key`.
-          let best: { key: string; blob: Buffer } | undefined;
-          for (const entry of cache.values()) {
-            if (entry.key.startsWith(key)) best = entry;
-          }
-          if (best !== undefined) {
-            res.writeHead(200, { "x-sverka-cache-key": best.key });
-            res.end(best.blob);
-            return;
+          // Prefix fallback — opt-in via ?prefix=1 (restoreKeys), newest
+          // write whose raw key starts with `key`. Matches the real hub.
+          if (url.searchParams.get("prefix") === "1") {
+            let best: { key: string; blob: Buffer } | undefined;
+            for (const entry of cache.values()) {
+              if (entry.key.startsWith(key)) best = entry;
+            }
+            if (best !== undefined) {
+              res.writeHead(200, { "x-sverka-cache-key": best.key });
+              res.end(best.blob);
+              return;
+            }
           }
           res.writeHead(404).end();
           return;
@@ -280,6 +285,122 @@ describe("createRemoteCacheStore", () => {
     });
     expect(hit).toEqual({ key: "build-linux-deadbeef" });
     expect(await readFile(join(dst, "a.txt"), "utf8")).toBe("alpha");
+  });
+
+  it("primary key does not prefix-match (restoreKeys only)", async () => {
+    const src = join(dir, "src");
+    const dst = join(dir, "dst");
+    await mkdir(src, { recursive: true });
+    await writeFile(join(src, "a.txt"), "alpha");
+    const store = createRemoteCacheStore(CONFIG(hub!.url));
+    await store.store({
+      key: "build-linux-deadbeef",
+      paths: ["a.txt"],
+      sourceDir: src,
+    });
+
+    // "build" is a pure prefix of the stored key — an exact-key GET must
+    // not return a different key's blob.
+    const hit = await store.restore({
+      key: "build",
+      restoreKeys: [],
+      paths: ["a.txt"],
+      targetDir: dst,
+    });
+    expect(hit).toBeUndefined();
+  });
+
+  it("blob missing a declared path counts as a miss, not a hit", async () => {
+    const src = join(dir, "src");
+    const dst = join(dir, "dst");
+    await mkdir(src, { recursive: true });
+    await writeFile(join(src, "a.txt"), "alpha");
+    const store = createRemoteCacheStore(CONFIG(hub!.url));
+    await store.store({
+      key: "partial-entry",
+      paths: ["a.txt"],
+      sourceDir: src,
+    });
+
+    const hit = await store.restore({
+      key: "partial-entry",
+      restoreKeys: [],
+      paths: ["a.txt", "b.txt"],
+      targetDir: dst,
+    });
+    expect(hit).toBeUndefined();
+    // A miss must not leave a half-restored tree behind.
+    await expect(readFile(join(dst, "a.txt"), "utf8")).rejects.toThrow();
+  });
+
+  it("restored files keep their executable mode", async () => {
+    const src = join(dir, "src");
+    const dst = join(dir, "dst");
+    await mkdir(src, { recursive: true });
+    await writeFile(join(src, "run.sh"), "#!/bin/sh\ntrue\n", {
+      mode: 0o755,
+    });
+    const store = createRemoteCacheStore(CONFIG(hub!.url));
+    await store.store({ key: "exec-key", paths: ["run.sh"], sourceDir: src });
+    const hit = await store.restore({
+      key: "exec-key",
+      restoreKeys: [],
+      paths: ["run.sh"],
+      targetDir: dst,
+    });
+    expect(hit).toEqual({ key: "exec-key" });
+    const { stat } = await import("node:fs/promises");
+    expect((await stat(join(dst, "run.sh"))).mode & 0o111).not.toBe(0);
+  });
+
+  it("refuses a blob that writes through a planted symlink", async () => {
+    // A hostile blob can declare a contained symlink, then a file entry
+    // beneath it — the file write must not follow the link.
+    const tar = packTar([
+      { name: "sub", type: "symlink", linkname: "real" },
+      {
+        name: "sub/evil.txt",
+        type: "file",
+        data: new TextEncoder().encode("x"),
+      },
+    ]);
+    const put = await fetch(`${hub!.url}/v1/cache/acme%2Fapp/evil-key`, {
+      method: "PUT",
+      headers: { Authorization: "Bearer test-token" },
+      body: zstdCompressSync(Buffer.from(tar)),
+    });
+    expect(put.status).toBe(201);
+
+    const store = createRemoteCacheStore(CONFIG(hub!.url));
+    await expect(
+      store.restore({
+        key: "evil-key",
+        restoreKeys: [],
+        paths: ["sub"],
+        targetDir: join(dir, "dst"),
+      }),
+    ).rejects.toThrow(HubError);
+  });
+
+  it("a blob whose only coverage is an escaping symlink counts as a miss", async () => {
+    // "link" is present in the tar but its target escapes the target dir —
+    // it will not be written, so it must not count as coverage.
+    const tar = packTar([
+      { name: "link", type: "symlink", linkname: "/etc/passwd" },
+    ]);
+    await fetch(`${hub!.url}/v1/cache/acme%2Fapp/link-key`, {
+      method: "PUT",
+      headers: { Authorization: "Bearer test-token" },
+      body: zstdCompressSync(Buffer.from(tar)),
+    });
+    const store = createRemoteCacheStore(CONFIG(hub!.url));
+    const hit = await store.restore({
+      key: "link-key",
+      restoreKeys: [],
+      paths: ["link"],
+      targetDir: join(dir, "dst"),
+    });
+    expect(hit).toBeUndefined();
   });
 
   it("malformed keys surface as HubError (hub 400)", async () => {

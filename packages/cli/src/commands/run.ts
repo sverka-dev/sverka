@@ -23,7 +23,7 @@ import { resolveDefaultEntryId, entryExists } from "../internal/graph.js";
 import { isBinaryAvailable } from "../internal/runtime-check.js";
 import { collectReportContext } from "../internal/report-context.js";
 import { watchLoop } from "../internal/watch.js";
-import { resolveHub } from "../internal/hub.js";
+import { readHubFileConfig, resolveHub } from "../internal/hub.js";
 import type { CacheStore, SnapshotStore } from "@sverka/runtime";
 import { createFileCacheStore } from "@sverka/runtime";
 import {
@@ -255,6 +255,13 @@ function resolveRemote(
         "--remote needs a hub: set SVERKA_HUB_URL + SVERKA_HUB_TOKEN, run `sverka login --hub <url> --token <t>`, or add .sverka/hub.json",
         "MISSING_ARG",
         ExitCode.UsageError,
+      );
+    }
+    // `enabled: true` in hub.json asked for remote behaviour but no
+    // credentials resolved — say so instead of silently running local.
+    if (readHubFileConfig(global.root).enabled === true) {
+      output.errorLine(
+        "warning: .sverka/hub.json enables remote runs but no hub credentials resolved — running local-only (see `sverka login`)",
       );
     }
     return undefined;

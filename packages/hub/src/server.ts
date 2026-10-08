@@ -34,8 +34,10 @@ const API_HEADERS: Record<string, string> = {
 
 const PAGE_HEADERS: Record<string, string> = {
   "Content-Type": "text/html; charset=utf-8",
+  // frame-src 'self' permits the run page's same-origin findings iframe;
+  // the SARIF sub-document still gets its own pinned script hashes.
   "Content-Security-Policy":
-    "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'",
+    "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; frame-src 'self'",
   "X-Frame-Options": "DENY",
   "X-Content-Type-Options": "nosniff",
 };
@@ -92,8 +94,13 @@ export function startHubServer(opts: HubServerOptions): Promise<HubServer> {
         dataDir: opts.dataDir,
         close: () =>
           new Promise<void>((done) => {
-            store.close();
-            server.close(() => done());
+            // Drain in-flight requests before closing the SQLite index —
+            // closing the store first would fail requests still reading
+            // their bodies.
+            server.close(() => {
+              store.close();
+              done();
+            });
           }),
       });
     });
@@ -119,8 +126,12 @@ async function handle(
   const path = url.pathname;
 
   // Health check is unauthenticated.
-  if (path === "/v1/ping" && method === "GET") {
-    json(res, 200, { status: "ok" });
+  if (path === "/v1/ping") {
+    if (method === "GET") {
+      json(res, 200, { status: "ok" });
+    } else {
+      methodNotAllowed(res);
+    }
     return;
   }
 
@@ -133,10 +144,17 @@ async function handle(
     return;
   }
   // A valid ?token= promotes to a cookie so dashboard links work.
+  // Secure only when the request actually arrived over TLS — the hub
+  // serves plain HTTP by default (a Secure cookie would never stick);
+  // behind a TLS-terminating proxy x-forwarded-proto applies.
   if (auth.viaQuery && method === "GET") {
+    const tls =
+      (req.socket as { encrypted?: boolean }).encrypted === true ||
+      headerValue(req.headers["x-forwarded-proto"])?.split(",")[0]?.trim() ===
+        "https";
     res.setHeader(
       "Set-Cookie",
-      `hub_token=${encodeURIComponent(auth.token)}; HttpOnly; SameSite=Strict; Path=/`,
+      `hub_token=${encodeURIComponent(auth.token)}; HttpOnly;${tls ? " Secure;" : ""} SameSite=Strict; Path=/`,
     );
   }
 
@@ -157,7 +175,12 @@ async function handle(
       return;
     }
     if (method === "GET") {
-      const hit = store.getBlob(project, key);
+      // Prefix matching is opt-in (?prefix=1) — it's the restoreKeys
+      // semantic. An exact-key GET must never return a different key's
+      // blob, and misses stay O(1) instead of scanning the blob dir.
+      const hit = store.getBlob(project, key, {
+        prefix: url.searchParams.get("prefix") === "1",
+      });
       if (hit === undefined) {
         json(res, 404, { code: "NOT_FOUND", message: "cache entry not found" });
         return;
@@ -170,6 +193,8 @@ async function handle(
       res.end(hit.blob);
       return;
     }
+    methodNotAllowed(res);
+    return;
   }
 
   // Snapshots.
@@ -204,6 +229,8 @@ async function handle(
       res.end();
       return;
     }
+    methodNotAllowed(res);
+    return;
   }
 
   // Runs.
@@ -277,110 +304,136 @@ async function handle(
       json(res, 200, runs.map(runSummary));
       return;
     }
+    methodNotAllowed(res);
+    return;
   }
 
   const runIdSeg = match1(path, /^\/v1\/runs\/([^/]+)$/);
-  if (runIdSeg !== null && method === "GET") {
-    const run = store.getRun(runIdSeg);
-    if (run === undefined) {
-      json(res, 404, { code: "NOT_FOUND", message: "run not found" });
+  if (runIdSeg !== null) {
+    if (method === "GET") {
+      const run = store.getRun(runIdSeg);
+      if (run === undefined) {
+        json(res, 404, { code: "NOT_FOUND", message: "run not found" });
+        return;
+      }
+      json(res, 200, {
+        ...runSummary(run),
+        report: JSON.parse(run.reportJson) as unknown,
+        findings: JSON.parse(run.findingsJson) as unknown,
+        uploadedAt: run.uploadedAt,
+      });
       return;
     }
-    json(res, 200, {
-      ...runSummary(run),
-      report: JSON.parse(run.reportJson) as unknown,
-      findings: JSON.parse(run.findingsJson) as unknown,
-      uploadedAt: run.uploadedAt,
-    });
+    methodNotAllowed(res);
     return;
   }
 
   // Flaky-step aggregation.
   const flakySeg = match1(path, /^\/v1\/flaky\/([^/]+)$/);
-  if (flakySeg !== null && method === "GET") {
-    const stepsParam = url.searchParams.get("steps");
-    const nRaw = url.searchParams.get("n");
-    const n = nRaw === null ? undefined : Number(nRaw);
-    const steps =
-      stepsParam === null || stepsParam === ""
-        ? undefined
-        : stepsParam.split(",").filter((s) => s !== "");
-    json(res, 200, {
-      rows: store.flaky(flakySeg, {
-        n: n !== undefined && Number.isFinite(n) ? n : undefined,
-        steps,
-      }),
-    });
+  if (flakySeg !== null) {
+    if (method === "GET") {
+      const stepsParam = url.searchParams.get("steps");
+      const nRaw = url.searchParams.get("n");
+      const n = nRaw === null ? undefined : Number(nRaw);
+      const steps =
+        stepsParam === null || stepsParam === ""
+          ? undefined
+          : stepsParam.split(",").filter((s) => s !== "");
+      json(res, 200, {
+        rows: store.flaky(flakySeg, {
+          n: n !== undefined && Number.isFinite(n) ? n : undefined,
+          steps,
+        }),
+      });
+      return;
+    }
+    methodNotAllowed(res);
     return;
   }
 
   // --- dashboard (HTML) ---
 
-  if (path === "/" && method === "GET") {
-    const project = url.searchParams.get("project");
-    if (project === null) {
-      page(res, renderHubIndex({ projects: store.listProjects() }));
+  if (path === "/") {
+    if (method === "GET") {
+      const project = url.searchParams.get("project");
+      if (project === null) {
+        page(res, renderHubIndex({ projects: store.listProjects() }));
+        return;
+      }
+      const limitRaw = url.searchParams.get("limit");
+      const limit = limitRaw === null ? 50 : Number(limitRaw);
+      const runs = store
+        .listRuns({
+          project,
+          limit: Number.isFinite(limit) ? limit : 50,
+        })
+        .map(runSummary);
+      page(res, renderHubRunList({ project, runs }));
       return;
     }
-    const limitRaw = url.searchParams.get("limit");
-    const limit = limitRaw === null ? 50 : Number(limitRaw);
-    const runs = store
-      .listRuns({
-        project,
-        limit: Number.isFinite(limit) ? limit : 50,
-      })
-      .map(runSummary);
-    page(res, renderHubRunList({ project, runs }));
+    methodNotAllowed(res);
     return;
   }
 
   const findingsMatch = match2(path, /^\/runs\/([^/]+)\/([^/]+)\/findings$/);
-  if (findingsMatch !== null && method === "GET") {
-    const run = store.getRun(findingsMatch[1]);
-    if (run === undefined || run.project !== findingsMatch[0]) {
-      notFoundPage(res);
+  if (findingsMatch !== null) {
+    if (method === "GET") {
+      const run = store.getRun(findingsMatch[1]);
+      if (run === undefined || run.project !== findingsMatch[0]) {
+        notFoundPage(res);
+        return;
+      }
+      const findings = JSON.parse(run.findingsJson) as Finding[];
+      res.writeHead(200, SARIF_PAGE_HEADERS);
+      res.end(generateSarifHtml(findings));
       return;
     }
-    const findings = JSON.parse(run.findingsJson) as Finding[];
-    res.writeHead(200, SARIF_PAGE_HEADERS);
-    res.end(generateSarifHtml(findings));
+    methodNotAllowed(res);
     return;
   }
 
   const runPageMatch = match2(path, /^\/runs\/([^/]+)\/([^/]+)$/);
-  if (runPageMatch !== null && method === "GET") {
-    const run = store.getRun(runPageMatch[1]);
-    if (run === undefined || run.project !== runPageMatch[0]) {
-      notFoundPage(res);
+  if (runPageMatch !== null) {
+    if (method === "GET") {
+      const run = store.getRun(runPageMatch[1]);
+      if (run === undefined || run.project !== runPageMatch[0]) {
+        notFoundPage(res);
+        return;
+      }
+      page(
+        res,
+        renderHubRunDetail({
+          run: {
+            ...runSummary(run),
+            report: JSON.parse(run.reportJson) as Record<string, unknown>,
+            findings: JSON.parse(run.findingsJson) as readonly unknown[],
+            uploadedAt: run.uploadedAt,
+          },
+        }),
+      );
       return;
     }
-    page(
-      res,
-      renderHubRunDetail({
-        run: {
-          ...runSummary(run),
-          report: JSON.parse(run.reportJson) as Record<string, unknown>,
-          findings: JSON.parse(run.findingsJson) as readonly unknown[],
-          uploadedAt: run.uploadedAt,
-        },
-      }),
-    );
+    methodNotAllowed(res);
     return;
   }
 
   const flakyPageSeg = match1(path, /^\/flaky\/([^/]+)$/);
-  if (flakyPageSeg !== null && method === "GET") {
-    const nRaw = url.searchParams.get("n");
-    const n = nRaw === null ? 20 : Number(nRaw);
-    const window = Number.isFinite(n) ? n : 20;
-    page(
-      res,
-      renderHubFlaky({
-        project: flakyPageSeg,
-        rows: store.flaky(flakyPageSeg, { n: window }),
-        window,
-      }),
-    );
+  if (flakyPageSeg !== null) {
+    if (method === "GET") {
+      const nRaw = url.searchParams.get("n");
+      const n = nRaw === null ? 20 : Number(nRaw);
+      const window = Number.isFinite(n) ? n : 20;
+      page(
+        res,
+        renderHubFlaky({
+          project: flakyPageSeg,
+          rows: store.flaky(flakyPageSeg, { n: window }),
+          window,
+        }),
+      );
+      return;
+    }
+    methodNotAllowed(res);
     return;
   }
 
@@ -451,9 +504,15 @@ function readBody(
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let done = false;
     req.on("data", (chunk: Buffer) => {
+      // After the 413 the request is destroyed, but already-buffered
+      // chunks still reach this listener — bail before they can trigger
+      // a second response (ERR_HTTP_HEADERS_SENT) or grow `chunks`.
+      if (done) return;
       size += chunk.length;
       if (size > cap) {
+        done = true;
         json(res, 413, { code: "TOO_LARGE", message: "payload too large" });
         req.destroy();
         resolve(null);
@@ -461,14 +520,25 @@ function readBody(
       }
       chunks.push(chunk);
     });
-    req.on("end", () => resolve(Buffer.concat(chunks)));
-    req.on("error", () => resolve(null));
+    req.on("end", () => {
+      if (!done) resolve(Buffer.concat(chunks));
+    });
+    req.on("error", () => {
+      if (!done) resolve(null);
+    });
   });
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, API_HEADERS);
   res.end(JSON.stringify(body));
+}
+
+function methodNotAllowed(res: ServerResponse): void {
+  json(res, 405, {
+    code: "METHOD_NOT_ALLOWED",
+    message: "method not allowed on this route",
+  });
 }
 
 function page(res: ServerResponse, html: string): void {

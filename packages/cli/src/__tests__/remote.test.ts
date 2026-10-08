@@ -3,7 +3,7 @@
 // the real @sverka/hub server on an ephemeral port.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { readFileSync, statSync, existsSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { main } from "../index.js";
 import { startHubServer, type HubServer } from "@sverka/hub";
@@ -71,7 +71,6 @@ describe("sverka login", () => {
       "sverka",
       "credentials",
     );
-    expect(existsSync(path)).toBe(true);
     expect(statSync(path).mode & 0o777).toBe(0o600);
     const parsed = JSON.parse(readFileSync(path, "utf8")) as {
       hubs: Record<string, string>;

@@ -6,7 +6,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  existsSync,
   writeFileSync,
   unlinkSync,
 } from "node:fs";
@@ -103,9 +102,14 @@ export function createHubStore(dataDir: string) {
     project: string,
   ): readonly { file: string; key: string; createdAt: number }[] => {
     const dir = cacheDir(project);
-    if (!existsSync(dir)) return [];
+    let names: string[];
+    try {
+      names = readdirSync(dir);
+    } catch {
+      return [];
+    }
     const entries: { file: string; key: string; createdAt: number }[] = [];
-    for (const file of readdirSync(dir)) {
+    for (const file of names) {
       if (!file.endsWith(".json")) continue;
       try {
         const meta = JSON.parse(readFileSync(join(dir, file), "utf8")) as {
@@ -129,13 +133,20 @@ export function createHubStore(dataDir: string) {
   const getBlob = (
     project: string,
     key: string,
+    opts?: { prefix?: boolean | undefined },
   ): { blob: Buffer; key: string } | undefined => {
-    // Exact match first.
+    // Exact match — O(1) and always on.
     const exact = join(cacheDir(project), `${sha256(key)}.blob`);
-    if (existsSync(exact)) {
+    try {
       return { blob: readFileSync(exact), key };
+    } catch {
+      // No exact hit.
     }
-    // Prefix fallback: newest entry whose stored key starts with `key`.
+    // Prefix fallback is opt-in: it implements the client's restoreKeys
+    // semantics. Without it, a GET for key "b" could return the newest
+    // "b*" blob — wrong-key restores — and every plain miss paid an O(n)
+    // synchronous scan of the whole blob dir on the request thread.
+    if (opts?.prefix !== true) return undefined;
     let best: { file: string; key: string; createdAt: number } | undefined;
     for (const entry of readBlobDir(project)) {
       if (!entry.key.startsWith(key)) continue;
@@ -145,8 +156,11 @@ export function createHubStore(dataDir: string) {
     }
     if (best === undefined) return undefined;
     const blobPath = join(cacheDir(project), `${best.file}.blob`);
-    if (!existsSync(blobPath)) return undefined;
-    return { blob: readFileSync(blobPath), key: best.key };
+    try {
+      return { blob: readFileSync(blobPath), key: best.key };
+    } catch {
+      return undefined;
+    }
   };
 
   // --- snapshots ---
@@ -164,16 +178,20 @@ export function createHubStore(dataDir: string) {
   };
 
   const getSnapshot = (project: string, runId: string): string | undefined => {
-    const path = snapshotPath(project, runId);
-    if (!existsSync(path)) return undefined;
-    return readFileSync(path, "utf8");
+    try {
+      return readFileSync(snapshotPath(project, runId), "utf8");
+    } catch {
+      return undefined;
+    }
   };
 
   const deleteSnapshot = (project: string, runId: string): boolean => {
-    const path = snapshotPath(project, runId);
-    if (!existsSync(path)) return false;
-    unlinkSync(path);
-    return true;
+    try {
+      unlinkSync(snapshotPath(project, runId));
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   // --- runs (sqlite index) ---

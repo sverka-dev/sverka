@@ -2,7 +2,7 @@
 // Spec 55: "single read/write token plus optional read-only tokens
 // (tokens file: name:token:ro|rw)".
 
-import { existsSync, readFileSync, appendFileSync, mkdirSync } from "node:fs";
+import { readFileSync, appendFileSync, chmodSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { HubToken } from "./types.js";
@@ -52,11 +52,10 @@ export function resolveTokens(
   const tokens: HubToken[] = [];
   const file = join(dataDir, TOKENS_FILE);
   try {
-    if (existsSync(file)) {
-      tokens.push(...parseTokensFile(readFileSync(file, "utf8")));
-    }
+    // Read directly — an existsSync check would leave a TOCTOU window.
+    tokens.push(...parseTokensFile(readFileSync(file, "utf8")));
   } catch {
-    // Unreadable tokens file — fall through to env/generated.
+    // Missing or unreadable tokens file — fall through to env/generated.
   }
 
   const admin = process.env["SVERKA_HUB_ADMIN_TOKEN"];
@@ -77,6 +76,10 @@ export function resolveTokens(
         `${generated.name}:${generated.token}:${generated.access}\n`,
         { mode: 0o600 },
       );
+      // `mode` applies only when the file is created — a pre-existing
+      // permissive file would keep the generated admin token readable by
+      // other users. Force 0600 either way.
+      chmodSync(file, 0o600);
     } catch {
       // If the file can't be written, still serve with the in-memory token —
       // the operator saw it printed on the console.

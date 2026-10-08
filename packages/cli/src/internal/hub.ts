@@ -131,6 +131,14 @@ function envString(name: string): string | undefined {
   return typeof value === "string" && value !== "" ? value : undefined;
 }
 
+/** Canonical credential key — `sverka login` stores tokens under the URL
+ *  with trailing slashes stripped; lookups must normalize identically. */
+export function normalizeHubUrl(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 0x2f) end--;
+  return url.slice(0, end);
+}
+
 /**
  * Resolve the effective hub connection for a root. Returns null when no
  * hub is configured at all (no url, no token anywhere) — the caller then
@@ -138,7 +146,8 @@ function envString(name: string): string | undefined {
  */
 export function resolveHub(root: string): ResolvedHub | null {
   const file = readHubFileConfig(root);
-  const url = envString("SVERKA_HUB_URL") ?? file.url;
+  const rawUrl = envString("SVERKA_HUB_URL") ?? file.url;
+  const url = rawUrl !== undefined ? normalizeHubUrl(rawUrl) : undefined;
   const token =
     envString("SVERKA_HUB_TOKEN") ??
     (url !== undefined ? storedTokenFor(url) : undefined);

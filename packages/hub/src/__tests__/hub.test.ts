@@ -122,10 +122,35 @@ describe("cache blobs", () => {
       });
       await new Promise((r) => setTimeout(r, 5));
     }
-    const res = await api("/v1/cache/p/build-linux", { token: RW_TOKEN });
+    const res = await api("/v1/cache/p/build-linux?prefix=1", {
+      token: RW_TOKEN,
+    });
     expect(res.status).toBe(200);
     expect(res.headers.get("x-sverka-cache-key")).toBe("build-linux-bbb");
     expect(await res.text()).toBe("blob-build-linux-bbb");
+  });
+
+  it("exact-key GET never prefix-matches a different key", async () => {
+    await api("/v1/cache/p/build-linux-aaa", {
+      method: "PUT",
+      token: RW_TOKEN,
+      body: "blob",
+    });
+    // "build-linux" is only a prefix — without ?prefix=1 this is a miss.
+    const res = await api("/v1/cache/p/build-linux", { token: RW_TOKEN });
+    expect(res.status).toBe(404);
+  });
+
+  it("matched routes answer 405 for the wrong method", async () => {
+    for (const [path, method] of [
+      ["/v1/ping", "DELETE"],
+      ["/v1/runs", "DELETE"],
+      ["/v1/cache/p/k", "DELETE"],
+      ["/v1/snapshots/p/r1", "PATCH"],
+    ] as const) {
+      const res = await api(path, { method, token: RW_TOKEN });
+      expect(res.status).toBe(405);
+    }
   });
 
   it("rejects invalid keys and unknown blobs", async () => {
@@ -305,7 +330,54 @@ describe("dashboard", () => {
   it("sets the cookie when ?token= is used", async () => {
     const res = await api(`/?token=${RW_TOKEN}`);
     expect(res.status).toBe(200);
-    expect(res.headers.get("set-cookie")).toContain("hub_token=");
+    const cookie = res.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain("hub_token=");
+    expect(cookie).toContain("HttpOnly");
+    // Plain HTTP: a Secure cookie would never stick, so it's omitted.
+    expect(cookie).not.toContain("Secure");
+  });
+
+  it("adds Secure to the cookie behind a TLS-terminating proxy", async () => {
+    const res = await api(`/?token=${RW_TOKEN}`, {
+      headers: { "x-forwarded-proto": "https" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("set-cookie")).toContain("Secure");
+  });
+
+  it("refuses over-cap bodies and keeps serving afterwards", async () => {
+    const tightDir = mkdtempSync(join(tmpdir(), "sverka-hub-tight-"));
+    const tight = await startHubServer({
+      dataDir: tightDir,
+      port: 0,
+      host: "127.0.0.1",
+      tokens: TOKENS,
+      maxBlobBytes: 64,
+    });
+    try {
+      // The hub answers 413 mid-upload then destroys the socket — whether
+      // fetch observes the response or a reset is kernel timing; both mean
+      // the oversized body was refused.
+      let status: number | undefined;
+      try {
+        const res = await fetch(`${tight.url}/v1/cache/p/k`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${RW_TOKEN}` },
+          body: new Uint8Array(256 * 1024).fill(0x41),
+        });
+        status = res.status;
+      } catch {
+        status = undefined;
+      }
+      expect(status === undefined || status === 413).toBe(true);
+      // Regression: trailing chunks after the 413 must not break the
+      // handler — the next request on the server still answers.
+      const ping = await fetch(`${tight.url}/v1/ping`);
+      expect(ping.status).toBe(200);
+    } finally {
+      await tight.close();
+      rmSync(tightDir, { recursive: true, force: true });
+    }
   });
 });
 
