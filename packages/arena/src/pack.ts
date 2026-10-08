@@ -392,7 +392,7 @@ export async function initPack(dir: string, name: string): Promise<void> {
 function isGitUrl(ref: string): boolean {
   return (
     /^https?:\/\//.test(ref) ||
-    /^git@/.test(ref) ||
+    ref.startsWith("git@") ||
     /^(?:ssh|git):\/\//.test(ref) ||
     ref.endsWith(".git")
   );

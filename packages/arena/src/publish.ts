@@ -56,13 +56,15 @@ function cellsOf(result: ArenaResult): Cell[] {
   const cells: Cell[] = [];
   for (const run of result.results) {
     // JSON tuple key — string concat collides (model "m"+plugin "ab"
-    // vs model "ma"+plugin "b" both produced "mab").
-    const key = JSON.stringify([run.modelId, [...run.pluginIds].sort()]);
+    // vs model "ma"+plugin "b" both produced "mab"). localeCompare —
+    // default sort order is code-unit order, locale dependent per S2871.
+    const plugins = [...run.pluginIds].sort((a, b) => a.localeCompare(b));
+    const key = JSON.stringify([run.modelId, plugins]);
     let cell = seen.get(key);
     if (cell === undefined) {
       cell = {
         model: run.modelId,
-        plugins: [...run.pluginIds].sort(),
+        plugins,
         runs: [],
       };
       seen.set(key, cell);

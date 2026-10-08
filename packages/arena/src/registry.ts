@@ -496,7 +496,7 @@ async function s3BodyToString(body: unknown): Promise<string> {
  * quadratically (CodeQL js/polynomial-redos). */
 function stripTrailingSlashes(s: string): string {
   let end = s.length;
-  while (end > 0 && s.charCodeAt(end - 1) === 47) end--;
+  while (end > 0 && s.codePointAt(end - 1) === 47) end--;
   return s.slice(0, end);
 }
 
@@ -649,6 +649,12 @@ function indexPack(
   return Object.hasOwn(index.packs, name) ? index.packs[name] : undefined;
 }
 
+function compareIndexRuns(a: IndexRun, b: IndexRun): number {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  if (a.runId !== b.runId) return a.runId < b.runId ? -1 : 1;
+  return 0;
+}
+
 async function updateIndex(
   tree: TreeStore,
   doc: ArenaResultV1,
@@ -661,9 +667,7 @@ async function updateIndex(
     ...pack.runs.filter((r) => r.runId !== doc.runId),
     { runId: doc.runId, agent: doc.agent, date, path: relPath },
   ];
-  pack.runs.sort((a, b) =>
-    a.date === b.date ? (a.runId < b.runId ? -1 : 1) : a.date < b.date ? -1 : 1,
-  );
+  pack.runs.sort(compareIndexRuns);
   index.packs[doc.pack] = pack;
   await writeIndex(tree, index);
 }
@@ -817,15 +821,7 @@ export async function reindexRegistry(
     runs++;
   }
   for (const pack of Object.values(index.packs)) {
-    pack.runs.sort((a, b) =>
-      a.date === b.date
-        ? a.runId < b.runId
-          ? -1
-          : 1
-        : a.date < b.date
-          ? -1
-          : 1,
-    );
+    pack.runs.sort(compareIndexRuns);
   }
   await writeIndex(tree, index);
   await tree.finalize("arena: reindex");
@@ -856,7 +852,7 @@ export function openRegistry(
   const gitRef = ref.startsWith("git::") ? ref.slice(5) : ref;
   if (
     /^https?:\/\//.test(gitRef) ||
-    /^git@/.test(gitRef) ||
+    gitRef.startsWith("git@") ||
     /^(?:ssh|git):\/\//.test(gitRef) ||
     gitRef.endsWith(".git")
   ) {
@@ -888,7 +884,7 @@ export async function resolveRegistryDir(
   const gitRef = ref.startsWith("git::") ? ref.slice(5) : ref;
   if (
     /^https?:\/\//.test(gitRef) ||
-    /^git@/.test(gitRef) ||
+    gitRef.startsWith("git@") ||
     /^(?:ssh|git):\/\//.test(gitRef) ||
     gitRef.endsWith(".git")
   ) {
