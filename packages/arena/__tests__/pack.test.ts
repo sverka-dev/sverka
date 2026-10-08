@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -349,5 +350,31 @@ describe("loadPack repo: cached clone refresh", () => {
       "PACK_NOT_FOUND",
     );
     expect(err.message).toContain("cannot update repo clone");
+  });
+
+  it("scrubs unrelated edits and untracked files on refresh", async () => {
+    const repo = await makeUpstream("up-stray");
+    const packDir = await packWithRepo("pack-stray", repo);
+    const cacheDir = join(dir, "cache-stray");
+
+    const first = await loadPack(packDir, { cacheDir });
+    const cached = first.tasks[0]?.fixture;
+    expect(cached).toBeDefined();
+
+    // Upstream adds a file without touching file.txt, so `pull --ff-only`
+    // applies despite the unrelated local edit + stray untracked file.
+    // Without a pristine restore the runner would copy both into every
+    // workspace.
+    writeFileSync(join(repo, "v2.txt"), "v2");
+    await gitIn(repo, "add", "-A");
+    await gitIn(repo, "commit", "-m", "v2");
+    writeFileSync(join(cached!, "file.txt"), "unrelated local edit");
+    writeFileSync(join(cached!, "stray.txt"), "stray");
+
+    const second = await loadPack(packDir, { cacheDir });
+    expect(second.tasks[0]?.fixture).toBe(cached);
+    expect(readFileSync(join(cached!, "file.txt"), "utf8")).toBe("v1");
+    expect(existsSync(join(cached!, "v2.txt"))).toBe(true);
+    expect(existsSync(join(cached!, "stray.txt"))).toBe(false);
   });
 });
