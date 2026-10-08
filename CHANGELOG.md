@@ -1,3 +1,18 @@
+## 0.2.21 (2026-10-08)
+
+### 🚀 Features
+
+- **website:** docs 'Run' affordance via playground embed (spec 53.4) ([#340](https://github.com/sverka-dev/sverka/pull/340))
+
+### 🩹 Fixes
+
+- **playground:** ignore run results after dispose() ([#348](https://github.com/sverka-dev/sverka/pull/348))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.20 (2026-10-08)
 
 ### 🚀 Features
