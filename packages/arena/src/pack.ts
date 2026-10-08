@@ -425,9 +425,10 @@ async function refreshClone(dir: string, what: string): Promise<void> {
   }
   try {
     await gitOrThrow(["-C", dir, "reset", "--hard", "@{upstream}"]);
-    // -ffdx: a fresh clone has no ignored files (-x) and no nested
-    // repos — a single -f skips untracked dirs containing .git.
-    await gitOrThrow(["-C", dir, "clean", "-ffdx"]);
+    // -f twice: one -f skips untracked dirs containing .git (nested
+    // repos). -d -x: match a fresh clone — no untracked or ignored
+    // files left behind.
+    await gitOrThrow(["-C", dir, "clean", "-f", "-f", "-d", "-x"]);
   } catch (err) {
     throw new ArenaError(
       `cannot reset ${what} to upstream: ${err instanceof Error ? err.message : String(err)}`,
