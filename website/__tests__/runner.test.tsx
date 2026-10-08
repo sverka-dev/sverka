@@ -110,6 +110,7 @@ describe("Runner (docs embed, spec 53.4)", () => {
     const host = window.document.createElement("div");
     window.document.body.appendChild(host);
     const root = createRoot(host as unknown as Element);
+    roots.push(root);
     await act(async () => {
       root.render(<Runner code={CODE} />);
     });
