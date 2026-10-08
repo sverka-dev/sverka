@@ -1,6 +1,6 @@
 {
   "name": "@sverka/plugin-mcp",
-  "version": "0.2.21",
+  "version": "0.2.22",
   "description": "Sverka MCP plugin — expose external MCP servers as Sverka tool providers",
   "license": "MIT",
   "sideEffects": false,
