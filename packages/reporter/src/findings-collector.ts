@@ -15,30 +15,47 @@ const MTIME_EPSILON_MS = 2_000;
 export async function collectFindings(
   options: FindingsCollectorOptions,
 ): Promise<readonly FindingRow[]> {
-  const { artifactDir, sinceMs } = options;
+  const { artifactDir, sinceMs, runId } = options;
   const root = resolve(artifactDir);
+  // Run-scoped collection: the engine writes artifacts under
+  // <artifactDir>/<runId>/ so findings belong to exactly one run and a
+  // concurrent run's files can never leak in. `sinceMs` remains as a
+  // secondary filter within the run tree.
+  const scanRoot = runId === undefined ? root : resolve(join(root, runId));
+  if (runId !== undefined && !scanRoot.startsWith(root + sep)) {
+    throw new ReporterError(
+      `invalid runId "${runId}" — must resolve under the artifact directory`,
+      "COLLECTION_FAILED",
+    );
+  }
+
   let entries: readonly string[];
   try {
-    entries = await readdir(root);
+    entries = await readdir(scanRoot);
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new ReporterError(
-        `artifact directory not found: ${root} — no step produced artifacts; declare a SARIF artifact output with fromStdout: true to use --evaluate`,
-        "COLLECTION_FAILED",
-        e,
-      );
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" && runId !== undefined) {
+      // The scoped run wrote no artifacts — normal when no step exports
+      // SARIF. Keep the actionable hint when the artifact root itself is
+      // absent: no run has ever produced artifacts here.
+      try {
+        await readdir(root);
+        return [];
+      } catch (rootErr) {
+        if ((rootErr as NodeJS.ErrnoException).code === "ENOENT") {
+          throw dirNotFoundError(root, rootErr);
+        }
+        throw dirReadError(root, rootErr);
+      }
     }
-    throw new ReporterError(
-      `failed to read artifact directory ${root}: ${e instanceof Error ? e.message : String(e)}`,
-      "COLLECTION_FAILED",
-      e,
-    );
+    if (code === "ENOENT") throw dirNotFoundError(root, e);
+    throw dirReadError(scanRoot, e);
   }
 
   const rows: FindingRow[] = [];
 
   for (const entry of entries) {
-    const entryPath = join(root, entry);
+    const entryPath = join(scanRoot, entry);
     let isDir: boolean;
     try {
       isDir = (await lstat(entryPath)).isDirectory();
@@ -50,10 +67,26 @@ export async function collectFindings(
 
     // Recursively find .sarif files under this entry; stepId is the
     // relative path from artifactDir to the directory containing the file.
-    await scanDir(entryPath, root, rows, sinceMs);
+    await scanDir(entryPath, scanRoot, rows, sinceMs);
   }
 
   return rows;
+}
+
+function dirNotFoundError(dir: string, cause: unknown): ReporterError {
+  return new ReporterError(
+    `artifact directory not found: ${dir} — no step produced artifacts; declare a SARIF artifact output with fromStdout: true to use --evaluate`,
+    "COLLECTION_FAILED",
+    cause,
+  );
+}
+
+function dirReadError(dir: string, cause: unknown): ReporterError {
+  return new ReporterError(
+    `failed to read artifact directory ${dir}: ${cause instanceof Error ? cause.message : String(cause)}`,
+    "COLLECTION_FAILED",
+    cause,
+  );
 }
 
 async function scanDir(
@@ -90,7 +123,9 @@ async function scanDir(
     if (st.isDirectory()) {
       await scanDir(entryPath, artifactDir, rows, sinceMs);
     } else if (entry.endsWith(".sarif") || entry.endsWith(".sarif.json")) {
-      // Stale artifacts from earlier runs share this directory — only
+      // Run scoping is the collector's job — when `runId` is set the
+      // scan root is already that run's private tree. `sinceMs` remains
+      // for legacy flat artifact directories shared across runs: only
       // files (re)written during the current run belong in its report.
       // Filesystems with coarse timestamp granularity (FAT32: 2s) can
       // round a just-written file's mtime below the run start, so the

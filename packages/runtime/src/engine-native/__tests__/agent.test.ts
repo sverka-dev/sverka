@@ -60,6 +60,7 @@ async function runEngine(
     severity?: string;
   }[];
   status: string;
+  runId: string;
 }> {
   const engine = createEngine({
     drivers: (config.drivers ?? [createMockDriver()]) as never,
@@ -81,8 +82,12 @@ async function runEngine(
   }
   const completed = events.find(
     (e) => e.type === "run-completed",
-  ) as unknown as { status: string };
-  return { events, status: completed?.status ?? "unknown" };
+  ) as unknown as { status: string; runId: string };
+  return {
+    events,
+    status: completed?.status ?? "unknown",
+    runId: completed?.runId ?? "unknown",
+  };
 }
 
 describe("AgentDriver — exports (item 13)", () => {
@@ -129,14 +134,20 @@ describe("Agent step — stub driver lifecycle + artifact (items 5, 10)", () => 
     expect(succeeded?.stepId).toBe("ci/agent");
   });
 
-  it("writes the agent result artifact to <artifactDir>/<stepId>/agent-result.json", async () => {
-    const { status } = await runEngine(
+  it("writes the agent result artifact to <artifactDir>/<runId>/<stepId>/agent-result.json", async () => {
+    const { status, runId } = await runEngine(
       { agentDrivers: [createStubAgentDriver()] },
       makeAgentPlan(),
       testDir,
     );
     expect(status).toBe("success");
-    const artifactPath = join(testDir, "art", "ci/agent", "agent-result.json");
+    const artifactPath = join(
+      testDir,
+      "art",
+      runId,
+      "ci/agent",
+      "agent-result.json",
+    );
     const content = JSON.parse(
       await readFile(artifactPath, "utf-8"),
     ) as AgentResult;

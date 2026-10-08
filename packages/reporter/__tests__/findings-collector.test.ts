@@ -113,6 +113,72 @@ describe("FindingsCollector", () => {
     expect(rows).toHaveLength(0);
   });
 
+  it("scopes collection to <artifactDir>/<runId> when runId is given", async () => {
+    const runA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const runB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    await mkdir(join(dir, runA, "ci/lint"), { recursive: true });
+    await mkdir(join(dir, runB, "ci/lint"), { recursive: true });
+    // A finding left behind by an earlier/concurrent run.
+    await writeFile(
+      join(dir, runB, "ci/lint", "results.sarif"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
+    await writeFile(
+      join(dir, runA, "ci/lint", "results.sarif"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
+
+    const rows = await collectFindings({ artifactDir: dir, runId: runA });
+    expect(rows).toHaveLength(1);
+    // stepId is derived relative to the run dir, not the artifact root.
+    expect(rows[0]!.stepId).toBe("ci/lint");
+  });
+
+  it("ignores legacy flat-layout artifacts when runId is given", async () => {
+    // Pre-run-id artifacts sit at <artifactDir>/<stepId>/ — a scoped
+    // collection must not attribute them to this run.
+    await mkdir(join(dir, "ci/lint"), { recursive: true });
+    await writeFile(
+      join(dir, "ci/lint", "results.sarif"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
+
+    const rows = await collectFindings({
+      artifactDir: dir,
+      runId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("returns empty when the run dir is missing but artifactDir exists", async () => {
+    const rows = await collectFindings({
+      artifactDir: dir,
+      runId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("still throws COLLECTION_FAILED when artifactDir itself is missing (runId set)", async () => {
+    await expect(
+      collectFindings({
+        artifactDir: join(dir, "nonexistent"),
+        runId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      }),
+    ).rejects.toMatchObject({
+      name: "ReporterError",
+      code: "COLLECTION_FAILED",
+    });
+  });
+
+  it("rejects a runId that escapes the artifact dir", async () => {
+    await expect(
+      collectFindings({ artifactDir: dir, runId: "../escape" }),
+    ).rejects.toMatchObject({
+      name: "ReporterError",
+      code: "COLLECTION_FAILED",
+    });
+  });
+
   it("skips SARIF files older than sinceMs, keeps fresh ones", async () => {
     const { utimes } = await import("node:fs/promises");
     const staleDir = join(dir, "ci/stale");

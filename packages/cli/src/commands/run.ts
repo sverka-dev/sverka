@@ -590,11 +590,13 @@ async function runEvaluation(
   artifactDir: string,
   global: GlobalFlags,
   output: OutputWriter,
-  _events: readonly RunEvent[],
+  events: readonly RunEvent[],
   renderer: Renderer | null,
   args: RunArgs,
-  /** Run start — scopes collection so stale SARIF from earlier runs
-   *  (same shared artifactDir) can't leak into this run's gate. */
+  /** Run start — legacy mtime scope, applied within the run tree. The
+   *  primary scope is `runId`: the engine writes this run's artifacts
+   *  under <artifactDir>/<runId>/, so another run's SARIF cannot leak
+   *  into this run's gate no matter how close together they run. */
   sinceMs: number,
 ): Promise<{
   exitCode: number;
@@ -606,9 +608,14 @@ async function runEvaluation(
 }> {
   const { collectFindings, evaluateGate, ReporterError } =
     await import("@sverka/reporter");
+  const runId = findRunId(events);
   let rows: readonly FindingRow[];
   try {
-    rows = await collectFindings({ artifactDir, sinceMs });
+    rows = await collectFindings({
+      artifactDir,
+      sinceMs,
+      ...(runId !== undefined ? { runId } : {}),
+    });
   } catch (e) {
     if (e instanceof ReporterError) {
       if (global.format === "json") {
@@ -861,12 +868,13 @@ function reportDir(root: string, runId: string): string {
 }
 
 /** Findings for the report — the eval result when present, else a
- *  collection pass over the artifact dir scoped to this run so a
- *  zero-finding run does not pick up stale SARIF from prior runs. */
+ *  collection pass over this run's artifact dir (<artifactDir>/<runId>)
+ *  so a zero-finding run does not pick up another run's SARIF. */
 async function collectRunFindings(
   opts: {
     evalResult: { findings: readonly Finding[] } | null;
     artifactDir: string;
+    runId: string;
     sinceMs: number;
   },
   warnings: string[],
@@ -878,6 +886,7 @@ async function collectRunFindings(
     return (
       await collectFindings({
         artifactDir: opts.artifactDir,
+        runId: opts.runId,
         sinceMs: opts.sinceMs,
       })
     ).map((r) => r.finding);
@@ -922,8 +931,8 @@ interface WriteArtifactsOpts {
     summary: string;
   } | null;
   artifactDir: string;
-  /** Run start timestamp — scopes artifact collection to this run so a
-   *  zero-finding run does not pick up stale SARIF from prior runs. */
+  /** Run start timestamp — legacy mtime scope within the run tree;
+   *  `runId` is the real boundary. */
   sinceMs: number;
   /** Detected check ids when the run used the implicit zero-config pipeline. */
   detected?: readonly string[];

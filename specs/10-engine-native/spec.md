@@ -51,7 +51,9 @@ import type { StepDefinition } from "@sverka/core";
 interface RunRequest {
   readonly plan: RunPlan;
   readonly workspace: string; // root workspace dir
-  readonly artifactDir: string; // artifact store root
+  readonly artifactDir: string; // artifact store root — the engine nests
+  // artifacts under <artifactDir>/<runId>/
+  // so each run's tree is isolated
   readonly secrets?: SecretProvider;
   readonly drivers?: readonly RuntimeDriver[];
   readonly maxConcurrent?: number; // default: 4
