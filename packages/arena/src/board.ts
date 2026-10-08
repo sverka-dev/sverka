@@ -53,9 +53,16 @@ function canonicalPlugins(plugins: readonly string[]): string[] {
   return [...new Set(plugins)].sort((a, b) => a.localeCompare(b));
 }
 
-/** Row label for a plugin set — "a+b" or "no-plugins". */
+/**
+ * Row label for a plugin set — each name percent-encoded so "+" only ever
+ * separates names (["a+b"] → "a%2Bb" ≠ ["a","b"] → "a+b"). The empty set
+ * gets "no plugins": encodeURIComponent escapes spaces, so no plugin name
+ * can produce that label.
+ */
 function pluginLabel(plugins: readonly string[]): string {
-  return plugins.length === 0 ? "no-plugins" : plugins.join("+");
+  return plugins.length === 0
+    ? "no plugins"
+    : plugins.map(encodeURIComponent).join("+");
 }
 
 const TREND_DAYS = 30;

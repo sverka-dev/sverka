@@ -233,7 +233,26 @@ describe("render", () => {
     expect(text).toContain("PLUGINS");
     // Canonical (sorted) order — input was ["sverka", "mcp"].
     expect(text).toContain("mcp+sverka");
+    expect(text).toContain("no plugins");
+  });
+
+  it("renders distinct labels for ambiguous plugin sets", () => {
+    const text = renderBoard(
+      buildBoard([
+        doc({ runId: "a", plugins: ["a+b"] }),
+        doc({ runId: "b", plugins: ["a", "b"] }),
+        doc({ runId: "c", plugins: ["no plugins"] }),
+        doc({ runId: "d", plugins: ["no-plugins"] }),
+        doc({ runId: "e" }),
+      ]),
+    );
+    // "+" inside a name is encoded — never mistaken for the separator.
+    expect(text).toContain("a%2Bb");
+    expect(text).toContain("a+b");
+    // Plugin names can approach but never equal the reserved empty label.
+    expect(text).toContain("no%20plugins");
     expect(text).toContain("no-plugins");
+    expect(text).toContain("no plugins");
   });
 
   it("renderBoardHtml renders the plugin-set identity in each row", () => {
@@ -245,7 +264,7 @@ describe("render", () => {
     );
     expect(html).toContain("<th>plugins</th>");
     expect(html).toContain("sverka");
-    expect(html).toContain("no-plugins");
+    expect(html).toContain("no plugins");
   });
 
   it("renderBoardHtml emits a static page with cohort tables", () => {
