@@ -463,6 +463,10 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
       { env: auth },
     );
     if (res.code === 0) return;
+    if (!rebaseInProgress()) {
+      // The pull failed before any rebase started (fetch/auth/network).
+      throw unavailable(`git pull --rebase failed`, res.stderr.trim());
+    }
     const resolved = await resolveRebaseConflicts().catch(() => false);
     if (!resolved) {
       // A failed rebase must never be left in place — a mid-rebase
