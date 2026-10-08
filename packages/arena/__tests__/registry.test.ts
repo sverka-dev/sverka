@@ -444,6 +444,23 @@ describe("git registry", () => {
     expect(existsSync(join(verify, "other.txt"))).toBe(true);
   });
 
+  it("pull --rebase failing before rebase → REGISTRY_UNAVAILABLE", async () => {
+    // Deleting the remote after cloning makes the retry pull fail in
+    // the fetch phase — no rebase is ever started, so the error must
+    // be REGISTRY_UNAVAILABLE, not a phantom PUBLISH_CONFLICT.
+    const remote = makeBareRemote("remote-gone.git");
+    const reg = createGitRegistry({
+      url: remote,
+      dir: join(dir, "checkout-gone"),
+    });
+    await reg.publish(v1Doc({ runId: "run-g1" }));
+    rmSync(remote, { recursive: true, force: true });
+    await expectArenaError(
+      () => reg.publish(v1Doc({ runId: "run-g2" })),
+      "REGISTRY_UNAVAILABLE",
+    );
+  });
+
   it("persistent push rejection → PUBLISH_CONFLICT, local preserved", async () => {
     // A non-bare remote refuses pushes to its checked-out branch —
     // deterministic without mocking.
