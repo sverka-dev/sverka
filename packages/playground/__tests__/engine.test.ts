@@ -161,6 +161,49 @@ describe("scanner: regex literals and unicode (review findings)", () => {
   });
 });
 
+describe("scanner: contextual keywords as identifiers (review findings)", () => {
+  // `of`/`as`/`from`/`get`/`set`/`type`/`async`/`declare` act as ordinary
+  // identifiers in most positions — a `/` after them divides. While they
+  // sat in NON_OPERAND_WORDS the `/` opened a regex scan that ran to the
+  // next `/` or newline, swallowing a `}` on the same line: the block
+  // never popped, `export default` stayed a keyword, and eval threw.
+  for (const word of [
+    "of",
+    "as",
+    "from",
+    "get",
+    "set",
+    "type",
+    "async",
+    "declare",
+  ]) {
+    it(`division after an identifier named ${word} is not a regex`, () => {
+      const src = `const ${word} = 4;\nfunction f() { return ${word} / 2; }\nexport default f;`;
+      const out = preprocessCode(src);
+      expect(out).toContain(`return ${word} / 2; }`);
+      expect(out).toContain("return f");
+    });
+  }
+
+  it("a division chain after `of` scans all three operands", () => {
+    const src = "const of = 4;\nconst r = of / 2 / 1;\nexport default r;";
+    const out = preprocessCode(src);
+    expect(out).toContain("of / 2 / 1");
+    expect(out).toContain("return r");
+  });
+
+  it("evaluates code that divides by an `of` variable", () => {
+    // The false regex used to swallow the `}` closing `f`, so `export`
+    // stayed a keyword and `new Function` threw SyntaxError. The id
+    // proves `of / 2` actually divided.
+    const src = `import { Project } from "@sverka/playground";
+const of = 4;
+function f() { return of / 2; }
+export default new Project("p-" + f());`;
+    expect(evaluateUserCode(src).id).toBe("p-2");
+  });
+});
+
 describe("scanner: template nesting depth cap", () => {
   // n nested templates — each one sits inside the parent's `${ }`:
   // nest(2) = "`${`x`}`", nest(3) = "`${`${`x`}`}`", …

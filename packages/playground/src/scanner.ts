@@ -137,8 +137,11 @@ export function scanOpaqueEnd(
   return { end: i + 1, isString: false };
 }
 
-/** Keywords and contextual keywords after which `/` opens a regex rather
- *  than divides. Everything else — plain identifiers plus literals such
+/** Reserved words after which `/` opens a regex rather than divides —
+ *  they can never end an operand. Contextual keywords (`of`, `as`,
+ *  `from`, `get`, `set`, `type`, `async`, `declare`) are NOT listed:
+ *  they act as ordinary identifiers in most positions, so a `/` after
+ *  them divides. Everything else — plain identifiers plus literals such
  *  as `this`/`true` — ends an operand, making `/` a division. */
 const NON_OPERAND_WORDS = new Set([
   "await",
@@ -182,14 +185,6 @@ const NON_OPERAND_WORDS = new Set([
   "while",
   "with",
   "yield",
-  "as",
-  "async",
-  "from",
-  "get",
-  "of",
-  "set",
-  "type",
-  "declare",
 ]);
 
 /** True when `word` ends an operand — a following `/` is division. */
