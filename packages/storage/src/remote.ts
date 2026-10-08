@@ -127,7 +127,10 @@ async function hubRequest(
     // codeql[js/file-access-to-http] — packed workspace files flowing
     // into the request body is this adapter's purpose (hub upload).
     // The base is scheme-validated http(s) in hubBaseUrl above.
-    res = await fetch(new URL(path.replace(/^\/+/, ""), base), {
+    // The hub base URL is user config — this adapter IS the configured
+    // remote, and the scheme is validated http(s) in hubBaseUrl above.
+    const reqUrl = new URL(path.replace(/^\/+/, ""), base);
+    const init: RequestInit = {
       // codeql[js/file-access-to-http]
       method,
       headers: {
@@ -137,7 +140,8 @@ async function hubRequest(
       },
       ...(body !== undefined ? { body } : {}), // codeql[js/file-access-to-http]
       signal: AbortSignal.timeout(connectMs),
-    });
+    };
+    res = await fetch(reqUrl, init); // nosemgrep
   } catch (e) {
     const timedOut = e instanceof Error && e.name === "TimeoutError";
     throw new HubError(
@@ -267,7 +271,7 @@ async function collectTarEntries(
   // Classify on an fd when one opens: O_NOFOLLOW fails ELOOP on symlinks,
   // O_NONBLOCK keeps fifos from hanging the open, and stat-ing the opened
   // inode (not the path) removes the lstat→open check-then-act window —
-  // the packed bytes are provably the bytes we statted. When open itself
+  // the packed bytes are provably the classified inode's. When open itself
   // fails (symlink, socket, unreadable) lstat takes over classification;
   // the path ops those kinds need are the same as before.
   let handle: FileHandle | undefined;
@@ -528,10 +532,10 @@ async function extractCacheBlob(
   // (or covering it only with an unwritable entry) is a miss — bail before
   // writing so a partial entry leaves no half-restored tree.
   const covered = coveredPaths(tar, wanted, targetDir, containedLink);
-  if (covered.size < wanted.size) return covered;
-
-  for (const entry of tar) {
-    await extractEntry(targetDir, wanted, containedLink, entry);
+  if (covered.size === wanted.size) {
+    for (const entry of tar) {
+      await extractEntry(targetDir, wanted, containedLink, entry);
+    }
   }
   return covered;
 }
