@@ -129,7 +129,7 @@ benchmark suite contributed via git:
 ```text
 <pack>/
   pack.json        # { name, version, description, defaults }
-  tasks/<id>.json  # { id, prompt, repo|fixture, checks: [...], timeout? }
+  tasks/<id>.json  # { id, prompt, repo|fixture, checks: [...], timeoutMs? }
 ```
 
 Pack refs resolve to a local directory, a git URL, or a bare name —

@@ -199,9 +199,7 @@ async function cmdReport(args: ParsedArgs, io: Io): Promise<number> {
   try {
     result = JSON.parse(await readFile(file, "utf8")) as ArenaResult;
   } catch (err) {
-    io.err(
-      `report: cannot read '${file}': ${err instanceof Error ? err.message : String(err)}`,
-    );
+    io.err(`report: cannot read '${file}': ${errorText(err)}`);
     return 2;
   }
   if (
@@ -588,7 +586,7 @@ export async function main(
   try {
     args = parseArgs(argv);
   } catch (err) {
-    io.err((err instanceof Error ? err.message : String(err)) + "\n");
+    io.err(errorText(err) + "\n");
     io.err(USAGE);
     return 2;
   }

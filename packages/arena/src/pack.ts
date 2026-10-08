@@ -3,7 +3,7 @@
  *
  *   <pack>/
  *     pack.json        # { name, version, description, defaults }
- *     tasks/<id>.json  # { id, prompt, repo|fixture, checks, timeout? }
+ *     tasks/<id>.json  # { id, prompt, repo|fixture, checks, timeoutMs? }
  *
  * `sverka-arena run --pack <ref>` resolves a local dir, a git URL, or a
  * pack name inside a registry (`packs/<name>/`). Community contribution

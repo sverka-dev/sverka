@@ -55,12 +55,17 @@ if (import.meta.main) {
   let registry: string | undefined;
   let out = defaultOut;
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--registry") {
-      registry = argv[++i];
-    } else if (argv[i] === "--out") {
-      out = resolve(argv[++i]!);
+    const flag = argv[i];
+    if (flag === "--registry" || flag === "--out") {
+      const value = argv[++i];
+      if (value === undefined) {
+        console.error(`'${flag}' requires a value`);
+        process.exit(2);
+      }
+      if (flag === "--registry") registry = value;
+      else out = resolve(value);
     } else {
-      console.error(`unknown option '${argv[i]}'`);
+      console.error(`unknown option '${flag}'`);
       process.exit(2);
     }
   }
