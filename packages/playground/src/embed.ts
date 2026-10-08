@@ -22,7 +22,8 @@ export interface MountRunnerOptions {
    *  come from a share link or CMS, so mounting never executes it unless
    *  the embedder opts in or the user clicks Run. */
   readonly autoRun?: boolean;
-  /** Called once per completed run. */
+  /** Called once per completed run — unless the runner was disposed
+   *  first; teardown silences callbacks for runs still in flight. */
   readonly onRun?: (result: PipelineResult) => void;
 }
 
@@ -210,6 +211,9 @@ export function mountRunner(
   const getCode = (): string =>
     opts.readonly === true ? code : (codeEl as HTMLTextAreaElement).value;
 
+  // A run in flight outlives dispose() — the flag suppresses its callback.
+  let disposed = false;
+
   const run = async (): Promise<void> => {
     runBtn.disabled = true;
     status.textContent = "Running...";
@@ -230,7 +234,7 @@ export function mountRunner(
     runBtn.disabled = false;
     // Outside the try — a throwing callback must not corrupt the findings
     // view or get misreported as a runner failure.
-    opts.onRun?.(result);
+    if (!disposed) opts.onRun?.(result);
   };
 
   const onClick = (): void => {
@@ -241,6 +245,7 @@ export function mountRunner(
 
   return {
     dispose() {
+      disposed = true;
       runBtn.removeEventListener("click", onClick);
       root.remove();
     },
