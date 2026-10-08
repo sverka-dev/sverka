@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, writeFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { collectFindings } from "../src/findings-collector.js";
@@ -178,6 +178,51 @@ describe("FindingsCollector", () => {
       code: "COLLECTION_FAILED",
     });
   });
+
+  it.skipIf(process.platform === "win32")(
+    "rejects a runId dir that is a symlink pointing outside the artifact root",
+    async () => {
+      const outside = await mkdtemp(join(tmpdir(), "reporter-outside-"));
+      try {
+        await mkdir(join(outside, "ci/lint"), { recursive: true });
+        await writeFile(
+          join(outside, "ci/lint", "results.sarif"),
+          JSON.stringify(SAMPLE_SARIF),
+        );
+        const runId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+        await symlink(outside, join(dir, runId));
+
+        await expect(
+          collectFindings({ artifactDir: dir, runId }),
+        ).rejects.toMatchObject({
+          name: "ReporterError",
+          code: "COLLECTION_FAILED",
+        });
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "ignores a symlinked .sarif file inside the run tree",
+    async () => {
+      const outside = await mkdtemp(join(tmpdir(), "reporter-outside-"));
+      try {
+        const runId = "99999999-9999-4999-8999-999999999999";
+        const stepDir = join(dir, runId, "ci/lint");
+        await mkdir(stepDir, { recursive: true });
+        const outsideFile = join(outside, "external.sarif");
+        await writeFile(outsideFile, JSON.stringify(SAMPLE_SARIF));
+        await symlink(outsideFile, join(stepDir, "results.sarif"));
+
+        const rows = await collectFindings({ artifactDir: dir, runId });
+        expect(rows).toHaveLength(0);
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("skips SARIF files older than sinceMs, keeps fresh ones", async () => {
     const { utimes } = await import("node:fs/promises");

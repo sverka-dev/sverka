@@ -1,8 +1,8 @@
 // @sverka/reporter — FindingsCollector (I/O). Spec 43.
 
-import { readdir, readFile, lstat } from "node:fs/promises";
+import { readdir, readFile, lstat, realpath } from "node:fs/promises";
 import type { Stats } from "node:fs";
-import { join, relative, sep, resolve } from "node:path";
+import { join, relative, sep, resolve, isAbsolute } from "node:path";
 import { normalizeSarif } from "@sverka/verification";
 import type { SarifLog } from "@sverka/verification";
 import type { FindingsCollectorOptions, FindingRow } from "./types.js";
@@ -22,11 +22,21 @@ export async function collectFindings(
   // concurrent run's files can never leak in. `sinceMs` remains as a
   // secondary filter within the run tree.
   const scanRoot = runId === undefined ? root : resolve(join(root, runId));
-  if (runId !== undefined && !scanRoot.startsWith(root + sep)) {
-    throw new ReporterError(
-      `invalid runId "${runId}" — must resolve under the artifact directory`,
-      "COLLECTION_FAILED",
-    );
+  if (runId !== undefined) {
+    // Containment must hold lexically (runId can't `../` out — a
+    // `root + sep` prefix test would reject the filesystem root itself)
+    // and physically: a symlinked run dir resolves outside the root
+    // while still passing the lexical check.
+    const [realRoot, realScan] = await Promise.all([
+      realpath(root).catch(() => root),
+      realpath(scanRoot).catch(() => scanRoot),
+    ]);
+    if (!isUnder(root, scanRoot) || !isUnder(realRoot, realScan)) {
+      throw new ReporterError(
+        `invalid runId "${runId}" — must resolve under the artifact directory`,
+        "COLLECTION_FAILED",
+      );
+    }
   }
 
   let entries: readonly string[];
@@ -73,6 +83,17 @@ export async function collectFindings(
   return rows;
 }
 
+/** True when `child` resolves strictly inside `parent`. */
+function isUnder(parent: string, child: string): boolean {
+  const rel = relative(parent, child);
+  return (
+    rel !== "" &&
+    rel !== ".." &&
+    !rel.startsWith(`..${sep}`) &&
+    !isAbsolute(rel)
+  );
+}
+
 function dirNotFoundError(dir: string, cause: unknown): ReporterError {
   return new ReporterError(
     `artifact directory not found: ${dir} — no step produced artifacts; declare a SARIF artifact output with fromStdout: true to use --evaluate`,
@@ -113,12 +134,13 @@ async function scanDir(
 
     // Prevent traversal outside artifactDir via symlink or ../
     const resolvedEntry = resolve(entryPath);
-    if (
-      resolvedEntry !== artifactDir &&
-      !resolvedEntry.startsWith(artifactDir + sep)
-    ) {
+    if (resolvedEntry !== artifactDir && !isUnder(artifactDir, resolvedEntry)) {
       continue;
     }
+
+    // lstat reports symlinks as links, not dirs/files — never follow
+    // them so a link can't pull SARIF in from outside the artifact tree.
+    if (st.isSymbolicLink()) continue;
 
     if (st.isDirectory()) {
       await scanDir(entryPath, artifactDir, rows, sinceMs);
