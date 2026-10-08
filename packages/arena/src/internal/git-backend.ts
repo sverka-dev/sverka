@@ -220,6 +220,10 @@ function serializedGitOp<T>(dir: string, fn: () => Promise<T>): Promise<T> {
  */
 const REGISTRY_PATHS = ["results", "traces", "packs", INDEX_PATH] as const;
 
+/** A checkout-relative path inside the registry namespace. */
+const inRegistryScope = (rel: string): boolean =>
+  REGISTRY_PATHS.some((p) => rel === p || rel.startsWith(`${p}/`));
+
 export function createGitTree(
   cfg: GitRegistryConfig,
 ): TreeStore & { dir: string } {
@@ -337,12 +341,29 @@ export function createGitTree(
       // add/commit/rebase on this checkout.
       await serializedGitOp(dir, async () => {
         await ensure();
-        // Unstage whatever an outside `git add` left behind in a
-        // user-provided checkout — it would otherwise ride this commit.
-        await git(["-C", dir, "reset", "--quiet"], { env: auth });
-        // git add errors on a path argument that matches nothing — a
-        // missing path simply has nothing to stage.
-        const scope = REGISTRY_PATHS.filter((p) => existsSync(join(dir, p)));
+        // Stage only the registry namespace — a checkout can collect
+        // strays (tool tmp litter, scratch files in a cfg.dir) and a
+        // bare `add -A` would commit and push them. git add errors on a
+        // path argument that matches nothing in index or worktree, so a
+        // path stays in scope when it exists on disk or still has
+        // tracked files — a deleted namespace dir matches its index
+        // entries, which is what stages the deletion.
+        const tracked = await git(
+          ["-C", dir, "ls-files", "--", ...REGISTRY_PATHS],
+          { env: auth },
+        );
+        if (tracked.code !== 0) {
+          throw unavailable(`git ls-files failed`, tracked.stderr.trim());
+        }
+        const trackedRoots = new Set(
+          tracked.stdout
+            .split("\n")
+            .filter((f) => f !== "")
+            .map((f) => f.split("/", 1)[0]),
+        );
+        const scope = REGISTRY_PATHS.filter(
+          (p) => existsSync(join(dir, p)) || trackedRoots.has(p),
+        );
         try {
           if (scope.length > 0) {
             await gitOrThrow(["-C", dir, "add", "-A", "--", ...scope]);
@@ -350,8 +371,27 @@ export function createGitTree(
         } catch (err) {
           throw unavailable(`git add failed`, err);
         }
-        const staged = await git(["-C", dir, "diff", "--cached", "--quiet"]);
-        if (staged.code === 0) return; // nothing to commit
+        // Anything staged outside the namespace was left by an outside
+        // `git add` — unstage it so it can't ride this commit.
+        const staged = await git(
+          ["-C", dir, "diff", "--cached", "--name-only", "-z"],
+          { env: auth },
+        );
+        if (staged.code !== 0) {
+          throw unavailable(`git diff failed`, staged.stderr.trim());
+        }
+        const stagedPaths = staged.stdout.split("\0").filter((p) => p !== "");
+        const outside = stagedPaths.filter((p) => !inRegistryScope(p));
+        if (outside.length > 0) {
+          const unstage = await git(
+            ["-C", dir, "reset", "--quiet", "--", ...outside],
+            { env: auth },
+          );
+          if (unstage.code !== 0) {
+            throw unavailable(`git reset failed`, unstage.stderr.trim());
+          }
+        }
+        if (stagedPaths.length === outside.length) return; // nothing to commit
         try {
           await gitOrThrow([
             "-C",

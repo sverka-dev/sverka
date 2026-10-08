@@ -656,6 +656,22 @@ describe("git registry", () => {
     expect(existsSync(join(checkout, "staged-stray.txt"))).toBe(true);
   });
 
+  it("a deleted namespace dir still stages its tracked deletions", async () => {
+    const remote = makeBareRemote("remote-rmdir.git");
+    const checkout = join(dir, "checkout-rmdir");
+    const reg = createGitRegistry({ url: remote, dir: checkout });
+    await reg.publish(v1Doc({ runId: "run-d1" }), {
+      traces: [{ name: "t1.trace.jsonl", data: { ok: true } }],
+    });
+    // Wiping a whole namespace dir in the checkout must propagate — the
+    // path no longer exists on disk but still matches its index entries.
+    rmSync(join(checkout, "traces"), { recursive: true });
+    await reg.publish(v1Doc({ runId: "run-d2" }));
+    const verify = join(dir, "verify-rmdir");
+    gitIn(dir, ["clone", remote, verify]);
+    expect(existsSync(join(verify, "traces"))).toBe(false);
+  });
+
   it("refuses to reuse a checkout dir bound to another remote or branch", async () => {
     const remoteA = makeBareRemote("remote-memo-a.git");
     const remoteB = makeBareRemote("remote-memo-b.git");
