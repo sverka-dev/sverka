@@ -6,7 +6,7 @@
  * Registry tree layout:
  *
  *   results/<pack>/<agent>/<YYYY-MM-DD>/<runId>.json
- *   traces/<runId>/<task>.trace.jsonl
+ *   traces/<runId>/<task>.<run-index>.trace.jsonl
  *   packs/<name>/pack.json + tasks/*.json
  *   index.json                    — denormalized pack → runs; readers
  *                                   never scan the results/ tree

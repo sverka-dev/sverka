@@ -177,7 +177,7 @@ Registry tree (git backend):
 
 ```text
 results/<pack>/<agent>/<YYYY-MM-DD>/<runId>.json
-traces/<runId>/<task>.trace.jsonl
+traces/<runId>/<task>.<run-index>.trace.jsonl
 packs/<name>/pack.json + tasks/*.json
 index.json                       # denormalized: pack → latest runIds
 ```

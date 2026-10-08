@@ -343,15 +343,26 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
     io.out(renderReport(result) + "\n");
   }
   if (publishRegistry !== undefined) {
-    const paths = await publishResult(result, publishRegistry, {
-      pack: pack?.name ?? "default",
-      agent: config.agent.id,
-      sverkaVersion: args.sverkaVersion ?? arenaVersion(),
-      prompts: Object.fromEntries(
-        config.tasks.map((t) => [t.id, t.prompt] as const),
-      ),
-    });
-    for (const p of paths) io.err(`published ${p}\n`);
+    try {
+      const paths = await publishResult(result, publishRegistry, {
+        pack: pack?.name ?? "default",
+        agent: config.agent.id,
+        sverkaVersion: args.sverkaVersion ?? arenaVersion(),
+        prompts: Object.fromEntries(
+          config.tasks.map((t) => [t.id, t.prompt] as const),
+        ),
+      });
+      for (const p of paths) io.err(`published ${p}\n`);
+    } catch (err) {
+      // The matrix already ran — point at the saved results.json so the
+      // user can retry `sverka-arena publish` without re-running it.
+      const saved = join(config.outputDir, "results.json");
+      io.err(
+        `publish failed — results saved at ${saved}\n` +
+          `retry with: sverka-arena publish '${saved}' --pack '${pack?.name ?? "default"}' --registry '${registryRef(args) ?? "<ref>"}'\n`,
+      );
+      throw err;
+    }
   }
   return 0;
 }
