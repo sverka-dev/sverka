@@ -198,12 +198,12 @@ function serveReport(
     // artifacts nest under <runId> (a UUID — collectFindings scans the
     // run dir as its root), so drop a leading run segment.
     const dir = dirname(filename).split(sep).join("/");
-    const dirSegs = dir.split("/");
+    const dirSegments = dir.split("/");
     const checkIdPrefix =
       dir === "."
         ? ""
-        : dirSegs[0] !== undefined && RUN_ID_SEGMENT.test(dirSegs[0])
-          ? dirSegs.slice(1).join("/")
+        : dirSegments[0] !== undefined && RUN_ID_SEGMENT.test(dirSegments[0])
+          ? dirSegments.slice(1).join("/")
           : dir;
     const findings = normalizeSarif(sarif, {
       root: artifactsDir,

@@ -160,7 +160,7 @@ describe("run command — per-run report artifacts (spec 53)", () => {
   });
 
   it("a second run does not pick up the first run's SARIF (run-scoped artifacts)", async () => {
-    // Regression for sv-bijs: collectFindings used to scope by
+    // Regression for the run-scoping fix: collectFindings used to scope by
     // sinceMs + 2s mtime epsilon — a run starting moments after another
     // (or running concurrently) could attribute the other run's files.
     // Artifacts now nest under .sverka/artifacts/<runId>/ and collection
