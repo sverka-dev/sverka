@@ -672,6 +672,79 @@ describe("git registry", () => {
     expect(existsSync(join(verify, "traces"))).toBe(false);
   });
 
+  it("a deleted namespace of quoted (non-ASCII) names still stages its deletions", async () => {
+    const { remote, seed } = seedRemote("remote-quoted.git");
+    // Out-of-band drops can leave non-ASCII names tracked — publish's
+    // own path segments are ASCII-restricted, but the checkout isn't.
+    mkdirSync(join(seed, "traces"), { recursive: true });
+    writeFileSync(join(seed, "traces", "café.json"), "{}\n");
+    gitIn(seed, ["add", "-A"]);
+    gitIn(seed, [
+      "-c",
+      "user.name=seed",
+      "-c",
+      "user.email=s@x",
+      "commit",
+      "-m",
+      "quoted name",
+    ]);
+    gitIn(seed, ["push", "origin", "HEAD:main"]);
+
+    const checkout = join(dir, "checkout-quoted");
+    const reg = createGitRegistry({ url: remote, dir: checkout });
+    await reg.publish(v1Doc({ runId: "run-q1" }));
+    // ls-files without -z quotes the path, and the derived root
+    // ('"traces') never matches the namespace — the deletion would
+    // stay unstaged and the remote would keep the files. Forced on:
+    // a hostile global config could turn quoting off and hide it.
+    gitIn(checkout, ["config", "core.quotePath", "true"]);
+    rmSync(join(checkout, "traces"), { recursive: true });
+    await reg.publish(v1Doc({ runId: "run-q2" }));
+
+    const verify = join(dir, "verify-quoted");
+    gitIn(dir, ["clone", remote, verify]);
+    expect(existsSync(join(verify, "traces"))).toBe(false);
+  });
+
+  it("an out-of-scope staged deletion is not hidden behind rename detection", async () => {
+    const { remote, seed } = seedRemote("remote-rename.git");
+    // stray.txt tracked outside the namespace, pushed via the seed.
+    writeFileSync(join(seed, "stray.txt"), "identical content\n");
+    gitIn(seed, ["add", "-A"]);
+    gitIn(seed, [
+      "-c",
+      "user.name=seed",
+      "-c",
+      "user.email=s@x",
+      "commit",
+      "-m",
+      "stray",
+    ]);
+    gitIn(seed, ["push", "origin", "HEAD:main"]);
+
+    const checkout = join(dir, "checkout-rename");
+    const reg = createGitRegistry({ url: remote, dir: checkout });
+    await reg.publish(v1Doc({ runId: "run-r1" }));
+
+    // Staged: stray.txt deleted + identical content added in-scope.
+    // With rename detection the staged diff collapses the pair to the
+    // destination — the source deletion would ride the commit.
+    gitIn(checkout, ["config", "diff.renames", "true"]);
+    gitIn(checkout, ["rm", "-q", "stray.txt"]);
+    writeFileSync(
+      join(checkout, "results", "stray-copy.json"),
+      "identical content\n",
+    );
+    gitIn(checkout, ["add", "results/stray-copy.json"]);
+
+    await reg.publish(v1Doc({ runId: "run-r2" }));
+
+    const verify = join(dir, "verify-rename");
+    gitIn(dir, ["clone", remote, verify]);
+    expect(existsSync(join(verify, "stray.txt"))).toBe(true);
+    expect(existsSync(join(verify, "results/stray-copy.json"))).toBe(true);
+  });
+
   it("refuses to reuse a checkout dir bound to another remote or branch", async () => {
     const remoteA = makeBareRemote("remote-memo-a.git");
     const remoteB = makeBareRemote("remote-memo-b.git");

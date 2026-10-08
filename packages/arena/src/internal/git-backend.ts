@@ -347,9 +347,12 @@ export function createGitTree(
         // path argument that matches nothing in index or worktree, so a
         // path stays in scope when it exists on disk or still has
         // tracked files — a deleted namespace dir matches its index
-        // entries, which is what stages the deletion.
+        // entries, which is what stages the deletion. -z: without it
+        // git quotes non-ASCII paths, and a quoted root ('"traces')
+        // never matches the namespace — a deleted dir of quoted names
+        // would keep its remote files.
         const tracked = await git(
-          ["-C", dir, "ls-files", "--", ...REGISTRY_PATHS],
+          ["-C", dir, "ls-files", "-z", "--", ...REGISTRY_PATHS],
           { env: auth },
         );
         if (tracked.code !== 0) {
@@ -357,7 +360,7 @@ export function createGitTree(
         }
         const trackedRoots = new Set(
           tracked.stdout
-            .split("\n")
+            .split("\0")
             .filter((f) => f !== "")
             .map((f) => f.split("/", 1)[0]),
         );
@@ -373,8 +376,12 @@ export function createGitTree(
         }
         // Anything staged outside the namespace was left by an outside
         // `git add` — unstage it so it can't ride this commit.
+        // --no-renames: a staged out-of-scope deletion paired with an
+        // identical in-scope add collapses to the destination name —
+        // the source would escape the outside filter and the commit
+        // would push the deletion.
         const staged = await git(
-          ["-C", dir, "diff", "--cached", "--name-only", "-z"],
+          ["-C", dir, "diff", "--cached", "--name-only", "--no-renames", "-z"],
           { env: auth },
         );
         if (staged.code !== 0) {
