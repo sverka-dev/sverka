@@ -296,6 +296,17 @@ export async function loadPack(
 
 // ─── Lint ────────────────────────────────────────────────────────────
 
+/** Push one error line per schema issue of a tasks/<f> file. */
+function pushTaskIssues(
+  f: string,
+  issues: z.ZodError["issues"],
+  errors: string[],
+): void {
+  for (const i of issues) {
+    errors.push(`tasks/${f} ${i.path.join(".") || "(root)"}: ${i.message}`);
+  }
+}
+
 /** Validate a task's fixture field — appends to errors. */
 function lintFixture(
   dir: string,
@@ -323,9 +334,7 @@ function lintTaskRaw(
 ): void {
   const parsed = packTaskSchema.safeParse(raw);
   if (!parsed.success) {
-    for (const i of parsed.error.issues) {
-      errors.push(`tasks/${f} ${i.path.join(".") || "(root)"}: ${i.message}`);
-    }
+    pushTaskIssues(f, parsed.error.issues, errors);
     return;
   }
   const t = parsed.data;
