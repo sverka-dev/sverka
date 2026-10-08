@@ -124,23 +124,21 @@ async function hubRequest(
   const bodyMs = config.bodyTimeoutMs ?? DEFAULT_BODY_TIMEOUT_MS;
   let res: Response;
   try {
-    // codeql[js/file-access-to-http] — packed workspace files flowing
-    // into the request body is this adapter's purpose (hub upload).
-    // The base is scheme-validated http(s) in hubBaseUrl above.
-    // The hub base URL is user config — this adapter IS the configured
-    // remote, and the scheme is validated http(s) in hubBaseUrl above.
+    // Packed workspace files flowing into the request body is this
+    // adapter's purpose (hub upload). The base URL is user config — this
+    // adapter IS the configured remote — scheme-validated http(s) above.
     const reqUrl = new URL(path.replace(/^\/+/, ""), base);
     const init: RequestInit = {
-      // codeql[js/file-access-to-http]
       method,
+      // codeql[js/file-access-to-http]
       headers: {
-        // codeql[js/file-access-to-http]
         authorization: `Bearer ${config.token}`,
         ...(body !== undefined ? { "content-type": contentType } : {}),
       },
       ...(body !== undefined ? { body } : {}), // codeql[js/file-access-to-http]
       signal: AbortSignal.timeout(connectMs),
     };
+    // codeql[js/file-access-to-http]
     res = await fetch(reqUrl, init); // nosemgrep
   } catch (e) {
     const timedOut = e instanceof Error && e.name === "TimeoutError";
