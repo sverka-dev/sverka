@@ -13,8 +13,8 @@ and a vitest-style text renderer wired into `sverka run`.
   HTML, TUI).
 - Accumulate `RunEvent` streams into a queryable `UIState` via a pure
   `EventReducer`.
-- Collect SARIF artifacts from `.sverka/artifacts/<stepId>/` and normalize
-  them into `Finding[]` with step attribution.
+- Collect SARIF artifacts from `.sverka/artifacts/<runId>/<stepId>/` and
+  normalize them into `Finding[]` with step attribution.
 - Wrap existing `evaluatePolicy` + `filterOnlyNew` into a `PolicyGate` that
   returns a verdict and exit code.
 - Render vitest-style text output: per-step status lines with ✓/✗/●/○ +
@@ -105,6 +105,12 @@ export function createInitialState(): UIState;
 /** Options for collecting findings from the artifact directory. */
 export interface FindingsCollectorOptions {
   readonly artifactDir: string;
+  /** Scan only `<artifactDir>/<runId>/` — the run's own artifact tree.
+   *  Preferred over `sinceMs`: run identity is exact. */
+  readonly runId?: string;
+  /** Skip SARIF files modified before this timestamp (ms) — legacy
+   *  scoping for artifact trees not keyed by run. */
+  readonly sinceMs?: number;
 }
 
 /** Collect findings from SARIF files in the artifact directory. */
@@ -178,15 +184,21 @@ export class ReporterError extends Error {
 
 ### Artifact directory layout
 
-The engine writes per-step artifacts to `<artifactDir>/<stepId>/<outputName>`.
-The FindingsCollector scans `<artifactDir>/` for subdirectories, then reads
-any `*.sarif` or `*.sarif.json` files within each step directory.
+The engine writes per-step artifacts to
+`<artifactDir>/<runId>/<stepId>/<outputName>` — every run nests its
+artifacts under the run id minted for that run, so a run's files are
+isolated by identity rather than by write time. The FindingsCollector
+scans `<artifactDir>/<runId>/` when `runId` is provided (the whole tree
+otherwise), then reads any `*.sarif` or `*.sarif.json` files within each
+step directory.
 
 ### Finding attribution
 
-Each SARIF file found in `<artifactDir>/<stepId>/` produces findings
-attributed to that `stepId`. The `Finding.checkId` is preserved from
-normalization; `FindingRow.stepId` is the directory name.
+Each SARIF file found in `<artifactDir>/<runId>/<stepId>/` produces
+findings attributed to that `stepId` — the run segment is collection
+scope, not part of the step path. The `Finding.checkId` is preserved
+from normalization; `FindingRow.stepId` is the directory name relative
+to the scan root.
 
 ### Policy evaluation
 
@@ -285,6 +297,10 @@ No new external dependencies in Phase 1.
     (COLLECTION_FAILED) for invalid JSON.
 15. **FindingsCollector — non-SARIF files**: ignores files without .sarif
     extension.
+    15a. **FindingsCollector — run scoping**: with `runId`, reads only
+    `<artifactDir>/<runId>/`; another run's artifacts and legacy
+    flat-layout files are excluded, and a missing run dir yields `[]`
+    while a missing artifactDir still throws COLLECTION_FAILED.
 16. **PolicyGate — pass**: no findings → verdict "pass", exit code 0.
 17. **PolicyGate — fail**: high findings → verdict "fail", exit code 1.
 18. **PolicyGate — baseline**: baseline fingerprints passed to

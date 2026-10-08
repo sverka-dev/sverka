@@ -21,6 +21,40 @@ new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
 export default proj;
 `;
 
+const SARIF_WITH_FINDING = JSON.stringify({
+  version: "2.1.0",
+  runs: [
+    {
+      tool: { driver: { name: "test", rules: [{ id: "test-rule" }] } },
+      results: [
+        {
+          ruleId: "test-rule",
+          level: "warning",
+          message: { text: "test finding" },
+          locations: [
+            {
+              physicalLocation: {
+                artifactLocation: { uri: "src/a.ts" },
+                region: { startLine: 1 },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
+/** Same ci/build step as VALID_CONFIG but exporting SARIF via fromStdout —
+ *  both configs write <artifactDir>/<runId>/ci/build/results.sarif. */
+const SARIF_CONFIG = `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "build", { command: ${JSON.stringify(`echo '${SARIF_WITH_FINDING}'`)}, runtime: { shell: "sh" }, outputs: { "results.sarif": { type: "artifact", fromStdout: true } } });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["build"] });
+export default proj;
+`;
+
 function useTempDir() {
   let dir: string;
   beforeEach(async () => {
@@ -123,6 +157,57 @@ describe("run command — per-run report artifacts (spec 53)", () => {
       readFileSync(payload.data.report.json, "utf-8"),
     ) as { data: { findings: number } };
     expect(report.data.findings).toBe(payload.data.report.findings);
+  });
+
+  it("a second run does not pick up the first run's SARIF (run-scoped artifacts)", async () => {
+    // Regression for the run-scoping fix: collectFindings used to scope by
+    // sinceMs + 2s mtime epsilon — a run starting moments after another
+    // (or running concurrently) could attribute the other run's files.
+    // Artifacts now nest under .sverka/artifacts/<runId>/ and collection
+    // scans only that run's tree.
+    const dir = getDir();
+    // Two config FILES: loadConfig caches by module URL within a process,
+    // so a rewritten sverka.config.ts would keep serving run 1's config.
+    await writefile(dir, "sarif.config.ts", SARIF_CONFIG);
+    await writefile(dir, "plain.config.ts", VALID_CONFIG);
+
+    const out1 = new CaptureWriter();
+    const code1 = await main(
+      ["run", "--root", dir, "--config", "sarif.config.ts", "--format", "json"],
+      { output: out1 },
+    );
+    expect(code1).toBe(0);
+    const run1 = JSON.parse(out1.stdoutText) as {
+      data: { report: { findings: number } };
+    };
+    expect(run1.data.report.findings).toBe(1);
+
+    // Same step id, no SARIF output — runs milliseconds after run 1 wrote
+    // results.sarif, deep inside any mtime window. Without run scoping,
+    // the previous run's file leaks into this run's gate and report.
+    const out2 = new CaptureWriter();
+    const code2 = await main(
+      [
+        "run",
+        "--root",
+        dir,
+        "--config",
+        "plain.config.ts",
+        "--format",
+        "json",
+        "--evaluate",
+      ],
+      { output: out2 },
+    );
+    expect(code2).toBe(0);
+    const run2 = JSON.parse(out2.stdoutText) as {
+      data: {
+        findings: number;
+        report: { findings: number };
+      };
+    };
+    expect(run2.data.findings).toBe(0);
+    expect(run2.data.report.findings).toBe(0);
   });
 
   it("refuses to write the report through a symlinked .sverka dir", async () => {

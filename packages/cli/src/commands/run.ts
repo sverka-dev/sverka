@@ -593,11 +593,13 @@ async function runEvaluation(
   artifactDir: string,
   global: GlobalFlags,
   output: OutputWriter,
-  _events: readonly RunEvent[],
+  events: readonly RunEvent[],
   renderer: Renderer | null,
   args: RunArgs,
-  /** Run start — scopes collection so stale SARIF from earlier runs
-   *  (same shared artifactDir) can't leak into this run's gate. */
+  /** Run start — legacy mtime scope, applied within the run tree. The
+   *  primary scope is `runId`: the engine writes this run's artifacts
+   *  under <artifactDir>/<runId>/, so another run's SARIF cannot leak
+   *  into this run's gate no matter how close together they run. */
   sinceMs: number,
 ): Promise<{
   exitCode: number;
@@ -609,9 +611,14 @@ async function runEvaluation(
 }> {
   const { collectFindings, evaluateGate, ReporterError } =
     await import("@sverka/reporter");
+  const runId = findRunId(events);
   let rows: readonly FindingRow[];
   try {
-    rows = await collectFindings({ artifactDir, sinceMs });
+    rows = await collectFindings({
+      artifactDir,
+      sinceMs,
+      ...(runId !== undefined ? { runId } : {}),
+    });
   } catch (e) {
     if (e instanceof ReporterError) {
       if (global.format === "json") {
@@ -645,27 +652,13 @@ async function runEvaluation(
 
   // --format sarif: serialize findings to SARIF and write to file
   if (global.format === "sarif") {
-    const sarifPath =
-      args.output ?? join(global.root, ".sverka", "findings.sarif");
-    const sarifLog = serializeSarif(findings);
-    mkdirSync(dirname(sarifPath), { recursive: true });
-    writeFileSync(sarifPath, JSON.stringify(sarifLog, null, 2), "utf-8");
-    output.writeLine(`Wrote SARIF to ${sarifPath}`);
+    writeSarifReport(findings, args, global, output);
   }
 
   // --format web: generate HTML report using @sverka/sarif-viewer-web
   if (global.format === "web") {
-    const webPath = args.output ?? join(global.root, ".sverka", "report.html");
-    try {
-      const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
-      const html = generateSarifHtml(findings);
-      mkdirSync(dirname(webPath), { recursive: true });
-      writeFileSync(webPath, html, "utf-8");
-      output.writeLine(`Wrote HTML report to ${webPath}`);
-    } catch (e) {
-      output.errorLine(
-        `sverka run: failed to generate web report: ${e instanceof Error ? e.message : String(e)}`,
-      );
+    const ok = await writeWebReport(findings, args, global, output);
+    if (!ok) {
       return {
         exitCode: 1,
         summary: { findings, verdict: result.verdict, summary: result.summary },
@@ -677,6 +670,44 @@ async function runEvaluation(
     exitCode,
     summary: { findings, verdict: result.verdict, summary: result.summary },
   };
+}
+
+/** --format sarif: serialize findings to SARIF and write to file. */
+function writeSarifReport(
+  findings: readonly Finding[],
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+): void {
+  const sarifPath =
+    args.output ?? join(global.root, ".sverka", "findings.sarif");
+  const sarifLog = serializeSarif(findings);
+  mkdirSync(dirname(sarifPath), { recursive: true });
+  writeFileSync(sarifPath, JSON.stringify(sarifLog, null, 2), "utf-8");
+  output.writeLine(`Wrote SARIF to ${sarifPath}`);
+}
+
+/** --format web: generate an HTML report. Returns false on failure. */
+async function writeWebReport(
+  findings: readonly Finding[],
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+): Promise<boolean> {
+  const webPath = args.output ?? join(global.root, ".sverka", "report.html");
+  try {
+    const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
+    const html = generateSarifHtml(findings);
+    mkdirSync(dirname(webPath), { recursive: true });
+    writeFileSync(webPath, html, "utf-8");
+    output.writeLine(`Wrote HTML report to ${webPath}`);
+    return true;
+  } catch (e) {
+    output.errorLine(
+      `sverka run: failed to generate web report: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return false;
+  }
 }
 
 const SIMPLE_STEP_STATUSES: Readonly<Record<string, StepSummary["status"]>> = {
@@ -864,12 +895,13 @@ function reportDir(root: string, runId: string): string {
 }
 
 /** Findings for the report — the eval result when present, else a
- *  collection pass over the artifact dir scoped to this run so a
- *  zero-finding run does not pick up stale SARIF from prior runs. */
+ *  collection pass over this run's artifact dir (<artifactDir>/<runId>)
+ *  so a zero-finding run does not pick up another run's SARIF. */
 async function collectRunFindings(
   opts: {
     evalResult: { findings: readonly Finding[] } | null;
     artifactDir: string;
+    runId: string;
     sinceMs: number;
   },
   warnings: string[],
@@ -881,6 +913,7 @@ async function collectRunFindings(
     return (
       await collectFindings({
         artifactDir: opts.artifactDir,
+        runId: opts.runId,
         sinceMs: opts.sinceMs,
       })
     ).map((r) => r.finding);
@@ -925,8 +958,8 @@ interface WriteArtifactsOpts {
     summary: string;
   } | null;
   artifactDir: string;
-  /** Run start timestamp — scopes artifact collection to this run so a
-   *  zero-finding run does not pick up stale SARIF from prior runs. */
+  /** Run start timestamp — legacy mtime scope within the run tree;
+   *  `runId` is the real boundary. */
   sinceMs: number;
   /** Detected check ids when the run used the implicit zero-config pipeline. */
   detected?: readonly string[];

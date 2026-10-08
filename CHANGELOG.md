@@ -1,3 +1,34 @@
+## 0.2.18 (2026-10-08)
+
+### 🩹 Fixes
+
+- **reporter:** scope findings collection by run identity, not mtime ([#335](https://github.com/sverka-dev/sverka/pull/335))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
+## 0.2.17 (2026-10-08)
+
+### 🩹 Fixes
+
+- **playground:** bound template nesting depth in scanner ([#327](https://github.com/sverka-dev/sverka/pull/327))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
+## 0.2.16 (2026-10-07)
+
+### 🚀 Features
+
+- **cli:** zero-config sverka run + --report flag (spec 53) ([#326](https://github.com/sverka-dev/sverka/pull/326))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.15 (2026-10-07)
 
 ### 🚀 Features
