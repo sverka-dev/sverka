@@ -127,6 +127,24 @@ describe("loadPack", () => {
     );
     await expectPackError(loadPack(packDir), "PACK_INVALID");
   });
+
+  it("fixture + repo together → PACK_INVALID", async () => {
+    const packDir = join(dir, "both-seeds");
+    mkdirSync(join(packDir, "tasks"), { recursive: true });
+    mkdirSync(join(packDir, "fx"), { recursive: true });
+    writeFileSync(join(packDir, "pack.json"), JSON.stringify({ name: "b" }));
+    writeFileSync(
+      join(packDir, "tasks", "a.json"),
+      JSON.stringify({
+        prompt: "x",
+        fixture: "fx",
+        repo: "https://example.com/unused.git",
+      }),
+    );
+    const err = await expectPackError(loadPack(packDir), "PACK_INVALID");
+    expect(err.message).toContain("fixture");
+    expect(err.message).toContain("repo");
+  });
 });
 
 describe("lintPack", () => {
@@ -158,6 +176,28 @@ describe("lintPack", () => {
     );
     const { errors } = await lintPack(packDir);
     expect(errors.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("errors when a task sets both fixture and repo", async () => {
+    const packDir = join(dir, "lint-both");
+    mkdirSync(join(packDir, "tasks"), { recursive: true });
+    mkdirSync(join(packDir, "fx"), { recursive: true });
+    writeFileSync(
+      join(packDir, "pack.json"),
+      JSON.stringify({ name: "lint-both" }),
+    );
+    writeFileSync(
+      join(packDir, "tasks", "a.json"),
+      JSON.stringify({
+        prompt: "x",
+        fixture: "fx",
+        repo: "https://example.com/r.git",
+      }),
+    );
+    const { errors } = await lintPack(packDir);
+    expect(errors.some((e) => e.includes("both 'fixture' and 'repo'"))).toBe(
+      true,
+    );
   });
 });
 

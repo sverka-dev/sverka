@@ -17,7 +17,7 @@
  */
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { z } from "zod";
@@ -182,7 +182,9 @@ function createFileTree(dir: string): TreeStore {
       const target = join(dir, rel);
       try {
         await mkdir(join(target, ".."), { recursive: true });
-        await writeFile(target, data, "utf8");
+        // 0o600 — registry roots may live under tmpdir(); keep the
+        // created file owner-only (CodeQL js/insecure-temporary-file).
+        await writeFile(target, data, { encoding: "utf8", mode: 0o600 });
       } catch (err) {
         throw unavailable(`cannot write ${rel}`, err);
       }
@@ -232,10 +234,19 @@ function gitRegistryDir(cfg: GitRegistryConfig): string {
   );
 }
 
-function gitAuthArgs(cfg: GitRegistryConfig): string[] {
+/**
+ * Auth is injected through GIT_CONFIG_* env vars, never argv — a
+ * `-c http.extraHeader=...` argument would expose the bearer token to
+ * other users on the host via the process list (CWE-214).
+ */
+function gitAuthEnv(cfg: GitRegistryConfig): Record<string, string> {
   return cfg.token !== undefined && /^https?:\/\//.test(cfg.url)
-    ? ["-c", `http.extraHeader=AUTHORIZATION: bearer ${cfg.token}`]
-    : [];
+    ? {
+        GIT_CONFIG_COUNT: "1",
+        GIT_CONFIG_KEY_0: "http.extraHeader",
+        GIT_CONFIG_VALUE_0: `AUTHORIZATION: bearer ${cfg.token}`,
+      }
+    : {};
 }
 
 const gitUnavailable =
@@ -257,30 +268,41 @@ const checkouts = new Map<string, Promise<void>>();
 function ensureGitCheckout(cfg: GitRegistryConfig): Promise<void> {
   const dir = gitRegistryDir(cfg);
   const branch = cfg.branch ?? "main";
-  const auth = gitAuthArgs(cfg);
+  const auth = gitAuthEnv(cfg);
   const unavailable = gitUnavailable(cfg, dir);
   let p = checkouts.get(dir);
   if (p === undefined) {
     p = (async () => {
+      if (cfg.dir === undefined) {
+        // The auto-derived tmpdir path is predictable — keep it
+        // owner-only so results/credentials stay private (CWE-377).
+        await mkdir(dir, { recursive: true, mode: 0o700 });
+        await chmod(dir, 0o700);
+      }
       if (existsSync(join(dir, ".git"))) {
-        await git([...auth, "-C", dir, "fetch", "origin", branch]);
+        await git(["-C", dir, "fetch", "origin", branch], { env: auth });
         return;
       }
       try {
-        await gitOrThrow([
-          ...auth,
-          "clone",
-          ...(cfg.branch !== undefined ? ["--branch", cfg.branch] : []),
-          cfg.url,
-          dir,
-        ]);
+        await gitOrThrow(
+          [
+            "clone",
+            ...(cfg.branch !== undefined ? ["--branch", cfg.branch] : []),
+            cfg.url,
+            dir,
+          ],
+          { env: auth },
+        );
       } catch (err) {
         throw unavailable(`git clone failed`, err);
       }
     })();
-    // A failed clone must not poison the memo — retry next call.
-    p.catch(() => checkouts.delete(dir));
     checkouts.set(dir, p);
+    // A failed clone must not poison the memo — retry next call. The
+    // identity check keeps a concurrent fresh entry from being removed.
+    p.catch(() => {
+      if (checkouts.get(dir) === p) checkouts.delete(dir);
+    });
   }
   return p;
 }
@@ -288,28 +310,24 @@ function ensureGitCheckout(cfg: GitRegistryConfig): Promise<void> {
 function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
   const dir = gitRegistryDir(cfg);
   const branch = cfg.branch ?? "main";
-  const auth = gitAuthArgs(cfg);
+  const auth = gitAuthEnv(cfg);
   const inner = createFileTree(dir);
   const unavailable = gitUnavailable(cfg, dir);
   const ensure = (): Promise<void> => ensureGitCheckout(cfg);
 
   async function pullRebase(): Promise<void> {
-    const res = await git([
-      ...auth,
-      "-C",
-      dir,
-      "pull",
-      "--rebase",
-      "origin",
-      branch,
-    ]);
+    const res = await git(["-C", dir, "pull", "--rebase", "origin", branch], {
+      env: auth,
+    });
     if (res.code !== 0) {
       throw unavailable(`git pull --rebase failed`, res.stderr.trim());
     }
   }
 
   async function push(): Promise<ReturnType<typeof git>> {
-    return git([...auth, "-C", dir, "push", "origin", `HEAD:${branch}`]);
+    return git(["-C", dir, "push", "origin", `HEAD:${branch}`], {
+      env: auth,
+    });
   }
 
   return {
@@ -461,11 +479,19 @@ async function s3BodyToString(body: unknown): Promise<string> {
   );
 }
 
+/** Strip trailing '/' without a regex — a `\/+$` match on a hostile
+ * prefix (many trailing slashes + a non-slash tail) backtracks
+ * quadratically (CodeQL js/polynomial-redos). */
+function stripTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 47) end--;
+  return s.slice(0, end);
+}
+
 function createS3Tree(cfg: S3RegistryConfig): TreeStore {
-  const prefix =
-    cfg.prefix === undefined || cfg.prefix === ""
-      ? ""
-      : `${cfg.prefix.replace(/\/+$/, "")}/`;
+  const stripped =
+    cfg.prefix === undefined ? "" : stripTrailingSlashes(cfg.prefix);
+  const prefix = stripped === "" ? "" : `${stripped}/`;
   let clientP: Promise<S3ClientLike> | undefined;
   const client = (): Promise<S3ClientLike> => {
     clientP ??=
