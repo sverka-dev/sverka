@@ -358,8 +358,9 @@ async function postJson(
   else headers["authorization"] = `Bearer ${token}`;
   // The URL is CI-provider-controlled (CI_API_V4_URL/GITHUB_API_URL +
   // CI_PROJECT_ID/GITHUB_REPOSITORY) with only a validated integer iid
-  // interpolated — no untrusted input reaches it. // nosemgrep
+  // interpolated — no untrusted input reaches it.
   const res = await fetch(url, {
+    // nosemgrep — provider-controlled URL, validated iid
     method: "POST",
     headers,
     body: JSON.stringify(body),

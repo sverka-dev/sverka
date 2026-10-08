@@ -741,9 +741,10 @@ function lowerScheduleRule(entry: EntryDefinition): GitlabRule {
 function escapeGitlabRegex(value: string): string {
   // GitLab rule regexes (RE2) reject a bare `@` — a literal at-sign must be
   // written \x40.
+  // nosemgrep — the compiler runs on Node, replaceAll/browser-compat is moot
   return value
-    .replaceAll(/[.*+?^${}()|[\]\\/]/g, String.raw`\$&`) // nosemgrep — compiler runs on Node, not a browser
-    .replaceAll("@", String.raw`\x40`); // nosemgrep — compiler runs on Node, not a browser
+    .replaceAll(/[.*+?^${}()|[\]\\/]/g, String.raw`\$&`)
+    .replaceAll("@", String.raw`\x40`);
 }
 
 /**
