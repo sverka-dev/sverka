@@ -26,12 +26,17 @@ export async function collectFindings(
     // Containment must hold lexically (runId can't `../` out — a
     // `root + sep` prefix test would reject the filesystem root itself)
     // and physically: a symlinked run dir resolves outside the root
-    // while still passing the lexical check.
+    // while still passing the lexical check. The physical check only
+    // applies when the run dir exists — a missing one is the normal
+    // "run wrote no artifacts" case handled by the ENOENT branch below.
     const [realRoot, realScan] = await Promise.all([
       realpath(root).catch(() => root),
-      realpath(scanRoot).catch(() => scanRoot),
+      realpath(scanRoot).catch(() => undefined),
     ]);
-    if (!isUnder(root, scanRoot) || !isUnder(realRoot, realScan)) {
+    if (
+      !isUnder(root, scanRoot) ||
+      (realScan !== undefined && !isUnder(realRoot, realScan))
+    ) {
       throw new ReporterError(
         `invalid runId "${runId}" — must resolve under the artifact directory`,
         "COLLECTION_FAILED",

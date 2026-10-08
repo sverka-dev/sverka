@@ -158,6 +158,27 @@ describe("FindingsCollector", () => {
     expect(rows).toHaveLength(0);
   });
 
+  it.skipIf(process.platform === "win32")(
+    "returns empty when the run dir is missing under a symlinked artifactDir",
+    async () => {
+      // realpath(root) resolves the symlink; the absent run dir must not
+      // fail containment against the lexical fallback path.
+      const real = await mkdtemp(join(tmpdir(), "reporter-real-"));
+      try {
+        const link = join(dir, "linked-artifacts");
+        await symlink(real, link);
+
+        const rows = await collectFindings({
+          artifactDir: link,
+          runId: "abababab-abab-4bab-8bab-abababababab",
+        });
+        expect(rows).toHaveLength(0);
+      } finally {
+        await rm(real, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("still throws COLLECTION_FAILED when artifactDir itself is missing (runId set)", async () => {
     await expect(
       collectFindings({
