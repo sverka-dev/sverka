@@ -319,6 +319,13 @@ function ensureGitCheckout(cfg: GitRegistryConfig): Promise<void> {
   return p;
 }
 
+const GIT_IDENTITY = [
+  "-c",
+  "user.name=sverka-arena",
+  "-c",
+  "user.email=arena@sverka.dev",
+];
+
 function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
   const dir = gitRegistryDir(cfg);
   const branch = cfg.branch ?? "main";
@@ -328,9 +335,12 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
   const ensure = (): Promise<void> => ensureGitCheckout(cfg);
 
   async function pullRebase(): Promise<void> {
-    const res = await git(["-C", dir, "pull", "--rebase", "origin", branch], {
-      env: auth,
-    });
+    // Rebase replays our commit — it needs a committer identity too, and
+    // hosts without a global gitconfig (CI) have none.
+    const res = await git(
+      ["-C", dir, ...GIT_IDENTITY, "pull", "--rebase", "origin", branch],
+      { env: auth },
+    );
     if (res.code !== 0) {
       throw unavailable(`git pull --rebase failed`, res.stderr.trim());
     }
@@ -366,17 +376,7 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
       const staged = await git(["-C", dir, "diff", "--cached", "--quiet"]);
       if (staged.code === 0) return; // nothing to commit
       try {
-        await gitOrThrow([
-          "-C",
-          dir,
-          "-c",
-          "user.name=sverka-arena",
-          "-c",
-          "user.email=arena@sverka.dev",
-          "commit",
-          "-m",
-          message,
-        ]);
+        await gitOrThrow(["-C", dir, ...GIT_IDENTITY, "commit", "-m", message]);
       } catch (err) {
         throw unavailable(`git commit failed`, err);
       }
