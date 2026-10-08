@@ -406,12 +406,17 @@ async function privateDir(dir: string): Promise<void> {
 
 /**
  * Refresh a cached clone for reuse as a pack/fixture source. The tree
- * must come back pristine — `pull --ff-only` can succeed while unrelated
- * local edits or untracked files remain, and callers copy the whole
- * directory into run workspaces (or load tasks from it).
+ * must come back pristine — callers copy the whole directory into run
+ * workspaces (or load tasks from it). Fetch-then-reset, never
+ * `pull --ff-only`: a dirty tree or a rewritten upstream makes every
+ * later pull fail, wedging the cache until someone deletes it. Resetting
+ * to `@{upstream}` resyncs instead — local edits and non-ff history are
+ * discarded, never reused. `--prune` drops remote-tracking refs whose
+ * upstream branch was deleted — without it `@{upstream}` would keep
+ * resolving to the stale commit and the cache would silently serve it.
  */
 async function refreshClone(dir: string, what: string): Promise<void> {
-  const res = await git(["-C", dir, "pull", "--ff-only"]);
+  const res = await git(["-C", dir, "fetch", "--prune", "origin"]);
   if (res.code !== 0) {
     throw new ArenaError(
       `cannot update ${what}: ${res.stderr.trim()}`,
@@ -419,12 +424,14 @@ async function refreshClone(dir: string, what: string): Promise<void> {
     );
   }
   try {
-    await gitOrThrow(["-C", dir, "reset", "--hard", "HEAD"]);
-    // -x: a fresh clone has no ignored files either — match it exactly.
-    await gitOrThrow(["-C", dir, "clean", "-fdx"]);
+    await gitOrThrow(["-C", dir, "reset", "--hard", "@{upstream}"]);
+    // -f twice: one -f skips untracked dirs containing .git (nested
+    // repos). -d -x: match a fresh clone — no untracked or ignored
+    // files left behind.
+    await gitOrThrow(["-C", dir, "clean", "-f", "-f", "-d", "-x"]);
   } catch (err) {
     throw new ArenaError(
-      `cannot clean ${what}: ${err instanceof Error ? err.message : String(err)}`,
+      `cannot reset ${what} to upstream: ${err instanceof Error ? err.message : String(err)}`,
       "PACK_NOT_FOUND",
       err,
     );

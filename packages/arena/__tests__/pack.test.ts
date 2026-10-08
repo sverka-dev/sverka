@@ -329,7 +329,7 @@ describe("loadPack repo: cached clone refresh", () => {
     expect(existsSync(join(cached!, "v2.txt"))).toBe(true);
   });
 
-  it("fails on a dirty cached clone instead of silently reusing it", async () => {
+  it("resyncs a dirty cached clone instead of silently reusing it", async () => {
     const repo = await makeUpstream("up-dirty");
     const packDir = await packWithRepo("pack-dirty", repo);
     const cacheDir = join(dir, "cache-dirty");
@@ -338,18 +338,112 @@ describe("loadPack repo: cached clone refresh", () => {
     const cached = first.tasks[0]?.fixture;
     expect(cached).toBeDefined();
 
-    // Upstream moved on and the cache has uncommitted edits, so
-    // `pull --ff-only` cannot apply — the stale tree must not be used.
+    // Upstream moved on and the cache has uncommitted edits — no pull
+    // can apply here. The dirty bytes must be discarded by the resync,
+    // never copied into a workspace.
     writeFileSync(join(repo, "file.txt"), "v2");
     await gitIn(repo, "add", "-A");
     await gitIn(repo, "commit", "-m", "v2");
     writeFileSync(join(cached!, "file.txt"), "dirty local edit");
+
+    const second = await loadPack(packDir, { cacheDir });
+    expect(second.tasks[0]?.fixture).toBe(cached);
+    expect(readFileSync(join(cached!, "file.txt"), "utf8")).toBe("v2");
+  });
+
+  it("resyncs when upstream history is rewritten (non-fast-forward)", async () => {
+    const repo = await makeUpstream("up-nonff");
+    const packDir = await packWithRepo("pack-nonff", repo);
+    const cacheDir = join(dir, "cache-nonff");
+
+    const first = await loadPack(packDir, { cacheDir });
+    const cached = first.tasks[0]?.fixture;
+    expect(cached).toBeDefined();
+
+    // Amending upstream's only commit orphans the cached tip — no
+    // fast-forward exists, so `pull --ff-only` would wedge the cache
+    // forever. Resetting to @{upstream} must recover it.
+    writeFileSync(join(repo, "file.txt"), "rewritten");
+    await gitIn(repo, "add", "-A");
+    await gitIn(repo, "commit", "--amend", "-m", "v1-rewritten");
+
+    const second = await loadPack(packDir, { cacheDir });
+    expect(second.tasks[0]?.fixture).toBe(cached);
+    expect(readFileSync(join(cached!, "file.txt"), "utf8")).toBe("rewritten");
+  });
+
+  it("fails when the cached clone's upstream is gone", async () => {
+    const repo = await makeUpstream("up-gone");
+    const packDir = await packWithRepo("pack-gone", repo);
+    const cacheDir = join(dir, "cache-gone");
+
+    await loadPack(packDir, { cacheDir });
+    rmSync(repo, { recursive: true, force: true });
 
     const err = await expectPackError(
       loadPack(packDir, { cacheDir }),
       "PACK_NOT_FOUND",
     );
     expect(err.message).toContain("cannot update repo clone");
+  });
+
+  it("fails when upstream deletes the tracked branch", async () => {
+    // A pack clone is a FULL clone — `fetch` keeps succeeding after
+    // the tracked branch is deleted upstream (other refs still exist),
+    // so only --prune drops the stale origin/<branch> ref that
+    // @{upstream} would otherwise keep resolving to the deleted commit.
+    const src = join(dir, "up-del-src");
+    mkdirSync(join(src, "tasks"), { recursive: true });
+    writeFileSync(join(src, "pack.json"), JSON.stringify({ name: "del" }));
+    writeFileSync(
+      join(src, "tasks", "a.json"),
+      JSON.stringify({ prompt: "p" }),
+    );
+    await gitIn(src, "init");
+    await gitIn(src, "add", "-A");
+    await gitIn(src, "commit", "-m", "v1");
+
+    const bare = join(dir, "up-del.git");
+    await gitIn(dir, "clone", "--bare", src, bare);
+    const cacheDir = join(dir, "cache-del");
+
+    await resolvePack(bare, { cacheDir });
+
+    // Repoint remote HEAD so the tracked branch itself can be deleted.
+    const tracked = (
+      await gitIn(bare, "symbolic-ref", "--short", "HEAD")
+    ).stdout.trim();
+    await gitIn(bare, "branch", "moved", tracked);
+    await gitIn(bare, "symbolic-ref", "HEAD", "refs/heads/moved");
+    await gitIn(bare, "branch", "-D", tracked);
+
+    const err = await expectPackError(
+      resolvePack(bare, { cacheDir }),
+      "PACK_NOT_FOUND",
+    );
+    expect(err.message).toContain("cannot reset pack clone");
+  });
+
+  it("removes nested git repositories on refresh", async () => {
+    const repo = await makeUpstream("up-nested");
+    const packDir = await packWithRepo("pack-nested", repo);
+    const cacheDir = join(dir, "cache-nested");
+
+    const first = await loadPack(packDir, { cacheDir });
+    const cached = first.tasks[0]?.fixture;
+    expect(cached).toBeDefined();
+
+    // An untracked nested git repo survives `clean -fdx` — a single
+    // -f skips dirs containing .git — and its files would leak into
+    // every workspace copied from the cache.
+    writeFileSync(join(repo, "v2.txt"), "v2");
+    await gitIn(repo, "add", "-A");
+    await gitIn(repo, "commit", "-m", "v2");
+    await gitIn(cached!, "init", "nested");
+
+    const second = await loadPack(packDir, { cacheDir });
+    expect(second.tasks[0]?.fixture).toBe(cached);
+    expect(existsSync(join(cached!, "nested"))).toBe(false);
   });
 
   it("scrubs unrelated edits and untracked files on refresh", async () => {
@@ -361,10 +455,9 @@ describe("loadPack repo: cached clone refresh", () => {
     const cached = first.tasks[0]?.fixture;
     expect(cached).toBeDefined();
 
-    // Upstream adds a file without touching file.txt, so `pull --ff-only`
-    // applies despite the unrelated local edit + stray untracked file.
-    // Without a pristine restore the runner would copy both into every
-    // workspace.
+    // Upstream adds a file without touching file.txt, while the cache
+    // holds an unrelated local edit + a stray untracked file. Without a
+    // pristine restore the runner would copy both into every workspace.
     writeFileSync(join(repo, "v2.txt"), "v2");
     await gitIn(repo, "add", "-A");
     await gitIn(repo, "commit", "-m", "v2");
