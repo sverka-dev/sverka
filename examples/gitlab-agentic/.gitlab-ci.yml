@@ -110,5 +110,6 @@ weekly-digest:
   script:
     - ./scripts/digest.sh
   rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_PIPELINE_SCHEDULE_DESCRIPTION ==
+    - if:
+        $CI_PIPELINE_SOURCE == "schedule" && $CI_PIPELINE_SCHEDULE_DESCRIPTION ==
         "on-weekly-digest"

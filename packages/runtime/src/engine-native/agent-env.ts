@@ -140,14 +140,31 @@ export function noAgentDriverError(
  */
 export function parseAgentWrites(text: string): readonly AgentWrite[] {
   const writes: AgentWrite[] = [];
-  // Linear scan instead of a regex: an unbounded pattern over uncontrolled
-  // model output is a ReDoS vector.
-  const FENCE = "```sverka-writes";
   let pos = 0;
   for (;;) {
-    const open = text.indexOf(FENCE, pos);
-    if (open === -1) return writes;
-    // The fence marker may only be followed by whitespace up to EOL.
+    const block = nextWritesBlock(text, pos);
+    if (block === undefined) return writes;
+    pos = block.nextPos;
+    if (block.body === "") continue;
+    for (const item of extractWritesItems(parseWritesJson(block.body))) {
+      writes.push(validateAgentWrite(item));
+    }
+  }
+}
+
+/**
+ * Locate the next fenced `sverka-writes` block via a linear indexOf scan —
+ * a regex over uncontrolled model output is a ReDoS vector. The fence
+ * marker may only be followed by whitespace up to the newline.
+ */
+function nextWritesBlock(
+  text: string,
+  from: number,
+): { body: string; nextPos: number } | undefined {
+  const FENCE = "```sverka-writes";
+  for (;;) {
+    const open = text.indexOf(FENCE, from);
+    if (open === -1) return undefined;
     let bodyStart = open + FENCE.length;
     while (
       bodyStart < text.length &&
@@ -158,42 +175,42 @@ export function parseAgentWrites(text: string): readonly AgentWrite[] {
       bodyStart++;
     }
     if (text[bodyStart] !== "\n") {
-      pos = open + FENCE.length;
+      from = open + FENCE.length;
       continue;
     }
     bodyStart++;
     const close = text.indexOf("```", bodyStart);
-    if (close === -1) return writes;
-    const body = text.slice(bodyStart, close).trim();
-    pos = close + 3;
-    if (body === "") continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(body);
-    } catch (e) {
-      throw new AgentDriverError(
-        `AGENT_EXECUTION_FAILED: malformed sverka-writes block (invalid JSON): ${e instanceof Error ? e.message : String(e)}`,
-        "AGENT_EXECUTION_FAILED",
-        e,
-      );
-    }
-    const items = Array.isArray(parsed)
-      ? parsed
-      : typeof parsed === "object" &&
-          parsed !== null &&
-          Array.isArray((parsed as { writes?: unknown }).writes)
-        ? (parsed as { writes: unknown[] }).writes
-        : undefined;
-    if (items === undefined) {
-      throw new AgentDriverError(
-        "AGENT_EXECUTION_FAILED: sverka-writes block must be a JSON array or an object with a 'writes' array",
-        "AGENT_EXECUTION_FAILED",
-      );
-    }
-    for (const item of items) {
-      writes.push(validateAgentWrite(item));
-    }
+    if (close === -1) return undefined;
+    return { body: text.slice(bodyStart, close).trim(), nextPos: close + 3 };
   }
+}
+
+function parseWritesJson(body: string): unknown {
+  try {
+    return JSON.parse(body);
+  } catch (e) {
+    throw new AgentDriverError(
+      `AGENT_EXECUTION_FAILED: malformed sverka-writes block (invalid JSON): ${e instanceof Error ? e.message : String(e)}`,
+      "AGENT_EXECUTION_FAILED",
+      e,
+    );
+  }
+}
+
+/** The block holds a JSON array, or an object with a 'writes' array. */
+function extractWritesItems(parsed: unknown): readonly unknown[] {
+  if (Array.isArray(parsed)) return parsed;
+  const w =
+    typeof parsed === "object" && parsed !== null
+      ? (parsed as { writes?: unknown }).writes
+      : undefined;
+  if (!Array.isArray(w)) {
+    throw new AgentDriverError(
+      "AGENT_EXECUTION_FAILED: sverka-writes block must be a JSON array or an object with a 'writes' array",
+      "AGENT_EXECUTION_FAILED",
+    );
+  }
+  return w;
 }
 
 function validateAgentWrite(item: unknown): AgentWrite {
@@ -303,16 +320,7 @@ export function createAnthropicDriver(apiKey: string): AgentDriver {
         .filter((c) => c.type === "text" && typeof c.text === "string")
         .map((c) => c.text)
         .join("");
-      const finishReason =
-        r.stop_reason === "max_tokens"
-          ? "length"
-          : r.stop_reason === "tool_use"
-            ? "tool_call"
-            : r.stop_reason === undefined ||
-                r.stop_reason === "end_turn" ||
-                r.stop_reason === "stop_sequence"
-              ? "stop"
-              : r.stop_reason;
+      const finishReason = anthropicFinishReason(r.stop_reason);
       return {
         text,
         finishReason,
@@ -331,6 +339,22 @@ export function createAnthropicDriver(apiKey: string): AgentDriver {
       };
     },
   });
+}
+
+/** Anthropic `stop_reason` → AgentResult.finishReason. */
+function anthropicFinishReason(reason: string | undefined): string {
+  switch (reason) {
+    case undefined:
+    case "end_turn":
+    case "stop_sequence":
+      return "stop";
+    case "max_tokens":
+      return "length";
+    case "tool_use":
+      return "tool_call";
+    default:
+      return reason;
+  }
 }
 
 /** OpenAI Chat Completions driver (default model: gpt-4o). */
@@ -389,8 +413,11 @@ function envStubDriver(): AgentDriver {
   return {
     name: "stub-agent",
     canExecute: (engine) => engine === "stub",
-    async executeAgent(_request: AgentExecuteRequest): Promise<AgentResult> {
-      return { text: "[stub agent response]", finishReason: "stop" };
+    executeAgent(_request: AgentExecuteRequest): Promise<AgentResult> {
+      return Promise.resolve({
+        text: "[stub agent response]",
+        finishReason: "stop",
+      });
     },
   };
 }

@@ -74,7 +74,7 @@ describe("Spec 54 — GitLab comment trigger rules", () => {
     expect(rule?.if).toContain('$CI_PIPELINE_SOURCE == "web"');
   });
 
-  it("test 1b: nonmatching mention/object kind does not match the rule shape", () => {
+  it("test 1b: unmatched mention/object kind does not match the rule shape", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
     new ShellStep(p, "build", { command: "make build" });

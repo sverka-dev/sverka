@@ -8,7 +8,7 @@ import { synthesize } from "@sverka/workflow";
 import { parseMarkdown, loadMarkdownFile } from "../markdown.js";
 import { MarkdownParseError } from "../markdown-errors.js";
 
-// Resolve @sverka/workflow's dist URL so extends files in tmpdirs (no
+// Resolve @sverka/workflow's dist URL so extends files in temp dirs (no
 // node_modules chain) can import the same copy the SDK uses.
 const WORKFLOW_URL = import.meta.resolve("@sverka/workflow");
 

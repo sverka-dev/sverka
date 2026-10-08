@@ -237,89 +237,96 @@ function toTrigger(entry: TriggerEntry, index: number): Trigger {
       return filter !== undefined
         ? { kind: "manual", filter }
         : { kind: "manual" };
-    case "schedule": {
-      if (typeof opts.cron !== "string" || opts.cron === "") {
-        throw new MarkdownParseError(
-          `invalid .sverka.md ${at}: schedule trigger requires a 'cron' string`,
-          "INVALID_TRIGGER",
-        );
-      }
-      if (opts.timezone !== undefined && typeof opts.timezone !== "string") {
-        throw new MarkdownParseError(
-          `invalid .sverka.md ${at}: schedule 'timezone' must be a string`,
-          "INVALID_TRIGGER",
-        );
-      }
-      return {
-        kind: "schedule",
-        cron: opts.cron,
-        ...(opts.timezone !== undefined ? { timezone: opts.timezone } : {}),
-      };
-    }
-    case "comment": {
-      const on = opts.on;
-      if (
-        on !== undefined &&
-        on !== "mergeRequest" &&
-        on !== "issue" &&
-        on !== "commit"
-      ) {
-        throw new MarkdownParseError(
-          `invalid .sverka.md ${at}: comment 'on' must be mergeRequest|issue|commit`,
-          "INVALID_TRIGGER",
-        );
-      }
-      // A dropped non-string mention silently widens a restricted trigger
-      // into an unrestricted one — reject it instead.
-      if (opts.mention !== undefined && typeof opts.mention !== "string") {
-        throw new MarkdownParseError(
-          `invalid .sverka.md ${at}: comment 'mention' must be a string`,
-          "INVALID_TRIGGER",
-        );
-      }
-      return {
-        kind: "comment",
-        ...(opts.mention !== undefined ? { mention: opts.mention } : {}),
-        ...(on !== undefined ? { on } : {}),
-      };
-    }
-    case "issue": {
-      const action = opts.action;
-      if (
-        action !== undefined &&
-        action !== "opened" &&
-        action !== "reopened" &&
-        action !== "labeled"
-      ) {
-        throw new MarkdownParseError(
-          `invalid .sverka.md ${at}: issue 'action' must be opened|reopened|labeled`,
-          "INVALID_TRIGGER",
-        );
-      }
-      const labels = opts.labels;
-      if (
-        labels !== undefined &&
-        (!Array.isArray(labels) || !labels.every((l) => typeof l === "string"))
-      ) {
-        throw new MarkdownParseError(
-          `invalid .sverka.md ${at}: issue 'labels' must be an array of strings`,
-          "INVALID_TRIGGER",
-        );
-      }
-      return {
-        kind: "issue",
-        ...(action !== undefined ? { action } : {}),
-        ...(labels !== undefined
-          ? { labels: labels as readonly string[] }
-          : {}),
-      };
-    }
+    case "schedule":
+      return toScheduleTrigger(opts, at);
+    case "comment":
+      return toCommentTrigger(opts, at);
+    case "issue":
+      return toIssueTrigger(opts, at);
     default:
       throw new MarkdownParseError(
         `invalid .sverka.md ${at}: unknown trigger kind '${kind}'`,
         "INVALID_TRIGGER",
       );
   }
+}
+
+function toScheduleTrigger(opts: Record<string, unknown>, at: string): Trigger {
+  if (typeof opts.cron !== "string" || opts.cron === "") {
+    throw new MarkdownParseError(
+      `invalid .sverka.md ${at}: schedule trigger requires a 'cron' string`,
+      "INVALID_TRIGGER",
+    );
+  }
+  if (opts.timezone !== undefined && typeof opts.timezone !== "string") {
+    throw new MarkdownParseError(
+      `invalid .sverka.md ${at}: schedule 'timezone' must be a string`,
+      "INVALID_TRIGGER",
+    );
+  }
+  return {
+    kind: "schedule",
+    cron: opts.cron,
+    ...(opts.timezone !== undefined ? { timezone: opts.timezone } : {}),
+  };
+}
+
+function toCommentTrigger(opts: Record<string, unknown>, at: string): Trigger {
+  const on = opts.on;
+  if (
+    on !== undefined &&
+    on !== "mergeRequest" &&
+    on !== "issue" &&
+    on !== "commit"
+  ) {
+    throw new MarkdownParseError(
+      `invalid .sverka.md ${at}: comment 'on' must be mergeRequest|issue|commit`,
+      "INVALID_TRIGGER",
+    );
+  }
+  // A dropped non-string mention silently widens a restricted trigger
+  // into an unrestricted one — reject it instead.
+  if (opts.mention !== undefined && typeof opts.mention !== "string") {
+    throw new MarkdownParseError(
+      `invalid .sverka.md ${at}: comment 'mention' must be a string`,
+      "INVALID_TRIGGER",
+    );
+  }
+  return {
+    kind: "comment",
+    ...(opts.mention !== undefined ? { mention: opts.mention } : {}),
+    ...(on !== undefined ? { on } : {}),
+  };
+}
+
+function toIssueTrigger(opts: Record<string, unknown>, at: string): Trigger {
+  const action = opts.action;
+  if (
+    action !== undefined &&
+    action !== "opened" &&
+    action !== "reopened" &&
+    action !== "labeled"
+  ) {
+    throw new MarkdownParseError(
+      `invalid .sverka.md ${at}: issue 'action' must be opened|reopened|labeled`,
+      "INVALID_TRIGGER",
+    );
+  }
+  const labels = opts.labels;
+  if (
+    labels !== undefined &&
+    (!Array.isArray(labels) || !labels.every((l) => typeof l === "string"))
+  ) {
+    throw new MarkdownParseError(
+      `invalid .sverka.md ${at}: issue 'labels' must be an array of strings`,
+      "INVALID_TRIGGER",
+    );
+  }
+  return {
+    kind: "issue",
+    ...(action !== undefined ? { action } : {}),
+    ...(labels !== undefined ? { labels: labels as readonly string[] } : {}),
+  };
 }
 
 function buildFilter(
@@ -411,31 +418,7 @@ function parseBulletLine(
  * can carry documentation.
  */
 function parseStepSection(id: string, lines: readonly string[]): ParsedStep {
-  const props: Record<string, unknown> = {};
-  let i = 0;
-  while (i < lines.length) {
-    const bullet = parseBulletLine(lines[i]!);
-    if (bullet === null) {
-      i++;
-      continue;
-    }
-    const { key, rest } = bullet;
-    if (rest === "") {
-      // Nested block: collect the indented continuation lines.
-      const block: string[] = [];
-      let j = i + 1;
-      while (j < lines.length && /^\s+\S/.test(lines[j]!)) {
-        block.push(lines[j]!);
-        j++;
-      }
-      props[key] =
-        block.length > 0 ? parseYamlScalar(block.join("\n"), id, key) : null;
-      i = j;
-    } else {
-      props[key] = parseYamlScalar(rest, id, key);
-      i++;
-    }
-  }
+  const props = collectStepProps(id, lines);
 
   if (typeof props.command !== "string" || props.command === "") {
     throw new MarkdownParseError(
@@ -488,6 +471,42 @@ function parseStepSection(id: string, lines: readonly string[]): ParsedStep {
   };
 }
 
+/**
+ * Collect `- key: value` bullets (with indented continuation blocks) into
+ * a props map. Non-bullet prose is ignored.
+ */
+function collectStepProps(
+  id: string,
+  lines: readonly string[],
+): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
+  let i = 0;
+  while (i < lines.length) {
+    const bullet = parseBulletLine(lines[i]!);
+    if (bullet === null) {
+      i++;
+      continue;
+    }
+    const { key, rest } = bullet;
+    if (rest === "") {
+      // Nested block: collect the indented continuation lines.
+      const block: string[] = [];
+      let j = i + 1;
+      while (j < lines.length && /^\s+\S/.test(lines[j]!)) {
+        block.push(lines[j]!);
+        j++;
+      }
+      props[key] =
+        block.length > 0 ? parseYamlScalar(block.join("\n"), id, key) : null;
+      i = j;
+    } else {
+      props[key] = parseYamlScalar(rest, id, key);
+      i++;
+    }
+  }
+  return props;
+}
+
 function parseYamlScalar(rest: string, stepId: string, key: string): unknown {
   try {
     return parseYaml(rest);
@@ -515,7 +534,8 @@ function buildMarkdownPipeline(
   });
   const steps = parseSteps(body);
   for (const step of steps) {
-    new ShellStep(pipeline, step.id, {
+    // Construct registers into `pipeline` on construction — no value used.
+    void new ShellStep(pipeline, step.id, {
       command: step.command,
       ...(step.dependsOn !== undefined ? { dependsOn: step.dependsOn } : {}),
       ...(step.image !== undefined
@@ -539,7 +559,7 @@ function buildMarkdownPipeline(
       n++;
     }
     usedIds.add(id);
-    new Entry(pipeline, id, { trigger, roots });
+    void new Entry(pipeline, id, { trigger, roots });
   }
 }
 

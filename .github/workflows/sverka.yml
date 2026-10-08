@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -28,6 +30,8 @@ jobs:
     needs: build
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -46,6 +50,8 @@ jobs:
     needs: typecheck
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -64,6 +70,8 @@ jobs:
     needs: lint
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -111,6 +119,8 @@ jobs:
     needs: lint-sarif
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -135,6 +145,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -152,6 +164,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -176,6 +190,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -193,6 +209,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -210,6 +228,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -232,6 +252,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -249,6 +271,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -295,6 +319,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -312,6 +338,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -329,6 +357,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -347,6 +377,8 @@ jobs:
     needs: test
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -365,6 +397,8 @@ jobs:
     needs: packlint
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -382,6 +416,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -399,6 +435,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -419,6 +457,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: ${{ (github.event_name == 'push') || (github.event_name == 'pull_request')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

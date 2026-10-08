@@ -90,7 +90,7 @@ or a kind→options map as shown above. `comment` and `issue` map to the
 > pipelines run in the base-repository context — on private repos,
 > restrict who can comment (or gate further on
 > `github.event.comment.author_association`) before exposing an agent
-> job to untrusted commenters. The generated agent job carries no
+> job to untrusted comment authors. The generated agent job carries no
 > `GITHUB_TOKEN`; writes flow only through the validated `__apply`
 > channel.
 

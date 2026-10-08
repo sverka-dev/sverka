@@ -485,9 +485,10 @@ function collectSverkaAnnotations(
   );
   for (const entry of scheduleEntries) {
     const t = entry.trigger as Extract<Trigger, { kind: "schedule" }>;
+    const tz = t.timezone ? ` timezone "${t.timezone}"` : "";
     lines.push(
       `sverka:schedule: create a pipeline schedule (CI/CD → Schedules) with`,
-      `  cron "${t.cron}"${t.timezone ? ` timezone "${t.timezone}"` : ""} and`,
+      `  cron "${t.cron}"${tz} and`,
       `  description "${entryName(entry.id)}" — the description is the`,
       `  link between the schedule and this entry's rules.`,
     );
@@ -741,8 +742,8 @@ function escapeGitlabRegex(value: string): string {
   // GitLab rule regexes (RE2) reject a bare `@` — a literal at-sign must be
   // written \x40.
   return value
-    .replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")
-    .replace(/@/g, String.raw`\x40`);
+    .replaceAll(/[.*+?^${}()|[\]\\/]/g, String.raw`\$&`)
+    .replaceAll("@", String.raw`\x40`);
 }
 
 /**
@@ -863,8 +864,10 @@ function buildApplyJob(
   // The generated `<step>__apply` id can collide with a user step id —
   // suffix it until unique so one job never overwrites the other.
   let applyId = `${agentJob.id}__apply`;
-  for (let i = 1; usedJobIds.has(applyId); i++) {
-    applyId = `${agentJob.id}__apply${i}`;
+  let collision = 1;
+  while (usedJobIds.has(applyId)) {
+    applyId = `${agentJob.id}__apply${collision}`;
+    collision++;
   }
   return {
     id: applyId,
@@ -1603,7 +1606,8 @@ function lowerAgentOp(
   acc.agentOpSeen = true;
   sealStdoutCapture(acc);
   for (const mention of mentions ?? []) {
-    acc.script.push(`echo ${shellQuoteSingle(`# sverka:mention: ${mention}`)}`);
+    const marker = `# sverka:mention: ${mention}`;
+    acc.script.push(`echo ${shellQuoteSingle(marker)}`);
   }
   if (mentions !== undefined && mentions.length > 0) {
     // Multiple comment entries can reach this job with different mentions —

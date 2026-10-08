@@ -54,11 +54,14 @@ export async function applyCommand(
         ExitCode.RuntimeError,
       );
     }
-    applied.push(await applyWrite(provider, write, declarations));
+    // Writes apply sequentially on purpose: comments keep their declared
+    // order and the first failure stops the batch loudly.
+    applied.push(await applyWrite(provider, write, declarations)); // NOSONAR — intentional sequential applies
   }
 
+  const summary = applied.length > 0 ? ` — ${applied.join("; ")}` : "";
   output.writeLine(
-    `sverka apply: applied ${applied.length} write(s) via ${provider}${applied.length > 0 ? ` — ${applied.join("; ")}` : ""}`,
+    `sverka apply: applied ${applied.length} write(s) via ${provider}${summary}`,
   );
   return ExitCode.Success;
 }
@@ -96,14 +99,7 @@ async function loadWrites(file: string): Promise<readonly AgentWrite[]> {
       ExitCode.RuntimeError,
     );
   }
-  const items =
-    typeof parsed === "object" &&
-    parsed !== null &&
-    Array.isArray((parsed as { writes?: unknown }).writes)
-      ? (parsed as { writes: unknown[] }).writes
-      : Array.isArray(parsed)
-        ? parsed
-        : undefined;
+  const items = extractWritesItems(parsed);
   if (items === undefined) {
     throw new CliError(
       `sverka apply: ${WRITES_FILE} must be an object with a 'writes' array`,
@@ -125,6 +121,14 @@ async function loadWrites(file: string): Promise<readonly AgentWrite[]> {
     }
     return item as AgentWrite;
   });
+}
+
+/** The artifact is either a bare array or an object with a 'writes' array. */
+function extractWritesItems(parsed: unknown): readonly unknown[] | undefined {
+  if (Array.isArray(parsed)) return parsed;
+  if (typeof parsed !== "object" || parsed === null) return undefined;
+  const w = (parsed as { writes?: unknown }).writes;
+  return Array.isArray(w) ? w : undefined;
 }
 
 function loadDeclarations(): readonly WriteDeclaration[] {
@@ -161,18 +165,16 @@ async function applyWrite(
   write: AgentWrite,
   declarations: readonly WriteDeclaration[],
 ): Promise<string> {
-  switch (write.kind) {
-    case "comment":
-      return provider === "gitlab"
-        ? applyGitlabComment(write, declarations)
-        : applyGithubComment(write);
-    default:
-      throw new CliError(
-        `sverka apply: write kind '${write.kind}' is not supported`,
-        "PACKAGE_ERROR",
-        ExitCode.RuntimeError,
-      );
+  if (write.kind === "comment") {
+    return provider === "gitlab"
+      ? applyGitlabComment(write, declarations)
+      : applyGithubComment(write);
   }
+  throw new CliError(
+    `sverka apply: write kind '${write.kind}' is not supported`,
+    "PACKAGE_ERROR",
+    ExitCode.RuntimeError,
+  );
 }
 
 function requireBody(write: AgentWrite): string {
@@ -198,7 +200,7 @@ function resolveCommentTarget(write: AgentWrite): "issue" | "merge_request" {
   }
   if (write.on !== undefined) {
     throw new CliError(
-      `sverka apply: comment write 'on' must be issue|merge_request, got '${String(write.on)}'`,
+      `sverka apply: comment write 'on' must be issue|merge_request, got '${JSON.stringify(write.on)}'`,
       "PACKAGE_ERROR",
       ExitCode.RuntimeError,
     );
@@ -227,7 +229,7 @@ function requireIid(write: AgentWrite, envKeys: readonly string[]): number {
     }
     if (write.iid !== undefined && Number(write.iid) !== ctx) {
       throw new CliError(
-        `sverka apply: write iid '${String(write.iid)}' does not match the triggering context iid ${ctx}`,
+        `sverka apply: write iid '${JSON.stringify(write.iid)}' does not match the triggering context iid ${ctx}`,
         "PACKAGE_ERROR",
         ExitCode.RuntimeError,
       );
@@ -244,7 +246,7 @@ function requireIid(write: AgentWrite, envKeys: readonly string[]): number {
   const n = Number(write.iid);
   if (!Number.isInteger(n) || n <= 0) {
     throw new CliError(
-      `sverka apply: comment write iid must be a positive integer, got '${String(write.iid)}'`,
+      `sverka apply: comment write iid must be a positive integer, got '${JSON.stringify(write.iid)}'`,
       "PACKAGE_ERROR",
       ExitCode.RuntimeError,
     );

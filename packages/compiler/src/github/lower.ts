@@ -114,16 +114,15 @@ function lowerSinglePipeline(
   const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
   const gateMap = buildJobGateMap(pipeline, reachableSteps, jobIdMap, false);
   const mentionMap = buildJobMentionMap(pipeline, reachableSteps, jobIdMap);
-  const jobs = lowerStepsWithCalls(
-    reachableSteps,
+  const jobs = lowerStepsWithCalls(reachableSteps, {
     jobIdMap,
-    pipeline.id,
-    new Map([[pipeline.id, pipeline]]),
-    pipeline.bootstrap,
+    pipelineId: pipeline.id,
+    pipelineMap: new Map([[pipeline.id, pipeline]]),
+    bootstrap: pipeline.bootstrap,
     config,
     gateMap,
     mentionMap,
-  );
+  });
 
   return assemblePipelineTarget(pipeline, triggers, jobs);
 }
@@ -255,16 +254,15 @@ function lowerPipelineInGraph(
   const mentionMap = hasEntries
     ? buildJobMentionMap(pipeline, reachableSteps, jobIdMap)
     : new Map<string, readonly string[]>();
-  const jobs = lowerStepsWithCalls(
-    reachableSteps,
+  const jobs = lowerStepsWithCalls(reachableSteps, {
     jobIdMap,
-    pipeline.id,
+    pipelineId: pipeline.id,
     pipelineMap,
-    pipeline.bootstrap,
+    bootstrap: pipeline.bootstrap,
     config,
     gateMap,
     mentionMap,
-  );
+  });
   return assemblePipelineTarget(pipeline, triggers, jobs);
 }
 
@@ -474,9 +472,11 @@ function buildJobGateMap(
       reaching.length === pipeline.entries.length &&
       pipeline.entries.every((e) => !triggerHasResidualFilters(e.trigger));
     if (coversAll || reaching.length === 0) continue;
-    const conds = reaching.map((e) => entryIfExpr(e.trigger));
+    const clauses = reaching.map((e) => entryIfExpr(e.trigger));
     let gate =
-      conds.length === 1 ? conds[0]! : conds.map((c) => `(${c})`).join(" || ");
+      clauses.length === 1
+        ? clauses[0]!
+        : clauses.map((c) => `(${c})`).join(" || ");
     // A pipeline invoked through workflow_call must run its jobs even
     // though the event-name guards only match direct-run triggers.
     if (isCalled) {
@@ -514,8 +514,8 @@ function refPatternCond(pattern: string, prefix: string): string | undefined {
   return undefined;
 }
 
-function refFiltersConds(t: Extract<Trigger, { kind: "push" }>): string[] {
-  const conds: string[] = [];
+function refFiltersClauses(t: Extract<Trigger, { kind: "push" }>): string[] {
+  const clauses: string[] = [];
   const branches = (t.filter?.branches ?? [])
     .map((b) => refPatternCond(b, "refs/heads/"))
     .filter((c): c is string => c !== undefined);
@@ -525,9 +525,9 @@ function refFiltersConds(t: Extract<Trigger, { kind: "push" }>): string[] {
   const refs = [...branches, ...tags];
   // `paths` filters cannot be expressed in a job `if` — the workflow-level
   // `on:push.paths` union already narrows the firing events.
-  if (refs.length === 1) conds.push(refs[0]!);
-  else if (refs.length > 1) conds.push(`(${refs.join(" || ")})`);
-  return conds;
+  if (refs.length === 1) clauses.push(refs[0]!);
+  else if (refs.length > 1) clauses.push(`(${refs.join(" || ")})`);
+  return clauses;
 }
 
 /**
@@ -539,50 +539,51 @@ function refFiltersConds(t: Extract<Trigger, { kind: "push" }>): string[] {
 function entryIfExpr(t: Trigger): string {
   switch (t.kind) {
     case "push": {
-      const conds = ["github.event_name == 'push'", ...refFiltersConds(t)];
-      return conds.join(" && ");
+      const clauses = ["github.event_name == 'push'", ...refFiltersClauses(t)];
+      return clauses.join(" && ");
     }
     case "changeRequest": {
-      const conds = ["github.event_name == 'pull_request'"];
+      const clauses = ["github.event_name == 'pull_request'"];
       const branches = t.filter?.branches ?? [];
       if (branches.length === 1) {
-        conds.push(`github.base_ref == '${escapeIfString(branches[0]!)}'`);
+        clauses.push(`github.base_ref == '${escapeIfString(branches[0]!)}'`);
       } else if (branches.length > 1) {
-        conds.push(
-          `(${branches.map((b) => `github.base_ref == '${escapeIfString(b)}'`).join(" || ")})`,
-        );
+        const disjuncts = branches
+          .map((b) => `github.base_ref == '${escapeIfString(b)}'`)
+          .join(" || ");
+        clauses.push(`(${disjuncts})`);
       }
-      return conds.join(" && ");
+      return clauses.join(" && ");
     }
     case "manual":
       return "github.event_name == 'workflow_dispatch'";
     case "schedule":
       return `github.event_name == 'schedule' && github.event.schedule == '${escapeIfString(t.cron)}'`;
     case "comment": {
-      const conds = ["github.event_name == 'issue_comment'"];
+      const clauses = ["github.event_name == 'issue_comment'"];
       if (t.on === "mergeRequest") {
-        conds.push("github.event.issue.pull_request");
+        clauses.push("github.event.issue.pull_request");
       } else if (t.on === "issue") {
-        conds.push("!github.event.issue.pull_request");
+        clauses.push("!github.event.issue.pull_request");
       }
       if (t.mention !== undefined) {
-        conds.push(
+        clauses.push(
           `contains(github.event.comment.body, '${escapeIfString(t.mention)}')`,
         );
       }
-      return conds.join(" && ");
+      return clauses.join(" && ");
     }
     case "issue": {
-      const conds = ["github.event_name == 'issues'"];
+      const clauses = ["github.event_name == 'issues'"];
       if (t.action !== undefined) {
-        conds.push(`github.event.action == '${escapeIfString(t.action)}'`);
+        clauses.push(`github.event.action == '${escapeIfString(t.action)}'`);
       }
       for (const label of t.labels ?? []) {
-        conds.push(
+        clauses.push(
           `contains(github.event.issue.labels.*.name, '${escapeIfString(label)}')`,
         );
       }
-      return conds.join(" && ");
+      return clauses.join(" && ");
     }
   }
 }
@@ -590,7 +591,7 @@ function entryIfExpr(t: Trigger): string {
 /** Escape a literal for embedding inside single-quoted `if` strings. */
 function escapeIfString(value: string): string {
   // GitHub expressions escape a single quote by doubling it.
-  return value.replace(/'/g, "''");
+  return value.replaceAll("'", "''");
 }
 
 /**
@@ -867,37 +868,53 @@ function buildJobMentionMap(
   return map;
 }
 
+interface StepsLoweringContext {
+  jobIdMap: Map<string, string>;
+  pipelineId: string;
+  pipelineMap: ReadonlyMap<string, PipelineDefinition>;
+  bootstrap: BootstrapLevel | undefined;
+  config: GithubTargetConfig | undefined;
+  gateMap: ReadonlyMap<string, string>;
+  mentionMap: ReadonlyMap<string, readonly string[]>;
+}
+
 function lowerStepsWithCalls(
   steps: readonly StepDefinition[],
-  jobIdMap: Map<string, string>,
-  pipelineId: string,
-  pipelineMap: ReadonlyMap<string, PipelineDefinition>,
-  bootstrap: BootstrapLevel | undefined,
-  config: GithubTargetConfig | undefined,
-  gateMap: ReadonlyMap<string, string>,
-  mentionMap: ReadonlyMap<string, readonly string[]>,
+  ctx: StepsLoweringContext,
 ): readonly GithubJob[] {
-  const usedJobIds = new Set<string>(jobIdMap.values());
+  const usedJobIds = new Set<string>(ctx.jobIdMap.values());
   return steps.flatMap((step) => {
-    const jobId = jobIdMap.get(step.id) ?? step.id;
-    const gate = gateMap.get(jobId);
+    const jobId = ctx.jobIdMap.get(step.id) ?? step.id;
+    const gate = ctx.gateMap.get(jobId);
     let job: GithubJob;
     if (step.call) {
-      job = lowerCallStep(step, jobIdMap, pipelineId, pipelineMap, gate);
+      job = lowerCallStep(
+        step,
+        ctx.jobIdMap,
+        ctx.pipelineId,
+        ctx.pipelineMap,
+        gate,
+      );
     } else if (step.component) {
-      job = lowerComponentStep(step, jobIdMap, bootstrap, config, gate);
+      job = lowerComponentStep(
+        step,
+        ctx.jobIdMap,
+        ctx.bootstrap,
+        ctx.config,
+        gate,
+      );
     } else if (step.childPipeline) {
-      job = lowerChildPipelineStep(step, jobIdMap, gate);
+      job = lowerChildPipelineStep(step, ctx.jobIdMap, gate);
     } else if (step.downstream) {
-      job = lowerDownstreamStep(step, jobIdMap, gate);
+      job = lowerDownstreamStep(step, ctx.jobIdMap, gate);
     } else {
       job = lowerStep(
         step,
-        jobIdMap,
-        bootstrap,
-        config,
+        ctx.jobIdMap,
+        ctx.bootstrap,
+        ctx.config,
         gate,
-        mentionMap.get(jobId),
+        ctx.mentionMap.get(jobId),
       );
     }
     const applyJob = buildApplyJob(step, job, gate, usedJobIds);
@@ -925,8 +942,10 @@ function buildApplyJob(
   // The generated `<step>_apply` id can collide with a user step id —
   // suffix it until unique so one job never overwrites the other.
   let applyId = `${jobId}_apply`;
-  for (let i = 1; usedJobIds.has(applyId); i++) {
-    applyId = `${jobId}_apply${i}`;
+  let collision = 1;
+  while (usedJobIds.has(applyId)) {
+    applyId = `${jobId}_apply${collision}`;
+    collision++;
   }
   const permissions = writePermissions(writes);
   return {
