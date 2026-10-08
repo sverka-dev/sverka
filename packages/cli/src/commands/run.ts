@@ -787,6 +787,11 @@ interface WriteRunOutputArgs {
   detected?: readonly string[];
 }
 
+/** Schema tag identifying the sverka.run/v1 contract — emitted on both the
+ *  `--format json` stdout payload and .sverka/runs/<runId>/report.json.
+ *  The field set is frozen (Specs 48/53): append-only, never rename/remove. */
+const RUN_SCHEMA = "sverka.run/v1";
+
 function writeRunOutput(opts: WriteRunOutputArgs): void {
   const { planId, runStatus, events, durationMs, global, output } = opts;
   const { evalResult, report } = opts;
@@ -794,6 +799,7 @@ function writeRunOutput(opts: WriteRunOutputArgs): void {
     const steps = summarizeSteps(events);
     output.writeLine(
       JSON.stringify({
+        schema: RUN_SCHEMA,
         command: "run",
         data: {
           planId,
@@ -970,7 +976,7 @@ function runReportPayload(
   warnings: readonly string[],
 ): Record<string, unknown> {
   return {
-    schema: "sverka.run/v1",
+    schema: RUN_SCHEMA,
     data: {
       planId: opts.planId,
       status: opts.runStatus,
