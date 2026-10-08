@@ -193,6 +193,24 @@ describe("writes persistence — sverka-writes.json artifact", () => {
     };
   }
 
+  async function runForRunId(driver: AgentDriver): Promise<string> {
+    const engine = createEngine({
+      drivers: [createMockDriver()],
+      agentDrivers: [driver],
+    });
+    let runId = "";
+    for await (const e of engine.run({
+      plan: makePlan(),
+      workspace: join(testDir, "ws"),
+      artifactDir: join(testDir, "art"),
+    })) {
+      if (e.type === "run-completed") {
+        runId = (e as unknown as { runId: string }).runId;
+      }
+    }
+    return runId;
+  }
+
   it("persists explicit result.writes to sverka-writes.json", async () => {
     const driver: AgentDriver = {
       name: "writes-driver",
@@ -205,19 +223,9 @@ describe("writes persistence — sverka-writes.json artifact", () => {
         };
       },
     };
-    const engine = createEngine({
-      drivers: [createMockDriver()],
-      agentDrivers: [driver],
-    });
-    for await (const _ of engine.run({
-      plan: makePlan(),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    })) {
-      // drain
-    }
+    const runId = await runForRunId(driver);
     const raw = await readFile(
-      join(testDir, "art", "ci/triage", "sverka-writes.json"),
+      join(testDir, "art", runId, "ci/triage", "sverka-writes.json"),
       "utf-8",
     );
     expect(JSON.parse(raw)).toEqual({
@@ -236,19 +244,9 @@ describe("writes persistence — sverka-writes.json artifact", () => {
         };
       },
     };
-    const engine = createEngine({
-      drivers: [createMockDriver()],
-      agentDrivers: [driver],
-    });
-    for await (const _ of engine.run({
-      plan: makePlan(),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    })) {
-      // drain
-    }
+    const runId = await runForRunId(driver);
     const raw = await readFile(
-      join(testDir, "art", "ci/triage", "sverka-writes.json"),
+      join(testDir, "art", runId, "ci/triage", "sverka-writes.json"),
       "utf-8",
     );
     expect(JSON.parse(raw)).toEqual({
@@ -264,19 +262,9 @@ describe("writes persistence — sverka-writes.json artifact", () => {
         return { text: "no writes", finishReason: "stop" };
       },
     };
-    const engine = createEngine({
-      drivers: [createMockDriver()],
-      agentDrivers: [driver],
-    });
-    for await (const _ of engine.run({
-      plan: makePlan(),
-      workspace: join(testDir, "ws"),
-      artifactDir: join(testDir, "art"),
-    })) {
-      // drain
-    }
+    const runId = await runForRunId(driver);
     const raw = await readFile(
-      join(testDir, "art", "ci/triage", "sverka-writes.json"),
+      join(testDir, "art", runId, "ci/triage", "sverka-writes.json"),
       "utf-8",
     );
     expect(JSON.parse(raw)).toEqual({ writes: [] });

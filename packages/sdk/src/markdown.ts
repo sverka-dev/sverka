@@ -244,12 +244,16 @@ function toTrigger(entry: TriggerEntry, index: number): Trigger {
           "INVALID_TRIGGER",
         );
       }
+      if (opts.timezone !== undefined && typeof opts.timezone !== "string") {
+        throw new MarkdownParseError(
+          `invalid .sverka.md ${at}: schedule 'timezone' must be a string`,
+          "INVALID_TRIGGER",
+        );
+      }
       return {
         kind: "schedule",
         cron: opts.cron,
-        ...(typeof opts.timezone === "string"
-          ? { timezone: opts.timezone }
-          : {}),
+        ...(opts.timezone !== undefined ? { timezone: opts.timezone } : {}),
       };
     }
     case "comment": {
@@ -265,9 +269,17 @@ function toTrigger(entry: TriggerEntry, index: number): Trigger {
           "INVALID_TRIGGER",
         );
       }
+      // A dropped non-string mention silently widens a restricted trigger
+      // into an unrestricted one — reject it instead.
+      if (opts.mention !== undefined && typeof opts.mention !== "string") {
+        throw new MarkdownParseError(
+          `invalid .sverka.md ${at}: comment 'mention' must be a string`,
+          "INVALID_TRIGGER",
+        );
+      }
       return {
         kind: "comment",
-        ...(typeof opts.mention === "string" ? { mention: opts.mention } : {}),
+        ...(opts.mention !== undefined ? { mention: opts.mention } : {}),
         ...(on !== undefined ? { on } : {}),
       };
     }
@@ -359,6 +371,41 @@ function parseSteps(body: string): readonly ParsedStep[] {
 }
 
 /**
+ * Parse one `- key: value` bullet line. Hand-rolled linear scan — a regex
+ * over uncontrolled markdown is a ReDoS vector.
+ */
+function parseBulletLine(
+  line: string,
+): { readonly key: string; readonly rest: string } | null {
+  const isSpace = (c: string | undefined) => c !== undefined && /\s/.test(c);
+  const isKeyChar = (c: string | undefined) =>
+    c !== undefined && /[\w-]/.test(c);
+  let i = 0;
+  if (line[i] !== "-") return null;
+  i++;
+  if (!isSpace(line[i])) return null;
+  while (isSpace(line[i])) i++;
+  const first = line[i];
+  if (
+    first === undefined ||
+    !(
+      (first >= "a" && first <= "z") ||
+      (first >= "A" && first <= "Z") ||
+      first === "_"
+    )
+  ) {
+    return null;
+  }
+  const keyStart = i;
+  i++;
+  while (isKeyChar(line[i])) i++;
+  const key = line.slice(keyStart, i);
+  while (isSpace(line[i])) i++;
+  if (line[i] !== ":") return null;
+  return { key, rest: line.slice(i + 1).replace(/^\s+/, "") };
+}
+
+/**
  * Parse one `## step` section: `- key: value` bullets (indented blocks
  * belong to the preceding bullet). Non-bullet prose is ignored so a step
  * can carry documentation.
@@ -367,13 +414,12 @@ function parseStepSection(id: string, lines: readonly string[]): ParsedStep {
   const props: Record<string, unknown> = {};
   let i = 0;
   while (i < lines.length) {
-    const m = /^-\s+([A-Za-z_][\w-]*)\s*:\s*(.*)$/.exec(lines[i]!);
-    if (m === null) {
+    const bullet = parseBulletLine(lines[i]!);
+    if (bullet === null) {
       i++;
       continue;
     }
-    const key = m[1]!;
-    const rest = m[2] ?? "";
+    const { key, rest } = bullet;
     if (rest === "") {
       // Nested block: collect the indented continuation lines.
       const block: string[] = [];
@@ -382,7 +428,8 @@ function parseStepSection(id: string, lines: readonly string[]): ParsedStep {
         block.push(lines[j]!);
         j++;
       }
-      props[key] = block.length > 0 ? parseYaml(block.join("\n")) : null;
+      props[key] =
+        block.length > 0 ? parseYamlScalar(block.join("\n"), id, key) : null;
       i = j;
     } else {
       props[key] = parseYamlScalar(rest, id, key);

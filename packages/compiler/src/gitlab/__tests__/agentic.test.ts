@@ -68,7 +68,7 @@ describe("Spec 54 — GitLab comment trigger rules", () => {
     const rule = job.rules?.[0];
     expect(rule?.if).toContain('$SVERKA_EVENT == "comment"');
     expect(rule?.if).toContain('$SVERKA_COMMENT_ON == "merge_request"');
-    expect(rule?.if).toContain("$COMMENT_BODY =~ /@sverka/");
+    expect(rule?.if).toContain(String.raw`$COMMENT_BODY =~ /\x40sverka/`);
     // Pipeline source must be trigger (webhook → trigger token) or web.
     expect(rule?.if).toContain('$CI_PIPELINE_SOURCE == "trigger"');
     expect(rule?.if).toContain('$CI_PIPELINE_SOURCE == "web"');
@@ -85,7 +85,7 @@ describe("Spec 54 — GitLab comment trigger rules", () => {
     const targetGraph = singleGraph(new GitlabTarget().lower(synthesize(proj)));
     const rule = targetGraph.jobs[0]!.rules?.[0];
     expect(rule?.if).toContain('$SVERKA_COMMENT_ON == "issue"');
-    expect(rule?.if).toContain("$COMMENT_BODY =~ /@deploy/");
+    expect(rule?.if).toContain(String.raw`$COMMENT_BODY =~ /\x40deploy/`);
     expect(rule?.if).not.toContain("merge_request");
     expect(rule?.if).not.toContain("@sverka");
   });
@@ -236,9 +236,12 @@ describe("Spec 54 — safe-outputs __apply job", () => {
     expect(apply.needs).toContain("triage");
     expect(apply.script?.join("\n")).toContain("sverka@");
     expect(apply.script?.join("\n")).toContain("apply --provider gitlab");
-    expect(apply.variables?.SVERKA_WRITE_DECLARATIONS).toBe(
-      JSON.stringify([{ kind: "comment", target: "merge_request" }]),
+    // The write policy is pinned on the script line — a job-level
+    // `variables:` entry could be overridden by trigger-supplied vars.
+    expect(apply.script?.join("\n")).toContain(
+      `SVERKA_WRITE_DECLARATIONS='${JSON.stringify([{ kind: "comment", target: "merge_request" }])}'`,
     );
+    expect(apply.variables?.SVERKA_WRITE_DECLARATIONS).toBeUndefined();
     // The apply job inherits the agent job's entry rules (same pipeline filter).
     expect(apply.rules?.[0]?.if).toContain('$SVERKA_EVENT == "comment"');
     // Stages put sverka-apply last.

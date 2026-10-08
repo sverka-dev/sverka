@@ -71,6 +71,7 @@ export type PmName = "npm" | "pnpm" | "yarn" | "bun";
 export async function findConfig(root: string): Promise<string | null> {
   const candidates = [
     "sverka.config.ts",
+    "sverka.config.mts",
     "sverka.config.js",
     "sverka.config.mjs",
   ];
@@ -176,8 +177,17 @@ export async function loadConfig(
   // Spec 37/54: `.sverka.md` files parse through the markdown authoring
   // surface and return a Project construct just like a .ts config.
   if (absPath.endsWith(".md")) {
-    const { loadMarkdownFile } = await import("@sverka/sdk");
-    return await loadMarkdownFile(absPath);
+    try {
+      const { loadMarkdownFile } = await import("@sverka/sdk");
+      return await loadMarkdownFile(absPath);
+    } catch (e) {
+      throw new CliError(
+        `failed to load config: ${e instanceof Error ? e.message : String(e)}`,
+        "SDK_ERROR",
+        ExitCode.RuntimeError,
+        e,
+      );
+    }
   }
 
   let mod: Record<string, unknown>;

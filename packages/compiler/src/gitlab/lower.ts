@@ -57,6 +57,13 @@ const DOTENV_REPORT_FILE = "sverka.env";
  */
 export const SVERKA_APPLY_STAGE = "sverka-apply";
 export const SVERKA_APPLY_ENVIRONMENT = "sverka-apply";
+/**
+ * Environment name emitted on agent jobs so operators can scope the
+ * SVERKA_AGENT_*_KEY masked CI/CD variables to it — environment-scoped
+ * variables only reach jobs declaring that environment, keeping agent API
+ * keys out of unrelated generated jobs.
+ */
+export const SVERKA_AGENT_ENVIRONMENT = "sverka-agent";
 
 /** Artifact the agent job writes and the apply job consumes. */
 export const SVERKA_WRITES_FILE = "sverka-writes.json";
@@ -419,23 +426,31 @@ function buildJobRulesMap(
 }
 
 /**
- * Spec 54 — map each job to the comment-trigger mention (if any) carried by
- * entries reaching it. The mention is re-checked inside the job sandbox
- * (SVERKA_MENTION) as defense-in-depth on top of the rules filter.
+ * Spec 54 — map each job to every distinct comment-trigger mention
+ * carried by entries reaching it. The mentions are re-checked inside the
+ * job sandbox (SVERKA_MENTION) as defense-in-depth on top of the rules
+ * filter. Several comment entries with different mentions can reach one
+ * job — all are emitted so the in-job re-check accepts whichever entry
+ * fired.
  */
 function buildJobMentionMap(
   pipeline: PipelineDefinition,
   reachableSteps: readonly StepDefinition[],
   jobIdMap: ReadonlyMap<string, string>,
-): ReadonlyMap<string, string> {
-  const map = new Map<string, string>();
+): ReadonlyMap<string, readonly string[]> {
+  const map = new Map<string, string[]>();
+  const entryReachable = new Map(
+    pipeline.entries.map((e) => [e.id, reachableStepIds(e.roots, pipeline)]),
+  );
   for (const step of reachableSteps) {
     const jobId = jobIdMap.get(step.id)!;
     for (const entry of pipeline.entries) {
       const t = entry.trigger;
       if (t.kind !== "comment" || t.mention === undefined) continue;
-      if (reachableStepIds(entry.roots, pipeline).has(step.id)) {
-        if (!map.has(jobId)) map.set(jobId, t.mention);
+      if (entryReachable.get(entry.id)?.has(step.id)) {
+        const list = map.get(jobId) ?? [];
+        if (!list.includes(t.mention)) list.push(t.mention);
+        map.set(jobId, list);
       }
     }
   }
@@ -475,6 +490,15 @@ function collectSverkaAnnotations(
       `  cron "${t.cron}"${t.timezone ? ` timezone "${t.timezone}"` : ""} and`,
       `  description "${entryName(entry.id)}" — the description is the`,
       `  link between the schedule and this entry's rules.`,
+    );
+  }
+  if (
+    pipeline.steps.some((s) => s.operations.some((o) => o.kind === "agent"))
+  ) {
+    lines.push(
+      "sverka:agent: agent jobs declare the 'sverka-agent' environment.",
+      "  Scope the masked SVERKA_AGENT_*_KEY CI/CD variables to that",
+      "  environment so unrelated jobs never receive the API key.",
     );
   }
   if (hasAgentWriteStep(pipeline)) {
@@ -714,7 +738,11 @@ function lowerScheduleRule(entry: EntryDefinition): GitlabRule {
 
 /** Escape a string for embedding inside a GitLab `/regex/` rules matcher. */
 function escapeGitlabRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  // GitLab rule regexes (RE2) reject a bare `@` — a literal at-sign must be
+  // written \x40.
+  return value
+    .replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")
+    .replace(/@/g, String.raw`\x40`);
 }
 
 /**
@@ -780,8 +808,9 @@ function lowerSteps(
   jobIdMap: Map<string, string>,
   stageMap: ReadonlyMap<string, string>,
   rulesMap: ReadonlyMap<string, readonly GitlabRule[]>,
-  mentionMap: ReadonlyMap<string, string>,
+  mentionMap: ReadonlyMap<string, readonly string[]>,
 ): readonly GitlabJob[] {
+  const usedJobIds = new Set<string>(jobIdMap.values());
   return steps.flatMap((step) => {
     const job = lowerStepDispatch(
       step,
@@ -790,7 +819,8 @@ function lowerSteps(
       rulesMap,
       mentionMap,
     );
-    const applyJob = buildApplyJob(step, job);
+    const applyJob = buildApplyJob(step, job, usedJobIds);
+    if (applyJob !== undefined) usedJobIds.add(applyJob.id);
     return applyJob !== undefined ? [job, applyJob] : [job];
   });
 }
@@ -800,7 +830,7 @@ function lowerStepDispatch(
   jobIdMap: Map<string, string>,
   stageMap: ReadonlyMap<string, string>,
   rulesMap: ReadonlyMap<string, readonly GitlabRule[]>,
-  mentionMap: ReadonlyMap<string, string>,
+  mentionMap: ReadonlyMap<string, readonly string[]>,
 ): GitlabJob {
   if (step.childPipeline) {
     return lowerChildPipelineStep(step, jobIdMap, stageMap, rulesMap);
@@ -825,22 +855,32 @@ function lowerStepDispatch(
 function buildApplyJob(
   step: StepDefinition,
   agentJob: GitlabJob,
+  usedJobIds: ReadonlySet<string>,
 ): GitlabJob | undefined {
   const writes = step.permissions?.write;
   if (writes === undefined || writes.length === 0) return undefined;
   if (!step.operations.some((op) => op.kind === "agent")) return undefined;
+  // The generated `<step>__apply` id can collide with a user step id —
+  // suffix it until unique so one job never overwrites the other.
+  let applyId = `${agentJob.id}__apply`;
+  for (let i = 1; usedJobIds.has(applyId); i++) {
+    applyId = `${agentJob.id}__apply${i}`;
+  }
   return {
-    id: `${agentJob.id}__apply`,
+    id: applyId,
     stage: SVERKA_APPLY_STAGE,
     needs: [agentJob.id],
-    script: [sverkaCli("apply --provider gitlab")],
+    // The write-declaration policy is bound into the script line, not a job
+    // `variables:` entry — trigger-supplied pipeline variables take
+    // precedence over job variables, so an env var here would let a webhook
+    // caller replace the policy the artifact is validated against.
+    script: [
+      `SVERKA_WRITE_DECLARATIONS=${shellQuoteSingle(JSON.stringify(writes))} ${sverkaCli("apply --provider gitlab")}`,
+    ],
     ...(agentJob.rules !== undefined && agentJob.rules.length > 0
       ? { rules: [...agentJob.rules] }
       : {}),
     environment: { name: SVERKA_APPLY_ENVIRONMENT },
-    variables: {
-      SVERKA_WRITE_DECLARATIONS: JSON.stringify(writes),
-    },
   };
 }
 
@@ -957,7 +997,7 @@ function lowerStep(
   jobIdMap: Map<string, string>,
   stageMap: ReadonlyMap<string, string>,
   rulesMap: ReadonlyMap<string, readonly GitlabRule[]>,
-  mentionMap: ReadonlyMap<string, string>,
+  mentionMap: ReadonlyMap<string, readonly string[]>,
 ): GitlabJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const stage = stageMap.get(jobId) ?? "build";
@@ -997,7 +1037,14 @@ function lowerStep(
       runner: step.runner,
       identity: step.identity,
       services: step.services,
-      environment: step.environment,
+      // Agent jobs declare the sverka-agent environment unless the step
+      // already has one — it gives operators a scope for the masked
+      // SVERKA_AGENT_*_KEY variables so the key never reaches other jobs.
+      environment:
+        step.environment ??
+        (step.operations.some((op) => op.kind === "agent")
+          ? { name: SVERKA_AGENT_ENVIRONMENT }
+          : undefined),
       cache: step.cache,
       concurrency: step.concurrency,
     }),
@@ -1395,7 +1442,7 @@ function lowerOperations(
   step: StepDefinition,
   jobId: string,
   jobIdMap: Map<string, string>,
-  mention: string | undefined,
+  mentions: readonly string[] | undefined,
 ): {
   script: string[];
   artifacts?: {
@@ -1430,7 +1477,7 @@ function lowerOperations(
   };
 
   for (const op of step.operations) {
-    lowerOperation(op, jobId, acc, jobIdMap, mention);
+    lowerOperation(op, jobId, acc, jobIdMap, mentions);
   }
 
   return assembleOperationResult(acc, step);
@@ -1485,14 +1532,14 @@ function lowerOperation(
   stepId: string,
   acc: OperationAccumulator,
   jobIdMap: Map<string, string>,
-  mention: string | undefined,
+  mentions: readonly string[] | undefined,
 ): void {
   switch (op.kind) {
     case "shell":
       lowerShellOp(op, acc, jobIdMap);
       break;
     case "agent":
-      lowerAgentOp(op, stepId, acc, jobIdMap, mention);
+      lowerAgentOp(op, stepId, acc, jobIdMap, mentions);
       break;
     case "exportOutput":
       lowerExportOutput(op, stepId, acc);
@@ -1545,7 +1592,7 @@ function lowerAgentOp(
   stepId: string,
   acc: OperationAccumulator,
   jobIdMap: Map<string, string>,
-  mention: string | undefined,
+  mentions: readonly string[] | undefined,
 ): void {
   if (acc.agentOpSeen) {
     throw new GitlabTargetError(
@@ -1555,11 +1602,22 @@ function lowerAgentOp(
   }
   acc.agentOpSeen = true;
   sealStdoutCapture(acc);
-  if (mention !== undefined) {
+  for (const mention of mentions ?? []) {
     acc.script.push(`echo ${shellQuoteSingle(`# sverka:mention: ${mention}`)}`);
-    acc.agentVariables.SVERKA_MENTION = mention;
   }
-  acc.script.push(sverkaCli("agent"));
+  if (mentions !== undefined && mentions.length > 0) {
+    // Multiple comment entries can reach this job with different mentions —
+    // the env var carries all of them so the in-job re-check accepts any.
+    acc.agentVariables.SVERKA_MENTION =
+      mentions.length === 1 ? mentions[0]! : JSON.stringify(mentions);
+  }
+  // runtime.workingDir cds the script into a subdir — artifacts:paths is
+  // always project-root-relative, so the CLI writes under $CI_PROJECT_DIR.
+  acc.script.push(
+    acc.workingDir !== undefined
+      ? sverkaCli('agent --output-dir "$CI_PROJECT_DIR"')
+      : sverkaCli("agent"),
+  );
   acc.artifactPaths.push(SVERKA_AGENT_RESULT_FILE, SVERKA_WRITES_FILE);
   acc.stdoutTargetIndex = undefined;
   acc.agentVariables.SVERKA_AGENT_ENGINE = op.engine;

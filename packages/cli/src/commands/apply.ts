@@ -54,7 +54,7 @@ export async function applyCommand(
         ExitCode.RuntimeError,
       );
     }
-    applied.push(await applyWrite(provider, write));
+    applied.push(await applyWrite(provider, write, declarations));
   }
 
   output.writeLine(
@@ -159,11 +159,12 @@ function loadDeclarations(): readonly WriteDeclaration[] {
 async function applyWrite(
   provider: "gitlab" | "github",
   write: AgentWrite,
+  declarations: readonly WriteDeclaration[],
 ): Promise<string> {
   switch (write.kind) {
     case "comment":
       return provider === "gitlab"
-        ? applyGitlabComment(write)
+        ? applyGitlabComment(write, declarations)
         : applyGithubComment(write);
     default:
       throw new CliError(
@@ -185,14 +186,65 @@ function requireBody(write: AgentWrite): string {
   return write.body;
 }
 
+/**
+ * The object kind a comment write targets. `write.on` wins when present
+ * (and must be a known kind — anything else fails loudly rather than
+ * silently falling back); otherwise the triggering context decides: a
+ * forwarded MR_IID means the comment fired on a merge request.
+ */
+function resolveCommentTarget(write: AgentWrite): "issue" | "merge_request" {
+  if (write.on === "issue" || write.on === "merge_request") {
+    return write.on;
+  }
+  if (write.on !== undefined) {
+    throw new CliError(
+      `sverka apply: comment write 'on' must be issue|merge_request, got '${String(write.on)}'`,
+      "PACKAGE_ERROR",
+      ExitCode.RuntimeError,
+    );
+  }
+  return process.env["MR_IID"] !== undefined ? "merge_request" : "issue";
+}
+
+/**
+ * Resolve the target iid for a comment write. When the triggering context
+ * supplies an iid (the webhook forwarded MR_IID/ISSUE_IID), it wins — a
+ * write.iid that disagrees is model output trying to redirect the comment
+ * to another target, which fails loudly.
+ */
 function requireIid(write: AgentWrite, envKeys: readonly string[]): number {
-  const raw =
-    write.iid ??
-    envKeys.map((k) => process.env[k]).find((v) => v !== undefined);
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n <= 0) {
+  const contextRaw = envKeys
+    .map((k) => process.env[k])
+    .find((v) => v !== undefined && v !== "");
+  if (contextRaw !== undefined) {
+    const ctx = Number(contextRaw);
+    if (!Number.isInteger(ctx) || ctx <= 0) {
+      throw new CliError(
+        `sverka apply: context iid '${contextRaw}' is not a positive integer`,
+        "PACKAGE_ERROR",
+        ExitCode.RuntimeError,
+      );
+    }
+    if (write.iid !== undefined && Number(write.iid) !== ctx) {
+      throw new CliError(
+        `sverka apply: write iid '${String(write.iid)}' does not match the triggering context iid ${ctx}`,
+        "PACKAGE_ERROR",
+        ExitCode.RuntimeError,
+      );
+    }
+    return ctx;
+  }
+  if (write.iid === undefined) {
     throw new CliError(
       `sverka apply: comment write needs a target iid (${envKeys.join(" or ")} env var, or an 'iid' field)`,
+      "PACKAGE_ERROR",
+      ExitCode.RuntimeError,
+    );
+  }
+  const n = Number(write.iid);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new CliError(
+      `sverka apply: comment write iid must be a positive integer, got '${String(write.iid)}'`,
       "PACKAGE_ERROR",
       ExitCode.RuntimeError,
     );
@@ -200,7 +252,10 @@ function requireIid(write: AgentWrite, envKeys: readonly string[]): number {
   return n;
 }
 
-async function applyGitlabComment(write: AgentWrite): Promise<string> {
+async function applyGitlabComment(
+  write: AgentWrite,
+  declarations: readonly WriteDeclaration[],
+): Promise<string> {
   const env = process.env;
   const api = env["CI_API_V4_URL"] ?? "https://gitlab.com/api/v4";
   const project = env["CI_PROJECT_ID"];
@@ -211,7 +266,7 @@ async function applyGitlabComment(write: AgentWrite): Promise<string> {
       ExitCode.RuntimeError,
     );
   }
-  const token = env["SVERKA_APPLY_TOKEN"] ?? env["GITLAB_TOKEN"];
+  const token = env["SVERKA_APPLY_TOKEN"] || env["GITLAB_TOKEN"];
   if (token === undefined || token === "") {
     throw new CliError(
       "sverka apply: SVERKA_APPLY_TOKEN is not set — scope it to the 'sverka-apply' environment (see engdocs/user/gitlab/agentic.md)",
@@ -220,12 +275,21 @@ async function applyGitlabComment(write: AgentWrite): Promise<string> {
     );
   }
   const body = requireBody(write);
-  const on =
-    write.on === "issue" || write.on === "merge_request"
-      ? write.on
-      : env["MR_IID"] !== undefined
-        ? "merge_request"
-        : "issue";
+  const on = resolveCommentTarget(write);
+  // Model output is untrusted: a comment write may only target an object
+  // kind a WriteDeclaration declared.
+  if (!declarations.some((d) => d.kind === "comment" && d.target === on)) {
+    throw new CliError(
+      `sverka apply: comment write targets '${on}' but no declaration declares it (declared comment targets: ${
+        declarations
+          .filter((d) => d.kind === "comment")
+          .map((d) => d.target)
+          .join(", ") || "none"
+      })`,
+      "PACKAGE_ERROR",
+      ExitCode.RuntimeError,
+    );
+  }
   const iid = requireIid(
     write,
     on === "merge_request" ? ["MR_IID"] : ["ISSUE_IID", "SVERKA_ISSUE_IID"],
@@ -250,7 +314,7 @@ async function applyGithubComment(write: AgentWrite): Promise<string> {
     );
   }
   const token =
-    env["SVERKA_APPLY_TOKEN"] ?? env["GH_TOKEN"] ?? env["GITHUB_TOKEN"];
+    env["SVERKA_APPLY_TOKEN"] || env["GH_TOKEN"] || env["GITHUB_TOKEN"];
   if (token === undefined || token === "") {
     throw new CliError(
       "sverka apply: GH_TOKEN/GITHUB_TOKEN is not set",

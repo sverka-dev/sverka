@@ -47,16 +47,20 @@ wire one event kind.
    `sverka-agentic`). Keep the token — the webhook uses it as `token=`.
 
 2. **Create the webhook.** Project → Settings → Webhooks:
-   - URL: `https://gitlab.com/api/v4/projects/<id>/trigger/pipeline?ref=main&token=<trigger-token>`
+   - URL: the **forwarder's** endpoint — not the GitLab trigger URL
+     directly. GitLab webhooks cannot POST the `variables[...]` map
+     natively, so the webhook must hit a small forwarder (a Cloud
+     Function, a tiny GitLab webhook integration, or the repository's
+     own automation) that reads the note/issue payload and calls
+     `POST /api/v4/projects/<id>/trigger/pipeline` with `ref=main`,
+     `token=<trigger-token>`, and the `variables[...]` form fields
+     documented above.
    - Enable **Comments** (note events) and/or **Issues** events as the
      workflow needs.
-   - Webhooks cannot POST the variable map above natively — insert a
-     minimal forwarder (a Cloud Function, a tiny GitLab webhook
-     integration, or the repository's own automation) that reads the
-     note/issue payload and calls the trigger endpoint with the
-     `variables[...]` form fields documented above. A future
-     `sverka gitlab-hooks` helper may automate this; the YAML contract
-     stands alone.
+   - Keep the trigger token in the forwarder, not in the webhook URL —
+     a URL in the webhook config is visible to anyone with project
+     settings access. A future `sverka gitlab-hooks` helper may
+     automate this; the YAML contract stands alone.
 
 3. **Comment filtering.** Forward `SVERKA_COMMENT_ON` as the webhook's
    note object type (`MergeRequest`→`merge_request`, `Issue`→`issue`,

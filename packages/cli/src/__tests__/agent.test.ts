@@ -91,7 +91,7 @@ describe("sverka agent (Spec 54)", () => {
     const out = new CaptureWriter();
     const code = await agentCommand({}, global(), out, 0);
     expect(code).toBe(ExitCode.Success);
-    expect(out.stdoutText).toContain("does not contain mention");
+    expect(out.stdoutText).toContain("does not contain a configured mention");
   });
 
   it("mention re-check passes when the body contains the mention", async () => {

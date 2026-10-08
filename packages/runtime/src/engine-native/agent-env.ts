@@ -33,8 +33,6 @@ export const AGENT_ENV = {
   mention: "SVERKA_MENTION",
 } as const;
 
-export type AgentEnv = (typeof AGENT_ENV)[keyof typeof AGENT_ENV];
-
 /**
  * Map an engine name to the API-key env var a driver would need. Returns
  * undefined for engines with no key requirement ("stub") and for engines
@@ -142,9 +140,32 @@ export function noAgentDriverError(
  */
 export function parseAgentWrites(text: string): readonly AgentWrite[] {
   const writes: AgentWrite[] = [];
-  const blockRe = /```sverka-writes\s*\n([\s\S]*?)```/g;
-  for (const match of text.matchAll(blockRe)) {
-    const body = match[1]!.trim();
+  // Linear scan instead of a regex: an unbounded pattern over uncontrolled
+  // model output is a ReDoS vector.
+  const FENCE = "```sverka-writes";
+  let pos = 0;
+  for (;;) {
+    const open = text.indexOf(FENCE, pos);
+    if (open === -1) return writes;
+    // The fence marker may only be followed by whitespace up to EOL.
+    let bodyStart = open + FENCE.length;
+    while (
+      bodyStart < text.length &&
+      (text[bodyStart] === " " ||
+        text[bodyStart] === "\t" ||
+        text[bodyStart] === "\r")
+    ) {
+      bodyStart++;
+    }
+    if (text[bodyStart] !== "\n") {
+      pos = open + FENCE.length;
+      continue;
+    }
+    bodyStart++;
+    const close = text.indexOf("```", bodyStart);
+    if (close === -1) return writes;
+    const body = text.slice(bodyStart, close).trim();
+    pos = close + 3;
     if (body === "") continue;
     let parsed: unknown;
     try {
@@ -173,7 +194,6 @@ export function parseAgentWrites(text: string): readonly AgentWrite[] {
       writes.push(validateAgentWrite(item));
     }
   }
-  return writes;
 }
 
 function validateAgentWrite(item: unknown): AgentWrite {
@@ -192,7 +212,18 @@ function validateAgentWrite(item: unknown): AgentWrite {
 
 /** Combine driver-reported writes with text extraction. */
 export function collectAgentWrites(result: AgentResult): readonly AgentWrite[] {
-  return result.writes ?? parseAgentWrites(result.text);
+  // Driver-supplied writes are still model output — validate them with the
+  // same contract the fenced-block path enforces.
+  if (result.writes !== undefined) {
+    if (!Array.isArray(result.writes)) {
+      throw new AgentDriverError(
+        "AGENT_EXECUTION_FAILED: driver result.writes must be an array",
+        "AGENT_EXECUTION_FAILED",
+      );
+    }
+    return result.writes.map((w) => validateAgentWrite(w));
+  }
+  return parseAgentWrites(result.text);
 }
 
 // ---------------------------------------------------------------------------
@@ -231,7 +262,16 @@ function createHttpDriver(opts: HttpDriverOptions): AgentDriver {
           "AGENT_EXECUTION_FAILED",
         );
       }
-      const json: unknown = await res.json();
+      let json: unknown;
+      try {
+        json = await res.json();
+      } catch (e) {
+        throw new AgentDriverError(
+          `AGENT_EXECUTION_FAILED: ${opts.name} response is not valid JSON: ${e instanceof Error ? e.message : String(e)}`,
+          "AGENT_EXECUTION_FAILED",
+          e,
+        );
+      }
       return opts.parseResponse(json);
     },
   };
@@ -263,9 +303,19 @@ export function createAnthropicDriver(apiKey: string): AgentDriver {
         .filter((c) => c.type === "text" && typeof c.text === "string")
         .map((c) => c.text)
         .join("");
+      const finishReason =
+        r.stop_reason === "max_tokens"
+          ? "length"
+          : r.stop_reason === "tool_use"
+            ? "tool_call"
+            : r.stop_reason === undefined ||
+                r.stop_reason === "end_turn" ||
+                r.stop_reason === "stop_sequence"
+              ? "stop"
+              : r.stop_reason;
       return {
         text,
-        finishReason: r.stop_reason === "max_tokens" ? "length" : "stop",
+        finishReason,
         ...(r.usage !== undefined
           ? {
               usage: {

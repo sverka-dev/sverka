@@ -112,7 +112,7 @@ function lowerSinglePipeline(
   const jobIdMap = buildJobIdMap(reachableSteps);
 
   const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
-  const gateMap = buildJobGateMap(pipeline, reachableSteps, jobIdMap);
+  const gateMap = buildJobGateMap(pipeline, reachableSteps, jobIdMap, false);
   const mentionMap = buildJobMentionMap(pipeline, reachableSteps, jobIdMap);
   const jobs = lowerStepsWithCalls(
     reachableSteps,
@@ -250,11 +250,11 @@ function lowerPipelineInGraph(
   }
 
   const gateMap = hasEntries
-    ? buildJobGateMap(pipeline, reachableSteps, jobIdMap)
+    ? buildJobGateMap(pipeline, reachableSteps, jobIdMap, isCalled)
     : new Map<string, string>();
   const mentionMap = hasEntries
     ? buildJobMentionMap(pipeline, reachableSteps, jobIdMap)
-    : new Map<string, string>();
+    : new Map<string, readonly string[]>();
   const jobs = lowerStepsWithCalls(
     reachableSteps,
     jobIdMap,
@@ -455,9 +455,9 @@ function buildJobGateMap(
   pipeline: PipelineDefinition,
   reachableSteps: readonly StepDefinition[],
   jobIdMap: ReadonlyMap<string, string>,
+  isCalled: boolean,
 ): ReadonlyMap<string, string> {
   const map = new Map<string, string>();
-  const allKinds = new Set(pipeline.entries.map((e) => e.trigger.kind));
   const entryReachable = new Map(
     pipeline.entries.map((e) => [e.id, reachableStepIds(e.roots, pipeline)]),
   );
@@ -467,16 +467,22 @@ function buildJobGateMap(
     const reaching = pipeline.entries.filter((e) =>
       entryReachable.get(e.id)?.has(step.id),
     );
+    // A gate is redundant only when every entry reaches the job AND no
+    // entry carries filters the `on:` union cannot express — any event
+    // that fires the workflow then necessarily reaches the job.
     const coversAll =
-      reaching.length > 0 &&
-      new Set(reaching.map((e) => e.trigger.kind)).size === allKinds.size &&
-      reaching.every((e) => !triggerHasResidualFilters(e.trigger));
+      reaching.length === pipeline.entries.length &&
+      pipeline.entries.every((e) => !triggerHasResidualFilters(e.trigger));
     if (coversAll || reaching.length === 0) continue;
     const conds = reaching.map((e) => entryIfExpr(e.trigger));
-    map.set(
-      jobId,
-      conds.length === 1 ? conds[0]! : conds.map((c) => `(${c})`).join(" || "),
-    );
+    let gate =
+      conds.length === 1 ? conds[0]! : conds.map((c) => `(${c})`).join(" || ");
+    // A pipeline invoked through workflow_call must run its jobs even
+    // though the event-name guards only match direct-run triggers.
+    if (isCalled) {
+      gate = `(${gate}) || github.event_name == 'workflow_call'`;
+    }
+    map.set(jobId, gate);
   }
   return map;
 }
@@ -487,26 +493,71 @@ function triggerHasResidualFilters(t: Trigger): boolean {
     return t.mention !== undefined || t.on !== undefined;
   }
   if (t.kind === "issue") {
-    return t.action !== undefined || (t.labels?.length ?? 0) > 0;
+    return (t.labels?.length ?? 0) > 0;
   }
   return false;
 }
 
+/** One `on:`-level branch/tag pattern as a job-if ref condition. */
+function refPatternCond(pattern: string, prefix: string): string | undefined {
+  if (!pattern.includes("*")) {
+    return `github.ref == '${escapeIfString(prefix + pattern)}'`;
+  }
+  // `x/**` (and approximately `x/*`) lowers to a prefix test — GitHub
+  // expressions have no glob matcher.
+  if (pattern.endsWith("/**")) {
+    return `startsWith(github.ref, '${escapeIfString(prefix + pattern.slice(0, -3))}')`;
+  }
+  if (pattern.endsWith("/*")) {
+    return `startsWith(github.ref, '${escapeIfString(prefix + pattern.slice(0, -1))}')`;
+  }
+  return undefined;
+}
+
+function refFiltersConds(t: Extract<Trigger, { kind: "push" }>): string[] {
+  const conds: string[] = [];
+  const branches = (t.filter?.branches ?? [])
+    .map((b) => refPatternCond(b, "refs/heads/"))
+    .filter((c): c is string => c !== undefined);
+  const tags = (t.filter?.tags ?? [])
+    .map((tag) => refPatternCond(tag, "refs/tags/"))
+    .filter((c): c is string => c !== undefined);
+  const refs = [...branches, ...tags];
+  // `paths` filters cannot be expressed in a job `if` — the workflow-level
+  // `on:push.paths` union already narrows the firing events.
+  if (refs.length === 1) conds.push(refs[0]!);
+  else if (refs.length > 1) conds.push(`(${refs.join(" || ")})`);
+  return conds;
+}
+
 /**
  * GitHub `jobs.<id>.if` condition (unwrapped expression) for one entry:
- * the event-name guard plus residual filters (mention/object kind for
- * comments; action/labels for issues).
+ * the event-name guard plus every filter the entry carries. The `on:`
+ * union cannot attribute an event to a specific entry, so branch/tag,
+ * cron, mention, and label filters are all restated here.
  */
 function entryIfExpr(t: Trigger): string {
   switch (t.kind) {
-    case "push":
-      return "github.event_name == 'push'";
-    case "changeRequest":
-      return "github.event_name == 'pull_request'";
+    case "push": {
+      const conds = ["github.event_name == 'push'", ...refFiltersConds(t)];
+      return conds.join(" && ");
+    }
+    case "changeRequest": {
+      const conds = ["github.event_name == 'pull_request'"];
+      const branches = t.filter?.branches ?? [];
+      if (branches.length === 1) {
+        conds.push(`github.base_ref == '${escapeIfString(branches[0]!)}'`);
+      } else if (branches.length > 1) {
+        conds.push(
+          `(${branches.map((b) => `github.base_ref == '${escapeIfString(b)}'`).join(" || ")})`,
+        );
+      }
+      return conds.join(" && ");
+    }
     case "manual":
       return "github.event_name == 'workflow_dispatch'";
     case "schedule":
-      return "github.event_name == 'schedule'";
+      return `github.event_name == 'schedule' && github.event.schedule == '${escapeIfString(t.cron)}'`;
     case "comment": {
       const conds = ["github.event_name == 'issue_comment'"];
       if (t.on === "mergeRequest") {
@@ -524,7 +575,7 @@ function entryIfExpr(t: Trigger): string {
     case "issue": {
       const conds = ["github.event_name == 'issues'"];
       if (t.action !== undefined) {
-        conds.push(`github.event.action == '${t.action}'`);
+        conds.push(`github.event.action == '${escapeIfString(t.action)}'`);
       }
       for (const label of t.labels ?? []) {
         conds.push(
@@ -538,7 +589,8 @@ function entryIfExpr(t: Trigger): string {
 
 /** Escape a literal for embedding inside single-quoted `if` strings. */
 function escapeIfString(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  // GitHub expressions escape a single quote by doubling it.
+  return value.replace(/'/g, "''");
 }
 
 /**
@@ -785,23 +837,30 @@ function lowerInputs(
  * Component steps become `uses:` jobs (composite action calls).
  */
 /**
- * Spec 54 — map each job to the comment-trigger mention (if any) carried
- * by entries reaching it (annotation + SVERKA_MENTION re-check inside the
- * sandboxed agent job).
+ * Spec 54 — map each job to every distinct comment-trigger mention
+ * carried by entries reaching it (annotation + SVERKA_MENTION re-check
+ * inside the sandboxed agent job). Multiple comment entries may reach
+ * one job with different mentions; all of them are emitted so the
+ * in-job re-check accepts whichever entry fired.
  */
 function buildJobMentionMap(
   pipeline: PipelineDefinition,
   reachableSteps: readonly StepDefinition[],
   jobIdMap: ReadonlyMap<string, string>,
-): ReadonlyMap<string, string> {
-  const map = new Map<string, string>();
+): ReadonlyMap<string, readonly string[]> {
+  const map = new Map<string, string[]>();
+  const entryReachable = new Map(
+    pipeline.entries.map((e) => [e.id, reachableStepIds(e.roots, pipeline)]),
+  );
   for (const step of reachableSteps) {
     const jobId = jobIdMap.get(step.id)!;
     for (const entry of pipeline.entries) {
       const t = entry.trigger;
       if (t.kind !== "comment" || t.mention === undefined) continue;
-      if (reachableStepIds(entry.roots, pipeline).has(step.id)) {
-        if (!map.has(jobId)) map.set(jobId, t.mention);
+      if (entryReachable.get(entry.id)?.has(step.id)) {
+        const list = map.get(jobId) ?? [];
+        if (!list.includes(t.mention)) list.push(t.mention);
+        map.set(jobId, list);
       }
     }
   }
@@ -816,30 +875,33 @@ function lowerStepsWithCalls(
   bootstrap: BootstrapLevel | undefined,
   config: GithubTargetConfig | undefined,
   gateMap: ReadonlyMap<string, string>,
-  mentionMap: ReadonlyMap<string, string>,
+  mentionMap: ReadonlyMap<string, readonly string[]>,
 ): readonly GithubJob[] {
+  const usedJobIds = new Set<string>(jobIdMap.values());
   return steps.flatMap((step) => {
     const jobId = jobIdMap.get(step.id) ?? step.id;
+    const gate = gateMap.get(jobId);
     let job: GithubJob;
     if (step.call) {
-      job = lowerCallStep(step, jobIdMap, pipelineId, pipelineMap);
+      job = lowerCallStep(step, jobIdMap, pipelineId, pipelineMap, gate);
     } else if (step.component) {
-      job = lowerComponentStep(step, jobIdMap, bootstrap, config);
+      job = lowerComponentStep(step, jobIdMap, bootstrap, config, gate);
     } else if (step.childPipeline) {
-      job = lowerChildPipelineStep(step, jobIdMap);
+      job = lowerChildPipelineStep(step, jobIdMap, gate);
     } else if (step.downstream) {
-      job = lowerDownstreamStep(step, jobIdMap);
+      job = lowerDownstreamStep(step, jobIdMap, gate);
     } else {
       job = lowerStep(
         step,
         jobIdMap,
         bootstrap,
         config,
-        gateMap.get(jobId),
+        gate,
         mentionMap.get(jobId),
       );
     }
-    const applyJob = buildApplyJob(step, job, gateMap.get(jobId));
+    const applyJob = buildApplyJob(step, job, gate, usedJobIds);
+    if (applyJob !== undefined) usedJobIds.add(applyJob.id);
     return applyJob !== undefined ? [job, applyJob] : [job];
   });
 }
@@ -854,15 +916,22 @@ function buildApplyJob(
   step: StepDefinition,
   agentJob: GithubJob,
   entryGate: string | undefined,
+  usedJobIds: ReadonlySet<string>,
 ): GithubJob | undefined {
   const writes = step.permissions?.write;
   if (writes === undefined || writes.length === 0) return undefined;
   if (!step.operations.some((op) => op.kind === "agent")) return undefined;
   const jobId = agentJob.id;
+  // The generated `<step>_apply` id can collide with a user step id —
+  // suffix it until unique so one job never overwrites the other.
+  let applyId = `${jobId}_apply`;
+  for (let i = 1; usedJobIds.has(applyId); i++) {
+    applyId = `${jobId}_apply${i}`;
+  }
   const permissions = writePermissions(writes);
   return {
-    id: `${jobId}_apply`,
-    name: `${jobId}_apply`,
+    id: applyId,
+    name: applyId,
     runsOn: "ubuntu-latest",
     needs: [jobId],
     ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
@@ -878,7 +947,8 @@ function buildApplyJob(
         env: {
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
           SVERKA_WRITE_DECLARATIONS: JSON.stringify(writes),
-          SVERKA_ISSUE_IID: "${{ github.event.issue.number }}",
+          SVERKA_ISSUE_IID:
+            "${{ github.event.issue.number || github.event.pull_request.number }}",
         },
         run: sverkaCli("apply --provider github"),
       },
@@ -991,6 +1061,7 @@ function lowerCallStep(
   jobIdMap: Map<string, string>,
   pipelineId: string,
   pipelineMap: ReadonlyMap<string, PipelineDefinition>,
+  entryGate: string | undefined,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -1024,6 +1095,7 @@ function lowerCallStep(
     needs,
     steps: [],
     uses: `./.github/workflows/${callee}.yml`,
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
     ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
     secrets: Object.keys(secretMap).length > 0 ? secretMap : "inherit",
   };
@@ -1037,7 +1109,8 @@ function lowerComponentStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
   bootstrap: BootstrapLevel | undefined,
-  config?: GithubTargetConfig,
+  config: GithubTargetConfig | undefined,
+  entryGate: string | undefined,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -1061,6 +1134,7 @@ function lowerComponentStep(
       name: jobId,
       runsOn: resolveRunsOn(step),
       needs,
+      ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
       steps: [
         ...(bootstrap !== "none" ? [checkoutStep(config)] : []),
         ...(bootstrap === undefined || bootstrap === "toolchain"
@@ -1082,6 +1156,7 @@ function lowerComponentStep(
     needs,
     steps: [],
     uses: `${comp.name}@${comp.version}`,
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
     ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
   };
 }
@@ -1095,6 +1170,7 @@ function lowerComponentStep(
 function lowerChildPipelineStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  entryGate: string | undefined,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -1103,6 +1179,7 @@ function lowerChildPipelineStep(
     name: jobId,
     runsOn: resolveRunsOn(step),
     needs,
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
     steps: [
       {
         name: "Dynamic child pipeline (not natively supported on GitHub)",
@@ -1119,6 +1196,7 @@ function lowerChildPipelineStep(
 function lowerDownstreamStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  entryGate: string | undefined,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -1147,6 +1225,7 @@ function lowerDownstreamStep(
     name: jobId,
     runsOn: resolveRunsOn(step),
     needs,
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
     steps: [
       {
         name: `Trigger downstream: ${ds.project}`,
@@ -1166,10 +1245,10 @@ function lowerStep(
   bootstrap: BootstrapLevel | undefined,
   config: GithubTargetConfig | undefined,
   entryGate: string | undefined,
-  mention: string | undefined,
+  mentions: readonly string[] | undefined,
 ): GithubJob {
   const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const rawSteps = lowerOperations(step, jobIdMap, bootstrap, config, mention);
+  const rawSteps = lowerOperations(step, jobIdMap, bootstrap, config, mentions);
 
   // GitHub only supports boolean continue-on-error, not exit-code mapping.
   if (
@@ -1605,7 +1684,7 @@ function lowerOperations(
   jobIdMap: Map<string, string>,
   bootstrap: BootstrapLevel | undefined,
   config: GithubTargetConfig | undefined,
-  mention: string | undefined,
+  mentions: readonly string[] | undefined,
 ): readonly GithubStep[] {
   const steps: GithubStep[] = [];
   const shortStepId = step.id.includes("/")
@@ -1732,7 +1811,7 @@ function lowerOperations(
             step,
             jobIdMap,
             jobIdMap.get(step.id) ?? step.id,
-            mention,
+            mentions,
           ),
         );
         break;
@@ -1924,22 +2003,38 @@ function lowerAgentOp(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
   jobId: string,
-  mention: string | undefined,
+  mentions: readonly string[] | undefined,
 ): GithubStep[] {
   const env: Record<string, string> = {
     SVERKA_AGENT_ENGINE: op.engine,
     SVERKA_AGENT_PROMPT: translateCommand(op.prompt, step.inputs, jobIdMap),
     SVERKA_AGENT_ANTHROPIC_KEY: "${{ secrets.SVERKA_AGENT_ANTHROPIC_KEY }}",
     SVERKA_AGENT_OPENAI_KEY: "${{ secrets.SVERKA_AGENT_OPENAI_KEY }}",
-    GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
+    // No GITHUB_TOKEN here: the agent job processes untrusted comment text
+    // and stays read-only — the write-capable token lives only in the
+    // `<step>_apply` job.
   };
   if (op.model !== undefined) env.SVERKA_AGENT_MODEL = op.model;
   if (op.maxTokens !== undefined) {
     env.SVERKA_AGENT_MAX_TOKENS = String(op.maxTokens);
   }
-  if (mention !== undefined) env.SVERKA_MENTION = mention;
+  if (mentions !== undefined && mentions.length > 0) {
+    // Several comment entries with different mentions can reach this job;
+    // the env var carries all of them so the in-job re-check accepts any.
+    env.SVERKA_MENTION =
+      mentions.length === 1 ? mentions[0]! : JSON.stringify(mentions);
+  }
+  const run = step.runtime.workingDir
+    ? sverkaCli('agent --output-dir "$GITHUB_WORKSPACE"')
+    : sverkaCli("agent");
+  const workingDir = step.runtime.workingDir;
   return [
-    { name: `Agent (${op.engine})`, env, run: sverkaCli("agent") },
+    {
+      name: `Agent (${op.engine})`,
+      env,
+      run,
+      ...(workingDir !== undefined ? { workingDirectory: workingDir } : {}),
+    },
     {
       name: "Upload agent artifacts",
       if: "always()",

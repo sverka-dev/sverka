@@ -19,12 +19,18 @@ const pipeline = new Pipeline(project, "agents");
 
 // Reply to "@sverka" notes on merge requests. Read-only agent job; the
 // comment is applied by a separate triage__apply job in the protected
-// sverka-apply environment.
+// sverka-apply environment. The prompt must ask for the `sverka-writes`
+// fenced block — it is the only channel the apply job reads; prose
+// replies are never posted.
+const WRITES_HINT = `End your reply with a fenced sverka-writes block holding a JSON array of writes, e.g.
+\`\`\`sverka-writes
+[{"kind": "comment", "body": "your reply text"}]
+\`\`\``;
+
 new AgentStep(pipeline, "triage", {
   engine: "anthropic",
   model: "claude-sonnet-4-5",
-  prompt:
-    "Triage this merge-request note and draft a short reply: ${event.comment.body}",
+  prompt: `Triage this merge-request note and draft a short reply: \${event.comment.body}\n\n${WRITES_HINT}`,
   inputs: [{ kind: "context", namespace: "event", field: "comment.body" }],
   permissions: {
     write: [{ kind: "comment", target: "merge_request" }],
@@ -35,8 +41,7 @@ new AgentStep(pipeline, "triage", {
 new AgentStep(pipeline, "issue-welcome", {
   engine: "anthropic",
   model: "claude-sonnet-4-5",
-  prompt:
-    "A new issue was opened: ${event.issue.title}. Suggest labels and post a welcome comment.",
+  prompt: `A new issue was opened: \${event.issue.title}. Suggest labels and post a welcome comment.\n\n${WRITES_HINT}`,
   inputs: [{ kind: "context", namespace: "event", field: "issue.title" }],
   permissions: {
     write: [{ kind: "comment", target: "issue" }],

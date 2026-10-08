@@ -15,7 +15,7 @@ scripts/
 
 > The agentic features (`comment`/`issue` triggers, `AgentStep`,
 > `sverka agent` / `sverka apply`) require the sverka release containing
-> Spec 54 (0.2.16+). `package.json` pins the intended minimum.
+> Spec 54 (0.2.19+). `package.json` pins the intended minimum.
 
 ## One-time GitLab setup
 
@@ -31,8 +31,9 @@ scripts/
    `on-weekly-digest` (must equal the entry name — see the
    `# sverka:schedule:` annotation at the top of `.gitlab-ci.yml`).
 4. **Variables** — Settings → CI/CD → Variables:
-   - `SVERKA_AGENT_ANTHROPIC_KEY` — masked, any scope the agent job can
-     read.
+   - `SVERKA_AGENT_ANTHROPIC_KEY` — masked, scoped to the `sverka-agent`
+     environment that agent jobs declare (see the `# sverka:agent:`
+     annotation), so unrelated jobs never receive the key.
    - `SVERKA_APPLY_TOKEN` — masked, **environment scope `sverka-apply`**.
      Environment scoping (not just "protected") is what keeps the
      write-capable token out of the read-only agent job.

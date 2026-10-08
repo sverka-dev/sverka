@@ -216,13 +216,11 @@ triggers:
 describe("parseMarkdown — errors", () => {
   it("missing frontmatter → INVALID_FRONTMATTER", () => {
     expect(() => parseMarkdown("## step\n- command: x\n")).toThrowError(
-      MarkdownParseError,
+      expect.objectContaining({
+        name: "MarkdownParseError",
+        code: "INVALID_FRONTMATTER",
+      }),
     );
-    try {
-      parseMarkdown("## step\n- command: x\n");
-    } catch (e) {
-      expect((e as MarkdownParseError).code).toBe("INVALID_FRONTMATTER");
-    }
   });
 
   it("missing pipeline field → INVALID_FRONTMATTER", () => {

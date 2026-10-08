@@ -46,19 +46,21 @@ export async function agentCommand(
 
   const outDir = args.outputDir ?? global.root;
 
-  // Defense-in-depth mention re-check (Spec 54): when a comment trigger
-  // declared a mention, the job re-verifies the note contains it before
-  // invoking the model — rules are the primary filter, this guards
+  // Defense-in-depth mention re-check (Spec 54): when comment triggers
+  // declared mentions, the job re-verifies the note contains one of them
+  // before invoking the model — rules are the primary filter, this guards
   // against misconfigured webhook variables reaching the agent anyway.
-  const mention = env[AGENT_ENV.mention];
+  // Several comment entries can reach one job; the env var then carries a
+  // JSON array of mentions and any match passes.
+  const mentions = parseMentionList(env[AGENT_ENV.mention]);
   const commentBody = env["COMMENT_BODY"];
   if (
-    mention !== undefined &&
+    mentions.length > 0 &&
     commentBody !== undefined &&
-    !commentBody.includes(mention)
+    !mentions.some((m) => commentBody.includes(m))
   ) {
     output.writeLine(
-      `sverka agent: comment does not contain mention '${mention}' — skipping`,
+      `sverka agent: comment does not contain a configured mention (${mentions.join(", ")}) — skipping`,
     );
     await writeArtifacts(outDir, {
       text: "",
@@ -87,15 +89,39 @@ export async function agentCommand(
 
   output.debug(`sverka agent: engine=${engine} driver=${driver.name}`);
   const result = await driver.executeAgent(request);
-  const writes = collectAgentWrites(result);
-  await writeArtifacts(outDir, result, writes);
-
-  if (result.text !== "") output.writeLine(result.text);
+  // An errored agent must not produce a writes artifact the __apply job
+  // could act on — check before collecting or persisting writes.
   if (result.finishReason === "error") {
     output.errorLine("sverka agent: agent finished with reason 'error'");
     return ExitCode.RuntimeError;
   }
+
+  const writes = collectAgentWrites(result);
+  await writeArtifacts(outDir, result, writes);
+
+  if (result.text !== "") output.writeLine(result.text);
   return ExitCode.Success;
+}
+
+/**
+ * SVERKA_MENTION carries one mention string, or a JSON array when several
+ * comment entries with different mentions reach the same job.
+ */
+function parseMentionList(raw: string | undefined): readonly string[] {
+  if (raw === undefined) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      Array.isArray(parsed) &&
+      parsed.length > 0 &&
+      parsed.every((m) => typeof m === "string")
+    ) {
+      return parsed as readonly string[];
+    }
+  } catch {
+    // Not JSON — a plain mention string.
+  }
+  return [raw];
 }
 
 function parseMaxTokens(raw: string): number {
