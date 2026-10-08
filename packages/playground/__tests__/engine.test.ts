@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from "vitest";
 import { preprocessCode, evaluateUserCode } from "../src/engine.js";
+import { scanString } from "../src/scanner.js";
 
 describe("preprocessCode scanner", () => {
   it("keeps object keys named import/export", () => {
@@ -157,5 +158,36 @@ describe("scanner: regex literals and unicode (review findings)", () => {
     const out = preprocessCode(src);
     expect(out).toContain("exporté");
     expect(out).toContain("return exporté");
+  });
+});
+
+describe("scanner: template nesting depth cap", () => {
+  // n nested templates — each one sits inside the parent's `${ }`:
+  // nest(2) = "`${`x`}`", nest(3) = "`${`${`x`}`}`", …
+  const nest = (n: number) => "`${".repeat(n - 1) + "`x`" + "}`".repeat(n - 1);
+
+  it("scans templates nested a few levels deep", () => {
+    const src = "const t = `a ${ `b ${ `c` }` }`;\nexport default 1;";
+    const out = preprocessCode(src);
+    expect(out).toContain("`a ${ `b ${ `c` }` }`");
+    expect(out).toContain("return 1");
+  });
+
+  it("bails past the depth cap instead of exhausting the stack", () => {
+    // 500 nested `${` hops would overflow the browser call stack through
+    // the scanString ↔ scanTemplateExpr recursion — a crafted share link.
+    // The cap treats the tail as opaque: the scan completes and the
+    // `export default` inside it is left verbatim, not rewritten.
+    const src = "const t = " + nest(500) + ";\nexport default 1;";
+    const out = preprocessCode(src);
+    expect(out).toContain("export default 1;");
+  });
+
+  it("scanString returns code.length when the cap trips", () => {
+    // Uncapped, the outer template would end at its closing backtick —
+    // before the trailing text. The cap reports the whole tail as inside
+    // the (unterminated-looking) template instead.
+    const src = nest(500) + "; tail";
+    expect(scanString(src, 0)).toBe(src.length);
   });
 });

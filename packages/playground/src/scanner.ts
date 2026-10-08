@@ -70,9 +70,17 @@ export function isOpaqueStart(code: string, at: number): boolean {
   return isQuote(code[at]) || commentAt(code, at);
 }
 
+/** Bound on `${}`-in-template nesting. Each level costs a scanString ↔
+ *  scanTemplateExpr recursion hop, so a crafted source (e.g. a share-link
+ *  payload) with pathological nesting could exhaust the call stack. Past
+ *  the cap the template is treated as unterminated — the tail is opaque
+ *  and the scan degrades gracefully instead of crashing. */
+const MAX_TEMPLATE_DEPTH = 200;
+
 /** End index of the string literal starting at `at` (quote char).
- *  Template literals may nest `${}` expressions — tracked by brace depth. */
-export function scanString(code: string, at: number): number {
+ *  Template literals may nest `${}` expressions — tracked by brace depth
+ *  up to MAX_TEMPLATE_DEPTH, where the scan bails to code.length. */
+export function scanString(code: string, at: number, depth = 0): number {
   const quote = code[at];
   let i = at + 1;
   while (i < code.length) {
@@ -83,7 +91,8 @@ export function scanString(code: string, at: number): number {
     }
     if (c === quote) return i + 1;
     if (quote === "`" && c === "$" && code[i + 1] === "{") {
-      i = scanTemplateExpr(code, i + 1);
+      if (depth >= MAX_TEMPLATE_DEPTH) return code.length;
+      i = scanTemplateExpr(code, i + 1, depth + 1);
       continue;
     }
     i++;
@@ -117,9 +126,10 @@ export function scanRegex(code: string, at: number): number {
 export function scanOpaqueEnd(
   code: string,
   i: number,
+  depth = 0,
 ): { end: number; isString: boolean } {
   const c = code[i];
-  if (isQuote(c)) return { end: scanString(code, i), isString: true };
+  if (isQuote(c)) return { end: scanString(code, i, depth), isString: true };
   if (c === "/" && code[i + 1] === "/")
     return { end: lineCommentEnd(code, i), isString: false };
   if (c === "/" && code[i + 1] === "*")
@@ -199,8 +209,13 @@ interface TokenStep {
 /** Consume one token at `i` for the brace-matching scans: opaque regions
  *  and regex literals advance wholesale, identifiers update operand
  *  state from the keyword table, braces report a depth delta. */
-function scanToken(code: string, i: number, operandEnd: boolean): TokenStep {
-  const opaque = scanOpaqueEnd(code, i);
+function scanToken(
+  code: string,
+  i: number,
+  operandEnd: boolean,
+  depth = 0,
+): TokenStep {
+  const opaque = scanOpaqueEnd(code, i, depth);
   if (opaque.end > i + 1) {
     return {
       end: opaque.end,
@@ -262,13 +277,13 @@ export function scanOperand(
  *  are all skipped correctly: `` `${ x["`"] }` `` and `` `${ /"/ }` ``
  *  must not treat literal text as syntax.
  */
-export function scanTemplateExpr(code: string, at: number): number {
-  let depth = 1;
+export function scanTemplateExpr(code: string, at: number, depth = 0): number {
+  let braces = 1;
   let i = at + 1;
   let operandEnd = false;
-  while (i < code.length && depth > 0) {
-    const step = scanToken(code, i, operandEnd);
-    depth += step.brace;
+  while (i < code.length && braces > 0) {
+    const step = scanToken(code, i, operandEnd, depth);
+    braces += step.brace;
     operandEnd = step.operandEnd;
     i = step.end;
   }
