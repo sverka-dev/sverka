@@ -410,7 +410,13 @@ async function cloneRepo(url: string, opts: LoadOptions): Promise<string> {
     `arena-pack-repo-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
   );
   if (existsSync(join(dest, ".git"))) {
-    await git(["-C", dest, "pull", "--ff-only"]); // best-effort refresh
+    const res = await git(["-C", dest, "pull", "--ff-only"]);
+    if (res.code !== 0) {
+      throw new ArenaError(
+        `cannot update repo clone '${url}': ${res.stderr.trim()}`,
+        "PACK_NOT_FOUND",
+      );
+    }
     return dest;
   }
   try {
