@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   chmodSync,
   existsSync,
@@ -881,8 +881,10 @@ describe("git registry", () => {
     async () => {
       // cfg.dir omitted → the checkout lands at the predictable
       // tmpdir path (URL hash). A squatter who computed it gets a
-      // refusal, not a git run inside their directory.
-      const url = "https://example.com/arena-reg-loose.git";
+      // refusal, not a git run inside their directory. The URL is
+      // uniquified per run so the derived path cannot pre-exist —
+      // the rmSync below only ever removes what this test created.
+      const url = `https://example.com/arena-reg-loose-${randomUUID()}.git`;
       const derived = join(
         tmpdir(),
         `arena-registry-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
