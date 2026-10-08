@@ -340,8 +340,8 @@ export function createGitTree(
         // Unstage whatever an outside `git add` left behind in a
         // user-provided checkout — it would otherwise ride this commit.
         await git(["-C", dir, "reset", "--quiet"], { env: auth });
-        // git add errors on a pathspec that matches nothing — a missing
-        // path simply has nothing to stage.
+        // git add errors on a path argument that matches nothing — a
+        // missing path simply has nothing to stage.
         const scope = REGISTRY_PATHS.filter((p) => existsSync(join(dir, p)));
         try {
           if (scope.length > 0) {
