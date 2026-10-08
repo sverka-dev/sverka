@@ -80,4 +80,18 @@ describe("mountRunner (spec 53.4)", () => {
     mounted.dispose();
     expect(el.childElementCount).toBe(0);
   });
+
+  it("ignores an in-flight run's onRun after dispose()", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    let calls = 0;
+    const mounted = mountRunner(el, {
+      code: SIMPLE,
+      autoRun: true,
+      onRun: () => calls++,
+    });
+    mounted.dispose();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(calls).toBe(0);
+  });
 });
