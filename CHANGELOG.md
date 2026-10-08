@@ -1,3 +1,13 @@
+## 0.2.22 (2026-10-08)
+
+### 🩹 Fixes
+
+- **playground:** drop contextual keywords from NON_OPERAND_WORDS ([#349](https://github.com/sverka-dev/sverka/pull/349))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.21 (2026-10-08)
 
 ### 🚀 Features
