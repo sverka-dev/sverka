@@ -1,3 +1,13 @@
+## 0.2.20 (2026-10-08)
+
+### 🚀 Features
+
+- **playground:** share-link size bounds on decode (spec 53.3) ([#339](https://github.com/sverka-dev/sverka/pull/339))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.19 (2026-10-08)
 
 ### 🚀 Features
