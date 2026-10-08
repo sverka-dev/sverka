@@ -4,7 +4,7 @@
 
 import { existsSync, readFileSync, appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { HubToken } from "./types.js";
 
 const TOKENS_FILE = "tokens";
@@ -86,6 +86,16 @@ export function resolveTokens(
   }
 
   return { tokens, generated: null };
+}
+
+/**
+ * Constant-time token comparison. Both sides are SHA-256'd first so the
+ * compare time leaks neither the token's length nor a matching prefix.
+ */
+export function tokenEquals(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
 }
 
 /** Extract the bearer token from Authorization, `?token=`, or the

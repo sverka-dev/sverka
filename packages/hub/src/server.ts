@@ -16,7 +16,7 @@ import {
 import { generateSarifHtml } from "@sverka/sarif-viewer-web";
 import type { Finding } from "@sverka/verification";
 import type { HubServer, HubServerOptions, HubToken } from "./types.js";
-import { resolveTokens, extractToken } from "./auth.js";
+import { resolveTokens, extractToken, tokenEquals } from "./auth.js";
 import {
   createHubStore,
   isValidCacheKey,
@@ -430,7 +430,7 @@ function authenticate(
     json(res, 401, { code: "UNAUTHORIZED", message: "token required" });
     return null;
   }
-  const found = tokens.find((t) => t.token === token);
+  const found = tokens.find((t) => tokenEquals(t.token, token));
   if (found === undefined) {
     json(res, 401, { code: "UNAUTHORIZED", message: "invalid token" });
     return null;
