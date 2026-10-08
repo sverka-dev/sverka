@@ -502,7 +502,7 @@ export async function resolvePack(
     return loadPack(await clonePack(url, opts), opts);
   }
   // Bare name → packs/<name>/ inside the registry.
-  const isBareName = /^[a-zA-Z0-9._-]+$/.test(ref); // nosemgrep: rule-regex-dos
+  const isBareName = /^[a-zA-Z0-9._-]+$/.test(ref); // nosemgrep: rules_lgpl_javascript_dos_rule-regex-dos
   if (isBareName) {
     if (opts.registry === undefined) {
       throw new ArenaError(

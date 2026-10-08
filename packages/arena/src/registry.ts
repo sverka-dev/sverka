@@ -99,7 +99,7 @@ export function parseArenaResultV1(doc: unknown): ArenaResultV1 {
 /** Registry path segments must not escape or nest the layout. */
 function checkSegment(value: string, field: string): void {
   if (
-    !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(value) || // nosemgrep: rule-regex-dos
+    !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(value) || // nosemgrep: rules_lgpl_javascript_dos_rule-regex-dos
     value === "." ||
     value === ".."
   ) {
