@@ -1,6 +1,8 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -873,4 +875,30 @@ describe("git registry", () => {
       existsSync(join(verify, "results/node-ci/devin/2026-10-01/run-m10.json")),
     ).toBe(true);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "auto-derived checkout refuses a dir accessible by group/other",
+    async () => {
+      // cfg.dir omitted → the checkout lands at the predictable
+      // tmpdir path (URL hash). A squatter who computed it gets a
+      // refusal, not a git run inside their directory.
+      const url = "https://example.com/arena-reg-loose.git";
+      const derived = join(
+        tmpdir(),
+        `arena-registry-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
+      );
+      mkdirSync(derived, { recursive: true });
+      chmodSync(derived, 0o755);
+      try {
+        const reg = createGitRegistry({ url });
+        const err = (await expectArenaError(
+          () => reg.list(),
+          "REGISTRY_UNAVAILABLE",
+        )) as ArenaError;
+        expect(err.message).toContain("accessible by group/other");
+      } finally {
+        rmSync(derived, { recursive: true, force: true });
+      }
+    },
+  );
 });

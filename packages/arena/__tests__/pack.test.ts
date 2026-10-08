@@ -1,10 +1,13 @@
 import { describe, it, expect, afterAll } from "vitest";
+import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -470,4 +473,68 @@ describe("loadPack repo: cached clone refresh", () => {
     expect(existsSync(join(cached!, "v2.txt"))).toBe(true);
     expect(existsSync(join(cached!, "stray.txt"))).toBe(false);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "refuses a predictable cache dir accessible by group/other",
+    async () => {
+      const repo = await makeUpstream("up-loose");
+      const packDir = await packWithRepo("pack-loose", repo);
+      const cacheDir = join(dir, "cache-loose");
+      // A squatter on a shared tmpdir can compute the URL-hash path and
+      // pre-create it — a loose/foreign dir must be refused, not adopted.
+      const dest = join(
+        cacheDir,
+        `arena-pack-repo-${createHash("sha256").update(repo).digest("hex").slice(0, 12)}`,
+      );
+      mkdirSync(join(dest, ".git"), { recursive: true });
+      chmodSync(dest, 0o755);
+      const err = await expectPackError(
+        loadPack(packDir, { cacheDir }),
+        "PACK_NOT_FOUND",
+      );
+      expect(err.message).toContain("accessible by group/other");
+    },
+  );
+
+  it("refuses a symlink planted at the predictable cache path", async () => {
+    const repo = await makeUpstream("up-symlink");
+    const packDir = await packWithRepo("pack-symlink", repo);
+    const cacheDir = join(dir, "cache-symlink");
+    mkdirSync(cacheDir, { recursive: true });
+    const dest = join(
+      cacheDir,
+      `arena-pack-repo-${createHash("sha256").update(repo).digest("hex").slice(0, 12)}`,
+    );
+    // The planted target is a valid-looking clone — lstat must refuse
+    // the symlink before any git command runs inside it.
+    const planted = join(dir, "planted-repo");
+    mkdirSync(join(planted, ".git"), { recursive: true, mode: 0o700 });
+    symlinkSync(planted, dest);
+    const err = await expectPackError(
+      loadPack(packDir, { cacheDir }),
+      "PACK_NOT_FOUND",
+    );
+    expect(err.message).toContain("not a directory");
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "refuses a planted pack clone dir that fails the private check",
+    async () => {
+      // clonePack path — the check fires before git clone, so no real
+      // remote is needed.
+      const url = join(dir, "nonexistent-pack.git");
+      const cacheDir = join(dir, "cache-packsec");
+      const dest = join(
+        cacheDir,
+        `arena-pack-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
+      );
+      mkdirSync(dest, { recursive: true });
+      chmodSync(dest, 0o755);
+      const err = await expectPackError(
+        resolvePack(url, { cacheDir }),
+        "PACK_NOT_FOUND",
+      );
+      expect(err.message).toContain("accessible by group/other");
+    },
+  );
 });
