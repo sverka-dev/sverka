@@ -292,7 +292,30 @@ function ensureGitCheckout(cfg: GitRegistryConfig): Promise<void> {
         await chmod(dir, 0o700);
       }
       if (existsSync(join(dir, ".git"))) {
-        await git(["-C", dir, "fetch", "origin", branch], { env: auth });
+        // A checkout left mid-rebase (a killed publish, or a version
+        // before abort-on-failure) poisons every later git op here.
+        if (
+          existsSync(join(dir, ".git", "rebase-merge")) ||
+          existsSync(join(dir, ".git", "rebase-apply"))
+        ) {
+          await git(["-C", dir, "rebase", "--abort"], { env: auth });
+        }
+        // fetch alone only moves origin/<branch>; the worktree stays at
+        // the clone-time commit and list/board read stale results
+        // forever. pull --ff-only refreshes it — a checkout holding
+        // unpublished commits (a failed publish) can't ff and stays
+        // as-is; publish's own pull --rebase reconciles it. Only when
+        // HEAD is the registry branch: ff-ing some other checked-out
+        // branch would silently move it.
+        const head = await git(
+          ["-C", dir, "symbolic-ref", "-q", "--short", "HEAD"],
+          { env: auth },
+        );
+        if (head.code === 0 && head.stdout.trim() === branch) {
+          await git(["-C", dir, "pull", "--ff-only", "origin", branch], {
+            env: auth,
+          });
+        }
         return;
       }
       try {
@@ -334,6 +357,45 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
   const unavailable = gitUnavailable(cfg, dir);
   const ensure = (): Promise<void> => ensureGitCheckout(cfg);
 
+  const rebaseInProgress = (): boolean =>
+    existsSync(join(dir, ".git", "rebase-merge")) ||
+    existsSync(join(dir, ".git", "rebase-apply"));
+
+  /**
+   * Recover a stopped rebase. Two publishers racing always collide on
+   * index.json — each commit rewrites it — while result/trace paths are
+   * per-run and never conflict. index.json is a pure function of the
+   * results/ tree (reindex semantics), so a conflicted rebase whose only
+   * unmerged path is index.json is resolved by regenerating it and
+   * continuing. Anything else is a real conflict: give up and let the
+   * caller abort.
+   */
+  async function resolveRebaseConflicts(): Promise<boolean> {
+    for (let round = 0; round < 8 && rebaseInProgress(); round++) {
+      const unmerged = await git(
+        ["-C", dir, "diff", "--name-only", "--diff-filter=U"],
+        { env: auth },
+      );
+      if (unmerged.code !== 0) return false;
+      const paths = unmerged.stdout.split("\n").filter((l) => l !== "");
+      if (paths.length === 0 || paths.some((p) => p !== INDEX_PATH)) {
+        return false;
+      }
+      const { index } = await buildIndex(inner);
+      await writeIndex(inner, index);
+      const add = await git(["-C", dir, "add", "--", INDEX_PATH], {
+        env: auth,
+      });
+      if (add.code !== 0) return false;
+      // --continue either finishes the rebase or stops at the next
+      // conflicted commit — the loop re-checks unmerged paths.
+      await git(["-C", dir, ...GIT_IDENTITY, "rebase", "--continue"], {
+        env: { ...auth, GIT_EDITOR: "true" },
+      });
+    }
+    return !rebaseInProgress();
+  }
+
   async function pullRebase(): Promise<void> {
     // Rebase replays our commit — it needs a committer identity too, and
     // hosts without a global gitconfig (CI) have none.
@@ -341,7 +403,12 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
       ["-C", dir, ...GIT_IDENTITY, "pull", "--rebase", "origin", branch],
       { env: auth },
     );
-    if (res.code !== 0) {
+    if (res.code === 0) return;
+    const resolved = await resolveRebaseConflicts().catch(() => false);
+    if (!resolved) {
+      // A failed rebase must never be left in place — a mid-rebase
+      // checkout poisons every later git op in this dir.
+      await git(["-C", dir, "rebase", "--abort"], { env: auth });
       throw unavailable(`git pull --rebase failed`, res.stderr.trim());
     }
   }
@@ -786,19 +853,13 @@ function createRegistry(tree: TreeStore): ArenaRegistry {
 }
 
 /**
- * Rebuild index.json by scanning the results/ tree — the CI job that
- * denormalizes after publish pushes (`arena reindex`).
+ * Build index.json by scanning the results/ tree — the shared
+ * denormalization pass behind `reindex` and the git backend's
+ * index-conflict resolution.
  */
-export async function reindexRegistry(
-  registry: ArenaRegistry,
-): Promise<{ runs: number }> {
-  const tree = registries.get(registry);
-  if (tree === undefined) {
-    throw new ArenaError(
-      "reindex: registry was not created by @sverka/arena",
-      "REGISTRY_UNAVAILABLE",
-    );
-  }
+async function buildIndex(
+  tree: TreeStore,
+): Promise<{ index: RegistryIndex; runs: number }> {
   const index: RegistryIndex = {
     schema: "arena.index/v1",
     updatedAt: "",
@@ -823,6 +884,24 @@ export async function reindexRegistry(
   for (const pack of Object.values(index.packs)) {
     pack.runs.sort(compareIndexRuns);
   }
+  return { index, runs };
+}
+
+/**
+ * Rebuild index.json by scanning the results/ tree — the CI job that
+ * denormalizes after publish pushes (`arena reindex`).
+ */
+export async function reindexRegistry(
+  registry: ArenaRegistry,
+): Promise<{ runs: number }> {
+  const tree = registries.get(registry);
+  if (tree === undefined) {
+    throw new ArenaError(
+      "reindex: registry was not created by @sverka/arena",
+      "REGISTRY_UNAVAILABLE",
+    );
+  }
+  const { index, runs } = await buildIndex(tree);
   await writeIndex(tree, index);
   await tree.finalize("arena: reindex");
   return { runs };

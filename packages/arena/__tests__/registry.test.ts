@@ -474,4 +474,128 @@ describe("git registry", () => {
     );
     expect(existsSync(written)).toBe(true);
   });
+
+  function seedRemote(name: string): { remote: string; seed: string } {
+    const remote = makeBareRemote(name);
+    const seed = join(dir, `${name}-seed`);
+    gitIn(dir, ["clone", remote, seed]);
+    writeFileSync(join(seed, "seed.txt"), "seed");
+    gitIn(seed, ["add", "-A"]);
+    gitIn(seed, [
+      "-c",
+      "user.name=seed",
+      "-c",
+      "user.email=s@x",
+      "commit",
+      "-m",
+      "seed",
+    ]);
+    gitIn(seed, ["push", "origin", "HEAD:main"]);
+    return { remote, seed };
+  }
+
+  it("refresh fast-forwards an existing checkout — list sees newer pushes", async () => {
+    const { remote, seed } = seedRemote("remote-stale.git");
+    // A checkout that predates the next push — the ensure memo never
+    // saw this clone, so refresh takes the .git-exists path.
+    const work = join(dir, "checkout-stale");
+    gitIn(dir, ["clone", remote, work]);
+
+    // A rival advances the remote behind the checkout's back.
+    const rel = "results/node-ci/devin/2026-10-01/run-remote.json";
+    mkdirSync(join(seed, "results/node-ci/devin/2026-10-01"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(seed, rel),
+      JSON.stringify(v1Doc({ runId: "run-remote" })) + "\n",
+    );
+    gitIn(seed, ["add", "-A"]);
+    gitIn(seed, [
+      "-c",
+      "user.name=seed",
+      "-c",
+      "user.email=s@x",
+      "commit",
+      "-m",
+      "rival run",
+    ]);
+    gitIn(seed, ["push", "origin", "HEAD:main"]);
+
+    // A bare fetch would update origin/main but leave the worktree at
+    // the clone-time commit — the result file would be invisible here.
+    const reg = createGitRegistry({ url: remote, dir: work });
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["run-remote"]);
+  });
+
+  it("concurrent publishers collide on index.json — the rebase regenerates it", async () => {
+    const { remote } = seedRemote("remote-race.git");
+    const dirA = join(dir, "race-a");
+    const dirB = join(dir, "race-b");
+    const regA = createGitRegistry({ url: remote, dir: dirA });
+    const regB = createGitRegistry({ url: remote, dir: dirB });
+    // B clones at the seed commit BEFORE A's publish lands — B's
+    // publish commit then races A's index.json update.
+    await regB.list();
+    await regA.publish(v1Doc({ runId: "run-a" }));
+    // Without index-conflict resolution the rebase cannot apply B's
+    // rewritten index.json and this publish dies as PUBLISH_CONFLICT.
+    const relB = await regB.publish(v1Doc({ runId: "run-b" }));
+
+    const verify = join(dir, "verify-race");
+    gitIn(dir, ["clone", remote, verify]);
+    expect(
+      existsSync(join(verify, "results/node-ci/devin/2026-10-01/run-a.json")),
+    ).toBe(true);
+    expect(existsSync(join(verify, relB))).toBe(true);
+    // The merged index was regenerated from results/ — both runs there.
+    const index = JSON.parse(
+      readFileSync(join(verify, "index.json"), "utf8"),
+    ) as { packs: Record<string, { runs: { runId: string }[] }> };
+    expect(index.packs["node-ci"]!.runs.map((r) => r.runId).sort()).toEqual([
+      "run-a",
+      "run-b",
+    ]);
+  });
+
+  it("unresolvable rebase conflict → REGISTRY_UNAVAILABLE, checkout not left mid-rebase", async () => {
+    const { remote } = seedRemote("remote-conflict.git");
+    const checkout = join(dir, "checkout-conflict");
+    const reg = createGitRegistry({ url: remote, dir: checkout });
+    await reg.publish(v1Doc({ runId: "run-x" }));
+
+    // A rival rewrites the same result path behind our back.
+    const rival = join(dir, "rival-conflict");
+    gitIn(dir, ["clone", remote, rival]);
+    const same = "results/node-ci/devin/2026-10-01/run-x.json";
+    writeFileSync(
+      join(rival, same),
+      JSON.stringify(v1Doc({ runId: "run-x", model: "rival-model" })) + "\n",
+    );
+    gitIn(rival, ["add", "-A"]);
+    gitIn(rival, [
+      "-c",
+      "user.name=rival",
+      "-c",
+      "user.email=r@x",
+      "commit",
+      "-m",
+      "rival edit",
+    ]);
+    gitIn(rival, ["push", "origin", "HEAD:main"]);
+
+    // Our rebase hits a conflict on the result file itself — not
+    // auto-resolvable like index.json, so the pull fails.
+    await expectArenaError(
+      () => reg.publish(v1Doc({ runId: "run-x", model: "our-model" })),
+      "REGISTRY_UNAVAILABLE",
+    );
+
+    // The failed rebase was aborted — no poisoned state, later git ops
+    // still work, and the unpublished commit is preserved.
+    expect(existsSync(join(checkout, ".git", "rebase-merge"))).toBe(false);
+    expect(existsSync(join(checkout, ".git", "rebase-apply"))).toBe(false);
+    gitIn(checkout, ["status", "--porcelain"]);
+    expect(existsSync(join(checkout, same))).toBe(true);
+  });
 });
