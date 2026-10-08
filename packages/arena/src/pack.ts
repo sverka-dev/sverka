@@ -12,13 +12,14 @@
  */
 import { createHash } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
-import { chmod, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { z } from "zod";
 
 import { ArenaError } from "./config.js";
 import { git, gitOrThrow } from "./internal/git.js";
+import { ensurePrivateDir } from "./internal/private-dir.js";
 import { resolveRegistryDir } from "./registry.js";
 import type { DeterministicCheck, Task } from "./types.js";
 
@@ -398,12 +399,6 @@ function isGitUrl(ref: string): boolean {
   );
 }
 
-/** Predictable tmpdir clone destinations stay owner-only (CWE-377). */
-async function privateDir(dir: string): Promise<void> {
-  await mkdir(dir, { recursive: true, mode: 0o700 });
-  await chmod(dir, 0o700);
-}
-
 /**
  * Refresh a cached clone for reuse as a pack/fixture source. The tree
  * must come back pristine — callers copy the whole directory into run
@@ -443,12 +438,15 @@ async function cloneRepo(url: string, opts: LoadOptions): Promise<string> {
     opts.cacheDir ?? tmpdir(),
     `arena-pack-repo-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
   );
+  // The dest path is predictable (URL hash under a shared tmpdir) — a
+  // foreign pre-created dir would supply its own .git/config, hooks,
+  // and task commands running as us. Verify before any reuse.
+  await ensurePrivateDir(dest, "repo clone cache", "PACK_NOT_FOUND");
   if (existsSync(join(dest, ".git"))) {
     await refreshClone(dest, `repo clone '${url}'`);
     return dest;
   }
   try {
-    await privateDir(dest);
     await gitOrThrow(["clone", "--depth", "1", url, dest]);
   } catch (err) {
     throw new ArenaError(
@@ -465,12 +463,12 @@ async function clonePack(url: string, opts: LoadOptions): Promise<string> {
     opts.cacheDir ?? tmpdir(),
     `arena-pack-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
   );
+  await ensurePrivateDir(dest, "pack clone cache", "PACK_NOT_FOUND");
   if (existsSync(join(dest, ".git"))) {
     await refreshClone(dest, `pack clone '${url}'`);
     return dest;
   }
   try {
-    await privateDir(dest);
     await gitOrThrow(["clone", url, dest]);
   } catch (err) {
     throw new ArenaError(

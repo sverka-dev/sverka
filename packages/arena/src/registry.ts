@@ -17,13 +17,14 @@
  */
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { z } from "zod";
 
 import { ArenaError } from "./config.js";
 import { git, gitOrThrow } from "./internal/git.js";
+import { ensurePrivateDir } from "./internal/private-dir.js";
 
 // ─── arena.result/v1 ─────────────────────────────────────────────────
 
@@ -296,10 +297,17 @@ function ensureGitCheckout(cfg: GitRegistryConfig): Promise<void> {
   if (p === undefined) {
     p = (async () => {
       if (cfg.dir === undefined) {
-        // The auto-derived tmpdir path is predictable — keep it
-        // owner-only so results/credentials stay private (CWE-377).
-        await mkdir(dir, { recursive: true, mode: 0o700 });
-        await chmod(dir, 0o700);
+        // The auto-derived tmpdir path is predictable (URL hash) — a
+        // foreign pre-created dir would supply its own .git/config
+        // (core.fsmonitor, core.sshCommand) and hooks running as us.
+        // Verify type+owner+mode before trusting an existing checkout
+        // (CWE-377). A user-supplied cfg.dir is the caller's choice and
+        // is not re-checked here.
+        await ensurePrivateDir(
+          dir,
+          "registry checkout",
+          "REGISTRY_UNAVAILABLE",
+        );
       }
       if (existsSync(join(dir, ".git"))) {
         // A checkout left mid-rebase (a killed publish, or a version
