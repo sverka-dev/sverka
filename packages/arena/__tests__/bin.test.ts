@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main, filterTasks } from "../src/bin.js";
@@ -178,6 +185,217 @@ describe("sverka-arena bin", () => {
     const code = await main(["report", join(dir, "not-results.json")], io);
     expect(code).toBe(2);
     expect(c.stderr).toContain("not a sverka-arena results file");
+  });
+});
+
+// ─── Spec 56 commands ────────────────────────────────────────────────
+
+const V1_DOC = {
+  schema: "arena.result/v1",
+  runId: "run-cli-1",
+  pack: "node-ci",
+  agent: "devin",
+  model: "m1",
+  plugins: [],
+  sverkaVersion: "0.0.0-test",
+  startedAt: "2026-10-01T00:00:00.000Z",
+  tasks: [
+    {
+      task: "t1",
+      promptHash: "a".repeat(64),
+      score: { passed: true, findings: 0 },
+      metrics: { tokens: 100, durationMs: 500 },
+    },
+  ],
+};
+
+describe("sverka-arena publish/board/pack/reindex", () => {
+  it("publish without a registry exits 2", async () => {
+    const { c, io } = capture();
+    const code = await main(
+      ["publish", join(dir, "results.json"), "--pack", "p"],
+      io,
+    );
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("no registry");
+  });
+
+  it("publish a v1 doc to a file registry lands at the canonical path", async () => {
+    const regDir = join(dir, "cli-reg");
+    const file = join(dir, "v1.json");
+    writeFileSync(file, JSON.stringify(V1_DOC));
+    const { c, io } = capture();
+    const code = await main(["publish", file, "--registry", regDir], io);
+    expect(code).toBe(0);
+    expect(c.stdout).toContain(
+      "results/node-ci/devin/2026-10-01/run-cli-1.json",
+    );
+    expect(
+      existsSync(
+        join(regDir, "results/node-ci/devin/2026-10-01/run-cli-1.json"),
+      ),
+    ).toBe(true);
+    expect(existsSync(join(regDir, "index.json"))).toBe(true);
+  });
+
+  it("publish a matrix file without --pack exits 2", async () => {
+    const { c, io } = capture();
+    const code = await main(
+      [
+        "publish",
+        join(dir, "results.json"),
+        "--registry",
+        join(dir, "cli-reg2"),
+        "--config",
+        join(dir, "no-such-config.ts"),
+      ],
+      io,
+    );
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("--pack");
+  });
+
+  it("publish an unreadable file exits 2", async () => {
+    const { io } = capture();
+    const code = await main(
+      ["publish", join(dir, "ghost.json"), "--registry", join(dir, "x")],
+      io,
+    );
+    expect(code).toBe(2);
+  });
+
+  it("board renders the no-data state for an empty registry", async () => {
+    const { c, io } = capture();
+    const code = await main(
+      ["board", "--registry", join(dir, "empty-reg")],
+      io,
+    );
+    expect(code).toBe(0);
+    expect(c.stdout).toContain("no arena results");
+  });
+
+  it("board --format json emits cohorts over published results", async () => {
+    const regDir = join(dir, "board-reg");
+    const file = join(dir, "v1-board.json");
+    writeFileSync(file, JSON.stringify(V1_DOC));
+    await main(["publish", file, "--registry", regDir], capture().io);
+    const { c, io } = capture();
+    const code = await main(
+      ["board", "--registry", regDir, "--format", "json"],
+      io,
+    );
+    expect(code).toBe(0);
+    const cohorts = JSON.parse(c.stdout) as {
+      pack: string;
+      rows: { agent: string }[];
+    }[];
+    expect(cohorts.length).toBe(1);
+    expect(cohorts[0]!.pack).toBe("node-ci");
+    expect(cohorts[0]!.rows[0]!.agent).toBe("devin");
+  });
+
+  it("board --format html writes a static leaderboard file", async () => {
+    const regDir = join(dir, "board-html-reg");
+    const out = join(dir, "board.html");
+    const { c, io } = capture();
+    const code = await main(
+      ["board", "--registry", regDir, "--format", "html", "--out", out],
+      io,
+    );
+    expect(code).toBe(0);
+    expect(c.stdout).toContain("board.html");
+    expect(readFileSync(out, "utf8")).toContain("Leaderboard");
+  });
+
+  it("pack init scaffolds a pack that lint accepts", async () => {
+    const parent = join(dir, "pack-parent");
+    mkdirSync(parent, { recursive: true });
+    const { c, io } = capture();
+    expect(await main(["pack", "init", "demo", "--dir", parent], io)).toBe(0);
+    expect(c.stdout).toContain("demo");
+    const c2 = capture();
+    const lint = await main(["pack", "lint", join(parent, "demo")], c2.io);
+    expect(lint).toBe(0);
+    expect(c2.c.stdout).toContain("ok");
+  });
+
+  it("pack lint exits 1 on a broken pack", async () => {
+    const bad = join(dir, "bad-pack");
+    mkdirSync(join(bad, "tasks"), { recursive: true });
+    writeFileSync(join(bad, "pack.json"), JSON.stringify({ name: "b" }));
+    writeFileSync(join(bad, "tasks", "t.json"), "{broken");
+    const { c, io } = capture();
+    const code = await main(["pack", "lint", bad], io);
+    expect(code).toBe(1);
+    expect(c.stdout).toContain("error");
+  });
+
+  it("pack with an unknown subcommand exits 2", async () => {
+    const { io } = capture();
+    expect(await main(["pack", "frobnicate"], io)).toBe(2);
+  });
+
+  it("reindex rebuilds index.json and reports the run count", async () => {
+    const regDir = join(dir, "reindex-reg");
+    const file = join(dir, "v1-idx.json");
+    writeFileSync(file, JSON.stringify(V1_DOC));
+    await main(["publish", file, "--registry", regDir], capture().io);
+    rmSync(join(regDir, "index.json"));
+    const { c, io } = capture();
+    const code = await main(["reindex", "--registry", regDir], io);
+    expect(code).toBe(0);
+    expect(c.stdout).toContain("1 run");
+    expect(existsSync(join(regDir, "index.json"))).toBe(true);
+  });
+
+  it("run --pack with an unresolvable ref exits 2", async () => {
+    const { io } = capture();
+    const code = await main(
+      [
+        "run",
+        "--pack",
+        "no-such-pack-anywhere",
+        "--config",
+        join(dir, "none.ts"),
+      ],
+      io,
+    );
+    expect(code).toBe(2);
+  });
+
+  it("run --pack <dir> resolves the pack before failing on a missing config", async () => {
+    const packDir = join(dir, "runnable-pack");
+    mkdirSync(join(packDir, "tasks"), { recursive: true });
+    writeFileSync(
+      join(packDir, "pack.json"),
+      JSON.stringify({
+        name: "runnable-pack",
+        defaults: { outputDir: join(dir, "runnable-pack-out") },
+      }),
+    );
+    writeFileSync(
+      join(packDir, "tasks", "t.json"),
+      JSON.stringify({
+        prompt: "noop",
+        checks: [{ id: "c", command: "true" }],
+      }),
+    );
+    const { c, io } = capture();
+    // Explicit --config that does not exist fails AFTER pack resolution —
+    // the "pack … N task(s)" line proves the pack loaded.
+    const code = await main(
+      [
+        "run",
+        "--pack",
+        packDir,
+        "--config",
+        join(dir, "definitely-no-config.ts"),
+      ],
+      io,
+    );
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("pack 'runnable-pack': 1 task(s)");
+    expect(c.stderr).toContain("cannot load arena config");
   });
 });
 
