@@ -170,6 +170,8 @@ tmp/
 .opencode/
 .worktrees/
 .sverka/
+# examples/gitlab-agentic uses .sverka/*.md as its committed config surface
+!examples/gitlab-agentic/.sverka/
 eslint.sarif
 .arena/
 reports/

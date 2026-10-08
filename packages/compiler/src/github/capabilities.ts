@@ -19,6 +19,9 @@ export const githubCapabilities: CapabilityManifest = {
   "matrix.failFast": "native",
   "matrix.maxParallel": "native",
   "trigger.schedule": "native",
+  // Spec 54: comment → issue_comment event, issue → issues event (native).
+  "trigger.comment": "native",
+  "trigger.issue": "native",
   "step.beforeScript": "native",
   "step.afterScript": "native",
   "step.continueOnError": "native",

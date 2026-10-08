@@ -20,6 +20,8 @@ import { mcpServerCommand } from "./commands/mcp-server.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { viewCommand, type ViewArgs } from "./commands/view.js";
 import { uiCommand, type UiArgs } from "./commands/ui.js";
+import { agentCommand, type AgentArgs } from "./commands/agent.js";
+import { applyCommand, type ApplyArgs } from "./commands/apply.js";
 
 /** Optional dependencies for main (testability seam). */
 export interface MainDeps {
@@ -134,13 +136,9 @@ function addPolicyCommand(y: Argv): Argv {
     .option("baseline", { type: "string" });
 }
 
-/** Configure the synth subcommand options. */
+/** Configure the synth subcommand options. Alias for compile — same flags. */
 function addSynthCommand(y: Argv): Argv {
-  return y.option("target", {
-    type: "string",
-    demandOption: true,
-    choices: ["github", "gitlab"],
-  });
+  return addCompileCommand(y);
 }
 
 /** Configure the compile subcommand options. */
@@ -240,6 +238,32 @@ function buildParser(): Argv {
       addViewCommand,
     )
     .command("ui", "Start local web dashboard server", addUiCommand)
+    .command(
+      "agent",
+      "Run a single agent step from SVERKA_AGENT_* env (CI agent jobs)",
+      (y) =>
+        y.option("output-dir", {
+          type: "string",
+          describe:
+            "Directory for agent-result.json + sverka-writes.json (default: root)",
+        }),
+    )
+    .command(
+      "apply",
+      "Validate + apply agent writes artifact (CI __apply jobs)",
+      (y) =>
+        y
+          .option("provider", {
+            type: "string",
+            choices: ["gitlab", "github"],
+            describe: "CI provider (auto-detected from CI env when omitted)",
+          })
+          .option("file", {
+            type: "string",
+            describe:
+              "Path to sverka-writes.json (default: <root>/sverka-writes.json)",
+          }),
+    )
     .demandCommand(1, "No command given")
     .strict()
     .fail((msg, err) => {
@@ -285,6 +309,10 @@ async function dispatch(
       return dispatchView(parsed, global, output, start);
     case "ui":
       return dispatchUi(parsed, global, output, start);
+    case "agent":
+      return dispatchAgent(parsed, global, output, start);
+    case "apply":
+      return dispatchApply(parsed, global, output, start);
     default:
       throw new CliError(
         `unknown command: ${command}`,
@@ -382,6 +410,9 @@ function dispatchSynth(
 ): Promise<number> {
   const target = parsed.target === "gitlab" ? "gitlab" : "github";
   const args: SynthArgs = { target };
+  if (typeof parsed.output === "string") args.output = parsed.output;
+  if (typeof parsed.outputDir === "string") args.outputDir = parsed.outputDir;
+  if (parsed.pin === true) args.pin = true;
   return synthCommand(args, global, output, start);
 }
 
@@ -423,6 +454,31 @@ function dispatchUi(
   if (typeof parsed.port === "number") args.port = parsed.port;
   if (typeof parsed.host === "string") args.host = parsed.host;
   return uiCommand(args, global, output, start);
+}
+
+function dispatchAgent(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const args: AgentArgs = {};
+  if (typeof parsed.outputDir === "string") args.outputDir = parsed.outputDir;
+  return agentCommand(args, global, output, start);
+}
+
+function dispatchApply(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const args: ApplyArgs = {};
+  if (parsed.provider === "gitlab" || parsed.provider === "github") {
+    args.provider = parsed.provider;
+  }
+  if (typeof parsed.file === "string") args.file = parsed.file;
+  return applyCommand(args, global, output, start);
 }
 
 /**

@@ -119,3 +119,11 @@ export {
 export type { Expression } from "@sverka/workflow";
 export { agent } from "./agent.js";
 export type { AgentStepBuilder } from "./agent.js";
+
+// ── Markdown authoring (Spec 37 + Spec 54) ──────────────────────────
+export { parseMarkdown, loadMarkdownFile } from "./markdown.js";
+export type { MarkdownFrontmatter, MarkdownTrigger } from "./markdown.js";
+export {
+  MarkdownParseError,
+  type MarkdownParseErrorCode,
+} from "./markdown-errors.js";

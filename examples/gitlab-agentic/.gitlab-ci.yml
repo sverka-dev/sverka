@@ -1,0 +1,89 @@
+# sverka:webhook: comment/issue events reach this pipeline via a GitLab
+#   webhook → CI/CD trigger token (POST /projects/:id/trigger/pipeline).
+#   Required trigger variables: SVERKA_EVENT=comment|issue, plus
+#   COMMENT_BODY, SVERKA_COMMENT_ON, MR_IID, ISSUE_IID,
+#   SVERKA_ISSUE_ACTION, SVERKA_ISSUE_LABELS as applicable.
+#   See engdocs/user/gitlab/webhook-setup.md.
+# sverka:schedule: create a pipeline schedule (CI/CD → Schedules) with
+#   cron "0 9 * * 1" and
+#   description "on-weekly-digest" — the description is the
+#   link between the schedule and this entry's rules.
+# sverka:apply: <step>__apply jobs run in the protected
+#   'sverka-apply' stage/environment. Scope the masked CI/CD variable
+#   SVERKA_APPLY_TOKEN to the 'sverka-apply' environment so agent
+#   jobs never receive a write-capable token.
+stages:
+  - build
+  - sverka-apply
+triage:
+  stage: build
+  script:
+    - "echo '# sverka:mention: @sverka'"
+    - npx -y sverka@0.2.15 agent
+  artifacts:
+    paths:
+      - agent-result.json
+      - sverka-writes.json
+  variables:
+    SVERKA_MENTION: "@sverka"
+    SVERKA_AGENT_ENGINE: anthropic
+    SVERKA_AGENT_MODEL: claude-sonnet-4-5
+    SVERKA_AGENT_PROMPT: "Triage this merge-request note and draft a short reply: $COMMENT_BODY"
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "web") &&
+        $SVERKA_EVENT == "comment" && $SVERKA_COMMENT_ON == "merge_request" &&
+        $COMMENT_BODY =~ /@sverka/
+triage__apply:
+  stage: sverka-apply
+  script:
+    - npx -y sverka@0.2.15 apply --provider gitlab
+  needs:
+    - triage
+  variables:
+    SVERKA_WRITE_DECLARATIONS: '[{"kind":"comment","target":"merge_request"}]'
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "web") &&
+        $SVERKA_EVENT == "comment" && $SVERKA_COMMENT_ON == "merge_request" &&
+        $COMMENT_BODY =~ /@sverka/
+  environment:
+    name: sverka-apply
+issue-welcome:
+  stage: build
+  script:
+    - npx -y sverka@0.2.15 agent
+  artifacts:
+    paths:
+      - agent-result.json
+      - sverka-writes.json
+  variables:
+    SVERKA_AGENT_ENGINE: anthropic
+    SVERKA_AGENT_MODEL: claude-sonnet-4-5
+    SVERKA_AGENT_PROMPT:
+      "A new issue was opened: $ISSUE_TITLE. Suggest labels and
+      post a welcome comment."
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "web") &&
+        $SVERKA_EVENT == "issue" && $SVERKA_ISSUE_ACTION == "opened" &&
+        $SVERKA_ISSUE_LABELS =~ /(^|,)agent(,|$)/
+issue-welcome__apply:
+  stage: sverka-apply
+  script:
+    - npx -y sverka@0.2.15 apply --provider gitlab
+  needs:
+    - issue-welcome
+  variables:
+    SVERKA_WRITE_DECLARATIONS: '[{"kind":"comment","target":"issue"}]'
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "web") &&
+        $SVERKA_EVENT == "issue" && $SVERKA_ISSUE_ACTION == "opened" &&
+        $SVERKA_ISSUE_LABELS =~ /(^|,)agent(,|$)/
+  environment:
+    name: sverka-apply
+weekly-digest:
+  stage: build
+  script:
+    - ./scripts/digest.sh
+  rules:
+    - if:
+        $CI_PIPELINE_SOURCE == "schedule" && $CI_PIPELINE_SCHEDULE_DESCRIPTION ==
+        "on-weekly-digest"

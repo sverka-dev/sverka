@@ -33,7 +33,28 @@ export interface Schedule {
   readonly timezone?: string;
 }
 
-export type Trigger = Push | ChangeRequest | Manual | Schedule;
+// Spec 54: repository-event triggers for agentic workflows.
+// Comment/issue events have no native CI pipeline source — delivery is
+// target-specific (GitLab: webhook → pipeline-trigger contract; GitHub:
+// issue_comment/issues events). See engdocs/user/gitlab/agentic.md.
+
+/** Fires when a note (comment) is created on an MR, issue, or commit. */
+export interface Comment {
+  readonly kind: "comment";
+  /** e.g. "@sverka" — only fire when the note contains the mention. */
+  readonly mention?: string;
+  readonly on?: "mergeRequest" | "issue" | "commit";
+}
+
+/** Fires on issue lifecycle events. */
+export interface Issue {
+  readonly kind: "issue";
+  readonly action?: "opened" | "reopened" | "labeled";
+  readonly labels?: readonly string[];
+}
+
+export type Trigger =
+  Push | ChangeRequest | Manual | Schedule | Comment | Issue;
 
 export function push(filter?: TriggerFilter): Push {
   return { kind: "push", ...(filter ? { filter } : {}) };
@@ -50,6 +71,30 @@ export function manual(filter?: TriggerFilter): Manual {
 // F-05: Schedule trigger helper
 export function schedule(cron: string, timezone?: string): Schedule {
   return { kind: "schedule", cron, ...(timezone ? { timezone } : {}) };
+}
+
+/** Spec 54: comment/note trigger, e.g. `comment({ mention: "@sverka" })`. */
+export function comment(opts?: {
+  mention?: string;
+  on?: "mergeRequest" | "issue" | "commit";
+}): Comment {
+  return {
+    kind: "comment",
+    ...(opts?.mention !== undefined ? { mention: opts.mention } : {}),
+    ...(opts?.on !== undefined ? { on: opts.on } : {}),
+  };
+}
+
+/** Spec 54: issue lifecycle trigger. */
+export function issue(opts?: {
+  action?: "opened" | "reopened" | "labeled";
+  labels?: readonly string[];
+}): Issue {
+  return {
+    kind: "issue",
+    ...(opts?.action !== undefined ? { action: opts.action } : {}),
+    ...(opts?.labels !== undefined ? { labels: opts.labels } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------

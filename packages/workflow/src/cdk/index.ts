@@ -53,9 +53,18 @@ export type {
   ChangeRequest,
   Manual,
   Schedule,
+  Comment,
+  Issue,
   TriggerFilter,
 } from "./model.js";
-export { push, changeRequest, manual, schedule } from "./model.js";
+export {
+  push,
+  changeRequest,
+  manual,
+  schedule,
+  comment,
+  issue,
+} from "./model.js";
 export type {
   Reference,
   StepRef,

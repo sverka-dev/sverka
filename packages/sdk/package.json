@@ -36,7 +36,8 @@
   "dependencies": {
     "@sverka/workflow": "workspace:*",
     "@sverka/runtime": "workspace:*",
-    "@sverka/verification": "workspace:*"
+    "@sverka/verification": "workspace:*",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "tsdown": "^0.23.0",

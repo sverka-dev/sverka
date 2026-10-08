@@ -2,7 +2,7 @@
 // Spec 17 — §30.
 
 import { readFile, writeFile } from "node:fs/promises";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { register } from "node:module";
 import * as nodeModule from "node:module";
 import { pathToFileURL, fileURLToPath } from "node:url";
@@ -65,6 +65,8 @@ export type PmName = "npm" | "pnpm" | "yarn" | "bun";
 /**
  * Find a sverka.config.ts or sverka.config.js file in the given root.
  * Returns the absolute path or null if not found.
+ * Spec 37/54: when no config exists, fall back to `.sverka/*.md` files
+ * (markdown authoring) — sorted, first file wins.
  */
 export async function findConfig(root: string): Promise<string | null> {
   const candidates = [
@@ -76,7 +78,21 @@ export async function findConfig(root: string): Promise<string | null> {
     const path = join(root, candidate);
     if (existsSync(path)) return path;
   }
-  return null;
+  return findMarkdownConfig(root);
+}
+
+/** First `.sverka/*.md` file under root (sorted), or null. */
+function findMarkdownConfig(root: string): string | null {
+  const dir = join(root, ".sverka");
+  let names: string[];
+  try {
+    names = readdirSync(dir)
+      .filter((n) => n.endsWith(".md"))
+      .sort();
+  } catch {
+    return null;
+  }
+  return names.length > 0 ? join(dir, names[0]!) : null;
 }
 
 /**
@@ -155,6 +171,13 @@ export async function loadConfig(
       "MISSING_ARG",
       ExitCode.UsageError,
     );
+  }
+
+  // Spec 37/54: `.sverka.md` files parse through the markdown authoring
+  // surface and return a Project construct just like a .ts config.
+  if (absPath.endsWith(".md")) {
+    const { loadMarkdownFile } = await import("@sverka/sdk");
+    return await loadMarkdownFile(absPath);
   }
 
   let mod: Record<string, unknown>;

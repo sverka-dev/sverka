@@ -19,6 +19,11 @@ export const gitlabCapabilities: CapabilityManifest = {
   "matrix.failFast": "unsupported",
   "matrix.maxParallel": "unsupported",
   "trigger.schedule": "native",
+  // Spec 54: comment/issue events are emulated — delivery rides the
+  // sverka webhook → pipeline-trigger contract (see
+  // engdocs/user/gitlab/webhook-setup.md), not a native pipeline source.
+  "trigger.comment": "emulated",
+  "trigger.issue": "emulated",
   "step.beforeScript": "native",
   "step.afterScript": "native",
   "step.continueOnError": "native",

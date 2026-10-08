@@ -12,7 +12,14 @@ import { GRAPH_SCHEMA_VERSION, RUN_PLAN_SCHEMA_VERSION } from "./version.js";
 
 const INPUT_TYPES = new Set(["string", "number", "boolean"]);
 const OUTPUT_TYPES = new Set(["string", "number", "boolean", "artifact"]);
-const TRIGGER_KINDS = new Set(["push", "changeRequest", "manual", "schedule"]);
+const TRIGGER_KINDS = new Set([
+  "push",
+  "changeRequest",
+  "manual",
+  "schedule",
+  "comment",
+  "issue",
+]);
 const SEVERITIES = new Set(["info", "warn", "error"]);
 const CONTEXT_NAMESPACES = new Set([
   "env",
@@ -29,11 +36,13 @@ const OPERATION_KINDS = new Set([
   "shell",
   "exportOutput",
   "exportArtifact",
+  "exportStdout",
   "importArtifact",
   "diagnostic",
   "report",
   "release",
   "deployPages",
+  "agent",
 ]);
 const DEPENDENCY_KINDS = new Set(["control", "value", "artifact"]);
 
@@ -257,6 +266,12 @@ function validateTrigger(value: unknown): void {
   if (t.filter !== undefined) {
     validateTriggerFilter(t.filter);
   }
+  if (t.kind === "comment") {
+    validateCommentTrigger(t);
+  }
+  if (t.kind === "issue") {
+    validateIssueTrigger(t);
+  }
   if (t.kind === "schedule") {
     if (typeof t.cron !== "string" || t.cron.length === 0) {
       throw new ValidationError(
@@ -268,6 +283,41 @@ function validateTrigger(value: unknown): void {
         "invalid trigger: schedule trigger 'timezone' must be a string",
       );
     }
+  }
+}
+
+const COMMENT_ON_KINDS = new Set(["mergeRequest", "issue", "commit"]);
+const ISSUE_ACTIONS = new Set(["opened", "reopened", "labeled"]);
+
+function validateCommentTrigger(t: Record<string, unknown>): void {
+  if (t.mention !== undefined && typeof t.mention !== "string") {
+    throw new ValidationError(
+      "invalid trigger: comment 'mention' must be a string",
+    );
+  }
+  if (
+    t.on !== undefined &&
+    (typeof t.on !== "string" || !COMMENT_ON_KINDS.has(t.on))
+  ) {
+    throw new ValidationError(
+      `invalid trigger: comment 'on' must be one of ${[...COMMENT_ON_KINDS].join(", ")}`,
+    );
+  }
+}
+
+function validateIssueTrigger(t: Record<string, unknown>): void {
+  if (
+    t.action !== undefined &&
+    (typeof t.action !== "string" || !ISSUE_ACTIONS.has(t.action))
+  ) {
+    throw new ValidationError(
+      `invalid trigger: issue 'action' must be one of ${[...ISSUE_ACTIONS].join(", ")}`,
+    );
+  }
+  if (t.labels !== undefined && !isStringArray(t.labels)) {
+    throw new ValidationError(
+      "invalid trigger: issue 'labels' must be an array of strings",
+    );
   }
 }
 
@@ -463,11 +513,13 @@ function validateOperation(value: unknown): void {
     shell: validateShellOp,
     exportOutput: validateExportOutputOp,
     exportArtifact: validateExportArtifactOp,
+    exportStdout: validateExportStdoutOp,
     importArtifact: validateImportArtifactOp,
     diagnostic: validateDiagnosticOp,
     report: validateReportOp,
     release: validateReleaseOp,
     deployPages: validateDeployPagesOp,
+    agent: validateAgentOp,
   };
   validators[op.kind]!(op);
 }
@@ -502,6 +554,55 @@ function validateExportArtifactOp(op: Record<string, unknown>): void {
     "path",
     "invalid exportArtifact operation: missing 'path'",
   );
+}
+
+function validateExportStdoutOp(op: Record<string, unknown>): void {
+  requireNonEmptyString(
+    op,
+    "name",
+    "invalid exportStdout operation: missing 'name'",
+  );
+}
+
+function validateAgentOp(op: Record<string, unknown>): void {
+  requireNonEmptyString(
+    op,
+    "engine",
+    "invalid agent operation: missing 'engine'",
+  );
+  if (typeof op.prompt !== "string") {
+    throw new ValidationError("invalid agent operation: missing 'prompt'");
+  }
+  if (op.model !== undefined && typeof op.model !== "string") {
+    throw new ValidationError(
+      "invalid agent operation: 'model' must be a string",
+    );
+  }
+  if (op.maxTokens !== undefined && typeof op.maxTokens !== "number") {
+    throw new ValidationError(
+      "invalid agent operation: 'maxTokens' must be a number",
+    );
+  }
+  if (op.tools !== undefined) {
+    if (!Array.isArray(op.tools)) {
+      throw new ValidationError(
+        "invalid agent operation: 'tools' must be an array",
+      );
+    }
+    for (const ref of op.tools) {
+      const t = ref as Record<string, unknown>;
+      if (
+        typeof t !== "object" ||
+        t === null ||
+        typeof t.plugin !== "string" ||
+        typeof t.tool !== "string"
+      ) {
+        throw new ValidationError(
+          "invalid agent operation: tool refs require 'plugin' and 'tool' strings",
+        );
+      }
+    }
+  }
 }
 
 function validateImportArtifactOp(op: Record<string, unknown>): void {

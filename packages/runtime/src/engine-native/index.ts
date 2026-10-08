@@ -38,7 +38,20 @@ export type {
   AgentResult,
   AgentToolCall,
   AgentUsage,
+  AgentWrite,
 } from "./agent-driver.js";
+export {
+  AGENT_ENV,
+  KNOWN_AGENT_ENGINES,
+  resolveAgentEngine,
+  resolveAgentDrivers,
+  expectedAgentKeyEnv,
+  noAgentDriverError,
+  parseAgentWrites,
+  collectAgentWrites,
+  createAnthropicDriver,
+  createOpenaiDriver,
+} from "./agent-env.js";
 
 export {
   EngineError,

@@ -20,12 +20,28 @@ export interface AgentUsage {
   readonly totalTokens?: number;
 }
 
+/**
+ * A write the agent asks the apply stage to perform (Spec 54). Validated
+ * against the step's `permissions.write` declarations by `sverka apply`
+ * before any provider call — the agent job itself stays read-only.
+ */
+export interface AgentWrite {
+  readonly kind: string;
+  readonly [key: string]: unknown;
+}
+
 /** Result returned by an AgentDriver. */
 export interface AgentResult {
   readonly text: string;
   readonly toolCalls?: readonly AgentToolCall[];
   readonly finishReason: "stop" | "length" | "tool_call" | "error" | string;
   readonly usage?: AgentUsage;
+  /**
+   * Declared write intents the driver extracted from the model output.
+   * When absent, callers extract writes from `text` via
+   * {@link parseAgentWrites} (the fenced `sverka-writes` block contract).
+   */
+  readonly writes?: readonly AgentWrite[];
 }
 
 /** Request passed to an AgentDriver. */
