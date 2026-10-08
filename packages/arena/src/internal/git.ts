@@ -24,7 +24,17 @@ export function git(
       [...args],
       {
         cwd: opts.cwd,
-        env: { ...process.env, ...opts.env },
+        // Arena children have no answerable tty — a credential prompt is
+        // always a hang, so prompting is disabled unconditionally (not
+        // overridable via opts.env). GIT_ASKPASS must be the empty string,
+        // not unset: git falls back to core.askpass/SSH_ASKPASS only when
+        // the var is absent.
+        env: {
+          ...process.env,
+          ...opts.env,
+          GIT_TERMINAL_PROMPT: "0",
+          GIT_ASKPASS: "",
+        },
         maxBuffer: MAX_BUFFER,
       },
       (error, stdout, stderr) => {
@@ -44,11 +54,25 @@ export function git(
   });
 }
 
+/**
+ * Replace URL userinfo with `<redacted>` — `https://user:TOKEN@host`
+ * leaks the token into argv and any stderr that echoes it (CWE-209).
+ * scp-style `git@host:path` carries no credential and is left alone.
+ */
+export function redactUrl(value: string): string {
+  return value.replace(
+    /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)[^/\s@]*@/g,
+    "$1<redacted>@",
+  );
+}
+
 /** Args carrying credentials must never reach an error message (CWE-209). */
 function redactArgs(args: readonly string[]): string {
   return args
     .map((a) =>
-      /authorization|bearer|credential|token=/i.test(a) ? "<redacted>" : a,
+      /authorization|bearer|credential|token=/i.test(a)
+        ? "<redacted>"
+        : redactUrl(a),
     )
     .join(" ");
 }
@@ -61,7 +85,7 @@ export async function gitOrThrow(
   const res = await git(args, opts);
   if (res.code !== 0) {
     throw new Error(
-      `git ${redactArgs(args)} failed (exit ${res.code}): ${res.stderr.trim()}`,
+      `git ${redactArgs(args)} failed (exit ${res.code}): ${redactUrl(res.stderr.trim())}`,
     );
   }
   return res;

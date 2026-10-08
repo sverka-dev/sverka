@@ -23,7 +23,7 @@ import { basename, join, resolve } from "node:path";
 import { z } from "zod";
 
 import { ArenaError } from "./config.js";
-import { git, gitOrThrow } from "./internal/git.js";
+import { git, gitOrThrow, redactUrl } from "./internal/git.js";
 
 // ─── arena.result/v1 ─────────────────────────────────────────────────
 
@@ -272,7 +272,7 @@ const gitUnavailable =
   (cfg: GitRegistryConfig, dir: string) =>
   (what: string, cause: unknown): ArenaError =>
     new ArenaError(
-      `registry unavailable — ${what} (${cfg.url} → ${dir})`,
+      `registry unavailable — ${what} (${redactUrl(cfg.url)} → ${dir})`,
       "REGISTRY_UNAVAILABLE",
       cause,
     );
@@ -472,7 +472,10 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
       // A failed rebase must never be left in place — a mid-rebase
       // checkout poisons every later git op in this dir.
       await git(["-C", dir, "rebase", "--abort"], { env: auth });
-      throw unavailable(`git pull --rebase failed`, res.stderr.trim());
+      throw unavailable(
+        `git pull --rebase failed`,
+        redactUrl(res.stderr.trim()),
+      );
     }
   }
 
@@ -529,10 +532,10 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
           res = await push();
           if (res.code !== 0) {
             throw new ArenaError(
-              `publish rejected — git push to '${cfg.url}' failed after rebase retry; ` +
+              `publish rejected — git push to '${redactUrl(cfg.url)}' failed after rebase retry; ` +
                 `results are preserved in the local checkout at ${dir}`,
               "PUBLISH_CONFLICT",
-              res.stderr.trim(),
+              redactUrl(res.stderr.trim()),
             );
           }
         }

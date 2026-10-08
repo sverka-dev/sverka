@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { git, gitOrThrow } from "../src/internal/git.js";
+import { git, gitOrThrow, redactUrl } from "../src/internal/git.js";
 
 describe("internal git seam", () => {
   it("git rejects on spawn failure — ENOENT is not exit code 0", async () => {
@@ -37,5 +37,19 @@ describe("internal git seam", () => {
     expect(err.message).toContain("failed");
     expect(err.message).not.toContain("SECRET-XYZ");
     expect(err.message).toContain("<redacted>");
+  });
+
+  it("redactUrl strips userinfo and leaves non-credential text alone", () => {
+    expect(redactUrl("https://user:SECRET@host.com/repo.git")).toBe(
+      "https://<redacted>@host.com/repo.git",
+    );
+    expect(redactUrl("http://token-only@host.com/x")).toBe(
+      "http://<redacted>@host.com/x",
+    );
+    expect(redactUrl("https://host.com/repo.git")).toBe(
+      "https://host.com/repo.git",
+    );
+    expect(redactUrl("git@host.com:repo.git")).toBe("git@host.com:repo.git");
+    expect(redactUrl("/local/path")).toBe("/local/path");
   });
 });

@@ -3,6 +3,7 @@
   "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
   "language": "en",
   "words": [
+    "ASKPASS",
     "CLAUDECODE",
     "COLORTERM",
     "Codacy",
@@ -62,6 +63,7 @@
     "acyclicity",
     "adrs",
     "agentclientprotocol",
+    "askpass",
     "backgrounding",
     "badfp",
     "baselining",
