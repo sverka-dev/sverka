@@ -12,7 +12,7 @@
  */
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { z } from "zod";
@@ -114,6 +114,12 @@ async function taskFromFile(
   }
   const t = parsed.data;
   const id = t.id ?? basename(file, ".json");
+  if (t.fixture !== undefined && t.repo !== undefined) {
+    throw new ArenaError(
+      `pack task '${id}': cannot specify both 'fixture' and 'repo' — choose one`,
+      "PACK_INVALID",
+    );
+  }
   let fixture: string | undefined;
   if (t.fixture !== undefined) {
     fixture = resolve(dir, t.fixture);
@@ -303,7 +309,11 @@ export async function lintPack(dir: string): Promise<PackLint> {
         `task '${id}' has no checks — it scores on agent exit status only, not verification`,
       );
     }
-    if (t.fixture !== undefined && !existsSync(join(dir, t.fixture))) {
+    if (t.fixture !== undefined && t.repo !== undefined) {
+      errors.push(
+        `task '${id}': cannot specify both 'fixture' and 'repo' — choose one`,
+      );
+    } else if (t.fixture !== undefined && !existsSync(join(dir, t.fixture))) {
       errors.push(`task '${id}': fixture dir '${t.fixture}' does not exist`);
     }
   }
@@ -371,6 +381,12 @@ function isGitUrl(ref: string): boolean {
   );
 }
 
+/** Predictable tmpdir clone destinations stay owner-only (CWE-377). */
+async function privateDir(dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  await chmod(dir, 0o700);
+}
+
 async function cloneRepo(url: string, opts: LoadOptions): Promise<string> {
   const dest = join(
     opts.cacheDir ?? tmpdir(),
@@ -381,6 +397,7 @@ async function cloneRepo(url: string, opts: LoadOptions): Promise<string> {
     return dest;
   }
   try {
+    await privateDir(dest);
     await gitOrThrow(["clone", "--depth", "1", url, dest]);
   } catch (err) {
     throw new ArenaError(
@@ -408,6 +425,7 @@ async function clonePack(url: string, opts: LoadOptions): Promise<string> {
     return dest;
   }
   try {
+    await privateDir(dest);
     await gitOrThrow(["clone", url, dest]);
   } catch (err) {
     throw new ArenaError(

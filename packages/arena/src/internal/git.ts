@@ -43,6 +43,15 @@ export function git(
   });
 }
 
+/** Args carrying credentials must never reach an error message (CWE-209). */
+function redactArgs(args: readonly string[]): string {
+  return args
+    .map((a) =>
+      /authorization|bearer|credential|token=/i.test(a) ? "<redacted>" : a,
+    )
+    .join(" ");
+}
+
 /** Run `git <args>`; throws a plain Error with stderr context on non-zero. */
 export async function gitOrThrow(
   args: readonly string[],
@@ -51,7 +60,7 @@ export async function gitOrThrow(
   const res = await git(args, opts);
   if (res.code !== 0) {
     throw new Error(
-      `git ${args.join(" ")} failed (exit ${res.code}): ${res.stderr.trim()}`,
+      `git ${redactArgs(args)} failed (exit ${res.code}): ${res.stderr.trim()}`,
     );
   }
   return res;
