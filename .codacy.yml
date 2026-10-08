@@ -59,9 +59,7 @@ engines:
   # Lizard — complexity metrics. Exclude HTML generators since
   # generateSarifHtml/generateHtml are inherently long (assembles a full
   # HTML document) and cannot be meaningfully split further without
-  # harming readability. packages/arena/src is a benchmark harness —
-  # sequential git/fs/CLI orchestration reads as length, not complexity;
-  # the real split is tracked as debt (sv-ad0t).
+  # harming readability.
   lizard:
     enabled: true
     exclude_paths:
@@ -70,7 +68,6 @@ engines:
       - "packages/sarif-viewer-web/src/html-generator.ts"
       - "packages/ui/src/dashboard.ts"
       - "packages/playground/src/app.ts"
-      - "packages/arena/src/**"
   # Opengrep — board.ts renders the leaderboard HTML document; the
   # html-in-template-string findings are by design (all interpolations go
   # through esc()).

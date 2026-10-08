@@ -67,32 +67,24 @@ export interface BuildBoardOptions {
   now?: Date;
 }
 
-/**
- * Aggregate published results into board cohorts. The cohort key is
- * (pack, task, sverkaVersion, promptHash) — a board row is only ever a
- * comparison inside one prompt+toolchain generation.
- */
-export function buildBoard(
-  results: readonly ArenaResultV1[],
-  opts: BuildBoardOptions = {},
-): BoardCohort[] {
-  const days = opts.days ?? TREND_DAYS;
-  const cohorts = new Map<
-    string,
-    {
-      key: Omit<BoardCohort, "rows">;
-      rows: Map<
-        string,
-        {
-          agent: string;
-          model: string;
-          plugins: readonly string[];
-          samples: Sample[];
-        }
-      >;
-    }
-  >();
+/** Accumulator for one board row — keyed (agent, model, plugin set). */
+interface RowAcc {
+  agent: string;
+  model: string;
+  plugins: readonly string[];
+  samples: Sample[];
+}
 
+interface CohortAcc {
+  key: Omit<BoardCohort, "rows">;
+  rows: Map<string, RowAcc>;
+}
+
+/** Group every (doc, task) sample into its cohort → row accumulator. */
+function collectCohorts(
+  results: readonly ArenaResultV1[],
+): Map<string, CohortAcc> {
+  const cohorts = new Map<string, CohortAcc>();
   for (const doc of results) {
     const day = doc.startedAt.slice(0, 10);
     for (const t of doc.tasks) {
@@ -130,58 +122,92 @@ export function buildBoard(
       });
     }
   }
+  return cohorts;
+}
 
+/** Latest sample day across all rows — the cohort's own trend anchor. */
+function latestSampleDay(rows: Map<string, RowAcc>): string {
+  let max = "0000-00-00";
+  for (const r of rows.values()) {
+    for (const s of r.samples) {
+      if (s.day > max) max = s.day;
+    }
+  }
+  return max;
+}
+
+/** Success-rate-per-day series over the `days` ending at the anchor. */
+function trendOf(
+  samples: readonly Sample[],
+  anchor: string,
+  days: number,
+): number[] {
+  const byDay = new Map<string, { pass: number; n: number }>();
+  for (const s of samples) {
+    const d = byDay.get(s.day) ?? { pass: 0, n: 0 };
+    d.n++;
+    if (s.passed) d.pass++;
+    byDay.set(s.day, d);
+  }
+  const trend: number[] = [];
+  const anchorDate = new Date(`${anchor}T00:00:00.000Z`);
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(anchorDate.getTime() - i * 86_400_000);
+    const stat = byDay.get(isoDay(d));
+    trend.push(stat === undefined ? Number.NaN : stat.pass / stat.n);
+  }
+  return trend;
+}
+
+/** Fold one row accumulator into a BoardRow. */
+function toBoardRow(r: RowAcc, anchor: string, days: number): BoardRow {
+  const n = r.samples.length;
+  const passes = r.samples.filter((s) => s.passed).length;
+  const tokens = median(
+    r.samples.flatMap((s) => (s.tokens !== undefined ? [s.tokens] : [])),
+  );
+  return {
+    agent: r.agent,
+    model: r.model,
+    plugins: r.plugins,
+    successRate: n === 0 ? 0 : passes / n,
+    ...(tokens !== undefined ? { medianTokens: tokens } : {}),
+    medianDurationMs: median(r.samples.map((s) => s.durationMs)) ?? 0,
+    runs: n,
+    trend: trendOf(r.samples, anchor, days),
+  };
+}
+
+function compareBoardRows(a: BoardRow, b: BoardRow): number {
+  return (
+    b.successRate - a.successRate ||
+    (a.medianTokens ?? Infinity) - (b.medianTokens ?? Infinity) ||
+    a.agent.localeCompare(b.agent) ||
+    a.model.localeCompare(b.model) ||
+    pluginLabel(a.plugins).localeCompare(pluginLabel(b.plugins))
+  );
+}
+
+/**
+ * Aggregate published results into board cohorts. The cohort key is
+ * (pack, task, sverkaVersion, promptHash) — a board row is only ever a
+ * comparison inside one prompt+toolchain generation.
+ */
+export function buildBoard(
+  results: readonly ArenaResultV1[],
+  opts: BuildBoardOptions = {},
+): BoardCohort[] {
+  const days = opts.days ?? TREND_DAYS;
   const out: BoardCohort[] = [];
-  for (const { key, rows } of cohorts.values()) {
+  for (const { key, rows } of collectCohorts(results).values()) {
     // One trend window per cohort — every row anchors to the same date so
     // all trend columns under one heading cover the same period.
     const anchor =
-      opts.now !== undefined
-        ? isoDay(opts.now)
-        : [...rows.values()].reduce(
-            (max, r) =>
-              r.samples.reduce((m, s) => (s.day > m ? s.day : m), max),
-            "0000-00-00",
-          );
-    const boardRows: BoardRow[] = [...rows.values()].map((r) => {
-      const n = r.samples.length;
-      const passes = r.samples.filter((s) => s.passed).length;
-      const byDay = new Map<string, { pass: number; n: number }>();
-      for (const s of r.samples) {
-        const d = byDay.get(s.day) ?? { pass: 0, n: 0 };
-        d.n++;
-        if (s.passed) d.pass++;
-        byDay.set(s.day, d);
-      }
-      const trend: number[] = [];
-      const anchorDate = new Date(`${anchor}T00:00:00.000Z`);
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(anchorDate.getTime() - i * 86_400_000);
-        const stat = byDay.get(isoDay(d));
-        trend.push(stat === undefined ? Number.NaN : stat.pass / stat.n);
-      }
-      const tokens = median(
-        r.samples.flatMap((s) => (s.tokens !== undefined ? [s.tokens] : [])),
-      );
-      return {
-        agent: r.agent,
-        model: r.model,
-        plugins: r.plugins,
-        successRate: n === 0 ? 0 : passes / n,
-        ...(tokens !== undefined ? { medianTokens: tokens } : {}),
-        medianDurationMs: median(r.samples.map((s) => s.durationMs)) ?? 0,
-        runs: n,
-        trend,
-      };
-    });
-    boardRows.sort(
-      (a, b) =>
-        b.successRate - a.successRate ||
-        (a.medianTokens ?? Infinity) - (b.medianTokens ?? Infinity) ||
-        a.agent.localeCompare(b.agent) ||
-        a.model.localeCompare(b.model) ||
-        pluginLabel(a.plugins).localeCompare(pluginLabel(b.plugins)),
+      opts.now !== undefined ? isoDay(opts.now) : latestSampleDay(rows);
+    const boardRows = [...rows.values()].map((r) =>
+      toBoardRow(r, anchor, days),
     );
+    boardRows.sort(compareBoardRows);
     out.push({ ...key, rows: boardRows });
   }
   out.sort(
@@ -280,10 +306,10 @@ function rateClass(successRate: number): string {
 
 function esc(s: string): string {
   return s
-    .replaceAll(/&/g, "&amp;")
-    .replaceAll(/</g, "&lt;")
-    .replaceAll(/>/g, "&gt;")
-    .replaceAll(/"/g, "&quot;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 /**

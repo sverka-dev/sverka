@@ -87,12 +87,10 @@ interface LoadOptions {
   cacheDir?: string;
 }
 
-async function taskFromFile(
-  file: string,
-  dir: string,
-  defaults: PackDefaults,
-  opts: LoadOptions,
-): Promise<Task> {
+type PackTask = z.infer<typeof packTaskSchema>;
+
+/** Read + schema-validate one tasks/<id>.json file. */
+async function parseTaskFile(file: string): Promise<PackTask> {
   let raw: unknown;
   try {
     raw = JSON.parse(await readFile(file, "utf8"));
@@ -113,36 +111,57 @@ async function taskFromFile(
       "PACK_INVALID",
     );
   }
-  const t = parsed.data;
-  const id = t.id ?? basename(file, ".json");
+  return parsed.data;
+}
+
+/**
+ * Resolve a task's fixture dir — a pack-relative directory (escape-safe)
+ * or a cloned repo cache dir. Undefined when the task has neither.
+ */
+async function resolveTaskFixture(
+  t: PackTask,
+  id: string,
+  dir: string,
+  opts: LoadOptions,
+): Promise<string | undefined> {
   if (t.fixture !== undefined && t.repo !== undefined) {
     throw new ArenaError(
       `pack task '${id}': cannot specify both 'fixture' and 'repo' — choose one`,
       "PACK_INVALID",
     );
   }
-  let fixture: string | undefined;
-  if (t.fixture !== undefined) {
-    fixture = resolve(dir, t.fixture);
-    // Community packs arrive via git clone — a fixture must resolve
-    // inside the pack dir (no ../ escapes) and be a directory.
-    const rel = relative(dir, fixture);
-    if (rel.startsWith("..") || isAbsolute(rel)) {
-      throw new ArenaError(
-        `pack task '${id}': fixture '${t.fixture}' escapes the pack dir`,
-        "PACK_INVALID",
-      );
-    }
-    if (!existsSync(fixture) || !statSync(fixture).isDirectory()) {
-      throw new ArenaError(
-        `pack task '${id}': fixture dir '${t.fixture}' does not exist in ${dir}`,
-        "PACK_INVALID",
-      );
-    }
-  }
   if (t.repo !== undefined) {
-    fixture = await cloneRepo(t.repo, opts);
+    return cloneRepo(t.repo, opts);
   }
+  if (t.fixture === undefined) return undefined;
+  const fixture = resolve(dir, t.fixture);
+  // Community packs arrive via git clone — a fixture must resolve
+  // inside the pack dir (no ../ escapes) and be a directory.
+  const rel = relative(dir, fixture);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new ArenaError(
+      `pack task '${id}': fixture '${t.fixture}' escapes the pack dir`,
+      "PACK_INVALID",
+    );
+  }
+  if (!existsSync(fixture) || !statSync(fixture).isDirectory()) {
+    throw new ArenaError(
+      `pack task '${id}': fixture dir '${t.fixture}' does not exist in ${dir}`,
+      "PACK_INVALID",
+    );
+  }
+  return fixture;
+}
+
+async function taskFromFile(
+  file: string,
+  dir: string,
+  defaults: PackDefaults,
+  opts: LoadOptions,
+): Promise<Task> {
+  const t = await parseTaskFile(file);
+  const id = t.id ?? basename(file, ".json");
+  const fixture = await resolveTaskFixture(t, id, dir, opts);
   const checks: DeterministicCheck[] | undefined = t.checks?.map((c) => ({
     id: c.id,
     command: c.command,
@@ -167,11 +186,10 @@ async function taskFromFile(
   };
 }
 
-/** Load a pack directory into a {@link TaskPack}. */
-export async function loadPack(
-  dir: string,
-  opts: LoadOptions = {},
-): Promise<TaskPack> {
+type PackJson = z.infer<typeof packJsonSchema>;
+
+/** Read + schema-validate pack.json. */
+async function readPackJson(dir: string): Promise<PackJson> {
   const packJsonPath = join(dir, "pack.json");
   if (!existsSync(packJsonPath)) {
     throw new ArenaError(
@@ -199,9 +217,12 @@ export async function loadPack(
       "PACK_INVALID",
     );
   }
-  const meta = parsed.data;
-  // exactOptionalPropertyTypes — drop keys whose value is undefined.
-  const defaults: PackDefaults = {
+  return parsed.data;
+}
+
+/** exactOptionalPropertyTypes — drop keys whose value is undefined. */
+function packDefaults(meta: PackJson): PackDefaults {
+  return {
     ...(meta.defaults?.timeoutMs !== undefined
       ? { timeoutMs: meta.defaults.timeoutMs }
       : {}),
@@ -212,23 +233,49 @@ export async function loadPack(
       ? { outputDir: meta.defaults.outputDir }
       : {}),
   };
+}
+
+/**
+ * Load every tasks/*.json — fanned out (independent reads/clones), but
+ * errors and duplicate-id checks stay deterministic in sorted-file order.
+ */
+async function loadTasks(
+  dir: string,
+  packName: string,
+  defaults: PackDefaults,
+  opts: LoadOptions,
+): Promise<Task[]> {
   const tasksDir = join(dir, "tasks");
   const files = existsSync(tasksDir)
     ? (await readdir(tasksDir)).filter((f) => f.endsWith(".json")).sort()
     : [];
+  const settled = await Promise.allSettled(
+    files.map((f) => taskFromFile(join(tasksDir, f), dir, defaults, opts)),
+  );
   const tasks: Task[] = [];
   const ids = new Set<string>();
-  for (const f of files) {
-    const task = await taskFromFile(join(tasksDir, f), dir, defaults, opts);
-    if (ids.has(task.id)) {
+  for (const s of settled) {
+    if (s.status === "rejected") throw s.reason;
+    if (ids.has(s.value.id)) {
       throw new ArenaError(
-        `duplicate task id '${task.id}' in pack '${meta.name}'`,
+        `duplicate task id '${s.value.id}' in pack '${packName}'`,
         "PACK_INVALID",
       );
     }
-    ids.add(task.id);
-    tasks.push(task);
+    ids.add(s.value.id);
+    tasks.push(s.value);
   }
+  return tasks;
+}
+
+/** Load a pack directory into a {@link TaskPack}. */
+export async function loadPack(
+  dir: string,
+  opts: LoadOptions = {},
+): Promise<TaskPack> {
+  const meta = await readPackJson(dir);
+  const defaults = packDefaults(meta);
+  const tasks = await loadTasks(dir, meta.name, defaults, opts);
   if (tasks.length === 0) {
     throw new ArenaError(
       `pack '${meta.name}' has no tasks — add tasks/<id>.json`, // nosemgrep: html-in-template-string
@@ -249,40 +296,93 @@ export async function loadPack(
 
 // ─── Lint ────────────────────────────────────────────────────────────
 
-/**
- * Validate a pack directory without loading it into a run — collects
- * errors AND warnings instead of throwing on the first problem.
- */
-export async function lintPack(dir: string): Promise<PackLint> {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+/** Validate one parsed tasks/<id>.json — appends to errors/warnings. */
+function lintTaskRaw(
+  dir: string,
+  f: string,
+  raw: unknown,
+  ids: Set<string>,
+  errors: string[],
+  warnings: string[],
+): void {
+  const parsed = packTaskSchema.safeParse(raw);
+  if (!parsed.success) {
+    for (const i of parsed.error.issues) {
+      errors.push(`tasks/${f} ${i.path.join(".") || "(root)"}: ${i.message}`);
+    }
+    return;
+  }
+  const t = parsed.data;
+  const id = t.id ?? basename(f, ".json");
+  if (ids.has(id)) errors.push(`duplicate task id '${id}'`);
+  ids.add(id);
+  if (t.checks === undefined || t.checks.length === 0) {
+    warnings.push(
+      `task '${id}' has no checks — it scores on agent exit status only, not verification`,
+    );
+  }
+  if (t.fixture !== undefined && t.repo !== undefined) {
+    errors.push(
+      `task '${id}': cannot specify both 'fixture' and 'repo' — choose one`,
+    );
+    return;
+  }
+  if (t.fixture === undefined) return;
+  const fx = resolve(dir, t.fixture);
+  const rel = relative(dir, fx);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    errors.push(`task '${id}': fixture '${t.fixture}' escapes the pack dir`);
+  } else if (!existsSync(fx) || !statSync(fx).isDirectory()) {
+    errors.push(`task '${id}': fixture dir '${t.fixture}' does not exist`);
+  }
+}
+
+/** Schema-check pack.json; warnings on name/dir mismatch. */
+async function lintPackJson(
+  dir: string,
+): Promise<{ meta?: PackJson; errors: string[]; warnings: string[] }> {
   const packJsonPath = join(dir, "pack.json");
   if (!existsSync(packJsonPath)) {
-    return { errors: [`no pack.json in '${dir}'`], warnings };
+    return { errors: [`no pack.json in '${dir}'`], warnings: [] };
   }
   try {
     const parsed = packJsonSchema.safeParse(
       JSON.parse(await readFile(packJsonPath, "utf8")),
     );
     if (!parsed.success) {
-      for (const i of parsed.error.issues) {
-        errors.push(`pack.json ${i.path.join(".") || "(root)"}: ${i.message}`);
-      }
-      return { errors, warnings };
+      return {
+        errors: parsed.error.issues.map(
+          (i) => `pack.json ${i.path.join(".") || "(root)"}: ${i.message}`,
+        ),
+        warnings: [],
+      };
     }
-    if (parsed.data.name !== basename(dir)) {
-      warnings.push(
-        `pack name '${parsed.data.name}' does not match directory '${basename(dir)}'`,
-      );
-    }
+    const warnings =
+      parsed.data.name !== basename(dir)
+        ? [
+            `pack name '${parsed.data.name}' does not match directory '${basename(dir)}'`,
+          ]
+        : [];
+    return { meta: parsed.data, errors: [], warnings };
   } catch (err) {
     return {
       errors: [
         `pack.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
       ],
-      warnings,
+      warnings: [],
     };
   }
+}
+
+/**
+ * Validate a pack directory without loading it into a run — collects
+ * errors AND warnings instead of throwing on the first problem.
+ */
+export async function lintPack(dir: string): Promise<PackLint> {
+  const meta = await lintPackJson(dir);
+  const errors = [...meta.errors];
+  const warnings = [...meta.warnings];
+  if (meta.meta === undefined) return { errors, warnings };
 
   const tasksDir = join(dir, "tasks");
   if (!existsSync(tasksDir)) {
@@ -291,49 +391,29 @@ export async function lintPack(dir: string): Promise<PackLint> {
   }
   const files = (await readdir(tasksDir)).filter((f) => f.endsWith(".json"));
   if (files.length === 0) errors.push(`no tasks/*.json files in '${dir}'`);
+  // File reads are independent — fanned out; findings stay in sorted
+  // file order (parse/lint is CPU-only, so it runs after the reads).
+  const raws = await Promise.all(
+    files.sort().map(async (f) => {
+      try {
+        return {
+          f,
+          raw: JSON.parse(await readFile(join(tasksDir, f), "utf8")) as unknown,
+        };
+      } catch (err) {
+        return { f, err };
+      }
+    }),
+  );
   const ids = new Set<string>();
-  for (const f of files.sort()) {
-    const file = join(tasksDir, f);
-    let raw: unknown;
-    try {
-      raw = JSON.parse(await readFile(file, "utf8"));
-    } catch (err) {
+  for (const r of raws) {
+    if ("err" in r) {
       errors.push(
-        `tasks/${f}: not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+        `tasks/${r.f}: not valid JSON: ${r.err instanceof Error ? r.err.message : String(r.err)}`,
       );
       continue;
     }
-    const parsed = packTaskSchema.safeParse(raw);
-    if (!parsed.success) {
-      for (const i of parsed.error.issues) {
-        errors.push(`tasks/${f} ${i.path.join(".") || "(root)"}: ${i.message}`);
-      }
-      continue;
-    }
-    const t = parsed.data;
-    const id = t.id ?? basename(f, ".json");
-    if (ids.has(id)) errors.push(`duplicate task id '${id}'`);
-    ids.add(id);
-    if (t.checks === undefined || t.checks.length === 0) {
-      warnings.push(
-        `task '${id}' has no checks — it scores on agent exit status only, not verification`,
-      );
-    }
-    if (t.fixture !== undefined && t.repo !== undefined) {
-      errors.push(
-        `task '${id}': cannot specify both 'fixture' and 'repo' — choose one`,
-      );
-    } else if (t.fixture !== undefined) {
-      const fx = resolve(dir, t.fixture);
-      const rel = relative(dir, fx);
-      if (rel.startsWith("..") || isAbsolute(rel)) {
-        errors.push(
-          `task '${id}': fixture '${t.fixture}' escapes the pack dir`,
-        );
-      } else if (!existsSync(fx) || !statSync(fx).isDirectory()) {
-        errors.push(`task '${id}': fixture dir '${t.fixture}' does not exist`);
-      }
-    }
+    lintTaskRaw(dir, r.f, r.raw, ids, errors, warnings);
   }
   return { errors, warnings };
 }

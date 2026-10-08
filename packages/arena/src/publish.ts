@@ -227,13 +227,12 @@ export async function publishFile(
     );
   }
 
-  const paths: string[] = [];
-  for (const doc of docs) {
-    paths.push(
-      await registry.publish(doc, {
-        ...(ctx.traces !== undefined ? { traces: ctx.traces } : {}),
-      }),
-    );
-  }
-  return paths;
+  return publishBatch(
+    registry,
+    docs.map((doc) => ({
+      doc,
+      opts: ctx.traces !== undefined ? { traces: ctx.traces } : {},
+    })),
+    `arena: publish ${docs.length} result(s)`,
+  );
 }
