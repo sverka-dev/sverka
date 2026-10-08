@@ -6,6 +6,7 @@ import {
   decodeShareLink,
   PlaygroundError,
   SHARE_PAYLOAD_WARN_BYTES,
+  SHARE_PAYLOAD_MAX_BYTES,
   listExamples,
 } from "./index.js";
 import type { Finding, StepResult } from "./index.js";
@@ -303,12 +304,12 @@ function wireShareButton(getCode: () => string, state: RunState): void {
       await navigator.clipboard.writeText(url);
       setStatus(
         detail ? `Link copied — ${detail}` : "Share link copied",
-        oversized ? "failure" : "success",
+        oversized ? "warn" : "success",
       );
     } catch {
       setStatus(
         detail ? `Link in address bar — ${detail}` : "Link in address bar",
-        oversized ? "failure" : "success",
+        oversized ? "warn" : "success",
       );
     }
   });
@@ -327,9 +328,14 @@ function restoreShareLink(
   state: RunState,
 ): boolean {
   if (!location.hash.startsWith("#c=")) return false;
+  // Payload size excludes the "#c=" marker — same measure as share.ts.
+  const payloadBytes = location.hash.length - SHARE_PREFIX_LEN;
+  const inWarnBand = payloadBytes > SHARE_PAYLOAD_WARN_BYTES;
   try {
     const shared = decodeShareLink(location.hash);
     setCode(shared.code);
+    const warn = inWarnBand ? " — link exceeds 32 KB" : "";
+    const cls = inWarnBand ? "warn" : "success";
     if (shared.findings !== undefined) {
       state.lastFindings = shared.findings;
       state.lastRunCode = shared.code;
@@ -338,16 +344,23 @@ function restoreShareLink(
       } else {
         showFindings(generateSarifHtml(shared.findings));
       }
-      setStatus("Restored shared run", "success");
+      setStatus(`Restored shared run${warn}`, cls);
     } else {
-      setStatus("Shared code loaded — press Run", "success");
+      setStatus(`Shared code loaded — press Run${warn}`, cls);
     }
   } catch (e) {
     const msg = e instanceof PlaygroundError ? e.message : String(e);
+    const tooLarge =
+      e instanceof PlaygroundError && e.code === "PAYLOAD_TOO_LARGE";
     showFindings(
       `<!DOCTYPE html><html><head><style>body{background:#0d1117;color:#d29922;font-family:monospace;padding:2rem;}</style></head><body><h2>Share link could not be loaded</h2><p>${escapeHtml(msg)}</p><p>Loaded the default template instead.</p></body></html>`,
     );
-    setStatus("Share link invalid — default loaded", "failure");
+    setStatus(
+      tooLarge
+        ? `Share link exceeds ${SHARE_PAYLOAD_MAX_BYTES / 1024} KB — default loaded`
+        : "Share link invalid — default loaded",
+      "warn",
+    );
   }
   return true;
 }

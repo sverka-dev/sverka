@@ -5,6 +5,7 @@ import {
   decodeShareLink,
   PlaygroundError,
   SHARE_PAYLOAD_WARN_BYTES,
+  SHARE_PAYLOAD_MAX_BYTES,
 } from "../src/index.js";
 import type { Finding, ShareableRun } from "../src/index.js";
 
@@ -86,6 +87,52 @@ describe("share links (spec 53)", () => {
 
   it("warn threshold constant is exported and positive", () => {
     expect(SHARE_PAYLOAD_WARN_BYTES).toBe(32 * 1024);
+    expect(SHARE_PAYLOAD_MAX_BYTES).toBe(64 * 1024);
+  });
+
+  // High-entropy code defeats deflate so the *encoded* size tracks input.
+  function largeRun(codeBytes: number): ShareableRun {
+    const bytes = new Uint8Array(codeBytes);
+    crypto.getRandomValues(bytes);
+    return {
+      schema: "sverka.playground/v1",
+      code: Array.from(bytes, (b) => String.fromCharCode(33 + (b % 94))).join(
+        "",
+      ),
+    };
+  }
+
+  it("decodes payloads in the 32-64 KB warn band (still loads)", () => {
+    const run = largeRun(30_000); // ~34 KB encoded
+    const url = encodeShareLink(run);
+    const payloadBytes = url.length - "#c=".length;
+    expect(payloadBytes).toBeGreaterThan(SHARE_PAYLOAD_WARN_BYTES);
+    expect(payloadBytes).toBeLessThanOrEqual(SHARE_PAYLOAD_MAX_BYTES);
+    expect(decodeShareLink(url)).toEqual(run);
+  });
+
+  it("refuses encoded payloads past 64 KB with PAYLOAD_TOO_LARGE", () => {
+    const url = encodeShareLink(largeRun(60_000)); // ~67 KB encoded
+    expect(url.length - "#c=".length).toBeGreaterThan(SHARE_PAYLOAD_MAX_BYTES);
+    try {
+      decodeShareLink(url);
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(PlaygroundError);
+      expect((e as PlaygroundError).code).toBe("PAYLOAD_TOO_LARGE");
+    }
+  });
+
+  it("refuses oversized payloads before inflating (no decode work)", () => {
+    // A >64 KB tail of pure garbage must hit the size cap, not DECODE_FAILED.
+    const hash = `#c=${"A".repeat(SHARE_PAYLOAD_MAX_BYTES + 1)}`;
+    try {
+      decodeShareLink(hash);
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(PlaygroundError);
+      expect((e as PlaygroundError).code).toBe("PAYLOAD_TOO_LARGE");
+    }
   });
 
   it("round-trips payloads of every padding length (browser atob is strict)", () => {
