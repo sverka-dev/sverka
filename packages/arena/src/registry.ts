@@ -27,7 +27,6 @@ import {
   checkSegment,
   parseArenaResultV1,
   resultPath,
-  tryParseResult,
   type ArenaResultV1,
 } from "./internal/arena-result.js";
 import {

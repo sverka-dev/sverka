@@ -302,16 +302,36 @@ describe("loadPack repo: cached clone refresh", () => {
     return upstream;
   }
 
-  async function packWithRepo(name: string, repo: string): Promise<string> {
+  async function packWithRepo(
+    name: string,
+    repo: string,
+    taskIds: readonly string[] = ["a"],
+  ): Promise<string> {
     const packDir = join(dir, name);
     mkdirSync(join(packDir, "tasks"), { recursive: true });
     writeFileSync(join(packDir, "pack.json"), JSON.stringify({ name }));
-    writeFileSync(
-      join(packDir, "tasks", "a.json"),
-      JSON.stringify({ prompt: "p", repo }),
-    );
+    for (const t of taskIds) {
+      writeFileSync(
+        join(packDir, "tasks", `${t}.json`),
+        JSON.stringify({ prompt: "p", repo }),
+      );
+    }
     return packDir;
   }
+
+  it("serializes concurrent clones of the same repo URL", async () => {
+    const repo = await makeUpstream("up-shared");
+    // Two tasks share one repo URL — loadTasks fans out with
+    // Promise.allSettled, so both cloneRepo calls race the same cache
+    // dir (clone into a dir being populated, or refresh a half-clone).
+    const packDir = await packWithRepo("pack-shared", repo, ["a", "b"]);
+    const cacheDir = join(dir, "cache-shared");
+
+    const pack = await loadPack(packDir, { cacheDir });
+    expect(pack.tasks).toHaveLength(2);
+    expect(pack.tasks[0]?.fixture).toBe(pack.tasks[1]?.fixture);
+    expect(existsSync(join(pack.tasks[0]!.fixture!, "file.txt"))).toBe(true);
+  });
 
   it("fast-forwards a clean cached clone", async () => {
     const repo = await makeUpstream("up-ff");

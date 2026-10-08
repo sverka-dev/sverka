@@ -513,29 +513,51 @@ async function refreshClone(dir: string, what: string): Promise<void> {
   }
 }
 
+/**
+ * Serialize clone/refresh per cache dir. loadTasks fans out with
+ * Promise.allSettled, so two tasks sharing a `repo` URL — or concurrent
+ * resolvePack calls on one pack URL — would otherwise race git writes
+ * inside the same dest. Different dirs still run concurrently.
+ */
+const cloneChains = new Map<string, Promise<unknown>>();
+
+function serializeClone<T>(dest: string, run: () => Promise<T>): Promise<T> {
+  const prev = cloneChains.get(dest) ?? Promise.resolve();
+  // catch(() => {}): a failed clone must not wedge the dir's chain.
+  const next = prev.catch(() => {}).then(run);
+  cloneChains.set(dest, next);
+  const sweep = () => {
+    if (cloneChains.get(dest) === next) cloneChains.delete(dest);
+  };
+  void next.then(sweep, sweep);
+  return next;
+}
+
 async function cloneRepo(url: string, opts: LoadOptions): Promise<string> {
   const dest = join(
     opts.cacheDir ?? tmpdir(),
     `arena-pack-repo-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
   );
-  // The dest path is predictable (URL hash under a shared tmpdir) — a
-  // foreign pre-created dir would supply its own .git/config, hooks,
-  // and task commands running as us. Verify before any reuse.
-  await ensurePrivateDir(dest, "repo clone cache", "PACK_NOT_FOUND");
-  if (existsSync(join(dest, ".git"))) {
-    await refreshClone(dest, `repo clone '${url}'`);
+  return serializeClone(dest, async () => {
+    // The dest path is predictable (URL hash under a shared tmpdir) — a
+    // foreign pre-created dir would supply its own .git/config, hooks,
+    // and task commands running as us. Verify before any reuse.
+    await ensurePrivateDir(dest, "repo clone cache", "PACK_NOT_FOUND");
+    if (existsSync(join(dest, ".git"))) {
+      await refreshClone(dest, `repo clone '${url}'`);
+      return dest;
+    }
+    try {
+      await gitOrThrow(["clone", "--depth", "1", url, dest]);
+    } catch (err) {
+      throw new ArenaError(
+        `cannot clone task repo '${url}': ${err instanceof Error ? err.message : String(err)}`,
+        "PACK_NOT_FOUND",
+        err,
+      );
+    }
     return dest;
-  }
-  try {
-    await gitOrThrow(["clone", "--depth", "1", url, dest]);
-  } catch (err) {
-    throw new ArenaError(
-      `cannot clone task repo '${url}': ${err instanceof Error ? err.message : String(err)}`,
-      "PACK_NOT_FOUND",
-      err,
-    );
-  }
-  return dest;
+  });
 }
 
 async function clonePack(url: string, opts: LoadOptions): Promise<string> {
@@ -543,21 +565,23 @@ async function clonePack(url: string, opts: LoadOptions): Promise<string> {
     opts.cacheDir ?? tmpdir(),
     `arena-pack-${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
   );
-  await ensurePrivateDir(dest, "pack clone cache", "PACK_NOT_FOUND");
-  if (existsSync(join(dest, ".git"))) {
-    await refreshClone(dest, `pack clone '${url}'`);
+  return serializeClone(dest, async () => {
+    await ensurePrivateDir(dest, "pack clone cache", "PACK_NOT_FOUND");
+    if (existsSync(join(dest, ".git"))) {
+      await refreshClone(dest, `pack clone '${url}'`);
+      return dest;
+    }
+    try {
+      await gitOrThrow(["clone", url, dest]);
+    } catch (err) {
+      throw new ArenaError(
+        `cannot clone pack '${url}': ${err instanceof Error ? err.message : String(err)}`,
+        "PACK_NOT_FOUND",
+        err,
+      );
+    }
     return dest;
-  }
-  try {
-    await gitOrThrow(["clone", url, dest]);
-  } catch (err) {
-    throw new ArenaError(
-      `cannot clone pack '${url}': ${err instanceof Error ? err.message : String(err)}`,
-      "PACK_NOT_FOUND",
-      err,
-    );
-  }
-  return dest;
+  });
 }
 
 export interface ResolvePackOptions extends LoadOptions {
