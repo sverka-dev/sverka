@@ -210,6 +210,16 @@ function serializedGitOp<T>(dir: string, fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/**
+ * Registry-owned paths — the only paths finalize stages. A checkout can
+ * collect strays (tool tmp litter in the auto-derived cache, scratch
+ * files in a user-provided cfg.dir); a bare `git add -A` would commit
+ * and push them, so the stage is scoped to the registry namespace
+ * instead. Everything in results/ belongs — reindex deliberately
+ * supports results dropped into the checkout out-of-band.
+ */
+const REGISTRY_PATHS = ["results", "traces", "packs", INDEX_PATH] as const;
+
 export function createGitTree(
   cfg: GitRegistryConfig,
 ): TreeStore & { dir: string } {
@@ -327,8 +337,16 @@ export function createGitTree(
       // add/commit/rebase on this checkout.
       await serializedGitOp(dir, async () => {
         await ensure();
+        // Unstage whatever an outside `git add` left behind in a
+        // user-provided checkout — it would otherwise ride this commit.
+        await git(["-C", dir, "reset", "--quiet"], { env: auth });
+        // git add errors on a pathspec that matches nothing — a missing
+        // path simply has nothing to stage.
+        const scope = REGISTRY_PATHS.filter((p) => existsSync(join(dir, p)));
         try {
-          await gitOrThrow(["-C", dir, "add", "-A"]);
+          if (scope.length > 0) {
+            await gitOrThrow(["-C", dir, "add", "-A", "--", ...scope]);
+          }
         } catch (err) {
           throw unavailable(`git add failed`, err);
         }

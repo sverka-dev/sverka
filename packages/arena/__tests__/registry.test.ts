@@ -619,6 +619,43 @@ describe("git registry", () => {
     expect(existsSync(join(verify, "index.json"))).toBe(true);
   });
 
+  it("publish never commits stray files dropped in the checkout", async () => {
+    const remote = makeBareRemote("remote-stray.git");
+    const checkout = join(dir, "checkout-stray");
+    const reg = createGitRegistry({ url: remote, dir: checkout });
+    await reg.publish(v1Doc({ runId: "run-s1" }));
+    // Strays between publishes — tool tmp litter, scratch files in a
+    // user-provided cfg.dir — live outside the registry namespace and
+    // must not be swept into the commit.
+    writeFileSync(join(checkout, "stray.txt"), "not a registry file");
+    mkdirSync(join(checkout, "scratch"), { recursive: true });
+    writeFileSync(join(checkout, "scratch", "wip.json"), "{}");
+    const rel2 = await reg.publish(v1Doc({ runId: "run-s2" }));
+    const verify = join(dir, "verify-stray");
+    gitIn(dir, ["clone", remote, verify]);
+    expect(existsSync(join(verify, rel2))).toBe(true);
+    expect(existsSync(join(verify, "stray.txt"))).toBe(false);
+    expect(existsSync(join(verify, "scratch"))).toBe(false);
+    // Scoped add never removes them — the strays stay put locally.
+    expect(existsSync(join(checkout, "stray.txt"))).toBe(true);
+  });
+
+  it("a stray already staged in the checkout is not committed either", async () => {
+    const remote = makeBareRemote("remote-staged-stray.git");
+    const checkout = join(dir, "checkout-staged-stray");
+    const reg = createGitRegistry({ url: remote, dir: checkout });
+    await reg.publish(v1Doc({ runId: "run-t1" }));
+    // A stray left staged by an outside `git add` in a cfg.dir checkout
+    // would ride the next publish's commit — unstage before adding.
+    writeFileSync(join(checkout, "staged-stray.txt"), "staged stray");
+    gitIn(checkout, ["add", "staged-stray.txt"]);
+    await reg.publish(v1Doc({ runId: "run-t2" }));
+    const verify = join(dir, "verify-staged-stray");
+    gitIn(dir, ["clone", remote, verify]);
+    expect(existsSync(join(verify, "staged-stray.txt"))).toBe(false);
+    expect(existsSync(join(checkout, "staged-stray.txt"))).toBe(true);
+  });
+
   it("refuses to reuse a checkout dir bound to another remote or branch", async () => {
     const remoteA = makeBareRemote("remote-memo-a.git");
     const remoteB = makeBareRemote("remote-memo-b.git");
