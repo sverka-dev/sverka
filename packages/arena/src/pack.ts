@@ -296,6 +296,22 @@ export async function loadPack(
 
 // ─── Lint ────────────────────────────────────────────────────────────
 
+/** Validate a task's fixture field — appends to errors. */
+function lintFixture(
+  dir: string,
+  id: string,
+  fixture: string,
+  errors: string[],
+): void {
+  const fx = resolve(dir, fixture);
+  const rel = relative(dir, fx);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    errors.push(`task '${id}': fixture '${fixture}' escapes the pack dir`);
+  } else if (!existsSync(fx) || !statSync(fx).isDirectory()) {
+    errors.push(`task '${id}': fixture dir '${fixture}' does not exist`);
+  }
+}
+
 /** Validate one parsed tasks/<id>.json — appends to errors/warnings. */
 function lintTaskRaw(
   dir: string,
@@ -328,13 +344,7 @@ function lintTaskRaw(
     return;
   }
   if (t.fixture === undefined) return;
-  const fx = resolve(dir, t.fixture);
-  const rel = relative(dir, fx);
-  if (rel.startsWith("..") || isAbsolute(rel)) {
-    errors.push(`task '${id}': fixture '${t.fixture}' escapes the pack dir`);
-  } else if (!existsSync(fx) || !statSync(fx).isDirectory()) {
-    errors.push(`task '${id}': fixture dir '${t.fixture}' does not exist`);
-  }
+  lintFixture(dir, id, t.fixture, errors);
 }
 
 /** Schema-check pack.json; warnings on name/dir mismatch. */
