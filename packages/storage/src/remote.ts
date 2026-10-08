@@ -141,7 +141,7 @@ async function hubRequest(
   let res: Response;
   try {
     // Uploads get the body budget (headers arrive after the blob
-    // streams); bodyless requests get the connect budget.
+    // streams); requests without a body get the connect budget.
     const firstMs = body !== undefined ? bodyMs : connectMs;
     // codeql[js/file-access-to-http]
     res = await withAbortOnTimeout(
