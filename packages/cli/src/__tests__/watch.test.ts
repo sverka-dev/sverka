@@ -6,7 +6,8 @@ import { describe, it, expect, afterEach } from "vitest";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { watchLoop } from "../internal/watch.js";
-import { main } from "../main.js";
+import { runCommand, type RunArgs } from "../commands/run.js";
+import { CliError, ExitCode, type GlobalFlags } from "../types.js";
 import {
   CaptureWriter,
   makeTempDir,
@@ -211,11 +212,28 @@ describe("watchLoop (spec 53.2)", () => {
   it("rejects invalid flags before entering the watch loop", async () => {
     const dir = await getDir();
     const out = new CaptureWriter();
-    // If the guard regressed below the dispatch, this call would enter the
-    // watcher and hang the test — the nonzero exit is the assertion.
-    const code = await main(["run", "--root", dir, "--watch", "--jobs", "0"], {
-      output: out,
-    });
-    expect(code).not.toBe(0);
+    const global: GlobalFlags = {
+      format: "text",
+      config: null,
+      root: dir,
+      quiet: false,
+      verbose: false,
+    };
+    // Going through main() can't pin this ordering — dispatchRun rejects
+    // bad flags before runCommand is ever reached. Call runCommand
+    // directly so the assertion covers validateRunFlags running before
+    // the runWatch dispatch. If the guard regressed below the dispatch,
+    // these calls enter the watcher and the test times out.
+    for (const args of [
+      { watch: true, jobs: 0 },
+      { watch: true, stepOutputLines: -1 },
+    ] satisfies RunArgs[]) {
+      const attempt = runCommand(args, global, out, Date.now());
+      await expect(attempt).rejects.toThrow(CliError);
+      await expect(attempt).rejects.toMatchObject({
+        code: "INVALID_FLAG",
+        exitCode: ExitCode.UsageError,
+      });
+    }
   });
 });
