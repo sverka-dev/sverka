@@ -72,3 +72,55 @@ export {
   runStepId,
   writeAggregateReport,
 } from "./aggregate-report.js";
+
+// Spec 56 — arena eval service: registry + leaderboard + task packs.
+export {
+  arenaResultV1Schema,
+  parseArenaResultV1,
+  promptHash,
+  resultPath,
+  createFileRegistry,
+  createGitRegistry,
+  createS3Registry,
+  openRegistry,
+  reindexRegistry,
+  resolveRegistryDir,
+  publishBatch,
+} from "./registry.js";
+export type {
+  ArenaResultV1,
+  TaskResult,
+  ArenaRegistry,
+  PublishOptions,
+  TraceInput,
+  ListQuery,
+  GitRegistryConfig,
+  S3RegistryConfig,
+  S3ClientLike,
+} from "./registry.js";
+
+export {
+  newRunId,
+  explodeResult,
+  publishResult,
+  publishFile,
+} from "./publish.js";
+export type { PublishContext } from "./publish.js";
+
+export {
+  buildBoard,
+  renderBoard,
+  renderBoardHtml,
+  sparkline,
+} from "./board.js";
+export type { BoardRow, BoardCohort, BuildBoardOptions } from "./board.js";
+
+export { initPack, lintPack, loadPack, resolvePack } from "./pack.js";
+export type {
+  TaskPack,
+  PackDefaults,
+  PackLint,
+  ResolvePackOptions,
+} from "./pack.js";
+
+export type { ArenaErrorCode } from "./config.js";

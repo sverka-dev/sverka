@@ -1,0 +1,24 @@
+{
+  "schema": "arena.result/v1",
+  "runId": "run-fixture-02",
+  "pack": "node-ci",
+  "agent": "devin",
+  "model": "claude-sonnet-4-5",
+  "plugins": ["sverka"],
+  "sverkaVersion": "0.9.0",
+  "startedAt": "2026-10-03T02:00:00.000Z",
+  "tasks": [
+    {
+      "task": "lint-fix",
+      "promptHash": "8da14ce8fada4498fca00b23ac5bd6571bbdb1a52efe911e668c52673bdbafaf",
+      "score": { "passed": false, "findings": 2 },
+      "metrics": { "tokens": 39600, "toolCalls": 12, "durationMs": 89000 }
+    },
+    {
+      "task": "test-fix",
+      "promptHash": "55da010e083a7af52cf3fed9adbd99f304ec6916c7f74fbdb307e19c962d816b",
+      "score": { "passed": true, "findings": 0 },
+      "metrics": { "tokens": 60200, "toolCalls": 24, "durationMs": 153000 }
+    }
+  ]
+}

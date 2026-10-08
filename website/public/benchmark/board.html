@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sverka Arena — Leaderboard</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #e6edf3; --text-muted: #8b949e;
+  --green: #3fb950; --yellow: #d29922; --red: #f85149; --accent: #58a6ff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.6; padding: 2rem; max-width: 1100px; margin: 0 auto;
+}
+h1 { font-size: 1.4rem; }
+.subtitle { color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 1.5rem; }
+.cohort {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+}
+.cohort h2 {
+  font-size: 0.95rem; font-family: ui-monospace, "SF Mono", monospace;
+  color: var(--accent); margin-bottom: 0.75rem; font-weight: 600;
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th {
+  text-align: left; color: var(--text-muted); font-weight: 600;
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--border);
+}
+td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+th.num { text-align: right; }
+.ok { color: var(--green); } .mid { color: var(--yellow); } .bad { color: var(--red); }
+.spark { font-family: ui-monospace, "SF Mono", monospace; letter-spacing: 0.05em; color: var(--green); }
+.empty { color: var(--text-muted); padding: 3rem 0; text-align: center; }
+footer { color: var(--text-muted); font-size: 0.75rem; margin-top: 2rem; }
+</style>
+</head>
+<body>
+  <h1>Sverka Arena — Leaderboard</h1>
+  <p class="subtitle">verification-grounded agent evals — cohorts are (pack · task · sverka version · prompt hash); rows compare agent×model inside one cohort only</p>
+      <section class="cohort">
+        <h2>node-ci · lint-fix · sverka 0.9.0 · prompt 8da14ce8fada</h2>
+        <table>
+          <thead><tr><th>agent</th><th>model</th><th class="num">success</th><th class="num">med&nbsp;tokens</th><th class="num">med&nbsp;duration</th><th class="num">runs</th><th>trend</th></tr></thead>
+          <tbody>
+        <tr>
+          <td>devin</td>
+          <td>gpt-5-codex</td>
+          <td class="num ok">100.0%</td>
+          <td class="num">48.7k</td>
+          <td class="num">121.0s</td>
+          <td class="num">1</td>
+          <td class="spark" title="daily success rate, last 30 days">·····························█</td>
+        </tr>
+        <tr>
+          <td>devin</td>
+          <td>claude-sonnet-4-5</td>
+          <td class="num mid">50.0%</td>
+          <td class="num">40.4k</td>
+          <td class="num">93.5s</td>
+          <td class="num">2</td>
+          <td class="spark" title="daily success rate, last 30 days">···························█·▁</td>
+        </tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="cohort">
+        <h2>node-ci · test-fix · sverka 0.9.0 · prompt 55da010e083a</h2>
+        <table>
+          <thead><tr><th>agent</th><th>model</th><th class="num">success</th><th class="num">med&nbsp;tokens</th><th class="num">med&nbsp;duration</th><th class="num">runs</th><th>trend</th></tr></thead>
+          <tbody>
+        <tr>
+          <td>devin</td>
+          <td>claude-sonnet-4-5</td>
+          <td class="num ok">100.0%</td>
+          <td class="num">58.0k</td>
+          <td class="num">147.0s</td>
+          <td class="num">2</td>
+          <td class="spark" title="daily success rate, last 30 days">···························█·█</td>
+        </tr>
+        <tr>
+          <td>devin</td>
+          <td>gpt-5-codex</td>
+          <td class="num bad">0.0%</td>
+          <td class="num">71.3k</td>
+          <td class="num">176.0s</td>
+          <td class="num">1</td>
+          <td class="spark" title="daily success rate, last 30 days">·····························▁</td>
+        </tr>
+          </tbody>
+        </table>
+      </section>
+  <footer>generated 2026-10-08T00:57:53.125Z — deterministic checks as ground truth, no LLM judge</footer>
+</body>
+</html>

@@ -4,12 +4,16 @@
 plugins actually change: tokens, tool calls, wall time, pass/fail, and an
 optional blind LLM judge.
 
-The `sverka-arena` CLI has three commands:
+The `sverka-arena` CLI:
 
 ```bash
-sverka-arena doctor  # check the environment
-sverka-arena run     # run the benchmark matrix
-sverka-arena report  # render a saved results.json
+sverka-arena doctor    # check the environment
+sverka-arena run       # run the benchmark matrix
+sverka-arena report    # render a saved results.json
+sverka-arena publish   # commit results to a registry
+sverka-arena board     # render the registry leaderboard
+sverka-arena pack      # scaffold and lint task packs
+sverka-arena reindex   # rebuild the registry index
 ```
 
 ## Configuration
@@ -109,11 +113,76 @@ sverka-arena run                          # uses ./arena.config.ts
 sverka-arena run --config path/to.ts      # explicit config
 sverka-arena run --out outdir             # override outputDir
 sverka-arena run --format json            # machine-readable stdout
+sverka-arena run --pack <ref>             # run a task pack instead of config tasks
+sverka-arena run --publish --registry <ref>  # publish after running
 ```
 
 Writes `results.json` (plus per-run traces) under `outputDir` and prints the
 aggregate table. Exit `0` on completion, `2` on config/usage errors,
 `3` on runtime failures.
+
+### Task packs
+
+`--pack <ref>` replaces the config's task list with a pack — a shareable
+benchmark suite contributed via git:
+
+```text
+<pack>/
+  pack.json        # { name, version, description, defaults }
+  tasks/<id>.json  # { id, prompt, repo|fixture, checks: [...], timeout? }
+```
+
+Pack refs resolve to a local directory, a git URL, or a bare name —
+`packs/<name>/` inside `--registry`:
+
+```bash
+sverka-arena pack init my-pack              # scaffold pack.json + tasks/
+sverka-arena pack lint my-pack              # validate (exit 1 on errors)
+sverka-arena run --pack ./my-pack           # local dir
+sverka-arena run --pack node-ci --registry git@github.com:org/arena-results.git
+```
+
+`checks` in pack tasks are the score — a task with no checks scores on agent
+exit status only, and `pack lint` warns about it.
+
+## The registry
+
+Published results live in an append-only registry — a git repo (default:
+auditable, PR-reviewable) or an S3-style object store. Every published
+document validates against `arena.result/v1` and lands at
+`results/<pack>/<agent>/<YYYY-MM-DD>/<runId>.json`; traces go under
+`traces/<runId>/`, and a denormalized `index.json` is rebuilt on each
+publish so readers never scan the tree.
+
+Registry refs: `<dir>` · `file://<dir>` · `<git-url>` · `git::<url>` ·
+`s3://<bucket>/<prefix>` — or the `ARENA_REGISTRY` env var.
+
+```bash
+sverka-arena publish .arena/results.json --pack node-ci --registry <ref>
+sverka-arena board --registry <ref> --pack node-ci
+sverka-arena board --registry <ref> --format html --out board.html
+sverka-arena reindex --registry <ref>
+```
+
+`publish` accepts either a matrix `results.json` (exploded into one v1
+document per model × plugin-set cell — `--pack` and an agent context are
+required: `--agent` or a config with `agent`) or an already-shaped
+`arena.result/v1` document. A git push rejection triggers one rebase retry,
+then `PUBLISH_CONFLICT` — results stay append-only, and the failed commit
+remains in the local checkout (the error names its path).
+
+`board` groups results into cohorts keyed
+(pack · task · sverka version · prompt hash) — runs from different prompts
+or sverka versions never merge into one score — and renders one row per
+(agent, model) with success rate, median tokens/duration, run count, and a
+30-day success-rate trend. `--format json` emits the cohort data;
+`--format html` writes a self-contained static leaderboard page.
+
+The website leaderboard is the same render at Pages time:
+`bun run docs:board` in `website/` (reads `--registry`, `ARENA_REGISTRY`,
+or the committed fixture registry) regenerates
+`public/benchmark/board.html`, which ships statically like the rest of the
+benchmark snapshot.
 
 ## `sverka-arena report`
 
@@ -130,12 +199,13 @@ plugin-on run against its plugin-off baseline.
 
 ## Exit codes
 
-| Code | Meaning                                                     |
-| ---- | ----------------------------------------------------------- |
-| `0`  | success                                                     |
-| `1`  | `doctor` found environment problems                         |
-| `2`  | usage error — bad args, bad config, unreadable results file |
-| `3`  | runtime failure during `run`/`report`                       |
+| Code | Meaning                                                              |
+| ---- | -------------------------------------------------------------------- |
+| `0`  | success                                                              |
+| `1`  | `doctor` found environment problems, `pack lint` found pack errors   |
+| `2`  | usage error — bad args, bad config/pack, unreadable or invalid input |
+| `3`  | runtime failure — run/report errors, registry unavailable or push    |
+|      | conflict                                                             |
 
 ## Example
 
