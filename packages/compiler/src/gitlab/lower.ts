@@ -862,6 +862,17 @@ function buildApplyJob(
   const writes = step.permissions?.write;
   if (writes === undefined || writes.length === 0) return undefined;
   if (!step.operations.some((op) => op.kind === "agent")) return undefined;
+  // A matrix agent step expands into parallel jobs that all upload
+  // `sverka-writes.json` under the same artifact name — same-named
+  // artifacts overwrite each other on download, so one apply job would
+  // process only one leg's writes. Per-leg apply jobs cannot `needs` a
+  // specific matrix leg, so reject the combination.
+  if (step.matrix !== undefined) {
+    throw new GitlabTargetError(
+      `step '${step.id}' combines matrix with agent writes — matrix legs share the sverka-writes.json artifact name and a single apply job cannot disambiguate them`,
+      "LOWER_FAILED",
+    );
+  }
   // The generated `<step>__apply` id can collide with a user step id —
   // suffix it until unique so one job never overwrites the other.
   let applyId = `${agentJob.id}__apply`;
@@ -881,6 +892,11 @@ function buildApplyJob(
     script: [
       `SVERKA_WRITE_DECLARATIONS=${shellQuoteSingle(JSON.stringify(writes))} ${sverkaCli("apply --provider gitlab")}`,
     ],
+    // Inherit the agent job's image and runner tags — tagged-only runners
+    // never pick up untagged jobs, and the apply script needs the same
+    // toolchain (npx) the agent job runs on.
+    ...(agentJob.image !== undefined ? { image: agentJob.image } : {}),
+    ...(agentJob.tags !== undefined ? { tags: [...agentJob.tags] } : {}),
     ...(agentJob.rules !== undefined && agentJob.rules.length > 0
       ? { rules: [...agentJob.rules] }
       : {}),
@@ -1007,6 +1023,16 @@ function lowerStep(
   const stage = stageMap.get(jobId) ?? "build";
   const triggerRules = rulesMap.get(jobId) ?? [];
   const mergedRules = mergeRules(triggerRules, step.rules);
+  const isAgentStep = step.operations.some((op) => op.kind === "agent");
+  // The apply environment is reserved for generated apply jobs — an agent
+  // step declaring it would receive the write-scoped SVERKA_APPLY_TOKEN
+  // directly, bypassing the validated apply channel.
+  if (isAgentStep && step.environment?.name === SVERKA_APPLY_ENVIRONMENT) {
+    throw new GitlabTargetError(
+      `step '${step.id}' declares environment '${SVERKA_APPLY_ENVIRONMENT}' — that environment is reserved for generated apply jobs; agent jobs run under '${SVERKA_AGENT_ENVIRONMENT}'`,
+      "LOWER_FAILED",
+    );
+  }
   const {
     script,
     artifacts,
@@ -1046,9 +1072,7 @@ function lowerStep(
       // SVERKA_AGENT_*_KEY variables so the key never reaches other jobs.
       environment:
         step.environment ??
-        (step.operations.some((op) => op.kind === "agent")
-          ? { name: SVERKA_AGENT_ENVIRONMENT }
-          : undefined),
+        (isAgentStep ? { name: SVERKA_AGENT_ENVIRONMENT } : undefined),
       cache: step.cache,
       concurrency: step.concurrency,
     }),

@@ -84,12 +84,23 @@ export function lowerGithub(
 /**
  * The Checkout step shared by every job, with optional `with:` inputs
  * (e.g. `submodules: recursive`) from {@link GithubTargetConfig.checkoutWith}.
+ * Agent jobs force `persist-credentials: false` — checkout persists the
+ * default `github.token` into `.git/config` otherwise, and a job executing
+ * an untrusted prompt must not retain it. The override is applied last so a
+ * `checkoutWith` setting cannot re-enable persistence on agent jobs.
  */
-function checkoutStep(config?: GithubTargetConfig): GithubStep {
+function checkoutStep(
+  config?: GithubTargetConfig,
+  opts?: { readonly noCredentials?: boolean },
+): GithubStep {
+  const withMap = {
+    ...config?.checkoutWith,
+    ...(opts?.noCredentials ? { "persist-credentials": false } : {}),
+  };
   return {
     name: "Checkout",
     uses: "actions/checkout@v4",
-    ...(config?.checkoutWith ? { with: config.checkoutWith } : {}),
+    ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
   };
 }
 
@@ -459,6 +470,12 @@ function buildJobGateMap(
   const entryReachable = new Map(
     pipeline.entries.map((e) => [e.id, reachableStepIds(e.roots, pipeline)]),
   );
+  // With a single push entry the `on:` union admits only its own refs, so
+  // its job gate can safely drop patterns expressions cannot express. With
+  // several, the gate must carry every ref condition (refPatternCond throws
+  // on the ones it cannot express).
+  const refsRequired =
+    pipeline.entries.filter((e) => e.trigger.kind === "push").length > 1;
 
   for (const step of reachableSteps) {
     const jobId = jobIdMap.get(step.id)!;
@@ -472,7 +489,7 @@ function buildJobGateMap(
       reaching.length === pipeline.entries.length &&
       pipeline.entries.every((e) => !triggerHasResidualFilters(e.trigger));
     if (coversAll || reaching.length === 0) continue;
-    const clauses = reaching.map((e) => entryIfExpr(e.trigger));
+    const clauses = reaching.map((e) => entryIfExpr(e.trigger, refsRequired));
     let gate =
       clauses.length === 1
         ? clauses[0]!
@@ -498,8 +515,19 @@ function triggerHasResidualFilters(t: Trigger): boolean {
   return false;
 }
 
-/** One `on:`-level branch/tag pattern as a job-if ref condition. */
-function refPatternCond(pattern: string, prefix: string): string | undefined {
+/**
+ * One `on:`-level branch/tag pattern as a job-if ref condition. Returns
+ * `undefined` for patterns GitHub expressions cannot express — safe only
+ * when the pipeline has a single push entry (the `on:` union then admits
+ * exactly this entry's refs). With multiple push entries dropping a
+ * pattern would broaden the gate to every push the union admits, so
+ * `refsRequired` makes it a lowering error instead.
+ */
+function refPatternCond(
+  pattern: string,
+  prefix: string,
+  refsRequired: boolean,
+): string | undefined {
   if (!pattern.includes("*")) {
     return `github.ref == '${escapeIfString(prefix + pattern)}'`;
   }
@@ -511,20 +539,37 @@ function refPatternCond(pattern: string, prefix: string): string | undefined {
   if (pattern.endsWith("/*")) {
     return `startsWith(github.ref, '${escapeIfString(prefix + pattern.slice(0, -1))}')`;
   }
+  if (refsRequired) {
+    throw new GithubTargetError(
+      `push ref pattern '${pattern}' cannot be expressed in a job 'if' gate (GitHub expressions have no glob matcher) — use an exact ref or an 'x/**' prefix pattern`,
+      "UNSUPPORTED_TRIGGER",
+    );
+  }
   return undefined;
 }
 
-function refFiltersClauses(t: Extract<Trigger, { kind: "push" }>): string[] {
+function refFiltersClauses(
+  t: Extract<Trigger, { kind: "push" }>,
+  refsRequired: boolean,
+): string[] {
   const clauses: string[] = [];
   const branches = (t.filter?.branches ?? [])
-    .map((b) => refPatternCond(b, "refs/heads/"))
+    .map((b) => refPatternCond(b, "refs/heads/", refsRequired))
     .filter((c): c is string => c !== undefined);
   const tags = (t.filter?.tags ?? [])
-    .map((tag) => refPatternCond(tag, "refs/tags/"))
+    .map((tag) => refPatternCond(tag, "refs/tags/", refsRequired))
     .filter((c): c is string => c !== undefined);
   const refs = [...branches, ...tags];
-  // `paths` filters cannot be expressed in a job `if` — the workflow-level
-  // `on:push.paths` union already narrows the firing events.
+  // `paths` filters cannot be expressed in a job `if`. With a single push
+  // entry the `on:push.paths` union narrows firing to exactly this entry's
+  // paths; with several, a dropped paths filter would run this entry's jobs
+  // on pushes meant for the others.
+  if (refsRequired && (t.filter?.paths?.length ?? 0) > 0) {
+    throw new GithubTargetError(
+      "push 'paths' filters cannot be expressed in a job 'if' gate — with multiple push entries the gate would be too broad; split the filtered entries into separate workflows",
+      "UNSUPPORTED_TRIGGER",
+    );
+  }
   if (refs.length === 1) clauses.push(refs[0]!);
   else if (refs.length > 1) clauses.push(`(${refs.join(" || ")})`);
   return clauses;
@@ -536,10 +581,13 @@ function refFiltersClauses(t: Extract<Trigger, { kind: "push" }>): string[] {
  * union cannot attribute an event to a specific entry, so branch/tag,
  * cron, mention, and label filters are all restated here.
  */
-function entryIfExpr(t: Trigger): string {
+function entryIfExpr(t: Trigger, refsRequired: boolean): string {
   switch (t.kind) {
     case "push": {
-      const clauses = ["github.event_name == 'push'", ...refFiltersClauses(t)];
+      const clauses = [
+        "github.event_name == 'push'",
+        ...refFiltersClauses(t, refsRequired),
+      ];
       return clauses.join(" && ");
     }
     case "changeRequest":
@@ -950,6 +998,15 @@ function buildApplyJob(
   if (writes === undefined || writes.length === 0) return undefined;
   if (!step.operations.some((op) => op.kind === "agent")) return undefined;
   const jobId = agentJob.id;
+  // A matrix agent step expands into parallel jobs that all upload the
+  // same `<job>-agent-writes` artifact name — artifact names must be
+  // unique per run and a single apply job cannot disambiguate legs.
+  if (step.matrix !== undefined) {
+    throw new GithubTargetError(
+      `step '${step.id}' combines matrix with agent writes — matrix legs share the ${jobId}-agent-writes artifact name and a single apply job cannot disambiguate them`,
+      "UNSUPPORTED_FEATURE",
+    );
+  }
   // The generated `<step>_apply` id can collide with a user step id —
   // suffix it until unique so one job never overwrites the other.
   let applyId = `${jobId}_apply`;
@@ -1735,7 +1792,11 @@ function lowerOperations(
   // setup runs before everything else — unless the pipeline opts out via
   // bootstrap ("checkout" skips setup; "none" skips both).
   if (bootstrap !== "none") {
-    steps.push(checkoutStep(config));
+    steps.push(
+      checkoutStep(config, {
+        noCredentials: step.operations.some((op) => op.kind === "agent"),
+      }),
+    );
   }
   if (bootstrap === undefined || bootstrap === "toolchain") {
     steps.push(...setupSteps(config));

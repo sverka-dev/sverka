@@ -106,6 +106,31 @@ describe("Spec 54 — GitHub issue trigger", () => {
 });
 
 describe("Spec 54 — GitHub agent job", () => {
+  it("agent job checkout disables credential persistence", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "build", { command: "make build" });
+    new AgentStep(p, "triage", { engine: "stub", prompt: "x" });
+    new Entry(p, "on-push", { trigger: push(), roots: ["build"] });
+    new Entry(p, "on-comment", {
+      trigger: comment({ mention: "@sverka" }),
+      roots: ["triage"],
+    });
+    const graph = singleGraph(new GithubTarget().lower(synthesize(proj)));
+    const triage = graph.jobs.find((j) => j.id === "triage")!;
+    const checkout = triage.steps.find((s) =>
+      s.uses?.startsWith("actions/checkout@"),
+    )!;
+    // checkout@v4 persists the default github.token into .git/config —
+    // a job executing an untrusted prompt must not retain it.
+    expect(checkout.with?.["persist-credentials"]).toBe(false);
+    const build = graph.jobs.find((j) => j.id === "build")!;
+    const buildCheckout = build.steps.find((s) =>
+      s.uses?.startsWith("actions/checkout@"),
+    )!;
+    expect(buildCheckout.with?.["persist-credentials"]).toBeUndefined();
+  });
+
   it("agent job is read-only and runs sverka agent with SVERKA_AGENT_* env", () => {
     const graph = singleGraph(new GithubTarget().lower(commentGraph()));
     const job = graph.jobs.find((j) => j.id === "triage")!;
@@ -173,6 +198,65 @@ describe("Spec 54 — GitHub _apply job", () => {
     const yaml = parse(content);
     expect(yaml.on.issue_comment).toEqual({ types: ["created"] });
     expect(yaml.jobs.triage_apply.needs).toBe("triage");
+  });
+
+  it("agent step combining matrix with writes fails lowering", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new AgentStep(p, "triage", {
+      engine: "stub",
+      prompt: "x",
+      matrix: { dimensions: { model: ["a", "b"] } },
+      permissions: {
+        write: [{ kind: "comment", target: "issue" }],
+      },
+    });
+    new Entry(p, "on-comment", {
+      trigger: comment({ mention: "@sverka" }),
+      roots: ["triage"],
+    });
+    // Matrix legs share the <job>-agent-writes artifact name — a single
+    // apply job cannot disambiguate them.
+    expect(() => new GithubTarget().lower(synthesize(proj))).toThrowError(
+      /matrix/,
+    );
+  });
+});
+
+describe("Spec 54 — GitHub push ref gate", () => {
+  it("ref globs `if` cannot express fail lowering when push entries compete", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "release", { command: "make release" });
+    new ShellStep(p, "build", { command: "make build" });
+    new Entry(p, "on-release", {
+      trigger: push({ branches: ["v*"] }),
+      roots: ["release"],
+    });
+    new Entry(p, "on-push", {
+      trigger: push({ branches: ["main"] }),
+      roots: ["build"],
+    });
+    // `v*` cannot be expressed in a job `if`, and the on: union admits
+    // main pushes too — a dropped clause would broaden the release gate.
+    expect(() => new GithubTarget().lower(synthesize(proj))).toThrowError(
+      GithubTargetError,
+    );
+  });
+
+  it("a sole push entry with a ref glob still lowers", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "release", { command: "make release" });
+    new Entry(p, "on-release", {
+      trigger: push({ branches: ["v*"] }),
+      roots: ["release"],
+    });
+    // on:push.branches admits exactly this entry's refs, so the gate can
+    // safely drop the pattern it cannot express.
+    const graph = singleGraph(new GithubTarget().lower(synthesize(proj)));
+    const release = graph.jobs.find((j) => j.id === "release")!;
+    expect(release.if ?? "").not.toContain("refs/heads/v");
   });
 });
 

@@ -268,6 +268,71 @@ describe("Spec 54 — safe-outputs __apply job", () => {
     expect(content).toContain("sverka-apply");
   });
 
+  it("apply job inherits the agent job's image and runner tags", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new AgentStep(p, "triage", {
+      engine: "anthropic",
+      prompt: "x",
+      runtime: { mode: "container", image: "node:22" },
+      runner: { labels: ["docker", "gpu"] },
+      permissions: {
+        write: [{ kind: "comment", target: "merge_request" }],
+      },
+    });
+    new Entry(p, "on-comment", {
+      trigger: comment({ mention: "@sverka", on: "mergeRequest" }),
+      roots: ["triage"],
+    });
+    const targetGraph = singleGraph(new GitlabTarget().lower(synthesize(proj)));
+    const apply = targetGraph.jobs.find((j) => j.id === "triage__apply")!;
+    // Tagged-only runners never pick up untagged jobs, and apply needs
+    // the agent job's toolchain (npx) to run `sverka apply`.
+    expect(apply.image).toBe("node:22");
+    expect(apply.tags).toEqual(["docker", "gpu"]);
+  });
+
+  it("agent step combining matrix with writes fails lowering", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new AgentStep(p, "triage", {
+      engine: "anthropic",
+      prompt: "x",
+      matrix: { dimensions: { model: ["a", "b"] } },
+      permissions: {
+        write: [{ kind: "comment", target: "merge_request" }],
+      },
+    });
+    new Entry(p, "on-comment", {
+      trigger: comment({ mention: "@sverka", on: "mergeRequest" }),
+      roots: ["triage"],
+    });
+    // Matrix legs share the sverka-writes.json artifact name — a single
+    // apply job cannot disambiguate them.
+    expect(() => new GitlabTarget().lower(synthesize(proj))).toThrowError(
+      /matrix/,
+    );
+  });
+
+  it("agent step declaring the sverka-apply environment fails lowering", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new AgentStep(p, "triage", {
+      engine: "anthropic",
+      prompt: "x",
+      environment: { name: "sverka-apply" },
+    });
+    new Entry(p, "on-comment", {
+      trigger: comment({ mention: "@sverka", on: "mergeRequest" }),
+      roots: ["triage"],
+    });
+    // The apply environment holds the write-scoped token — agent jobs
+    // must not be placed into it.
+    expect(() => new GitlabTarget().lower(synthesize(proj))).toThrowError(
+      /sverka-apply/,
+    );
+  });
+
   it("non-agent step with permissions.write does NOT get an __apply job", () => {
     const proj = new Project("test");
     const p = new Pipeline(proj, "ci");
