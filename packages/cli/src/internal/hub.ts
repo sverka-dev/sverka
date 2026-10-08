@@ -111,11 +111,15 @@ export function readHubFileConfig(root: string): HubFileConfig {
  *  directory basename when there is no usable remote. */
 export function projectSlug(root: string): string {
   try {
-    const url = execFileSync("git", ["config", "--get", "remote.origin.url"], {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    const url = execFileSync(
+      "git", // NOSONAR — argv form, no shell; fixed binary name
+      ["config", "--get", "remote.origin.url"],
+      {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
     const ssh = /^[^@]+@[^:]+:(.+)$/.exec(url);
     const path = (ssh?.[1] ?? new URL(url).pathname).replace(/\.git$/, "");
     const slug = path.replace(/^\/+/, "");
