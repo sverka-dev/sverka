@@ -100,6 +100,19 @@ describe("explodeResult", () => {
     );
   });
 
+  it("never merges cells via key concatenation collisions", () => {
+    // model "m" + plugin "ab" vs model "ma" + plugin "b" — the old
+    // concat key produced "mab" for both and merged them into one cell.
+    const docs = explodeResult(
+      matrix([
+        run({ taskId: "t1", modelId: "m", pluginIds: ["ab"] }),
+        run({ taskId: "t1", modelId: "ma", pluginIds: ["b"] }),
+      ]),
+      CTX,
+    );
+    expect(docs.length).toBe(2);
+  });
+
   it("maps score from success+checkResults and hashes the prompt", () => {
     const result = matrix([
       run({

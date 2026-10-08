@@ -55,7 +55,9 @@ function cellsOf(result: ArenaResult): Cell[] {
   const seen = new Map<string, Cell>();
   const cells: Cell[] = [];
   for (const run of result.results) {
-    const key = `${run.modelId}${[...run.pluginIds].sort().join(",")}`;
+    // JSON tuple key — string concat collides (model "m"+plugin "ab"
+    // vs model "ma"+plugin "b" both produced "mab").
+    const key = JSON.stringify([run.modelId, [...run.pluginIds].sort()]);
     let cell = seen.get(key);
     if (cell === undefined) {
       cell = {

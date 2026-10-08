@@ -145,6 +145,34 @@ describe("loadPack", () => {
     expect(err.message).toContain("fixture");
     expect(err.message).toContain("repo");
   });
+
+  it("fixture escaping the pack dir → PACK_INVALID", async () => {
+    // Community packs come from git clones — "../" must not pull host
+    // files into the agent workspace.
+    const packDir = join(dir, "escape");
+    mkdirSync(join(packDir, "tasks"), { recursive: true });
+    mkdirSync(join(dir, "outside"), { recursive: true });
+    writeFileSync(join(packDir, "pack.json"), JSON.stringify({ name: "e" }));
+    writeFileSync(
+      join(packDir, "tasks", "a.json"),
+      JSON.stringify({ prompt: "x", fixture: "../outside" }),
+    );
+    const err = await expectPackError(loadPack(packDir), "PACK_INVALID");
+    expect(err.message).toContain("escapes");
+  });
+
+  it("fixture that is a file, not a dir → PACK_INVALID", async () => {
+    const packDir = join(dir, "filefx");
+    mkdirSync(join(packDir, "tasks"), { recursive: true });
+    writeFileSync(join(packDir, "pack.json"), JSON.stringify({ name: "f" }));
+    writeFileSync(join(packDir, "fx.txt"), "not a dir");
+    writeFileSync(
+      join(packDir, "tasks", "a.json"),
+      JSON.stringify({ prompt: "x", fixture: "fx.txt" }),
+    );
+    const err = await expectPackError(loadPack(packDir), "PACK_INVALID");
+    expect(err.message).toContain("does not exist");
+  });
 });
 
 describe("lintPack", () => {
@@ -198,6 +226,21 @@ describe("lintPack", () => {
     expect(errors.some((e) => e.includes("both 'fixture' and 'repo'"))).toBe(
       true,
     );
+  });
+
+  it("flags a fixture that escapes the pack dir", async () => {
+    const packDir = join(dir, "lint-escape");
+    mkdirSync(join(packDir, "tasks"), { recursive: true });
+    writeFileSync(
+      join(packDir, "pack.json"),
+      JSON.stringify({ name: "lint-escape" }),
+    );
+    writeFileSync(
+      join(packDir, "tasks", "a.json"),
+      JSON.stringify({ prompt: "x", fixture: "../outside" }),
+    );
+    const { errors } = await lintPack(packDir);
+    expect(errors.some((e) => e.includes("escapes the pack dir"))).toBe(true);
   });
 });
 

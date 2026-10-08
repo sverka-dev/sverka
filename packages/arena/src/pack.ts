@@ -11,10 +11,10 @@
  * Spec: specs/56-arena-eval-service.
  */
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { chmod, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { z } from "zod";
 
 import { ArenaError } from "./config.js";
@@ -123,7 +123,16 @@ async function taskFromFile(
   let fixture: string | undefined;
   if (t.fixture !== undefined) {
     fixture = resolve(dir, t.fixture);
-    if (!existsSync(fixture)) {
+    // Community packs arrive via git clone — a fixture must resolve
+    // inside the pack dir (no ../ escapes) and be a directory.
+    const rel = relative(dir, fixture);
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      throw new ArenaError(
+        `pack task '${id}': fixture '${t.fixture}' escapes the pack dir`,
+        "PACK_INVALID",
+      );
+    }
+    if (!existsSync(fixture) || !statSync(fixture).isDirectory()) {
       throw new ArenaError(
         `pack task '${id}': fixture dir '${t.fixture}' does not exist in ${dir}`,
         "PACK_INVALID",
@@ -313,8 +322,16 @@ export async function lintPack(dir: string): Promise<PackLint> {
       errors.push(
         `task '${id}': cannot specify both 'fixture' and 'repo' — choose one`,
       );
-    } else if (t.fixture !== undefined && !existsSync(join(dir, t.fixture))) {
-      errors.push(`task '${id}': fixture dir '${t.fixture}' does not exist`);
+    } else if (t.fixture !== undefined) {
+      const fx = resolve(dir, t.fixture);
+      const rel = relative(dir, fx);
+      if (rel.startsWith("..") || isAbsolute(rel)) {
+        errors.push(
+          `task '${id}': fixture '${t.fixture}' escapes the pack dir`,
+        );
+      } else if (!existsSync(fx) || !statSync(fx).isDirectory()) {
+        errors.push(`task '${id}': fixture dir '${t.fixture}' does not exist`);
+      }
     }
   }
   return { errors, warnings };

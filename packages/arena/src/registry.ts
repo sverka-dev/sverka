@@ -116,6 +116,14 @@ export function resultPath(doc: ArenaResultV1, date?: string): string {
   checkSegment(doc.agent, "agent");
   checkSegment(doc.runId, "runId");
   const day = date ?? doc.startedAt.slice(0, 10);
+  // The partition lands inside a filesystem path — a date override must
+  // be a strict YYYY-MM-DD, never a traversal like "../../tmp/out".
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    throw new ArenaError(
+      `invalid date partition '${day}' — expected YYYY-MM-DD`,
+      "SCHEMA_INVALID",
+    );
+  }
   return `results/${doc.pack}/${doc.agent}/${day}/${doc.runId}.json`;
 }
 
@@ -195,8 +203,12 @@ function createFileTree(dir: string): TreeStore {
         let entries;
         try {
           entries = await readdir(join(dir, rel), { withFileTypes: true });
-        } catch {
-          return; // missing subtree = empty
+        } catch (err) {
+          // Only ENOENT means "empty subtree" — permission or I/O
+          // failures must surface (a silent empty list would let
+          // `reindex` overwrite index.json with nothing).
+          if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
+          throw unavailable(`cannot list ${rel}`, err);
         }
         for (const e of entries) {
           const child = rel === "" ? e.name : `${rel}/${e.name}`;
@@ -610,7 +622,8 @@ async function readIndex(tree: TreeStore): Promise<RegistryIndex> {
     const parsed = JSON.parse(raw) as RegistryIndex;
     if (
       parsed.schema !== "arena.index/v1" ||
-      typeof parsed.packs !== "object"
+      typeof parsed.packs !== "object" ||
+      parsed.packs === null
     ) {
       return { schema: "arena.index/v1", updatedAt: "", packs: {} };
     }
@@ -628,6 +641,14 @@ async function writeIndex(
   await tree.writeFile(INDEX_PATH, JSON.stringify(index, null, 2) + "\n");
 }
 
+/** Own-property lookup — "constructor" is a valid pack name. */
+function indexPack(
+  index: RegistryIndex,
+  name: string,
+): { runs: IndexRun[] } | undefined {
+  return Object.hasOwn(index.packs, name) ? index.packs[name] : undefined;
+}
+
 async function updateIndex(
   tree: TreeStore,
   doc: ArenaResultV1,
@@ -635,7 +656,7 @@ async function updateIndex(
 ): Promise<void> {
   const index = await readIndex(tree);
   const date = relPath.split("/")[3] ?? doc.startedAt.slice(0, 10);
-  const pack = index.packs[doc.pack] ?? { runs: [] };
+  const pack = indexPack(index, doc.pack) ?? { runs: [] };
   pack.runs = [
     ...pack.runs.filter((r) => r.runId !== doc.runId),
     { runId: doc.runId, agent: doc.agent, date, path: relPath },
@@ -650,7 +671,15 @@ async function updateIndex(
 function matchesQuery(doc: ArenaResultV1, query: ListQuery): boolean {
   if (query.pack !== undefined && doc.pack !== query.pack) return false;
   if (query.agent !== undefined && doc.agent !== query.agent) return false;
-  if (query.since !== undefined && doc.startedAt < query.since) return false;
+  // Compare instants, not strings — "01:00+02:00" sorts after "00:00Z"
+  // lexically but is the earlier instant. Unparsable input falls back
+  // to including the row (NaN comparisons are false).
+  if (
+    query.since !== undefined &&
+    Date.parse(doc.startedAt) < Date.parse(query.since)
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -726,7 +755,7 @@ function createRegistry(tree: TreeStore): ArenaRegistry {
       const index = await readIndex(tree);
       const packEntries =
         query.pack !== undefined
-          ? ([[query.pack, index.packs[query.pack]]] as const)
+          ? ([[query.pack, indexPack(index, query.pack)]] as const)
           : Object.entries(index.packs);
       if (packEntries.some(([, v]) => v !== undefined)) {
         for (const [pack, entry] of packEntries) {
@@ -777,7 +806,7 @@ export async function reindexRegistry(
     const doc = tryParseResult(await tree.readFile(rel));
     if (doc === null) continue;
     const parts = rel.split("/");
-    const pack = index.packs[doc.pack] ?? { runs: [] };
+    const pack = indexPack(index, doc.pack) ?? { runs: [] };
     pack.runs.push({
       runId: doc.runId,
       agent: doc.agent,
