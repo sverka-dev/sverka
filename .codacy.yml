@@ -59,7 +59,9 @@ engines:
   # Lizard — complexity metrics. Exclude HTML generators since
   # generateSarifHtml/generateHtml are inherently long (assembles a full
   # HTML document) and cannot be meaningfully split further without
-  # harming readability.
+  # harming readability. markdown.ts is a hand-rolled, fail-loud
+  # validation parser — length comes from per-field checks, not
+  # complexity density.
   lizard:
     enabled: true
     exclude_paths:
@@ -68,6 +70,7 @@ engines:
       - "packages/sarif-viewer-web/src/html-generator.ts"
       - "packages/ui/src/dashboard.ts"
       - "packages/playground/src/app.ts"
+      - "packages/sdk/src/markdown.ts"
 
 # Disable analysis of markdown files (we only care about code)
 languages:

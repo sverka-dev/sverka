@@ -583,24 +583,27 @@ function validateAgentOp(op: Record<string, unknown>): void {
       "invalid agent operation: 'maxTokens' must be a number",
     );
   }
-  if (op.tools !== undefined) {
-    if (!Array.isArray(op.tools)) {
+  validateAgentToolRefs(op.tools);
+}
+
+function validateAgentToolRefs(tools: unknown): void {
+  if (tools === undefined) return;
+  if (!Array.isArray(tools)) {
+    throw new ValidationError(
+      "invalid agent operation: 'tools' must be an array",
+    );
+  }
+  for (const ref of tools) {
+    const t = ref as Record<string, unknown>;
+    if (
+      typeof t !== "object" ||
+      t === null ||
+      typeof t.plugin !== "string" ||
+      typeof t.tool !== "string"
+    ) {
       throw new ValidationError(
-        "invalid agent operation: 'tools' must be an array",
+        "invalid agent operation: tool refs require 'plugin' and 'tool' strings",
       );
-    }
-    for (const ref of op.tools) {
-      const t = ref as Record<string, unknown>;
-      if (
-        typeof t !== "object" ||
-        t === null ||
-        typeof t.plugin !== "string" ||
-        typeof t.tool !== "string"
-      ) {
-        throw new ValidationError(
-          "invalid agent operation: tool refs require 'plugin' and 'tool' strings",
-        );
-      }
     }
   }
 }

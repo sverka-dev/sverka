@@ -22,10 +22,12 @@ const pipeline = new Pipeline(project, "agents");
 // sverka-apply environment. The prompt must ask for the `sverka-writes`
 // fenced block — it is the only channel the apply job reads; prose
 // replies are never posted.
-const WRITES_HINT = `End your reply with a fenced sverka-writes block holding a JSON array of writes, e.g.
-\`\`\`sverka-writes
-[{"kind": "comment", "body": "your reply text"}]
-\`\`\``;
+const WRITES_HINT = [
+  "End your reply with a fenced sverka-writes block holding a JSON array of writes, e.g.",
+  "```sverka-writes",
+  '[{"kind": "comment", "body": "your reply text"}]',
+  "```",
+].join("\n");
 
 new AgentStep(pipeline, "triage", {
   engine: "anthropic",

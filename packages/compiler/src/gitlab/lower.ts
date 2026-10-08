@@ -742,8 +742,8 @@ function escapeGitlabRegex(value: string): string {
   // GitLab rule regexes (RE2) reject a bare `@` — a literal at-sign must be
   // written \x40.
   return value
-    .replaceAll(/[.*+?^${}()|[\]\\/]/g, String.raw`\$&`)
-    .replaceAll("@", String.raw`\x40`);
+    .replaceAll(/[.*+?^${}()|[\]\\/]/g, String.raw`\$&`) // nosemgrep — compiler runs on Node, not a browser
+    .replaceAll("@", String.raw`\x40`); // nosemgrep — compiler runs on Node, not a browser
 }
 
 /**
@@ -1605,16 +1605,7 @@ function lowerAgentOp(
   }
   acc.agentOpSeen = true;
   sealStdoutCapture(acc);
-  for (const mention of mentions ?? []) {
-    const marker = `# sverka:mention: ${mention}`;
-    acc.script.push(`echo ${shellQuoteSingle(marker)}`);
-  }
-  if (mentions !== undefined && mentions.length > 0) {
-    // Multiple comment entries can reach this job with different mentions —
-    // the env var carries all of them so the in-job re-check accepts any.
-    acc.agentVariables.SVERKA_MENTION =
-      mentions.length === 1 ? mentions[0]! : JSON.stringify(mentions);
-  }
+  emitMentionMarkers(acc, mentions);
   // runtime.workingDir cds the script into a subdir — artifacts:paths is
   // always project-root-relative, so the CLI writes under $CI_PROJECT_DIR.
   acc.script.push(
@@ -1635,6 +1626,23 @@ function lowerAgentOp(
   );
   if (op.maxTokens !== undefined) {
     acc.agentVariables.SVERKA_AGENT_MAX_TOKENS = String(op.maxTokens);
+  }
+}
+
+/** Echo markers + SVERKA_MENTION env for the in-job mention re-check. */
+function emitMentionMarkers(
+  acc: OperationAccumulator,
+  mentions: readonly string[] | undefined,
+): void {
+  for (const mention of mentions ?? []) {
+    const marker = `# sverka:mention: ${mention}`;
+    acc.script.push(`echo ${shellQuoteSingle(marker)}`);
+  }
+  if (mentions !== undefined && mentions.length > 0) {
+    // Multiple comment entries can reach this job with different mentions —
+    // the env var carries all of them so the in-job re-check accepts any.
+    acc.agentVariables.SVERKA_MENTION =
+      mentions.length === 1 ? mentions[0]! : JSON.stringify(mentions);
   }
 }
 

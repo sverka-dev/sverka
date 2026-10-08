@@ -542,56 +542,67 @@ function entryIfExpr(t: Trigger): string {
       const clauses = ["github.event_name == 'push'", ...refFiltersClauses(t)];
       return clauses.join(" && ");
     }
-    case "changeRequest": {
-      const clauses = ["github.event_name == 'pull_request'"];
-      const branches = t.filter?.branches ?? [];
-      if (branches.length === 1) {
-        clauses.push(`github.base_ref == '${escapeIfString(branches[0]!)}'`);
-      } else if (branches.length > 1) {
-        const disjuncts = branches
-          .map((b) => `github.base_ref == '${escapeIfString(b)}'`)
-          .join(" || ");
-        clauses.push(`(${disjuncts})`);
-      }
-      return clauses.join(" && ");
-    }
+    case "changeRequest":
+      return changeRequestIfExpr(t);
     case "manual":
       return "github.event_name == 'workflow_dispatch'";
     case "schedule":
       return `github.event_name == 'schedule' && github.event.schedule == '${escapeIfString(t.cron)}'`;
-    case "comment": {
-      const clauses = ["github.event_name == 'issue_comment'"];
-      if (t.on === "mergeRequest") {
-        clauses.push("github.event.issue.pull_request");
-      } else if (t.on === "issue") {
-        clauses.push("!github.event.issue.pull_request");
-      }
-      if (t.mention !== undefined) {
-        clauses.push(
-          `contains(github.event.comment.body, '${escapeIfString(t.mention)}')`,
-        );
-      }
-      return clauses.join(" && ");
-    }
-    case "issue": {
-      const clauses = ["github.event_name == 'issues'"];
-      if (t.action !== undefined) {
-        clauses.push(`github.event.action == '${escapeIfString(t.action)}'`);
-      }
-      for (const label of t.labels ?? []) {
-        clauses.push(
-          `contains(github.event.issue.labels.*.name, '${escapeIfString(label)}')`,
-        );
-      }
-      return clauses.join(" && ");
-    }
+    case "comment":
+      return commentIfExpr(t);
+    case "issue":
+      return issueIfExpr(t);
   }
+}
+
+function changeRequestIfExpr(
+  t: Extract<Trigger, { kind: "changeRequest" }>,
+): string {
+  const clauses = ["github.event_name == 'pull_request'"];
+  const branches = t.filter?.branches ?? [];
+  if (branches.length === 1) {
+    clauses.push(`github.base_ref == '${escapeIfString(branches[0]!)}'`);
+  } else if (branches.length > 1) {
+    const disjuncts = branches
+      .map((b) => `github.base_ref == '${escapeIfString(b)}'`)
+      .join(" || ");
+    clauses.push(`(${disjuncts})`);
+  }
+  return clauses.join(" && ");
+}
+
+function commentIfExpr(t: Extract<Trigger, { kind: "comment" }>): string {
+  const clauses = ["github.event_name == 'issue_comment'"];
+  if (t.on === "mergeRequest") {
+    clauses.push("github.event.issue.pull_request");
+  } else if (t.on === "issue") {
+    clauses.push("!github.event.issue.pull_request");
+  }
+  if (t.mention !== undefined) {
+    clauses.push(
+      `contains(github.event.comment.body, '${escapeIfString(t.mention)}')`,
+    );
+  }
+  return clauses.join(" && ");
+}
+
+function issueIfExpr(t: Extract<Trigger, { kind: "issue" }>): string {
+  const clauses = ["github.event_name == 'issues'"];
+  if (t.action !== undefined) {
+    clauses.push(`github.event.action == '${escapeIfString(t.action)}'`);
+  }
+  for (const label of t.labels ?? []) {
+    clauses.push(
+      `contains(github.event.issue.labels.*.name, '${escapeIfString(label)}')`,
+    );
+  }
+  return clauses.join(" && ");
 }
 
 /** Escape a literal for embedding inside single-quoted `if` strings. */
 function escapeIfString(value: string): string {
   // GitHub expressions escape a single quote by doubling it.
-  return value.replaceAll("'", "''");
+  return value.replaceAll("'", "''"); // nosemgrep — emitted YAML runs on the Actions runner (Node ≥20), not a browser
 }
 
 /**

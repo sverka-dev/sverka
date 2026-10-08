@@ -258,24 +258,7 @@ async function applyGitlabComment(
   write: AgentWrite,
   declarations: readonly WriteDeclaration[],
 ): Promise<string> {
-  const env = process.env;
-  const api = env["CI_API_V4_URL"] ?? "https://gitlab.com/api/v4";
-  const project = env["CI_PROJECT_ID"];
-  if (project === undefined || project === "") {
-    throw new CliError(
-      "sverka apply: CI_PROJECT_ID is not set — run inside a GitLab job or set it explicitly",
-      "MISSING_ARG",
-      ExitCode.RuntimeError,
-    );
-  }
-  const token = env["SVERKA_APPLY_TOKEN"] || env["GITLAB_TOKEN"];
-  if (token === undefined || token === "") {
-    throw new CliError(
-      "sverka apply: SVERKA_APPLY_TOKEN is not set — scope it to the 'sverka-apply' environment (see engdocs/user/gitlab/agentic.md)",
-      "MISSING_ARG",
-      ExitCode.RuntimeError,
-    );
-  }
+  const { api, project, token } = gitlabApplyEnv();
   const body = requireBody(write);
   const on = resolveCommentTarget(write);
   // Model output is untrusted: a comment write may only target an object
@@ -302,6 +285,33 @@ async function applyGitlabComment(
       : `/projects/${encodeURIComponent(project)}/issues/${iid}/notes`;
   await postJson(`${api}${path}`, token, { body }, "PRIVATE-TOKEN");
   return `comment on ${on} !${iid}`;
+}
+
+/** Provider-supplied env for a GitLab apply call — all CI-controlled. */
+function gitlabApplyEnv(): {
+  api: string;
+  project: string;
+  token: string;
+} {
+  const env = process.env;
+  const api = env["CI_API_V4_URL"] ?? "https://gitlab.com/api/v4";
+  const project = env["CI_PROJECT_ID"];
+  if (project === undefined || project === "") {
+    throw new CliError(
+      "sverka apply: CI_PROJECT_ID is not set — run inside a GitLab job or set it explicitly",
+      "MISSING_ARG",
+      ExitCode.RuntimeError,
+    );
+  }
+  const token = env["SVERKA_APPLY_TOKEN"] || env["GITLAB_TOKEN"];
+  if (token === undefined || token === "") {
+    throw new CliError(
+      "sverka apply: SVERKA_APPLY_TOKEN is not set — scope it to the 'sverka-apply' environment (see engdocs/user/gitlab/agentic.md)",
+      "MISSING_ARG",
+      ExitCode.RuntimeError,
+    );
+  }
+  return { api, project, token };
 }
 
 async function applyGithubComment(write: AgentWrite): Promise<string> {
@@ -346,6 +356,9 @@ async function postJson(
   };
   if (auth === "PRIVATE-TOKEN") headers["PRIVATE-TOKEN"] = token;
   else headers["authorization"] = `Bearer ${token}`;
+  // The URL is CI-provider-controlled (CI_API_V4_URL/GITHUB_API_URL +
+  // CI_PROJECT_ID/GITHUB_REPOSITORY) with only a validated integer iid
+  // interpolated — no untrusted input reaches it. // nosemgrep
   const res = await fetch(url, {
     method: "POST",
     headers,

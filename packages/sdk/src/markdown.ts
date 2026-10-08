@@ -387,29 +387,29 @@ function parseBulletLine(
   const isSpace = (c: string | undefined) => c !== undefined && /\s/.test(c);
   const isKeyChar = (c: string | undefined) =>
     c !== undefined && /[\w-]/.test(c);
-  let i = 0;
-  if (line[i] !== "-") return null;
-  i++;
-  if (!isSpace(line[i])) return null;
-  while (isSpace(line[i])) i++;
-  const first = line[i];
-  if (
-    first === undefined ||
-    !(
-      (first >= "a" && first <= "z") ||
-      (first >= "A" && first <= "Z") ||
-      first === "_"
-    )
-  ) {
-    return null;
-  }
+  if (line[0] !== "-" || !isSpace(line[1])) return null;
+  let i = skipWhile(line, 1, isSpace);
+  if (!isKeyStart(line[i])) return null;
   const keyStart = i;
-  i++;
-  while (isKeyChar(line[i])) i++;
+  i = skipWhile(line, i, isKeyChar);
   const key = line.slice(keyStart, i);
-  while (isSpace(line[i])) i++;
+  i = skipWhile(line, i, isSpace);
   if (line[i] !== ":") return null;
-  return { key, rest: line.slice(i + 1).replace(/^\s+/, "") };
+  return { key, rest: line.slice(i + 1).trimStart() };
+}
+
+function skipWhile(
+  line: string,
+  from: number,
+  pred: (c: string | undefined) => boolean,
+): number {
+  let i = from;
+  while (i < line.length && pred(line[i])) i++;
+  return i;
+}
+
+function isKeyStart(c: string | undefined): boolean {
+  return c !== undefined && /[a-zA-Z_]/.test(c);
 }
 
 /**
@@ -418,8 +418,11 @@ function parseBulletLine(
  * can carry documentation.
  */
 function parseStepSection(id: string, lines: readonly string[]): ParsedStep {
-  const props = collectStepProps(id, lines);
+  return toParsedStep(id, collectStepProps(id, lines));
+}
 
+/** Validate collected props and build the ParsedStep. */
+function toParsedStep(id: string, props: Record<string, unknown>): ParsedStep {
   if (typeof props.command !== "string" || props.command === "") {
     throw new MarkdownParseError(
       `invalid .sverka.md step '${id}': missing required '- command:' line`,
