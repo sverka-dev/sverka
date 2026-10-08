@@ -1,3 +1,14 @@
+## 0.2.18 (2026-10-08)
+
+### 🩹 Fixes
+
+- **reporter:** scope findings collection by run identity, not mtime ([#335](https://github.com/sverka-dev/sverka/pull/335))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.17 (2026-10-08)
 
 ### 🩹 Fixes
