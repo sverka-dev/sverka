@@ -145,7 +145,10 @@ describe("scanner: regex literals and unicode (review findings)", () => {
   });
 
   it("a division after an operand is not scanned as a regex", () => {
-    const src = "const a = 8 / 2;\nexport default a;";
+    // `export default` shares the `/` line: a `/` mis-scanned as a regex
+    // eats the statement whole (unterminated regex to EOL), so `return`
+    // would vanish — the test actually fails on a regression.
+    const src = "const a = 8 / 2; export default a;";
     const out = preprocessCode(src);
     expect(out).toContain("8 / 2");
     expect(out).toContain("return a");
@@ -201,6 +204,80 @@ const of = 4;
 function f() { return of / 2; }
 export default new Project("p-" + f());`;
     expect(evaluateUserCode(src).id).toBe("p-2");
+  });
+});
+
+describe("scanner: operand-tracking edges (PR #320/#321 review debt)", () => {
+  it("`if (x) /re/` opens a regex after the control `)`", () => {
+    // A `)` closing a control-flow header precedes a statement — the
+    // `/` is not division. `/[{]/` carries a brace: scanned as division
+    // it pushes an expr frame that `export default` then sits inside.
+    const src = "const y = true; if (y) /[{]/g; export default y;";
+    const out = preprocessCode(src);
+    expect(out).toContain("/[{]/g");
+    expect(out).toContain("return y");
+  });
+
+  it("`while (x) /re/` and `for (x) /re/` open regexes too", () => {
+    const src =
+      "let y = 0; while (y < 0) /a/; for (let i = 0; i < 1; i++) /[{]/; export default y;";
+    const out = preprocessCode(src);
+    expect(out).toContain("return y");
+  });
+
+  it("a `/` after a grouping `)` or call `)` still divides", () => {
+    const src =
+      "const f = () => 8; const a = (4) / 2; const b = f() / 2; export default a + b;";
+    const out = preprocessCode(src);
+    expect(out).toContain("return a + b");
+  });
+
+  it("postfix `++`/`--` end the operand — `i++ / 2` divides", () => {
+    const src = "let i = 4; i++ / 2; let j = i-- / 2; export default i;";
+    const out = preprocessCode(src);
+    expect(out).toContain("return i");
+  });
+
+  it("numeric literals end the operand — `1.5 / 2` and `5. / 2` divide", () => {
+    // `5.` is a complete numeric literal: its trailing `.` is not member
+    // access, so the `/` after it divides.
+    const src = "const a = 1.5 / 2; const b = 5. / 2; export default a + b;";
+    const out = preprocessCode(src);
+    expect(out).toContain("return a + b");
+  });
+
+  it("`of` is an identifier outside `for (` headers — `of / 2` divides", () => {
+    const src = "const of = 8; const b = of / 2; export default b;";
+    const out = preprocessCode(src);
+    expect(out).toContain("return b");
+  });
+
+  it("`for (x of /re/)` still scans a regex, not division", () => {
+    const src = "for (const x of /[{]/) { x; } export default 1;";
+    const out = preprocessCode(src);
+    expect(out).toContain("return 1");
+  });
+
+  it("`for await (x of /re/)` keeps the for-header context", () => {
+    const src = "for await (const x of /[{]/) { x; } export default 1;";
+    const out = preprocessCode(src);
+    expect(out).toContain("return 1");
+  });
+
+  it("contextual words are identifiers — `async / 2` divides", () => {
+    const src =
+      "const async = 8; const b = async / 2; const get = 4; const c = get / 2; export default b + c;";
+    const out = preprocessCode(src);
+    expect(out).toContain("return b + c");
+  });
+
+  it("a `//` comment ends at CR, U+2028 and U+2029, not only LF", () => {
+    // Each terminator must release the code after it — a comment that
+    // only stops at LF would swallow `export default` into the comment.
+    for (const lt of ["\r", "\u2028", "\u2029"]) {
+      const out = preprocessCode(`// note${lt}export default 1;`);
+      expect(out).toContain("return 1");
+    }
   });
 });
 

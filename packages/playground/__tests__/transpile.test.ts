@@ -261,4 +261,53 @@ new FunctionStep(new FunctionStep(new FunctionStep(new FunctionStep(`;
     const out = toSverkaConfig(src);
     expect(out).toContain('from "@sverka/workflow"\r\nconst proj');
   });
+
+  it("a `/` after a call `)` inside fn divides — it is not a regex", () => {
+    // `f() / 2`: the call `)` ends an operand. A mis-scan reads `/ 2;` as
+    // a regex and the prop-value scan then eats the closing `}` with it,
+    // so `dependsOn` would lose its terminator.
+    const src = `import { Project, Pipeline, FunctionStep } from "@sverka/playground";
+const proj = new Project("p");
+const pl = new Pipeline(proj, "checks");
+new FunctionStep(pl, "a", {
+  fn: () => { const f = () => 8; return f() / 2; },
+  dependencies: [],
+});
+export default proj;
+`;
+    const out = toSverkaConfig(src);
+    expect(out).toContain('new ShellStep(pl, "a"');
+    expect(out).toContain("dependsOn: []");
+  });
+
+  it("`if (x) /re/` inside fn opens a regex, not division", () => {
+    // After a control-header `)` the `/` can open a regex. `/[{]/` is the
+    // nasty case: scanned as division it pushes a `{` that swallows the
+    // rest of the props object.
+    const src = `import { Project, Pipeline, FunctionStep } from "@sverka/playground";
+const proj = new Project("p");
+const pl = new Pipeline(proj, "checks");
+new FunctionStep(pl, "a", {
+  fn: () => { const y = true; if (y) /[{]/g.test("ok"); },
+  dependencies: [],
+});
+export default proj;
+`;
+    const out = toSverkaConfig(src);
+    expect(out).toContain('new ShellStep(pl, "a"');
+    expect(out).toContain("dependsOn: []");
+  });
+
+  it("a regex containing `new X(` never looks like a call site", () => {
+    const src = `import { Project, Pipeline, FunctionStep } from "@sverka/playground";
+const proj = new Project("p");
+const pl = new Pipeline(proj, "checks");
+new FunctionStep(pl, "a", { fn: () => /new FunctionStep\\(/.test("x"), dependencies: [] });
+export default proj;
+`;
+    const out = toSverkaConfig(src);
+    expect(out).toContain('new ShellStep(pl, "a"');
+    // The regex body is documentation inside fn — rewritten once, not twice.
+    expect(out.match(/new ShellStep\(/g)).toHaveLength(1);
+  });
 });
