@@ -50,7 +50,7 @@ const TREND_DAYS = 30;
 export interface BuildBoardOptions {
   /** Trend window length in days (default: 30). */
   days?: number;
-  /** Anchor date for the trend window (default: the row's latest sample). */
+  /** Anchor date for the trend window (default: the cohort's latest sample). */
   now?: Date;
 }
 
@@ -75,7 +75,12 @@ export function buildBoard(
   for (const doc of results) {
     const day = doc.startedAt.slice(0, 10);
     for (const t of doc.tasks) {
-      const ck = `${doc.pack} ${t.task} ${doc.sverkaVersion} ${t.promptHash}`;
+      const ck = JSON.stringify([
+        doc.pack,
+        t.task,
+        doc.sverkaVersion,
+        t.promptHash,
+      ]);
       let cohort = cohorts.get(ck);
       if (cohort === undefined) {
         cohort = {
@@ -89,7 +94,7 @@ export function buildBoard(
         };
         cohorts.set(ck, cohort);
       }
-      const rk = `${doc.agent} ${doc.model}`;
+      const rk = JSON.stringify([doc.agent, doc.model]);
       let row = cohort.rows.get(rk);
       if (row === undefined) {
         row = { agent: doc.agent, model: doc.model, samples: [] };
@@ -106,16 +111,19 @@ export function buildBoard(
 
   const out: BoardCohort[] = [];
   for (const { key, rows } of cohorts.values()) {
+    // One trend window per cohort — every row anchors to the same date so
+    // all trend columns under one heading cover the same period.
+    const anchor =
+      opts.now !== undefined
+        ? isoDay(opts.now)
+        : [...rows.values()].reduce(
+            (max, r) =>
+              r.samples.reduce((m, s) => (s.day > m ? s.day : m), max),
+            "0000-00-00",
+          );
     const boardRows: BoardRow[] = [...rows.values()].map((r) => {
       const n = r.samples.length;
       const passes = r.samples.filter((s) => s.passed).length;
-      const anchor =
-        opts.now !== undefined
-          ? isoDay(opts.now)
-          : r.samples.reduce(
-              (max, s) => (s.day > max ? s.day : max),
-              "0000-00-00",
-            );
       const byDay = new Map<string, { pass: number; n: number }>();
       for (const s of r.samples) {
         const d = byDay.get(s.day) ?? { pass: 0, n: 0 };

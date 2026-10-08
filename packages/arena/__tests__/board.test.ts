@@ -103,6 +103,54 @@ describe("buildBoard", () => {
     expect(cohorts.length).toBe(4);
   });
 
+  it("keeps cohorts distinct when key fields contain spaces", () => {
+    // "a b" + "c" must not merge with "a" + "b c".
+    const cohorts = buildBoard([
+      doc({ runId: "x", pack: "a b", task: "c" }),
+      doc({ runId: "y", pack: "a", task: "b c" }),
+    ]);
+    expect(cohorts.length).toBe(2);
+    expect(cohorts.map((c) => `${c.pack}|${c.task}`).sort()).toEqual([
+      "a b|c",
+      "a|b c",
+    ]);
+  });
+
+  it("keeps rows distinct when agent/model fields contain spaces", () => {
+    const cohorts = buildBoard([
+      doc({ runId: "x", agent: "a b", model: "c" }),
+      doc({ runId: "y", agent: "a", model: "b c" }),
+    ]);
+    expect(cohorts.length).toBe(1);
+    expect(cohorts[0]!.rows.length).toBe(2);
+  });
+
+  it("anchors every row's trend in a cohort to one shared date", () => {
+    const cohorts = buildBoard(
+      [
+        doc({
+          runId: "early",
+          agent: "a1",
+          startedAt: "2026-10-01T00:00:00.000Z",
+        }),
+        doc({
+          runId: "late",
+          agent: "a2",
+          startedAt: "2026-10-05T00:00:00.000Z",
+        }),
+      ],
+      { days: 5 },
+    );
+    const rows = cohorts[0]!.rows;
+    const early = rows.find((r) => r.agent === "a1")!;
+    const late = rows.find((r) => r.agent === "a2")!;
+    // Shared anchor = the cohort's latest sample day (Oct 5): the early
+    // row's sample lands on the first trend slot, the late row's on the last.
+    expect(early.trend[0]).toBe(1);
+    expect(Number.isNaN(early.trend[4])).toBe(true);
+    expect(late.trend[4]).toBe(1);
+  });
+
   it("groups one row per (agent, model) inside a cohort", () => {
     const cohorts = buildBoard([
       doc({ runId: "a", agent: "devin", model: "m1" }),
