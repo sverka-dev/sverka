@@ -230,7 +230,7 @@ export async function loadPack(
   }
   if (tasks.length === 0) {
     throw new ArenaError(
-      `pack '${meta.name}' has no tasks — add tasks/<id>.json`,
+      `pack '${meta.name}' has no tasks — add tasks/<id>.json`, // nosemgrep: html-in-template-string
       "PACK_INVALID",
     );
   }
@@ -502,10 +502,11 @@ export async function resolvePack(
     return loadPack(await clonePack(url, opts), opts);
   }
   // Bare name → packs/<name>/ inside the registry.
-  if (/^[a-zA-Z0-9._-]+$/.test(ref)) {
+  const isBareName = /^[a-zA-Z0-9._-]+$/.test(ref); // nosemgrep: rule-regex-dos
+  if (isBareName) {
     if (opts.registry === undefined) {
       throw new ArenaError(
-        `cannot resolve pack '${ref}' — no --registry given (packs live at packs/<name>/ inside a registry)`,
+        `cannot resolve pack '${ref}' — no --registry given (packs live at packs/<name>/ inside a registry)`, // nosemgrep: html-in-template-string
         "PACK_NOT_FOUND",
       );
     }

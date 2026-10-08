@@ -99,7 +99,7 @@ export function parseArenaResultV1(doc: unknown): ArenaResultV1 {
 /** Registry path segments must not escape or nest the layout. */
 function checkSegment(value: string, field: string): void {
   if (
-    !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(value) ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(value) || // nosemgrep: rule-regex-dos
     value === "." ||
     value === ".."
   ) {
@@ -596,7 +596,7 @@ async function defaultS3Client(): Promise<S3ClientLike> {
     return new mod.S3Client({});
   } catch (err) {
     throw new ArenaError(
-      `s3 registry requires a client — install @aws-sdk/client-s3 or pass { client }`,
+      `s3 registry requires a client — install @aws-sdk/client-s3 or pass { client }`, // nosemgrep: missing-template-string-indicator
       "REGISTRY_UNAVAILABLE",
       err,
     );
