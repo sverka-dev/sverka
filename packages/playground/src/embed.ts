@@ -22,7 +22,8 @@ export interface MountRunnerOptions {
    *  come from a share link or CMS, so mounting never executes it unless
    *  the embedder opts in or the user clicks Run. */
   readonly autoRun?: boolean;
-  /** Called once per completed run. */
+  /** Called once per completed run — unless the runner was disposed
+   *  first; teardown silences callbacks for runs still in flight. */
   readonly onRun?: (result: PipelineResult) => void;
 }
 
