@@ -22,6 +22,9 @@ import { viewCommand, type ViewArgs } from "./commands/view.js";
 import { uiCommand, type UiArgs } from "./commands/ui.js";
 import { agentCommand, type AgentArgs } from "./commands/agent.js";
 import { applyCommand, type ApplyArgs } from "./commands/apply.js";
+import { loginCommand, type LoginArgs } from "./commands/login.js";
+import { hubCommand, type HubArgs } from "./commands/hub.js";
+import { runsCommand, type RunsArgs } from "./commands/runs.js";
 
 /** Optional dependencies for main (testability seam). */
 export interface MainDeps {
@@ -121,6 +124,11 @@ function addRunCommand(y: Argv): Argv {
       type: "boolean",
       alias: "w",
       describe: "Re-run on file changes (debounced 300ms)",
+    })
+    .option("remote", {
+      type: "boolean",
+      default: false,
+      describe: "Remote hub run: remote cache + snapshot store + report upload",
     });
 }
 
@@ -203,6 +211,53 @@ function addUiCommand(y: Argv): Argv {
     });
 }
 
+/** Configure the login subcommand options. */
+function addLoginCommand(y: Argv): Argv {
+  return y
+    .option("hub", {
+      type: "string",
+      describe: "Hub base URL (or SVERKA_HUB_URL)",
+    })
+    .option("token", {
+      type: "string",
+      describe: "Hub bearer token (or SVERKA_HUB_TOKEN)",
+    });
+}
+
+/** Configure the hub subcommand options. */
+function addHubCommand(y: Argv): Argv {
+  return y
+    .positional("action", {
+      type: "string",
+      choices: ["serve"],
+      describe: "hub action (serve)",
+    })
+    .option("port", {
+      type: "number",
+      default: 7357,
+      describe: "Port to listen on",
+    })
+    .option("host", { type: "string", describe: "Host to bind" })
+    .option("data", {
+      type: "string",
+      describe: "Data directory (default: .sverka-hub under --root)",
+    });
+}
+
+/** Configure the runs subcommand options. */
+function addRunsCommand(y: Argv): Argv {
+  return y
+    .option("remote", {
+      type: "boolean",
+      default: false,
+      describe: "List runs stored on the configured hub",
+    })
+    .option("limit", {
+      type: "number",
+      describe: "Max runs to list",
+    });
+}
+
 function buildParser(): Argv {
   return yargs([])
     .scriptName("sverka")
@@ -264,6 +319,17 @@ function buildParser(): Argv {
               "Path to sverka-writes.json (default: <root>/sverka-writes.json)",
           }),
     )
+    .command(
+      "login",
+      "Store hub credentials (~/.config/sverka/credentials)",
+      addLoginCommand,
+    )
+    .command(
+      "hub <action>",
+      "Self-hosted run hub (serve: cache + history + findings)",
+      addHubCommand,
+    )
+    .command("runs", "List run history (local, or --remote)", addRunsCommand)
     .demandCommand(1, "No command given")
     .strict()
     .fail((msg, err) => {
@@ -313,6 +379,12 @@ async function dispatch(
       return dispatchAgent(parsed, global, output, start);
     case "apply":
       return dispatchApply(parsed, global, output, start);
+    case "login":
+      return dispatchLogin(parsed, global, output, start);
+    case "hub":
+      return dispatchHub(parsed, global, output, start);
+    case "runs":
+      return dispatchRuns(parsed, global, output, start);
     default:
       throw new CliError(
         `unknown command: ${command}`,
@@ -388,6 +460,7 @@ function dispatchRun(
   if (parsed.tui === true) args.tui = true;
   if (parsed.tui === false) args.tui = false;
   if (parsed.watch === true) args.watch = true;
+  if (parsed.remote === true) args.remote = true;
   return runCommand(args, global, output, start);
 }
 
@@ -479,6 +552,43 @@ function dispatchApply(
   }
   if (typeof parsed.file === "string") args.file = parsed.file;
   return applyCommand(args, global, output, start);
+}
+
+function dispatchLogin(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const args: LoginArgs = {};
+  if (typeof parsed.hub === "string") args.hub = parsed.hub;
+  if (typeof parsed.token === "string") args.token = parsed.token;
+  return loginCommand(args, global, output, start);
+}
+
+function dispatchHub(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const args: HubArgs = {};
+  if (typeof parsed.action === "string") args.action = parsed.action;
+  if (typeof parsed.port === "number") args.port = parsed.port;
+  if (typeof parsed.data === "string") args.data = parsed.data;
+  if (typeof parsed.host === "string") args.host = parsed.host;
+  return hubCommand(args, global, output, start);
+}
+
+function dispatchRuns(
+  parsed: Arguments,
+  global: GlobalFlags,
+  output: OutputWriter,
+  start: number,
+): Promise<number> {
+  const args: RunsArgs = { remote: parsed.remote === true };
+  if (typeof parsed.limit === "number") args.limit = parsed.limit;
+  return runsCommand(args, global, output, start);
 }
 
 /**

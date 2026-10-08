@@ -37,7 +37,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sverka/runtime": "workspace:*"
+    "@sverka/runtime": "workspace:*",
+    "@sverka/verification": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "^0.23.0",

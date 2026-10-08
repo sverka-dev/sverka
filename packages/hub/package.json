@@ -1,13 +1,13 @@
 {
-  "name": "sverka",
-  "version": "0.2.24",
-  "description": "Sverka CLI — validate, plan, run, and compile workflows",
+  "name": "@sverka/hub",
+  "version": "0.2.16",
+  "description": "Sverka hub — self-hosted remote run hub (cache + history + findings)",
   "license": "MIT",
   "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sverka-dev/sverka.git",
-    "directory": "packages/cli"
+    "directory": "packages/hub"
   },
   "homepage": "https://sverka.dev",
   "bugs": "https://github.com/sverka-dev/sverka/issues",
@@ -15,6 +15,9 @@
     "access": "public"
   },
   "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
@@ -24,37 +27,21 @@
       "import": "./dist/index.mjs"
     }
   },
-  "bin": {
-    "sverka": "dist/bin.mjs"
-  },
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "tsdown",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.31.0",
-    "@sverka/compiler": "workspace:*",
-    "@sverka/hub": "workspace:*",
-    "@sverka/reporter": "workspace:*",
-    "@sverka/runtime": "workspace:*",
-    "@sverka/sarif-viewer-tui": "workspace:*",
     "@sverka/sarif-viewer-web": "workspace:*",
-    "@sverka/sdk": "workspace:*",
-    "@sverka/storage": "workspace:*",
     "@sverka/ui": "workspace:*",
-    "@sverka/verification": "workspace:*",
-    "@sverka/workflow": "workspace:*",
-    "chokidar": "4.0.3",
-    "yargs": "^18.2.0",
-    "zod": "^4.6.5"
+    "@sverka/verification": "workspace:*"
   },
   "devDependencies": {
-    "@types/yargs": "^17.0.33",
     "tsdown": "^0.23.0",
     "typescript": "^5.8.0",
     "vitest": "^5.0.0"

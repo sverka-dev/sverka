@@ -73,11 +73,13 @@
       "dependencies": {
         "@modelcontextprotocol/sdk": "1.31.0",
         "@sverka/compiler": "workspace:*",
+        "@sverka/hub": "workspace:*",
         "@sverka/reporter": "workspace:*",
         "@sverka/runtime": "workspace:*",
         "@sverka/sarif-viewer-tui": "workspace:*",
         "@sverka/sarif-viewer-web": "workspace:*",
         "@sverka/sdk": "workspace:*",
+        "@sverka/storage": "workspace:*",
         "@sverka/ui": "workspace:*",
         "@sverka/verification": "workspace:*",
         "@sverka/workflow": "workspace:*",
@@ -113,6 +115,20 @@
       },
       "dependencies": {
         "sverka": "workspace:*",
+      },
+    },
+    "packages/hub": {
+      "name": "@sverka/hub",
+      "version": "0.2.16",
+      "dependencies": {
+        "@sverka/sarif-viewer-web": "workspace:*",
+        "@sverka/ui": "workspace:*",
+        "@sverka/verification": "workspace:*",
+      },
+      "devDependencies": {
+        "tsdown": "^0.23.0",
+        "typescript": "^5.8.0",
+        "vitest": "^5.0.0",
       },
     },
     "packages/playground": {
@@ -231,6 +247,7 @@
       "version": "0.2.20",
       "dependencies": {
         "@sverka/runtime": "workspace:*",
+        "@sverka/verification": "workspace:*",
       },
       "devDependencies": {
         "tsdown": "^0.23.0",
@@ -925,6 +942,8 @@
     "@sverka/benchmark": ["@sverka/benchmark@workspace:packages/benchmark"],
 
     "@sverka/compiler": ["@sverka/compiler@workspace:packages/compiler"],
+
+    "@sverka/hub": ["@sverka/hub@workspace:packages/hub"],
 
     "@sverka/playground": ["@sverka/playground@workspace:packages/playground"],
 
