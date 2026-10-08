@@ -26,6 +26,10 @@ export class PlaygroundError extends Error {
 /** Fragment lengths are browser-dependent; warn past 32 KB of payload. */
 export const SHARE_PAYLOAD_WARN_BYTES = 32 * 1024;
 
+/** Encoded payloads past 64 KB sit outside the safe URL-fragment range —
+ *  a link that long may arrive truncated, so decoding refuses outright. */
+export const SHARE_PAYLOAD_MAX_BYTES = 64 * 1024;
+
 /** Hard cap on inflated share payloads — a compressed fragment is cheap to
  *  craft into a deflate bomb, so decoding refuses past 1 MB of JSON. */
 const SHARE_MAX_INFLATED_BYTES = 1024 * 1024;
@@ -142,8 +146,15 @@ function assertRunShape(parsed: unknown): asserts parsed is ShareableRun {
  *  default template. */
 export function decodeShareLink(hash: string): ShareableRun {
   try {
+    const payload = shareFragment(hash);
+    if (payload.length > SHARE_PAYLOAD_MAX_BYTES) {
+      throw new PlaygroundError(
+        "PAYLOAD_TOO_LARGE",
+        `share link payload ${payload.length} bytes exceeds ${SHARE_PAYLOAD_MAX_BYTES}`,
+      );
+    }
     const json = new TextDecoder().decode(
-      inflateBounded(fromBase64Url(shareFragment(hash))),
+      inflateBounded(fromBase64Url(payload)),
     );
     const parsed: unknown = JSON.parse(json);
     assertRunShape(parsed);
