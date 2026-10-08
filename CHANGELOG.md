@@ -1,3 +1,14 @@
+## 0.2.19 (2026-10-08)
+
+### 🚀 Features
+
+- **cli:** sverka.run/v1 tag on --format json + field-set snapshot pin (spec 53.1) ([#338](https://github.com/sverka-dev/sverka/pull/338))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.18 (2026-10-08)
 
 ### 🩹 Fixes
