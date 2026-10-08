@@ -92,7 +92,7 @@ function promptFor(
   const prompt =
     ctx.prompts?.[taskId] ??
     // `analysis` is required on ArenaResult but publishFile accepts
-    // unvalidated JSON — a hand-shaped matrix file may omit it.
+    // unchecked JSON — a hand-shaped matrix file may omit it.
     result.analysis?.find((a) => a.taskId === taskId)?.prompt;
   if (prompt === undefined) {
     throw new ArenaError(
