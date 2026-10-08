@@ -9,6 +9,7 @@ import process from "node:process";
 import { readFile } from "node:fs/promises";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
+import { inspect } from "node:util";
 
 import type { ArenaResult } from "./types.js";
 import { ArenaError, loadArenaConfig, resolveAdapter } from "./config.js";
@@ -258,6 +259,13 @@ function arenaVersion(): string {
   }
 }
 
+/** Human-readable rendering for unknown thrown values / error causes. */
+function errorText(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  return inspect(e);
+}
+
 function registryRef(args: ParsedArgs): string | undefined {
   return args.registry ?? process.env["ARENA_REGISTRY"];
 }
@@ -283,6 +291,41 @@ function requireRegistry(args: ParsedArgs): ArenaRegistry {
   return openRegistry(ref, registryOpts());
 }
 
+type ArenaRunConfig = Awaited<ReturnType<typeof loadArenaConfig>>;
+
+/**
+ * Merge a resolved pack into the config: pack tasks replace config tasks,
+ * pack defaults fill unset fields. No config file → a minimal synthesized
+ * one so shared packs run standalone.
+ */
+async function packConfig(
+  args: ParsedArgs,
+  pack: TaskPack,
+): Promise<ArenaRunConfig> {
+  const configExists = existsSync(resolve(args.config));
+  if (configExists || args.configSet) {
+    const config = await loadArenaConfig(args.config);
+    config.tasks = pack.tasks as typeof config.tasks;
+    if (
+      config.repetitions === undefined &&
+      pack.defaults.repetitions !== undefined
+    ) {
+      config.repetitions = pack.defaults.repetitions;
+    }
+    return config;
+  }
+  return {
+    agent: resolveAdapter("devin"),
+    models: [{ id: "devin-default", name: "Devin default" }],
+    plugins: [],
+    tasks: pack.tasks as ArenaRunConfig["tasks"],
+    outputDir: resolve(pack.defaults.outputDir ?? ".arena"),
+    ...(pack.defaults.repetitions !== undefined
+      ? { repetitions: pack.defaults.repetitions }
+      : {}),
+  };
+}
+
 async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
   if (args.format === "html") {
     io.err("run: --format html is only supported by 'report'\n");
@@ -291,7 +334,7 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
   // Fail fast — a missing registry must fail before the matrix runs.
   const publishRegistry = args.publish ? requireRegistry(args) : undefined;
   let pack: TaskPack | undefined;
-  let config: Awaited<ReturnType<typeof loadArenaConfig>>;
+  let config: ArenaRunConfig;
   if (args.pack !== undefined) {
     const regRef = registryRef(args);
     pack = await resolvePack(args.pack, {
@@ -301,29 +344,7 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
     io.err(
       `pack '${pack.name}': ${pack.tasks.length} task(s) from ${pack.dir}\n`,
     );
-    const configExists = existsSync(resolve(args.config));
-    if (configExists || args.configSet) {
-      config = await loadArenaConfig(args.config);
-      config.tasks = pack.tasks as typeof config.tasks;
-      if (
-        config.repetitions === undefined &&
-        pack.defaults.repetitions !== undefined
-      ) {
-        config.repetitions = pack.defaults.repetitions;
-      }
-    } else {
-      // No config — synthesize a minimal one so shared packs run standalone.
-      config = {
-        agent: resolveAdapter("devin"),
-        models: [{ id: "devin-default", name: "Devin default" }],
-        plugins: [],
-        tasks: pack.tasks as typeof config.tasks,
-        outputDir: resolve(pack.defaults.outputDir ?? ".arena"),
-        ...(pack.defaults.repetitions !== undefined
-          ? { repetitions: pack.defaults.repetitions }
-          : {}),
-      };
-    }
+    config = await packConfig(args, pack);
   } else {
     config = await loadArenaConfig(args.config);
   }
@@ -358,6 +379,40 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
 
 // ─── publish ─────────────────────────────────────────────────────────
 
+/** Read the results file for publish — undefined on unreadable input. */
+async function readResultsJson(
+  file: string,
+  io: Io,
+): Promise<{ schema?: string; results?: unknown } | undefined> {
+  try {
+    return JSON.parse(await readFile(resolve(file), "utf8")) as {
+      schema?: string;
+      results?: unknown;
+    };
+  } catch (err) {
+    io.err(`publish: cannot read '${file}': ${errorText(err)}\n`);
+    return undefined;
+  }
+}
+
+/**
+ * Agent id + task prompts from the optional config file — config is
+ * optional for publish, so load failures are ignored.
+ */
+async function publishContextFromConfig(
+  args: ParsedArgs,
+): Promise<{ agent?: string; prompts: Record<string, string> }> {
+  const prompts: Record<string, string> = {};
+  if (!existsSync(resolve(args.config))) return { prompts };
+  try {
+    const cfg = await loadArenaConfig(args.config);
+    for (const t of cfg.tasks) prompts[t.id] = t.prompt;
+    return { agent: cfg.agent.id, prompts };
+  } catch {
+    return { prompts }; /* config optional for publish */
+  }
+}
+
 async function cmdPublish(args: ParsedArgs, io: Io): Promise<number> {
   const file = args.positional[0];
   if (file === undefined) {
@@ -365,16 +420,8 @@ async function cmdPublish(args: ParsedArgs, io: Io): Promise<number> {
     return 2;
   }
   const registry = requireRegistry(args);
-
-  let raw: { schema?: string; results?: unknown };
-  try {
-    raw = JSON.parse(await readFile(resolve(file), "utf8")) as typeof raw;
-  } catch (err) {
-    io.err(
-      `publish: cannot read '${file}': ${err instanceof Error ? err.message : String(err)}\n`,
-    );
-    return 2;
-  }
+  const raw = await readResultsJson(file, io);
+  if (raw === undefined) return 2;
   const isMatrix =
     typeof raw === "object" &&
     raw !== null &&
@@ -382,18 +429,8 @@ async function cmdPublish(args: ParsedArgs, io: Io): Promise<number> {
     Array.isArray(raw.results);
 
   // Matrix files need pack+agent context; v1 docs carry their own.
-  // --agent may still come from a config file's `agent` field.
-  let agent = args.agent;
-  const prompts: Record<string, string> = {};
-  if (existsSync(resolve(args.config))) {
-    try {
-      const cfg = await loadArenaConfig(args.config);
-      agent ??= cfg.agent.id;
-      for (const t of cfg.tasks) prompts[t.id] = t.prompt;
-    } catch {
-      /* config optional for publish */
-    }
-  }
+  const cfgCtx = await publishContextFromConfig(args);
+  const agent = args.agent ?? cfgCtx.agent;
   if (isMatrix && (args.pack === undefined || agent === undefined)) {
     io.err(
       `publish: matrix results.json requires --pack <name> and --agent <id> (or --config with an agent)\n`,
@@ -404,7 +441,7 @@ async function cmdPublish(args: ParsedArgs, io: Io): Promise<number> {
     pack: args.pack ?? "default",
     agent: agent ?? "unknown",
     sverkaVersion: args.sverkaVersion ?? arenaVersion(),
-    prompts,
+    prompts: cfgCtx.prompts,
     traces: args.traces,
   });
   if (args.format === "json") {
@@ -439,35 +476,39 @@ async function cmdBoard(args: ParsedArgs, io: Io): Promise<number> {
 
 // ─── pack ────────────────────────────────────────────────────────────
 
+async function cmdPackInit(args: ParsedArgs, io: Io): Promise<number> {
+  const name = args.positional[1];
+  if (name === undefined) {
+    io.err("pack init: missing <name>\n");
+    return 2;
+  }
+  const dir = join(args.dir ?? process.cwd(), name);
+  await initPack(dir, name);
+  io.out(`pack '${name}' scaffolded at ${dir}\n`);
+  return 0;
+}
+
+async function cmdPackLint(args: ParsedArgs, io: Io): Promise<number> {
+  const dir = args.positional[1];
+  if (dir === undefined) {
+    io.err("pack lint: missing <dir>\n");
+    return 2;
+  }
+  const { errors, warnings } = await lintPack(resolve(dir));
+  if (args.format === "json") {
+    io.out(JSON.stringify({ errors, warnings }, null, 2) + "\n");
+  } else {
+    for (const w of warnings) io.out(`warn  ${w}\n`);
+    for (const e of errors) io.out(`error ${e}\n`);
+    if (errors.length === 0) io.out(`pack '${dir}': ok\n`);
+  }
+  return errors.length === 0 ? 0 : 1;
+}
+
 async function cmdPack(args: ParsedArgs, io: Io): Promise<number> {
   const sub = args.positional[0];
-  if (sub === "init") {
-    const name = args.positional[1];
-    if (name === undefined) {
-      io.err("pack init: missing <name>\n");
-      return 2;
-    }
-    const dir = join(args.dir ?? process.cwd(), name);
-    await initPack(dir, name);
-    io.out(`pack '${name}' scaffolded at ${dir}\n`);
-    return 0;
-  }
-  if (sub === "lint") {
-    const dir = args.positional[1];
-    if (dir === undefined) {
-      io.err("pack lint: missing <dir>\n");
-      return 2;
-    }
-    const { errors, warnings } = await lintPack(resolve(dir));
-    if (args.format === "json") {
-      io.out(JSON.stringify({ errors, warnings }, null, 2) + "\n");
-    } else {
-      for (const w of warnings) io.out(`warn  ${w}\n`);
-      for (const e of errors) io.out(`error ${e}\n`);
-      if (errors.length === 0) io.out(`pack '${dir}': ok\n`);
-    }
-    return errors.length === 0 ? 0 : 1;
-  }
+  if (sub === "init") return cmdPackInit(args, io);
+  if (sub === "lint") return cmdPackLint(args, io);
   io.err(`pack: unknown subcommand '${sub ?? ""}' — init|lint\n`);
   return 2;
 }
@@ -591,13 +632,11 @@ export async function main(
           : 2;
       io.err(`error: ${err.message}\n`);
       if (err.cause !== undefined) {
-        io.err(
-          `cause: ${err.cause instanceof Error ? err.cause.message : String(err.cause)}\n`,
-        );
+        io.err(`cause: ${errorText(err.cause)}\n`);
       }
       return code;
     }
-    io.err(`error: ${err instanceof Error ? err.message : String(err)}\n`);
+    io.err(`error: ${errorText(err)}\n`);
     return 3;
   }
 }
