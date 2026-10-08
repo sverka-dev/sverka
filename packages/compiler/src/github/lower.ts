@@ -553,13 +553,13 @@ function refFiltersClauses(
   refsRequired: boolean,
 ): string[] {
   const clauses: string[] = [];
-  const branches = (t.filter?.branches ?? [])
-    .map((b) => refPatternCond(b, "refs/heads/", refsRequired))
-    .filter((c): c is string => c !== undefined);
-  const tags = (t.filter?.tags ?? [])
-    .map((tag) => refPatternCond(tag, "refs/tags/", refsRequired))
-    .filter((c): c is string => c !== undefined);
-  const refs = [...branches, ...tags];
+  const branches = (t.filter?.branches ?? []).map((b) =>
+    refPatternCond(b, "refs/heads/", refsRequired),
+  );
+  const tags = (t.filter?.tags ?? []).map((tag) =>
+    refPatternCond(tag, "refs/tags/", refsRequired),
+  );
+  const patterns = [...branches, ...tags];
   // `paths` filters cannot be expressed in a job `if`. With a single push
   // entry the `on:push.paths` union narrows firing to exactly this entry's
   // paths; with several, a dropped paths filter would run this entry's jobs
@@ -570,6 +570,12 @@ function refFiltersClauses(
       "UNSUPPORTED_TRIGGER",
     );
   }
+  // If any pattern is inexpressible, keeping only the expressible clauses
+  // would skip jobs on refs the `on:` union admits — drop the whole ref
+  // set instead. Only reachable with a single push entry (refsRequired
+  // throws above), where the union already scopes firing to this entry.
+  if (patterns.some((c) => c === undefined)) return clauses;
+  const refs = patterns.filter((c): c is string => c !== undefined);
   if (refs.length === 1) clauses.push(refs[0]!);
   else if (refs.length > 1) clauses.push(`(${refs.join(" || ")})`);
   return clauses;

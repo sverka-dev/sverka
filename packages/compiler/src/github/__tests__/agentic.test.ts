@@ -258,6 +258,28 @@ describe("Spec 54 — GitHub push ref gate", () => {
     const release = graph.jobs.find((j) => j.id === "release")!;
     expect(release.if ?? "").not.toContain("refs/heads/v");
   });
+
+  it("a mixed expressible/glob ref list drops the whole ref clause", () => {
+    const proj = new Project("test");
+    const p = new Pipeline(proj, "ci");
+    new ShellStep(p, "release", { command: "make release" });
+    new ShellStep(p, "notify", { command: "make notify" });
+    new Entry(p, "on-release", {
+      trigger: push({ branches: ["main", "v*"] }),
+      roots: ["release"],
+    });
+    new Entry(p, "on-comment", {
+      trigger: comment({ mention: "@sverka" }),
+      roots: ["notify"],
+    });
+    // Keeping only the expressible `main` clause would skip release on
+    // v* pushes the on: union admits — the gate must fall back to the
+    // event check alone.
+    const graph = singleGraph(new GithubTarget().lower(synthesize(proj)));
+    const release = graph.jobs.find((j) => j.id === "release")!;
+    expect(release.if ?? "").not.toContain("github.ref");
+    expect(release.if ?? "").toContain("github.event_name == 'push'");
+  });
 });
 
 describe("Spec 54 — GitHub capabilities", () => {
