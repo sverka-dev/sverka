@@ -225,7 +225,7 @@ function createFileTree(dir: string): TreeStore {
       };
       // A trailing "/" in relPrefix would seed children as "results//x"
       // — and split("/")[3] on that yields the agent segment, not the
-      // date. Normalize so returned paths stay canonical posix rels.
+      // date. Normalize so returned paths stay canonical.
       await walk(relPrefix.replace(/\/+$/, ""));
       return out;
     },
