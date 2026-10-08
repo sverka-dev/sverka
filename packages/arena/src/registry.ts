@@ -164,6 +164,13 @@ interface TreeStore {
   writeFile(rel: string, data: string): Promise<void>;
   /** Relative posix paths under relPrefix, recursive. */
   listFiles(relPrefix: string): Promise<string[]>;
+  /**
+   * Re-sync remote state before a read operation — the git backend
+   * re-pulls (its clone is memoized, so without this a long-lived
+   * registry never sees pushes that landed after first access).
+   * File/s3 backends don't implement it.
+   */
+  refresh?(): Promise<void>;
   /** Commit/publish pending writes — git commits + pushes; others no-op. */
   finalize(message: string): Promise<void>;
 }
@@ -349,6 +356,26 @@ const GIT_IDENTITY = [
   "user.email=arena@sverka.dev",
 ];
 
+const gitOps = new Map<string, Promise<unknown>>();
+
+/**
+ * Serialize git-mutating operations per checkout dir — a refresh pull
+ * racing publish's add/commit would fail on index.lock, and a stopped
+ * rebase observed under the lock is dead (a live one holds the queue
+ * through finalize), so the holder may safely abort it.
+ */
+function serializedGitOp<T>(dir: string, fn: () => Promise<T>): Promise<T> {
+  const run = (gitOps.get(dir) ?? Promise.resolve()).then(fn);
+  gitOps.set(
+    dir,
+    run.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return run;
+}
+
 function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
   const dir = gitRegistryDir(cfg);
   const branch = cfg.branch ?? "main";
@@ -362,6 +389,32 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
     existsSync(join(dir, ".git", "rebase-apply"));
 
   /**
+   * Best-effort re-sync before a read — one `pull --ff-only` per call,
+   * serialized against publish's git ops on this checkout. Every step
+   * is soft: a stopped rebase found here is dead (a live publish holds
+   * the queue) so it's aborted; a non-ff/dirty/offline pull just leaves
+   * the stale view, which stays readable — publish reconciles through
+   * its own pull --rebase.
+   */
+  async function refresh(): Promise<void> {
+    await serializedGitOp(dir, async () => {
+      await ensure(); // a failed clone is real unavailability — throws
+      if (rebaseInProgress()) {
+        await git(["-C", dir, "rebase", "--abort"], { env: auth });
+      }
+      const head = await git(
+        ["-C", dir, "symbolic-ref", "-q", "--short", "HEAD"],
+        { env: auth },
+      );
+      if (head.code === 0 && head.stdout.trim() === branch) {
+        await git(["-C", dir, "pull", "--ff-only", "origin", branch], {
+          env: auth,
+        });
+      }
+    });
+  }
+
+  /**
    * Recover a stopped rebase. Two publishers racing always collide on
    * index.json — each commit rewrites it — while result/trace paths are
    * per-run and never conflict. index.json is a pure function of the
@@ -371,7 +424,13 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
    * caller abort.
    */
   async function resolveRebaseConflicts(): Promise<boolean> {
-    for (let round = 0; round < 8 && rebaseInProgress(); round++) {
+    // Each round resolves exactly one stopped commit — the only
+    // tolerated conflict is index.json, regenerated from the merged
+    // results/ tree — so the loop is bounded by the number of commits
+    // the rebase replays. No fixed cap: a checkout holding many
+    // unpublished commits (repeated PUBLISH_CONFLICTs) is still
+    // resolvable.
+    while (rebaseInProgress()) {
       const unmerged = await git(
         ["-C", dir, "diff", "--name-only", "--diff-filter=U"],
         { env: auth },
@@ -433,35 +492,47 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
       await ensure();
       return inner.listFiles(relPrefix);
     },
+    refresh,
     async finalize(message) {
-      await ensure();
-      try {
-        await gitOrThrow(["-C", dir, "add", "-A"]);
-      } catch (err) {
-        throw unavailable(`git add failed`, err);
-      }
-      const staged = await git(["-C", dir, "diff", "--cached", "--quiet"]);
-      if (staged.code === 0) return; // nothing to commit
-      try {
-        await gitOrThrow(["-C", dir, ...GIT_IDENTITY, "commit", "-m", message]);
-      } catch (err) {
-        throw unavailable(`git commit failed`, err);
-      }
-      let res = await push();
-      if (res.code !== 0) {
-        // Non-fast-forward (or auth failure indistinguishable from it):
-        // one rebase retry — results are append-only, never force-pushed.
-        await pullRebase();
-        res = await push();
-        if (res.code !== 0) {
-          throw new ArenaError(
-            `publish rejected — git push to '${cfg.url}' failed after rebase retry; ` +
-              `results are preserved in the local checkout at ${dir}`,
-            "PUBLISH_CONFLICT",
-            res.stderr.trim(),
-          );
+      // Serialized with refresh — a pull must never interleave with
+      // add/commit/rebase on this checkout.
+      await serializedGitOp(dir, async () => {
+        await ensure();
+        try {
+          await gitOrThrow(["-C", dir, "add", "-A"]);
+        } catch (err) {
+          throw unavailable(`git add failed`, err);
         }
-      }
+        const staged = await git(["-C", dir, "diff", "--cached", "--quiet"]);
+        if (staged.code === 0) return; // nothing to commit
+        try {
+          await gitOrThrow([
+            "-C",
+            dir,
+            ...GIT_IDENTITY,
+            "commit",
+            "-m",
+            message,
+          ]);
+        } catch (err) {
+          throw unavailable(`git commit failed`, err);
+        }
+        let res = await push();
+        if (res.code !== 0) {
+          // Non-fast-forward (or auth failure indistinguishable from it):
+          // one rebase retry — results are append-only, never force-pushed.
+          await pullRebase();
+          res = await push();
+          if (res.code !== 0) {
+            throw new ArenaError(
+              `publish rejected — git push to '${cfg.url}' failed after rebase retry; ` +
+                `results are preserved in the local checkout at ${dir}`,
+              "PUBLISH_CONFLICT",
+              res.stderr.trim(),
+            );
+          }
+        }
+      });
     },
   };
 }
@@ -815,6 +886,9 @@ export async function publishBatch(
 function createRegistry(tree: TreeStore): ArenaRegistry {
   return {
     async publish(result, opts = {}) {
+      // No refresh here: publishing off a stale checkout surfaces
+      // same-path rewrites as a rebase conflict (REGISTRY_UNAVAILABLE)
+      // rather than silently last-writer-wins.
       const rel = await writeResult(tree, result, opts);
       await tree.finalize(
         `arena: publish ${result.pack}/${result.agent}/${result.runId}`,
@@ -822,6 +896,7 @@ function createRegistry(tree: TreeStore): ArenaRegistry {
       return rel;
     },
     async list(query = {}) {
+      await tree.refresh?.();
       const out: ArenaResultV1[] = [];
       const index = await readIndex(tree);
       const packEntries =
@@ -901,6 +976,8 @@ export async function reindexRegistry(
       "REGISTRY_UNAVAILABLE",
     );
   }
+  // Re-sync first — a memoized checkout would index a stale tree.
+  await tree.refresh?.();
   const { index, runs } = await buildIndex(tree);
   await writeIndex(tree, index);
   await tree.finalize("arena: reindex");
