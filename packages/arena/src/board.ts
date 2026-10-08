@@ -128,7 +128,7 @@ export function buildBoard(
       for (let i = days - 1; i >= 0; i--) {
         const d = new Date(anchorDate.getTime() - i * 86_400_000);
         const stat = byDay.get(isoDay(d));
-        trend.push(stat === undefined ? NaN : stat.pass / stat.n);
+        trend.push(stat === undefined ? Number.NaN : stat.pass / stat.n);
       }
       const tokens = median(
         r.samples.flatMap((s) => (s.tokens !== undefined ? [s.tokens] : [])),
@@ -238,12 +238,18 @@ export function renderBoard(cohorts: readonly BoardCohort[]): string {
 
 // ─── HTML render ─────────────────────────────────────────────────────
 
+function rateClass(successRate: number): string {
+  if (successRate >= 0.99) return "ok";
+  if (successRate >= 0.5) return "mid";
+  return "bad";
+}
+
 function esc(s: string): string {
   return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replaceAll(/&/g, "&amp;")
+    .replaceAll(/</g, "&lt;")
+    .replaceAll(/>/g, "&gt;")
+    .replaceAll(/"/g, "&quot;");
 }
 
 /**
@@ -265,7 +271,7 @@ export function renderBoardHtml(
           return `        <tr>
           <td>${esc(r.agent)}</td>
           <td>${esc(r.model)}</td>
-          <td class="num ${r.successRate >= 0.99 ? "ok" : r.successRate >= 0.5 ? "mid" : "bad"}">${(r.successRate * 100).toFixed(1)}%</td>
+          <td class="num ${rateClass(r.successRate)}">${(r.successRate * 100).toFixed(1)}%</td>
           <td class="num">${formatTokens(r.medianTokens)}</td>
           <td class="num">${formatDuration(r.medianDurationMs)}</td>
           <td class="num">${r.runs}</td>
