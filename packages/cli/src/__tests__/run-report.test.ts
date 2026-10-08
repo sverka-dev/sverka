@@ -386,7 +386,10 @@ describe("run command — per-run report artifacts (spec 53)", () => {
       await cleanupTempDir(sarifDir);
     }
 
-    // Failed step — pins the `error` field on the step entry.
+    // Failed step — pins the `error` field on the step entry, in both the
+    // stdout payload and the persisted report.json (the durable contract is
+    // the one readers consume — dropping `error` there must not pass
+    // silently just because stdout still carries it).
     const failDir = await makeTempDir("sverka-run-schema-fail-");
     try {
       await writefile(
@@ -428,6 +431,34 @@ export default proj;
                 "stdout": "string",
                 "stepId": "string",
               },
+            ],
+          },
+          "durationMs": "number",
+          "schema": "string",
+        }
+      `);
+      const failReport = JSON.parse(
+        readFileSync(failPayload.data.report.json, "utf-8"),
+      );
+      expect(fieldSet(failReport)).toMatchInlineSnapshot(`
+        {
+          "data": {
+            "findings": "number",
+            "planId": "string",
+            "status": "string",
+            "steps": [
+              {
+                "durationMs": "number",
+                "error": "string",
+                "exitCode": "number",
+                "status": "string",
+                "stderr": "string",
+                "stdout": "string",
+                "stepId": "string",
+              },
+            ],
+            "warnings": [
+              "string",
             ],
           },
           "durationMs": "number",
