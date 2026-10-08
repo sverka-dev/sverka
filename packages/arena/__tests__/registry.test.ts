@@ -299,6 +299,45 @@ describe("file registry", () => {
     ]);
   });
 
+  it("rebuild dedupes a runId left under two partitions by a republish", async () => {
+    const regDir = join(dir, "reg-dup-runid");
+    const doc = v1Doc({ runId: "r-dup" });
+    mkdirSync(join(regDir, "results/node-ci/devin/2026-10-01"), {
+      recursive: true,
+    });
+    mkdirSync(join(regDir, "results/node-ci/devin/2026-10-02"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(regDir, "results/node-ci/devin/2026-10-01/r-dup.json"),
+      JSON.stringify(doc),
+    );
+    writeFileSync(
+      join(regDir, "results/node-ci/devin/2026-10-02/r-dup.json"),
+      JSON.stringify(doc),
+    );
+    // Corrupt the index — the next publish rebuilds from results/ and
+    // must not restore both r-dup files (updateIndex's invariant is one
+    // entry per runId; the newest partition wins).
+    writeFileSync(join(regDir, "index.json"), "{ not json");
+    const reg = createFileRegistry(regDir);
+    await reg.publish(
+      v1Doc({ runId: "r-new", startedAt: "2026-10-03T00:00:00.000Z" }),
+    );
+    const index = JSON.parse(
+      readFileSync(join(regDir, "index.json"), "utf8"),
+    ) as {
+      packs: Record<string, { runs: { runId: string; path: string }[] }>;
+    };
+    const runs = index.packs["node-ci"]!.runs;
+    expect(runs.map((r) => r.runId)).toEqual(["r-dup", "r-new"]);
+    expect(runs[0]!.path).toBe("results/node-ci/devin/2026-10-02/r-dup.json");
+    expect((await reg.list({ pack: "node-ci" })).map((d) => d.runId)).toEqual([
+      "r-dup",
+      "r-new",
+    ]);
+  });
+
   it("list surfaces non-ENOENT failures instead of returning empty", async () => {
     // results/ replaced by a regular file → readdir fails ENOTDIR
     // deterministically (even as root). A silent empty list here would

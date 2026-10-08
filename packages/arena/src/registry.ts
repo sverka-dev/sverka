@@ -223,7 +223,10 @@ function createFileTree(dir: string): TreeStore {
           else if (e.isFile()) out.push(child);
         }
       };
-      await walk(relPrefix);
+      // A trailing "/" in relPrefix would seed children as "results//x"
+      // — and split("/")[3] on that yields the agent segment, not the
+      // date. Normalize so returned paths stay canonical posix rels.
+      await walk(relPrefix.replace(/\/+$/, ""));
       return out;
     },
     async finalize() {},
@@ -978,7 +981,6 @@ async function buildIndex(
     updatedAt: "",
     packs: {},
   };
-  let runs = 0;
   for (const rel of await tree.listFiles("results/")) {
     if (!rel.endsWith(".json")) continue;
     const doc = tryParseResult(await tree.readFile(rel));
@@ -992,10 +994,25 @@ async function buildIndex(
       path: rel,
     });
     index.packs[doc.pack] = pack;
-    runs++;
   }
+  let runs = 0;
   for (const pack of Object.values(index.packs)) {
-    pack.runs.sort(compareIndexRuns);
+    // updateIndex keeps one entry per runId; a republish under another
+    // partition leaves both files in results/, so the rebuild collapses
+    // them too — the newest partition wins, path the tie-break.
+    const byRun = new Map<string, IndexRun>();
+    for (const run of pack.runs) {
+      const prev = byRun.get(run.runId);
+      if (
+        prev === undefined ||
+        run.date > prev.date ||
+        (run.date === prev.date && run.path > prev.path)
+      ) {
+        byRun.set(run.runId, run);
+      }
+    }
+    pack.runs = [...byRun.values()].sort(compareIndexRuns);
+    runs += pack.runs.length;
   }
   return { index, runs };
 }
