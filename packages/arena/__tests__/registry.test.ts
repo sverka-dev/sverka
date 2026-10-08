@@ -738,13 +738,9 @@ describe("git registry", () => {
     // The merged index was regenerated from the results/ tree — all
     // 10 ours + the rival's run.
     expect(index.packs["node-ci"]!.runs.length).toBe(10);
-    expect(index.packs["py-ci"]!.runs.map((r) => r.runId)).toEqual([
-      "run-rv",
-    ]);
+    expect(index.packs["py-ci"]!.runs.map((r) => r.runId)).toEqual(["run-rv"]);
     expect(
-      existsSync(
-        join(verify, "results/node-ci/devin/2026-10-01/run-m10.json"),
-      ),
+      existsSync(join(verify, "results/node-ci/devin/2026-10-01/run-m10.json")),
     ).toBe(true);
   });
 });
