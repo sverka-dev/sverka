@@ -23,49 +23,10 @@ export async function collectFindings(
   // secondary filter within the run tree.
   const scanRoot = runId === undefined ? root : resolve(join(root, runId));
   if (runId !== undefined) {
-    // Containment must hold lexically (runId can't `../` out — a
-    // `root + sep` prefix test would reject the filesystem root itself)
-    // and physically: a symlinked run dir resolves outside the root
-    // while still passing the lexical check. The physical check only
-    // applies when the run dir exists — a missing one is the normal
-    // "run wrote no artifacts" case handled by the ENOENT branch below.
-    const [realRoot, realScan] = await Promise.all([
-      realpath(root).catch(() => root),
-      realpath(scanRoot).catch(() => undefined),
-    ]);
-    if (
-      !isUnder(root, scanRoot) ||
-      (realScan !== undefined && !isUnder(realRoot, realScan))
-    ) {
-      throw new ReporterError(
-        `invalid runId "${runId}" — must resolve under the artifact directory`,
-        "COLLECTION_FAILED",
-      );
-    }
+    await assertRunContained(root, scanRoot, runId);
   }
 
-  let entries: readonly string[];
-  try {
-    entries = await readdir(scanRoot);
-  } catch (e) {
-    const code = (e as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" && runId !== undefined) {
-      // The scoped run wrote no artifacts — normal when no step exports
-      // SARIF. Keep the actionable hint when the artifact root itself is
-      // absent: no run has ever produced artifacts here.
-      try {
-        await readdir(root);
-        return [];
-      } catch (rootErr) {
-        if ((rootErr as NodeJS.ErrnoException).code === "ENOENT") {
-          throw dirNotFoundError(root, rootErr);
-        }
-        throw dirReadError(root, rootErr);
-      }
-    }
-    if (code === "ENOENT") throw dirNotFoundError(root, e);
-    throw dirReadError(scanRoot, e);
-  }
+  const entries = await readScanDir(scanRoot, root, runId);
 
   const rows: FindingRow[] = [];
 
@@ -86,6 +47,63 @@ export async function collectFindings(
   }
 
   return rows;
+}
+
+/**
+ * Containment for a run-scoped scan root. Must hold lexically (runId
+ * can't `../` out — a `root + sep` prefix test would reject the
+ * filesystem root itself) and physically: a symlinked run dir resolves
+ * outside the root while still passing the lexical check. The physical
+ * check only applies when the run dir exists — a missing one is the
+ * normal "run wrote no artifacts" case handled by the ENOENT branch in
+ * readScanDir.
+ */
+async function assertRunContained(
+  root: string,
+  scanRoot: string,
+  runId: string,
+): Promise<void> {
+  const [realRoot, realScan] = await Promise.all([
+    realpath(root).catch(() => root),
+    realpath(scanRoot).catch(() => undefined),
+  ]);
+  if (
+    !isUnder(root, scanRoot) ||
+    (realScan !== undefined && !isUnder(realRoot, realScan))
+  ) {
+    throw new ReporterError(
+      `invalid runId "${runId}" — must resolve under the artifact directory`,
+      "COLLECTION_FAILED",
+    );
+  }
+}
+
+async function readScanDir(
+  scanRoot: string,
+  root: string,
+  runId: string | undefined,
+): Promise<readonly string[]> {
+  try {
+    return await readdir(scanRoot);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" && runId !== undefined) {
+      // The scoped run wrote no artifacts — normal when no step exports
+      // SARIF. Keep the actionable hint when the artifact root itself is
+      // absent: no run has ever produced artifacts here.
+      try {
+        await readdir(root);
+        return [];
+      } catch (rootErr) {
+        if ((rootErr as NodeJS.ErrnoException).code === "ENOENT") {
+          throw dirNotFoundError(root, rootErr);
+        }
+        throw dirReadError(root, rootErr);
+      }
+    }
+    if (code === "ENOENT") throw dirNotFoundError(root, e);
+    throw dirReadError(scanRoot, e);
+  }
 }
 
 /** True when `child` resolves strictly inside `parent`. */
@@ -129,40 +147,52 @@ async function scanDir(
   }
 
   for (const entry of entries) {
-    const entryPath = join(dir, entry);
-    let st: Stats;
-    try {
-      st = await lstat(entryPath);
-    } catch {
-      continue;
-    }
-
-    // Prevent traversal outside artifactDir via symlink or ../
-    const resolvedEntry = resolve(entryPath);
-    if (resolvedEntry !== artifactDir && !isUnder(artifactDir, resolvedEntry)) {
-      continue;
-    }
-
-    // lstat reports symlinks as links, not dirs/files — never follow
-    // them so a link can't pull SARIF in from outside the artifact tree.
-    if (st.isSymbolicLink()) continue;
-
-    if (st.isDirectory()) {
-      await scanDir(entryPath, artifactDir, rows, sinceMs);
-    } else if (entry.endsWith(".sarif") || entry.endsWith(".sarif.json")) {
-      // Run scoping is the collector's job — when `runId` is set the
-      // scan root is already that run's private tree. `sinceMs` remains
-      // for legacy flat artifact directories shared across runs: only
-      // files (re)written during the current run belong in its report.
-      // Filesystems with coarse timestamp granularity (FAT32: 2s) can
-      // round a just-written file's mtime below the run start, so the
-      // cutoff carries an epsilon — a file written moments before this
-      // run is a far smaller evil than silently dropping its findings.
-      if (sinceMs !== undefined && st.mtimeMs < sinceMs - MTIME_EPSILON_MS)
-        continue;
-      await processSarif(entryPath, dir, artifactDir, rows);
-    }
+    await scanEntry(dir, entry, artifactDir, rows, sinceMs);
   }
+}
+
+async function scanEntry(
+  dir: string,
+  entry: string,
+  artifactDir: string,
+  rows: FindingRow[],
+  sinceMs?: number,
+): Promise<void> {
+  const entryPath = join(dir, entry);
+  let st: Stats;
+  try {
+    st = await lstat(entryPath);
+  } catch {
+    return;
+  }
+
+  // Prevent traversal outside artifactDir via symlink or ../
+  const resolvedEntry = resolve(entryPath);
+  if (resolvedEntry !== artifactDir && !isUnder(artifactDir, resolvedEntry)) {
+    return;
+  }
+
+  // lstat reports symlinks as links, not dirs/files — never follow
+  // them so a link can't pull SARIF in from outside the artifact tree.
+  if (st.isSymbolicLink()) return;
+
+  if (st.isDirectory()) {
+    await scanDir(entryPath, artifactDir, rows, sinceMs);
+    return;
+  }
+
+  if (!entry.endsWith(".sarif") && !entry.endsWith(".sarif.json")) return;
+
+  // Run scoping is the collector's job — when `runId` is set the
+  // scan root is already that run's private tree. `sinceMs` remains
+  // for legacy flat artifact directories shared across runs: only
+  // files (re)written during the current run belong in its report.
+  // Filesystems with coarse timestamp granularity (FAT32: 2s) can
+  // round a just-written file's mtime below the run start, so the
+  // cutoff carries an epsilon — a file written moments before this
+  // run is a far smaller evil than silently dropping its findings.
+  if (sinceMs !== undefined && st.mtimeMs < sinceMs - MTIME_EPSILON_MS) return;
+  await processSarif(entryPath, dir, artifactDir, rows);
 }
 
 async function processSarif(

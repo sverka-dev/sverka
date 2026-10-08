@@ -649,27 +649,13 @@ async function runEvaluation(
 
   // --format sarif: serialize findings to SARIF and write to file
   if (global.format === "sarif") {
-    const sarifPath =
-      args.output ?? join(global.root, ".sverka", "findings.sarif");
-    const sarifLog = serializeSarif(findings);
-    mkdirSync(dirname(sarifPath), { recursive: true });
-    writeFileSync(sarifPath, JSON.stringify(sarifLog, null, 2), "utf-8");
-    output.writeLine(`Wrote SARIF to ${sarifPath}`);
+    writeSarifReport(findings, args, global, output);
   }
 
   // --format web: generate HTML report using @sverka/sarif-viewer-web
   if (global.format === "web") {
-    const webPath = args.output ?? join(global.root, ".sverka", "report.html");
-    try {
-      const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
-      const html = generateSarifHtml(findings);
-      mkdirSync(dirname(webPath), { recursive: true });
-      writeFileSync(webPath, html, "utf-8");
-      output.writeLine(`Wrote HTML report to ${webPath}`);
-    } catch (e) {
-      output.errorLine(
-        `sverka run: failed to generate web report: ${e instanceof Error ? e.message : String(e)}`,
-      );
+    const ok = await writeWebReport(findings, args, global, output);
+    if (!ok) {
       return {
         exitCode: 1,
         summary: { findings, verdict: result.verdict, summary: result.summary },
@@ -681,6 +667,44 @@ async function runEvaluation(
     exitCode,
     summary: { findings, verdict: result.verdict, summary: result.summary },
   };
+}
+
+/** --format sarif: serialize findings to SARIF and write to file. */
+function writeSarifReport(
+  findings: readonly Finding[],
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+): void {
+  const sarifPath =
+    args.output ?? join(global.root, ".sverka", "findings.sarif");
+  const sarifLog = serializeSarif(findings);
+  mkdirSync(dirname(sarifPath), { recursive: true });
+  writeFileSync(sarifPath, JSON.stringify(sarifLog, null, 2), "utf-8");
+  output.writeLine(`Wrote SARIF to ${sarifPath}`);
+}
+
+/** --format web: generate an HTML report. Returns false on failure. */
+async function writeWebReport(
+  findings: readonly Finding[],
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+): Promise<boolean> {
+  const webPath = args.output ?? join(global.root, ".sverka", "report.html");
+  try {
+    const { generateSarifHtml } = await import("@sverka/sarif-viewer-web");
+    const html = generateSarifHtml(findings);
+    mkdirSync(dirname(webPath), { recursive: true });
+    writeFileSync(webPath, html, "utf-8");
+    output.writeLine(`Wrote HTML report to ${webPath}`);
+    return true;
+  } catch (e) {
+    output.errorLine(
+      `sverka run: failed to generate web report: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return false;
+  }
 }
 
 const SIMPLE_STEP_STATUSES: Readonly<Record<string, StepSummary["status"]>> = {
