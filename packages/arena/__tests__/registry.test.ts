@@ -474,4 +474,273 @@ describe("git registry", () => {
     );
     expect(existsSync(written)).toBe(true);
   });
+
+  function seedRemote(name: string): { remote: string; seed: string } {
+    const remote = makeBareRemote(name);
+    const seed = join(dir, `${name}-seed`);
+    gitIn(dir, ["clone", remote, seed]);
+    writeFileSync(join(seed, "seed.txt"), "seed");
+    gitIn(seed, ["add", "-A"]);
+    gitIn(seed, [
+      "-c",
+      "user.name=seed",
+      "-c",
+      "user.email=s@x",
+      "commit",
+      "-m",
+      "seed",
+    ]);
+    gitIn(seed, ["push", "origin", "HEAD:main"]);
+    return { remote, seed };
+  }
+
+  it("refresh fast-forwards an existing checkout — list sees newer pushes", async () => {
+    const { remote, seed } = seedRemote("remote-stale.git");
+    // A checkout that predates the next push — the ensure memo never
+    // saw this clone, so refresh takes the .git-exists path.
+    const work = join(dir, "checkout-stale");
+    gitIn(dir, ["clone", remote, work]);
+
+    // A rival advances the remote behind the checkout's back.
+    const rel = "results/node-ci/devin/2026-10-01/run-remote.json";
+    mkdirSync(join(seed, "results/node-ci/devin/2026-10-01"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(seed, rel),
+      JSON.stringify(v1Doc({ runId: "run-remote" })) + "\n",
+    );
+    gitIn(seed, ["add", "-A"]);
+    gitIn(seed, [
+      "-c",
+      "user.name=seed",
+      "-c",
+      "user.email=s@x",
+      "commit",
+      "-m",
+      "rival run",
+    ]);
+    gitIn(seed, ["push", "origin", "HEAD:main"]);
+
+    // A bare fetch would update origin/main but leave the worktree at
+    // the clone-time commit — the result file would be invisible here.
+    const reg = createGitRegistry({ url: remote, dir: work });
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["run-remote"]);
+  });
+
+  it("concurrent publishers collide on index.json — the rebase regenerates it", async () => {
+    const { remote } = seedRemote("remote-race.git");
+    const dirA = join(dir, "race-a");
+    const dirB = join(dir, "race-b");
+    const regA = createGitRegistry({ url: remote, dir: dirA });
+    const regB = createGitRegistry({ url: remote, dir: dirB });
+    // B clones at the seed commit BEFORE A's publish lands — B's
+    // publish commit then races A's index.json update.
+    await regB.list();
+    await regA.publish(v1Doc({ runId: "run-a" }));
+    // Without index-conflict resolution the rebase cannot apply B's
+    // rewritten index.json and this publish dies as PUBLISH_CONFLICT.
+    const relB = await regB.publish(v1Doc({ runId: "run-b" }));
+
+    const verify = join(dir, "verify-race");
+    gitIn(dir, ["clone", remote, verify]);
+    expect(
+      existsSync(join(verify, "results/node-ci/devin/2026-10-01/run-a.json")),
+    ).toBe(true);
+    expect(existsSync(join(verify, relB))).toBe(true);
+    // The merged index was regenerated from results/ — both runs there.
+    const index = JSON.parse(
+      readFileSync(join(verify, "index.json"), "utf8"),
+    ) as { packs: Record<string, { runs: { runId: string }[] }> };
+    expect(index.packs["node-ci"]!.runs.map((r) => r.runId).sort()).toEqual([
+      "run-a",
+      "run-b",
+    ]);
+  });
+
+  it("unresolvable rebase conflict → REGISTRY_UNAVAILABLE, checkout not left mid-rebase", async () => {
+    const { remote } = seedRemote("remote-conflict.git");
+    const checkout = join(dir, "checkout-conflict");
+    const reg = createGitRegistry({ url: remote, dir: checkout });
+    await reg.publish(v1Doc({ runId: "run-x" }));
+
+    // A rival rewrites the same result path behind our back.
+    const rival = join(dir, "rival-conflict");
+    gitIn(dir, ["clone", remote, rival]);
+    const same = "results/node-ci/devin/2026-10-01/run-x.json";
+    writeFileSync(
+      join(rival, same),
+      JSON.stringify(v1Doc({ runId: "run-x", model: "rival-model" })) + "\n",
+    );
+    gitIn(rival, ["add", "-A"]);
+    gitIn(rival, [
+      "-c",
+      "user.name=rival",
+      "-c",
+      "user.email=r@x",
+      "commit",
+      "-m",
+      "rival edit",
+    ]);
+    gitIn(rival, ["push", "origin", "HEAD:main"]);
+
+    // Our rebase hits a conflict on the result file itself — not
+    // auto-resolvable like index.json, so the pull fails.
+    await expectArenaError(
+      () => reg.publish(v1Doc({ runId: "run-x", model: "our-model" })),
+      "REGISTRY_UNAVAILABLE",
+    );
+
+    // The failed rebase was aborted — no poisoned state, later git ops
+    // still work, and the unpublished commit is preserved.
+    expect(existsSync(join(checkout, ".git", "rebase-merge"))).toBe(false);
+    expect(existsSync(join(checkout, ".git", "rebase-apply"))).toBe(false);
+    gitIn(checkout, ["status", "--porcelain"]);
+    expect(existsSync(join(checkout, same))).toBe(true);
+  });
+
+  it("list re-pulls a memoized checkout — later remote pushes become visible", async () => {
+    const { remote, seed } = seedRemote("remote-relist.git");
+    const work = join(dir, "checkout-relist");
+    gitIn(dir, ["clone", remote, work]);
+    const reg = createGitRegistry({ url: remote, dir: work });
+    // First list populates the ensure memo (pull is a no-op here).
+    expect(await reg.list()).toEqual([]);
+
+    // A rival pushes a run AFTER the memoized ensure — without a
+    // per-list refresh the memoized checkout never sees it.
+    const rel = "results/node-ci/devin/2026-10-01/run-late.json";
+    mkdirSync(join(seed, "results/node-ci/devin/2026-10-01"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(seed, rel),
+      JSON.stringify(v1Doc({ runId: "run-late" })) + "\n",
+    );
+    gitIn(seed, ["add", "-A"]);
+    gitIn(seed, [
+      "-c",
+      "user.name=seed",
+      "-c",
+      "user.email=s@x",
+      "commit",
+      "-m",
+      "late run",
+    ]);
+    gitIn(seed, ["push", "origin", "HEAD:main"]);
+
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["run-late"]);
+  });
+
+  it("rebase resolves >8 consecutive index.json conflicts — no round cap", async () => {
+    const { remote } = seedRemote("remote-many.git");
+    const checkout = join(dir, "checkout-many");
+    gitIn(dir, ["clone", remote, checkout]);
+
+    // 9 unpublished commits — each adds a result file AND rewrites
+    // index.json as a single line, so every replayed cherry-pick
+    // conflicts on it.
+    for (let i = 1; i <= 9; i++) {
+      const rel = `results/node-ci/devin/2026-10-01/run-m${i}.json`;
+      mkdirSync(join(checkout, "results/node-ci/devin/2026-10-01"), {
+        recursive: true,
+      });
+      writeFileSync(
+        join(checkout, rel),
+        JSON.stringify(v1Doc({ runId: `run-m${i}` })) + "\n",
+      );
+      writeFileSync(
+        join(checkout, "index.json"),
+        JSON.stringify({
+          schema: "arena.index/v1",
+          updatedAt: `2026-10-0${i}T00:00:00.000Z`,
+          packs: {
+            "node-ci": {
+              runs: Array.from({ length: i }, (_, k) => ({
+                runId: `run-m${k + 1}`,
+                agent: "devin",
+                date: "2026-10-01",
+                path: `results/node-ci/devin/2026-10-01/run-m${k + 1}.json`,
+              })),
+            },
+          },
+        }) + "\n",
+      );
+      gitIn(checkout, ["add", "-A"]);
+      gitIn(checkout, [
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@x",
+        "commit",
+        "-m",
+        `c${i}`,
+      ]);
+    }
+
+    // Rival advances the remote with its own result + index.json.
+    const rival = join(dir, "rival-many");
+    gitIn(dir, ["clone", remote, rival]);
+    mkdirSync(join(rival, "results/py-ci/rival/2026-10-01"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(rival, "results/py-ci/rival/2026-10-01/run-rv.json"),
+      JSON.stringify(
+        v1Doc({ runId: "run-rv", pack: "py-ci", agent: "rival" }),
+      ) + "\n",
+    );
+    writeFileSync(
+      join(rival, "index.json"),
+      JSON.stringify({
+        schema: "arena.index/v1",
+        updatedAt: "2026-10-02T00:00:00.000Z",
+        packs: {
+          "py-ci": {
+            runs: [
+              {
+                runId: "run-rv",
+                agent: "rival",
+                date: "2026-10-01",
+                path: "results/py-ci/rival/2026-10-01/run-rv.json",
+              },
+            ],
+          },
+        },
+      }) + "\n",
+    );
+    gitIn(rival, ["add", "-A"]);
+    gitIn(rival, [
+      "-c",
+      "user.name=rival",
+      "-c",
+      "user.email=r@x",
+      "commit",
+      "-m",
+      "rival",
+    ]);
+    gitIn(rival, ["push", "origin", "HEAD:main"]);
+
+    // Publish replays 10 commits over the rival tip — every one
+    // conflicts on index.json. An 8-round cap exits mid-rebase and
+    // aborts an otherwise resolvable publish.
+    const reg = createGitRegistry({ url: remote, dir: checkout });
+    await reg.publish(v1Doc({ runId: "run-m10" }));
+
+    expect(existsSync(join(checkout, ".git", "rebase-merge"))).toBe(false);
+    expect(existsSync(join(checkout, ".git", "rebase-apply"))).toBe(false);
+
+    const verify = join(dir, "verify-many");
+    gitIn(dir, ["clone", remote, verify]);
+    const index = JSON.parse(
+      readFileSync(join(verify, "index.json"), "utf8"),
+    ) as { packs: Record<string, { runs: { runId: string }[] }> };
+    // The merged index was regenerated from the results/ tree — all
+    // 10 ours + the rival's run.
+    expect(index.packs["node-ci"]!.runs.length).toBe(10);
+    expect(index.packs["py-ci"]!.runs.map((r) => r.runId)).toEqual(["run-rv"]);
+    expect(
+      existsSync(join(verify, "results/node-ci/devin/2026-10-01/run-m10.json")),
+    ).toBe(true);
+  });
 });
