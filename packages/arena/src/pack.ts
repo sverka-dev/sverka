@@ -411,10 +411,12 @@ async function privateDir(dir: string): Promise<void> {
  * `pull --ff-only`: a dirty tree or a rewritten upstream makes every
  * later pull fail, wedging the cache until someone deletes it. Resetting
  * to `@{upstream}` resyncs instead — local edits and non-ff history are
- * discarded, never reused.
+ * discarded, never reused. `--prune` drops remote-tracking refs whose
+ * upstream branch was deleted — without it `@{upstream}` would keep
+ * resolving to the stale commit and the cache would silently serve it.
  */
 async function refreshClone(dir: string, what: string): Promise<void> {
-  const res = await git(["-C", dir, "fetch", "origin"]);
+  const res = await git(["-C", dir, "fetch", "--prune", "origin"]);
   if (res.code !== 0) {
     throw new ArenaError(
       `cannot update ${what}: ${res.stderr.trim()}`,

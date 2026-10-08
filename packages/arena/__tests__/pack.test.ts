@@ -387,6 +387,43 @@ describe("loadPack repo: cached clone refresh", () => {
     expect(err.message).toContain("cannot update repo clone");
   });
 
+  it("fails when upstream deletes the tracked branch", async () => {
+    // A pack clone is a FULL clone — `fetch` keeps succeeding after
+    // the tracked branch is deleted upstream (other refs still exist),
+    // so only --prune drops the stale origin/<branch> ref that
+    // @{upstream} would otherwise keep resolving to the deleted commit.
+    const src = join(dir, "up-del-src");
+    mkdirSync(join(src, "tasks"), { recursive: true });
+    writeFileSync(join(src, "pack.json"), JSON.stringify({ name: "del" }));
+    writeFileSync(
+      join(src, "tasks", "a.json"),
+      JSON.stringify({ prompt: "p" }),
+    );
+    await gitIn(src, "init");
+    await gitIn(src, "add", "-A");
+    await gitIn(src, "commit", "-m", "v1");
+
+    const bare = join(dir, "up-del.git");
+    await gitIn(dir, "clone", "--bare", src, bare);
+    const cacheDir = join(dir, "cache-del");
+
+    await resolvePack(bare, { cacheDir });
+
+    // Repoint remote HEAD so the tracked branch itself can be deleted.
+    const tracked = (
+      await gitIn(bare, "symbolic-ref", "--short", "HEAD")
+    ).stdout.trim();
+    await gitIn(bare, "branch", "moved", tracked);
+    await gitIn(bare, "symbolic-ref", "HEAD", "refs/heads/moved");
+    await gitIn(bare, "branch", "-D", tracked);
+
+    const err = await expectPackError(
+      resolvePack(bare, { cacheDir }),
+      "PACK_NOT_FOUND",
+    );
+    expect(err.message).toContain("cannot reset pack clone");
+  });
+
   it("scrubs unrelated edits and untracked files on refresh", async () => {
     const repo = await makeUpstream("up-stray");
     const packDir = await packWithRepo("pack-stray", repo);
