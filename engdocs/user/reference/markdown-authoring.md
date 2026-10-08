@@ -85,6 +85,15 @@ or a kind→options map as shown above. `comment` and `issue` map to the
 `comment()`/`issue()` trigger builders — on GitLab they ride the
 [webhook → pipeline-trigger contract](../gitlab/webhook-setup.md).
 
+> **Trust boundary:** a `comment` trigger lets anyone who can post a
+> note feed text into the agent prompt. On GitHub, `issue_comment`
+> pipelines run in the base-repository context — on private repos,
+> restrict who can comment (or gate further on
+> `github.event.comment.author_association`) before exposing an agent
+> job to untrusted commenters. The generated agent job carries no
+> `GITHUB_TOKEN`; writes flow only through the validated `__apply`
+> channel.
+
 ## Step syntax
 
 Each `## step-id` heading defines a step. Supported fields:
