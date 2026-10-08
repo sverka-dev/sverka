@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { toSverkaConfig, PlaygroundError, DEFAULT_CODE } from "../src/index.js";
 import { preprocessCode } from "../src/engine.js";
-import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+import {
+  Project,
+  Pipeline,
+  ShellStep,
+  Entry,
+  synthesize,
+  validateGraph,
+} from "@sverka/workflow";
 
 /** Evaluate a transpiled config with the REAL @sverka/workflow constructs. */
 function evalConfig(source: string): unknown {
@@ -124,6 +131,20 @@ export default proj;
       (c) => c.node.id === "checks",
     );
     expect(pipeline).toBeDefined();
+  });
+
+  it("emitted config passes the real validate path (synthesize + validateGraph)", () => {
+    // Spec 53 test item 8: `sverka validate` accepts the transpiled output.
+    const proj = evalConfig(toSverkaConfig(DEFAULT_CODE)) as Project;
+    const graph = synthesize(proj);
+    expect(() => validateGraph(graph)).not.toThrow();
+    const pl = graph.project.pipelines.find((p) => p.id === "checks");
+    expect(pl?.steps.map((s) => s.id)).toEqual([
+      "checks/lint",
+      "checks/typecheck",
+      "checks/test",
+    ]);
+    expect(pl?.entries[0]?.roots).toEqual(["checks/test"]);
   });
 
   it("throws TRANSPILE_FAILED on an unparseable step", () => {

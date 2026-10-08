@@ -32,6 +32,42 @@ export default proj;
 The workflow runs lint and typecheck in parallel, then test after both
 complete. Each `ShellStep` names its operation for the plan output.
 
+### Try it in the playground
+
+The same pipeline shape, running in your browser — `FunctionStep`s stand
+in for `ShellStep`s because a browser can't spawn processes (a `ShellStep`
+in the playground reports an info finding explaining the boundary):
+
+<Runner
+code={`import { Project, Pipeline, FunctionStep, Entry } from "@sverka/playground";
+
+const proj = new Project("verify");
+const pipeline = new Pipeline(proj, "ci");
+
+new FunctionStep(pipeline, "lint", {
+fn: () => [
+{ rule: "no-console", file: "src/app.ts", line: 12, severity: "medium", message: "Unexpected console.log statement" },
+],
+});
+new FunctionStep(pipeline, "typecheck", {
+fn: () => [
+{ rule: "ts2322", file: "src/types.ts", line: 8, severity: "critical", message: "Type 'string' is not assignable to type 'number'" },
+],
+});
+new FunctionStep(pipeline, "test", {
+fn: () => [],
+dependencies: ["lint", "typecheck"],
+});
+
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+
+export default proj;`}
+/>
+
+Press **Run** to execute it and see the findings report. To run real
+checks, take the same structure home with
+[`npm create sverka`](./install.md) — the graph transfers verbatim.
+
 ## See what would run
 
 ```sh

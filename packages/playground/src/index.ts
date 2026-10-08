@@ -29,6 +29,7 @@ export {
   decodeShareLink,
   PlaygroundError,
   SHARE_PAYLOAD_WARN_BYTES,
+  SHARE_PAYLOAD_MAX_BYTES,
 } from "./share.js";
 export type { ShareableRun, PlaygroundErrorCode } from "./share.js";
 
