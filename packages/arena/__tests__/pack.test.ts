@@ -424,6 +424,28 @@ describe("loadPack repo: cached clone refresh", () => {
     expect(err.message).toContain("cannot reset pack clone");
   });
 
+  it("removes nested git repositories on refresh", async () => {
+    const repo = await makeUpstream("up-nested");
+    const packDir = await packWithRepo("pack-nested", repo);
+    const cacheDir = join(dir, "cache-nested");
+
+    const first = await loadPack(packDir, { cacheDir });
+    const cached = first.tasks[0]?.fixture;
+    expect(cached).toBeDefined();
+
+    // An untracked nested git repo survives `clean -fdx` — a single
+    // -f skips dirs containing .git — and its files would leak into
+    // every workspace copied from the cache.
+    writeFileSync(join(repo, "v2.txt"), "v2");
+    await gitIn(repo, "add", "-A");
+    await gitIn(repo, "commit", "-m", "v2");
+    await gitIn(cached!, "init", "nested");
+
+    const second = await loadPack(packDir, { cacheDir });
+    expect(second.tasks[0]?.fixture).toBe(cached);
+    expect(existsSync(join(cached!, "nested"))).toBe(false);
+  });
+
   it("scrubs unrelated edits and untracked files on refresh", async () => {
     const repo = await makeUpstream("up-stray");
     const packDir = await packWithRepo("pack-stray", repo);
