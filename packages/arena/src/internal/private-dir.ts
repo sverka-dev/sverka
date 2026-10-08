@@ -8,7 +8,9 @@
  * core.sshCommand), hooks, and every later refresh/publish. So before
  * reusing an existing dir we require: it is a real directory (lstat —
  * a symlink is refused, never followed), owned by this uid, and not
- * group/other-accessible. A missing dir is created 0o700.
+ * group/other-accessible. A missing dir is created 0o700 and re-verified
+ * the same way — recursive mkdir silently accepts a dir planted in the
+ * lstat→mkdir gap.
  *
  * Internal seam — not exported from the package index.
  */
@@ -25,14 +27,16 @@ export async function ensurePrivateDir(
   try {
     st = await lstat(dir);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      // No chmod after mkdir: the gap between create and chmod would let
-      // a racer swap the fresh dir for a symlink and make us tighten a
-      // foreign target. The umask can only remove bits from 0o700.
-      await mkdir(dir, { recursive: true, mode: 0o700 });
-      return;
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw err;
     }
-    throw err;
+    // No chmod after mkdir: the gap between create and chmod would let
+    // a racer swap the fresh dir for a symlink and make us tighten a
+    // foreign target. The umask can only remove bits from 0o700.
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    // Recursive mkdir also succeeds on a path a racer planted in the
+    // lstat→mkdir gap — re-stat and run the same checks on what we got.
+    st = await lstat(dir);
   }
   if (!st.isDirectory()) {
     throw new ArenaError(

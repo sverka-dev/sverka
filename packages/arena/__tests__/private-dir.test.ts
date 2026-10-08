@@ -104,6 +104,29 @@ describe("ensurePrivateDir", () => {
     },
   );
 
+  it.skipIf(process.platform === "win32")(
+    "re-checks a dir planted between lstat and mkdir",
+    async () => {
+      const target = join(dir, "raced");
+      // First lstat misses, a racer wins the create, the second lstat
+      // sees their dir — the ENOENT must not skip the owner/mode check.
+      vi.mocked(lstat)
+        .mockRejectedValueOnce(
+          Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+        )
+        .mockResolvedValueOnce({
+          isDirectory: () => true,
+          uid: (process.getuid?.() ?? 0) + 1,
+          mode: 0o40700,
+        } as Stats);
+      const err = await ensurePrivateDir(target, WHAT, CODE).catch(
+        (e) => e as ArenaError,
+      );
+      expect(err).toBeInstanceOf(ArenaError);
+      expect(err.message).toContain("owned by uid");
+    },
+  );
+
   it("reuses the same dir twice without complaint", async () => {
     const target = join(dir, "twice");
     await ensurePrivateDir(target, WHAT, CODE);
