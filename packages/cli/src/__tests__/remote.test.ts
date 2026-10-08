@@ -3,7 +3,7 @@
 // the real @sverka/hub server on an ephemeral port.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { readFileSync, statSync } from "node:fs";
+import { openSync, fstatSync, readFileSync, closeSync } from "node:fs";
 import { join } from "node:path";
 import { main } from "../index.js";
 import { startHubServer, type HubServer } from "@sverka/hub";
@@ -71,10 +71,16 @@ describe("sverka login", () => {
       "sverka",
       "credentials",
     );
-    expect(statSync(path).mode & 0o777).toBe(0o600);
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as {
-      hubs: Record<string, string>;
-    };
+    // stat and read through one fd — statSync(path)+readFileSync(path)
+    // would leave a check-then-act window (CodeQL fs-race).
+    const fd = openSync(path, "r");
+    let parsed: { hubs: Record<string, string> };
+    try {
+      expect(fstatSync(fd).mode & 0o777).toBe(0o600);
+      parsed = JSON.parse(readFileSync(fd, "utf8")) as typeof parsed;
+    } finally {
+      closeSync(fd);
+    }
     expect(parsed.hubs["http://hub.local:7357"]).toBe("svk_abc12345");
   });
 

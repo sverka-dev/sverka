@@ -26,7 +26,7 @@ export async function loginCommand(
       ExitCode.UsageError,
     );
   }
-  if (token === undefined) {
+  if (!token) {
     throw new CliError(
       "missing --token <t> (or set SVERKA_HUB_TOKEN)",
       "MISSING_ARG",

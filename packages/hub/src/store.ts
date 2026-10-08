@@ -216,28 +216,14 @@ export function createHubStore(dataDir: string) {
     const status =
       typeof data["status"] === "string" ? data["status"] : "unknown";
     const durationMs =
-      typeof report["durationMs"] === "number"
-        ? report["durationMs"]
-        : typeof data["durationMs"] === "number"
-          ? data["durationMs"]
-          : null;
+      numOrNull(report["durationMs"]) ?? numOrNull(data["durationMs"]);
     const uploadedAt = Date.now();
     // The report payload has no startedAt — approximate it from upload
     // time minus duration when a duration is known.
     const startedAt = durationMs === null ? null : uploadedAt - durationMs;
-    const bySeverity: Record<string, number> = {};
-    for (const f of input.findings) {
-      const sev =
-        typeof f === "object" && f !== null
-          ? (f as { severity?: unknown }).severity
-          : undefined;
-      if (typeof sev === "string") {
-        bySeverity[sev] = (bySeverity[sev] ?? 0) + 1;
-      }
-    }
     const findingCounts = JSON.stringify({
       total: input.findings.length,
-      bySeverity,
+      bySeverity: severityCounts(input.findings),
     });
     const verdict =
       typeof data["verdict"] === "string" ? data["verdict"] : null;
@@ -343,39 +329,8 @@ export function createHubStore(dataDir: string) {
     const wanted = opts?.steps !== undefined ? new Set(opts.steps) : null;
     const stats = new Map<string, { ok: number; total: number }>();
     for (const row of rows) {
-      let report: Record<string, unknown>;
-      try {
-        report = JSON.parse(row.report_json) as Record<string, unknown>;
-      } catch {
-        continue;
-      }
-      const data = report["data"];
-      const steps =
-        typeof data === "object" && data !== null
-          ? (data as { steps?: readonly unknown[] }).steps
-          : undefined;
-      if (!Array.isArray(steps)) continue;
-      for (const step of steps) {
-        if (typeof step !== "object" || step === null) continue;
-        const { stepId, status } = step as {
-          stepId?: unknown;
-          status?: unknown;
-        };
-        if (typeof stepId !== "string" || typeof status !== "string") {
-          continue;
-        }
-        if (wanted !== null && !wanted.has(stepId)) continue;
-        if (
-          status !== "succeeded" &&
-          status !== "failed" &&
-          status !== "cache-hit"
-        ) {
-          continue;
-        }
-        const s = stats.get(stepId) ?? { ok: 0, total: 0 };
-        s.total += 1;
-        if (status !== "failed") s.ok += 1;
-        stats.set(stepId, s);
+      for (const step of reportSteps(row.report_json)) {
+        accumulateFlakyStep(stats, wanted, step);
       }
     }
     return [...stats.entries()]
@@ -410,6 +365,68 @@ export function createHubStore(dataDir: string) {
 }
 
 export type HubStore = ReturnType<typeof createHubStore>;
+
+function numOrNull(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
+
+/** Per-severity tally over the uploaded findings array. */
+function severityCounts(findings: readonly unknown[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const f of findings) {
+    const sev =
+      typeof f === "object" && f !== null
+        ? (f as { severity?: unknown }).severity
+        : undefined;
+    if (typeof sev === "string") {
+      counts[sev] = (counts[sev] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
+/** Steps array inside a stored report JSON — [] on any shape failure. */
+function reportSteps(reportJson: string): readonly unknown[] {
+  let report: Record<string, unknown>;
+  try {
+    report = JSON.parse(reportJson) as Record<string, unknown>;
+  } catch {
+    return [];
+  }
+  const data = report["data"];
+  const steps =
+    typeof data === "object" && data !== null
+      ? (data as { steps?: readonly unknown[] }).steps
+      : undefined;
+  return Array.isArray(steps) ? steps : [];
+}
+
+/** Statuses that produce a verdict — skipped/cancelled steps don't
+ *  count toward a step's success rate. */
+const FLAKY_STATUSES: ReadonlySet<string> = new Set([
+  "succeeded",
+  "failed",
+  "cache-hit",
+]);
+
+function accumulateFlakyStep(
+  stats: Map<string, { ok: number; total: number }>,
+  wanted: ReadonlySet<string> | null,
+  step: unknown,
+): void {
+  if (typeof step !== "object" || step === null) return;
+  const { stepId, status } = step as {
+    stepId?: unknown;
+    status?: unknown;
+  };
+  if (typeof stepId !== "string" || typeof status !== "string") return;
+  if (wanted !== null && !wanted.has(stepId)) return;
+  if (!FLAKY_STATUSES.has(status)) return;
+  const s = stats.get(stepId) ?? { ok: 0, total: 0 };
+  s.total += 1;
+  if (status !== "failed") s.ok += 1;
+  stats.set(stepId, s);
+}
 
 function rowToSummary(row: Record<string, unknown>): HubStoredRun {
   return {

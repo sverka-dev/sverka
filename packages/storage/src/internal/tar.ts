@@ -158,6 +158,71 @@ function verifyChecksum(buf: Uint8Array, offset: number): boolean {
   return sum === readOctal(buf, offset + 148, 8);
 }
 
+interface ParsedHeader {
+  readonly name: string;
+  readonly size: number;
+  readonly typeflag: number;
+  readonly mtime: number;
+  readonly mode?: number;
+  readonly linkname?: string;
+}
+
+function parseHeader(archive: Uint8Array, offset: number): ParsedHeader {
+  const prefix = readString(archive, offset + 345, PREFIX_MAX);
+  const namePart = readString(archive, offset, NAME_MAX);
+  const name = prefix === "" ? namePart : `${prefix}/${namePart}`;
+  const size = readOctal(archive, offset + 124, 12);
+  // A non-octal size parses to NaN — unchecked, it would silently end
+  // the loop (NaN comparisons are false), reporting a truncated archive
+  // as a valid restore. Reject anything that isn't a usable length.
+  if (!Number.isSafeInteger(size) || size < 0) {
+    throw new StorageError(
+      "CORRUPT_SNAPSHOT",
+      "tar entry has an invalid size field",
+    );
+  }
+  const typeflag = archive[offset + 156]!;
+  const mtime = readOctal(archive, offset + 136, 12);
+  const rawMode = readOctal(archive, offset + 100, 8);
+  const mode = Number.isSafeInteger(rawMode) ? rawMode & 0o777 : undefined;
+  const linkname =
+    typeflag === 0x32
+      ? readString(archive, offset + 157, LINKNAME_MAX)
+      : undefined;
+  return {
+    name,
+    size,
+    typeflag,
+    mtime,
+    ...(mode !== undefined ? { mode } : {}),
+    ...(linkname !== undefined ? { linkname } : {}),
+  };
+}
+
+/** Map a parsed header (+file data) to an entry — unsupported typeflags
+ *  return undefined (their data blocks are still consumed by the loop). */
+function entryFor(h: ParsedHeader, data: Uint8Array): TarEntry | undefined {
+  const shared = {
+    ...(h.mode !== undefined ? { mode: h.mode } : {}),
+    mtime: h.mtime,
+  };
+  if (h.typeflag === 0x30 || h.typeflag === 0x00) {
+    return { name: h.name, type: "file", data, ...shared };
+  }
+  if (h.typeflag === 0x35) {
+    return { name: h.name.replace(/\/$/, ""), type: "dir", ...shared };
+  }
+  if (h.typeflag === 0x32) {
+    return {
+      name: h.name,
+      type: "symlink",
+      ...(h.linkname !== undefined ? { linkname: h.linkname } : {}),
+      ...shared,
+    };
+  }
+  return undefined;
+}
+
 /** Unpack a ustar archive into entries. */
 export function unpackTar(archive: Uint8Array): TarEntry[] {
   const entries: TarEntry[] = [];
@@ -170,59 +235,17 @@ export function unpackTar(archive: Uint8Array): TarEntry[] {
         "tar archive checksum mismatch (corrupt blob)",
       );
     }
-    const prefix = readString(archive, offset + 345, PREFIX_MAX);
-    const namePart = readString(archive, offset, NAME_MAX);
-    const name = prefix === "" ? namePart : `${prefix}/${namePart}`;
-    const size = readOctal(archive, offset + 124, 12);
-    // A non-octal size parses to NaN — unchecked, it would silently end
-    // the loop (NaN comparisons are false), reporting a truncated archive
-    // as a valid restore. Reject anything that isn't a usable length.
-    if (!Number.isSafeInteger(size) || size < 0) {
-      throw new StorageError(
-        "CORRUPT_SNAPSHOT",
-        "tar entry has an invalid size field",
-      );
-    }
-    const typeflag = archive[offset + 156];
-    const mtime = readOctal(archive, offset + 136, 12);
-    const rawMode = readOctal(archive, offset + 100, 8);
-    const mode = Number.isSafeInteger(rawMode) ? rawMode & 0o777 : undefined;
-    const linkname =
-      typeflag === 0x32
-        ? readString(archive, offset + 157, LINKNAME_MAX)
-        : undefined;
+    const h = parseHeader(archive, offset);
     offset += BLOCK;
-    if (offset + size > archive.length) {
+    if (offset + h.size > archive.length) {
       throw new StorageError(
         "CORRUPT_SNAPSHOT",
         "tar archive truncated mid-entry",
       );
     }
-    if (typeflag === 0x30 || typeflag === 0x00) {
-      entries.push({
-        name,
-        type: "file",
-        data: archive.slice(offset, offset + size),
-        ...(mode !== undefined ? { mode } : {}),
-        mtime,
-      });
-    } else if (typeflag === 0x35) {
-      entries.push({
-        name: name.replace(/\/$/, ""),
-        type: "dir",
-        ...(mode !== undefined ? { mode } : {}),
-        mtime,
-      });
-    } else if (typeflag === 0x32) {
-      entries.push({
-        name,
-        type: "symlink",
-        ...(linkname !== undefined ? { linkname } : {}),
-        mtime,
-      });
-    }
-    // Skip unsupported typeflags (still consume their data blocks).
-    offset += Math.ceil(size / BLOCK) * BLOCK;
+    const entry = entryFor(h, archive.slice(offset, offset + h.size));
+    if (entry !== undefined) entries.push(entry);
+    offset += Math.ceil(h.size / BLOCK) * BLOCK;
   }
   return entries;
 }

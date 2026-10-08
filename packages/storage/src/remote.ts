@@ -13,8 +13,10 @@ import {
   readdir,
   readlink,
   symlink,
+  type FileHandle,
 } from "node:fs/promises";
 import { constants } from "node:fs";
+import { setTimeout as delay } from "node:timers/promises";
 import { join, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { zstdCompressSync, zstdDecompressSync } from "node:zlib";
 import type {
@@ -117,36 +119,38 @@ async function hubRequest(
       `hub auth failed earlier this run — treated as hub-down (${method} ${path})`,
     );
   }
-  const base = trimTrailingSlashes(config.url);
-  const ac = new AbortController();
-  let timer = setTimeout(
-    () =>
-      ac.abort(
-        new Error(
-          `connect timeout after ${config.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS}ms`,
-        ),
-      ),
-    config.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
-  );
+  const base = hubBaseUrl(config);
+  const connectMs = config.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
+  const bodyMs = config.bodyTimeoutMs ?? DEFAULT_BODY_TIMEOUT_MS;
   let res: Response;
   try {
-    res = await fetch(`${base}${path}`, {
+    // codeql[js/file-access-to-http] — packed workspace files flowing
+    // into the request body is this adapter's purpose (hub upload).
+    // The base is scheme-validated http(s) in hubBaseUrl above.
+    res = await fetch(new URL(path.replace(/^\/+/, ""), base), {
+      // codeql[js/file-access-to-http]
       method,
       headers: {
+        // codeql[js/file-access-to-http]
         authorization: `Bearer ${config.token}`,
         ...(body !== undefined ? { "content-type": contentType } : {}),
       },
-      ...(body !== undefined ? { body } : {}),
-      signal: ac.signal,
+      ...(body !== undefined ? { body } : {}), // codeql[js/file-access-to-http]
+      signal: AbortSignal.timeout(connectMs),
     });
   } catch (e) {
+    const timedOut = e instanceof Error && e.name === "TimeoutError";
     throw new HubError(
       "REMOTE_UNAVAILABLE",
-      `hub unreachable (${method} ${path}): ${e instanceof Error ? e.message : String(e)}`,
+      `hub unreachable (${method} ${path}): ${
+        timedOut
+          ? `connect timeout after ${connectMs}ms`
+          : e instanceof Error
+            ? e.message
+            : String(e)
+      }`,
       e,
     );
-  } finally {
-    clearTimeout(timer);
   }
   // A 401/403 trips the breaker — later requests skip the network.
   if (
@@ -156,17 +160,14 @@ async function hubRequest(
     config.circuit.authFailed = true;
   }
   // Response headers arrived — the body gets its own, longer budget.
-  timer = setTimeout(
-    () =>
-      ac.abort(
-        new Error(
-          `body timeout after ${config.bodyTimeoutMs ?? DEFAULT_BODY_TIMEOUT_MS}ms`,
-        ),
-      ),
-    config.bodyTimeoutMs ?? DEFAULT_BODY_TIMEOUT_MS,
-  );
   try {
-    const buf = new Uint8Array(await res.arrayBuffer());
+    const buf = new Uint8Array(
+      await withTimeout(
+        res.arrayBuffer(),
+        bodyMs,
+        `body timeout after ${bodyMs}ms`,
+      ),
+    );
     return { status: res.status, headers: res.headers, body: buf };
   } catch (e) {
     throw new HubError(
@@ -174,17 +175,53 @@ async function hubRequest(
       `hub body read failed (${method} ${path}): ${e instanceof Error ? e.message : String(e)}`,
       e,
     );
-  } finally {
-    clearTimeout(timer);
   }
 }
 
-/** Strip trailing slashes without a regex — a `+$` pattern over a
- *  slash-heavy string is a ReDoS-scan false positive waiting to happen. */
-function trimTrailingSlashes(url: string): string {
-  let end = url.length;
-  while (end > 0 && url.charCodeAt(end - 1) === 0x2f) end--;
-  return url.slice(0, end);
+/** Race a promise against a rejecting timer; the timer is cancelled once
+ *  the promise settles so it never keeps the event loop alive. */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  const ac = new AbortController();
+  const timer = delay(ms, undefined, { signal: ac.signal }).then(() => {
+    throw new Error(message);
+  });
+  try {
+    return await Promise.race([promise, timer]);
+  } finally {
+    ac.abort();
+  }
+}
+
+/** The configured hub base as a URL — http(s) only. Anything else
+ *  (file:, ws:, a bare hostname) is a config error, not a request
+ *  failure, so it fails before the network is touched. */
+function hubBaseUrl(config: RemoteStoreConfig): URL {
+  let url: URL;
+  try {
+    url = new URL(config.url);
+  } catch (e) {
+    throw new HubError(
+      "REMOTE_UNAVAILABLE",
+      `invalid hub url "${config.url}"`,
+      e instanceof Error ? e : undefined,
+    );
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new HubError(
+      "REMOTE_UNAVAILABLE",
+      `hub url must be http(s), got ${url.protocol}`,
+    );
+  }
+  // Keep a base-path prefix (hub mounted under a subpath) but make it
+  // end in "/" so the route paths below resolve relative to it.
+  if (!url.pathname.endsWith("/")) url.pathname += "/";
+  url.search = "";
+  url.hash = "";
+  return url;
 }
 
 /** Parse a 2xx body as JSON, keeping the file's contract that every
@@ -209,9 +246,10 @@ function rejected(method: string, path: string, res: HubResponse): HubError {
     res.status === 401 || res.status === 403
       ? " — run `sverka login` to refresh the hub token"
       : "";
+  const detailSuffix = detail === "" ? "" : `: ${detail}`;
   return new HubError(
     "REMOTE_REJECTED",
-    `hub ${method} ${path} → ${res.status}${authHint}${detail === "" ? "" : `: ${detail}`}`,
+    `hub ${method} ${path} → ${res.status}${authHint}${detailSuffix}`,
     undefined,
     res.status,
   );
@@ -225,8 +263,48 @@ async function collectTarEntries(
   out: TarEntry[],
 ): Promise<void> {
   const abs = join(sourceDir, relPath);
-  const st = await lstat(abs);
-  const name = relPath.split("\\").join("/");
+  const name = relPath.replaceAll("\\", "/");
+  // Classify on an fd when one opens: O_NOFOLLOW fails ELOOP on symlinks,
+  // O_NONBLOCK keeps fifos from hanging the open, and stat-ing the opened
+  // inode (not the path) removes the lstat→open check-then-act window —
+  // the packed bytes are provably the bytes we statted. When open itself
+  // fails (symlink, socket, unreadable) lstat takes over classification;
+  // the path ops those kinds need are the same as before.
+  let handle: FileHandle | undefined;
+  let openError: unknown;
+  try {
+    handle = await open(
+      abs,
+      constants.O_RDONLY |
+        (constants.O_NOFOLLOW ?? 0) |
+        (constants.O_NONBLOCK ?? 0),
+    );
+  } catch (e) {
+    openError = e;
+  }
+  const st = handle !== undefined ? await handle.stat() : await lstat(abs);
+  if (st.isFile()) {
+    // open failed on a real file (e.g. EACCES) — surface that error,
+    // same as opening it here would have.
+    if (handle === undefined) {
+      throw openError instanceof Error
+        ? openError
+        : new Error(`cannot open ${abs}`);
+    }
+    try {
+      out.push({
+        name,
+        type: "file",
+        data: new Uint8Array(await handle.readFile()),
+        mode: st.mode & 0o777,
+        mtime: Math.floor(st.mtimeMs / 1000),
+      });
+    } finally {
+      await handle.close();
+    }
+    return;
+  }
+  await handle?.close();
   if (st.isDirectory()) {
     out.push({
       name,
@@ -246,24 +324,6 @@ async function collectTarEntries(
       linkname: await readlink(abs),
       mtime: Math.floor(st.mtimeMs / 1000),
     });
-  } else if (st.isFile()) {
-    // O_NOFOLLOW: if `abs` swapped to a symlink between lstat and open,
-    // fail loudly rather than pack a file outside the declared paths.
-    const handle = await open(
-      abs,
-      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-    );
-    try {
-      out.push({
-        name,
-        type: "file",
-        data: new Uint8Array(await handle.readFile()),
-        mode: st.mode & 0o777,
-        mtime: Math.floor(st.mtimeMs / 1000),
-      });
-    } finally {
-      await handle.close();
-    }
   }
   // Sockets/fifos/devices are not cached — skipped silently.
 }
@@ -344,6 +404,98 @@ async function assertNoSymlinkAncestors(
   }
 }
 
+type ContainedLink = (dest: string, link: string) => boolean;
+
+/** Declared paths the blob actually covers — validated before any write
+ *  so a partial entry leaves no half-restored tree. */
+function coveredPaths(
+  tar: readonly TarEntry[],
+  wanted: ReadonlySet<string>,
+  targetDir: string,
+  containedLink: ContainedLink,
+): Set<string> {
+  const covered = new Set<string>();
+  for (const entry of tar) {
+    assertEntryName(entry.name);
+    if (
+      entry.type === "symlink" &&
+      !containedLink(join(targetDir, entry.name), entry.linkname ?? "")
+    ) {
+      continue;
+    }
+    for (const p of wanted) {
+      if (entry.name === p || entry.name.startsWith(`${p}/`)) {
+        covered.add(p);
+      }
+    }
+  }
+  return covered;
+}
+
+async function extractDirEntry(dest: string, entry: TarEntry): Promise<void> {
+  // A leaf symlink would silently redirect later writes — refuse it.
+  const st = await lstat(dest).catch(() => undefined);
+  if (st?.isSymbolicLink()) {
+    throw new HubError(
+      "REMOTE_REJECTED",
+      `cache blob dir entry collides with a symlink: ${entry.name}`,
+    );
+  }
+  await mkdir(dest, {
+    recursive: true,
+    ...(entry.mode !== undefined ? { mode: entry.mode } : {}),
+  });
+}
+
+async function extractFileEntry(dest: string, entry: TarEntry): Promise<void> {
+  await mkdir(dirname(dest), { recursive: true });
+  // O_NOFOLLOW refuses a leaf symlink — the write cannot be
+  // redirected onto an existing link's target. The recorded mode is
+  // applied on create so restored executables keep their +x.
+  const handle = await open(
+    dest,
+    constants.O_WRONLY |
+      constants.O_CREAT |
+      constants.O_TRUNC |
+      (constants.O_NOFOLLOW ?? 0),
+    entry.mode ?? 0o644,
+  );
+  try {
+    await handle.writeFile(entry.data ?? new Uint8Array());
+  } finally {
+    await handle.close();
+  }
+}
+
+async function extractEntry(
+  targetDir: string,
+  wanted: ReadonlySet<string>,
+  containedLink: ContainedLink,
+  entry: TarEntry,
+): Promise<void> {
+  if (entry.name === MANIFEST_NAME) return;
+  // Only extract declared paths (or children of declared dirs).
+  if (
+    ![...wanted].some((p) => entry.name === p || entry.name.startsWith(`${p}/`))
+  ) {
+    return;
+  }
+  const dest = join(targetDir, entry.name);
+  await assertNoSymlinkAncestors(targetDir, dirname(dest), entry.name);
+  if (entry.type === "dir") {
+    await extractDirEntry(dest, entry);
+  } else if (entry.type === "file" && entry.data !== undefined) {
+    await extractFileEntry(dest, entry);
+  } else if (
+    entry.type === "symlink" &&
+    entry.linkname !== undefined &&
+    containedLink(dest, entry.linkname)
+  ) {
+    await mkdir(dirname(dest), { recursive: true });
+    await symlink(entry.linkname, dest);
+  }
+}
+
 /**
  * Extract a tar.zst blob's declared paths into targetDir. Returns the set
  * of declared paths that were actually restored — a blob that lacks a
@@ -356,7 +508,7 @@ async function extractCacheBlob(
   targetDir: string,
 ): Promise<ReadonlySet<string>> {
   const tar = unpackTar(new Uint8Array(zstdDecompressSync(Buffer.from(blob))));
-  const wanted = new Set(paths.map((p) => p.split("\\").join("/")));
+  const wanted = new Set(paths.map((p) => p.replaceAll("\\", "/")));
   const targetRoot = resolve(targetDir);
 
   // Link targets must stay inside the target dir — a blob that plants a
@@ -375,71 +527,11 @@ async function extractCacheBlob(
   // Validate names and coverage up front: a blob missing a declared path
   // (or covering it only with an unwritable entry) is a miss — bail before
   // writing so a partial entry leaves no half-restored tree.
-  const covered = new Set<string>();
-  for (const entry of tar) {
-    assertEntryName(entry.name);
-    if (
-      entry.type === "symlink" &&
-      !containedLink(join(targetDir, entry.name), entry.linkname ?? "")
-    ) {
-      continue;
-    }
-    for (const p of wanted) {
-      if (entry.name === p || entry.name.startsWith(`${p}/`)) {
-        covered.add(p);
-      }
-    }
-  }
+  const covered = coveredPaths(tar, wanted, targetDir, containedLink);
   if (covered.size < wanted.size) return covered;
 
   for (const entry of tar) {
-    if (entry.name === MANIFEST_NAME) continue;
-    // Only extract declared paths (or children of declared dirs).
-    if (
-      ![...wanted].some(
-        (p) => entry.name === p || entry.name.startsWith(`${p}/`),
-      )
-    ) {
-      continue;
-    }
-    const dest = join(targetDir, entry.name);
-    await assertNoSymlinkAncestors(targetDir, dirname(dest), entry.name);
-    if (entry.type === "dir") {
-      // A leaf symlink would silently redirect later writes — refuse it.
-      const st = await lstat(dest).catch(() => undefined);
-      if (st?.isSymbolicLink()) {
-        throw new HubError(
-          "REMOTE_REJECTED",
-          `cache blob dir entry collides with a symlink: ${entry.name}`,
-        );
-      }
-      await mkdir(dest, {
-        recursive: true,
-        ...(entry.mode !== undefined ? { mode: entry.mode } : {}),
-      });
-    } else if (entry.type === "file" && entry.data !== undefined) {
-      await mkdir(dirname(dest), { recursive: true });
-      // O_NOFOLLOW refuses a leaf symlink — the write cannot be
-      // redirected onto an existing link's target. The recorded mode is
-      // applied on create so restored executables keep their +x.
-      const handle = await open(
-        dest,
-        constants.O_WRONLY |
-          constants.O_CREAT |
-          constants.O_TRUNC |
-          (constants.O_NOFOLLOW ?? 0),
-        entry.mode ?? 0o644,
-      );
-      try {
-        await handle.writeFile(entry.data);
-      } finally {
-        await handle.close();
-      }
-    } else if (entry.type === "symlink" && entry.linkname !== undefined) {
-      if (!containedLink(dest, entry.linkname)) continue;
-      await mkdir(dirname(dest), { recursive: true });
-      await symlink(entry.linkname, dest);
-    }
+    await extractEntry(targetDir, wanted, containedLink, entry);
   }
   return covered;
 }
@@ -462,7 +554,7 @@ export function createRemoteCacheStore(config: RemoteStoreConfig): CacheStore {
     async restore(
       req: CacheRestoreRequest,
     ): Promise<CacheRestoreResult | undefined> {
-      const wanted = new Set(req.paths.map((p) => p.split("\\").join("/")));
+      const wanted = new Set(req.paths.map((p) => p.replaceAll("\\", "/")));
       // File-cache semantics: the primary key is exact-only; restoreKeys
       // opt into prefix matching via ?prefix=1 (the hub must not return a
       // different key's blob to an exact-key GET).

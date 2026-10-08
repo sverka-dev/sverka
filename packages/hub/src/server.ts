@@ -4,6 +4,7 @@
 import {
   createServer,
   type IncomingMessage,
+  type Server,
   type ServerResponse,
 } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -22,6 +23,7 @@ import {
   isValidCacheKey,
   isValidRunId,
   type HubStore,
+  type RunInsert,
 } from "./store.js";
 
 const MAX_BLOB_DEFAULT = 512 * 1024 * 1024;
@@ -92,17 +94,19 @@ export function startHubServer(opts: HubServerOptions): Promise<HubServer> {
         port: addr.port,
         url,
         dataDir: opts.dataDir,
-        close: () =>
-          new Promise<void>((done) => {
-            // Drain in-flight requests before closing the SQLite index —
-            // closing the store first would fail requests still reading
-            // their bodies.
-            server.close(() => {
-              store.close();
-              done();
-            });
-          }),
+        close: () => closeServer(server, store),
       });
+    });
+  });
+}
+
+function closeServer(server: Server, store: HubStore): Promise<void> {
+  return new Promise<void>((done) => {
+    // Drain in-flight requests before closing the SQLite index — closing
+    // the store first would fail requests still reading their bodies.
+    server.close(() => {
+      store.close();
+      done();
     });
   });
 }
@@ -114,6 +118,31 @@ interface Limits {
 
 type Access = "ro" | "rw";
 
+interface ReqCtx {
+  readonly req: IncomingMessage;
+  readonly res: ServerResponse;
+  readonly store: HubStore;
+  readonly url: URL;
+  readonly method: string;
+  readonly path: string;
+  readonly limits: Limits;
+}
+
+/** Route handler: returns true when it answered the request. */
+type Route = (ctx: ReqCtx) => boolean | Promise<boolean>;
+
+const ROUTES: readonly Route[] = [
+  cacheRoute,
+  snapshotRoute,
+  runsRoute,
+  runRoute,
+  flakyApiRoute,
+  indexRoute,
+  findingsPageRoute,
+  runPageRoute,
+  flakyPageRoute,
+];
+
 async function handle(
   req: IncomingMessage,
   res: ServerResponse,
@@ -121,13 +150,21 @@ async function handle(
   tokens: readonly HubToken[],
   limits: Limits,
 ): Promise<void> {
-  const url = new URL(req.url ?? "/", "http://hub.invalid");
-  const method = req.method ?? "GET";
-  const path = url.pathname;
+  // The base is a parse placeholder only — never used on the wire.
+  const url = new URL(req.url ?? "/", "https://hub.invalid");
+  const ctx: ReqCtx = {
+    req,
+    res,
+    store,
+    url,
+    method: req.method ?? "GET",
+    path: url.pathname,
+    limits,
+  };
 
   // Health check is unauthenticated.
-  if (path === "/v1/ping") {
-    if (method === "GET") {
+  if (ctx.path === "/v1/ping") {
+    if (ctx.method === "GET") {
       json(res, 200, { status: "ok" });
     } else {
       methodNotAllowed(res);
@@ -138,306 +175,324 @@ async function handle(
   // Everything else needs a token.
   const auth = authenticate(req, url.searchParams, tokens, res);
   if (auth === null) return;
-  const requireWrite = method !== "GET" && method !== "HEAD";
+  const requireWrite = ctx.method !== "GET" && ctx.method !== "HEAD";
   if (requireWrite && auth.access !== "rw") {
     json(res, 403, { code: "READ_ONLY", message: "token is read-only" });
     return;
   }
-  // A valid ?token= promotes to a cookie so dashboard links work.
-  // Secure only when the request actually arrived over TLS — the hub
-  // serves plain HTTP by default (a Secure cookie would never stick);
-  // behind a TLS-terminating proxy x-forwarded-proto applies.
-  if (auth.viaQuery && method === "GET") {
-    const tls =
-      (req.socket as { encrypted?: boolean }).encrypted === true ||
-      headerValue(req.headers["x-forwarded-proto"])?.split(",")[0]?.trim() ===
-        "https";
-    res.setHeader(
-      "Set-Cookie",
-      `hub_token=${encodeURIComponent(auth.token)}; HttpOnly;${tls ? " Secure;" : ""} SameSite=Strict; Path=/`,
-    );
+  promoteQueryToken(ctx, auth);
+
+  for (const route of ROUTES) {
+    if (await route(ctx)) return;
   }
-
-  // Cache blobs.
-  const cacheMatch = match2(path, /^\/v1\/cache\/([^/]+)\/([^/]+)$/);
-  if (cacheMatch !== null) {
-    const [project, key] = cacheMatch;
-    if (!isValidCacheKey(key)) {
-      json(res, 400, { code: "BAD_KEY", message: "invalid cache key" });
-      return;
-    }
-    if (method === "PUT") {
-      const body = await readBody(req, limits.maxBlob, res);
-      if (body === null) return;
-      store.putBlob(project, key, body);
-      res.writeHead(201, API_HEADERS);
-      res.end();
-      return;
-    }
-    if (method === "GET") {
-      // Prefix matching is opt-in (?prefix=1) — it's the restoreKeys
-      // semantic. An exact-key GET must never return a different key's
-      // blob, and misses stay O(1) instead of scanning the blob dir.
-      const hit = store.getBlob(project, key, {
-        prefix: url.searchParams.get("prefix") === "1",
-      });
-      if (hit === undefined) {
-        json(res, 404, { code: "NOT_FOUND", message: "cache entry not found" });
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": "application/octet-stream",
-        "x-sverka-cache-key": hit.key,
-        "X-Content-Type-Options": "nosniff",
-      });
-      res.end(hit.blob);
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
-  // Snapshots.
-  const snapMatch = match2(path, /^\/v1\/snapshots\/([^/]+)\/([^/]+)$/);
-  if (snapMatch !== null) {
-    const [project, runId] = snapMatch;
-    if (!isValidRunId(runId)) {
-      json(res, 400, { code: "BAD_ID", message: "invalid run id" });
-      return;
-    }
-    if (method === "PUT") {
-      const body = await readBody(req, limits.maxJson, res);
-      if (body === null) return;
-      store.putSnapshot(project, runId, body.toString("utf8"));
-      res.writeHead(201, API_HEADERS);
-      res.end();
-      return;
-    }
-    if (method === "GET") {
-      const snap = store.getSnapshot(project, runId);
-      if (snap === undefined) {
-        json(res, 404, { code: "NOT_FOUND", message: "snapshot not found" });
-        return;
-      }
-      res.writeHead(200, API_HEADERS);
-      res.end(snap);
-      return;
-    }
-    if (method === "DELETE") {
-      const existed = store.deleteSnapshot(project, runId);
-      res.writeHead(existed ? 204 : 404, API_HEADERS);
-      res.end();
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
-  // Runs.
-  if (path === "/v1/runs") {
-    if (method === "POST") {
-      const body = await readBody(req, limits.maxJson, res);
-      if (body === null) return;
-      let payload: Record<string, unknown>;
-      try {
-        payload = JSON.parse(body.toString("utf8")) as Record<string, unknown>;
-      } catch {
-        json(res, 400, { code: "BAD_JSON", message: "invalid JSON body" });
-        return;
-      }
-      const { project, entry, report, findings, runId } = payload as {
-        project?: unknown;
-        entry?: unknown;
-        report?: unknown;
-        findings?: unknown;
-        runId?: unknown;
-      };
-      if (typeof project !== "string" || project === "") {
-        json(res, 400, { code: "BAD_BODY", message: "project required" });
-        return;
-      }
-      if (typeof entry !== "string" || entry === "") {
-        json(res, 400, { code: "BAD_BODY", message: "entry required" });
-        return;
-      }
-      if (typeof report !== "object" || report === null) {
-        json(res, 400, { code: "BAD_BODY", message: "report required" });
-        return;
-      }
-      if (findings !== undefined && !Array.isArray(findings)) {
-        json(res, 400, {
-          code: "BAD_BODY",
-          message: "findings must be an array",
-        });
-        return;
-      }
-      if (
-        runId !== undefined &&
-        (typeof runId !== "string" || !isValidRunId(runId))
-      ) {
-        json(res, 400, { code: "BAD_ID", message: "invalid run id" });
-        return;
-      }
-      const run = store.insertRun({
-        project,
-        entry,
-        report: report as Record<string, unknown>,
-        findings: (findings as readonly unknown[] | undefined) ?? [],
-        runId: runId as string | undefined,
-      });
-      json(res, 201, { runId: run.runId, url: `/v1/runs/${ENC(run.runId)}` });
-      return;
-    }
-    if (method === "GET") {
-      const project = url.searchParams.get("project") ?? undefined;
-      const limitRaw = url.searchParams.get("limit");
-      const beforeRaw = url.searchParams.get("before");
-      const limit = limitRaw === null ? undefined : Number(limitRaw);
-      const before = beforeRaw === null ? undefined : Number(beforeRaw);
-      const runs = store.listRuns({
-        project,
-        limit:
-          limit !== undefined && Number.isFinite(limit) ? limit : undefined,
-        before:
-          before !== undefined && Number.isFinite(before) ? before : undefined,
-      });
-      json(res, 200, runs.map(runSummary));
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
-  const runIdSeg = match1(path, /^\/v1\/runs\/([^/]+)$/);
-  if (runIdSeg !== null) {
-    if (method === "GET") {
-      const run = store.getRun(runIdSeg);
-      if (run === undefined) {
-        json(res, 404, { code: "NOT_FOUND", message: "run not found" });
-        return;
-      }
-      json(res, 200, {
-        ...runSummary(run),
-        report: JSON.parse(run.reportJson) as unknown,
-        findings: JSON.parse(run.findingsJson) as unknown,
-        uploadedAt: run.uploadedAt,
-      });
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
-  // Flaky-step aggregation.
-  const flakySeg = match1(path, /^\/v1\/flaky\/([^/]+)$/);
-  if (flakySeg !== null) {
-    if (method === "GET") {
-      const stepsParam = url.searchParams.get("steps");
-      const nRaw = url.searchParams.get("n");
-      const n = nRaw === null ? undefined : Number(nRaw);
-      const steps =
-        stepsParam === null || stepsParam === ""
-          ? undefined
-          : stepsParam.split(",").filter((s) => s !== "");
-      json(res, 200, {
-        rows: store.flaky(flakySeg, {
-          n: n !== undefined && Number.isFinite(n) ? n : undefined,
-          steps,
-        }),
-      });
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
-  // --- dashboard (HTML) ---
-
-  if (path === "/") {
-    if (method === "GET") {
-      const project = url.searchParams.get("project");
-      if (project === null) {
-        page(res, renderHubIndex({ projects: store.listProjects() }));
-        return;
-      }
-      const limitRaw = url.searchParams.get("limit");
-      const limit = limitRaw === null ? 50 : Number(limitRaw);
-      const runs = store
-        .listRuns({
-          project,
-          limit: Number.isFinite(limit) ? limit : 50,
-        })
-        .map(runSummary);
-      page(res, renderHubRunList({ project, runs }));
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
-  const findingsMatch = match2(path, /^\/runs\/([^/]+)\/([^/]+)\/findings$/);
-  if (findingsMatch !== null) {
-    if (method === "GET") {
-      const run = store.getRun(findingsMatch[1]);
-      if (run === undefined || run.project !== findingsMatch[0]) {
-        notFoundPage(res);
-        return;
-      }
-      const findings = JSON.parse(run.findingsJson) as Finding[];
-      res.writeHead(200, SARIF_PAGE_HEADERS);
-      res.end(generateSarifHtml(findings));
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
-  const runPageMatch = match2(path, /^\/runs\/([^/]+)\/([^/]+)$/);
-  if (runPageMatch !== null) {
-    if (method === "GET") {
-      const run = store.getRun(runPageMatch[1]);
-      if (run === undefined || run.project !== runPageMatch[0]) {
-        notFoundPage(res);
-        return;
-      }
-      page(
-        res,
-        renderHubRunDetail({
-          run: {
-            ...runSummary(run),
-            report: JSON.parse(run.reportJson) as Record<string, unknown>,
-            findings: JSON.parse(run.findingsJson) as readonly unknown[],
-            uploadedAt: run.uploadedAt,
-          },
-        }),
-      );
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
-  const flakyPageSeg = match1(path, /^\/flaky\/([^/]+)$/);
-  if (flakyPageSeg !== null) {
-    if (method === "GET") {
-      const nRaw = url.searchParams.get("n");
-      const n = nRaw === null ? 20 : Number(nRaw);
-      const window = Number.isFinite(n) ? n : 20;
-      page(
-        res,
-        renderHubFlaky({
-          project: flakyPageSeg,
-          rows: store.flaky(flakyPageSeg, { n: window }),
-          window,
-        }),
-      );
-      return;
-    }
-    methodNotAllowed(res);
-    return;
-  }
-
   json(res, 404, { code: "NOT_FOUND", message: "unknown route" });
+}
+
+// --- /v1 routes ---
+
+async function cacheRoute(ctx: ReqCtx): Promise<boolean> {
+  const m = match2(ctx.path, /^\/v1\/cache\/([^/]+)\/([^/]+)$/);
+  if (m === null) return false;
+  const [project, key] = m;
+  if (!isValidCacheKey(key)) {
+    json(ctx.res, 400, { code: "BAD_KEY", message: "invalid cache key" });
+    return true;
+  }
+  if (ctx.method === "PUT") {
+    const body = await readBody(ctx.req, ctx.limits.maxBlob, ctx.res);
+    if (body === null) return true;
+    ctx.store.putBlob(project, key, body);
+    ctx.res.writeHead(201, API_HEADERS);
+    ctx.res.end();
+    return true;
+  }
+  if (ctx.method === "GET") {
+    // Prefix matching is opt-in (?prefix=1) — it's the restoreKeys
+    // semantic. An exact-key GET must never return a different key's
+    // blob, and misses stay O(1) instead of scanning the blob dir.
+    const hit = ctx.store.getBlob(project, key, {
+      prefix: ctx.url.searchParams.get("prefix") === "1",
+    });
+    if (hit === undefined) {
+      json(ctx.res, 404, {
+        code: "NOT_FOUND",
+        message: "cache entry not found",
+      });
+      return true;
+    }
+    ctx.res.writeHead(200, {
+      "Content-Type": "application/octet-stream",
+      "x-sverka-cache-key": hit.key,
+      "X-Content-Type-Options": "nosniff",
+    });
+    ctx.res.end(hit.blob);
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+async function snapshotRoute(ctx: ReqCtx): Promise<boolean> {
+  const m = match2(ctx.path, /^\/v1\/snapshots\/([^/]+)\/([^/]+)$/);
+  if (m === null) return false;
+  const [project, runId] = m;
+  if (!isValidRunId(runId)) {
+    json(ctx.res, 400, { code: "BAD_ID", message: "invalid run id" });
+    return true;
+  }
+  if (ctx.method === "PUT") {
+    const body = await readBody(ctx.req, ctx.limits.maxJson, ctx.res);
+    if (body === null) return true;
+    ctx.store.putSnapshot(project, runId, body.toString("utf8"));
+    ctx.res.writeHead(201, API_HEADERS);
+    ctx.res.end();
+    return true;
+  }
+  if (ctx.method === "GET") {
+    const snap = ctx.store.getSnapshot(project, runId);
+    if (snap === undefined) {
+      json(ctx.res, 404, { code: "NOT_FOUND", message: "snapshot not found" });
+      return true;
+    }
+    ctx.res.writeHead(200, API_HEADERS);
+    ctx.res.end(snap);
+    return true;
+  }
+  if (ctx.method === "DELETE") {
+    const existed = ctx.store.deleteSnapshot(project, runId);
+    ctx.res.writeHead(existed ? 204 : 404, API_HEADERS);
+    ctx.res.end();
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+async function runsRoute(ctx: ReqCtx): Promise<boolean> {
+  if (ctx.path !== "/v1/runs") return false;
+  if (ctx.method === "POST") {
+    const body = await readBody(ctx.req, ctx.limits.maxJson, ctx.res);
+    if (body === null) return true;
+    const insert = parseRunInsert(body, ctx.res);
+    if (insert === null) return true;
+    const run = ctx.store.insertRun(insert);
+    json(ctx.res, 201, {
+      runId: run.runId,
+      url: `/v1/runs/${ENC(run.runId)}`,
+    });
+    return true;
+  }
+  if (ctx.method === "GET") {
+    const runs = ctx.store.listRuns({
+      project: ctx.url.searchParams.get("project") ?? undefined,
+      limit: numParam(ctx.url, "limit"),
+      before: numParam(ctx.url, "before"),
+    });
+    json(ctx.res, 200, runs.map(runSummary));
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+/** Parse + validate the POST /v1/runs body; writes the 400 itself and
+ *  returns null when the payload is unusable. */
+function parseRunInsert(body: Buffer, res: ServerResponse): RunInsert | null {
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(body.toString("utf8")) as Record<string, unknown>;
+  } catch {
+    json(res, 400, { code: "BAD_JSON", message: "invalid JSON body" });
+    return null;
+  }
+  const { project, entry, report, findings, runId } = payload;
+  if (typeof project !== "string" || project === "") {
+    return badBody(res, "project required");
+  }
+  if (typeof entry !== "string" || entry === "") {
+    return badBody(res, "entry required");
+  }
+  if (typeof report !== "object" || report === null) {
+    return badBody(res, "report required");
+  }
+  if (findings !== undefined && !Array.isArray(findings)) {
+    return badBody(res, "findings must be an array");
+  }
+  if (
+    runId !== undefined &&
+    (typeof runId !== "string" || !isValidRunId(runId))
+  ) {
+    json(res, 400, { code: "BAD_ID", message: "invalid run id" });
+    return null;
+  }
+  return {
+    project,
+    entry,
+    report: report as Record<string, unknown>,
+    findings: (findings as readonly unknown[] | undefined) ?? [],
+    runId: runId as string | undefined,
+  };
+}
+
+function badBody(res: ServerResponse, message: string): null {
+  json(res, 400, { code: "BAD_BODY", message });
+  return null;
+}
+
+function runRoute(ctx: ReqCtx): boolean {
+  const runId = match1(ctx.path, /^\/v1\/runs\/([^/]+)$/);
+  if (runId === null) return false;
+  if (ctx.method === "GET") {
+    const run = ctx.store.getRun(runId);
+    if (run === undefined) {
+      json(ctx.res, 404, { code: "NOT_FOUND", message: "run not found" });
+      return true;
+    }
+    json(ctx.res, 200, {
+      ...runSummary(run),
+      report: JSON.parse(run.reportJson) as unknown,
+      findings: JSON.parse(run.findingsJson) as unknown,
+      uploadedAt: run.uploadedAt,
+    });
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+// Flaky-step aggregation.
+function flakyApiRoute(ctx: ReqCtx): boolean {
+  const project = match1(ctx.path, /^\/v1\/flaky\/([^/]+)$/);
+  if (project === null) return false;
+  if (ctx.method === "GET") {
+    json(ctx.res, 200, {
+      rows: ctx.store.flaky(project, {
+        n: numParam(ctx.url, "n"),
+        steps: csvParam(ctx.url, "steps"),
+      }),
+    });
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+// --- dashboard (HTML) ---
+
+function indexRoute(ctx: ReqCtx): boolean {
+  if (ctx.path !== "/") return false;
+  if (ctx.method === "GET") {
+    const project = ctx.url.searchParams.get("project");
+    if (project === null) {
+      page(ctx.res, renderHubIndex({ projects: ctx.store.listProjects() }));
+      return true;
+    }
+    const limit = numParam(ctx.url, "limit") ?? 50;
+    const runs = ctx.store.listRuns({ project, limit }).map(runSummary);
+    page(ctx.res, renderHubRunList({ project, runs }));
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+function findingsPageRoute(ctx: ReqCtx): boolean {
+  const m = match2(ctx.path, /^\/runs\/([^/]+)\/([^/]+)\/findings$/);
+  if (m === null) return false;
+  if (ctx.method === "GET") {
+    const run = ctx.store.getRun(m[1]);
+    if (run === undefined || run.project !== m[0]) {
+      notFoundPage(ctx.res);
+      return true;
+    }
+    const findings = JSON.parse(run.findingsJson) as Finding[];
+    ctx.res.writeHead(200, SARIF_PAGE_HEADERS);
+    ctx.res.end(generateSarifHtml(findings));
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+function runPageRoute(ctx: ReqCtx): boolean {
+  const m = match2(ctx.path, /^\/runs\/([^/]+)\/([^/]+)$/);
+  if (m === null) return false;
+  if (ctx.method === "GET") {
+    const run = ctx.store.getRun(m[1]);
+    if (run === undefined || run.project !== m[0]) {
+      notFoundPage(ctx.res);
+      return true;
+    }
+    page(
+      ctx.res,
+      renderHubRunDetail({
+        run: {
+          ...runSummary(run),
+          report: JSON.parse(run.reportJson) as Record<string, unknown>,
+          findings: JSON.parse(run.findingsJson) as readonly unknown[],
+          uploadedAt: run.uploadedAt,
+        },
+      }),
+    );
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+function flakyPageRoute(ctx: ReqCtx): boolean {
+  const project = match1(ctx.path, /^\/flaky\/([^/]+)$/);
+  if (project === null) return false;
+  if (ctx.method === "GET") {
+    const window = numParam(ctx.url, "n") ?? 20;
+    page(
+      ctx.res,
+      renderHubFlaky({
+        project,
+        rows: ctx.store.flaky(project, { n: window }),
+        window,
+      }),
+    );
+    return true;
+  }
+  methodNotAllowed(ctx.res);
+  return true;
+}
+
+// --- shared helpers ---
+
+// A valid ?token= promotes to a cookie so dashboard links work.
+// Secure only when the request actually arrived over TLS — the hub
+// serves plain HTTP by default (a Secure cookie would never stick);
+// behind a TLS-terminating proxy x-forwarded-proto applies.
+function promoteQueryToken(
+  ctx: ReqCtx,
+  auth: { token: string; viaQuery: boolean },
+): void {
+  if (!auth.viaQuery || ctx.method !== "GET") return;
+  const tls =
+    (ctx.req.socket as { encrypted?: boolean }).encrypted === true ||
+    headerValue(ctx.req.headers["x-forwarded-proto"])?.split(",")[0]?.trim() ===
+      "https";
+  ctx.res.setHeader(
+    "Set-Cookie",
+    `hub_token=${encodeURIComponent(auth.token)}; HttpOnly;${tls ? " Secure;" : ""} SameSite=Strict; Path=/`,
+  );
+}
+
+/** Numeric query param — absent or non-finite becomes undefined. */
+function numParam(url: URL, name: string): number | undefined {
+  const raw = url.searchParams.get(name);
+  if (raw === null) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Comma-separated query param — absent or empty becomes undefined. */
+function csvParam(url: URL, name: string): string[] | undefined {
+  const raw = url.searchParams.get(name);
+  if (raw === null || raw === "") return undefined;
+  return raw.split(",").filter((s) => s !== "");
 }
 
 /** URL-decode a single path segment matched by `pattern`'s 1st group. */
@@ -479,7 +534,7 @@ function authenticate(
     },
     query,
   );
-  if (token === null) {
+  if (!token) {
     json(res, 401, { code: "UNAUTHORIZED", message: "token required" });
     return null;
   }
@@ -543,7 +598,10 @@ function methodNotAllowed(res: ServerResponse): void {
 
 function page(res: ServerResponse, html: string): void {
   res.writeHead(200, PAGE_HEADERS);
-  res.end(html);
+  // Every user-controlled value that reaches these pages is escaped by
+  // escapeHtml() in @sverka/ui's render functions; CSP default-src 'none'
+  // is the backstop when anything slips through.
+  res.end(html); // codeql[js/reflected-xss]
 }
 
 function notFoundPage(res: ServerResponse): void {
