@@ -74,8 +74,12 @@ export interface FindingRow {
 /** Options for collecting findings from the artifact directory. */
 export interface FindingsCollectorOptions {
   readonly artifactDir: string;
-  /** Skip SARIF files modified before this timestamp (ms) — scopes
-   *  collection to a single run in a shared artifact directory. */
+  /** Scan only `<artifactDir>/<runId>/` — the run's own artifact tree.
+   *  Preferred over `sinceMs`: run identity is exact, mtime is a
+   *  heuristic that can attribute another run's files to this one. */
+  readonly runId?: string;
+  /** Skip SARIF files modified before this timestamp (ms) — legacy
+   *  scoping for artifact trees not keyed by run. */
   readonly sinceMs?: number;
 }
 

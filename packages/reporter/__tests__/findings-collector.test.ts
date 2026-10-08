@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, writeFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { collectFindings } from "../src/findings-collector.js";
@@ -112,6 +112,138 @@ describe("FindingsCollector", () => {
     const rows = await collectFindings({ artifactDir: dir });
     expect(rows).toHaveLength(0);
   });
+
+  it("scopes collection to <artifactDir>/<runId> when runId is given", async () => {
+    const runA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const runB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    await mkdir(join(dir, runA, "ci/lint"), { recursive: true });
+    await mkdir(join(dir, runB, "ci/lint"), { recursive: true });
+    // A finding left behind by an earlier/concurrent run.
+    await writeFile(
+      join(dir, runB, "ci/lint", "results.sarif"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
+    await writeFile(
+      join(dir, runA, "ci/lint", "results.sarif"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
+
+    const rows = await collectFindings({ artifactDir: dir, runId: runA });
+    expect(rows).toHaveLength(1);
+    // stepId is derived relative to the run dir, not the artifact root.
+    expect(rows[0]!.stepId).toBe("ci/lint");
+  });
+
+  it("ignores legacy flat-layout artifacts when runId is given", async () => {
+    // Pre-run-id artifacts sit at <artifactDir>/<stepId>/ — a scoped
+    // collection must not attribute them to this run.
+    await mkdir(join(dir, "ci/lint"), { recursive: true });
+    await writeFile(
+      join(dir, "ci/lint", "results.sarif"),
+      JSON.stringify(SAMPLE_SARIF),
+    );
+
+    const rows = await collectFindings({
+      artifactDir: dir,
+      runId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("returns empty when the run dir is missing but artifactDir exists", async () => {
+    const rows = await collectFindings({
+      artifactDir: dir,
+      runId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "returns empty when the run dir is missing under a symlinked artifactDir",
+    async () => {
+      // realpath(root) resolves the symlink; the absent run dir must not
+      // fail containment against the lexical fallback path.
+      const real = await mkdtemp(join(tmpdir(), "reporter-real-"));
+      try {
+        const link = join(dir, "linked-artifacts");
+        await symlink(real, link);
+
+        const rows = await collectFindings({
+          artifactDir: link,
+          runId: "abababab-abab-4bab-8bab-abababababab",
+        });
+        expect(rows).toHaveLength(0);
+      } finally {
+        await rm(real, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("still throws COLLECTION_FAILED when artifactDir itself is missing (runId set)", async () => {
+    await expect(
+      collectFindings({
+        artifactDir: join(dir, "nonexistent"),
+        runId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      }),
+    ).rejects.toMatchObject({
+      name: "ReporterError",
+      code: "COLLECTION_FAILED",
+    });
+  });
+
+  it("rejects a runId that escapes the artifact dir", async () => {
+    await expect(
+      collectFindings({ artifactDir: dir, runId: "../escape" }),
+    ).rejects.toMatchObject({
+      name: "ReporterError",
+      code: "COLLECTION_FAILED",
+    });
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "rejects a runId dir that is a symlink pointing outside the artifact root",
+    async () => {
+      const outside = await mkdtemp(join(tmpdir(), "reporter-outside-"));
+      try {
+        await mkdir(join(outside, "ci/lint"), { recursive: true });
+        await writeFile(
+          join(outside, "ci/lint", "results.sarif"),
+          JSON.stringify(SAMPLE_SARIF),
+        );
+        const runId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+        await symlink(outside, join(dir, runId));
+
+        await expect(
+          collectFindings({ artifactDir: dir, runId }),
+        ).rejects.toMatchObject({
+          name: "ReporterError",
+          code: "COLLECTION_FAILED",
+        });
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "ignores a symlinked .sarif file inside the run tree",
+    async () => {
+      const outside = await mkdtemp(join(tmpdir(), "reporter-outside-"));
+      try {
+        const runId = "99999999-9999-4999-8999-999999999999";
+        const stepDir = join(dir, runId, "ci/lint");
+        await mkdir(stepDir, { recursive: true });
+        const outsideFile = join(outside, "external.sarif");
+        await writeFile(outsideFile, JSON.stringify(SAMPLE_SARIF));
+        await symlink(outsideFile, join(stepDir, "results.sarif"));
+
+        const rows = await collectFindings({ artifactDir: dir, runId });
+        expect(rows).toHaveLength(0);
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("skips SARIF files older than sinceMs, keeps fresh ones", async () => {
     const { utimes } = await import("node:fs/promises");

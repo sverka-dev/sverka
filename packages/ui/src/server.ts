@@ -144,6 +144,11 @@ function serveDashboard(res: ServerResponse, artifactsDir: string): void {
   res.end(html); // CodeQL: stored XSS — escapeHtml + CSP mitigate
 }
 
+/** Engine run ids are `randomUUID()` values — a leading path segment in
+ *  this shape is the per-run artifact dir, not a step/pipeline name. */
+const RUN_ID_SEGMENT =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Read a SARIF file, normalize findings, and render the HTML report. */
 function serveReport(
   res: ServerResponse,
@@ -189,11 +194,20 @@ function serveReport(
     const raw = readFileSync(filePath, "utf8");
     const sarif = JSON.parse(raw) as SarifLog;
     // Mirror collectFindings: checkId is prefixed with the step directory
-    // relative to the artifacts root ("" for top-level files).
+    // relative to the artifacts root ("" for top-level files). Engine
+    // artifacts nest under <runId> (a UUID — collectFindings scans the
+    // run dir as its root), so drop a leading run segment.
     const dir = dirname(filename).split(sep).join("/");
+    const dirSegments = dir.split("/");
+    const checkIdPrefix =
+      dir === "."
+        ? ""
+        : dirSegments[0] !== undefined && RUN_ID_SEGMENT.test(dirSegments[0])
+          ? dirSegments.slice(1).join("/")
+          : dir;
     const findings = normalizeSarif(sarif, {
       root: artifactsDir,
-      checkIdPrefix: dir === "." ? "" : dir,
+      checkIdPrefix,
       defaultConfidence: 0.5,
     });
     const html = generateSarifHtml(findings);

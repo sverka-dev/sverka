@@ -52,6 +52,11 @@ export function createEngine(config: EngineConfig): Engine {
 interface RunContext {
   readonly request: RunRequest;
   readonly runId: string;
+  /** Per-run artifact root — <request.artifactDir>/<runId>. Keeping a
+   *  run's artifacts under its own directory makes findings collection
+   *  scope by identity, not mtime, and prevents a concurrent run from
+   *  clobbering this run's files. */
+  readonly runArtifactDir: string;
   readonly start: number;
   readonly abort: AbortController;
   readonly plan: RunPlan;
@@ -214,6 +219,7 @@ class NativeEngine implements Engine {
     const preliminaryCtx: RunContext = {
       request,
       runId,
+      runArtifactDir: join(request.artifactDir, runId),
       start,
       abort,
       plan: request.plan,
@@ -226,7 +232,7 @@ class NativeEngine implements Engine {
       indegree: new Map(),
       states: new Map(),
       valueStore: createValueStore(),
-      artifactStore: createArtifactStore(request.artifactDir),
+      artifactStore: createArtifactStore(join(request.artifactDir, runId)),
       secrets: {},
       cache: request.cache ?? this.config.cache,
       eventQueue: [],
@@ -373,6 +379,7 @@ class NativeEngine implements Engine {
     return {
       request,
       runId,
+      runArtifactDir: join(request.artifactDir, runId),
       start,
       abort,
       plan,
@@ -385,7 +392,7 @@ class NativeEngine implements Engine {
       indegree: new Map(setup.graph.indegree),
       states,
       valueStore: createValueStore(),
-      artifactStore: createArtifactStore(request.artifactDir),
+      artifactStore: createArtifactStore(join(request.artifactDir, runId)),
       secrets: setup.secrets,
       cache,
     };
@@ -865,7 +872,7 @@ class NativeEngine implements Engine {
       isCancelled: () => this.isCancelled(ctx.abort),
       signal: ctx.abort.signal,
       agentDrivers: ctx.agentDrivers,
-      artifactDir: ctx.request.artifactDir,
+      artifactDir: ctx.runArtifactDir,
     };
   }
 

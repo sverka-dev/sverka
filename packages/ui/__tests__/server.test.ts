@@ -129,6 +129,26 @@ describe("startUiServer", () => {
     expect(res.status).toBe(400);
   });
 
+  it("report endpoint strips the run-id segment from checkId prefixes", async () => {
+    // Per-run artifact layout: <runId>/<pipeline>/<step>/<file>.sarif.
+    // The run dir is collection scope, not a step — checkId must be
+    // "ci/emit-sarif:test-rule", matching collectFindings.
+    const runDir = "12345678-1234-4234-8234-1234567890ab";
+    mkdirSync(join(dir, runDir, "ci", "emit-sarif"), { recursive: true });
+    writeFileSync(
+      join(dir, runDir, "ci", "emit-sarif", "results.sarif"),
+      VALID_SARIF,
+    );
+    server = await startUiServer({ artifactsDir: dir, port: 13468 });
+    const res = await fetch(
+      `${server.url}/report/${encodeURIComponent(`${runDir}/ci/emit-sarif/results.sarif`)}`,
+    );
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("ci/emit-sarif:test-rule");
+    expect(html).not.toContain(`${runDir}/`);
+  });
+
   it("report endpoint CSP allows the report's own inline scripts by hash", async () => {
     writeFileSync(join(dir, "test.sarif"), VALID_SARIF);
     server = await startUiServer({ artifactsDir: dir, port: 13466 });

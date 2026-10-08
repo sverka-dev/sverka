@@ -191,7 +191,7 @@ engine, same as shell command interpolation).
 3. If no driver: step fails with `NO_AGENT_DRIVER` diagnostic.
 4. Calls `executeAgent(request)` with resolved prompt (references
    interpolated).
-5. Saves `AgentResult` as artifact: `<artifactDir>/<stepId>/agent-result.json`.
+5. Saves `AgentResult` as artifact: `<artifactDir>/<runId>/<stepId>/agent-result.json`.
 6. Step outcome: `succeeded` if `finishReason !== "error"`, else `failed`.
 7. Cache: **skipped** for agent steps (non-deterministic). The engine
    checks `op.kind === "agent"` and skips `tryCacheHit`/`storeCacheResult`
@@ -235,7 +235,7 @@ the agent driver decides how to handle missing tools.
    step fails.
 9. Tool ref `{ plugin: "mcp", tool: "unknown" }` → warn diagnostic, agent
    runs without the tool.
-10. `AgentResult` artifact saved at `<artifactDir>/<stepId>/agent-result.json`
+10. `AgentResult` artifact saved at `<artifactDir>/<runId>/<stepId>/agent-result.json`
     with `text`, `finishReason`, `usage`.
 11. `AgentOperation`, `AgentStep`, `AgentStepProps`, `AgentToolRef` exported
     from `@sverka/workflow`.
