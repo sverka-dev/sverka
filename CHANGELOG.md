@@ -1,3 +1,13 @@
+## 0.2.17 (2026-10-08)
+
+### 🩹 Fixes
+
+- **playground:** bound template nesting depth in scanner ([#327](https://github.com/sverka-dev/sverka/pull/327))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.16 (2026-10-07)
 
 ### 🚀 Features
