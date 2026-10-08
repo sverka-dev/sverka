@@ -19,8 +19,9 @@
  * index machinery in internal/registry-index.ts, and each backend's
  * TreeStore in internal/{tree-store,git-backend,s3-backend}.ts.
  */
+import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import { ArenaError } from "./config.js";
 import {
@@ -144,6 +145,26 @@ async function writeTrace(
   await tree.writeFile(`traces/${runId}/${name}`, data);
 }
 
+const publishQueues = new WeakMap<TreeStore, Promise<unknown>>();
+
+/**
+ * Serialize write+finalize per tree — updateIndex is a read-modify-write
+ * of index.json, so two publishes racing in one process would lose each
+ * other's runs (the git backend's rebase heal only covers pushes that
+ * collide on the remote).
+ */
+function serializedPublish<T>(
+  tree: TreeStore,
+  fn: () => Promise<T>,
+): Promise<T> {
+  // catch(() => {}): a failed publish must not wedge the tree's queue.
+  const next = (publishQueues.get(tree) ?? Promise.resolve())
+    .catch(() => {})
+    .then(fn);
+  publishQueues.set(tree, next);
+  return next;
+}
+
 async function writeResult(
   tree: TreeStore,
   doc: ArenaResultV1,
@@ -180,26 +201,30 @@ export async function publishBatch(
     }
     return paths;
   }
-  // Sequential on purpose: writeResult's index update is a
-  // read-modify-write of index.json — concurrent writes would race.
-  for (const { doc, opts } of docs) {
-    paths.push(await writeResult(tree, doc, opts ?? {})); // NOSONAR — see above
-  }
-  await tree.finalize(message);
-  return paths;
+  return serializedPublish(tree, async () => {
+    // Sequential on purpose: writeResult's index update is a
+    // read-modify-write of index.json — concurrent writes would race.
+    for (const { doc, opts } of docs) {
+      paths.push(await writeResult(tree, doc, opts ?? {})); // NOSONAR — see above
+    }
+    await tree.finalize(message);
+    return paths;
+  });
 }
 
 function createRegistry(tree: TreeStore): ArenaRegistry {
   return {
     async publish(result, opts = {}) {
-      // No refresh here: publishing off a stale checkout surfaces
-      // same-path rewrites as a rebase conflict (REGISTRY_UNAVAILABLE)
-      // rather than silently last-writer-wins.
-      const rel = await writeResult(tree, result, opts);
-      await tree.finalize(
-        `arena: publish ${result.pack}/${result.agent}/${result.runId}`,
-      );
-      return rel;
+      return serializedPublish(tree, async () => {
+        // No refresh here: publishing off a stale checkout surfaces
+        // same-path rewrites as a rebase conflict (REGISTRY_UNAVAILABLE)
+        // rather than silently last-writer-wins.
+        const rel = await writeResult(tree, result, opts);
+        await tree.finalize(
+          `arena: publish ${result.pack}/${result.agent}/${result.runId}`,
+        );
+        return rel;
+      });
     },
     async list(query = {}) {
       await tree.refresh?.();
@@ -256,12 +281,14 @@ export async function reindexRegistry(
       "REGISTRY_UNAVAILABLE",
     );
   }
-  // Re-sync first — a memoized checkout would index a stale tree.
-  await tree.refresh?.();
-  const { index, runs } = await buildIndex(tree);
-  await writeIndex(tree, index);
-  await tree.finalize("arena: reindex");
-  return { runs };
+  return serializedPublish(tree, async () => {
+    // Re-sync first — a memoized checkout would index a stale tree.
+    await tree.refresh?.();
+    const { index, runs } = await buildIndex(tree);
+    await writeIndex(tree, index);
+    await tree.finalize("arena: reindex");
+    return { runs };
+  });
 }
 
 /** True when ref names a git remote (http/ssh/git@/.git suffix). */
@@ -272,6 +299,36 @@ function isGitRef(ref: string): boolean {
     /^(?:ssh|git):\/\//.test(ref) ||
     ref.endsWith(".git")
   );
+}
+
+/**
+ * A local directory that is not a git repo (no .git, no HEAD) — a plain
+ * registry dir named *.git must not be inferred as a remote and cloned.
+ * A real repo (bare → HEAD, non-bare → .git) still classifies as git.
+ */
+function isLocalNonRepoDir(ref: string): boolean {
+  return (
+    existsSync(ref) &&
+    statSync(ref).isDirectory() &&
+    !existsSync(join(ref, ".git")) &&
+    !existsSync(join(ref, "HEAD"))
+  );
+}
+
+/**
+ * The git URL a ref points at, or null when it's a local file path.
+ * `git::` forces git; an inferred *.git ref yields to a local non-repo
+ * dir, and `file://` strips to its path for the existence check.
+ */
+function resolveGitRef(ref: string): string | null {
+  const forced = ref.startsWith("git::");
+  const stripped = forced ? ref.slice(5) : ref;
+  const localPath = stripped.startsWith("file://")
+    ? stripped.slice(7)
+    : stripped;
+  return isGitRef(stripped) && (forced || !isLocalNonRepoDir(localPath))
+    ? stripped
+    : null;
 }
 
 /**
@@ -295,8 +352,8 @@ export function openRegistry(
       ...(opts.client !== undefined ? { client: opts.client } : {}),
     });
   }
-  const gitRef = ref.startsWith("git::") ? ref.slice(5) : ref;
-  if (isGitRef(gitRef)) {
+  const gitRef = resolveGitRef(ref);
+  if (gitRef !== null) {
     return createGitRegistry({
       url: gitRef,
       ...(opts.token !== undefined ? { token: opts.token } : {}),
@@ -322,8 +379,8 @@ export async function resolveRegistryDir(
       "REGISTRY_UNAVAILABLE",
     );
   }
-  const gitRef = ref.startsWith("git::") ? ref.slice(5) : ref;
-  if (isGitRef(gitRef)) {
+  const gitRef = resolveGitRef(ref);
+  if (gitRef !== null) {
     const cfg: GitRegistryConfig = {
       url: gitRef,
       ...(opts.token !== undefined ? { token: opts.token } : {}),

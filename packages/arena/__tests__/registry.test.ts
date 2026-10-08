@@ -409,6 +409,72 @@ describe("file registry", () => {
     // single-line JSON — valid JSONL
     expect(readFileSync(tracePath, "utf8").trim().split("\n").length).toBe(1);
   });
+
+  it("concurrent publishes keep every run in the index", async () => {
+    const regDir = join(dir, "reg-concurrent");
+    const reg = createFileRegistry(regDir);
+    // updateIndex is a read-modify-write — without per-tree
+    // serialization each publish's index read can predate the other's
+    // write, and index.json ends up missing a run.
+    await Promise.all([
+      reg.publish(v1Doc({ runId: "race-1" })),
+      reg.publish(v1Doc({ runId: "race-2" })),
+      reg.publish(v1Doc({ runId: "race-3" })),
+    ]);
+    const index = JSON.parse(
+      readFileSync(join(regDir, "index.json"), "utf8"),
+    ) as { packs: Record<string, { runs: { runId: string }[] }> };
+    expect(index.packs["node-ci"]!.runs.map((r) => r.runId).sort()).toEqual([
+      "race-1",
+      "race-2",
+      "race-3",
+    ]);
+    expect((await reg.list()).map((d) => d.runId).sort()).toEqual([
+      "race-1",
+      "race-2",
+      "race-3",
+    ]);
+  });
+
+  it("an index path outside results/ poisons the index — list falls back to the tree scan", async () => {
+    const regDir = join(dir, "reg-escape");
+    const reg = createFileRegistry(regDir);
+    await reg.publish(v1Doc({ runId: "r-real" }));
+    // A valid result doc OUTSIDE the registry — a poisoned index entry
+    // must never make list() read it.
+    writeFileSync(
+      join(dir, "escape-target.json"),
+      JSON.stringify(v1Doc({ runId: "r-escaped" })),
+    );
+    writeFileSync(
+      join(regDir, "index.json"),
+      JSON.stringify({
+        schema: "arena.index/v1",
+        updatedAt: "2026-10-01T00:00:00.000Z",
+        packs: {
+          "node-ci": {
+            runs: [
+              {
+                runId: "r-escaped",
+                agent: "devin",
+                date: "2026-10-01",
+                path: "../escape-target.json",
+              },
+              {
+                runId: "r-real",
+                agent: "devin",
+                date: "2026-10-01",
+                path: "results/node-ci/devin/2026-10-01/r-real.json",
+              },
+            ],
+          },
+        },
+      }),
+    );
+    // The corrupt entry fails the index parse — the scan finds only
+    // the real result and the outside file is never read.
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["r-real"]);
+  });
 });
 
 // ─── openRegistry ref parsing ────────────────────────────────────────
@@ -421,6 +487,30 @@ describe("openRegistry", () => {
     expect(fileUrl).toBeDefined();
     const s3 = openRegistry("s3://bucket/prefix", { client: fakeS3() });
     expect(s3).toBeDefined();
+  });
+
+  it("a local non-repo dir named *.git opens as a file registry", async () => {
+    // Not a git repo — the .git suffix must not send it to the clone
+    // path (git:: still forces git, real repos still classify as git).
+    const regDir = join(dir, "local.git");
+    mkdirSync(join(regDir, "results/node-ci/devin/2026-10-01"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(regDir, "results/node-ci/devin/2026-10-01/r-gitdir.json"),
+      JSON.stringify(v1Doc({ runId: "r-gitdir" })) + "\n",
+    );
+    const reg = openRegistry(regDir);
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["r-gitdir"]);
+  });
+
+  it("a bare repo path ending in .git still resolves as a git registry", async () => {
+    const remote = makeBareRemote("bare-as-ref.git");
+    const reg = openRegistry(remote, { dir: join(dir, "co-bare-ref") });
+    const rel = await reg.publish(v1Doc({ runId: "r-bareref" }));
+    const verify = join(dir, "verify-bareref");
+    gitIn(dir, ["clone", remote, verify]);
+    expect(existsSync(join(verify, rel))).toBe(true);
   });
 });
 
@@ -527,6 +617,38 @@ describe("git registry", () => {
     gitIn(dir, ["clone", remote, verify]);
     expect(existsSync(join(verify, rel))).toBe(true);
     expect(existsSync(join(verify, "index.json"))).toBe(true);
+  });
+
+  it("refuses to reuse a checkout dir bound to another remote or branch", async () => {
+    const remoteA = makeBareRemote("remote-memo-a.git");
+    const remoteB = makeBareRemote("remote-memo-b.git");
+    const shared = join(dir, "checkout-memo");
+    // First access binds the dir memo to remoteA@main.
+    await createGitRegistry({ url: remoteA, dir: shared }).list();
+    // A second registry sharing the dir but not the remote/branch must
+    // fail loudly — reusing it would publish to the wrong remote.
+    await expectArenaError(
+      () => createGitRegistry({ url: remoteB, dir: shared }).list(),
+      "REGISTRY_UNAVAILABLE",
+    );
+    await expectArenaError(
+      () =>
+        createGitRegistry({
+          url: remoteA,
+          dir: shared,
+          branch: "beta",
+        }).list(),
+      "REGISTRY_UNAVAILABLE",
+    );
+  });
+
+  it("a pre-existing checkout cloned from another remote is refused", async () => {
+    const remoteA = makeBareRemote("remote-orig-a.git");
+    const remoteB = makeBareRemote("remote-orig-b.git");
+    const checkout = join(dir, "checkout-foreign");
+    gitIn(dir, ["clone", remoteA, checkout]); // origin = remoteA
+    const reg = createGitRegistry({ url: remoteB, dir: checkout });
+    await expectArenaError(() => reg.list(), "REGISTRY_UNAVAILABLE");
   });
 
   it("non-fast-forward push → one rebase retry → publishes", async () => {

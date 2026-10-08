@@ -95,7 +95,10 @@ async function ffPullCheckout(
   }
 }
 
-const checkouts = new Map<string, Promise<void>>();
+const checkouts = new Map<
+  string,
+  { url: string; branch: string; p: Promise<void> }
+>();
 
 /**
  * Clone-or-refresh a git registry checkout (memoized per dir). Soft on
@@ -107,47 +110,76 @@ export function ensureGitCheckout(cfg: GitRegistryConfig): Promise<void> {
   const branch = cfg.branch ?? "main";
   const auth = gitAuthEnv(cfg);
   const unavailable = gitUnavailable(cfg, dir);
-  let p = checkouts.get(dir);
-  if (p === undefined) {
-    p = (async () => {
-      if (cfg.dir === undefined) {
-        // The auto-derived tmpdir path is predictable (URL hash) — a
-        // foreign pre-created dir would supply its own .git/config
-        // (core.fsmonitor, core.sshCommand) and hooks running as us.
-        // Verify type+owner+mode before trusting an existing checkout
-        // (CWE-377). A user-supplied cfg.dir is the caller's choice and
-        // is not re-checked here.
-        await ensurePrivateDir(
-          dir,
-          "registry checkout",
-          "REGISTRY_UNAVAILABLE",
-        );
-      }
-      if (existsSync(join(dir, ".git"))) {
-        await ffPullCheckout(dir, branch, auth);
-        return;
-      }
-      try {
-        await gitOrThrow(
-          [
-            "clone",
-            ...(cfg.branch !== undefined ? ["--branch", cfg.branch] : []),
-            cfg.url,
-            dir,
-          ],
-          { env: auth },
-        );
-      } catch (err) {
-        throw unavailable(`git clone failed`, err);
-      }
-    })();
-    checkouts.set(dir, p);
-    // A failed clone must not poison the memo — retry next call. The
-    // identity check keeps a concurrent fresh entry from being removed.
-    p.catch(() => {
-      if (checkouts.get(dir) === p) checkouts.delete(dir);
-    });
+  const existing = checkouts.get(dir);
+  if (existing !== undefined) {
+    // The memo binds a dir to its first url+branch — silently reusing
+    // it for another registry would publish to the wrong remote.
+    if (existing.url !== cfg.url || existing.branch !== branch) {
+      throw new ArenaError(
+        `registry unavailable — checkout ${dir} is bound to ${existing.url} (branch ${existing.branch}), not ${cfg.url} (branch ${branch})`,
+        "REGISTRY_UNAVAILABLE",
+      );
+    }
+    return existing.p;
   }
+  const p = (async () => {
+    if (cfg.dir === undefined) {
+      // The auto-derived tmpdir path is predictable (URL hash) — a
+      // foreign pre-created dir would supply its own .git/config
+      // (core.fsmonitor, core.sshCommand) and hooks running as us.
+      // Verify type+owner+mode before trusting an existing checkout
+      // (CWE-377). A user-supplied cfg.dir is the caller's choice and
+      // is not re-checked here.
+      await ensurePrivateDir(dir, "registry checkout", "REGISTRY_UNAVAILABLE");
+    }
+    if (existsSync(join(dir, ".git"))) {
+      // An adopted checkout must belong to THIS registry — an explicit
+      // cfg.dir at a clone of another remote would publish to it.
+      const origin = await git(["-C", dir, "remote", "get-url", "origin"], {
+        env: auth,
+      });
+      if (origin.code !== 0 || origin.stdout.trim() !== cfg.url) {
+        throw unavailable(
+          `checkout remote is not '${cfg.url}'`,
+          origin.stderr.trim(),
+        );
+      }
+      // A checkout on a different branch would publish that branch's
+      // tip to '${branch}' — HEAD:branch pushes whatever is checked
+      // out. Detached HEAD carries no branch claim; adopt it.
+      const head = await git(
+        ["-C", dir, "symbolic-ref", "-q", "--short", "HEAD"],
+        { env: auth },
+      );
+      if (head.code === 0 && head.stdout.trim() !== branch) {
+        throw unavailable(
+          `checkout is on branch '${head.stdout.trim()}', not '${branch}'`,
+          undefined,
+        );
+      }
+      await ffPullCheckout(dir, branch, auth);
+      return;
+    }
+    try {
+      await gitOrThrow(
+        [
+          "clone",
+          ...(cfg.branch !== undefined ? ["--branch", cfg.branch] : []),
+          cfg.url,
+          dir,
+        ],
+        { env: auth },
+      );
+    } catch (err) {
+      throw unavailable(`git clone failed`, err);
+    }
+  })();
+  checkouts.set(dir, { url: cfg.url, branch, p });
+  // A failed clone must not poison the memo — retry next call. The
+  // identity check keeps a concurrent fresh entry from being removed.
+  p.catch(() => {
+    if (checkouts.get(dir)?.p === p) checkouts.delete(dir);
+  });
   return p;
 }
 

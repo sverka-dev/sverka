@@ -24,11 +24,19 @@ export interface RegistryIndex {
 
 export const INDEX_PATH = "index.json";
 
+/** The shape resultPath emits — results/<pack>/<agent>/<YYYY-MM-DD>/<runId>.json. */
+const RESULT_PATH =
+  /^results\/[a-zA-Z0-9][a-zA-Z0-9._-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]*\/\d{4}-\d{2}-\d{2}\/[a-zA-Z0-9][a-zA-Z0-9._-]*\.json$/; // nosemgrep: rules_lgpl_javascript_dos_rule-regex-dos
+
 const indexRunSchema = z.object({
   runId: z.string(),
   agent: z.string(),
   date: z.string(),
-  path: z.string(),
+  // An index.json is untrusted input: a run path outside results/ would
+  // make list() read a file outside the registry tree. A non-canonical
+  // path fails the whole parse — readers fall back to a results/ scan,
+  // writers rebuild the index.
+  path: z.string().regex(RESULT_PATH),
 });
 
 const registryIndexSchema = z.object({
