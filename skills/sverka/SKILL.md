@@ -96,7 +96,7 @@ For AI agent integration, use JSON format for structured per-step results:
 npx sverka run --format json
 ```
 
-Output: `{"command":"run","data":{"planId":"...","status":"success","steps":[{"stepId":"ci/lint","status":"succeeded","durationMs":4307},...]}}`
+Output: `{"schema":"sverka.run/v1","command":"run","data":{"planId":"...","status":"success","steps":[{"stepId":"ci/lint","status":"succeeded","durationMs":4307},...]}}`
 
 On failure, steps include `stdout`, `stderr`, and `exitCode` so agents see
 WHY the command failed without rerunning it:

@@ -229,6 +229,216 @@ describe("run command — per-run report artifacts (spec 53)", () => {
     }
   });
 
+  it("pins the sverka.run/v1 field set (Spec 48 freeze — append-only)", async () => {
+    // Reduce a JSON value to its field set: objects become sorted-key maps
+    // of shapes, leaves become their typeof tag. Snapshotting the shape —
+    // not the values — pins the contract across runs: a rename/removal
+    // fails, a new field forces a deliberate `vitest -u` in review.
+    const fieldSet = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(fieldSet);
+      if (value !== null && typeof value === "object") {
+        return Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((k) => [k, fieldSet((value as Record<string, unknown>)[k])]),
+        );
+      }
+      return typeof value;
+    };
+
+    const dir = getDir();
+    await writefile(dir, "sverka.config.ts", VALID_CONFIG);
+
+    // Plain run — the baseline field set (no eval-only fields).
+    const plain = new CaptureWriter();
+    expect(
+      await main(["run", "--root", dir, "--format", "json"], {
+        output: plain,
+      }),
+    ).toBe(0);
+    const plainPayload = JSON.parse(plain.stdoutText.trim());
+    expect(plainPayload.schema).toBe("sverka.run/v1");
+    expect(fieldSet(plainPayload)).toMatchInlineSnapshot(`
+      {
+        "command": "string",
+        "data": {
+          "planId": "string",
+          "report": {
+            "findings": "number",
+            "html": "string",
+            "json": "string",
+          },
+          "status": "string",
+          "steps": [
+            {
+              "durationMs": "number",
+              "exitCode": "number",
+              "status": "string",
+              "stderr": "string",
+              "stdout": "string",
+              "stepId": "string",
+            },
+          ],
+        },
+        "durationMs": "number",
+        "schema": "string",
+      }
+    `);
+    const plainReport = JSON.parse(
+      readFileSync(plainPayload.data.report.json, "utf-8"),
+    );
+    expect(plainReport.schema).toBe("sverka.run/v1");
+    expect(fieldSet(plainReport)).toMatchInlineSnapshot(`
+      {
+        "data": {
+          "findings": "number",
+          "planId": "string",
+          "status": "string",
+          "steps": [
+            {
+              "durationMs": "number",
+              "exitCode": "number",
+              "status": "string",
+              "stderr": "string",
+              "stdout": "string",
+              "stepId": "string",
+            },
+          ],
+          "warnings": [
+            "string",
+          ],
+        },
+        "durationMs": "number",
+        "schema": "string",
+      }
+    `);
+
+    // --evaluate run — pins the eval-only additions (findings/verdict/
+    // summary) that sit on the same schema. SARIF_CONFIG produces the
+    // artifact collectFindings needs; the finding fails the gate.
+    const sarifDir = await makeTempDir("sverka-run-schema-eval-");
+    try {
+      await writefile(sarifDir, "sverka.config.ts", SARIF_CONFIG);
+      const evaluated = new CaptureWriter();
+      expect(
+        await main(
+          ["run", "--root", sarifDir, "--format", "json", "--evaluate"],
+          { output: evaluated },
+        ),
+      ).toBe(1);
+      const evalPayload = JSON.parse(evaluated.stdoutText.trim());
+      expect(fieldSet(evalPayload)).toMatchInlineSnapshot(`
+        {
+          "command": "string",
+          "data": {
+            "findings": "number",
+            "planId": "string",
+            "report": {
+              "findings": "number",
+              "html": "string",
+              "json": "string",
+            },
+            "status": "string",
+            "steps": [
+              {
+                "durationMs": "number",
+                "exitCode": "number",
+                "status": "string",
+                "stderr": "string",
+                "stdout": "string",
+                "stepId": "string",
+              },
+            ],
+            "summary": "string",
+            "verdict": "string",
+          },
+          "durationMs": "number",
+          "schema": "string",
+        }
+      `);
+      const evalReport = JSON.parse(
+        readFileSync(evalPayload.data.report.json, "utf-8"),
+      );
+      expect(fieldSet(evalReport)).toMatchInlineSnapshot(`
+        {
+          "data": {
+            "findings": "number",
+            "planId": "string",
+            "status": "string",
+            "steps": [
+              {
+                "durationMs": "number",
+                "exitCode": "number",
+                "status": "string",
+                "stderr": "string",
+                "stdout": "string",
+                "stepId": "string",
+              },
+            ],
+            "summary": "string",
+            "verdict": "string",
+          },
+          "durationMs": "number",
+          "schema": "string",
+        }
+      `);
+    } finally {
+      await cleanupTempDir(sarifDir);
+    }
+
+    // Failed step — pins the `error` field on the step entry.
+    const failDir = await makeTempDir("sverka-run-schema-fail-");
+    try {
+      await writefile(
+        failDir,
+        "sverka.config.ts",
+        `import { Project, Pipeline, ShellStep, Entry } from "@sverka/workflow";
+const proj = new Project("myproj");
+const pipeline = new Pipeline(proj, "ci");
+new ShellStep(pipeline, "test", { command: "exit 3", runtime: { shell: "sh" } });
+new Entry(pipeline, "on-push", { trigger: { kind: "push" }, roots: ["test"] });
+export default proj;
+`,
+      );
+      const failed = new CaptureWriter();
+      expect(
+        await main(["run", "--root", failDir, "--format", "json"], {
+          output: failed,
+        }),
+      ).toBe(1);
+      const failPayload = JSON.parse(failed.stdoutText.trim());
+      expect(fieldSet(failPayload)).toMatchInlineSnapshot(`
+        {
+          "command": "string",
+          "data": {
+            "planId": "string",
+            "report": {
+              "findings": "number",
+              "html": "string",
+              "json": "string",
+            },
+            "status": "string",
+            "steps": [
+              {
+                "durationMs": "number",
+                "error": "string",
+                "exitCode": "number",
+                "status": "string",
+                "stderr": "string",
+                "stdout": "string",
+                "stepId": "string",
+              },
+            ],
+          },
+          "durationMs": "number",
+          "schema": "string",
+        }
+      `);
+    } finally {
+      await cleanupTempDir(failDir);
+    }
+  });
+
   it("warns and still emits the result when the report dir can't be created", async () => {
     const dir = getDir();
     await writefile(dir, "sverka.config.ts", VALID_CONFIG);
