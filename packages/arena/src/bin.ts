@@ -65,6 +65,7 @@ commands:
 
 registry refs: <dir> | file://<dir> | <git-url> | git::<url> | s3://<bucket>/<prefix>
 pack refs:     <dir> | <git-url> | <name> (packs/<name>/ inside --registry)
+env:           ARENA_REGISTRY (registry ref), ARENA_REGISTRY_TOKEN (https bearer)
 `;
 
 function flagValue(argv: readonly string[], i: number): string {
@@ -261,6 +262,16 @@ function registryRef(args: ParsedArgs): string | undefined {
   return args.registry ?? process.env["ARENA_REGISTRY"];
 }
 
+/** Bearer token for private https registries — env only, never argv. */
+function registryToken(): string | undefined {
+  return process.env["ARENA_REGISTRY_TOKEN"];
+}
+
+function registryOpts(): { token?: string } {
+  const token = registryToken();
+  return token !== undefined ? { token } : {};
+}
+
 function requireRegistry(args: ParsedArgs): ArenaRegistry {
   const ref = registryRef(args);
   if (ref === undefined) {
@@ -269,7 +280,7 @@ function requireRegistry(args: ParsedArgs): ArenaRegistry {
       "CONFIG_INVALID",
     );
   }
-  return openRegistry(ref);
+  return openRegistry(ref, registryOpts());
 }
 
 async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
@@ -277,12 +288,15 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
     io.err("run: --format html is only supported by 'report'\n");
     return 2;
   }
+  // Fail fast — a missing registry must fail before the matrix runs.
+  const publishRegistry = args.publish ? requireRegistry(args) : undefined;
   let pack: TaskPack | undefined;
   let config: Awaited<ReturnType<typeof loadArenaConfig>>;
   if (args.pack !== undefined) {
     const regRef = registryRef(args);
     pack = await resolvePack(args.pack, {
       ...(regRef !== undefined ? { registry: regRef } : {}),
+      ...registryOpts(),
     });
     io.err(
       `pack '${pack.name}': ${pack.tasks.length} task(s) from ${pack.dir}\n`,
@@ -328,9 +342,8 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
   } else {
     io.out(renderReport(result) + "\n");
   }
-  if (args.publish) {
-    const registry = requireRegistry(args);
-    const paths = await publishResult(result, registry, {
+  if (publishRegistry !== undefined) {
+    const paths = await publishResult(result, publishRegistry, {
       pack: pack?.name ?? "default",
       agent: config.agent.id,
       sverkaVersion: args.sverkaVersion ?? arenaVersion(),

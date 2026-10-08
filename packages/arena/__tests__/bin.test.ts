@@ -165,6 +165,18 @@ describe("sverka-arena bin", () => {
     expect(c.stderr).toContain("t1");
   });
 
+  it("run --publish without a registry fails fast before the matrix", async () => {
+    const { c, io } = capture();
+    const code = await main(
+      ["run", "--config", join(dir, "arena.config.ts"), "--publish"],
+      io,
+    );
+    expect(code).toBe(2);
+    expect(c.stderr).toContain("no registry");
+    // The matrix never ran — no results payload was printed.
+    expect(c.stdout).toBe("");
+  });
+
   it("report/doctor reject --task instead of silently ignoring it", async () => {
     const { c, io } = capture();
     const code = await main(
