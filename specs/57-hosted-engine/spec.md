@@ -57,16 +57,24 @@ export interface RunQueue {
     workerId: string,
     capabilities: WorkerCapabilities,
   ): Promise<QueuedRun | undefined>;
-  heartbeat(runId: string): Promise<void>;
-  complete(runId: string, report: RunReport): Promise<void>;
-  fail(runId: string, error: string): Promise<void>;
+  heartbeat(runId: string, claimToken: string): Promise<void>;
+  complete(
+    runId: string,
+    claimToken: string,
+    report: RunReport,
+    findings: readonly Finding[],
+  ): Promise<void>;
+  fail(runId: string, claimToken: string, error: string): Promise<void>;
 }
 
 export interface QueuedRun {
   readonly runId: string;
+  // fences this claim attempt — heartbeat/complete/fail reject a
+  // stale token after the run is re-claimed post-heartbeat-expiry
+  readonly claimToken: string;
   readonly project: string;
   readonly runPlan: RunPlan; // serialized, spec 06/32
-  readonly workspaceRef: WorkspaceRef; // git ref or tarball URL
+  readonly workspaceRef: WorkspaceRef; // pinned git commit or tarball URL
 }
 
 export interface WorkerCapabilities {
@@ -79,8 +87,10 @@ export interface WorkerCapabilities {
 Submission side: `sverka run --submit` serializes the RunPlan +
 workspace ref to `POST /v1/runs/queue` (an addition to the Spec 55
 API, versioned when built). A worker claims it, materializes the
-workspace, executes with the native engine, and uploads the
-report — the SAME `POST /v1/runs` sink Stage A already uses. No
+workspace, executes with the native engine, and uploads report +
+findings — the SAME `POST /v1/runs` envelope
+(`{project, entry, report, findings}`, Spec 55) Stage A already
+uses; `project`/`entry` come from the claimed `QueuedRun`. No
 new observability surface.
 
 Self-hosted means: the user's worker, the user's hub, the user's
