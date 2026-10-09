@@ -1,3 +1,14 @@
+## 0.2.23 (2026-10-09)
+
+### 🚀 Features
+
+- **runtime:** hosted-engine worker contract + bootstrap-job docs (spec 57) ([#355](https://github.com/sverka-dev/sverka/pull/355))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.22 (2026-10-08)
 
 ### 🩹 Fixes
