@@ -271,6 +271,61 @@ describe("scanner: operand-tracking edges (PR #320/#321 review debt)", () => {
     expect(out).toContain("return b + c");
   });
 
+  it("a keyword-named property divides — `obj.return / 2`", () => {
+    // Reserved words are legal property names, but `return` sat in
+    // NON_OPERAND_WORDS: the `/` opened a regex that ran to EOL and
+    // swallowed `export default` whole, leaving `export` for eval.
+    const src =
+      "const obj = { return: 4 };\nobj.return / 2; export default obj;";
+    const out = preprocessCode(src);
+    expect(out).toContain("obj.return / 2;");
+    expect(out).toContain("return obj");
+  });
+
+  for (const word of ["new", "class", "function", "delete", "typeof", "in"]) {
+    it(`division after a property named ${word} is not a regex`, () => {
+      const src = `const o = { ${word}: 8 };\nconst r = o.${word} / 2;\nexport default r;`;
+      const out = preprocessCode(src);
+      expect(out).toContain(`o.${word} / 2`);
+      expect(out).toContain("return r");
+    });
+  }
+
+  it("a keyword property through `?.` still divides", () => {
+    const src =
+      "const o = { return: 8 };\nconst r = o?.return / 2;\nexport default r;";
+    const out = preprocessCode(src);
+    expect(out).toContain("o?.return / 2");
+    expect(out).toContain("return r");
+  });
+
+  it("a spaced or commented `.` still marks the property a name", () => {
+    const src =
+      "const o = { return: 8 };\nconst a = o . return / 2;\nconst b = o./*c*/return / 2;\nexport default a + b;";
+    const out = preprocessCode(src);
+    expect(out).toContain("o . return / 2");
+    expect(out).toContain("o./*c*/return / 2");
+    expect(out).toContain("return a + b");
+  });
+
+  it("a keyword property inside ${} does not swallow the template", () => {
+    // The shared operand scanner had the same hole: `return` after `.`
+    // made `/` scan as a regex inside scanTemplateExpr, eating the `}`
+    // and the rest of the file.
+    const src =
+      "const o = { return: 8 };\nconst t = `v ${ o.return / 2 }`;\nexport default t;";
+    const out = preprocessCode(src);
+    expect(out).toContain("`v ${ o.return / 2 }`");
+    expect(out).toContain("return t");
+  });
+
+  it("evaluates code that divides by a keyword-named property", () => {
+    const src = `import { Project } from "@sverka/playground";
+const o = { return: 4 };
+export default new Project("p-" + o.return / 2);`;
+    expect(evaluateUserCode(src).id).toBe("p-2");
+  });
+
   it("a `//` comment ends at CR, U+2028 and U+2029, not only LF", () => {
     // Each terminator must release the code after it — a comment that
     // only stops at LF would swallow `export default` into the comment.

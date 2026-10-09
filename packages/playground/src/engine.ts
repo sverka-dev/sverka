@@ -13,6 +13,7 @@ import { runPipeline } from "./runner.js";
 import {
   commentAt,
   CONTROL_WORDS,
+  isDigit,
   isIdentChar,
   isLineTerminator,
   isWsChar,
@@ -368,6 +369,24 @@ function tryNumber(code: string, st: ScanState, out: string[]): boolean {
   return true;
 }
 
+/** `.` opens member access — the word after it is a property name, not
+ *  a keyword, so `obj.return / 2` divides. `.5` is a number taken by
+ *  tryNumber; `?.` reaches here through its `.`; each `.` of `...`
+ *  lands here and the leading pair finds no ident to consume. */
+function tryDot(code: string, st: ScanState, out: string[]): boolean {
+  if (code[st.i] !== ".") return false;
+  let end = st.i + 1;
+  const prop = skipTrivia(code, end);
+  if (isIdentChar(code[prop]) && !isDigit(code[prop]))
+    end = skipIdent(code, prop);
+  out.push(code.slice(st.i, end));
+  st.i = end;
+  st.operandEnd = true;
+  st.pendingCtl = null;
+  st.stmtStart = false;
+  return true;
+}
+
 /** Emit an identifier run — keyword table decides whether `/` after it
  *  divides (`foo /x/`) or opens a regex (`return /x/`). `of` is the one
  *  contextual exception: inside a `for (` header it introduces the
@@ -405,6 +424,7 @@ const HANDLERS: ((code: string, st: ScanState, out: string[]) => boolean)[] = [
   tryImport,
   tryExport,
   tryNumber,
+  tryDot,
   tryWord,
 ];
 

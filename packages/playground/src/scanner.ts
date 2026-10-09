@@ -331,6 +331,18 @@ function operandToken(
     st.pendingCtl = null;
     return scanNumber(code, i);
   }
+  if (c === ".") {
+    // Member access: a word after `.` is a property name, never a
+    // keyword — `obj.return / 2` divides. `.5` was taken by numberAt;
+    // `?.` reaches here through its `.`; each `.` of `...` lands here
+    // too, where the leading pair simply finds no ident to consume.
+    st.pendingCtl = null;
+    st.operandEnd = true;
+    const prop = skipTrivia(code, i + 1);
+    return isIdentChar(code[prop]) && !isDigit(code[prop])
+      ? skipIdent(code, prop)
+      : i + 1;
+  }
   if (isIdentChar(c)) {
     const wend = skipIdent(code, i);
     const word = code.slice(i, wend);
