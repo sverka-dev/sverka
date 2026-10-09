@@ -20,6 +20,42 @@ skill carries usage policy only.
 See `engdocs/contributing/guide.md` for tech stack, monorepo layout,
 conventions (SDD, TDD, waves), build commands, and Gas City orchestration.
 
+## Build & Test
+
+```bash
+bun install          # install dependencies
+bun run build        # build all packages (tsdown via nx)
+bun run test         # run all tests (vitest via nx)
+bun run lint         # lint all packages
+bun run typecheck    # typecheck all packages
+```
+
+## Conventions & Patterns
+
+- **SDD:** Specs are written first, in `specs/`, numbered and structured.
+- **TDD:** Tests are written before implementation.
+- **Document-first:** Engineering docs in `engdocs/` before code.
+- **No `any`:** Use `unknown` and narrow. Strict TypeScript.
+- **Public API:** Everything public is exported from `src/index.ts`.
+- **Error handling:** Custom error classes per package.
+- **No secrets in argv or echoed args** — credentials travel via env,
+  stdin, or credential helpers; never interpolate tokens into args or
+  error text.
+- **Shared filesystem paths need ownership** — shared caches, clones, and
+  tmpdirs get a lock, a lease, or a content-addressed name.
+- **Composite keys get a canonical form** — no bare string concat
+  (`m`+`ab` collides with `ma`+`b`); use a tuple, JSON, or hash.
+- **Parse before comparing** — never lexical ordering for structured
+  values (ISO datetimes with offsets, versions).
+- **Invalid input fails loud** — throw, report, or reject; a silent drop
+  turns a restriction into a no-op.
+
+## Current Product Focus
+
+Sverka is a **local-first check runner for AI agents**. Core value: one
+`sverka run --format json` replaces N tool-call round-trips. CI compilation
+is optional. SaaS/browser execution is deferred.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
 
 ## Beads Issue Tracker
