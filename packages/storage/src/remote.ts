@@ -132,11 +132,15 @@ async function hubRequest(
     authorization: `Bearer ${config.token}`,
   };
   if (body !== undefined) headers["content-type"] = contentType;
-  init.headers = headers; // codeql[js/file-access-to-http]
   // Packed workspace files flowing into the request body is this
   // adapter's purpose (hub upload). The base URL is user config — this
   // adapter IS the configured remote — scheme-validated http(s) above.
-  if (body !== undefined) init.body = body; // codeql[js/file-access-to-http]
+  // codeql[js/file-access-to-http]
+  init.headers = headers;
+  if (body !== undefined) {
+    // codeql[js/file-access-to-http]
+    init.body = body;
+  }
   const reqUrl = new URL(path.replace(/^\/+/, ""), base);
   let res: Response;
   try {
@@ -145,7 +149,8 @@ async function hubRequest(
     const firstMs = body !== undefined ? bodyMs : connectMs;
     // codeql[js/file-access-to-http]
     res = await withAbortOnTimeout(
-      fetch(reqUrl, init), // codeql[js/file-access-to-http] nosemgrep
+      // codeql[js/file-access-to-http]
+      fetch(reqUrl, init), // nosemgrep
       firstMs,
       ac,
       `connect/upload timeout after ${firstMs}ms`,
