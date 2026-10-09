@@ -28,6 +28,14 @@ export interface GithubTriggers {
     readonly cron: string;
     readonly timezone?: string;
   }[];
+  /** Spec 54 — `comment` trigger → issue_comment event (created only). */
+  readonly issue_comment?: null | {
+    readonly types?: readonly string[];
+  };
+  /** Spec 54 — `issue` trigger → issues event (types from declared actions). */
+  readonly issues?: null | {
+    readonly types?: readonly string[];
+  };
   readonly workflow_call?: {
     readonly inputs?: Record<string, unknown>;
     readonly secrets?: Record<string, { readonly required?: boolean }>;

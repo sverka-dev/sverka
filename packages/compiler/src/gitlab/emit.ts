@@ -95,7 +95,13 @@ function stringifyTargetGraph(graph: GitlabTargetGraph): string {
     doc[job.id] = jobToYaml(job);
   }
 
-  return stringify(doc, { sortMapEntries: false });
+  const yaml = stringify(doc, { sortMapEntries: false });
+  const annotations = graph.annotations;
+  if (annotations !== undefined && annotations.length > 0) {
+    const header = annotations.map((line) => `# ${line}`).join("\n") + "\n";
+    return header + yaml;
+  }
+  return yaml;
 }
 
 /**

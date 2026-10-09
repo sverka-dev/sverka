@@ -39,6 +39,16 @@ import type {
 import { GithubTargetError } from "./errors.js";
 import { buildJobIdMap } from "../job-ids.js";
 import { wrapStdoutCaptureLine } from "../stdout-capture.js";
+import { compilerVersion } from "../internal/version.js";
+
+/** sverka invocation emitted into generated jobs (version-pinned). */
+function sverkaCli(subcommand: string): string {
+  return `npx -y sverka@${compilerVersion()} ${subcommand}`;
+}
+
+/** Artifact the agent job writes and the apply job consumes (Spec 54). */
+const SVERKA_WRITES_FILE = "sverka-writes.json";
+const SVERKA_AGENT_RESULT_FILE = "agent-result.json";
 
 /**
  * Lower a Definition Graph to one or more GithubTargetGraphs.
@@ -74,12 +84,23 @@ export function lowerGithub(
 /**
  * The Checkout step shared by every job, with optional `with:` inputs
  * (e.g. `submodules: recursive`) from {@link GithubTargetConfig.checkoutWith}.
+ * Agent jobs force `persist-credentials: false` — checkout persists the
+ * default `github.token` into `.git/config` otherwise, and a job executing
+ * an untrusted prompt must not retain it. The override is applied last so a
+ * `checkoutWith` setting cannot re-enable persistence on agent jobs.
  */
-function checkoutStep(config?: GithubTargetConfig): GithubStep {
+function checkoutStep(
+  config?: GithubTargetConfig,
+  opts?: { readonly noCredentials?: boolean },
+): GithubStep {
+  const withMap = {
+    ...config?.checkoutWith,
+    ...(opts?.noCredentials ? { "persist-credentials": false } : {}),
+  };
   return {
     name: "Checkout",
     uses: "actions/checkout@v4",
-    ...(config?.checkoutWith ? { with: config.checkoutWith } : {}),
+    ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
   };
 }
 
@@ -102,14 +123,17 @@ function lowerSinglePipeline(
   const jobIdMap = buildJobIdMap(reachableSteps);
 
   const triggers = lowerTriggers(pipeline.entries, pipeline.inputs);
-  const jobs = lowerStepsWithCalls(
-    reachableSteps,
+  const gateMap = buildJobGateMap(pipeline, reachableSteps, jobIdMap, false);
+  const mentionMap = buildJobMentionMap(pipeline, reachableSteps, jobIdMap);
+  const jobs = lowerStepsWithCalls(reachableSteps, {
     jobIdMap,
-    pipeline.id,
-    new Map([[pipeline.id, pipeline]]),
-    pipeline.bootstrap,
+    pipelineId: pipeline.id,
+    pipelineMap: new Map([[pipeline.id, pipeline]]),
+    bootstrap: pipeline.bootstrap,
     config,
-  );
+    gateMap,
+    mentionMap,
+  });
 
   return assemblePipelineTarget(pipeline, triggers, jobs);
 }
@@ -235,14 +259,21 @@ function lowerPipelineInGraph(
     triggers = addWorkflowCall(triggers, pipeline);
   }
 
-  const jobs = lowerStepsWithCalls(
-    reachableSteps,
+  const gateMap = hasEntries
+    ? buildJobGateMap(pipeline, reachableSteps, jobIdMap, isCalled)
+    : new Map<string, string>();
+  const mentionMap = hasEntries
+    ? buildJobMentionMap(pipeline, reachableSteps, jobIdMap)
+    : new Map<string, readonly string[]>();
+  const jobs = lowerStepsWithCalls(reachableSteps, {
     jobIdMap,
-    pipeline.id,
+    pipelineId: pipeline.id,
     pipelineMap,
-    pipeline.bootstrap,
+    bootstrap: pipeline.bootstrap,
     config,
-  );
+    gateMap,
+    mentionMap,
+  });
   return assemblePipelineTarget(pipeline, triggers, jobs);
 }
 
@@ -403,6 +434,231 @@ function enqueueIfNew(
   }
 }
 
+/** Step IDs reachable from one entry's roots (dependencies followed). */
+function reachableStepIds(
+  roots: readonly string[],
+  pipeline: PipelineDefinition,
+): Set<string> {
+  const byId = new Map(pipeline.steps.map((s) => [s.id, s]));
+  const reachable = new Set<string>();
+  const queue: string[] = [];
+  enqueueRoots(roots, byId, reachable, queue);
+  let head = 0;
+  while (head < queue.length) {
+    const step = byId.get(queue[head]!);
+    head++;
+    if (!step) continue;
+    enqueueDependencies(step, byId, reachable, queue);
+  }
+  return reachable;
+}
+
+/**
+ * Spec 54 — per-job event gating. GitHub fires the whole workflow on any
+ * `on:` event, so jobs must be gated to their reaching entries' events —
+ * otherwise a `push` would run a `comment`-triggered agent job. A job's
+ * `if` is the OR of its reaching entries' conditions; jobs reached by
+ * entries covering every event class (with no residual filters) need none.
+ */
+function buildJobGateMap(
+  pipeline: PipelineDefinition,
+  reachableSteps: readonly StepDefinition[],
+  jobIdMap: ReadonlyMap<string, string>,
+  isCalled: boolean,
+): ReadonlyMap<string, string> {
+  const map = new Map<string, string>();
+  const entryReachable = new Map(
+    pipeline.entries.map((e) => [e.id, reachableStepIds(e.roots, pipeline)]),
+  );
+  // With a single push entry the `on:` union admits only its own refs, so
+  // its job gate can safely drop patterns expressions cannot express. With
+  // several, the gate must carry every ref condition (refPatternCond throws
+  // on the ones it cannot express).
+  const refsRequired =
+    pipeline.entries.filter((e) => e.trigger.kind === "push").length > 1;
+
+  for (const step of reachableSteps) {
+    const jobId = jobIdMap.get(step.id)!;
+    const reaching = pipeline.entries.filter((e) =>
+      entryReachable.get(e.id)?.has(step.id),
+    );
+    // A gate is redundant only when every entry reaches the job AND no
+    // entry carries filters the `on:` union cannot express — any event
+    // that fires the workflow then necessarily reaches the job.
+    const coversAll =
+      reaching.length === pipeline.entries.length &&
+      pipeline.entries.every((e) => !triggerHasResidualFilters(e.trigger));
+    if (coversAll || reaching.length === 0) continue;
+    const clauses = reaching.map((e) => entryIfExpr(e.trigger, refsRequired));
+    let gate =
+      clauses.length === 1
+        ? clauses[0]!
+        : clauses.map((c) => `(${c})`).join(" || ");
+    // A pipeline invoked through workflow_call must run its jobs even
+    // though the event-name guards only match direct-run triggers.
+    if (isCalled) {
+      gate = `(${gate}) || github.event_name == 'workflow_call'`;
+    }
+    map.set(jobId, gate);
+  }
+  return map;
+}
+
+/** Filters that cannot be expressed in `on:` and must live in the job `if`. */
+function triggerHasResidualFilters(t: Trigger): boolean {
+  if (t.kind === "comment") {
+    return t.mention !== undefined || t.on !== undefined;
+  }
+  if (t.kind === "issue") {
+    return (t.labels?.length ?? 0) > 0;
+  }
+  return false;
+}
+
+/**
+ * One `on:`-level branch/tag pattern as a job-if ref condition. Returns
+ * `undefined` for patterns GitHub expressions cannot express — safe only
+ * when the pipeline has a single push entry (the `on:` union then admits
+ * exactly this entry's refs). With multiple push entries dropping a
+ * pattern would broaden the gate to every push the union admits, so
+ * `refsRequired` makes it a lowering error instead.
+ */
+function refPatternCond(
+  pattern: string,
+  prefix: string,
+  refsRequired: boolean,
+): string | undefined {
+  if (!pattern.includes("*")) {
+    return `github.ref == '${escapeIfString(prefix + pattern)}'`;
+  }
+  // `x/**` (and approximately `x/*`) lowers to a prefix test — GitHub
+  // expressions have no glob matcher.
+  if (pattern.endsWith("/**")) {
+    return `startsWith(github.ref, '${escapeIfString(prefix + pattern.slice(0, -3))}')`;
+  }
+  if (pattern.endsWith("/*")) {
+    return `startsWith(github.ref, '${escapeIfString(prefix + pattern.slice(0, -1))}')`;
+  }
+  if (refsRequired) {
+    throw new GithubTargetError(
+      `push ref pattern '${pattern}' cannot be expressed in a job 'if' gate (GitHub expressions have no glob matcher) — use an exact ref or an 'x/**' prefix pattern`,
+      "UNSUPPORTED_TRIGGER",
+    );
+  }
+  return undefined;
+}
+
+function refFiltersClauses(
+  t: Extract<Trigger, { kind: "push" }>,
+  refsRequired: boolean,
+): string[] {
+  const clauses: string[] = [];
+  const branches = (t.filter?.branches ?? []).map((b) =>
+    refPatternCond(b, "refs/heads/", refsRequired),
+  );
+  const tags = (t.filter?.tags ?? []).map((tag) =>
+    refPatternCond(tag, "refs/tags/", refsRequired),
+  );
+  const patterns = [...branches, ...tags];
+  // `paths` filters cannot be expressed in a job `if`. With a single push
+  // entry the `on:push.paths` union narrows firing to exactly this entry's
+  // paths; with several, a dropped paths filter would run this entry's jobs
+  // on pushes meant for the others.
+  if (refsRequired && (t.filter?.paths?.length ?? 0) > 0) {
+    throw new GithubTargetError(
+      "push 'paths' filters cannot be expressed in a job 'if' gate — with multiple push entries the gate would be too broad; split the filtered entries into separate workflows",
+      "UNSUPPORTED_TRIGGER",
+    );
+  }
+  // If any pattern is inexpressible, keeping only the expressible clauses
+  // would skip jobs on refs the `on:` union admits — drop the whole ref
+  // set instead. Only reachable with a single push entry (refsRequired
+  // throws above), where the union already scopes firing to this entry.
+  if (patterns.includes(undefined)) return clauses;
+  const refs = patterns.filter((c): c is string => c !== undefined);
+  if (refs.length === 1) clauses.push(refs[0]!);
+  else if (refs.length > 1) clauses.push(`(${refs.join(" || ")})`);
+  return clauses;
+}
+
+/**
+ * GitHub `jobs.<id>.if` condition (unwrapped expression) for one entry:
+ * the event-name guard plus every filter the entry carries. The `on:`
+ * union cannot attribute an event to a specific entry, so branch/tag,
+ * cron, mention, and label filters are all restated here.
+ */
+function entryIfExpr(t: Trigger, refsRequired: boolean): string {
+  switch (t.kind) {
+    case "push": {
+      const clauses = [
+        "github.event_name == 'push'",
+        ...refFiltersClauses(t, refsRequired),
+      ];
+      return clauses.join(" && ");
+    }
+    case "changeRequest":
+      return changeRequestIfExpr(t);
+    case "manual":
+      return "github.event_name == 'workflow_dispatch'";
+    case "schedule":
+      return `github.event_name == 'schedule' && github.event.schedule == '${escapeIfString(t.cron)}'`;
+    case "comment":
+      return commentIfExpr(t);
+    case "issue":
+      return issueIfExpr(t);
+  }
+}
+
+function changeRequestIfExpr(
+  t: Extract<Trigger, { kind: "changeRequest" }>,
+): string {
+  const clauses = ["github.event_name == 'pull_request'"];
+  const branches = t.filter?.branches ?? [];
+  if (branches.length === 1) {
+    clauses.push(`github.base_ref == '${escapeIfString(branches[0]!)}'`);
+  } else if (branches.length > 1) {
+    const disjuncts = branches
+      .map((b) => `github.base_ref == '${escapeIfString(b)}'`)
+      .join(" || ");
+    clauses.push(`(${disjuncts})`);
+  }
+  return clauses.join(" && ");
+}
+
+function commentIfExpr(t: Extract<Trigger, { kind: "comment" }>): string {
+  const clauses = ["github.event_name == 'issue_comment'"];
+  if (t.on === "mergeRequest") {
+    clauses.push("github.event.issue.pull_request");
+  } else if (t.on === "issue") {
+    clauses.push("!github.event.issue.pull_request");
+  }
+  if (t.mention !== undefined) {
+    clauses.push(
+      `contains(github.event.comment.body, '${escapeIfString(t.mention)}')`,
+    );
+  }
+  return clauses.join(" && ");
+}
+
+function issueIfExpr(t: Extract<Trigger, { kind: "issue" }>): string {
+  const clauses = ["github.event_name == 'issues'"];
+  if (t.action !== undefined) {
+    clauses.push(`github.event.action == '${escapeIfString(t.action)}'`);
+  }
+  for (const label of t.labels ?? []) {
+    clauses.push(
+      `contains(github.event.issue.labels.*.name, '${escapeIfString(label)}')`,
+    );
+  }
+  return clauses.join(" && ");
+}
+
+/** Escape a literal for embedding inside single-quoted `if` strings. */
+function escapeIfString(value: string): string {
+  // GitHub expressions escape a single quote by doubling it.
+  return value.replaceAll("'", "''"); // nosemgrep — emitted YAML runs on the Actions runner (Node ≥20), not a browser
+}
+
 /**
  * Map Sverka triggers to GitHub triggers.
  * Multiple entries of the same kind have their filters merged.
@@ -420,6 +676,10 @@ function lowerTriggers(
   let prAll = false;
   let hasManual = false;
   const scheduleEntries: { cron: string; timezone?: string }[] = [];
+  let hasComment = false;
+  let hasIssue = false;
+  const issueActions = new Set<string>();
+  let issueAllTypes = false;
 
   for (const entry of entries) {
     const t = entry.trigger;
@@ -445,6 +705,23 @@ function lowerTriggers(
           ...(t.timezone ? { timezone: t.timezone } : {}),
         });
         break;
+      case "comment":
+        if (t.on === "commit") {
+          throw new GithubTargetError(
+            "comment trigger with on: 'commit' is not supported on GitHub — commit comments have no Actions event (issue_comment covers issues and pull requests only)",
+            "UNSUPPORTED_TRIGGER",
+          );
+        }
+        hasComment = true;
+        break;
+      case "issue":
+        hasIssue = true;
+        if (t.action !== undefined) {
+          issueActions.add(t.action);
+        } else {
+          issueAllTypes = true;
+        }
+        break;
       default:
         throw new GithubTargetError(
           `unsupported trigger kind: ${JSON.stringify((t as Trigger).kind)}`,
@@ -463,12 +740,23 @@ function lowerTriggers(
     prPaths,
     hasManual,
     scheduleEntries,
+    hasComment,
+    hasIssue,
+    issueActions,
+    issueAllTypes,
     inputs,
   });
 }
 
 function collectFilters(
-  t: Trigger,
+  t: {
+    readonly kind: string;
+    readonly filter?: {
+      readonly branches?: readonly string[];
+      readonly tags?: readonly string[];
+      readonly paths?: readonly string[];
+    };
+  },
   branches: Set<string>,
   tags: Set<string> | undefined,
   paths: Set<string>,
@@ -516,6 +804,10 @@ interface TriggerFilters {
   readonly prPaths: Set<string>;
   readonly hasManual: boolean;
   readonly scheduleEntries: readonly { cron: string; timezone?: string }[];
+  readonly hasComment: boolean;
+  readonly hasIssue: boolean;
+  readonly issueActions: ReadonlySet<string>;
+  readonly issueAllTypes: boolean;
   readonly inputs: Readonly<Record<string, Input>>;
 }
 
@@ -531,6 +823,15 @@ function assembleTriggers(f: TriggerFilters): GithubTriggers {
       loweredInputs !== undefined ? { inputs: loweredInputs } : null;
   }
   if (f.scheduleEntries.length > 0) triggers.schedule = f.scheduleEntries;
+  // Spec 54 — comment → issue_comment (created only: mention replies must
+  // not re-fire on edits); mention/on filters live in job-level `if`.
+  if (f.hasComment) triggers.issue_comment = { types: ["created"] };
+  if (f.hasIssue) {
+    triggers.issues =
+      !f.issueAllTypes && f.issueActions.size > 0
+        ? { types: [...f.issueActions] }
+        : null;
+  }
   return triggers as GithubTriggers;
 }
 
@@ -601,29 +902,165 @@ function lowerInputs(
  * Call steps become `uses:` jobs (reusable workflow calls).
  * Component steps become `uses:` jobs (composite action calls).
  */
+/**
+ * Spec 54 — map each job to every distinct comment-trigger mention
+ * carried by entries reaching it (annotation + SVERKA_MENTION re-check
+ * inside the sandboxed agent job). Multiple comment entries may reach
+ * one job with different mentions; all of them are emitted so the
+ * in-job re-check accepts whichever entry fired.
+ */
+function buildJobMentionMap(
+  pipeline: PipelineDefinition,
+  reachableSteps: readonly StepDefinition[],
+  jobIdMap: ReadonlyMap<string, string>,
+): ReadonlyMap<string, readonly string[]> {
+  const map = new Map<string, string[]>();
+  const entryReachable = new Map(
+    pipeline.entries.map((e) => [e.id, reachableStepIds(e.roots, pipeline)]),
+  );
+  for (const step of reachableSteps) {
+    const jobId = jobIdMap.get(step.id)!;
+    for (const entry of pipeline.entries) {
+      const t = entry.trigger;
+      if (t.kind !== "comment" || t.mention === undefined) continue;
+      if (entryReachable.get(entry.id)?.has(step.id)) {
+        const list = map.get(jobId) ?? [];
+        if (!list.includes(t.mention)) list.push(t.mention);
+        map.set(jobId, list);
+      }
+    }
+  }
+  return map;
+}
+
+interface StepsLoweringContext {
+  jobIdMap: Map<string, string>;
+  pipelineId: string;
+  pipelineMap: ReadonlyMap<string, PipelineDefinition>;
+  bootstrap: BootstrapLevel | undefined;
+  config: GithubTargetConfig | undefined;
+  gateMap: ReadonlyMap<string, string>;
+  mentionMap: ReadonlyMap<string, readonly string[]>;
+}
+
 function lowerStepsWithCalls(
   steps: readonly StepDefinition[],
-  jobIdMap: Map<string, string>,
-  pipelineId: string,
-  pipelineMap: ReadonlyMap<string, PipelineDefinition>,
-  bootstrap?: BootstrapLevel,
-  config?: GithubTargetConfig,
+  ctx: StepsLoweringContext,
 ): readonly GithubJob[] {
-  return steps.map((step) => {
+  const usedJobIds = new Set<string>(ctx.jobIdMap.values());
+  return steps.flatMap((step) => {
+    const jobId = ctx.jobIdMap.get(step.id) ?? step.id;
+    const gate = ctx.gateMap.get(jobId);
+    let job: GithubJob;
     if (step.call) {
-      return lowerCallStep(step, jobIdMap, pipelineId, pipelineMap);
+      job = lowerCallStep(
+        step,
+        ctx.jobIdMap,
+        ctx.pipelineId,
+        ctx.pipelineMap,
+        gate,
+      );
+    } else if (step.component) {
+      job = lowerComponentStep(
+        step,
+        ctx.jobIdMap,
+        ctx.bootstrap,
+        ctx.config,
+        gate,
+      );
+    } else if (step.childPipeline) {
+      job = lowerChildPipelineStep(step, ctx.jobIdMap, gate);
+    } else if (step.downstream) {
+      job = lowerDownstreamStep(step, ctx.jobIdMap, gate);
+    } else {
+      job = lowerStep(
+        step,
+        ctx.jobIdMap,
+        ctx.bootstrap,
+        ctx.config,
+        gate,
+        ctx.mentionMap.get(jobId),
+      );
     }
-    if (step.component) {
-      return lowerComponentStep(step, jobIdMap, bootstrap, config);
-    }
-    if (step.childPipeline) {
-      return lowerChildPipelineStep(step, jobIdMap);
-    }
-    if (step.downstream) {
-      return lowerDownstreamStep(step, jobIdMap);
-    }
-    return lowerStep(step, jobIdMap, bootstrap, config);
+    const applyJob = buildApplyJob(step, job, gate, usedJobIds);
+    if (applyJob !== undefined) usedJobIds.add(applyJob.id);
+    return applyJob !== undefined ? [job, applyJob] : [job];
   });
+}
+
+/**
+ * Spec 54 — safe-outputs apply job (GitHub): `sverka apply` against the
+ * agent job's `sverka-writes.json` artifact, under a job-scoped token
+ * whose permissions derive from the declared write kinds. The agent job
+ * itself stays read-only — only this job can write.
+ */
+function buildApplyJob(
+  step: StepDefinition,
+  agentJob: GithubJob,
+  entryGate: string | undefined,
+  usedJobIds: ReadonlySet<string>,
+): GithubJob | undefined {
+  const writes = step.permissions?.write;
+  if (writes === undefined || writes.length === 0) return undefined;
+  if (!step.operations.some((op) => op.kind === "agent")) return undefined;
+  const jobId = agentJob.id;
+  // A matrix agent step expands into parallel jobs that all upload the
+  // same `<job>-agent-writes` artifact name — artifact names must be
+  // unique per run and a single apply job cannot disambiguate legs.
+  if (step.matrix !== undefined) {
+    throw new GithubTargetError(
+      `step '${step.id}' combines matrix with agent writes — matrix legs share the ${jobId}-agent-writes artifact name and a single apply job cannot disambiguate them`,
+      "UNSUPPORTED_FEATURE",
+    );
+  }
+  // The generated `<step>_apply` id can collide with a user step id —
+  // suffix it until unique so one job never overwrites the other.
+  let applyId = `${jobId}_apply`;
+  let collision = 1;
+  while (usedJobIds.has(applyId)) {
+    applyId = `${jobId}_apply${collision}`;
+    collision++;
+  }
+  const permissions = writePermissions(writes);
+  return {
+    id: applyId,
+    name: applyId,
+    runsOn: "ubuntu-latest",
+    needs: [jobId],
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
+    ...(permissions !== undefined ? { permissions } : {}),
+    steps: [
+      {
+        name: "Download agent writes",
+        uses: "actions/download-artifact@v8",
+        with: { name: `${jobId}-agent-writes`, path: "." },
+      },
+      {
+        name: "Apply writes",
+        env: {
+          GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
+          SVERKA_WRITE_DECLARATIONS: JSON.stringify(writes),
+          SVERKA_ISSUE_IID:
+            "${{ github.event.issue.number || github.event.pull_request.number }}",
+        },
+        run: sverkaCli("apply --provider github"),
+      },
+    ],
+  };
+}
+
+/** Map write declarations to a GitHub job permissions block. */
+function writePermissions(
+  writes: readonly { readonly kind: string }[],
+): Readonly<Record<string, string>> | undefined {
+  const perms: Record<string, string> = {};
+  for (const decl of writes) {
+    const mapped = WRITE_KIND_TO_GHA_PERMISSION[decl.kind];
+    if (mapped === undefined) continue;
+    const [scope, level] = mapped.split(": ");
+    perms[scope!] = level!;
+  }
+  return Object.keys(perms).length > 0 ? perms : undefined;
 }
 
 /**
@@ -717,6 +1154,7 @@ function lowerCallStep(
   jobIdMap: Map<string, string>,
   pipelineId: string,
   pipelineMap: ReadonlyMap<string, PipelineDefinition>,
+  entryGate: string | undefined,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -750,6 +1188,7 @@ function lowerCallStep(
     needs,
     steps: [],
     uses: `./.github/workflows/${callee}.yml`,
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
     ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
     secrets: Object.keys(secretMap).length > 0 ? secretMap : "inherit",
   };
@@ -763,7 +1202,8 @@ function lowerComponentStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
   bootstrap: BootstrapLevel | undefined,
-  config?: GithubTargetConfig,
+  config: GithubTargetConfig | undefined,
+  entryGate: string | undefined,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -787,6 +1227,7 @@ function lowerComponentStep(
       name: jobId,
       runsOn: resolveRunsOn(step),
       needs,
+      ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
       steps: [
         ...(bootstrap !== "none" ? [checkoutStep(config)] : []),
         ...(bootstrap === undefined || bootstrap === "toolchain"
@@ -808,6 +1249,7 @@ function lowerComponentStep(
     needs,
     steps: [],
     uses: `${comp.name}@${comp.version}`,
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
     ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
   };
 }
@@ -821,6 +1263,7 @@ function lowerComponentStep(
 function lowerChildPipelineStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  entryGate: string | undefined,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -829,6 +1272,7 @@ function lowerChildPipelineStep(
     name: jobId,
     runsOn: resolveRunsOn(step),
     needs,
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
     steps: [
       {
         name: "Dynamic child pipeline (not natively supported on GitHub)",
@@ -845,6 +1289,7 @@ function lowerChildPipelineStep(
 function lowerDownstreamStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
+  entryGate: string | undefined,
 ): GithubJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const needs = lowerDependencies(step.dependencies, jobIdMap);
@@ -873,6 +1318,7 @@ function lowerDownstreamStep(
     name: jobId,
     runsOn: resolveRunsOn(step),
     needs,
+    ...(entryGate !== undefined ? { if: `\${{ ${entryGate} }}` } : {}),
     steps: [
       {
         name: `Trigger downstream: ${ds.project}`,
@@ -890,10 +1336,12 @@ function lowerStep(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
   bootstrap: BootstrapLevel | undefined,
-  config?: GithubTargetConfig,
+  config: GithubTargetConfig | undefined,
+  entryGate: string | undefined,
+  mentions: readonly string[] | undefined,
 ): GithubJob {
   const needs = lowerDependencies(step.dependencies, jobIdMap);
-  const rawSteps = lowerOperations(step, jobIdMap, bootstrap, config);
+  const rawSteps = lowerOperations(step, jobIdMap, bootstrap, config, mentions);
 
   // GitHub only supports boolean continue-on-error, not exit-code mapping.
   if (
@@ -923,6 +1371,7 @@ function lowerStep(
     runsOn,
     container,
     jobIdMap,
+    entryGate,
   });
 }
 
@@ -1003,22 +1452,27 @@ function resolveJobSteps(
  */
 function resolveJobIf(
   step: StepDefinition,
+  entryGate: string | undefined,
   jobIdMap: Map<string, string>,
 ): Record<string, string> {
+  let base: string | undefined;
   if (step.rules !== undefined && step.rules.length > 0) {
-    return { if: lowerRulesIf(step.rules) };
+    base = lowerRulesIf(step.rules);
+  } else if (step.condition !== undefined) {
+    base = lowerCondition(
+      step.condition,
+      jobIdMap,
+      step.runtime?.env,
+      step.runtime?.secrets,
+    );
   }
-  if (step.condition !== undefined) {
-    return {
-      if: lowerCondition(
-        step.condition,
-        jobIdMap,
-        step.runtime?.env,
-        step.runtime?.secrets,
-      ),
-    };
+  if (entryGate === undefined) {
+    return base !== undefined ? { if: base } : {};
   }
-  return {};
+  const inner = base !== undefined ? stripBraces(base) : undefined;
+  const combined =
+    inner !== undefined ? `(${entryGate}) && (${inner})` : entryGate;
+  return { if: `\${{ ${combined} }}` };
 }
 
 /**
@@ -1048,6 +1502,18 @@ function resolveJobPermissions(step: StepDefinition): Record<string, unknown> {
   }
   if (step.identity !== undefined) {
     return { permissions: { "id-token": "write" } };
+  }
+  // Spec 54: agent jobs are always read-only — writes go through the
+  // separate `<step>_apply` job with scoped permissions. Read scopes cover
+  // the untrusted prompt's context (MR/issue bodies, comments, code).
+  if (step.operations.some((op) => op.kind === "agent")) {
+    return {
+      permissions: {
+        contents: "read",
+        issues: "read",
+        "pull-requests": "read",
+      },
+    };
   }
   // Safe-outputs: derive permissions from write declarations.
   // Only emit a permissions block when step.permissions is explicitly set.
@@ -1085,6 +1551,8 @@ interface GithubJobParts {
   readonly runsOn: GithubRunsOn;
   readonly container: string | undefined;
   readonly jobIdMap: Map<string, string>;
+  /** Spec 54 — entry-event gate (unwrapped expr) AND'd with the job `if`. */
+  readonly entryGate?: string | undefined;
 }
 
 /**
@@ -1093,7 +1561,7 @@ interface GithubJobParts {
 function assembleGithubJob(parts: GithubJobParts): GithubJob {
   const { jobId, steps, needs, step, runsOn, container, jobIdMap } = parts;
   const jobOutputs = collectJobOutputs(step);
-  const jobIf = resolveJobIf(step, jobIdMap);
+  const jobIf = resolveJobIf(step, parts.entryGate, jobIdMap);
   const jobPermissions = resolveJobPermissions(step);
 
   return {
@@ -1308,7 +1776,8 @@ function lowerOperations(
   step: StepDefinition,
   jobIdMap: Map<string, string>,
   bootstrap: BootstrapLevel | undefined,
-  config?: GithubTargetConfig,
+  config: GithubTargetConfig | undefined,
+  mentions: readonly string[] | undefined,
 ): readonly GithubStep[] {
   const steps: GithubStep[] = [];
   const shortStepId = step.id.includes("/")
@@ -1316,11 +1785,24 @@ function lowerOperations(
     : step.id;
   const stepEnv = collectStepEnv(step.runtime);
 
+  // Spec 54: at most one agent operation per step — the emulated job sets
+  // one SVERKA_AGENT_* env block.
+  if (step.operations.filter((op) => op.kind === "agent").length > 1) {
+    throw new GithubTargetError(
+      `step '${step.id}' has multiple agent operations — the github target supports at most one per step`,
+      "LOWER_FAILED",
+    );
+  }
+
   // Every job needs the repository checked out, then toolchain/dependency
   // setup runs before everything else — unless the pipeline opts out via
   // bootstrap ("checkout" skips setup; "none" skips both).
   if (bootstrap !== "none") {
-    steps.push(checkoutStep(config));
+    steps.push(
+      checkoutStep(config, {
+        noCredentials: step.operations.some((op) => op.kind === "agent"),
+      }),
+    );
   }
   if (bootstrap === undefined || bootstrap === "toolchain") {
     steps.push(...setupSteps(config));
@@ -1416,6 +1898,21 @@ function lowerOperations(
         runLines.push(op.background ? `${op.command} &` : op.command);
         stdoutTargetIndex = runLines.length - 1;
         break;
+      case "agent": {
+        // Spec 54 — agent op is a standalone run step: env carries the
+        // engine contract; artifacts (result + writes) upload afterwards.
+        flushRun();
+        steps.push(
+          ...lowerAgentOp(
+            op,
+            step,
+            jobIdMap,
+            jobIdMap.get(step.id) ?? step.id,
+            mentions,
+          ),
+        );
+        break;
+      }
       case "exportStdout":
         if (stdoutTargetIndex === undefined) {
           throw new GithubTargetError(
@@ -1591,6 +2088,63 @@ function lowerDiagnostic(
 }
 
 /**
+ * Spec 54 — emulated agent job steps: `sverka agent` resolves the driver
+ * from SVERKA_AGENT_* env vars (keys injected via secrets), runs the
+ * agent, and writes `agent-result.json` + `sverka-writes.json`, uploaded
+ * unconditionally so a failed agent still leaves a debuggable result.
+ * The prompt template is translated to GitHub expressions the same way
+ * shell commands are (${{ github.event.* }} etc.).
+ */
+function lowerAgentOp(
+  op: Extract<OperationDefinition, { kind: "agent" }>,
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+  jobId: string,
+  mentions: readonly string[] | undefined,
+): GithubStep[] {
+  const env: Record<string, string> = {
+    SVERKA_AGENT_ENGINE: op.engine,
+    SVERKA_AGENT_PROMPT: translateCommand(op.prompt, step.inputs, jobIdMap),
+    SVERKA_AGENT_ANTHROPIC_KEY: "${{ secrets.SVERKA_AGENT_ANTHROPIC_KEY }}",
+    SVERKA_AGENT_OPENAI_KEY: "${{ secrets.SVERKA_AGENT_OPENAI_KEY }}",
+    // No GITHUB_TOKEN here: the agent job processes untrusted comment text
+    // and stays read-only — the write-capable token lives only in the
+    // `<step>_apply` job.
+  };
+  if (op.model !== undefined) env.SVERKA_AGENT_MODEL = op.model;
+  if (op.maxTokens !== undefined) {
+    env.SVERKA_AGENT_MAX_TOKENS = String(op.maxTokens);
+  }
+  if (mentions !== undefined && mentions.length > 0) {
+    // Several comment entries with different mentions can reach this job;
+    // the env var carries all of them so the in-job re-check accepts any.
+    env.SVERKA_MENTION =
+      mentions.length === 1 ? mentions[0]! : JSON.stringify(mentions);
+  }
+  const run = step.runtime.workingDir
+    ? sverkaCli('agent --output-dir "$GITHUB_WORKSPACE"')
+    : sverkaCli("agent");
+  const workingDir = step.runtime.workingDir;
+  return [
+    {
+      name: `Agent (${op.engine})`,
+      env,
+      run,
+      ...(workingDir !== undefined ? { workingDirectory: workingDir } : {}),
+    },
+    {
+      name: "Upload agent artifacts",
+      if: "always()",
+      uses: "actions/upload-artifact@v7",
+      with: {
+        name: `${jobId}-agent-writes`,
+        path: `${SVERKA_AGENT_RESULT_FILE}\n${SVERKA_WRITES_FILE}`,
+      },
+    },
+  ];
+}
+
+/**
  * Generate a deterministic artifact name from step ID and output name.
  */
 function artifactName(stepId: string, outputName: string): string {
@@ -1723,6 +2277,12 @@ const GITHUB_CONTEXT_MAP: Readonly<Record<string, string>> = {
   "change.target": "github.base_ref",
   "change.draft": "github.event.pull_request.draft",
   "event.type": "github.event_name",
+  // Spec 54 — issue_comment/issues event payload contexts.
+  "event.comment.body": "github.event.comment.body",
+  "event.comment.author": "github.event.comment.user.login",
+  "event.issue.iid": "github.event.issue.number",
+  "event.issue.title": "github.event.issue.title",
+  "event.mr.iid": "github.event.issue.number",
   "run.id": "github.run_id",
   "run.attempt": "github.run_attempt",
 };

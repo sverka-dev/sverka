@@ -32,8 +32,10 @@ describe("GitLab F-05: schedule trigger lowering", () => {
     const target = new GitlabTarget();
     const targetGraph = singleGraph(target.lower(graph));
     const job = targetGraph.jobs[0]!;
+    // Spec 54: the schedule's *description* links it to the entry —
+    // CI_SCHEDULE_NAME does not exist as a predefined variable.
     expect(job.rules).toContainEqual({
-      if: '$CI_PIPELINE_SOURCE == "schedule"',
+      if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_PIPELINE_SCHEDULE_DESCRIPTION == "nightly"',
     });
   });
 });

@@ -38,6 +38,8 @@ run them locally, get structured findings. Compile to CI when you need to.
 
 - [GitHub Actions](./compiling/github.md) — compile to GitHub Actions YAML
 - [GitLab CI](./compiling/gitlab.md) — compile to GitLab CI YAML
+- [Agentic workflows for GitLab](./gitlab/agentic.md) — gh-aw-style agent jobs, comment/issue triggers, safe-outputs
+- [GitLab webhook setup](./gitlab/webhook-setup.md) — webhook → pipeline-trigger contract, schedules, apply token
 
 ## Hosted execution
 
@@ -50,5 +52,5 @@ run them locally, get structured findings. Compile to CI when you need to.
 - [Policy enforcement](./reference/policy.md) — rules, severities, enforcement
 - [Run audit](./reference/audit.md) _(planned)_ — per-step timings, AI cost estimation
 - [Graph visualization](./reference/graph.md) _(planned)_ — Mermaid flowchart output
-- [Markdown authoring](./reference/markdown-authoring.md) _(planned)_ — `.sverka.md` files
+- [Markdown authoring](./reference/markdown-authoring.md) — `.sverka.md` files
 - [Roadmap](./reference/roadmap.md) — planned features and future targets

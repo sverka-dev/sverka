@@ -46,8 +46,33 @@ import type {
 import { GitlabTargetError } from "./errors.js";
 import { buildJobIdMap } from "../job-ids.js";
 import { shellQuoteSingle, wrapStdoutCaptureLine } from "../stdout-capture.js";
+import { compilerVersion } from "../internal/version.js";
 
 const DOTENV_REPORT_FILE = "sverka.env";
+
+/**
+ * Spec 54 — stage hosting `<step>__apply` jobs. Scoped CI/CD variables
+ * (SVERKA_APPLY_TOKEN) bind to the `sverka-apply` environment so write
+ * tokens never reach the (read-only) agent jobs.
+ */
+export const SVERKA_APPLY_STAGE = "sverka-apply";
+export const SVERKA_APPLY_ENVIRONMENT = "sverka-apply";
+/**
+ * Environment name emitted on agent jobs so operators can scope the
+ * SVERKA_AGENT_*_KEY masked CI/CD variables to it — environment-scoped
+ * variables only reach jobs declaring that environment, keeping agent API
+ * keys out of unrelated generated jobs.
+ */
+export const SVERKA_AGENT_ENVIRONMENT = "sverka-agent";
+
+/** Artifact the agent job writes and the apply job consumes. */
+export const SVERKA_WRITES_FILE = "sverka-writes.json";
+export const SVERKA_AGENT_RESULT_FILE = "agent-result.json";
+
+/** sverka invocation emitted into generated jobs (version-pinned). */
+function sverkaCli(subcommand: string): string {
+  return `npx -y sverka@${compilerVersion()} ${subcommand}`;
+}
 
 /**
  * Lower a Definition Graph to a GitlabTargetGraph.
@@ -99,12 +124,34 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
   const jobIdMap = buildJobIdMap(stepsForJobs);
 
   // Compute stages from topological levels.
-  const { stageMap, stages } = computeStages(stepsForJobs, jobIdMap);
+  const { stageMap, stages: baseStages } = computeStages(
+    stepsForJobs,
+    jobIdMap,
+  );
 
   // Derive per-job rules from the entries whose closure reaches that job.
   const jobRulesMap = buildJobRulesMap(pipeline, stepsForJobs, jobIdMap);
 
-  const jobs = lowerSteps(stepsForJobs, jobIdMap, stageMap, jobRulesMap);
+  // Spec 54 — comment-trigger mentions reaching each job (annotation +
+  // defense-in-depth re-check inside the sandboxed agent job).
+  const jobMentionMap = buildJobMentionMap(pipeline, stepsForJobs, jobIdMap);
+
+  const jobs = lowerSteps(
+    stepsForJobs,
+    jobIdMap,
+    stageMap,
+    jobRulesMap,
+    jobMentionMap,
+  );
+
+  // Spec 54 — append the protected apply stage when any __apply job exists.
+  const hasApplyJobs = jobs.some((j) => j.stage === SVERKA_APPLY_STAGE);
+  const stages = hasApplyJobs
+    ? [
+        ...baseStages.filter((s) => s !== SVERKA_APPLY_STAGE),
+        SVERKA_APPLY_STAGE,
+      ]
+    : baseStages;
 
   // F-42: lower pipeline rules to workflow rules.
   const workflowRules = lowerWorkflowRules(pipeline);
@@ -130,6 +177,7 @@ export function lowerGitlab(graph: DefinitionGraph): GitlabTargetGraph {
     stages,
     jobs,
     variables: collectVariables(pipeline),
+    annotations: collectSverkaAnnotations(pipeline),
     ...(autoCancel ? { autoCancel: true } : {}),
     ...(pipeline.defaults !== undefined
       ? { default: lowerDefault(pipeline.defaults) }
@@ -377,6 +425,107 @@ function buildJobRulesMap(
   return map;
 }
 
+/**
+ * Spec 54 — map each job to every distinct comment-trigger mention
+ * carried by entries reaching it. The mentions are re-checked inside the
+ * job sandbox (SVERKA_MENTION) as defense-in-depth on top of the rules
+ * filter. Several comment entries with different mentions can reach one
+ * job — all are emitted so the in-job re-check accepts whichever entry
+ * fired.
+ */
+function buildJobMentionMap(
+  pipeline: PipelineDefinition,
+  reachableSteps: readonly StepDefinition[],
+  jobIdMap: ReadonlyMap<string, string>,
+): ReadonlyMap<string, readonly string[]> {
+  const map = new Map<string, string[]>();
+  const entryReachable = new Map(
+    pipeline.entries.map((e) => [e.id, reachableStepIds(e.roots, pipeline)]),
+  );
+  for (const step of reachableSteps) {
+    const jobId = jobIdMap.get(step.id)!;
+    for (const entry of pipeline.entries) {
+      const t = entry.trigger;
+      if (t.kind !== "comment" || t.mention === undefined) continue;
+      if (entryReachable.get(entry.id)?.has(step.id)) {
+        const list = map.get(jobId) ?? [];
+        if (!list.includes(t.mention)) list.push(t.mention);
+        map.set(jobId, list);
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Spec 54 — top-of-file annotations documenting the sverka contract a
+ * GitLab operator must wire up: webhook → pipeline-trigger variables for
+ * comment/issue entries, and schedule-description naming for schedule
+ * entries. Emitted as `#` comment lines by the emitter.
+ */
+function collectSverkaAnnotations(
+  pipeline: PipelineDefinition,
+): readonly string[] {
+  const lines: string[] = [];
+  const eventEntries = pipeline.entries.filter(
+    (e) => e.trigger.kind === "comment" || e.trigger.kind === "issue",
+  );
+  if (eventEntries.length > 0) {
+    lines.push(
+      "sverka:webhook: comment/issue events reach this pipeline via a GitLab",
+      "  webhook → CI/CD trigger token (POST /projects/:id/trigger/pipeline).",
+      "  Required trigger variables: SVERKA_EVENT=comment|issue, plus",
+      "  COMMENT_BODY, SVERKA_COMMENT_ON, MR_IID, ISSUE_IID,",
+      "  SVERKA_ISSUE_ACTION, SVERKA_ISSUE_LABELS as applicable.",
+      "  See engdocs/user/gitlab/webhook-setup.md.",
+    );
+  }
+  const scheduleEntries = pipeline.entries.filter(
+    (e) => e.trigger.kind === "schedule",
+  );
+  for (const entry of scheduleEntries) {
+    const t = entry.trigger as Extract<Trigger, { kind: "schedule" }>;
+    const tz = t.timezone ? ` timezone "${t.timezone}"` : "";
+    lines.push(
+      `sverka:schedule: create a pipeline schedule (CI/CD → Schedules) with`,
+      `  cron "${t.cron}"${tz} and`,
+      `  description "${entryName(entry.id)}" — the description is the`,
+      `  link between the schedule and this entry's rules.`,
+    );
+  }
+  if (
+    pipeline.steps.some((s) => s.operations.some((o) => o.kind === "agent"))
+  ) {
+    lines.push(
+      "sverka:agent: agent jobs declare the 'sverka-agent' environment.",
+      "  Scope the masked SVERKA_AGENT_*_KEY CI/CD variables to that",
+      "  environment so unrelated jobs never receive the API key.",
+    );
+  }
+  if (hasAgentWriteStep(pipeline)) {
+    lines.push(
+      "sverka:apply: <step>__apply jobs run in the protected",
+      "  'sverka-apply' stage/environment. Scope the masked CI/CD variable",
+      "  SVERKA_APPLY_TOKEN to the 'sverka-apply' environment so agent",
+      "  jobs never receive a write-capable token.",
+    );
+  }
+  return lines;
+}
+
+function hasAgentWriteStep(pipeline: PipelineDefinition): boolean {
+  return pipeline.steps.some(
+    (s) =>
+      (s.permissions?.write?.length ?? 0) > 0 &&
+      s.operations.some((op) => op.kind === "agent"),
+  );
+}
+
+/** Bare entry name (last path segment) — what a user types as a schedule description. */
+function entryName(entryId: string): string {
+  return entryId.split("/").pop() ?? entryId;
+}
+
 interface StageResult {
   readonly stageMap: ReadonlyMap<string, string>;
   readonly stages: readonly string[];
@@ -511,7 +660,13 @@ function lowerTriggers(
         rules.push({ if: '$CI_PIPELINE_SOURCE == "web"' });
         break;
       case "schedule":
-        rules.push({ if: '$CI_PIPELINE_SOURCE == "schedule"' });
+        rules.push(lowerScheduleRule(entry));
+        break;
+      case "comment":
+        rules.push(lowerCommentRule(t));
+        break;
+      case "issue":
+        rules.push(lowerIssueRule(t));
         break;
       default:
         throw new GitlabTargetError(
@@ -522,6 +677,74 @@ function lowerTriggers(
   }
 
   return rules;
+}
+
+/**
+ * Spec 54 — comment/issue events are delivered to GitLab pipelines through
+ * the sverka webhook contract: a project webhook (note/issue events) POSTs
+ * to the pipeline-trigger endpoint, setting SVERKA_EVENT and the filter
+ * variables the generated rules match on. The pipeline source is `trigger`
+ * (trigger API) or `web` (manual "Run pipeline" with the same variables).
+ */
+const EVENT_SOURCE_CONDITION =
+  '($CI_PIPELINE_SOURCE == "trigger" || $CI_PIPELINE_SOURCE == "web")';
+
+/** GitLab noteable_type values for `comment().on`. */
+const GITLAB_NOTEABLE_TYPE: Readonly<Record<string, string>> = {
+  mergeRequest: "merge_request",
+  issue: "issue",
+  commit: "commit",
+};
+
+function lowerCommentRule(
+  t: Extract<Trigger, { kind: "comment" }>,
+): GitlabRule {
+  const conditions = [EVENT_SOURCE_CONDITION, '$SVERKA_EVENT == "comment"'];
+  if (t.on !== undefined) {
+    conditions.push(
+      `$SVERKA_COMMENT_ON == ${quoteJsonString(GITLAB_NOTEABLE_TYPE[t.on]!)}`,
+    );
+  }
+  if (t.mention !== undefined) {
+    conditions.push(`$COMMENT_BODY =~ /${escapeGitlabRegex(t.mention)}/`);
+  }
+  return { if: conditions.join(" && ") };
+}
+
+function lowerIssueRule(t: Extract<Trigger, { kind: "issue" }>): GitlabRule {
+  const conditions = [EVENT_SOURCE_CONDITION, '$SVERKA_EVENT == "issue"'];
+  if (t.action !== undefined) {
+    conditions.push(`$SVERKA_ISSUE_ACTION == ${quoteJsonString(t.action)}`);
+  }
+  for (const label of t.labels ?? []) {
+    conditions.push(
+      `$SVERKA_ISSUE_LABELS =~ /(^|,)${escapeGitlabRegex(label)}(,|$)/`,
+    );
+  }
+  return { if: conditions.join(" && ") };
+}
+
+/**
+ * Spec 54 — GitLab owns schedule existence (CI/CD → Schedules); the link
+ * between a configured schedule and an entry is the schedule's
+ * *description*, which must equal the entry name. `CI_SCHEDULE_NAME` does
+ * not exist as a predefined variable — the description guard is the only
+ * stable identifier.
+ */
+function lowerScheduleRule(entry: EntryDefinition): GitlabRule {
+  return {
+    if: `$CI_PIPELINE_SOURCE == "schedule" && $CI_PIPELINE_SCHEDULE_DESCRIPTION == ${quoteJsonString(entryName(entry.id))}`,
+  };
+}
+
+/** Escape a string for embedding inside a GitLab `/regex/` rules matcher. */
+function escapeGitlabRegex(value: string): string {
+  // GitLab rule regexes (RE2) reject a bare `@` — a literal at-sign must be
+  // written \x40.
+  // nosemgrep — the compiler runs on Node, replaceAll/browser-compat is moot
+  return value
+    .replaceAll(/[.*+?^${}()|[\]\\/]/g, String.raw`\$&`)
+    .replaceAll("@", String.raw`\x40`);
 }
 
 /**
@@ -579,22 +802,106 @@ function buildRefCondition(ref: string, values: readonly string[]): string {
 
 /**
  * Lower steps to GitLab jobs.
+ * Spec 54: an agent step declaring `permissions.write` additionally
+ * produces a `<step>__apply` job in the protected `sverka-apply` stage.
  */
 function lowerSteps(
   steps: readonly StepDefinition[],
   jobIdMap: Map<string, string>,
   stageMap: ReadonlyMap<string, string>,
   rulesMap: ReadonlyMap<string, readonly GitlabRule[]>,
+  mentionMap: ReadonlyMap<string, readonly string[]>,
 ): readonly GitlabJob[] {
-  return steps.map((step) => {
-    if (step.childPipeline) {
-      return lowerChildPipelineStep(step, jobIdMap, stageMap, rulesMap);
-    }
-    if (step.downstream) {
-      return lowerDownstreamStep(step, jobIdMap, stageMap, rulesMap);
-    }
-    return lowerStep(step, jobIdMap, stageMap, rulesMap);
+  const usedJobIds = new Set<string>(jobIdMap.values());
+  return steps.flatMap((step) => {
+    const job = lowerStepDispatch(
+      step,
+      jobIdMap,
+      stageMap,
+      rulesMap,
+      mentionMap,
+    );
+    const applyJob = buildApplyJob(step, job, usedJobIds);
+    if (applyJob !== undefined) usedJobIds.add(applyJob.id);
+    return applyJob !== undefined ? [job, applyJob] : [job];
   });
+}
+
+function lowerStepDispatch(
+  step: StepDefinition,
+  jobIdMap: Map<string, string>,
+  stageMap: ReadonlyMap<string, string>,
+  rulesMap: ReadonlyMap<string, readonly GitlabRule[]>,
+  mentionMap: ReadonlyMap<string, readonly string[]>,
+): GitlabJob {
+  if (step.childPipeline) {
+    return lowerChildPipelineStep(step, jobIdMap, stageMap, rulesMap);
+  }
+  if (step.downstream) {
+    return lowerDownstreamStep(step, jobIdMap, stageMap, rulesMap);
+  }
+  return lowerStep(step, jobIdMap, stageMap, rulesMap, mentionMap);
+}
+
+/**
+ * Spec 54 — safe-outputs apply job (GitLab): runs `sverka apply` against
+ * the `sverka-writes.json` artifact produced by the agent job. Lives in
+ * the protected `sverka-apply` stage + environment so the write-scoped
+ * SVERKA_APPLY_TOKEN (environment-scoped masked variable) is only ever
+ * injected here — never into the agent job.
+ *
+ * Only agent steps get the split: their output is untrusted model output
+ * validated against `WriteDeclaration[]` before any API call. Non-agent
+ * steps keep the Spec 25 `SV_WRITE_*` annotation behaviour.
+ */
+function buildApplyJob(
+  step: StepDefinition,
+  agentJob: GitlabJob,
+  usedJobIds: ReadonlySet<string>,
+): GitlabJob | undefined {
+  const writes = step.permissions?.write;
+  if (writes === undefined || writes.length === 0) return undefined;
+  if (!step.operations.some((op) => op.kind === "agent")) return undefined;
+  // A matrix agent step expands into parallel jobs that all upload
+  // `sverka-writes.json` under the same artifact name — same-named
+  // artifacts overwrite each other on download, so one apply job would
+  // process only one leg's writes. Per-leg apply jobs cannot `needs` a
+  // specific matrix leg, so reject the combination.
+  if (step.matrix !== undefined) {
+    throw new GitlabTargetError(
+      `step '${step.id}' combines matrix with agent writes — matrix legs share the sverka-writes.json artifact name and a single apply job cannot disambiguate them`,
+      "LOWER_FAILED",
+    );
+  }
+  // The generated `<step>__apply` id can collide with a user step id —
+  // suffix it until unique so one job never overwrites the other.
+  let applyId = `${agentJob.id}__apply`;
+  let collision = 1;
+  while (usedJobIds.has(applyId)) {
+    applyId = `${agentJob.id}__apply${collision}`;
+    collision++;
+  }
+  return {
+    id: applyId,
+    stage: SVERKA_APPLY_STAGE,
+    needs: [agentJob.id],
+    // The write-declaration policy is bound into the script line, not a job
+    // `variables:` entry — trigger-supplied pipeline variables take
+    // precedence over job variables, so an env var here would let a webhook
+    // caller replace the policy the artifact is validated against.
+    script: [
+      `SVERKA_WRITE_DECLARATIONS=${shellQuoteSingle(JSON.stringify(writes))} ${sverkaCli("apply --provider gitlab")}`,
+    ],
+    // Inherit the agent job's image and runner tags — tagged-only runners
+    // never pick up untagged jobs, and the apply script needs the same
+    // toolchain (npx) the agent job runs on.
+    ...(agentJob.image !== undefined ? { image: agentJob.image } : {}),
+    ...(agentJob.tags !== undefined ? { tags: [...agentJob.tags] } : {}),
+    ...(agentJob.rules !== undefined && agentJob.rules.length > 0
+      ? { rules: [...agentJob.rules] }
+      : {}),
+    environment: { name: SVERKA_APPLY_ENVIRONMENT },
+  };
 }
 
 /**
@@ -710,11 +1017,22 @@ function lowerStep(
   jobIdMap: Map<string, string>,
   stageMap: ReadonlyMap<string, string>,
   rulesMap: ReadonlyMap<string, readonly GitlabRule[]>,
+  mentionMap: ReadonlyMap<string, readonly string[]>,
 ): GitlabJob {
   const jobId = jobIdMap.get(step.id) ?? step.id;
   const stage = stageMap.get(jobId) ?? "build";
   const triggerRules = rulesMap.get(jobId) ?? [];
   const mergedRules = mergeRules(triggerRules, step.rules);
+  const isAgentStep = step.operations.some((op) => op.kind === "agent");
+  // The apply environment is reserved for generated apply jobs — an agent
+  // step declaring it would receive the write-scoped SVERKA_APPLY_TOKEN
+  // directly, bypassing the validated apply channel.
+  if (isAgentStep && step.environment?.name === SVERKA_APPLY_ENVIRONMENT) {
+    throw new GitlabTargetError(
+      `step '${step.id}' declares environment '${SVERKA_APPLY_ENVIRONMENT}' — that environment is reserved for generated apply jobs; agent jobs run under '${SVERKA_AGENT_ENVIRONMENT}'`,
+      "LOWER_FAILED",
+    );
+  }
   const {
     script,
     artifacts,
@@ -722,7 +1040,7 @@ function lowerStep(
     variables,
     release,
     pages,
-  } = lowerOperations(step, jobId, jobIdMap);
+  } = lowerOperations(step, jobId, jobIdMap, mentionMap.get(jobId));
 
   const needs = mergeNeeds(step, jobIdMap, importNeeds);
 
@@ -749,7 +1067,12 @@ function lowerStep(
       runner: step.runner,
       identity: step.identity,
       services: step.services,
-      environment: step.environment,
+      // Agent jobs declare the sverka-agent environment unless the step
+      // already has one — it gives operators a scope for the masked
+      // SVERKA_AGENT_*_KEY variables so the key never reaches other jobs.
+      environment:
+        step.environment ??
+        (isAgentStep ? { name: SVERKA_AGENT_ENVIRONMENT } : undefined),
       cache: step.cache,
       concurrency: step.concurrency,
     }),
@@ -917,8 +1240,11 @@ function lowerRuntime(
  * Steps with declared writes receive CI variables corresponding to their
  * declared write kinds (e.g. SV_WRITE_DEPLOY=true). Steps without writes
  * receive no SV_WRITE_* variables.
+ * Spec 54: agent steps are excluded — their writes are applied through
+ * the separate `__apply` job and they must carry no write-side signals.
  */
 function lowerWriteVariables(step: StepDefinition): Record<string, string> {
+  if (step.operations.some((op) => op.kind === "agent")) return {};
   const writes = step.permissions?.write;
   if (!writes || writes.length === 0) return {};
   const vars: Record<string, string> = {};
@@ -1131,6 +1457,9 @@ interface OperationAccumulator {
   stdoutNames: string[];
   stdoutArtifacts: boolean;
   readonly workingDir: string | undefined;
+  /** Spec 54 — env vars produced by an `agent` op (SVERKA_AGENT_*). */
+  readonly agentVariables: Record<string, string>;
+  agentOpSeen: boolean;
 }
 
 /**
@@ -1141,6 +1470,7 @@ function lowerOperations(
   step: StepDefinition,
   jobId: string,
   jobIdMap: Map<string, string>,
+  mentions: readonly string[] | undefined,
 ): {
   script: string[];
   artifacts?: {
@@ -1170,10 +1500,12 @@ function lowerOperations(
     stdoutNames: [],
     stdoutArtifacts: false,
     workingDir: step.runtime.workingDir,
+    agentVariables: {},
+    agentOpSeen: false,
   };
 
   for (const op of step.operations) {
-    lowerOperation(op, jobId, acc, jobIdMap);
+    lowerOperation(op, jobId, acc, jobIdMap, mentions);
   }
 
   return assembleOperationResult(acc, step);
@@ -1228,10 +1560,14 @@ function lowerOperation(
   stepId: string,
   acc: OperationAccumulator,
   jobIdMap: Map<string, string>,
+  mentions: readonly string[] | undefined,
 ): void {
   switch (op.kind) {
     case "shell":
       lowerShellOp(op, acc, jobIdMap);
+      break;
+    case "agent":
+      lowerAgentOp(op, stepId, acc, jobIdMap, mentions);
       break;
     case "exportOutput":
       lowerExportOutput(op, stepId, acc);
@@ -1268,6 +1604,70 @@ function lowerOperation(
         `unsupported operation kind: ${JSON.stringify((op as OperationDefinition).kind)}`,
         "LOWER_FAILED",
       );
+  }
+}
+
+/**
+ * Spec 54 — lower an agent operation to the emulated `sverka agent` job
+ * contract: the step script invokes the version-pinned sverka CLI, which
+ * resolves the configured driver from SVERKA_AGENT_* env vars, runs the
+ * agent, and writes `agent-result.json` + `sverka-writes.json` artifacts.
+ * The prompt template is translated with the same ${...} → $VAR mapping
+ * used for shell commands (GitLab expands variables inside `variables:`).
+ */
+function lowerAgentOp(
+  op: Extract<OperationDefinition, { kind: "agent" }>,
+  stepId: string,
+  acc: OperationAccumulator,
+  jobIdMap: Map<string, string>,
+  mentions: readonly string[] | undefined,
+): void {
+  if (acc.agentOpSeen) {
+    throw new GitlabTargetError(
+      `step '${stepId}' has multiple agent operations — the gitlab target supports at most one per step`,
+      "LOWER_FAILED",
+    );
+  }
+  acc.agentOpSeen = true;
+  sealStdoutCapture(acc);
+  emitMentionMarkers(acc, mentions);
+  // runtime.workingDir cds the script into a subdir — artifacts:paths is
+  // always project-root-relative, so the CLI writes under $CI_PROJECT_DIR.
+  acc.script.push(
+    acc.workingDir !== undefined
+      ? sverkaCli('agent --output-dir "$CI_PROJECT_DIR"')
+      : sverkaCli("agent"),
+  );
+  acc.artifactPaths.push(SVERKA_AGENT_RESULT_FILE, SVERKA_WRITES_FILE);
+  acc.stdoutTargetIndex = undefined;
+  acc.agentVariables.SVERKA_AGENT_ENGINE = op.engine;
+  if (op.model !== undefined) {
+    acc.agentVariables.SVERKA_AGENT_MODEL = op.model;
+  }
+  acc.agentVariables.SVERKA_AGENT_PROMPT = translateGitlabCommand(
+    op.prompt,
+    acc.inputs,
+    jobIdMap,
+  );
+  if (op.maxTokens !== undefined) {
+    acc.agentVariables.SVERKA_AGENT_MAX_TOKENS = String(op.maxTokens);
+  }
+}
+
+/** Echo markers + SVERKA_MENTION env for the in-job mention re-check. */
+function emitMentionMarkers(
+  acc: OperationAccumulator,
+  mentions: readonly string[] | undefined,
+): void {
+  for (const mention of mentions ?? []) {
+    const marker = `# sverka:mention: ${mention}`;
+    acc.script.push(`echo ${shellQuoteSingle(marker)}`);
+  }
+  if (mentions !== undefined && mentions.length > 0) {
+    // Multiple comment entries can reach this job with different mentions —
+    // the env var carries all of them so the in-job re-check accepts any.
+    acc.agentVariables.SVERKA_MENTION =
+      mentions.length === 1 ? mentions[0]! : JSON.stringify(mentions);
   }
 }
 
@@ -1413,7 +1813,7 @@ function assembleOperationResult(
     script: acc.script,
     ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
     needs: acc.importNeeds,
-    variables: {},
+    variables: acc.agentVariables,
     ...(acc.release ? { release: acc.release } : {}),
     ...(acc.pages ? { pages: acc.pages } : {}),
   };
@@ -1617,6 +2017,13 @@ const GITLAB_CONTEXT_MAP: Readonly<Record<string, string>> = {
   "change.target": "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME",
   "change.draft": "$CI_MERGE_REQUEST_DRAFT",
   "event.type": "$CI_PIPELINE_SOURCE",
+  // Spec 54 — webhook-contract event payload variables (trigger-supplied;
+  // see engdocs/user/gitlab/webhook-setup.md).
+  "event.comment.body": "$COMMENT_BODY",
+  "event.comment.author": "$COMMENT_AUTHOR",
+  "event.issue.iid": "$ISSUE_IID",
+  "event.issue.title": "$ISSUE_TITLE",
+  "event.mr.iid": "$MR_IID",
   "run.id": "$CI_PIPELINE_ID",
   "run.attempt": "$run_attempt",
 };

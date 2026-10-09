@@ -1,0 +1,10 @@
+{
+  "name": "example-gitlab-agentic",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@sverka/workflow": "0.2.19",
+    "sverka": "0.2.19"
+  }
+}

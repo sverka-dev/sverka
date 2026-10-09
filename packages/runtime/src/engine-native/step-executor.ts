@@ -20,6 +20,7 @@ import type {
   AgentExecuteRequest,
   AgentResult,
 } from "./agent-driver.js";
+import { collectAgentWrites } from "./agent-env.js";
 import { StepExecError, EngineError, AgentDriverError } from "./errors.js";
 import { stepPrefix, resolveProducerId } from "./refs.js";
 
@@ -502,20 +503,28 @@ async function executeAgentOperation(
     );
   }
 
-  // 6. Save the result artifact to <artifactDir>/<stepId>/agent-result.json.
-  if (artifactDir !== undefined) {
-    const resultDir = join(artifactDir, step.id);
-    await mkdir(resultDir, { recursive: true });
-    const resultPath = join(resultDir, "agent-result.json");
-    await writeFile(resultPath, JSON.stringify(result, null, 2), "utf-8");
-  }
-
-  // 7. Mark success unless finishReason === "error".
+  // 6. Mark success unless finishReason === "error" — an errored agent
+  //    must not produce a writes artifact the apply job could act on.
   if (result.finishReason === "error") {
     throw new AgentDriverError(
       `AGENT_EXECUTION_FAILED: agent for step '${step.id}' finished with reason 'error'`,
       "AGENT_EXECUTION_FAILED",
     );
+  }
+
+  // 7. Save the result artifact to <artifactDir>/<stepId>/agent-result.json,
+  //    plus sverka-writes.json — the Spec 54 safe-outputs channel the
+  //    `sverka apply` job validates and applies. Writes come from
+  //    result.writes or a fenced `sverka-writes` block in the model text;
+  //    a malformed block fails the step (the apply job never guesses).
+  const writes = collectAgentWrites(result);
+  if (artifactDir !== undefined) {
+    const resultDir = join(artifactDir, step.id);
+    await mkdir(resultDir, { recursive: true });
+    const resultPath = join(resultDir, "agent-result.json");
+    await writeFile(resultPath, JSON.stringify(result, null, 2), "utf-8");
+    const writesPath = join(resultDir, "sverka-writes.json");
+    await writeFile(writesPath, JSON.stringify({ writes }, null, 2), "utf-8");
   }
 }
 

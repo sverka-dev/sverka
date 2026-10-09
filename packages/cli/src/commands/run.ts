@@ -6,7 +6,7 @@ import { join, dirname, resolve, sep } from "node:path";
 import { writeFileSync, mkdirSync, realpathSync, existsSync } from "node:fs";
 import type { DefinitionGraph } from "@sverka/workflow";
 import type { RuntimeDriver } from "@sverka/runtime";
-import { createEngine } from "@sverka/runtime";
+import { createEngine, resolveAgentDrivers } from "@sverka/runtime";
 import type { RunEvent } from "@sverka/runtime";
 import { createHostDriver } from "@sverka/runtime";
 import type { CommandAllowlist } from "@sverka/runtime";
@@ -110,6 +110,9 @@ export async function runCommand(
 
   const engine = createEngine({
     drivers: buildDrivers(executor),
+    // Spec 54: agent steps resolve drivers from the same SVERKA_AGENT_*_KEY
+    // env vars the generated CI jobs use.
+    agentDrivers: resolveAgentDrivers(process.env),
     maxConcurrent: args.jobs ?? 4,
   });
 

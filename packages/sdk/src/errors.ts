@@ -8,7 +8,12 @@ export type SdkErrorCode =
   | "CONFIG_INVALID"
   | "CONFIG_LOAD_FAILED"
   | "CONFIG_PATH_ESCAPE"
-  | "EXECUTION_FAILED";
+  | "EXECUTION_FAILED"
+  // Markdown authoring (Spec 37/54).
+  | "INVALID_FRONTMATTER"
+  | "INVALID_STEP"
+  | "INVALID_TRIGGER"
+  | "EXTENDS_NOT_FOUND";
 
 export class SdkError extends Error {
   override readonly cause?: unknown;

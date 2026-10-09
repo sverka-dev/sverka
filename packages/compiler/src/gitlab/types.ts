@@ -144,6 +144,12 @@ export interface GitlabTargetGraph {
   readonly stages: readonly string[];
   readonly jobs: readonly GitlabJob[];
   readonly variables: Record<string, string>;
+  /**
+   * Spec 54 — `#`-prefixed comment lines emitted at the top of the YAML
+   * documenting the sverka contract (webhook→trigger wiring, schedule
+   * descriptions, apply-stage token scoping).
+   */
+  readonly annotations?: readonly string[];
   readonly autoCancel?: boolean;
   readonly default?: GitlabDefault;
   readonly specInputs?: Readonly<Record<string, GitlabSpecInput>>;
