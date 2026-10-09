@@ -39,6 +39,10 @@ run them locally, get structured findings. Compile to CI when you need to.
 - [GitHub Actions](./compiling/github.md) — compile to GitHub Actions YAML
 - [GitLab CI](./compiling/gitlab.md) — compile to GitLab CI YAML
 
+## Hosted execution
+
+- [Bootstrap job](./execution/hosted-bootstrap.md) — run the whole pipeline inside one CI job with `sverka run`
+
 ## Reference
 
 - [Built-in checks](./reference/checks.md) — check IDs, resolver behavior, SARIF extraction

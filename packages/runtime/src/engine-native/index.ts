@@ -61,3 +61,11 @@ export type {
   StepExecOptions,
   ShellOutput,
 } from "./step-executor.js";
+
+// Spec 57 — hosted engine Stage B contract (interfaces only, deferred).
+export type {
+  RunQueue,
+  QueuedRun,
+  WorkerCapabilities,
+  WorkspaceRef,
+} from "./run-queue.js";
