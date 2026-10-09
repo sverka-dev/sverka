@@ -71,7 +71,7 @@ vi.mock("../src/runner.js", () => ({
   ),
 }));
 
-import { main } from "../src/bin.js";
+import { main, redactRegistryRef } from "../src/bin.js";
 
 class Capture {
   stdout = "";
@@ -129,5 +129,57 @@ describe("run --publish failure path", () => {
     expect(c.stderr).toContain(`results saved at ${saved}`);
     expect(c.stderr).toContain(`sverka-arena publish '${saved}'`);
     expect(c.stderr).toContain(`--registry '${notADir}'`);
+    // The retry must reproduce the run's publish context: the agent id and
+    // config path resolve the matrix agent + prompts, and the pinned
+    // version keeps the retried run in its original comparison cohort.
+    expect(c.stderr).toContain(`--agent 'devin'`);
+    expect(c.stderr).toContain(`--config '${join(dir, "arena.config.ts")}'`);
+    expect(c.stderr).toContain(`--sverka-version '`);
+  });
+
+  it("omits --registry from the retry hint when the ref comes from ARENA_REGISTRY", async () => {
+    const outDir = join(dir, "out-env");
+    const notADir = join(dir, "not-a-dir-env");
+    writeFileSync(notADir, "occupied");
+    process.env["ARENA_REGISTRY"] = notADir;
+    try {
+      const { c, io } = capture();
+      const code = await main(
+        [
+          "run",
+          "--config",
+          join(dir, "arena.config.ts"),
+          "--out",
+          outDir,
+          "--format",
+          "json",
+          "--publish",
+        ],
+        io,
+      );
+      expect(code).toBe(3);
+      // The env ref is inherited on retry — echoing it could leak
+      // credentials embedded in the ref.
+      expect(c.stderr).toContain("retry with:");
+      expect(c.stderr).not.toContain("--registry");
+    } finally {
+      delete process.env["ARENA_REGISTRY"];
+    }
+  });
+});
+
+describe("redactRegistryRef", () => {
+  it("strips embedded credentials from URL-like refs", () => {
+    expect(redactRegistryRef("https://user:secret@example.com/reg")).toBe(
+      "https://***@example.com/reg",
+    );
+    expect(redactRegistryRef("git::https://u:p@host/r.git")).toBe(
+      "git::https://***@host/r.git",
+    );
+  });
+  it("leaves credential-free refs untouched", () => {
+    expect(redactRegistryRef("/var/reg")).toBe("/var/reg");
+    expect(redactRegistryRef("s3://bucket/prefix")).toBe("s3://bucket/prefix");
+    expect(redactRegistryRef("file:///var/reg")).toBe("file:///var/reg");
   });
 });

@@ -57,7 +57,8 @@ commands:
   report   <results.json>               [--format json|text|html] [--out <file.html>]
   doctor   [--config <path>]            [--format json|text]
   publish  <results.json> --pack <name> --registry <ref>
-           [--agent <id>] [--sverka-version <v>] [--trace <file>]... [--format json|text]
+           [--config <path>] [--agent <id>] [--sverka-version <v>] [--trace <file>]...
+           [--format json|text]
   board    --registry <ref> [--pack <name>] [--agent <id>] [--since <date>]
            [--format json|text|html] [--out <file.html>]
   pack     init <name> [--dir <parent>] | lint <dir> [--format json|text]
@@ -262,6 +263,15 @@ function registryRef(args: ParsedArgs): string | undefined {
   return args.registry ?? process.env["ARENA_REGISTRY"];
 }
 
+/**
+ * Strip embedded credentials (scheme://user:pass@host) before a registry
+ * ref is printed to stderr — CI logs retain that output. Exported for
+ * tests.
+ */
+export function redactRegistryRef(ref: string): string {
+  return ref.replace(/(\/\/)[^/\s]+@/, "$1***@");
+}
+
 /** Bearer token for private https registries — env only, never argv. */
 function registryToken(): string | undefined {
   return process.env["ARENA_REGISTRY_TOKEN"];
@@ -343,11 +353,14 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
     io.out(renderReport(result) + "\n");
   }
   if (publishRegistry !== undefined) {
+    // Resolved once so a publish retry stamps the same version — pinning
+    // it keeps the run in its original comparison cohort.
+    const sverkaVersion = args.sverkaVersion ?? arenaVersion();
     try {
       const paths = await publishResult(result, publishRegistry, {
         pack: pack?.name ?? "default",
         agent: config.agent.id,
-        sverkaVersion: args.sverkaVersion ?? arenaVersion(),
+        sverkaVersion,
         prompts: Object.fromEntries(
           config.tasks.map((t) => [t.id, t.prompt] as const),
         ),
@@ -357,9 +370,21 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
       // The matrix already ran — point at the saved results.json so the
       // user can retry `sverka-arena publish` without re-running it.
       const saved = join(config.outputDir, "results.json");
+      const retry = [
+        `sverka-arena publish '${saved}'`,
+        `--pack '${pack?.name ?? "default"}'`,
+        `--agent '${config.agent.id}'`,
+        `--sverka-version '${sverkaVersion}'`,
+      ];
+      if (args.configSet) retry.push(`--config '${args.config}'`);
+      // An env-sourced ref is inherited from ARENA_REGISTRY on retry —
+      // a ref that may carry embedded credentials is never echoed.
+      if (args.registry !== undefined) {
+        retry.push(`--registry '${redactRegistryRef(args.registry)}'`);
+      }
       io.err(
         `publish failed — results saved at ${saved}\n` +
-          `retry with: sverka-arena publish '${saved}' --pack '${pack?.name ?? "default"}' --registry '${registryRef(args) ?? "<ref>"}'\n`,
+          `retry with: ${retry.join(" ")}\n`,
       );
       throw err;
     }
