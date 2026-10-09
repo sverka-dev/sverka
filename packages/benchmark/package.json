@@ -1,6 +1,6 @@
 {
   "name": "@sverka/benchmark",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "description": "Sverka benchmark arena — two-agent comparison harness",
   "license": "MIT",
   "sideEffects": false,

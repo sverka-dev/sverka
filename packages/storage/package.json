@@ -1,6 +1,6 @@
 {
   "name": "@sverka/storage",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "description": "Sverka storage — file and SQLite snapshot stores for run persistence",
   "license": "MIT",
   "sideEffects": false,
