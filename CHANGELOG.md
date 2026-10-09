@@ -1,3 +1,14 @@
+## 0.2.24 (2026-10-09)
+
+### 🚀 Features
+
+- **gitlab:** agentic workflows — triggers, safe-apply, agent drivers (spec 54) ([#336](https://github.com/sverka-dev/sverka/pull/336))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.23 (2026-10-09)
 
 ### 🚀 Features
