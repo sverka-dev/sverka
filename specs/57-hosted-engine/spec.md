@@ -57,20 +57,24 @@ export interface RunQueue {
     workerId: string,
     capabilities: WorkerCapabilities,
   ): Promise<QueuedRun | undefined>;
-  heartbeat(runId: string): Promise<void>;
+  heartbeat(runId: string, claimToken: string): Promise<void>;
   complete(
     runId: string,
+    claimToken: string,
     report: RunReport,
     findings: readonly Finding[],
   ): Promise<void>;
-  fail(runId: string, error: string): Promise<void>;
+  fail(runId: string, claimToken: string, error: string): Promise<void>;
 }
 
 export interface QueuedRun {
   readonly runId: string;
+  // fences this claim attempt — heartbeat/complete/fail reject a
+  // stale token after the run is re-claimed post-heartbeat-expiry
+  readonly claimToken: string;
   readonly project: string;
   readonly runPlan: RunPlan; // serialized, spec 06/32
-  readonly workspaceRef: WorkspaceRef; // git ref or tarball URL
+  readonly workspaceRef: WorkspaceRef; // pinned git commit or tarball URL
 }
 
 export interface WorkerCapabilities {

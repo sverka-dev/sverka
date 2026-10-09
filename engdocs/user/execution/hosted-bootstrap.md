@@ -96,8 +96,9 @@ The bootstrap job is the first stage of the hosted-engine path
   `WorkerCapabilities`) is already pinned as interfaces in
   `@sverka/runtime`; the worker ships only when hub adoption justifies
   it.
-- **Later** — managed workers (Sverka-operated compute), gated on
-  self-hosted adoption plus per-tenant sandbox hardening.
+- **Later** — managed workers (Sverka-operated compute), gated on the
+  Spec 55 adoption threshold (≥ 10 external projects on self-hosted
+  hubs), explicit requests, and per-tenant sandbox hardening.
 
 Not planned: compiling pipelines into foreign engine runtimes
 (Temporal, Dagger, Inngest, Drone). Those targets were built and removed

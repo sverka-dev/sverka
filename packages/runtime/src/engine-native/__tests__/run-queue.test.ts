@@ -37,11 +37,11 @@ describe("RunQueue contract (Spec 57)", () => {
     expect(minimal.maxSteps).toBeUndefined();
   });
 
-  it("WorkspaceRef accepts a git ref or a tarball URL", () => {
+  it("WorkspaceRef accepts a pinned git commit or a tarball URL", () => {
     const git: WorkspaceRef = {
       kind: "git",
       url: "https://github.com/sverka-dev/sverka.git",
-      ref: "main",
+      commit: "d731864fc94adb98db87947b3c3305364858ee55",
     };
     const tarball: WorkspaceRef = {
       kind: "tarball",
@@ -51,14 +51,20 @@ describe("RunQueue contract (Spec 57)", () => {
     expect(tarball.kind).toBe("tarball");
   });
 
-  it("QueuedRun carries the serialized RunPlan and workspace ref", () => {
+  it("QueuedRun carries the claim token, RunPlan, and workspace ref", () => {
     const run: QueuedRun = {
       runId: "r-1",
+      claimToken: "claim-1",
       project: "sverka-dev/sverka",
       runPlan: plan,
-      workspaceRef: { kind: "git", url: "https://x", ref: "main" },
+      workspaceRef: {
+        kind: "git",
+        url: "https://x",
+        commit: "d731864fc94adb98db87947b3c3305364858ee55",
+      },
     };
     expect(run.runPlan.apiVersion).toBe("sverka.dev/v1run");
+    expect(run.claimToken).toBe("claim-1");
   });
 
   it("RunQueue is implementable — claim/heartbeat/complete/fail", async () => {
@@ -69,22 +75,25 @@ describe("RunQueue contract (Spec 57)", () => {
     }[] = [];
     const queue: RunQueue = {
       claim: async (_workerId, _capabilities) => undefined,
-      heartbeat: async (_runId) => {},
-      complete: async (runId, report, findings) => {
+      heartbeat: async (_runId, _claimToken) => {},
+      complete: async (runId, _claimToken, report, findings) => {
         completed.push({ runId, report, findings });
       },
-      fail: async (_runId, _error) => {},
+      fail: async (_runId, _claimToken, _error) => {},
     };
     const claimed = await queue.claim("w-1", {
       runtimes: ["host"],
       network: "none",
     });
     expect(claimed).toBeUndefined();
-    await queue.heartbeat("r-1");
-    await queue.complete("r-1", { schema: "sverka.run/v1", data: {} }, [
-      { ruleId: "r", file: "x.ts" },
-    ]);
-    await queue.fail("r-2", "worker crashed");
+    await queue.heartbeat("r-1", "claim-1");
+    await queue.complete(
+      "r-1",
+      "claim-1",
+      { schema: "sverka.run/v1", data: {} },
+      [{ ruleId: "r", file: "x.ts" }],
+    );
+    await queue.fail("r-2", "claim-2", "worker crashed");
     expect(completed[0]?.report.schema).toBe("sverka.run/v1");
     expect(completed[0]?.findings).toHaveLength(1);
   });

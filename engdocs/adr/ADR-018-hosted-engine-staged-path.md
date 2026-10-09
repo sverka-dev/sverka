@@ -45,10 +45,14 @@ the trade-off versus per-step lowering is provider UI granularity.
 ### Stage B — Self-hosted worker (build when demanded)
 
 A long-lived `sverka worker` polls a `RunQueue` on the Spec-55 hub:
-`sverka run --submit` enqueues a serialized `RunPlan` + `WorkspaceRef`;
-the worker claims, materializes the checkout, executes with the native
-engine, and completes against the same `POST /v1/runs` sink Stage A
-uses. Self-hosted means the user's worker, hub, and machines — Sverka
+`sverka run --submit` enqueues a serialized `RunPlan` + `WorkspaceRef`
+(git checkouts pin the commit SHA resolved at submit — a branch or tag
+can move before a worker claims); the worker claims, materializes the
+checkout, executes with the native engine, and completes against the
+same `POST /v1/runs` sink Stage A uses. Each claim issues a
+`claimToken` that fences `heartbeat`/`complete`/`fail`, so a worker
+whose claim expired can't disturb a run re-claimed by another worker.
+Self-hosted means the user's worker, hub, and machines — Sverka
 ships the binary, not the fleet.
 
 The contract — `RunQueue`, `QueuedRun`, `WorkerCapabilities`,

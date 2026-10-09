@@ -9,14 +9,21 @@
 import type { RunPlan } from "@sverka/workflow";
 
 /** How the worker materializes the checkout a queued run executes in —
- * a git ref to clone/fetch, or a tarball URL to download and extract. */
+ * a git clone pinned to an immutable commit, or a tarball URL to
+ * download and extract. `commit` is the full SHA resolved at submit
+ * time — a branch or tag name can move between submit and claim, so
+ * the queue must not carry one. */
 export type WorkspaceRef =
-  | { readonly kind: "git"; readonly url: string; readonly ref: string }
+  | { readonly kind: "git"; readonly url: string; readonly commit: string }
   | { readonly kind: "tarball"; readonly url: string };
 
 /** A run submitted to the hub queue waiting for a worker to claim it. */
 export interface QueuedRun {
   readonly runId: string;
+  /** Opaque hub-issued token identifying this claim attempt — fences
+   * heartbeat/complete/fail so an expired worker can't disturb a run
+   * re-claimed by another worker after a missed heartbeat. */
+  readonly claimToken: string;
   /** Hub project namespace, e.g. "sverka-dev/sverka" (Spec 55). */
   readonly project: string;
   /** The serialized Run Plan the worker executes (Spec 06). */
@@ -39,14 +46,16 @@ export interface WorkerCapabilities {
 export interface RunQueue {
   /** Atomically claim a queued run this worker can execute —
    * undefined when the queue is empty or nothing matches
-   * `capabilities`. */
+   * `capabilities`. The returned `QueuedRun.claimToken` identifies
+   * this attempt; heartbeat/complete/fail reject a stale token. */
   claim(
     workerId: string,
     capabilities: WorkerCapabilities,
   ): Promise<QueuedRun | undefined>;
   /** Keep a claimed run alive — a missed heartbeat window lets the hub
-   * re-queue the run for another worker. */
-  heartbeat(runId: string): Promise<void>;
+   * re-queue the run for another worker. `claimToken` must match the
+   * live claim, so a late heartbeat from an expired worker is ignored. */
+  heartbeat(runId: string, claimToken: string): Promise<void>;
   /** Report completion. `report` is the `sverka.run/v1` payload the run
    * wrote to `report.json`; `findings` is the run's normalized finding
    * set (report.json carries only the count). Together they fill the
@@ -56,9 +65,11 @@ export interface RunQueue {
    * replace the open records when they land. */
   complete(
     runId: string,
+    claimToken: string,
     report: Record<string, unknown>,
     findings: readonly Record<string, unknown>[],
   ): Promise<void>;
-  /** Report failure — `error` is a human-readable message. */
-  fail(runId: string, error: string): Promise<void>;
+  /** Report failure — `error` is a human-readable message; `claimToken`
+   * fences the report to the live claim. */
+  fail(runId: string, claimToken: string, error: string): Promise<void>;
 }
