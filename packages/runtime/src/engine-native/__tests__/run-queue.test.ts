@@ -62,12 +62,16 @@ describe("RunQueue contract (Spec 57)", () => {
   });
 
   it("RunQueue is implementable — claim/heartbeat/complete/fail", async () => {
-    const completed: { runId: string; report: Record<string, unknown> }[] = [];
+    const completed: {
+      runId: string;
+      report: Record<string, unknown>;
+      findings: readonly Record<string, unknown>[];
+    }[] = [];
     const queue: RunQueue = {
       claim: async (_workerId, _capabilities) => undefined,
       heartbeat: async (_runId) => {},
-      complete: async (runId, report) => {
-        completed.push({ runId, report });
+      complete: async (runId, report, findings) => {
+        completed.push({ runId, report, findings });
       },
       fail: async (_runId, _error) => {},
     };
@@ -77,8 +81,11 @@ describe("RunQueue contract (Spec 57)", () => {
     });
     expect(claimed).toBeUndefined();
     await queue.heartbeat("r-1");
-    await queue.complete("r-1", { schema: "sverka.run/v1", data: {} });
+    await queue.complete("r-1", { schema: "sverka.run/v1", data: {} }, [
+      { ruleId: "r", file: "x.ts" },
+    ]);
     await queue.fail("r-2", "worker crashed");
     expect(completed[0]?.report.schema).toBe("sverka.run/v1");
+    expect(completed[0]?.findings).toHaveLength(1);
   });
 });

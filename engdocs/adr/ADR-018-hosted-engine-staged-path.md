@@ -55,10 +55,11 @@ The contract — `RunQueue`, `QueuedRun`, `WorkerCapabilities`,
 `WorkspaceRef` — is committed to `@sverka/runtime` as **interfaces only**
 (no implementation, no runtime dependency) so that when Stage B is
 justified, the worker and the hub endpoint are designed against one
-shape. `RunQueue.complete()` types the report as
-`Record<string, unknown>` — the `sverka.run/v1` payload Spec 55's
-`uploadRunReport` already accepts; Spec 38's typed `RunReport` model
-replaces it when it lands.
+shape. `RunQueue.complete()` takes the report as
+`Record<string, unknown>` plus the run's normalized findings — the
+pieces Spec 55's `uploadRunReport` already accepts (`project`/`entry`
+come from the claimed `QueuedRun`, not the worker). Spec 38's typed
+`RunReport` model replaces the open records when it lands.
 
 ### Stage C — Managed workers (the SaaS compute plane)
 

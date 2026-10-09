@@ -58,7 +58,11 @@ export interface RunQueue {
     capabilities: WorkerCapabilities,
   ): Promise<QueuedRun | undefined>;
   heartbeat(runId: string): Promise<void>;
-  complete(runId: string, report: RunReport): Promise<void>;
+  complete(
+    runId: string,
+    report: RunReport,
+    findings: readonly Finding[],
+  ): Promise<void>;
   fail(runId: string, error: string): Promise<void>;
 }
 
@@ -79,8 +83,10 @@ export interface WorkerCapabilities {
 Submission side: `sverka run --submit` serializes the RunPlan +
 workspace ref to `POST /v1/runs/queue` (an addition to the Spec 55
 API, versioned when built). A worker claims it, materializes the
-workspace, executes with the native engine, and uploads the
-report — the SAME `POST /v1/runs` sink Stage A already uses. No
+workspace, executes with the native engine, and uploads report +
+findings — the SAME `POST /v1/runs` envelope
+(`{project, entry, report, findings}`, Spec 55) Stage A already
+uses; `project`/`entry` come from the claimed `QueuedRun`. No
 new observability surface.
 
 Self-hosted means: the user's worker, the user's hub, the user's

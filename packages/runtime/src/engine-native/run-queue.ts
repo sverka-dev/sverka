@@ -48,10 +48,17 @@ export interface RunQueue {
    * re-queue the run for another worker. */
   heartbeat(runId: string): Promise<void>;
   /** Report completion. `report` is the `sverka.run/v1` payload the run
-   * wrote to `report.json` — the same body `POST /v1/runs` accepts
-   * (Spec 55). Spec 38's typed `RunReport` model replaces the open
-   * record when it lands. */
-  complete(runId: string, report: Record<string, unknown>): Promise<void>;
+   * wrote to `report.json`; `findings` is the run's normalized finding
+   * set (report.json carries only the count). Together they fill the
+   * `POST /v1/runs` envelope `{project, entry, report, findings}`
+   * (Spec 55) — `project`/`entry` come from the claimed `QueuedRun`,
+   * not the worker. Spec 38's typed `RunReport`/`Finding` models
+   * replace the open records when they land. */
+  complete(
+    runId: string,
+    report: Record<string, unknown>,
+    findings: readonly Record<string, unknown>[],
+  ): Promise<void>;
   /** Report failure — `error` is a human-readable message. */
   fail(runId: string, error: string): Promise<void>;
 }
