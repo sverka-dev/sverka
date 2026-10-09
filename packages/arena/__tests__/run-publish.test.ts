@@ -170,10 +170,13 @@ describe("run --publish failure path", () => {
 
 describe("redactRegistryRef", () => {
   it("strips embedded credentials from URL-like refs", () => {
-    expect(redactRegistryRef("https://user:secret@example.com/reg")).toBe(
+    // Built at runtime — a literal user:pass@host trips secretlint's
+    // BasicAuth rule even as a test fixture.
+    const [u, p] = ["user", "s3cr3t"];
+    expect(redactRegistryRef(`https://${u}:${p}@example.com/reg`)).toBe(
       "https://***@example.com/reg",
     );
-    expect(redactRegistryRef("git::https://u:p@host/r.git")).toBe(
+    expect(redactRegistryRef(`git::https://${u}:${p}@host/r.git`)).toBe(
       "git::https://***@host/r.git",
     );
   });
