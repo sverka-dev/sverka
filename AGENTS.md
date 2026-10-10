@@ -42,11 +42,11 @@ bun run typecheck    # typecheck all packages
   stdin, or credential helpers; never interpolate tokens into args or
   error text.
 - **Shared filesystem paths need ownership** — shared caches, clones, and
-  tmpdirs get a lock, a lease, or a content-addressed name.
+  temp dirs get a lock, a lease, or a content-addressed name.
 - **Composite keys get a canonical form** — no bare string concat
   (`m`+`ab` collides with `ma`+`b`); use a tuple, JSON, or hash.
 - **Parse before comparing** — never lexical ordering for structured
-  values (ISO datetimes with offsets, versions).
+  values (ISO timestamps with offsets, versions).
 - **Invalid input fails loud** — throw, report, or reject; a silent drop
   turns a restriction into a no-op.
 
