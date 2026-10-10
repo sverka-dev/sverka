@@ -1,3 +1,14 @@
+## 0.2.26 (2026-10-10)
+
+### 🚀 Features
+
+- **arena:** results registry + leaderboard + task packs (spec 56) ([#329](https://github.com/sverka-dev/sverka/pull/329))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.25 (2026-10-10)
 
 ### 🚀 Features
