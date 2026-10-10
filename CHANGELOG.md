@@ -1,3 +1,14 @@
+## 0.2.25 (2026-10-10)
+
+### 🚀 Features
+
+- **hub:** remote run hub — shared cache, run history, dashboard (spec 55) ([#342](https://github.com/sverka-dev/sverka/pull/342))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.24 (2026-10-09)
 
 ### 🚀 Features
