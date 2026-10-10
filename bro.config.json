@@ -39,7 +39,7 @@
   },
   "agents": {
     "native": {
-      "command": "devin -p --prompt-file {promptFile}"
+      "command": "devin -p --prompt-file {promptFile} --permission-mode dangerous --respect-workspace-trust false"
     }
   },
   "fleet": {
