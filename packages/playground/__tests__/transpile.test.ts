@@ -222,4 +222,43 @@ export default proj;
     const out = toSverkaConfig(src);
     expect(out).toContain("dependsOn: [] }");
   });
+
+  it("fails fast on a malformed nested step call", () => {
+    // Each `new FunctionStep(` opens an unterminated argument list — the
+    // first failure must throw, not rescan the nested suffix.
+    const src = `import { FunctionStep } from "@sverka/playground";
+new FunctionStep(new FunctionStep(new FunctionStep(new FunctionStep(`;
+    try {
+      toSverkaConfig(src);
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(PlaygroundError);
+      expect((e as PlaygroundError).code).toBe("TRANSPILE_FAILED");
+    }
+  });
+
+  it("consumes NBSP before a trailing semicolon on the import", () => {
+    const src =
+      'import { Project } from "@sverka/playground"\u00a0;\n' +
+      'const proj = new Project("p");\nexport default proj;\n';
+    const out = toSverkaConfig(src);
+    expect(out).toContain('from "@sverka/workflow";');
+    expect(out).not.toContain("\u00a0");
+  });
+
+  it("consumes NBSP without eating the newline", () => {
+    const src =
+      'import { Project } from "@sverka/playground"\u00a0\n' +
+      'const proj = new Project("p");\n';
+    const out = toSverkaConfig(src);
+    expect(out).toContain('from "@sverka/workflow"\nconst proj');
+  });
+
+  it("does not eat a CRLF after the import", () => {
+    const src =
+      'import { Project } from "@sverka/playground"\r\n' +
+      'const proj = new Project("p");\n';
+    const out = toSverkaConfig(src);
+    expect(out).toContain('from "@sverka/workflow"\r\nconst proj');
+  });
 });

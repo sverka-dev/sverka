@@ -140,12 +140,17 @@ function extractProp(props: string, key: string): string | undefined {
   return props.slice(j, propValueEnd(props, j)).trim();
 }
 
-/** Consume trailing spaces/tabs plus one optional `;` — never the newline.
- *  Eating it would fuse the emitted import with the next line
- *  (`from "@sverka/workflow"const x = …`). */
+/** JS line terminators — whitespace a statement tail must not consume. */
+function isLineBreak(c: string | undefined): boolean {
+  return c === "\n" || c === "\r" || c === "\u2028" || c === "\u2029";
+}
+
+/** Consume trailing non-line whitespace plus one optional `;` — never a
+ *  line break. Eating it would fuse the emitted import with the next
+ *  line (`from "@sverka/workflow"const x = …`). */
 function stmtEndPos(source: string, i: number): number {
   let end = i;
-  while (source[end] === " " || source[end] === "\t") end++;
+  while (isWsChar(source[end]) && !isLineBreak(source[end])) end++;
   if (source[end] === ";") end++;
   return end;
 }
@@ -382,13 +387,10 @@ function rewriteStepCalls(code: string, names: readonly string[]): string {
     const call = findStepCall(code, names, cursor);
     if (call === null) break;
     const args = parseStepArgs(code, call.paren);
-    if (args === null) {
-      // A `new Fn(` whose shape we don't own — skip `new` and let the
-      // leftover check name it, rather than silently dropping it.
-      result += code.slice(cursor, call.start + 3);
-      cursor = call.start + 3;
-      continue;
-    }
+    // Fail fast on a shape we don't own: the leftover check throws on it
+    // anyway, and continuing past `new` re-scans the nested suffix once
+    // per nested `new Fn(` — quadratic on malformed input.
+    if (args === null) throw unsupportedStepError(code, call.paren);
     const propsClose = matchBrace(code, args.propsOpen);
     if (propsClose < 0)
       throw new PlaygroundError(
@@ -406,20 +408,25 @@ function rewriteStepCalls(code: string, names: readonly string[]): string {
   return result + code.slice(cursor);
 }
 
+/** TRANSPILE_FAILED naming the scope of the step call whose `(` is at
+ *  `paren` — `?` when even the scope won't scan. */
+function unsupportedStepError(code: string, paren: number): PlaygroundError {
+  const scopeStart = skipWs(code, paren + 1);
+  const scopeEnd = scanScopeEnd(code, scopeStart);
+  const scope =
+    scopeEnd < 0 ? "?" : code.slice(scopeStart, scopeEnd).trim() || "?";
+  return new PlaygroundError(
+    "TRANSPILE_FAILED",
+    `cannot parse FunctionStep with scope '${scope}' — unsupported expression`,
+  );
+}
+
 /** A surviving step call means a shape we could not convert — computed
  *  scope/id or a malformed alias call. Fail loud rather than emit a
  *  half-converted file. */
 function assertNoLeftoverSteps(code: string, names: readonly string[]): void {
   const call = findStepCall(code, names, 0);
-  if (call === null) return;
-  const scopeStart = skipWs(code, call.paren + 1);
-  const scopeEnd = scanScopeEnd(code, scopeStart);
-  const scope =
-    scopeEnd < 0 ? "?" : code.slice(scopeStart, scopeEnd).trim() || "?";
-  throw new PlaygroundError(
-    "TRANSPILE_FAILED",
-    `cannot parse FunctionStep with scope '${scope}' — unsupported expression`,
-  );
+  if (call !== null) throw unsupportedStepError(code, call.paren);
 }
 
 /**
