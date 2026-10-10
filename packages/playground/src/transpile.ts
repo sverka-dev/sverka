@@ -388,7 +388,7 @@ function rewriteStepCalls(code: string, names: readonly string[]): string {
     if (call === null) break;
     const args = parseStepArgs(code, call.paren);
     // Fail fast on a shape we don't own: the leftover check throws on it
-    // anyway, and continuing past `new` rescans the nested suffix once
+    // anyway, and continuing past `new` re-scans the nested suffix once
     // per nested `new Fn(` — quadratic on malformed input.
     if (args === null) throw unsupportedStepError(code, call.paren);
     const propsClose = matchBrace(code, args.propsOpen);
