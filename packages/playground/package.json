@@ -1,6 +1,6 @@
 {
   "name": "@sverka/playground",
-  "version": "0.2.27",
+  "version": "0.2.28",
   "description": "Sverka Playground — browser sandbox for building and running check pipelines",
   "license": "MIT",
   "repository": {
