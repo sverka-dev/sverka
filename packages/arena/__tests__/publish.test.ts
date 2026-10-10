@@ -381,6 +381,27 @@ describe("publishFile", () => {
     expect(stored.tasks[0]!.promptHash).toBe(promptHash(PROMPT_T1));
   });
 
+  it("rejects a matrix file whose analysis is not an array", async () => {
+    const reg = createFileRegistry(join(dir, "pub-bad-analysis"));
+    const file = join(dir, "bad-analysis.json");
+    const m = matrix([run({ taskId: "t9" })]) as unknown as Record<
+      string,
+      unknown
+    >;
+    m["analysis"] = { t9: "not an array" };
+    writeFileSync(file, JSON.stringify(m));
+    try {
+      // Even with a prompts map supplied, a malformed section is a
+      // schema violation — not a silent fallback.
+      await publishFile(file, reg, { ...CTX, prompts: { t9: "p" } });
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(ArenaError);
+      expect((e as ArenaError).code).toBe("SCHEMA_INVALID");
+      expect((e as ArenaError).message).toContain("analysis");
+    }
+  });
+
   it("rejects a matrix file whose task prompts cannot be resolved", async () => {
     const reg = createFileRegistry(join(dir, "pub-no-prompt"));
     const file = join(dir, "no-prompt.json");

@@ -93,9 +93,15 @@ function promptFor(
   // unchecked JSON — a hand-shaped matrix file may omit it. The saved
   // prompt wins over the supplied map: a `run --pack` publish retry can
   // load config prompts that differ from the tasks that actually ran.
+  const analysis = result.analysis;
+  if (analysis !== undefined && !Array.isArray(analysis)) {
+    throw new ArenaError(
+      "results.analysis must be an array when present",
+      "SCHEMA_INVALID",
+    );
+  }
   const prompt =
-    result.analysis?.find((a) => a.taskId === taskId)?.prompt ??
-    ctx.prompts?.[taskId];
+    analysis?.find((a) => a.taskId === taskId)?.prompt ?? ctx.prompts?.[taskId];
   if (prompt === undefined) {
     throw new ArenaError(
       `cannot compute promptHash for task '${taskId}' — the prompt is not in ` +
