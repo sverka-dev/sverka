@@ -1,3 +1,15 @@
+## 0.2.27 (2026-10-10)
+
+### 🩹 Fixes
+
+- **bro:** spawn devin workers non-interactive ([#357](https://github.com/sverka-dev/sverka/pull/357))
+- **playground:** fail fast on malformed nested step calls in toSverkaConfig ([#328](https://github.com/sverka-dev/sverka/pull/328))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.26 (2026-10-10)
 
 ### 🚀 Features
