@@ -8,13 +8,16 @@ import { PlaygroundError } from "./share.js";
 import {
   isIdentChar,
   isOpaqueStart,
+  isQuote,
   isWsChar,
   keywordAt,
   matchBrace,
+  newOperandScan,
   scanOpaqueEnd,
   scanOperand,
   scanString,
   skipIdent,
+  type OperandScan,
 } from "./scanner.js";
 
 // --- local char helpers (only transpile needs these) ----------------------
@@ -38,34 +41,45 @@ function skipWs(code: string, i: number): number {
 // and all scans are linear (no regexes over user source at all).
 // ---------------------------------------------------------------------------
 
+/** Scan state for the prop scans: the shared operand context plus the
+ *  bracket depth that scopes keys, commas, and prop values. */
+type PropScan = OperandScan & { depth: number };
+
 /** One token of an operand-tracking scan — identifiers (with `word`),
- *  opaque spans, and regex-vs-division resolve through the shared
- *  scanner; whitespace passes through. Null when `i` sits on
- *  punctuation the caller's own depth/branch logic owns. */
+ *  opaque spans, `++`/`--`, numbers, and regex-vs-division resolve
+ *  through the shared scanner; whitespace passes through. Null when `i`
+ *  sits on punctuation the caller's own depth/branch logic owns. */
 function propToken(
   s: string,
   i: number,
-  operandEnd: boolean,
-): { end: number; operandEnd: boolean; word?: string } | null {
-  if (isWsChar(s[i])) return { end: i + 1, operandEnd };
-  const op = scanOperand(s, i, operandEnd);
-  if (op === null) return null;
-  if (isIdentChar(s[i])) return { ...op, word: s.slice(i, op.end) };
-  return op;
+  st: PropScan,
+): { end: number; word?: string } | null {
+  const end = scanOperand(s, i, st);
+  if (end === null) return null;
+  if (isIdentChar(s[i])) return { end, word: s.slice(i, end) };
+  return { end };
 }
 
-/** Apply a bracket/other punctuation char to depth + operand state. */
-function applyPunctuation(
-  c: string | undefined,
-  st: { depth: number; operandEnd: boolean },
-): void {
+/** Apply a bracket/other punctuation char to depth + operand state.
+ *  `(` records whether a control word opened it — `if (x) /re/` may
+ *  open a regex after `)` while `(x) / 2` divides. */
+function applyPunctuation(c: string | undefined, st: PropScan): void {
   if (isOpenBracket(c)) {
     st.depth++;
+    if (c === "(") st.parens.push(st.pendingCtl);
+    st.pendingCtl = null;
     st.operandEnd = false;
   } else if (isCloseBracket(c)) {
     st.depth--;
-    st.operandEnd = true;
+    st.pendingCtl = null;
+    if (c === ")") {
+      const kind = st.parens.pop();
+      st.operandEnd = kind === undefined || kind === null;
+    } else {
+      st.operandEnd = true;
+    }
   } else {
+    st.pendingCtl = null;
     st.operandEnd = false;
   }
 }
@@ -75,10 +89,10 @@ function applyPunctuation(
  * A `dependencies` declared inside `fn` never counts — only top-level keys.
  */
 function findPropKey(props: string, key: string): number {
-  const st = { depth: 0, operandEnd: false };
+  const st: PropScan = { ...newOperandScan(), depth: 0 };
   let i = 0;
   while (i < props.length) {
-    const tok = propToken(props, i, st.operandEnd);
+    const tok = propToken(props, i, st);
     if (tok === null) {
       applyPunctuation(props[i], st);
       i++;
@@ -88,7 +102,6 @@ function findPropKey(props: string, key: string): number {
       const hit = skipWs(props, tok.end);
       if (props[hit] === ":") return hit;
     }
-    st.operandEnd = tok.operandEnd;
     i = tok.end;
   }
   return -1;
@@ -105,18 +118,23 @@ function isTailComment(props: string, k: number, after: number): boolean {
 /** End index of a prop value starting at `j` — the next top-level comma
  *  or the end of the props body, with strings/comments/brackets balanced. */
 function propValueEnd(props: string, j: number): number {
-  const st = { depth: 0, operandEnd: false };
+  const st: PropScan = { ...newOperandScan(), depth: 0 };
   let k = j;
   while (k < props.length) {
     if (isOpaqueStart(props, k)) {
       const after = scanOpaqueEnd(props, k).end;
       if (st.depth === 0 && isTailComment(props, k, after)) return k;
+      // A string ends the operand — `"a" / 2` divides; comments pass
+      // the operand context through untouched.
+      if (isQuote(props[k])) {
+        st.operandEnd = true;
+        st.pendingCtl = null;
+      }
       k = after;
       continue;
     }
-    const tok = propToken(props, k, st.operandEnd);
+    const tok = propToken(props, k, st);
     if (tok !== null) {
-      st.operandEnd = tok.operandEnd;
       k = tok.end;
       continue;
     }
@@ -276,12 +294,6 @@ function stepCallParen(
   return null;
 }
 
-/** Operand context after punctuation — closers end a value, everything
- *  else (openers, operators, separators) expects one. */
-function punctuationOperandEnd(c: string | undefined): boolean {
-  return c === ")" || c === "]" || c === "}";
-}
-
 /**
  * Locate the next `new <name>(` call where <name> ∈ names. Whole-word
  * scanning makes boundary checks free — `myNew` or `newer` never match.
@@ -294,20 +306,19 @@ function findStepCall(
   names: readonly string[],
   from: number,
 ): { start: number; paren: number } | null {
-  let operandEnd = false;
+  const st: PropScan = { ...newOperandScan(), depth: 0 };
   let i = from;
   while (i < code.length) {
-    const tok = propToken(code, i, operandEnd);
+    const tok = propToken(code, i, st);
     if (tok !== null) {
       if (tok.word === "new") {
         const paren = stepCallParen(code, tok.end, names);
         if (paren !== null) return { start: i, paren };
       }
-      operandEnd = tok.operandEnd;
       i = tok.end;
       continue;
     }
-    operandEnd = punctuationOperandEnd(code[i]);
+    applyPunctuation(code[i], st);
     i++;
   }
   return null;
@@ -316,12 +327,11 @@ function findStepCall(
 /** End of the scope expression — the first top-level comma after `from`,
  *  or -1 when the argument list closes/ends first. */
 function scanScopeEnd(code: string, from: number): number {
-  const st = { depth: 0, operandEnd: false };
+  const st: PropScan = { ...newOperandScan(), depth: 0 };
   let k = from;
   while (k < code.length) {
-    const tok = propToken(code, k, st.operandEnd);
+    const tok = propToken(code, k, st);
     if (tok !== null) {
-      st.operandEnd = tok.operandEnd;
       k = tok.end;
       continue;
     }

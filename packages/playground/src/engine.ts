@@ -12,11 +12,16 @@ import {
 import { runPipeline } from "./runner.js";
 import {
   commentAt,
+  CONTROL_WORDS,
+  isDigit,
   isIdentChar,
+  isLineTerminator,
   isWsChar,
   keywordAt,
   matchBrace,
+  numberAt,
   operandAfterWord,
+  scanNumber,
   scanOpaqueEnd,
   scanRegex,
   scanString,
@@ -104,7 +109,7 @@ function stmtTerminator(
   specSeen: boolean,
 ): "past" | "at" | null {
   if (c === ";" && depth <= 0) return "past";
-  if (c === "\n" && depth <= 0 && specSeen) return "at";
+  if (isLineTerminator(c) && depth <= 0 && specSeen) return "at";
   return null;
 }
 
@@ -183,12 +188,18 @@ interface ScanState {
   stmtStart: boolean;
   exportDefaultDone: boolean;
   /** `block` vs `expr` — separates block braces from object literals, so
-   *  `{ export: 1 }` is a key, not a statement. */
-  stack: ("block" | "expr")[];
+   *  `{ export: 1 }` is a key, not a statement. A `(` following a
+   *  control word pushes `{ ctl }`: its `)` precedes a statement, so
+   *  `if (x) /re/` opens a regex while `(x) / 2` still divides. */
+  stack: ("block" | "expr" | { ctl: string })[];
   /** True when the previous token ended an operand — `/` then divides.
    *  Regex literals never update the delimiter stack, so `/[{]/` can't
    *  leave an unclosed `{` that keeps `export default` alive to eval. */
   operandEnd: boolean;
+  /** A control word (`if`/`for`/`while`/`switch`/`with`/`catch`)
+   *  awaiting its `(` — survives whitespace and comments, cleared by
+   *  any other real token. */
+  pendingCtl: string | null;
 }
 
 function atStmtLevel(st: ScanState): boolean {
@@ -203,6 +214,7 @@ function copyOpaque(code: string, st: ScanState, out: string[]): boolean {
   if (opaque.isString) {
     st.stmtStart = false;
     st.operandEnd = true;
+    st.pendingCtl = null;
   }
   st.i = opaque.end;
   return true;
@@ -223,32 +235,47 @@ function applyBracket(code: string, st: ScanState, out: string[]): boolean {
     const popped = st.stack.pop();
     st.stmtStart = popped === "block";
     st.operandEnd = popped === "expr";
-  } else if (c === "(" || c === "[") {
+  } else if (c === "(") {
+    st.stack.push(st.pendingCtl !== null ? { ctl: st.pendingCtl } : "expr");
+    st.stmtStart = false;
+    st.operandEnd = false;
+  } else if (c === "[") {
     st.stack.push("expr");
     st.stmtStart = false;
     st.operandEnd = false;
-  } else if (c === ")" || c === "]") {
+  } else if (c === ")") {
+    // A control-header `)` precedes a statement — `if (x) /re/` may open
+    // a regex and `if (x) {…}` opens a block; a grouping or call `)` ends
+    // the operand, so `(x) / 2` divides.
+    const popped = st.stack.pop();
+    st.stmtStart = typeof popped === "object";
+    st.operandEnd = !st.stmtStart;
+  } else if (c === "]") {
     st.stack.pop();
     st.stmtStart = false;
     st.operandEnd = true;
   } else {
     return false;
   }
+  st.pendingCtl = null;
   out.push(c ?? "");
   st.i++;
   return true;
 }
 
-/** Handle `\n`, `;`, and whitespace — statement boundaries at statement
- *  level only (a `;` inside `for (;;)` doesn't count). A newline never
- *  resets operand context: `foo\n/bar/` divides, per ASI rules. */
+/** Handle `;`, LineTerminators, and whitespace — statement boundaries at
+ *  statement level only (a `;` inside `for (;;)` doesn't count). A line
+ *  terminator never resets operand context: `foo\n/bar/` divides, per
+ *  ASI rules. It also keeps a pending control word: `if\n(x)` still
+ *  parses as a control paren. */
 function applyTerminator(code: string, st: ScanState, out: string[]): boolean {
   const c = code[st.i];
-  if (c !== ";" && c !== "\n" && !isWsChar(c)) return false;
+  if (c !== ";" && !isWsChar(c)) return false;
   if (c === ";") {
     if (atStmtLevel(st)) st.stmtStart = true;
     st.operandEnd = false;
-  } else if (c === "\n" && atStmtLevel(st)) {
+    st.pendingCtl = null;
+  } else if (isLineTerminator(c) && atStmtLevel(st)) {
     st.stmtStart = true;
   }
   out.push(c ?? "");
@@ -261,6 +288,7 @@ function applyTerminator(code: string, st: ScanState, out: string[]): boolean {
  *  already consumed them). */
 function applySlash(code: string, st: ScanState, out: string[]): boolean {
   if (code[st.i] !== "/" || commentAt(code, st.i)) return false;
+  st.pendingCtl = null;
   if (st.operandEnd) {
     out.push("/");
     st.i++;
@@ -280,6 +308,7 @@ function applySlash(code: string, st: ScanState, out: string[]): boolean {
  *  sit between the keyword and the paren. */
 function tryImport(code: string, st: ScanState, out: string[]): boolean {
   if (!st.stmtStart || !keywordAt(code, st.i, "import")) return false;
+  st.pendingCtl = null;
   const nc = code[skipTrivia(code, st.i + 6)];
   if (nc === "(" || nc === ".") {
     out.push("import");
@@ -299,6 +328,7 @@ function tryImport(code: string, st: ScanState, out: string[]): boolean {
  *  body, where `export const` would be a syntax error). */
 function tryExport(code: string, st: ScanState, out: string[]): boolean {
   if (!st.stmtStart || !keywordAt(code, st.i, "export")) return false;
+  st.pendingCtl = null;
   const j = skipTrivia(code, st.i + 6);
   if (
     !st.exportDefaultDone &&
@@ -326,13 +356,59 @@ function tryExport(code: string, st: ScanState, out: string[]): boolean {
   return true;
 }
 
+/** Emit a numeric literal — numbers end operands, so `5. / 2` divides
+ *  even though a bare `.` would leave `/` looking like a regex opener. */
+function tryNumber(code: string, st: ScanState, out: string[]): boolean {
+  if (!numberAt(code, st.i)) return false;
+  const end = scanNumber(code, st.i);
+  out.push(code.slice(st.i, end));
+  st.i = end;
+  st.operandEnd = true;
+  st.pendingCtl = null;
+  st.stmtStart = false;
+  return true;
+}
+
+/** `.` opens member access — the word after it is a property name, not
+ *  a keyword, so `obj.return / 2` divides. `.5` is a number taken by
+ *  tryNumber; `?.` reaches here through its `.`; each `.` of `...`
+ *  lands here and the leading pair finds no ident to consume. */
+function tryDot(code: string, st: ScanState, out: string[]): boolean {
+  if (code[st.i] !== ".") return false;
+  let end = st.i + 1;
+  const prop = skipTrivia(code, end);
+  if (isIdentChar(code[prop]) && !isDigit(code[prop]))
+    end = skipIdent(code, prop);
+  out.push(code.slice(st.i, end));
+  st.i = end;
+  st.operandEnd = true;
+  st.pendingCtl = null;
+  st.stmtStart = false;
+  return true;
+}
+
 /** Emit an identifier run — keyword table decides whether `/` after it
- *  divides (`foo /x/`) or opens a regex (`return /x/`). */
+ *  divides (`foo /x/`) or opens a regex (`return /x/`). `of` is the one
+ *  contextual exception: inside a `for (` header it introduces the
+ *  iterated expression — `for (x of /re/)`. */
 function tryWord(code: string, st: ScanState, out: string[]): boolean {
   if (!isIdentChar(code[st.i])) return false;
   const wend = skipIdent(code, st.i);
-  out.push(code.slice(st.i, wend));
-  st.operandEnd = operandAfterWord(code.slice(st.i, wend));
+  const word = code.slice(st.i, wend);
+  out.push(word);
+  const top = st.stack.at(-1);
+  st.operandEnd =
+    word === "of" && typeof top === "object" && top.ctl === "for"
+      ? false
+      : operandAfterWord(word);
+  // `await` may sit between `for` and its `(` — `for await (x of y)`
+  // keeps the control context.
+  st.pendingCtl =
+    word === "await" && st.pendingCtl === "for"
+      ? "for"
+      : CONTROL_WORDS.has(word)
+        ? word
+        : null;
   st.stmtStart = false;
   st.i = wend;
   return true;
@@ -347,6 +423,8 @@ const HANDLERS: ((code: string, st: ScanState, out: string[]) => boolean)[] = [
   applySlash,
   tryImport,
   tryExport,
+  tryNumber,
+  tryDot,
   tryWord,
 ];
 
@@ -354,10 +432,19 @@ function advanceScan(code: string, st: ScanState, out: string[]): void {
   for (const handle of HANDLERS) {
     if (handle(code, st, out)) return;
   }
+  const c = code[st.i];
+  // `++`/`--` keep operand state either way — postfix ends the operand
+  // (`i++ / 2` divides), prefix still expects one.
+  if ((c === "+" || c === "-") && code[st.i + 1] === c) {
+    out.push((c ?? "") + (c ?? ""));
+    st.i += 2;
+  } else {
+    st.operandEnd = false;
+    out.push(c ?? "");
+    st.i++;
+  }
   st.stmtStart = false;
-  st.operandEnd = false;
-  out.push(code[st.i] ?? "");
-  st.i++;
+  st.pendingCtl = null;
 }
 
 /**
@@ -383,6 +470,7 @@ export function preprocessCode(code: string): string {
     exportDefaultDone: false,
     stack: [],
     operandEnd: false,
+    pendingCtl: null,
   };
   while (st.i < code.length) {
     if (code[st.i] === undefined) break;
