@@ -1,5 +1,7 @@
 // @sverka/ui — dashboard HTML generator.
 
+import { escapeHtml } from "./escape.js";
+
 /** Render the dashboard page listing available SARIF files. */
 export function renderDashboard(
   artifactsDir: string,
@@ -34,15 +36,6 @@ export function renderDashboard(
   </footer>
 </body>
 </html>`;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 const CSS = String.raw`

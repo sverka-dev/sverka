@@ -47,6 +47,12 @@ export default defineConfig({
       "@sverka/ui": fileURLToPath(
         new URL("../ui/src/index.ts", import.meta.url),
       ),
+      "@sverka/storage": fileURLToPath(
+        new URL("../storage/src/index.ts", import.meta.url),
+      ),
+      "@sverka/hub": fileURLToPath(
+        new URL("../hub/src/index.ts", import.meta.url),
+      ),
     },
   },
 });

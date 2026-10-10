@@ -17,3 +17,37 @@ export class StorageError extends Error {
     }
   }
 }
+
+/** Error codes for hub/remote failures. Spec 55. */
+export type HubErrorCode = "REMOTE_UNAVAILABLE" | "REMOTE_REJECTED";
+
+/**
+ * Hub remote-operation failure. Wraps fetch/network failures
+ * (REMOTE_UNAVAILABLE) and non-2xx hub responses (REMOTE_REJECTED).
+ * Remote operations degrade to local behaviour — this error is caught at
+ * the engine/CLI boundary and surfaces as a warn diagnostic, never a run
+ * failure.
+ */
+export class HubError extends Error {
+  readonly code: HubErrorCode;
+  /** HTTP status for REMOTE_REJECTED, when known. */
+  readonly status?: number;
+  override readonly cause: unknown;
+
+  constructor(
+    code: HubErrorCode,
+    message: string,
+    cause?: unknown,
+    status?: number,
+  ) {
+    super(message);
+    this.name = "HubError";
+    this.code = code;
+    if (status !== undefined) {
+      this.status = status;
+    }
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
+  }
+}

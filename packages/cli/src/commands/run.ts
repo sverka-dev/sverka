@@ -23,6 +23,16 @@ import { resolveDefaultEntryId, entryExists } from "../internal/graph.js";
 import { isBinaryAvailable } from "../internal/runtime-check.js";
 import { collectReportContext } from "../internal/report-context.js";
 import { watchLoop } from "../internal/watch.js";
+import { readHubFileConfig, resolveHub } from "../internal/hub.js";
+import type { CacheStore, SnapshotStore } from "@sverka/runtime";
+import { createFileCacheStore } from "@sverka/runtime";
+import {
+  createRemoteCacheStore,
+  createRemoteSnapshotStore,
+  createRemoteCircuit,
+  createTieredCacheStore,
+} from "@sverka/storage";
+import type { RemoteStoreConfig } from "@sverka/storage";
 
 export interface RunArgs {
   entryId?: string;
@@ -39,6 +49,8 @@ export interface RunArgs {
   stepOutputLines?: number;
   /** Relocate the per-run HTML report (Spec 53; report.json stays put). */
   report?: string;
+  /** Remote hub run (Spec 55): remote cache + report upload. */
+  remote?: boolean;
 }
 
 /** Pure-argument guards — an invalid flag fails fast instead of surfacing
@@ -101,6 +113,11 @@ export async function runCommand(
   }
   const entryId = resolveEntryId(graph, args.entryId);
 
+  // Spec 55: --remote (or .sverka/hub.json `enabled: true`) turns on the
+  // remote hub — tiered local↔remote cache, remote snapshot store, and a
+  // post-run report upload. Every remote failure degrades to a warn.
+  const remote = resolveRemote(args, global, output);
+
   const plan = bindRunPlan({ graph, entryId });
 
   // Use the project root as the engine workspace so executed commands run
@@ -119,7 +136,12 @@ export async function runCommand(
   const { events, runStatus, renderer } = await consumeEvents(
     engine,
     plan,
-    { workspace: global.root, artifactDir },
+    {
+      workspace: global.root,
+      artifactDir,
+      cache: remote?.stores.cache,
+      snapshotStore: remote?.stores.snapshotStore,
+    },
     global,
     output,
     graph,
@@ -160,6 +182,12 @@ export async function runCommand(
     output,
   );
 
+  // Best-effort remote upload — a hub failure warns and never changes
+  // the exit code (Spec 55 critical property).
+  if (remote !== undefined && remote.upload && report !== undefined) {
+    await uploadReportSafe(remote, report, entryId, findRunId(events), output);
+  }
+
   await finalizeRenderer(fmt, renderer, args, global, output);
 
   // When --evaluate fails with a collection error, the error was already
@@ -195,6 +223,100 @@ interface RunReport {
   readonly html: string | null;
   readonly json: string;
   readonly findings: number;
+  /** The sverka.run/v1 payload — needed for the remote upload. */
+  readonly payload: Record<string, unknown>;
+  /** Normalized findings the report rendered — uploaded with the run. */
+  readonly findingsList: readonly Finding[];
+}
+
+interface ResolvedRemote {
+  readonly config: RemoteStoreConfig;
+  readonly upload: boolean;
+  readonly stores: {
+    readonly cache?: CacheStore | undefined;
+    readonly snapshotStore: SnapshotStore;
+  };
+}
+
+/** Build the remote wiring for a run. `--remote` with no hub configured
+ *  is a usage error naming `sverka login`; a hub.json-enabled run whose
+ *  credentials are missing warns and runs local-only (degrade, don't
+ *  fail). */
+function resolveRemote(
+  args: RunArgs,
+  global: GlobalFlags,
+  output: OutputWriter,
+): ResolvedRemote | undefined {
+  const hub = resolveHub(global.root);
+  const requested = args.remote === true;
+  if (hub === null) {
+    if (requested) {
+      throw new CliError(
+        "--remote needs a hub: set SVERKA_HUB_URL + SVERKA_HUB_TOKEN, run `sverka login --hub <url> --token <t>`, or add .sverka/hub.json",
+        "MISSING_ARG",
+        ExitCode.UsageError,
+      );
+    }
+    // `enabled: true` in hub.json asked for remote behaviour but no
+    // credentials resolved — say so instead of silently running local.
+    if (readHubFileConfig(global.root).enabled === true) {
+      output.errorLine(
+        "warning: .sverka/hub.json enables remote runs but no hub credentials resolved — running local-only (see `sverka login`)",
+      );
+    }
+    return undefined;
+  }
+  if (!requested && !hub.enabled) return undefined;
+
+  const circuit = createRemoteCircuit();
+  const remoteConfig = { ...hub.config, circuit };
+  // cache: true (default) → tiered local↔remote store. `remote.cache:
+  // false` opts the run out of remote caching entirely (no store).
+  const cache: CacheStore | undefined = hub.cache
+    ? createTieredCacheStore({
+        local: createFileCacheStore({
+          cacheDir: join(global.root, ".sverka", "cache"),
+        }),
+        remote: createRemoteCacheStore(remoteConfig),
+        onWarn: (msg) => output.errorLine(`warning: ${msg}`),
+      })
+    : undefined;
+  return {
+    config: remoteConfig,
+    upload: hub.upload,
+    stores: {
+      ...(cache !== undefined ? { cache } : {}),
+      snapshotStore: createRemoteSnapshotStore(remoteConfig),
+    },
+  };
+}
+
+/** Upload the run report — warns `remote.upload-failed` and swallows the
+ *  error per Spec 55 ("remote failures degrade to local + warn"). */
+async function uploadReportSafe(
+  remote: ResolvedRemote,
+  report: RunReport,
+  entryId: string,
+  runId: string | undefined,
+  output: OutputWriter,
+): Promise<void> {
+  try {
+    const { uploadRunReport } = await import("@sverka/storage");
+    const result = await uploadRunReport(
+      remote.config,
+      report.payload,
+      report.findingsList,
+      {
+        entry: entryId,
+        ...(runId !== undefined ? { runId } : {}),
+      },
+    );
+    output.debug(`remote: uploaded run report as ${result.runId}`);
+  } catch (e) {
+    output.errorLine(
+      `warning: remote.upload-failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
 }
 
 /** Post-run: announce the HTML report path (sarif/web print their own),
@@ -358,6 +480,8 @@ async function writeReportSafe(
       html: artifacts.htmlPath,
       json: join(artifacts.dir, "report.json"),
       findings: artifacts.findingsCount,
+      payload: artifacts.payload,
+      findingsList: artifacts.findings,
     };
   } catch (err) {
     // REPORT_PATH_ESCAPE is the deliberate security failure — propagate.
@@ -497,6 +621,10 @@ function buildDrivers(executor: "host" | "docker"): RuntimeDriver[] {
 interface RunContext {
   workspace: string;
   artifactDir: string;
+  /** Tiered local↔remote cache when `--remote` resolved (Spec 55). */
+  cache?: CacheStore | undefined;
+  /** Remote snapshot persistence for cross-machine suspend/resume. */
+  snapshotStore?: SnapshotStore | undefined;
 }
 
 async function consumeEvents(
@@ -578,6 +706,10 @@ async function consumeEvents(
     plan,
     workspace: ctx.workspace,
     artifactDir: ctx.artifactDir,
+    ...(ctx.cache !== undefined ? { cache: ctx.cache } : {}),
+    ...(ctx.snapshotStore !== undefined
+      ? { snapshotStore: ctx.snapshotStore }
+      : {}),
   })) {
     events.push(event);
     renderer?.onEvent(event);
@@ -1004,9 +1136,13 @@ function runReportPayload(
 /** Write the per-run report artifacts (Spec 53): report.json carries the
  *  sverka.run/v1 payload; report.html renders whatever findings the run
  *  produced (an empty-findings report is still a report). */
-async function writeRunArtifacts(
-  opts: WriteArtifactsOpts,
-): Promise<{ dir: string; htmlPath: string | null; findingsCount: number }> {
+async function writeRunArtifacts(opts: WriteArtifactsOpts): Promise<{
+  dir: string;
+  htmlPath: string | null;
+  findingsCount: number;
+  payload: Record<string, unknown>;
+  findings: readonly Finding[];
+}> {
   const dir = reportDir(opts.root, opts.runId);
   const warnings: string[] = [];
   const findings = await collectRunFindings(opts, warnings);
@@ -1017,12 +1153,13 @@ async function writeRunArtifacts(
     findings,
     warnings,
   );
+  const payload = runReportPayload(opts, findings.length, warnings);
   writeFileSync(
     join(dir, "report.json"),
-    JSON.stringify(runReportPayload(opts, findings.length, warnings), null, 2),
+    JSON.stringify(payload, null, 2),
     "utf-8",
   );
-  return { dir, htmlPath, findingsCount: findings.length };
+  return { dir, htmlPath, findingsCount: findings.length, payload, findings };
 }
 
 function exitCodeForStatus(runStatus: string): ExitCode {

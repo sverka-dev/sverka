@@ -25,6 +25,10 @@ run them locally, get structured findings. Compile to CI when you need to.
 
 - [SARIF pipeline](./findings/sarif-pipeline.md) — serialize findings, view in TUI, generate HTML, web dashboard
 
+## Remote hub
+
+- [Remote run hub](./hub/api.md) — self-hosted shared cache + run history, tokens, `/v1/` API, dashboard
+
 ## Workflows
 
 - [Overview](./workflows/overview.md) — Construct API authoring surface

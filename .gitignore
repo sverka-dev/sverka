@@ -172,6 +172,7 @@ tmp/
 .sverka/
 # examples/gitlab-agentic uses .sverka/*.md as its committed config surface
 !examples/gitlab-agentic/.sverka/
+.sverka-hub/
 eslint.sarif
 .arena/
 reports/
