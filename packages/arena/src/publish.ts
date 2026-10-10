@@ -45,6 +45,15 @@ function taskStem(taskId: string): string {
   return taskId.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }
 
+/**
+ * Trace file name for one run — the run's index inside its cell keeps
+ * repetitions of the same task apart and disambiguates task ids whose
+ * stems collide (`a/b` and `a-b` both stem to `a-b`).
+ */
+function traceName(runIndex: number, taskId: string): string {
+  return `${taskStem(taskId)}.${runIndex}.trace.jsonl`;
+}
+
 interface Cell {
   model: string;
   plugins: string[];
@@ -80,9 +89,19 @@ function promptFor(
   ctx: PublishContext,
   taskId: string,
 ): string {
+  // `analysis` is required on ArenaResult but publishFile accepts
+  // unchecked JSON — a hand-shaped matrix file may omit it. The saved
+  // prompt wins over the supplied map: a `run --pack` publish retry can
+  // load config prompts that differ from the tasks that actually ran.
+  const analysis = result.analysis;
+  if (analysis !== undefined && !Array.isArray(analysis)) {
+    throw new ArenaError(
+      "results.analysis must be an array when present",
+      "SCHEMA_INVALID",
+    );
+  }
   const prompt =
-    ctx.prompts?.[taskId] ??
-    result.analysis.find((a) => a.taskId === taskId)?.prompt;
+    analysis?.find((a) => a.taskId === taskId)?.prompt ?? ctx.prompts?.[taskId];
   if (prompt === undefined) {
     throw new ArenaError(
       `cannot compute promptHash for task '${taskId}' — the prompt is not in ` +
@@ -98,6 +117,7 @@ function toTaskResult(
   result: ArenaResult,
   ctx: PublishContext,
   runId: string,
+  runIndex: number,
 ): TaskResult {
   const failedChecks = (run.checkResults ?? []).filter((c) => !c.passed);
   const hasTrace = (run.trace?.steps?.length ?? 0) > 0;
@@ -114,7 +134,7 @@ function toTaskResult(
         : {}),
     },
     ...(hasTrace
-      ? { traceRef: `traces/${runId}/${taskStem(run.taskId)}.trace.jsonl` }
+      ? { traceRef: `traces/${runId}/${traceName(runIndex, run.taskId)}` }
       : {}),
   };
 }
@@ -140,26 +160,23 @@ export function explodeResult(
       plugins: cell.plugins,
       sverkaVersion: ctx.sverkaVersion,
       startedAt: ctx.startedAt ?? result.timestamp,
-      tasks: cell.runs.map((r) => toTaskResult(r, result, ctx, runId)),
+      tasks: cell.runs.map((r, k) => toTaskResult(r, result, ctx, runId, k)),
     };
   });
 }
 
-function tracePayloads(
-  doc: ArenaResultV1,
-  runs: readonly RunResult[],
-): TraceInput[] {
-  const byTask = new Map(runs.map((r) => [r.taskId, r] as const));
+/**
+ * Trace payloads for one cell — `runs[i]` produced `doc.tasks[i]`, so the
+ * run index keeps each repetition's trace under its own file (a
+ * taskId-keyed Map would collapse repeats to the last run's trace).
+ */
+function tracePayloads(runs: readonly RunResult[]): TraceInput[] {
   const out: TraceInput[] = [];
-  for (const t of doc.tasks) {
-    const run = byTask.get(t.task);
-    if (run !== undefined && (run.trace?.steps?.length ?? 0) > 0) {
-      out.push({
-        name: `${taskStem(t.task)}.trace.jsonl`,
-        data: run.trace,
-      });
+  runs.forEach((run, i) => {
+    if ((run.trace?.steps?.length ?? 0) > 0) {
+      out.push({ name: traceName(i, run.taskId), data: run.trace });
     }
-  }
+  });
   return out;
 }
 
@@ -178,7 +195,7 @@ export async function publishResult(
     registry,
     docs.map((doc, i) => ({
       doc,
-      opts: { traces: tracePayloads(doc, cells[i]!.runs) },
+      opts: { traces: tracePayloads(cells[i]!.runs) },
     })),
     `arena: publish ${ctx.pack}/${ctx.agent} (${docs.length} run${docs.length === 1 ? "" : "s"})`,
   );

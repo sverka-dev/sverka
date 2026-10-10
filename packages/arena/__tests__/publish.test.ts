@@ -72,6 +72,29 @@ function matrix(runs: RunResult[]): ArenaResult {
   };
 }
 
+/** A run trace with one step — enough for hasTrace / a stored payload. */
+function traceData(sessionId: string): RunResult["trace"] {
+  return {
+    sessionId,
+    model: "m1",
+    steps: [
+      {
+        stepId: 1,
+        timestamp: "2026-10-02T00:00:00.000Z",
+        source: "agent",
+        message: "m",
+        isLlmCall: false,
+      },
+    ],
+    finalMetrics: {
+      totalPromptTokens: 0,
+      totalCompletionTokens: 0,
+      totalCachedTokens: 0,
+      totalSteps: 1,
+    },
+  };
+}
+
 const CTX = {
   pack: "node-ci",
   agent: "devin",
@@ -163,9 +186,42 @@ describe("explodeResult", () => {
       }),
     ]);
     const [doc] = explodeResult(withTrace, CTX);
-    expect(doc!.tasks[0]!.traceRef).toBe(`traces/${doc!.runId}/t1.trace.jsonl`);
+    expect(doc!.tasks[0]!.traceRef).toBe(
+      `traces/${doc!.runId}/t1.0.trace.jsonl`,
+    );
     const noTrace = matrix([run({ taskId: "t1" })]);
     expect(explodeResult(noTrace, CTX)[0]!.tasks[0]!.traceRef).toBeUndefined();
+  });
+
+  it("gives repeated runs of one task distinct traceRefs", () => {
+    // repetitions > 1 put several runs of the same taskId in one cell —
+    // the run index keeps each repetition's trace under its own file.
+    const [doc] = explodeResult(
+      matrix([
+        run({ taskId: "t1", trace: traceData("rep-0") }),
+        run({ taskId: "t1", trace: traceData("rep-1") }),
+      ]),
+      CTX,
+    );
+    expect(doc!.tasks.map((t) => t.traceRef)).toEqual([
+      `traces/${doc!.runId}/t1.0.trace.jsonl`,
+      `traces/${doc!.runId}/t1.1.trace.jsonl`,
+    ]);
+  });
+
+  it("throws SCHEMA_INVALID (not TypeError) when analysis[] is absent", () => {
+    // Hand-shaped matrix files may omit results.analysis entirely.
+    const result = matrix([run({ taskId: "t1" })]) as unknown as {
+      analysis?: unknown;
+    };
+    delete result.analysis;
+    try {
+      explodeResult(result as ArenaResult, CTX);
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(ArenaError);
+      expect((e as ArenaError).code).toBe("SCHEMA_INVALID");
+    }
   });
 
   it("throws SCHEMA_INVALID when a prompt cannot be resolved", () => {
@@ -222,10 +278,147 @@ describe("publishFile", () => {
     ]);
     // Trace payload written for the traced run only.
     expect(
-      existsSync(join(dir, "pub-matrix/traces/run-cell-0/t1.trace.jsonl")),
+      existsSync(join(dir, "pub-matrix/traces/run-cell-0/t1.0.trace.jsonl")),
     ).toBe(true);
     const listed = await reg.list();
     expect(listed.length).toBe(2);
+  });
+
+  it("writes each repetition's trace to its own file", async () => {
+    const reg = createFileRegistry(join(dir, "pub-reps"));
+    const file = join(dir, "reps.json");
+    writeFileSync(
+      file,
+      JSON.stringify(
+        matrix([
+          run({ taskId: "t1", trace: traceData("rep-0") }),
+          run({ taskId: "t1", trace: traceData("rep-1") }),
+        ]),
+      ),
+    );
+    await publishFile(file, reg, CTX);
+    const readTrace = (name: string) =>
+      JSON.parse(
+        readFileSync(join(dir, `pub-reps/traces/run-cell-0/${name}`), "utf8"),
+      ) as { sessionId: string };
+    expect(readTrace("t1.0.trace.jsonl").sessionId).toBe("rep-0");
+    expect(readTrace("t1.1.trace.jsonl").sessionId).toBe("rep-1");
+    const stored = JSON.parse(
+      readFileSync(
+        join(dir, "pub-reps/results/node-ci/devin/2026-10-02/run-cell-0.json"),
+        "utf8",
+      ),
+    ) as { tasks: { traceRef?: string }[] };
+    expect(stored.tasks.map((t) => t.traceRef)).toEqual([
+      "traces/run-cell-0/t1.0.trace.jsonl",
+      "traces/run-cell-0/t1.1.trace.jsonl",
+    ]);
+  });
+
+  it("keeps traces for task ids whose file stems collide", async () => {
+    // 'a/b' and 'a-b' both stem to 'a-b' — the run index separates them.
+    const reg = createFileRegistry(join(dir, "pub-stem"));
+    const file = join(dir, "stems.json");
+    const m = matrix([
+      run({ taskId: "a/b", trace: traceData("slash") }),
+      run({ taskId: "a-b", trace: traceData("dash") }),
+    ]);
+    m.analysis.push(
+      {
+        taskId: "a/b",
+        taskName: "ab",
+        prompt: "p-slash",
+        comparisons: [],
+      },
+      { taskId: "a-b", taskName: "ab2", prompt: "p-dash", comparisons: [] },
+    );
+    writeFileSync(file, JSON.stringify(m));
+    await publishFile(file, reg, CTX);
+    const readTrace = (name: string) =>
+      JSON.parse(
+        readFileSync(join(dir, `pub-stem/traces/run-cell-0/${name}`), "utf8"),
+      ) as { sessionId: string };
+    expect(readTrace("a-b.0.trace.jsonl").sessionId).toBe("slash");
+    expect(readTrace("a-b.1.trace.jsonl").sessionId).toBe("dash");
+  });
+
+  it("publishes a matrix file without analysis[] when prompts cover it", async () => {
+    const reg = createFileRegistry(join(dir, "pub-no-analysis"));
+    const file = join(dir, "no-analysis.json");
+    const m = matrix([run({ taskId: "t9" })]) as unknown as Record<
+      string,
+      unknown
+    >;
+    delete m["analysis"];
+    writeFileSync(file, JSON.stringify(m));
+    const paths = await publishFile(file, reg, {
+      ...CTX,
+      prompts: { t9: "hand-supplied prompt" },
+    });
+    expect(paths).toEqual(["results/node-ci/devin/2026-10-02/run-cell-0.json"]);
+    const stored = JSON.parse(
+      readFileSync(join(dir, "pub-no-analysis", paths[0]!), "utf8"),
+    ) as { tasks: { promptHash: string }[] };
+    expect(stored.tasks[0]!.promptHash).toBe(
+      promptHash("hand-supplied prompt"),
+    );
+  });
+
+  it("prefers the saved analysis prompt over the supplied prompts map", async () => {
+    // `publish --config` loads prompts from the config file — but a
+    // `run --pack` may have replaced those tasks, so the prompt recorded
+    // in analysis[] (what actually ran) is authoritative for the hash.
+    const reg = createFileRegistry(join(dir, "pub-analysis-wins"));
+    const file = join(dir, "analysis-wins.json");
+    writeFileSync(file, JSON.stringify(matrix([run({ taskId: "t1" })])));
+    const paths = await publishFile(file, reg, {
+      ...CTX,
+      prompts: { t1: "config prompt — not what ran" },
+    });
+    const stored = JSON.parse(
+      readFileSync(join(dir, "pub-analysis-wins", paths[0]!), "utf8"),
+    ) as { tasks: { promptHash: string }[] };
+    expect(stored.tasks[0]!.promptHash).toBe(promptHash(PROMPT_T1));
+  });
+
+  it("rejects a matrix file whose analysis is not an array", async () => {
+    const reg = createFileRegistry(join(dir, "pub-bad-analysis"));
+    const file = join(dir, "bad-analysis.json");
+    const m = matrix([run({ taskId: "t9" })]) as unknown as Record<
+      string,
+      unknown
+    >;
+    m["analysis"] = { t9: "not an array" };
+    writeFileSync(file, JSON.stringify(m));
+    try {
+      // Even with a prompts map supplied, a malformed section is a
+      // schema violation — not a silent fallback.
+      await publishFile(file, reg, { ...CTX, prompts: { t9: "p" } });
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(ArenaError);
+      expect((e as ArenaError).code).toBe("SCHEMA_INVALID");
+      expect((e as ArenaError).message).toContain("analysis");
+    }
+  });
+
+  it("rejects a matrix file whose task prompts cannot be resolved", async () => {
+    const reg = createFileRegistry(join(dir, "pub-no-prompt"));
+    const file = join(dir, "no-prompt.json");
+    const m = matrix([run({ taskId: "t9" })]) as unknown as Record<
+      string,
+      unknown
+    >;
+    delete m["analysis"];
+    writeFileSync(file, JSON.stringify(m));
+    try {
+      await publishFile(file, reg, CTX);
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(ArenaError);
+      expect((e as ArenaError).code).toBe("SCHEMA_INVALID");
+      expect((e as ArenaError).message).toContain("t9");
+    }
   });
 
   it("publishes an already-shaped v1 doc verbatim (and arrays)", async () => {

@@ -57,7 +57,8 @@ commands:
   report   <results.json>               [--format json|text|html] [--out <file.html>]
   doctor   [--config <path>]            [--format json|text]
   publish  <results.json> --pack <name> --registry <ref>
-           [--agent <id>] [--sverka-version <v>] [--trace <file>]... [--format json|text]
+           [--config <path>] [--agent <id>] [--sverka-version <v>] [--trace <file>]...
+           [--format json|text]
   board    --registry <ref> [--pack <name>] [--agent <id>] [--since <date>]
            [--format json|text|html] [--out <file.html>]
   pack     init <name> [--dir <parent>] | lint <dir> [--format json|text]
@@ -262,6 +263,54 @@ function registryRef(args: ParsedArgs): string | undefined {
   return args.registry ?? process.env["ARENA_REGISTRY"];
 }
 
+/**
+ * Strip embedded credentials (scheme://user:pass@host) before a registry
+ * ref is printed to stderr — CI logs retain that output. Exported for
+ * tests.
+ */
+export function redactRegistryRef(ref: string): string {
+  return ref.replace(/(\/\/)[^/\s]+@/, "$1***@");
+}
+
+/** POSIX single-quote escaping — `'`, with `'\''` per embedded quote. */
+function shQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * The `sverka-arena publish` retry hint printed when `run --publish`
+ * fails — args are shell-quoted so the line survives a copy-paste. A
+ * --registry ref carrying embedded credentials is never echoed (even
+ * redacted it is unusable); the user re-supplies it via ARENA_REGISTRY.
+ * Exported for tests.
+ */
+export function publishRetryHint(opts: {
+  saved: string;
+  pack: string;
+  agent: string;
+  sverkaVersion: string;
+  config?: string;
+  registry?: string;
+}): string {
+  const retry = [
+    `sverka-arena publish ${shQuote(opts.saved)}`,
+    `--pack ${shQuote(opts.pack)}`,
+    `--agent ${shQuote(opts.agent)}`,
+    `--sverka-version ${shQuote(opts.sverkaVersion)}`,
+  ];
+  if (opts.config !== undefined) retry.push(`--config ${shQuote(opts.config)}`);
+  let note = "";
+  if (opts.registry !== undefined) {
+    if (redactRegistryRef(opts.registry) === opts.registry) {
+      retry.push(`--registry ${shQuote(opts.registry)}`);
+    } else {
+      note =
+        "\nnote: the registry ref carries credentials — set ARENA_REGISTRY to the original ref before retrying";
+    }
+  }
+  return `retry with: ${retry.join(" ")}${note}`;
+}
+
 /** Bearer token for private https registries — env only, never argv. */
 function registryToken(): string | undefined {
   return process.env["ARENA_REGISTRY_TOKEN"];
@@ -343,15 +392,39 @@ async function cmdRun(args: ParsedArgs, io: Io): Promise<number> {
     io.out(renderReport(result) + "\n");
   }
   if (publishRegistry !== undefined) {
-    const paths = await publishResult(result, publishRegistry, {
-      pack: pack?.name ?? "default",
-      agent: config.agent.id,
-      sverkaVersion: args.sverkaVersion ?? arenaVersion(),
-      prompts: Object.fromEntries(
-        config.tasks.map((t) => [t.id, t.prompt] as const),
-      ),
-    });
-    for (const p of paths) io.err(`published ${p}\n`);
+    // Resolved once so a publish retry stamps the same version — pinning
+    // it keeps the run in its original comparison cohort.
+    const sverkaVersion = args.sverkaVersion ?? arenaVersion();
+    try {
+      const paths = await publishResult(result, publishRegistry, {
+        pack: pack?.name ?? "default",
+        agent: config.agent.id,
+        sverkaVersion,
+        prompts: Object.fromEntries(
+          config.tasks.map((t) => [t.id, t.prompt] as const),
+        ),
+      });
+      for (const p of paths) io.err(`published ${p}\n`);
+    } catch (err) {
+      // The matrix already ran — point at the saved results.json so the
+      // user can retry `sverka-arena publish` without re-running it.
+      // An env-sourced registry ref is inherited on retry; an explicit
+      // ref is echoed only when it carries no credentials.
+      const saved = join(config.outputDir, "results.json");
+      io.err(
+        `publish failed — results saved at ${saved}\n` +
+          publishRetryHint({
+            saved,
+            pack: pack?.name ?? "default",
+            agent: config.agent.id,
+            sverkaVersion,
+            ...(args.configSet ? { config: args.config } : {}),
+            ...(args.registry !== undefined ? { registry: args.registry } : {}),
+          }) +
+          "\n",
+      );
+      throw err;
+    }
   }
   return 0;
 }
