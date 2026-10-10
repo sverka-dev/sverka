@@ -271,6 +271,8 @@ const repoHealth = new Pipeline(proj, "repo-health", {
     "pull-requests": "read",
     checks: "read",
     "security-events": "read",
+    // main-green reads actions/runs/{id} to resolve its own check suite.
+    actions: "read",
   },
   inputs: {
     GITHUB_TOKEN: { type: "string", secret: true, default: "" },
@@ -282,10 +284,13 @@ const repoHealth = new Pipeline(proj, "repo-health", {
 
 // Every GitHub Actions check-run on main's HEAD must be green — aggregated
 // across all workflows, so a red box on any workflow reports main as not
-// green. External app checks (SonarCloud etc.) are a different signal.
+// green. The current run's own check suite is excluded: while repo-health
+// executes, its own jobs are in_progress check-runs on the same commit and
+// would fail the gate deterministically. External app checks (SonarCloud
+// etc.) are a different signal.
 const mainGreen = new ShellStep(repoHealth, "main-green", {
   command:
-    'out=$(gh api --paginate \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug=="github-actions") | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\(.name) (\\(.conclusion // .status))"\') || exit 1; [ -z "$out" ] || { echo "non-green or in-progress checks on main:"; echo "$out"; exit 1; }',
+    'suite=$(gh api \'repos/{owner}/{repo}/actions/runs/\'"$GITHUB_RUN_ID" --jq .check_suite_id) || exit 1; [ -n "$suite" ] || exit 1; out=$(gh api --paginate \'repos/{owner}/{repo}/commits/main/check-runs\' --jq \'.check_runs[] | select(.app.slug=="github-actions") | select(.check_suite.id != \'"$suite"\') | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\(.name) (\\(.conclusion // .status))"\') || exit 1; [ -z "$out" ] || { echo "non-green or in-progress checks on main:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
