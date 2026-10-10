@@ -1,6 +1,6 @@
 {
   "name": "@sverka/compiler",
-  "version": "0.2.26",
+  "version": "0.2.27",
   "description": "Sverka compiler — compile Definition Graphs to GitHub Actions, GitLab CI, Temporal, Dagger, Inngest, Drone",
   "license": "MIT",
   "sideEffects": false,
