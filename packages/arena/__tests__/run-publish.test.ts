@@ -71,7 +71,7 @@ vi.mock("../src/runner.js", () => ({
   ),
 }));
 
-import { main, redactRegistryRef } from "../src/bin.js";
+import { main, publishRetryHint, redactRegistryRef } from "../src/bin.js";
 
 class Capture {
   stdout = "";
@@ -165,6 +165,64 @@ describe("run --publish failure path", () => {
     } finally {
       delete process.env["ARENA_REGISTRY"];
     }
+  });
+
+  it("shell-quotes the saved path when --out contains an apostrophe", async () => {
+    const outDir = join(dir, "o'clock");
+    const notADir = join(dir, "not-a-dir-quoted");
+    writeFileSync(notADir, "occupied");
+    const { c, io } = capture();
+    const code = await main(
+      [
+        "run",
+        "--config",
+        join(dir, "arena.config.ts"),
+        "--out",
+        outDir,
+        "--format",
+        "json",
+        "--publish",
+        "--registry",
+        notADir,
+      ],
+      io,
+    );
+    expect(code).toBe(3);
+    // `'…'` with `'\''` per embedded quote — the line survives copy-paste.
+    expect(c.stderr).toContain(
+      `sverka-arena publish '${join(outDir, "results.json").replace(/'/g, `'\\''`)}'`,
+    );
+  });
+});
+
+describe("publishRetryHint", () => {
+  const base = {
+    saved: "/tmp/r.json",
+    pack: "p",
+    agent: "a",
+    sverkaVersion: "1.0.0",
+  };
+
+  it("omits a credential-bearing registry ref and points at ARENA_REGISTRY", () => {
+    const [u, p] = ["user", "s3cr3t"];
+    const hint = publishRetryHint({
+      ...base,
+      registry: `https://${u}:${p}@example.com/reg`,
+    });
+    expect(hint).not.toContain("--registry");
+    expect(hint).not.toContain(u);
+    expect(hint).not.toContain(p);
+    expect(hint).toContain("ARENA_REGISTRY");
+  });
+
+  it("keeps a credential-free --registry ref", () => {
+    expect(publishRetryHint({ ...base, registry: "/var/reg" })).toContain(
+      "--registry '/var/reg'",
+    );
+  });
+
+  it("omits --registry entirely when no ref was passed", () => {
+    expect(publishRetryHint(base)).not.toContain("--registry");
   });
 });
 

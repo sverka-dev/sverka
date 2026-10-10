@@ -364,6 +364,23 @@ describe("publishFile", () => {
     );
   });
 
+  it("prefers the saved analysis prompt over the supplied prompts map", async () => {
+    // `publish --config` loads prompts from the config file — but a
+    // `run --pack` may have replaced those tasks, so the prompt recorded
+    // in analysis[] (what actually ran) is authoritative for the hash.
+    const reg = createFileRegistry(join(dir, "pub-analysis-wins"));
+    const file = join(dir, "analysis-wins.json");
+    writeFileSync(file, JSON.stringify(matrix([run({ taskId: "t1" })])));
+    const paths = await publishFile(file, reg, {
+      ...CTX,
+      prompts: { t1: "config prompt — not what ran" },
+    });
+    const stored = JSON.parse(
+      readFileSync(join(dir, "pub-analysis-wins", paths[0]!), "utf8"),
+    ) as { tasks: { promptHash: string }[] };
+    expect(stored.tasks[0]!.promptHash).toBe(promptHash(PROMPT_T1));
+  });
+
   it("rejects a matrix file whose task prompts cannot be resolved", async () => {
     const reg = createFileRegistry(join(dir, "pub-no-prompt"));
     const file = join(dir, "no-prompt.json");

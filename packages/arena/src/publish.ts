@@ -89,11 +89,13 @@ function promptFor(
   ctx: PublishContext,
   taskId: string,
 ): string {
+  // `analysis` is required on ArenaResult but publishFile accepts
+  // unchecked JSON — a hand-shaped matrix file may omit it. The saved
+  // prompt wins over the supplied map: a `run --pack` publish retry can
+  // load config prompts that differ from the tasks that actually ran.
   const prompt =
-    ctx.prompts?.[taskId] ??
-    // `analysis` is required on ArenaResult but publishFile accepts
-    // unchecked JSON — a hand-shaped matrix file may omit it.
-    result.analysis?.find((a) => a.taskId === taskId)?.prompt;
+    result.analysis?.find((a) => a.taskId === taskId)?.prompt ??
+    ctx.prompts?.[taskId];
   if (prompt === undefined) {
     throw new ArenaError(
       `cannot compute promptHash for task '${taskId}' — the prompt is not in ` +
