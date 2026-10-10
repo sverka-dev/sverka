@@ -122,6 +122,20 @@ export function numberAt(code: string, at: number): boolean {
   return isDigit(code[at]) || (code[at] === "." && isDigit(code[at + 1]));
 }
 
+/** End of the digit run at `i` — digits and `_` separators. */
+function skipDigits(code: string, i: number): number {
+  while (isDigit(code[i]) || code[i] === "_") i++;
+  return i;
+}
+
+/** End of a `e[+-]?digits` exponent at `i`, or `i` when absent. */
+function scanExponent(code: string, i: number): number {
+  if (code[i] !== "e" && code[i] !== "E") return i;
+  let j = i + 1;
+  if (code[j] === "+" || code[j] === "-") j++;
+  return isDigit(code[j]) ? skipDigits(code, j) : i;
+}
+
 /** End index of the numeric literal at `at` — fraction, exponent, `_`
  *  separators, the bigint `n`, and radix digits (`0x`/`0o`/`0b`, which
  *  live in ident space) are all consumed, so `5. / 2` still ends the
@@ -131,19 +145,9 @@ export function scanNumber(code: string, at: number): number {
   if (code[i] === "0" && "xXoObB".includes(code[i + 1] ?? "")) {
     return skipIdent(code, i + 2);
   }
-  while (isDigit(code[i]) || code[i] === "_") i++;
-  if (code[i] === ".") {
-    i++;
-    while (isDigit(code[i]) || code[i] === "_") i++;
-  }
-  if (code[i] === "e" || code[i] === "E") {
-    let j = i + 1;
-    if (code[j] === "+" || code[j] === "-") j++;
-    if (isDigit(code[j])) {
-      i = j;
-      while (isDigit(code[i]) || code[i] === "_") i++;
-    }
-  }
+  i = skipDigits(code, i);
+  if (code[i] === ".") i = skipDigits(code, i + 1);
+  i = scanExponent(code, i);
   if (code[i] === "n") i++;
   return i;
 }
@@ -291,12 +295,58 @@ function wordOperandEnd(
   return operandAfterWord(word);
 }
 
+/** True when `i` starts a `++` or `--` pair — postfix ends the operand,
+ *  prefix still expects one; either way the state survives. */
+function doubleSignAt(code: string, i: number): boolean {
+  const c = code[i];
+  return (c === "+" || c === "-") && code[i + 1] === c;
+}
+
+/** `/` after an operand divides (one char); at operand-expected
+ *  position it opens a regex literal, consumed whole. */
+function slashTokenEnd(code: string, i: number, st: OperandScan): number {
+  st.pendingCtl = null;
+  if (st.operandEnd) {
+    st.operandEnd = false;
+    return i + 1;
+  }
+  st.operandEnd = true;
+  return scanRegex(code, i);
+}
+
+/** End of a `.prop` member access at the `.` — skips trivia, then the
+ *  property ident when one follows. `?.` chains and each `.` of `...`
+ *  land here too, where the leading pair simply finds no ident. */
+function memberPropEnd(code: string, i: number): number {
+  const prop = skipTrivia(code, i + 1);
+  return isIdentChar(code[prop]) && !isDigit(code[prop])
+    ? skipIdent(code, prop)
+    : i + 1;
+}
+
+/** End of the identifier/keyword run at `i`, updating operand state:
+ *  keyword-ness decides whether a following `/` divides, and control
+ *  words arm `pendingCtl` for their header `(`. `await` is the one word
+ *  allowed between `for` and its `(` — `for await (x of y)` keeps the
+ *  control context. */
+function wordTokenEnd(code: string, i: number, st: OperandScan): number {
+  const wend = skipIdent(code, i);
+  const word = code.slice(i, wend);
+  st.operandEnd = wordOperandEnd(word, st.parens);
+  st.pendingCtl =
+    word === "await" && st.pendingCtl === "for"
+      ? "for"
+      : CONTROL_WORDS.has(word)
+        ? word
+        : null;
+  return wend;
+}
+
 /** Shared operand-token scan: opaque spans (strings end operands,
- *  comments pass context through), `++`/`--` pairs (postfix ends the
- *  operand, prefix still expects one — either way the state survives),
- *  `/` (regex unless an operand just ended), numbers, identifier runs,
- *  and whitespace (consume-and-preserve). Returns the token end, or null
- *  for bracket/separator punctuation the caller's own loop owns. */
+ *  comments pass context through), `++`/`--` pairs, `/` (regex unless an
+ *  operand just ended), numbers, identifier runs, and whitespace
+ *  (consume-and-preserve). Returns the token end, or null for
+ *  bracket/separator punctuation the caller's own loop owns. */
 function operandToken(
   code: string,
   i: number,
@@ -312,19 +362,11 @@ function operandToken(
     return opaque.end;
   }
   const c = code[i];
-  if ((c === "+" || c === "-") && code[i + 1] === c) {
+  if (doubleSignAt(code, i)) {
     st.pendingCtl = null;
     return i + 2;
   }
-  if (c === "/") {
-    st.pendingCtl = null;
-    if (st.operandEnd) {
-      st.operandEnd = false;
-      return i + 1;
-    }
-    st.operandEnd = true;
-    return scanRegex(code, i);
-  }
+  if (c === "/") return slashTokenEnd(code, i, st);
   if (isWsChar(c)) return i + 1;
   if (numberAt(code, i)) {
     st.operandEnd = true;
@@ -333,30 +375,12 @@ function operandToken(
   }
   if (c === ".") {
     // Member access: a word after `.` is a property name, never a
-    // keyword — `obj.return / 2` divides. `.5` was taken by numberAt;
-    // `?.` reaches here through its `.`; each `.` of `...` lands here
-    // too, where the leading pair simply finds no ident to consume.
+    // keyword — `obj.return / 2` divides. `.5` was taken by numberAt.
     st.pendingCtl = null;
     st.operandEnd = true;
-    const prop = skipTrivia(code, i + 1);
-    return isIdentChar(code[prop]) && !isDigit(code[prop])
-      ? skipIdent(code, prop)
-      : i + 1;
+    return memberPropEnd(code, i);
   }
-  if (isIdentChar(c)) {
-    const wend = skipIdent(code, i);
-    const word = code.slice(i, wend);
-    st.operandEnd = wordOperandEnd(word, st.parens);
-    // `await` is the one word allowed between `for` and its `(` —
-    // `for await (x of y)` keeps the control context.
-    st.pendingCtl =
-      word === "await" && st.pendingCtl === "for"
-        ? "for"
-        : CONTROL_WORDS.has(word)
-          ? word
-          : null;
-    return wend;
-  }
+  if (isIdentChar(c)) return wordTokenEnd(code, i, st);
   return null;
 }
 
