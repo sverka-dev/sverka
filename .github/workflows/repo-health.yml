@@ -15,19 +15,21 @@ jobs:
       pull-requests: read
       checks: read
       security-events: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - run: suite=$(gh api 'repos/{owner}/{repo}/actions/runs/'"$GITHUB_RUN_ID" --jq
-          .check_suite_id) || exit 1; out=$(gh api --paginate
-          'repos/{owner}/{repo}/commits/main/check-runs' --jq '.check_runs[] |
-          select(.app.slug=="github-actions") | select(.check_suite.id !=
-          '"$suite"') | select(.conclusion != "success" and .conclusion !=
-          "skipped" and .conclusion != "neutral") | "\(.name) (\(.conclusion //
-          .status))"') || exit 1; [ -z "$out" ] || { echo "non-green or
-          in-progress checks on main:"; echo "$out"; exit 1; }
+          .check_suite_id) || exit 1; [ -n "$suite" ] || exit 1; out=$(gh api
+          --paginate 'repos/{owner}/{repo}/commits/main/check-runs' --jq
+          '.check_runs[] | select(.app.slug=="github-actions") |
+          select(.check_suite.id != '"$suite"') | select(.conclusion !=
+          "success" and .conclusion != "skipped" and .conclusion != "neutral") |
+          "\(.name) (\(.conclusion // .status))"') || exit 1; [ -z "$out" ] || {
+          echo "non-green or in-progress checks on main:"; echo "$out"; exit 1;
+          }
         shell: sh
   review-debt:
     name: review-debt
@@ -37,6 +39,7 @@ jobs:
       pull-requests: read
       checks: read
       security-events: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -54,6 +57,7 @@ jobs:
       pull-requests: read
       checks: read
       security-events: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -76,6 +80,7 @@ jobs:
       pull-requests: read
       checks: read
       security-events: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -100,6 +105,7 @@ jobs:
       pull-requests: read
       checks: read
       security-events: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -126,6 +132,7 @@ jobs:
       pull-requests: read
       checks: read
       security-events: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
