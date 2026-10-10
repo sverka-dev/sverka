@@ -1,3 +1,14 @@
+## 0.2.28 (2026-10-10)
+
+### 🩹 Fixes
+
+- **playground:** scanner operand-tracking for regex-vs-division edges ([#343](https://github.com/sverka-dev/sverka/pull/343))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.27 (2026-10-10)
 
 ### 🩹 Fixes
