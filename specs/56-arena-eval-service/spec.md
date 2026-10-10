@@ -1,6 +1,6 @@
 # Spec 56 — Arena Eval Service
 
-**Status:** Proposed
+**Status:** Active
 **Source:** direction program sv-44n5 (strategy review, 2026-10)
 **Package:** `@sverka/arena` (runner + registry), `@sverka/cli` or `sverka-arena` bin (Spec 49), `website/` (leaderboard), `@sverka/storage` (registry backend)
 **Bead:** sv-44n5.4
@@ -177,7 +177,7 @@ Registry tree (git backend):
 
 ```text
 results/<pack>/<agent>/<YYYY-MM-DD>/<runId>.json
-traces/<runId>/<task>.trace.jsonl
+traces/<runId>/<task>.<run-index>.trace.jsonl
 packs/<name>/pack.json + tasks/*.json
 index.json                       # denormalized: pack → latest runIds
 ```

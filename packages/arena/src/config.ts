@@ -11,13 +11,29 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import type { AgentAdapter, ArenaConfig, ModelConfig } from "./types.js";
 import { DevinAdapter } from "./adapters/devin.js";
 
+export type ArenaErrorCode =
+  | "CONFIG_INVALID"
+  | "CONFIG_NOT_FOUND"
+  | "UNKNOWN_AGENT"
+  | "SCHEMA_INVALID"
+  | "PUBLISH_CONFLICT"
+  | "REGISTRY_UNAVAILABLE"
+  | "PACK_NOT_FOUND"
+  | "PACK_INVALID";
+
 export class ArenaError extends Error {
+  override readonly cause: unknown;
+
   constructor(
     message: string,
-    readonly code: "CONFIG_INVALID" | "CONFIG_NOT_FOUND" | "UNKNOWN_AGENT",
+    readonly code: ArenaErrorCode,
+    cause?: unknown,
   ) {
     super(message);
     this.name = "ArenaError";
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
   }
 }
 

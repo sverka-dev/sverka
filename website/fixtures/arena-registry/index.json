@@ -1,0 +1,28 @@
+{
+  "schema": "arena.index/v1",
+  "updatedAt": "2026-10-05T02:05:00.000Z",
+  "packs": {
+    "node-ci": {
+      "runs": [
+        {
+          "runId": "run-fixture-01",
+          "agent": "devin",
+          "date": "2026-10-01",
+          "path": "results/node-ci/devin/2026-10-01/run-fixture-01.json"
+        },
+        {
+          "runId": "run-fixture-02",
+          "agent": "devin",
+          "date": "2026-10-03",
+          "path": "results/node-ci/devin/2026-10-03/run-fixture-02.json"
+        },
+        {
+          "runId": "run-fixture-03",
+          "agent": "devin",
+          "date": "2026-10-05",
+          "path": "results/node-ci/devin/2026-10-05/run-fixture-03.json"
+        }
+      ]
+    }
+  }
+}

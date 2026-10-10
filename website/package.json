@@ -12,6 +12,7 @@
     "test": "bun test",
     "sync-docs": "bun scripts/sync-docs.ts",
     "docs:arena": "bun scripts/update-arena-results.ts",
+    "docs:board": "bun scripts/update-arena-board.ts",
     "docs:pipeline": "bun scripts/gen-pipeline-data.ts",
     "arena": "bun run server/arena-server.ts",
     "docs:search": "bun scripts/gen-search-index.ts"
