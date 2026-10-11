@@ -55,5 +55,8 @@
       "cache": true
     }
   },
-  "nxCloudId": "6a7de7d4632484e4686e5adc"
+  "nxCloudId": "6a7de7d4632484e4686e5adc",
+  "daemon": {
+    "enabled": false
+  }
 }

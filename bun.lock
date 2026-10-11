@@ -114,11 +114,11 @@
         "@sverka/gitlab": "workspace:*",
         "@sverka/ir": "workspace:*",
         "@sverka/planner": "workspace:*",
-        "@sverka/plugin": "workspace:*",
         "@sverka/runtime-host": "workspace:*",
         "@sverka/sdk": "workspace:*",
       },
       "devDependencies": {
+        "@sverka/plugin": "workspace:*",
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
         "vitest": "^3.0.0",
