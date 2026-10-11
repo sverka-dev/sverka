@@ -11,7 +11,7 @@ describe("matrix expansion", () => {
     const result = await wf.plan(makePlanRuntime());
     expect(result.operations).toHaveLength(2);
     const ids = result.operations.map((o) => o.id).sort();
-    expect(ids).toEqual(["run:test[node=20]", "run:test[node=24]"]);
+    expect(ids).toEqual(["run:test[node=s:20]", "run:test[node=s:24]"]);
     const envs = result.operations.map((o) => o.env?.MATRIX_NODE).sort();
     expect(envs).toEqual(["20", "24"]);
   });
@@ -22,7 +22,7 @@ describe("matrix expansion", () => {
     const result = await wf.plan(makePlanRuntime());
     expect(result.operations).toHaveLength(2);
     const ids = result.operations.map((o) => o.id).sort();
-    expect(ids).toEqual(["run:test[node=20,os=linux]", "run:test[node=24,os=linux]"]);
+    expect(ids).toEqual(["run:test[node=s:20,os=s:linux]", "run:test[node=s:24,os=s:linux]"]);
     for (const spec of result.operations) {
       expect(spec.env?.MATRIX_NODE).toBeDefined();
       expect(spec.env?.MATRIX_OS).toBe("linux");
