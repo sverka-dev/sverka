@@ -88,13 +88,21 @@ After each wave passes review, commit and push a stacked PR to GitHub so the
 human can see progress in the GitHub UI. Stacked PRs chain: each wave's PR
 targets the previous wave's branch, not main.
 
+This project uses `gh stack` (https://github.com/github/gh-stack) for all
+stacked PR management — creation, rebasing, and submission. Do NOT use
+manual `git rebase` + `gh pr create` for stacked PRs.
+
+See https://docs.github.com/en/pull-requests/how-tos/stacked-pull-requests
+for the stacked PR workflow.
+
 ### Procedure (after reviewer approves a wave):
 
-1. Create a branch for the wave:
+1. Add a new branch to the stack for the wave:
    ```
    git checkout -b wave-N-<package>
+   gh stack add wave-N-<package>
    ```
-   Base it on the previous wave's branch (or main for Wave 1).
+   For Wave 1, init the stack first: `gh stack init wave-1-<package>`
 
 2. Stage and commit all changes for this wave:
    ```
@@ -109,31 +117,43 @@ targets the previous wave's branch, not main.
    </details>"
    ```
 
-3. Push the branch:
+3. Push all branches and create/update PRs on GitHub:
    ```
-   git push -u origin wave-N-<package>
+   gh stack submit
    ```
+   This creates stacked PRs with correct base branches automatically.
 
-4. Create a stacked PR targeting the previous wave's branch:
-   ```
-   gh pr create --base wave-(N-1)-<prev-package> --head wave-N-<package> \
-     --title "Wave N: <package>" \
-     --body "## Summary
-   - <bullet points>
+4. Report the PR number to the human via mail.
 
-   ## Test plan
-   - [x] bun run test
-   - [x] bun run typecheck
-   - [x] bun run build
-   - [x] reviewer approved
+### Address GitHub review feedback (mandatory after PR creation)
 
-   Stacked on #<previous PR number>"
-   ```
+Immediately after creating the wave PR, dispatch the `sverka-address-review`
+formula to the builder so every GitHub review comment is addressed:
 
-5. For Wave 1, target `main`. For all subsequent waves, target the previous
-   wave's branch.
+```
+gc sling builder sverka-address-review --formula
+```
 
-6. Report the PR number to the human via mail.
+The builder first runs `gh stack rebase` to cascading-rebase the entire stack
+if any lower branch has advanced (previous wave had review fixes applied).
+Then `gh stack submit` to push the rebased stack. Only after that does the
+builder start `/act` — responds to every comment in-thread, fixes code,
+resolves every thread, and loops until merge-ready (open_threads=0, CI green,
+SAST clean). Do NOT skip this step. A PR with unaddressed review feedback
+is not done.
+
+When the builder reports merge-ready, notify the human via mail and proceed
+to the next wave.
+
+### Stacked PR rebase rules
+
+When a lower PR in the stack is rebased or has review fixes pushed, all PRs
+above it in the stack become stale. The builder uses `gh stack rebase` which
+handles the cascading rebase atomically across the entire stack — no manual
+per-branch rebase or force-push needed.
+
+If conflicts arise during `gh stack rebase`, resolve them and run
+`gh stack rebase --continue`.
 
 ### Example stacking:
 

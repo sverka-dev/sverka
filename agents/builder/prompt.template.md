@@ -32,6 +32,16 @@ Always invoke these skills when working:
 - `skill minimalist` — audit your implementation for unnecessary code
 - `skill deepwiki` — when you need to understand how a dependency works
 - `skill sourcegraph` — search the codebase with `src` CLI for existing patterns
+- `skill act` — when dispatched the `sverka-address-review` formula, run `/act`
+  on the wave PR to address all GitHub review feedback. Every comment gets a
+  substantive in-thread reply, every code fix is committed, every thread is
+  resolved. The /act loop runs until merge-ready: open_threads=0, CI green,
+  SAST clean. Never resolve a thread without first posting a reply with the
+  fix commit SHA and evidence.
+- `skill gh-stack` — when working with stacked PRs, use `gh stack` commands
+  (init, add, submit, rebase, sync, view) instead of manual git rebase and
+  gh pr create. `gh stack rebase` handles cascading rebase across the entire
+  stack atomically.
 
 ## Project
 
@@ -69,6 +79,64 @@ spec-first (SDD), test-first (TDD), built in waves.
 - TypeScript: strict mode, ESM. No `any` types. Use `unknown` and narrow.
 - Exports: everything public goes through `src/index.ts`.
 - Error handling: custom error classes per package.
+
+## Stacked PRs
+
+This project uses stacked pull requests managed via `gh stack`
+(https://github.com/github/gh-stack). Each wave's PR targets the previous
+wave's branch, not `main`:
+
+```
+main
+ └── wave-1-core      (PR #1, base: main)
+      └── wave-2-ir   (PR #2, base: wave-1-core)
+           └── wave-3-runtime (PR #3, base: wave-2-ir)
+                └── ...
+```
+
+Use `gh stack` commands for all stack operations — do NOT manually rebase
+or force-push individual branches. `gh stack` handles the cascading rebase
+across the entire stack atomically.
+
+Key commands:
+- `gh stack view` — see the current stack state
+- `gh stack rebase` — cascading rebase across the entire stack
+- `gh stack submit` — push all branches and create/update PRs on GitHub
+- `gh stack sync` — sync local stack state with remote
+
+## Addressing GitHub PR review (sverka-address-review formula)
+
+When the mayor dispatches you the `sverka-address-review` formula, your job is
+to run `/act` on the wave PR until it is merge-ready. This is NOT optional and
+NOT partial — every review comment must be addressed.
+
+**Step 0 (mandatory prerequisite): rebase check before /act.**
+
+Before invoking `/act`, verify the stack is not stale:
+
+1. `gh stack view` — check the current stack state
+2. `gh stack rebase` — cascading rebase across the entire stack if any branch
+   has advanced (previous wave had review fixes applied, trunk moved, etc.)
+3. `gh stack submit` — push the rebased stack to GitHub (updates all PRs)
+4. Only after the rebase (or confirming no rebase needed) proceed to step 1.
+
+Skipping this step means /act will address review comments on a stale diff,
+producing wrong fixes and conflicting threads. Never start /act on a branch
+that is behind its base.
+
+1. **Resolve PR context** — get the PR number from the bead or mail. If
+   ambiguous, use `pr-from-context.sh` to find the most recently updated open
+   PR for the current branch.
+2. **Invoke `skill act`** — follow the /act loop: FETCH → ANALYSE →
+   CONFIRM/REJECT → FIX → REPLY & RESOLVE → VERIFY CLEAN → PUSH → loop.
+3. **Per-thread loop** — for each open thread: read all comments, acknowledge,
+   fix in code (or reply with reasoning if declining), commit, reply in-thread
+   pointing to the commit, THEN resolve. Never resolve-only.
+4. **Loop until merge-ready** — open_threads=0, CI_REQUIRED_PENDING=0,
+   SAST_FINDINGS_PENDING=0. Re-fetch after each push; bots may open new
+   threads on the new diff.
+5. **Report to mayor** — when merge-ready, mail the mayor with the PR number,
+   HEAD SHA, threads resolved, and CI status.
 
 ## Environment
 

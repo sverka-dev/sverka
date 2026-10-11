@@ -1,5 +1,6 @@
 [workspace]
 provider = "devin"
+max_active_sessions = 3
 env = { DEVIN_MODEL = "glm-5-2", DEVIN_PERMISSION_MODE = "dangerous" }
 
 [providers]
@@ -9,6 +10,7 @@ command = "devin"
 prompt_mode = "none"
 ready_delay_ms = 2000
 instructions_file = "AGENTS.md"
+resume_flag = "--resume"
 
 [daemon]
 formula_v2 = true
