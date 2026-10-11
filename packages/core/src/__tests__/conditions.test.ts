@@ -84,14 +84,16 @@ describe("evaluateCondition", () => {
     expect(() => evaluateCondition("'unclosed", {})).toThrow(CompositionError);
   });
 
-  it("malformed error has code INVALID_CONDITION", () => {
+  it("malformed expression throws CompositionError with context", () => {
     try {
       evaluateCondition("!!!", {});
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(CompositionError);
-      expect((err as CompositionError).code).toBe("COMPOSITION_ERROR");
-      expect((err as CompositionError).context).toMatchObject({ reason: expect.any(String) });
+      if (err instanceof CompositionError) {
+        expect(err.code).toBe("COMPOSITION_ERROR");
+        expect(err.context).toMatchObject({ reason: expect.any(String) });
+      }
     }
   });
 });

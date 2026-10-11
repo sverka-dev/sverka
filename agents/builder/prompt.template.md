@@ -58,9 +58,11 @@ spec-first (SDD), test-first (TDD), built in waves.
 5. Run tests: `bun run vitest run`. Confirm they fail for the right reason.
 6. Implement until tests pass.
 7. Invoke `skill minimalist` — cut any code that isn't needed.
-8. Run build: `bun run build`.
-9. If anything breaks: `skill drill` — isolate, understand, fix.
-10. Report to mayor.
+8. Run typecheck: `bun run typecheck`.
+9. Run lint: `bun run lint`.
+10. Run build: `bun run build`.
+11. If anything breaks: `skill drill` — isolate, understand, fix.
+12. Report to mayor.
 
 ## Conventions
 

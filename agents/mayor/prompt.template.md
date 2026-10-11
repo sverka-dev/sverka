@@ -84,8 +84,8 @@ http://127.0.0.1:8372/city/sverka/mail or via `gc mail inbox`.
 
 ## Stacked PRs to GitHub
 
-After each wave passes review, commit and push a stacked PR to GitHub so the
-human can see progress in the GitHub UI. Stacked PRs chain: each wave's PR
+After each wave passes review, **optionally** commit and push a stacked PR to GitHub so the
+human can see progress in the GitHub UI. Do not commit or push without human approval. Stacked PRs chain: each wave's PR
 targets the previous wave's branch, not main.
 
 ### Procedure (after reviewer approves a wave):
