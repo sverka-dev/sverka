@@ -22,10 +22,14 @@ ITER=0
 # Status symbols: ○ = open, ◐ = in_progress, ● = blocked, ✓ = closed
 count_real_issues() {
   local status="$1"
-  bd list --status="$status" 2>/dev/null \
+  local count
+  count=$(bd list --status="$status" 2>/dev/null \
     | grep -E '^\s*[○◐●] sv-[a-z0-9]{4} ' \
     | grep -v "wisp\|nudge" \
-    | wc -l 2>/dev/null || echo 0
+    | wc -l 2>/dev/null || true)
+  # Trim whitespace/newlines, default to 0
+  count=$(echo "${count}" | tr -d '[:space:]')
+  echo "${count:-0}"
 }
 
 while true; do
