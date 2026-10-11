@@ -41,29 +41,36 @@ export function getPipelineMetadata(cls: new (...args: never[]) => unknown): obj
 }
 
 /**
- * @step — field decorator for string shorthand or StepBuilder.
- * Can be used as `@step` or `@step(options)`.
+ * @step — field decorator. Supports both bare and factory forms:
  *
- * Implementation note: TC39 standard decorators require the decorator
- * to be a function that receives (value, context). When used as
- * `@step` (no parens), the first arg is the field's initializer value.
- * When used as `@step(options)`, it's a factory returning a decorator.
+ *   @step                    — bare form, no options
+ *   @step({ timeout: 60000 }) — factory form with options
  *
- * To avoid TDZ issues with the overloaded form under esbuild/vitest,
- * we export both forms: `step` (bare) and `stepWithOptions` (factory).
- * The `step` export handles the bare form; `stepWithOptions` handles
- * the factory form. Users can also use `step` as a factory by calling
- * it with options.
+ * TC39 standard decorators call the decorator function directly for the
+ * bare form (`step(value, context)` — 2 args) and as a factory for the
+ * parenthesized form (`step(options)` — 1 arg, returns a decorator).
+ * We overload on argument count.
  */
 export function step(
-  value: unknown,
-  context: ClassFieldDecoratorContext,
-): void {
+  valueOrOptions: unknown,
+  context?: ClassFieldDecoratorContext,
+): void | ((value: unknown, ctx: ClassFieldDecoratorContext) => void) {
+  // Factory form: @step({ timeout: 60000 })
+  if (context === undefined) {
+    const options = valueOrOptions as StepOptions;
+    validateStepOptions(options);
+    return function (_value: unknown, ctx: ClassFieldDecoratorContext): void {
+      registerFieldOnMetadata(ctx.metadata ?? {}, String(ctx.name), "step", options);
+    };
+  }
+  // Bare form: @step
   registerFieldOnMetadata(context.metadata ?? {}, String(context.name), "step");
 }
 
 /**
- * Factory form of @step for use with options: `@stepWithOptions({ timeout: 60000 })`.
+ * Factory form of @step for use with options: `@step({ timeout: 60000 })`.
+ * Kept as a named export for explicit usage; equivalent to calling
+ * `step(options)` directly.
  */
 export function stepWithOptions(
   options: StepOptions,
