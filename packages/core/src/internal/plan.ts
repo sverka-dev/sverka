@@ -1,5 +1,5 @@
 import type { Operation, OperationSpec } from "../operation.js";
-import type { Runtime, RuntimeResult } from "../runtime.js";
+import type { Runtime, RuntimeResult, OperationOutcome } from "../runtime.js";
 import { asNode, createNode, withSpec, type OperationNode } from "./node.js";
 import { assignId, matrixChildId, isKnownKind } from "./ids.js";
 import { evaluateCondition } from "./conditions.js";
@@ -32,7 +32,7 @@ export async function planWorkflow(
   //    depend on its siblings instead; artifact nodes are then removed.
   const realNodes = flattenArtifacts(expanded);
 
-  // 4. Assign deterministic ids; reject duplicate user ids.
+  // 4. Assign deterministic ids; reject duplicate ids.
   const idMap = assignIds(realNodes);
 
   // 5. Resolve predecessor refs → dependsOn string ids, merge with user deps.
@@ -44,18 +44,14 @@ export async function planWorkflow(
   // 7. Topo sort.
   const ordered = topoSort(specs);
 
-  // 8. Evaluate conditions and feed non-skipped ops to the runtime.
-  for (const spec of ordered) {
-    if (spec.condition !== undefined) {
-      const included = evaluateCondition(spec.condition, runtime.context);
-      if (!included) {
-        // Skipped: do not call runtime.evaluate. The operation is still
-        // recorded in the graph (in `ordered`) with its condition field.
-        continue;
-      }
-    }
-    await runtime.evaluate(spec);
-  }
+  // 8. Evaluate conditions and feed ops to the runtime.
+  //    In compile mode, all operations are passed to the runtime so compilers
+  //    can emit them (including conditionally-skipped ones with their condition
+  //    field intact). In execute mode, false conditions skip the operation
+  //    without calling runtime.evaluate(). In plan mode, all operations are
+  //    recorded. Independent operations are dispatched concurrently as a batch
+  //    so siblings produced by `parallel()` run simultaneously.
+  await evaluateOperations(ordered, runtime);
 
   // 9. Finalize via the runtime, merge planner metadata.
   const finalized = await runtime.finalize();
@@ -68,6 +64,96 @@ export async function planWorkflow(
 
 function nowMs(): number {
   return Date.now();
+}
+
+// ---------------------------------------------------------------------------
+// 8. Condition evaluation + dispatch
+// ---------------------------------------------------------------------------
+
+/** Select operations whose dependencies are all satisfied (done or unknown). */
+function selectReady(
+  remaining: Set<string>,
+  byId: Map<string, OperationSpec>,
+  done: Set<string>,
+): OperationSpec[] {
+  const ready: OperationSpec[] = [];
+  for (const id of remaining) {
+    const spec = byId.get(id)!;
+    const deps = spec.dependsOn ?? [];
+    if (deps.every((d) => done.has(d) || !byId.has(d))) {
+      ready.push(spec);
+    }
+  }
+  return ready;
+}
+
+/** Dispatch a batch of operations concurrently to the runtime. */
+async function dispatchBatch(
+  batch: readonly OperationSpec[],
+  runtime: Runtime,
+): Promise<Array<{ spec: OperationSpec; outcome: OperationOutcome }>> {
+  const results = await Promise.all(
+    batch.map(async (spec) => ({ spec, outcome: await runtime.evaluate(spec) })),
+  );
+  return results;
+}
+
+/**
+ * Evaluate operations in topo order, respecting conditions and failure policy.
+ * Operations with no outstanding dependencies are dispatched concurrently as
+ * a batch, so siblings produced by `parallel()` run simultaneously.
+ *
+ * In compile mode, all operations are passed to the runtime so compilers
+ * can emit them (including conditionally-skipped ones with their condition
+ * field intact). In execute/plan mode, false conditions skip the operation
+ * without calling runtime.evaluate().
+ */
+async function evaluateOperations(
+  ordered: readonly OperationSpec[],
+  runtime: Runtime,
+): Promise<void> {
+  let aborted = false;
+  const done = new Set<string>();
+  const remaining = new Set(ordered.map((o) => o.id));
+  const byId = new Map(ordered.map((o) => [o.id, o] as const));
+
+  while (remaining.size > 0) {
+    const ready = selectReady(remaining, byId, done);
+    if (ready.length === 0) {
+      throw new CompositionError("no ready operations (residual cycle)", {});
+    }
+
+    const batch: OperationSpec[] = [];
+    for (const spec of ready) {
+      remaining.delete(spec.id);
+      if (aborted) {
+        done.add(spec.id);
+        continue;
+      }
+      if (spec.condition !== undefined) {
+        const included = evaluateCondition(spec.condition, runtime.context);
+        if (!included) {
+          if (runtime.mode === "compile") {
+            batch.push(spec);
+          } else {
+            done.add(spec.id);
+          }
+          continue;
+        }
+      }
+      batch.push(spec);
+    }
+
+    if (batch.length > 0) {
+      const results = await dispatchBatch(batch, runtime);
+      for (const { spec, outcome } of results) {
+        done.add(spec.id);
+        if (outcome.status === "failure" && spec.continueOnError !== true) {
+          aborted = true;
+        }
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -110,8 +196,82 @@ function discover(roots: readonly Operation[]): OperationNode[] {
 // 2. Matrix expansion
 // ---------------------------------------------------------------------------
 
+/** Validate that all matrix dimensions are non-empty arrays. */
+function validateMatrixDims(
+  dims: Readonly<Record<string, readonly unknown[]>>,
+): void {
+  for (const [key, values] of Object.entries(dims)) {
+    if (!Array.isArray(values)) {
+      throw new CompositionError(
+        `matrix dimension '${key}' is not an array`,
+        { dimension: key, value: values },
+      );
+    }
+    if (values.length === 0) {
+      throw new CompositionError(`matrix dimension '${key}' is empty`, {
+        dimension: key,
+      });
+    }
+  }
+}
+
+/** Build expanded child nodes for a single matrix template. */
+function buildMatrixChildren(
+  node: OperationNode,
+  dims: Readonly<Record<string, readonly unknown[]>>,
+): OperationNode[] {
+  const children: OperationNode[] = [];
+  for (const combo of cartesianProduct(dims)) {
+    const env: Record<string, string> = { ...(node.spec.env ?? {}) };
+    for (const [k, v] of combo) env[`MATRIX_${k.toUpperCase()}`] = String(v);
+    const childSpec = { ...node.spec };
+    delete (childSpec as unknown as Record<string, unknown>)[MATRIX_MARKER];
+    delete (childSpec as unknown as Record<string, unknown>).matrix;
+    const child = withSpec(node, { ...childSpec, env });
+    (child as unknown as Record<string, unknown>).__matrixCombo = combo;
+    children.push(child);
+  }
+  return children;
+}
+
+/** Rewrite predecessor references from templates to their expanded children. */
+function rewriteMatrixPredecessors(
+  result: OperationNode[],
+  templateChildren: Map<OperationNode, OperationNode[]>,
+): void {
+  if (templateChildren.size === 0) return;
+  for (let i = 0; i < result.length; i++) {
+    const node = result[i]!;
+    if (node.predecessors.length === 0) continue;
+    let changed = false;
+    const newPreds: OperationNode[] = [];
+    for (const pred of node.predecessors) {
+      const children = templateChildren.get(pred);
+      if (children !== undefined) {
+        newPreds.push(...children);
+        changed = true;
+      } else {
+        newPreds.push(pred);
+      }
+    }
+    if (changed) {
+      result[i] = makeNodeWith(
+        node.kind,
+        node.spec,
+        newPreds,
+        node.siblings,
+        node._id,
+        (node as unknown as Record<string, unknown>).__matrixCombo as
+          | readonly [string, unknown][]
+          | undefined,
+      );
+    }
+  }
+}
+
 /** Expand matrix template nodes into cartesian-product children. */
 function expandMatrices(nodes: readonly OperationNode[]): OperationNode[] {
+  const templateChildren = new Map<OperationNode, OperationNode[]>();
   const result: OperationNode[] = [];
   for (const node of nodes) {
     if (markerOf(node) !== MATRIX_MARKER) {
@@ -123,30 +283,14 @@ function expandMatrices(nodes: readonly OperationNode[]): OperationNode[] {
       result.push(node);
       continue;
     }
-    for (const [key, values] of Object.entries(dims)) {
-      if (!Array.isArray(values)) {
-        throw new CompositionError(
-          `matrix dimension '${key}' is not an array`,
-          { dimension: key, value: values },
-        );
-      }
-      if (values.length === 0) {
-        throw new CompositionError(`matrix dimension '${key}' is empty`, {
-          dimension: key,
-        });
-      }
-    }
-    for (const combo of cartesianProduct(dims)) {
-      const env: Record<string, string> = { ...(node.spec.env ?? {}) };
-      for (const [k, v] of combo) env[`MATRIX_${k.toUpperCase()}`] = String(v);
-      const childSpec = { ...node.spec };
-      delete (childSpec as unknown as Record<string, unknown>)[MATRIX_MARKER];
-      delete (childSpec as unknown as Record<string, unknown>).matrix;
-      const child = withSpec(node, { ...childSpec, env });
-      (child as unknown as Record<string, unknown>).__matrixCombo = combo;
-      result.push(child);
-    }
+    validateMatrixDims(dims);
+    const children = buildMatrixChildren(node, dims);
+    for (const child of children) result.push(child);
+    templateChildren.set(node, children);
   }
+  // Rewrite predecessor references: any node that depended on a matrix
+  // template now depends on all its expanded children instead.
+  rewriteMatrixPredecessors(result, templateChildren);
   return result;
 }
 
@@ -173,17 +317,23 @@ function cartesianProduct(
 /**
  * Replace predecessor references to artifact nodes:
  * - join node → its siblings (recursively, in case a sibling is also a join)
+ *   AND the join's own predecessors, so dependencies from before the
+ *   parallel block are preserved.
  * - empty-pipeline node → dropped (no real predecessors)
  * Then remove artifact nodes from the set. Siblings of a join are reachable
  * on their own (they were discovered), so dropping the join is safe.
  */
 function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
-  // Resolve a predecessor reference into the real nodes it should stand for.
   const resolvePred = (pred: OperationNode): OperationNode[] => {
     const m = markerOf(pred);
     if (m === JOIN_MARKER) {
-      // Depend on the join's siblings (each resolved recursively).
-      return pred.siblings.flatMap(resolvePred);
+      // Depend on the join's siblings (each resolved recursively) AND the
+      // join's own predecessors, so that dependencies from before the
+      // parallel block are preserved.
+      const resolved: OperationNode[] = [];
+      for (const sib of pred.siblings) resolved.push(...resolvePred(sib));
+      for (const predPred of pred.predecessors) resolved.push(...resolvePred(predPred));
+      return resolved;
     }
     if (m === PIPELINE_EMPTY_MARKER) {
       return [];
@@ -194,7 +344,6 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
   const rewritten = nodes.map((node) => {
     if (node.predecessors.length === 0) return node;
     const newPreds = node.predecessors.flatMap(resolvePred);
-    // Skip rebuild if nothing changed.
     const same =
       newPreds.length === node.predecessors.length &&
       newPreds.every((p, i) => p === node.predecessors[i]);
@@ -205,6 +354,9 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       newPreds,
       node.siblings,
       node._id,
+      (node as unknown as Record<string, unknown>).__matrixCombo as
+        | readonly [string, unknown][]
+        | undefined,
     );
   });
 
@@ -218,13 +370,15 @@ function makeNodeWith(
   predecessors: readonly OperationNode[],
   siblings: readonly OperationNode[],
   _id: string | undefined,
+  matrixCombo?: readonly [string, unknown][],
 ): OperationNode {
-  // createNode yields a node with empty preds/siblings; reattach via the
-  // immutable after()/with() API so the public contract is respected.
   let n = createNode(kind, spec);
   if (predecessors.length > 0) n = asNode(n.after(...predecessors));
   if (siblings.length > 0) n = asNode(n.with(...siblings));
   if (_id !== undefined) (n as unknown as { _id: string })._id = _id;
+  if (matrixCombo !== undefined) {
+    (n as unknown as Record<string, unknown>).__matrixCombo = matrixCombo;
+  }
   return n;
 }
 
@@ -232,7 +386,7 @@ function makeNodeWith(
 // 4. ID assignment
 // ---------------------------------------------------------------------------
 
-/** Assign deterministic ids; reject duplicate user ids. */
+/** Assign deterministic ids; reject duplicate ids. */
 function assignIds(
   nodes: readonly OperationNode[],
 ): Map<OperationNode, string> {
@@ -243,9 +397,7 @@ function assignIds(
       throw new CoreError(
         `unknown operation kind '${node.kind}'`,
         "UNKNOWN_KIND",
-        {
-          kind: node.kind,
-        },
+        { kind: node.kind },
       );
     }
     const combo = (node as unknown as Record<string, unknown>).__matrixCombo as
@@ -258,7 +410,7 @@ function assignIds(
     } else {
       id = assignId(node, index, usedIds);
     }
-    if (node.spec.id !== undefined && usedIds.has(id)) {
+    if (usedIds.has(id)) {
       throw new CompositionError(`duplicate operation id '${id}'`, { id });
     }
     usedIds.add(id);
@@ -277,15 +429,25 @@ function stripId(node: OperationNode): OperationNode {
 // 5. Edge resolution
 // ---------------------------------------------------------------------------
 
+/** Resolve a user-provided dependsOn string. Must be a known op id. */
+function resolveDep(dep: string, knownOpIds: Set<string>): string {
+  if (knownOpIds.has(dep)) return dep;
+  throw new CompositionError(`unresolved dependsOn reference '${dep}'`, {
+    dependsOn: dep,
+  });
+}
+
 /** Resolve predecessor refs to dependsOn ids, merge with user deps, dedupe. */
 function resolveEdges(
   nodes: readonly OperationNode[],
   idMap: Map<OperationNode, string>,
 ): Map<OperationNode, OperationSpec> {
   const result = new Map<OperationNode, OperationSpec>();
+  const knownOpIds = new Set<string>(idMap.values());
   for (const node of nodes) {
     const id = idMap.get(node)!;
     const userDeps = node.spec.dependsOn ?? [];
+    const resolvedUserDeps = userDeps.map((dep) => resolveDep(dep, knownOpIds));
     const resolvedDeps = node.predecessors.map((p) => idMap.get(p));
     if (resolvedDeps.some((d) => d === undefined)) {
       throw new CompositionError("unresolved predecessor reference", {
@@ -293,12 +455,20 @@ function resolveEdges(
       });
     }
     const dependsOn = [
-      ...new Set([...userDeps, ...(resolvedDeps as string[])]),
+      ...new Set([...resolvedUserDeps, ...(resolvedDeps as string[])]),
     ];
     result.set(node, buildSpec(node, id, dependsOn));
   }
   return result;
 }
+
+/** Optional spec fields that buildSpec copies when defined. */
+const OPTIONAL_SPEC_KEYS: ReadonlyArray<keyof OperationSpec> = [
+  "description", "command", "args", "env", "workingDir", "image",
+  "imageDigest", "condition", "cpuLimit", "memoryLimit", "timeoutSeconds",
+  "retries", "continueOnError", "cache", "artifacts", "network",
+  "credentials", "tags",
+];
 
 function buildSpec(
   node: OperationNode,
@@ -306,38 +476,23 @@ function buildSpec(
   dependsOn: readonly string[],
 ): OperationSpec {
   const s = node.spec;
-  return {
+  const spec: OperationSpec = {
     id,
     kind: node.kind,
     name: s.name ?? "",
-    ...(s.description !== undefined ? { description: s.description } : {}),
-    ...(s.command !== undefined ? { command: s.command } : {}),
-    ...(s.args !== undefined ? { args: s.args } : {}),
-    ...(s.env !== undefined ? { env: s.env } : {}),
-    ...(s.workingDir !== undefined ? { workingDir: s.workingDir } : {}),
-    ...(s.image !== undefined ? { image: s.image } : {}),
-    ...(s.imageDigest !== undefined ? { imageDigest: s.imageDigest } : {}),
     dependsOn,
-    ...(s.condition !== undefined ? { condition: s.condition } : {}),
-    ...(s.cpuLimit !== undefined ? { cpuLimit: s.cpuLimit } : {}),
-    ...(s.memoryLimit !== undefined ? { memoryLimit: s.memoryLimit } : {}),
-    ...(s.timeoutSeconds !== undefined
-      ? { timeoutSeconds: s.timeoutSeconds }
-      : {}),
-    ...(s.retries !== undefined ? { retries: s.retries } : {}),
-    ...(s.continueOnError !== undefined
-      ? { continueOnError: s.continueOnError }
-      : {}),
-    ...(s.cache !== undefined ? { cache: s.cache } : {}),
-    ...(s.artifacts !== undefined ? { artifacts: s.artifacts } : {}),
-    ...(s.network !== undefined ? { network: s.network } : {}),
-    ...(s.credentials !== undefined ? { credentials: s.credentials } : {}),
-    ...(s.tags !== undefined ? { tags: s.tags } : {}),
   };
+  for (const key of OPTIONAL_SPEC_KEYS) {
+    const val = s[key] as OperationSpec[typeof key];
+    if (val !== undefined) {
+      (spec as Record<string, unknown>)[key] = val;
+    }
+  }
+  return spec;
 }
 
 // ---------------------------------------------------------------------------
-// 6. Cycle detection (DFS coloring)
+// 6. Cycle detection (iterative DFS coloring)
 // ---------------------------------------------------------------------------
 
 function detectCycles(specs: Map<OperationNode, OperationSpec>): void {
@@ -345,27 +500,49 @@ function detectCycles(specs: Map<OperationNode, OperationSpec>): void {
   for (const spec of specs.values()) byId.set(spec.id, spec);
   const color = new Map<string, "white" | "gray" | "black">();
   for (const id of byId.keys()) color.set(id, "white");
-  const stack: string[] = [];
 
-  const visit = (id: string): void => {
-    const c = color.get(id);
-    if (c === "black") return;
-    if (c === "gray") {
-      const cycleStart = stack.indexOf(id);
-      throw new CompositionError("cycle detected in operation graph", {
-        cycle: stack.slice(cycleStart).concat(id),
-      });
+  // Iterative DFS with explicit frame stack to avoid call-stack overflow.
+  const frames: Array<{ id: string; depIdx: number }> = [];
+  const path: string[] = [];
+
+  for (const startId of byId.keys()) {
+    if (color.get(startId) !== "white") continue;
+    frames.push({ id: startId, depIdx: 0 });
+    color.set(startId, "gray");
+    path.push(startId);
+
+    while (frames.length > 0) {
+      const frame = frames[frames.length - 1]!;
+      const spec = byId.get(frame.id)!;
+      let nextDep: string | undefined;
+      while (frame.depIdx < (spec.dependsOn ?? []).length) {
+        const dep = (spec.dependsOn ?? [])[frame.depIdx]!;
+        frame.depIdx++;
+        if (byId.has(dep)) {
+          nextDep = dep;
+          break;
+        }
+      }
+      if (nextDep !== undefined) {
+        const depColor = color.get(nextDep);
+        if (depColor === "gray") {
+          const cycleStart = path.indexOf(nextDep);
+          throw new CompositionError("cycle detected in operation graph", {
+            cycle: path.slice(cycleStart).concat(nextDep),
+          });
+        }
+        if (depColor === "white") {
+          color.set(nextDep, "gray");
+          path.push(nextDep);
+          frames.push({ id: nextDep, depIdx: 0 });
+        }
+      } else {
+        color.set(frame.id, "black");
+        path.pop();
+        frames.pop();
+      }
     }
-    color.set(id, "gray");
-    stack.push(id);
-    const spec = byId.get(id)!;
-    for (const dep of spec.dependsOn ?? []) {
-      if (byId.has(dep)) visit(dep);
-    }
-    stack.pop();
-    color.set(id, "black");
-  };
-  for (const id of byId.keys()) visit(id);
+  }
 }
 
 // ---------------------------------------------------------------------------

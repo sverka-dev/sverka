@@ -1,4 +1,4 @@
-import type { OperationKind, OperationSpec } from "../operation.js";
+import type { OperationKind } from "../operation.js";
 import type { OperationNode } from "./node.js";
 
 /**
@@ -46,10 +46,14 @@ export function matrixChildId(
 }
 
 function formatMatrixValue(v: unknown): string {
-  if (typeof v === "object" && v !== null) {
-    return JSON.stringify(v);
-  }
-  return String(v);
+  // Preserve type distinctions: prefix with a type tag so that values
+  // like 1 (number) and "1" (string) produce distinct matrix child ids.
+  // JSON.stringify ensures delimiter-safe encoding (commas, brackets,
+  // and object values are unambiguous).
+  if (typeof v === "string") return `s:${JSON.stringify(v)}`;
+  if (typeof v === "number") return `n:${JSON.stringify(v)}`;
+  if (typeof v === "boolean") return `b:${JSON.stringify(v)}`;
+  return `o:${JSON.stringify(v) ?? String(v)}`;
 }
 
 /** Validate that a kind is a known {@link OperationKind}. */
@@ -63,11 +67,4 @@ export function isKnownKind(kind: string): kind is OperationKind {
     kind === "publish" ||
     kind === "custom"
   );
-}
-
-/** Public spec id helper — exposed for tests that build specs directly. */
-export function specId(
-  spec: Readonly<Partial<OperationSpec>>,
-): string | undefined {
-  return spec.id;
 }

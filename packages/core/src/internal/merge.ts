@@ -5,13 +5,18 @@ export function concatDedupe(arr: readonly string[]): string[] {
   return [...new Set(arr)];
 }
 
+/** Compiler-enforced map of all valid {@link OperationSpec} keys. */
+const SPEC_KEY_MAP: Record<keyof OperationSpec, true> = {
+  id: true, kind: true, name: true, description: true, command: true,
+  args: true, env: true, workingDir: true, image: true, imageDigest: true,
+  dependsOn: true, condition: true, matrix: true, cpuLimit: true,
+  memoryLimit: true, timeoutSeconds: true, retries: true,
+  continueOnError: true, cache: true, artifacts: true, network: true,
+  credentials: true, tags: true,
+};
+
 /** All valid keys of {@link OperationSpec}. Used to reject unknown/injected keys. */
-const SPEC_KEYS: ReadonlySet<string> = new Set<string>([
-  "id", "kind", "name", "description", "command", "args", "env", "workingDir",
-  "image", "imageDigest", "dependsOn", "condition", "matrix", "cpuLimit",
-  "memoryLimit", "timeoutSeconds", "retries", "continueOnError", "cache",
-  "artifacts", "network", "credentials", "tags",
-]);
+const SPEC_KEYS: ReadonlySet<string> = new Set<string>(Object.keys(SPEC_KEY_MAP));
 
 /** Fields whose values are arrays that should be concatenated (not replaced). */
 const CONCAT_FIELDS: ReadonlySet<keyof OperationSpec> = new Set<

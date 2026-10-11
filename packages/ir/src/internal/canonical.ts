@@ -126,10 +126,21 @@ function quoteString(s: string): string {
       default:
         if (code < 0x20) {
           parts.push("\\u" + code.toString(16).padStart(4, "0"));
-        } else if (code >= 0xd800 && code <= 0xdfff) {
-          // Isolated UTF-16 surrogate code unit -- escape it as \\uXXXX so the
-          // output is always valid JSON (lone surrogates would produce
-          // malformed UTF-8 if emitted raw).
+        } else if (code >= 0xd800 && code <= 0xdbff) {
+          // High surrogate: check if the next code unit is a valid low
+          // surrogate. If so, emit the pair unchanged (matching JSON.stringify
+          // behavior for astral characters). If not, escape the lone surrogate.
+          const next = s[i + 1];
+          const nextCode = next?.charCodeAt(0);
+          if (nextCode !== undefined && nextCode >= 0xdc00 && nextCode <= 0xdfff) {
+            parts.push(ch);
+            parts.push(next);
+            i++;
+          } else {
+            parts.push("\\u" + code.toString(16).padStart(4, "0"));
+          }
+        } else if (code >= 0xdc00 && code <= 0xdfff) {
+          // Low surrogate without a preceding high surrogate -- escape it.
           parts.push("\\u" + code.toString(16).padStart(4, "0"));
         } else {
           parts.push(ch);

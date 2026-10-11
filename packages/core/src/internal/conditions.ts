@@ -37,85 +37,94 @@ function fail(expr: string, reason: string): never {
   });
 }
 
+/** Scanner state shared across read helpers. */
+interface Scanner {
+  readonly expr: string;
+  pos: number;
+}
+
+function readString(s: Scanner, tokens: Token[]): void {
+  const start = s.pos;
+  let j = start + 1;
+  while (j < s.expr.length && s.expr[j] !== "'") j++;
+  if (j >= s.expr.length) fail(s.expr, "unterminated string literal");
+  tokens.push({ type: "string", value: s.expr.slice(start + 1, j) });
+  s.pos = j + 1;
+}
+
+function readNumber(s: Scanner, tokens: Token[]): void {
+  const start = s.pos;
+  let j = s.pos;
+  while (j < s.expr.length && s.expr[j]! >= "0" && s.expr[j]! <= "9") j++;
+  if (s.expr[j] === ".") {
+    j++;
+    while (j < s.expr.length && s.expr[j]! >= "0" && s.expr[j]! <= "9") j++;
+  }
+  tokens.push({ type: "number", value: Number(s.expr.slice(start, j)) });
+  s.pos = j;
+}
+
+function readIdentifier(s: Scanner, tokens: Token[]): void {
+  const start = s.pos;
+  let j = s.pos;
+  while (j < s.expr.length && isIdentPart(s.expr[j]!)) j++;
+  const word = s.expr.slice(start, j);
+  if (word === "true") tokens.push({ type: "true" });
+  else if (word === "false") tokens.push({ type: "false" });
+  else tokens.push({ type: "ident", value: word });
+  s.pos = j;
+}
+
+function readOperator(s: Scanner, tokens: Token[]): void {
+  const ch = s.expr[s.pos]!;
+  if (ch === "!" && s.expr[s.pos + 1] === "=") {
+    tokens.push({ type: "op", value: "!=" });
+    s.pos += 2;
+  } else if (ch === "!") {
+    tokens.push({ type: "op", value: "!" });
+    s.pos += 1;
+  } else if (ch === "=" && s.expr[s.pos + 1] === "=") {
+    tokens.push({ type: "op", value: "==" });
+    s.pos += 2;
+  } else if (ch === "&" && s.expr[s.pos + 1] === "&") {
+    tokens.push({ type: "op", value: "&&" });
+    s.pos += 2;
+  } else if (ch === "|" && s.expr[s.pos + 1] === "|") {
+    tokens.push({ type: "op", value: "||" });
+    s.pos += 2;
+  } else if (ch === "(") {
+    tokens.push({ type: "lparen" });
+    s.pos += 1;
+  } else if (ch === ")") {
+    tokens.push({ type: "rparen" });
+    s.pos += 1;
+  } else {
+    fail(s.expr, `unexpected character '${ch}'`);
+  }
+}
+
 function tokenize(expr: string): Token[] {
   const tokens: Token[] = [];
-  let i = 0;
-  while (i < expr.length) {
-    const ch = expr[i]!;
-    // whitespace
+  const s: Scanner = { expr, pos: 0 };
+  while (s.pos < expr.length) {
+    const ch = expr[s.pos]!;
     if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
-      i++;
+      s.pos++;
       continue;
     }
-    // string literal
     if (ch === "'") {
-      let j = i + 1;
-      while (j < expr.length && expr[j] !== "'") j++;
-      if (j >= expr.length) fail(expr, "unterminated string literal");
-      tokens.push({ type: "string", value: expr.slice(i + 1, j) });
-      i = j + 1;
+      readString(s, tokens);
       continue;
     }
-    // number literal
     if (ch >= "0" && ch <= "9") {
-      let j = i;
-      while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
-      if (expr[j] === ".") {
-        j++;
-        while (j < expr.length && expr[j]! >= "0" && expr[j]! <= "9") j++;
-      }
-      tokens.push({ type: "number", value: Number(expr.slice(i, j)) });
-      i = j;
+      readNumber(s, tokens);
       continue;
     }
-    // identifier / keyword
     if (isIdentStart(ch)) {
-      let j = i;
-      while (j < expr.length && isIdentPart(expr[j]!)) j++;
-      const word = expr.slice(i, j);
-      if (word === "true") tokens.push({ type: "true" });
-      else if (word === "false") tokens.push({ type: "false" });
-      else tokens.push({ type: "ident", value: word });
-      i = j;
+      readIdentifier(s, tokens);
       continue;
     }
-    // operators
-    if (ch === "!") {
-      if (expr[i + 1] === "=") {
-        tokens.push({ type: "op", value: "!=" });
-        i += 2;
-      } else {
-        tokens.push({ type: "op", value: "!" });
-        i += 1;
-      }
-      continue;
-    }
-    if (ch === "=" && expr[i + 1] === "=") {
-      tokens.push({ type: "op", value: "==" });
-      i += 2;
-      continue;
-    }
-    if (ch === "&" && expr[i + 1] === "&") {
-      tokens.push({ type: "op", value: "&&" });
-      i += 2;
-      continue;
-    }
-    if (ch === "|" && expr[i + 1] === "|") {
-      tokens.push({ type: "op", value: "||" });
-      i += 2;
-      continue;
-    }
-    if (ch === "(") {
-      tokens.push({ type: "lparen" });
-      i++;
-      continue;
-    }
-    if (ch === ")") {
-      tokens.push({ type: "rparen" });
-      i++;
-      continue;
-    }
-    fail(expr, `unexpected character '${ch}'`);
+    readOperator(s, tokens);
   }
   return tokens;
 }
@@ -195,14 +204,15 @@ class Parser {
 
   private parseComparison(): boolean {
     const t = this.peek();
+    let left: OperandValue;
     if (t?.type === "lparen") {
       this.next();
-      const inner = this.parseOr();
+      left = this.parseOr();
       const close = this.next();
       if (close.type !== "rparen") fail(this.expr, "expected ')'");
-      return inner;
+    } else {
+      left = this.parseOperand();
     }
-    const left = this.parseOperand();
     const op = this.peek();
     if (op?.type === "op" && (op.value === "==" || op.value === "!=")) {
       this.next();
@@ -210,7 +220,7 @@ class Parser {
       const eq = looseEqual(left, right);
       return op.value === "==" ? eq : !eq;
     }
-    // bare operand: truthy check
+    // bare operand or parenthesized group: truthy check
     return isTruthy(left);
   }
 
@@ -250,20 +260,20 @@ function isTruthy(v: OperandValue): boolean {
   return Boolean(v);
 }
 
+/** Compare a string and a number numerically (loose coercion). */
+function looseNumericEqual(str: string, num: number): boolean {
+  const n = Number(str);
+  return Number.isFinite(n) && n === num;
+}
+
 function looseEqual(a: OperandValue, b: OperandValue): boolean {
   if (a === b) return true;
   if (a == null || b == null) return a == b;
+  if (typeof a === "boolean" || typeof b === "boolean") return a === b;
   // Loose string/number coercion: compare numerically when one side is a
   // number and the other is a string, consistent with the spec loose
   // equality (string/number coercion).
-  if (typeof a === "string" && typeof b === "number") {
-    const na = Number(a);
-    return Number.isFinite(na) && na === b;
-  }
-  if (typeof a === "number" && typeof b === "string") {
-    const nb = Number(b);
-    return Number.isFinite(nb) && a === nb;
-  }
-  if (typeof a === "boolean" || typeof b === "boolean") return a === b;
+  if (typeof a === "string" && typeof b === "number") return looseNumericEqual(a, b);
+  if (typeof a === "number" && typeof b === "string") return looseNumericEqual(b, a);
   return a === b;
 }

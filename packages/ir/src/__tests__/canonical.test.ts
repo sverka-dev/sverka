@@ -88,6 +88,6 @@ describe("canonicalStringify", () => {
   it("preserves valid surrogate pairs (astral characters)", () => {
     const emoji = "\uD83D\uDE00";
     const out = canonicalStringify(emoji);
-    expect(out).toBe('"\\ud83d\\ude00"');
+    expect(out).toBe('"\uD83D\uDE00"');
   });
 });

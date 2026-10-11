@@ -21,9 +21,34 @@ interface NodeFields {
   readonly _id?: string;
 }
 
+/**
+ * Deep-clone the spec's array and record fields so later mutation by the
+ * caller cannot affect the node. Primitives and undefined are passed through.
+ */
+function snapshotSpec(spec: Readonly<Partial<OperationSpec>>): Readonly<Partial<OperationSpec>> {
+  const snapshot: Partial<OperationSpec> = { ...spec };
+  // Clone known array fields.
+  if (snapshot.args !== undefined) snapshot.args = [...snapshot.args];
+  if (snapshot.dependsOn !== undefined) snapshot.dependsOn = [...snapshot.dependsOn];
+  if (snapshot.tags !== undefined) snapshot.tags = [...snapshot.tags];
+  if (snapshot.artifacts !== undefined) snapshot.artifacts = snapshot.artifacts.map((a) => ({ ...a }));
+  if (snapshot.credentials !== undefined) snapshot.credentials = snapshot.credentials.map((c) => ({ ...c }));
+  // Clone known record fields.
+  if (snapshot.env !== undefined) snapshot.env = { ...snapshot.env };
+  if (snapshot.cache !== undefined) snapshot.cache = { ...snapshot.cache };
+  // Clone matrix dimensions (record of arrays).
+  if (snapshot.matrix !== undefined) {
+    const m: Record<string, readonly unknown[]> = {};
+    for (const [k, v] of Object.entries(snapshot.matrix)) m[k] = [...v];
+    snapshot.matrix = m;
+  }
+  return snapshot;
+}
+
 /** Build an immutable {@link OperationNode} with working composable methods. */
 function makeNode(fields: NodeFields): OperationNode {
-  const { kind, spec, predecessors, siblings } = fields;
+  const { kind, predecessors, siblings } = fields;
+  const spec = snapshotSpec(fields.spec);
   const node: OperationNode = {
     kind,
     spec,
@@ -71,8 +96,22 @@ export function createNode(
   return makeNode({ kind, spec, predecessors: [], siblings: [] });
 }
 
-/** Type guard: narrow a public {@link Operation} to an internal node. */
+/**
+ * Type guard: narrow a public {@link Operation} to an internal node.
+ * Throws if the value does not have the required internal fields
+ * (`kind`, `spec`, `predecessors`, `siblings`).
+ */
 export function asNode(operation: Operation): OperationNode {
+  const candidate = operation as unknown as Partial<OperationNode>;
+  if (
+    typeof candidate.kind !== "string" ||
+    typeof candidate.spec !== "object" ||
+    candidate.spec === null ||
+    !Array.isArray(candidate.predecessors) ||
+    !Array.isArray(candidate.siblings)
+  ) {
+    throw new TypeError("expected an OperationNode, got a plain Operation");
+  }
   return operation as OperationNode;
 }
 

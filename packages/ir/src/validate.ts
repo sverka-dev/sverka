@@ -36,7 +36,7 @@ export function validatePlan(plan: unknown): ValidationResult {
   const errors: ValidationErrorDetail[] = [];
 
   // Top-level shape.
-  if (!isPlainObject(plan) || Array.isArray(plan)) {
+  if (!isPlainObject(plan)) {
     errors.push({
       field: "",
       code: "INVALID_PLAN",
@@ -71,6 +71,22 @@ export function validatePlan(plan: unknown): ValidationResult {
   const sourceContextHashOk = typeof p.sourceContextHash === "string";
   const operationsOk = Array.isArray(p.operations);
   const metadataOk = isPlainObject(p.metadata);
+  const createdAtOk = typeof p.createdAt === "string";
+
+  // Validate required top-level fields (not just for shape check).
+  if (!nameOk) {
+    errors.push({ field: "name", code: "INVALID_NAME", message: "name must be a string" });
+  }
+  if (!sourceContextHashOk) {
+    errors.push({ field: "sourceContextHash", code: "INVALID_SOURCE_CONTEXT_HASH", message: "sourceContextHash must be a string" });
+  }
+  if (!metadataOk) {
+    errors.push({ field: "metadata", code: "INVALID_METADATA", message: "metadata must be a plain object" });
+  }
+  if (!createdAtOk) {
+    errors.push({ field: "createdAt", code: "INVALID_CREATED_AT", message: "createdAt must be a string" });
+  }
+
   const shapeOk =
     p.apiVersion === "sverka.dev/v1" &&
     nameOk &&
@@ -148,7 +164,7 @@ export function validatePlan(plan: unknown): ValidationResult {
   const idSet = new Set<string>();
   const idCounts = new Map<string, number>();
   for (const op of ops) {
-    if (typeof op.id === "string") {
+    if (typeof op.id === "string" && op.id.length > 0) {
       idSet.add(op.id);
       idCounts.set(op.id, (idCounts.get(op.id) ?? 0) + 1);
     } else {
@@ -179,6 +195,16 @@ export function validatePlan(plan: unknown): ValidationResult {
   // Per-operation rules 4, 7, 8, 9, 10, 11, 12, 13.
   for (const op of ops) {
     const opId = typeof op.id === "string" ? op.id : undefined;
+
+    // Validate required kind field.
+    if (typeof op.kind !== "string" || op.kind.length === 0) {
+      errors.push({
+        ...(opId !== undefined ? { operationId: opId } : {}),
+        field: "operations[].kind",
+        code: "INVALID_OPERATION_KIND",
+        message: "operation kind must be a non-empty string",
+      });
+    }
 
     // Rule 4: dependsOn must be an array if present; each id must exist.
     if (op.dependsOn !== undefined) {
