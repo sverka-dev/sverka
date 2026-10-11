@@ -80,9 +80,6 @@
     "packages/ir": {
       "name": "@sverka/ir",
       "version": "0.0.0",
-      "dependencies": {
-        "@sverka/core": "workspace:*",
-      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
@@ -110,9 +107,6 @@
     "packages/runtime": {
       "name": "@sverka/runtime",
       "version": "0.0.0",
-      "dependencies": {
-        "@sverka/ir": "workspace:*",
-      },
       "devDependencies": {
         "tsdown": "^0.22.0",
         "typescript": "^5.8.0",
