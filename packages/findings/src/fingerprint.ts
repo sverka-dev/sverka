@@ -33,7 +33,7 @@ export function computeFingerprint(input: FingerprintInput): string {
     );
   }
 
-  const normalizedFile = input.file.replace(/\\/g, "/");
+  const normalizedFile = input.file.replaceAll("\\", "/");
   const payload = `${input.checkId}|${input.rule}|${normalizedFile}|${input.startLine}|${input.endLine}`;
   return createHash("sha256").update(payload).digest("hex");
 }
