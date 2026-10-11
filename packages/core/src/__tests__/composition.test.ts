@@ -20,7 +20,7 @@ describe("mergeSpecs", () => {
     expect(merged.image).toBe("node:20");
   });
 
-  it("undefined values in b do not overwrite a", () => {
+  it("fields in b do not overwrite unrelated fields in a", () => {
     // With exactOptionalPropertyTypes, omit the key rather than passing undefined.
     const merged = mergeSpecs({ command: "a" }, { image: "node:24" });
     expect(merged.command).toBe("a");

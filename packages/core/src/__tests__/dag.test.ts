@@ -14,13 +14,16 @@ describe("DAG validation", () => {
     const x = run({ id: "x", command: "x", dependsOn: ["y"] });
     const y = run({ id: "y", command: "y", dependsOn: ["x"] });
     const wf = workflow("cyclic", x, y);
-    await expect(wf.plan(makePlanRuntime())).rejects.toThrow(CompositionError);
+    let caught: unknown;
     try {
       await wf.plan(makePlanRuntime());
     } catch (err) {
-      const ce = err as CompositionError;
-      expect(ce.context).toBeDefined();
-      expect(ce.context?.["cycle"]).toBeDefined();
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(CompositionError);
+    if (caught instanceof CompositionError) {
+      expect(caught.context).toBeDefined();
+      expect(caught.context?.["cycle"]).toBeDefined();
     }
   });
 
