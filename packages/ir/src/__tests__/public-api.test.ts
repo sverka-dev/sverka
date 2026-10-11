@@ -2,6 +2,46 @@ import { describe, it, expect } from "vitest";
 import * as api from "../index.js";
 import { validPlan } from "./helpers/fixtures.js";
 
+// Compile-time coverage for public type exports. These assignments ensure
+// the types are importable and usable; they are erased at runtime but
+// caught by `tsc --noEmit`.
+import type {
+  Plan,
+  PlanOperation,
+  PlanMetadata,
+  ExecutorSpec,
+  RemoteExecutorRef,
+  ResourceLimits,
+  NetworkPolicy,
+  CredentialDeclaration,
+  CacheDeclaration,
+  ArtifactDeclaration,
+  RetryPolicy,
+  PlanValidator,
+  ValidationResult,
+  ValidationErrorDetail,
+} from "../index.js";
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _typeCoverage(
+  _p: Plan,
+  _op: PlanOperation,
+  _m: PlanMetadata,
+  _e: ExecutorSpec,
+  _r: RemoteExecutorRef,
+  _rl: ResourceLimits,
+  _np: NetworkPolicy,
+  _cd: CredentialDeclaration,
+  _cache: CacheDeclaration,
+  _art: ArtifactDeclaration,
+  _retry: RetryPolicy,
+  _pv: PlanValidator,
+  _vr: ValidationResult,
+  _ved: ValidationErrorDetail,
+): void {
+  // This function exists solely to use every exported type at compile time.
+}
+
 describe("public API surface", () => {
   it("exports every spec-listed value symbol", () => {
     expect(typeof api.validatePlan).toBe("function");

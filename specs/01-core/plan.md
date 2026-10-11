@@ -209,11 +209,11 @@ This is the core engine. It is called by `workflow().plan()`.
           its `condition` unchanged. Compilers must retain and emit
           false-conditioned operations so users can see what was
           conditionally excluded (spec §Runtime modes, Lines 459-461).
-        - **Plan mode:** pass the operation to `runtime.evaluate` with
-          its `condition` unchanged so the plan records all operations
-          regardless of condition outcome.
-        This preserves false-conditioned operations in Compile and Plan
-        modes while keeping Execution mode simple.
+        - **Plan mode:** skip the operation without calling
+          `runtime.evaluate`. The operation is still recorded in the
+          `operations` list with its `condition` field intact.
+        This preserves false-conditioned operations in Compile mode while
+        keeping Execution and Plan modes simple.
      8. **Evaluate** — for each non-skipped node in topo order, call
         `runtime.evaluate(spec)`. Collect `OperationOutcome`s.
      9. **Finalize** — call `runtime.finalize()`, merge with planner
