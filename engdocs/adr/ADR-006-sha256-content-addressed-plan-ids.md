@@ -23,7 +23,7 @@ and the same workflow composed in a different order yields different IDs.
 
 Operation IDs are **content-addressed** using SHA-256:
 
-```
+```text
 op-<64 hex chars>
 ```
 
@@ -39,8 +39,13 @@ The hash is computed over the canonical JSON of `{ kind, name, context }`:
   - `command` — `spec.command` if provided.
   - `args` — `spec.args` if provided.
   - `matrix` — matrix dimension values (e.g. `{ node: "24", os: "linux" }`).
-  - `index` — positional index within the discovery walk (ensures two
-    structurally identical unnamed operations get distinct IDs).
+
+  Two structurally identical unnamed operations (same `kind`, `name`,
+  `command`, and `context`) will produce the same ID. This is detected
+  during planning and raises `CompositionError`. The fix is to
+  differentiate via `name`, `command`, or `spec.id`. Discovery order
+  (`index`) is **not** part of the hash, preserving cache stability and
+  plan-diff guarantees when traversal order changes.
 
 ### Canonical JSON
 
