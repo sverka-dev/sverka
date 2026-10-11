@@ -8,7 +8,7 @@ formula_compiler = ">=2.0.0"
 id = "discover"
 title = "Mayor: discover the PR stacks"
 description = """
-The mayor discovers all open PR stacks by querying `gh pr list --state open`
+The mayor discovers all open PR stacks by querying `gh pr list --state open --limit 200`
 and building dependency chains from base/head ref names.
 
 For each stack, identify:
@@ -51,7 +51,9 @@ CodeRabbit trigger is MANDATORY after every push. CodeRabbit does not
 auto-review non-default branches. Without triggering, review threads
 stay stale and convergence check #4 is meaningless.
 
-PREREQUISITE: Before /act, rebase the TOP PR onto main:
+PREREQUISITE: Before /act, rebase the full stack and then flatten the TOP PR:
+  gh stack rebase
+  gh stack submit
   git checkout <top-head-branch>
   git fetch origin
   git rebase origin/main
@@ -65,6 +67,13 @@ main in one squash commit.
 If /act cannot converge (context limit, unfixable issue), the builder
 reports back to the mayor with a blocker report. The mayor decides:
 retry with fresh context, or escalate to human.
+
+RETRY BUDGET: The /act --loop MUST be bounded:
+  - Maximum 10 iterations per convergence attempt
+  - Maximum 2 hours elapsed per convergence attempt
+  - Exponential backoff: 60s, 120s, 240s between retries
+  - When any limit is reached, stop retrying and send a blocker
+    report to the mayor for escalation. Do not loop indefinitely.
 """
 needs = ["discover"]
 agent = "builder"
@@ -112,10 +121,12 @@ Capture:
 6. Time to converge — how many /act iterations
 7. Stack size — how many PRs were in this stack, how many closed vs merged
 
-Store in .gc/retrospects/merge-stack.md and bd remember.
+Store retrospectives in Beads only using `bd remember`. Do NOT use
+.gc/retrospects/ or any ad hoc memory files.
 
-Before starting /act on the next stack's top PR, read the retrospect log
-and apply lessons learned — proactively fix patterns before bots find them.
+Before starting /act on the next stack's top PR, refresh Beads context
+with `bd prime` and apply lessons learned — proactively fix patterns
+before bots find them.
 """
 needs = ["merge"]
 agent = "mayor"
