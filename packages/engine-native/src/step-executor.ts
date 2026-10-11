@@ -3,7 +3,7 @@
 
 import { mkdir, readFile } from "node:fs/promises";
 import { isAbsolute, join, normalize, relative } from "node:path";
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import type { StepDefinition, OperationDefinition } from "@sverka/core";
 import type { InputValue } from "@sverka/ir";
 import type { RuntimeDriver, ShellExecuteRequest, ShellResult, ValueStore, ArtifactStore, RunEvent } from "./types.js";
@@ -102,9 +102,9 @@ async function executeShellOperation(
   stepWorkspace: string,
   outputDir: string,
 ): Promise<void> {
-  const { step, driver, secrets, valueStore, inputs, signal } = opts;
+  const { step, driver, secrets, valueStore, inputs, signal, workspace } = opts;
   const env = buildShellEnv(step, outputDir, secrets);
-  const command = interpolateCommand(op.command, step, valueStore, inputs, secrets);
+  const command = interpolateCommand(op.command, step, valueStore, inputs, secrets, workspace);
   const cwd = step.runtime.workingDir
     ? resolveUnder(stepWorkspace, step.runtime.workingDir)
     : stepWorkspace;
@@ -282,8 +282,11 @@ function interpolateCommand(
   valueStore: ValueStore,
   inputs: Readonly<Record<string, InputValue>> | undefined,
   secrets: Readonly<Record<string, string>>,
+  workspace: string,
 ): string {
   const prefix = stepPrefix(step.id);
+  const declaredSecrets = new Set(step.runtime.secrets ?? []);
+  const runtimeEnv = step.runtime.env ?? {};
   return command.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
     const dot = key.lastIndexOf(".");
     if (dot === -1) {
@@ -295,8 +298,20 @@ function interpolateCommand(
     const ns = key.slice(0, dot);
     const field = key.slice(dot + 1);
 
-    // Context ref resolution (F-35)
-    const ctxValue = resolveContextRef(ns, field, inputs, secrets);
+    // Secrets: emit env var reference ($FIELD), never the raw value.
+    // Only secrets declared in step.runtime.secrets are accessible.
+    if (ns === "secrets") {
+      if (!declaredSecrets.has(field)) {
+        throw new StepExecError(
+          `step '${step.id}' references undeclared secret '${field}'`,
+          "STEP_EXEC_ERROR",
+        );
+      }
+      return `$${field}`;
+    }
+
+    // Context ref resolution (F-35) — env.X prioritizes runtime.env over process.env
+    const ctxValue = resolveContextRef(ns, field, inputs, runtimeEnv, workspace);
     if (ctxValue !== undefined) {
       return shellQuote(ctxValue);
     }
@@ -318,23 +333,25 @@ function interpolateCommand(
 /**
  * Resolve a context ref (namespace.field) against runtime state.
  * Returns undefined if the namespace is not a context namespace or the value is not found.
+ * Secrets are handled separately in interpolateCommand (emit env var ref, not raw value).
  */
 function resolveContextRef(
   namespace: string,
   field: string,
   inputs: Readonly<Record<string, InputValue>> | undefined,
-  secrets: Readonly<Record<string, string>>,
+  runtimeEnv: Readonly<Record<string, string>>,
+  workspace: string,
 ): string | undefined {
   switch (namespace) {
     case "env":
+      // Prioritize step.runtime.env over process.env
+      if (runtimeEnv[field] !== undefined) return runtimeEnv[field];
       return process.env[field];
-    case "secrets":
-      return secrets[field];
     case "inputs":
       return inputs?.[field] !== undefined ? String(inputs[field]) : undefined;
     case "git":
-      return resolveGitContext(field);
-    // change, event, run — not available in native engine without a CI context
+      return resolveGitContext(field, workspace);
+    // change, event, run, secrets — not resolved here
     default:
       return undefined;
   }
@@ -342,16 +359,29 @@ function resolveContextRef(
 
 /**
  * Resolve git.* context refs using git CLI.
+ * Uses spawnSync with a controlled environment to avoid PATH manipulation (S4036).
+ * Runs in the workspace directory so git context reflects the project repo.
  */
-function resolveGitContext(field: string): string | undefined {
+function resolveGitContext(field: string, cwd?: string): string | undefined {
+  const controlledEnv: Record<string, string> = {
+    PATH: process.env.PATH ?? "",
+    HOME: process.env.HOME ?? "",
+  };
+  const opts = { encoding: "utf-8" as const, env: controlledEnv, ...(cwd ? { cwd } : {}) };
   try {
     switch (field) {
-      case "sha":
-        return execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
-      case "branch":
-        return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
-      case "tag":
-        return execSync("git describe --tags --exact-match 2>/dev/null", { encoding: "utf-8" }).trim();
+      case "sha": {
+        const r = spawnSync("git", ["rev-parse", "HEAD"], opts);
+        return r.status === 0 ? r.stdout.trim() : undefined;
+      }
+      case "branch": {
+        const r = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], opts);
+        return r.status === 0 ? r.stdout.trim() : undefined;
+      }
+      case "tag": {
+        const r = spawnSync("git", ["describe", "--tags", "--exact-match"], opts);
+        return r.status === 0 ? r.stdout.trim() : undefined;
+      }
       default:
         return undefined;
     }

@@ -335,4 +335,32 @@ describe("synthesize — step conditions", () => {
     );
     expect(deploy?.dependencies).toEqual([]);
   });
+
+  it("Expression condition with step refs adds value dependencies", () => {
+    const proj = new Project("myproj");
+    const pipeline = new Pipeline(proj, "ci");
+    new ShellStep(pipeline, "build", {
+      command: "npm run build",
+      outputs: { ok: { type: "boolean" } },
+    });
+    new ShellStep(pipeline, "deploy", {
+      command: "deploy",
+      condition: {
+        kind: "expression",
+        template: "${build.ok} == true",
+        refs: [
+          { kind: "step", step: "build", output: "ok", type: "boolean" },
+        ],
+      },
+    });
+    const graph = synthesize(proj);
+    const deploy = graph.project.pipelines[0]?.steps.find(
+      (s) => s.id === "ci/deploy",
+    );
+    expect(deploy?.dependencies).toContainEqual({
+      kind: "value",
+      producer: "ci/build",
+      output: "ok",
+    });
+  });
 });

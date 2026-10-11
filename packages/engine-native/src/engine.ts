@@ -5,7 +5,7 @@
 import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { RunPlan } from "@sverka/ir";
-import type { StepDefinition } from "@sverka/core";
+import type { StepDefinition, Expression } from "@sverka/core";
 import type {
   Engine,
   RunRequest,
@@ -424,7 +424,145 @@ class NativeEngine implements Engine {
       const value = ctx.valueStore.get(resolvedId, condition.output);
       return value !== undefined && value !== false && value !== "" && value !== 0;
     }
-    return true;
+    // Expression — resolve refs to values, substitute into template, evaluate
+    return this.evaluateExpressionCondition(condition, ctx, stepId);
+  }
+
+  /**
+   * Evaluate an Expression condition by resolving its refs to concrete values,
+   * substituting them into the template, then evaluating the resulting boolean
+   * expression using the core condition evaluator's syntax.
+   */
+  private evaluateExpressionCondition(
+    expr: Expression,
+    ctx: RunContext,
+    stepId: string,
+  ): boolean {
+    const resolved = expr.template.replace(/\$\{([^{}]+)\}/g, (_, key: string) => {
+      const ref = expr.refs.find((r) => {
+        if (r.kind === "context") return `${r.namespace}.${r.field}` === key;
+        return `${r.step}.${r.output}` === key;
+      });
+      if (!ref) return "false";
+      if (ref.kind === "context") {
+        const value = ctx.plan.inputs?.[key] ?? ctx.plan.inputs?.[ref.field];
+        return value === undefined ? "false" : this.formatExprValue(value);
+      }
+      // step ref
+      const prefix = stepPrefix(stepId);
+      const resolvedId = ref.step.includes("/")
+        ? ref.step
+        : prefix
+          ? `${prefix}/${ref.step}`
+          : ref.step;
+      const value = ctx.valueStore.get(resolvedId, ref.output);
+      return value === undefined ? "false" : this.formatExprValue(value);
+    });
+    // Simple truthiness check: if the resolved string is a bare value, check truthiness.
+    // If it contains operators (==, !=, &&, ||), evaluate as a boolean expression.
+    if (/==|!=|&&|\|\|/.test(resolved)) {
+      return this.evalBoolExpr(resolved);
+    }
+    return resolved !== "false" && resolved !== "" && resolved !== "0" && resolved !== "undefined";
+  }
+
+  /** Format a value for inclusion in an expression string. */
+  private formatExprValue(value: unknown): string {
+    if (typeof value === "string") return `'${value}'`;
+    if (typeof value === "boolean") return value ? "true" : "false";
+    if (typeof value === "number") return String(value);
+    return "false";
+  }
+
+  /**
+   * Evaluate a simple boolean expression with ==, !=, &&, || operators.
+   * Operands are string literals ('...'), numbers, true, false.
+   */
+  private evalBoolExpr(expr: string): boolean {
+    // Tokenize and evaluate with a simple recursive descent parser.
+    const tokens = this.tokenizeExpr(expr);
+    if (tokens.length === 0) return false;
+    let pos = 0;
+    const parseOr = (): boolean => {
+      let left = parseAnd();
+      while (pos < tokens.length && tokens[pos] === "||") {
+        pos++;
+        left = left || parseAnd();
+      }
+      return left;
+    };
+    const parseAnd = (): boolean => {
+      let left = parseNot();
+      while (pos < tokens.length && tokens[pos] === "&&") {
+        pos++;
+        left = left && parseNot();
+      }
+      return left;
+    };
+    const parseNot = (): boolean => {
+      if (pos < tokens.length && tokens[pos] === "!") {
+        pos++;
+        return !parseNot();
+      }
+      return parseComparison();
+    };
+    const parseComparison = (): boolean => {
+      const left = parseOperand();
+      if (pos < tokens.length && (tokens[pos] === "==" || tokens[pos] === "!=")) {
+        const op = tokens[pos]!;
+        pos++;
+        const right = parseOperand();
+        const eq = left === right;
+        return op === "==" ? eq : !eq;
+      }
+      // bare operand: truthy check
+      return left !== "false" && left !== "" && left !== "0" && left !== "undefined";
+    };
+    const parseOperand = (): string => {
+      const t = tokens[pos]!;
+      pos++;
+      return t;
+    };
+    try {
+      const result = parseOr();
+      return result;
+    } catch {
+      return true; // default to running on parse error
+    }
+  }
+
+  /** Tokenize a boolean expression into operands and operators. */
+  private tokenizeExpr(expr: string): string[] {
+    const tokens: string[] = [];
+    let i = 0;
+    while (i < expr.length) {
+      const ch = expr[i]!;
+      if (ch === " " || ch === "\t") { i++; continue; }
+      if (ch === "'") {
+        let j = i + 1;
+        while (j < expr.length && expr[j] !== "'") j++;
+        tokens.push(expr.slice(i + 1, j));
+        i = j + 1;
+        continue;
+      }
+      const two = expr.slice(i, i + 2);
+      if (two === "==" || two === "!=" || two === "&&" || two === "||") {
+        tokens.push(two);
+        i += 2;
+        continue;
+      }
+      if (ch === "!" || ch === "(" || ch === ")") {
+        tokens.push(ch);
+        i++;
+        continue;
+      }
+      // bare word/number
+      let j = i;
+      while (j < expr.length && !/[\s'!()=&|]/.test(expr[j]!)) j++;
+      tokens.push(expr.slice(i, j));
+      i = j;
+    }
+    return tokens;
   }
 }
 
