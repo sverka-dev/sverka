@@ -44,7 +44,7 @@ The builder must run `bun install` once after pulling the new
 Mirror `core`'s layout (one module per concern, `__tests__/` co-located,
 internal helpers under `internal/`):
 
-```
+```text
 packages/ir/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   version.ts            # PLAN_SCHEMA_VERSION
