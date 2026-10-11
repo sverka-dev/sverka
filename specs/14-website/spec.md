@@ -2,80 +2,77 @@
 
 ## Overview
 
-The `website` package is the public-facing website at sverka.dev. It is a
-minimalistic, fast, SEO-optimized site built with Astro. The site has three
-page types: a home page (hero, features, quick start), a docs index (links
-to documentation), and a getting started guide.
+The `website/` directory is the public-facing website at sverka.dev. It is a
+minimalistic, fast, SEO-optimized static site built with Astro. Three pages:
+home (hero, features, quick start), docs index (links to documentation), and
+getting started guide.
 
-The design philosophy is restraint: clean typography, a monochrome palette,
-no heavy graphics, no animations beyond subtle transitions. The site loads
-fast on any connection and works without JavaScript for all content pages.
+Design philosophy: restraint. Monochrome dark palette, system fonts, no heavy
+graphics, no client-side JavaScript. Static generation. Fast on any connection.
+
+This is a standalone Astro project — NOT part of the bun workspace or nx
+monorepo. It has its own `package.json` and `bun.lock`. Gates are `astro check`
+and `astro build`, not vitest/tsc/eslint.
 
 ## Goals
 
-1. Build a minimalistic marketing and documentation entry point at
-   sverka.dev using Astro.
-2. Home page with hero section, feature highlights, and quick start
-   snippet.
-3. Docs index page linking to user and agentic documentation.
-4. Getting started page with step-by-step instructions using `bun` commands.
-5. Clean typography system with a monochrome (black/white/grays) palette.
-6. SEO optimized: meta tags, Open Graph tags, sitemap, robots.txt.
-7. Fast load times: minimal CSS, no client-side JavaScript for content,
-   static generation.
-8. Responsive layout that works on mobile and desktop.
-9. Accessible: semantic HTML, sufficient color contrast, keyboard
-   navigable.
+1. Minimalistic marketing and documentation entry point at sverka.dev.
+2. Home page: hero, feature highlights, quick start snippet.
+3. Docs index: links to GitHub-hosted documentation (engdocs, specs, ADRs).
+4. Getting started page: step-by-step `bun` commands.
+5. Monochrome dark palette, system fonts, high contrast.
+6. SEO: meta tags, Open Graph tags, canonical URLs, sitemap, robots.txt.
+7. Static generation, no client-side JavaScript.
+8. Responsive layout (mobile + desktop).
+9. Accessible: semantic HTML, sufficient color contrast.
 
 ## Non-goals
 
-- Building a full documentation site generator. Documentation content lives
-  in the `engdocs` and `specs` trees; the website links to rendered
-  versions.
+- Full documentation site generator. Docs live in `engdocs/` and `specs/`;
+  the website links to GitHub.
 - Interactive playground or in-browser Sverka execution.
-- User accounts, authentication, or analytics dashboards.
-- A blog or news section in v1.
-- Heavy graphics, illustrations, or video content.
-- Dark/light theme toggle in v1 (single light theme, high contrast).
+- User accounts, authentication, analytics.
+- Blog, news section, heavy graphics, video.
+- Theme toggle (single dark theme).
+- Component extraction. Content is inline in 3 pages + 1 layout. No
+  `src/components/` directory — each component would have exactly one
+  consumer, which is premature abstraction for a 3-page site.
+- TypeScript library exports. This is content and configuration, not a
+  package. No `src/index.ts`, no custom error classes, no design token
+  exports. CSS custom properties in `global.css` are the design tokens.
+- Web fonts (Inter, JetBrains Mono). System fonts are faster and simpler.
+- axe-core, snapshot tests, performance budgets. Gold-plating for v1.
 
 ## Interfaces
 
-This package is primarily content and configuration, not a TypeScript
-library. The public interface is the set of Astro pages and components.
-
 ### Page structure
 
-```typescript
-// src/pages/index.astro          — home page
-// src/pages/docs.astro           — docs index
-// src/pages/getting-started.astro — getting started guide
+```
+src/pages/index.astro           — home page
+src/pages/docs.astro            — docs index
+src/pages/getting-started.astro — getting started guide
+src/pages/404.astro             — not found page
+src/layouts/Base.astro          — base layout (meta tags, shell)
+src/styles/global.css           — design tokens (CSS custom properties)
+public/robots.txt               — robots
+public/favicon.svg              — favicon
+astro.config.mjs                — Astro config with sitemap integration
 ```
 
-### Layout component interface
+### Base layout
 
-```typescript
-/**
- * Base layout for all pages. Sets meta tags, Open Graph, and renders
- * the page shell (header, main, footer).
- */
-export interface BaseLayoutProps {
-  readonly title: string;
-  readonly description: string;
-  readonly canonicalUrl?: string;
-  readonly ogImage?: string;
+The `Base.astro` layout uses Astro's native frontmatter `Props` pattern:
+
+```astro
+---
+interface Props {
+  title?: string;
+  description?: string;
 }
+---
 ```
 
-### Component inventory
-
-```typescript
-// src/components/Hero.astro        — hero section with title and tagline
-// src/components/FeatureGrid.astro  — grid of feature cards
-// src/components/QuickStart.astro   — code block with install commands
-// src/components/DocLink.astro      — link card to a documentation section
-// src/components/Header.astro       — site header with logo and nav
-// src/components/Footer.astro       — site footer with links
-```
+No custom interface export. Astro handles this natively.
 
 ### Astro configuration
 
@@ -97,147 +94,25 @@ export default defineConfig({
 
 ## Data models
 
-### Home page content
-
-```json
-{
-  "hero": {
-    "title": "Sverka",
-    "tagline": "Define checks once. Plan locally. Run anywhere.",
-    "cta": "Get Started"
-  },
-  "features": [
-    {
-      "title": "Composable Workflows",
-      "description": "Write verification workflows as TypeScript code."
-    },
-    {
-      "title": "Local-First Runtime",
-      "description": "Run full CI locally with Docker or Podman."
-    },
-    {
-      "title": "Multi-Target Compiler",
-      "description": "Compile to GitHub Actions, GitLab CI, and more."
-    },
-    {
-      "title": "Normalized Findings",
-      "description": "One findings model across all tools."
-    }
-  ],
-  "quickStart": {
-    "install": "bun add -g sverka",
-    "plan": "sverka plan",
-    "execute": "sverka execute"
-  }
-}
-```
-
-### Docs index links
-
-```json
-{
-  "sections": [
-    {
-      "title": "User Documentation",
-      "links": [
-        { "label": "Getting Started", "href": "/getting-started" },
-        { "label": "Workflow API Reference", "href": "/docs/workflow-api" },
-        { "label": "CLI Reference", "href": "/docs/cli" },
-        { "label": "Check Providers", "href": "/docs/checks" },
-        { "label": "Compilation Targets", "href": "/docs/compilers" },
-        { "label": "Findings and Policy", "href": "/docs/findings-policy" }
-      ]
-    },
-    {
-      "title": "Agentic Documentation",
-      "links": [
-        { "label": "Architecture", "href": "/docs/architecture" },
-        { "label": "ADRs", "href": "/docs/adrs" },
-        { "label": "Contributor Guide", "href": "/docs/contributing" },
-        { "label": "Development Setup", "href": "/docs/dev-setup" }
-      ]
-    }
-  ]
-}
-```
-
-### Design tokens
-
-```typescript
-export const designTokens = {
-  color: {
-    background: "#ffffff",
-    foreground: "#111111",
-    muted: "#6b6b6b",
-    surface: "#f5f5f5",
-    border: "#e0e0e0",
-    accent: "#111111",
-  },
-  font: {
-    sans: "Inter, system-ui, sans-serif",
-    mono: "JetBrains Mono, monospace",
-  },
-  spacing: {
-    xs: "0.5rem",
-    sm: "1rem",
-    md: "2rem",
-    lg: "4rem",
-    xl: "8rem",
-  },
-  maxWidth: "48rem",
-} as const;
-```
+No JSON data models. Content is inline in `.astro` files. The docs index
+links to GitHub URLs for engineering documentation (engdocs/, specs/, ADRs/)
+and uses text descriptions (not broken links) for guides that don't have
+dedicated pages yet.
 
 ## Error handling
 
-The website is statically generated. Build-time errors are handled by
-Astro's build process:
-
-```typescript
-export class WebsiteBuildError extends Error {
-  constructor(
-    message: string,
-    readonly page: string,
-    readonly code: WebsiteErrorCode,
-  ) {
-    super(message);
-    this.name = "WebsiteBuildError";
-  }
-}
-
-export type WebsiteErrorCode =
-  | "MISSING_CONTENT"
-  | "INVALID_FRONTMATTER"
-  | "BROKEN_LINK"
-  | "SEO_METADATA_MISSING";
-```
-
-- `MISSING_CONTENT`: a referenced content file does not exist. Build fails.
-- `INVALID_FRONTMATTER`: a page's frontmatter is missing required fields.
-  Build fails.
-- `BROKEN_LINK`: an internal link points to a non-existent page. Build fails
-  in strict mode, warns otherwise.
-- `SEO_METADATA_MISSING`: a page is missing title or description. Build
-  fails in strict mode.
-
-Runtime errors are minimal since the site is static. The 404 page is
-generated at `src/pages/404.astro`.
+No custom error classes. Astro's build process handles build-time errors
+natively. The 404 page at `src/pages/404.astro` handles not-found routes.
 
 ## Test plan
 
-- Build test: `bun run build` succeeds and produces static output in
-  `dist/`.
-- Page tests: each page (`/`, `/docs`, `/getting-started`) renders without
-  errors.
-- SEO tests: each generated HTML file contains `<title>`, `<meta
-  description>`, Open Graph tags, and canonical link.
-- Sitemap test: `sitemap-index.xml` is generated and contains all pages.
-- Link check: no broken internal links in generated output.
-- Performance test: home page HTML is under 20 KB gzipped (excluding
-  fonts). No render-blocking JavaScript.
-- Accessibility test: pages pass axe-core checks for color contrast,
-  heading order, and landmark roles.
-- Snapshot tests for each page's HTML output to catch unintended changes.
-- Tests run via `bun test`.
-- No `any` types in any TypeScript used for configuration or content
-  schemas.
+1. `astro check` passes (TypeScript validation for .astro files).
+2. `astro build` succeeds and produces static output in `dist/`.
+3. `dist/` contains: `index.html`, `docs/index.html`,
+   `getting-started/index.html`, `404.html`, `sitemap-index.xml`,
+   `robots.txt`, `favicon.svg`.
+4. Each generated HTML file contains `<title>`, `<meta name="description">`,
+   Open Graph tags, and `<link rel="canonical">`.
+5. `sitemap-index.xml` contains all page URLs.
+6. No broken internal links in generated output.
+7. No `any` types in any TypeScript used in `.astro` frontmatter or config.
