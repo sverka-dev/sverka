@@ -79,6 +79,7 @@ for the full architecture overview.
 - **SDD:** Specs are written first, in `specs/`, numbered and structured.
 - **TDD:** Tests are written before implementation.
 - **Document-first:** Engineering docs in `engdocs/` before code.
+- **Stacked PRs:** Wave PRs MUST be stacked — each wave's PR base is the previous wave's branch, NOT main. Only the first wave targets main. This is mandatory.
 - **No `any`:** Use `unknown` and narrow. Strict TypeScript.
 - **Public API:** Everything public is exported from `src/index.ts`.
 - **Error handling:** Custom error classes per package.

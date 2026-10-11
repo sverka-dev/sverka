@@ -38,6 +38,25 @@ agent = "reviewer"
 [[steps]]
 id = "finalize"
 title = "Finalize wave"
-description = "Wave is complete. Mayor records completion and prepares next wave."
+description = """
+Wave is complete. Mayor records completion and prepares next wave.
+
+The mayor MUST:
+1. Close the wave epic and sub-tasks.
+2. Create a STACKED PR — the PR base MUST be the previous wave's branch,
+   NOT main. This is mandatory for all waves after the first.
+   - First wave: PR base = main
+   - Subsequent waves: PR base = previous wave's head branch
+   - To find the previous wave's branch: check `gh pr list --state open`
+     and find the most recent wave PR. Use its head branch as the base.
+   - The current wave's branch must be rebased onto the previous wave's
+     branch before pushing:
+       git rebase origin/<previous-wave-branch>
+       git push --force-with-lease origin <current-wave-branch>
+   - Set the PR base:
+       gh pr create --base <previous-wave-branch> --head <current-wave-branch>
+   - NEVER set PR base to main for waves after the first.
+3. Prepare next wave.
+"""
 needs = ["review"]
 agent = "mayor"

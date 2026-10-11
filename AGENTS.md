@@ -48,6 +48,7 @@ engdocs/            # engineering docs (document-first)
 - **TDD:** Tests are written before implementation. Always.
 - **Document-first:** Engineering docs in `engdocs/` before code.
 - **Waves:** Work is organized in waves. Each wave: architect -> builder -> reviewer.
+- **Stacked PRs:** Wave PRs MUST be stacked — each wave's PR base is the previous wave's branch, NOT main. Only the first wave targets main. This is mandatory.
 - **No `any`:** Use `unknown` and narrow. Strict TypeScript.
 - **Public API:** Everything public is exported from `src/index.ts`.
 - **Error handling:** Custom error classes per package.
