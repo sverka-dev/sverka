@@ -65,7 +65,7 @@ describe("validatePlan — rule 2 (id matches recomputed)", () => {
     const plan = { ...validPlan(), id: "" };
     const result = validatePlan(plan);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.code === "ID_MISMATCH")).toBe(true);
+    expect(result.errors.some((e) => e.code === "INVALID_ID")).toBe(true);
   });
 });
 
@@ -186,17 +186,13 @@ describe("validatePlan — rule 8 (timeoutSeconds > 0)", () => {
     const plan = validPlan({
       operations: [validOperation({ timeoutSeconds: -5 })],
     });
-    expect(validatePlan(plan).valid).toBe(false);
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
     expect(
-      result_of(plan).some((e) => e.code === "INVALID_TIMEOUT"),
+      result.errors.some((e) => e.code === "INVALID_TIMEOUT"),
     ).toBe(true);
   });
 });
-
-// helper to keep the negative-timeout test concise
-function result_of(plan: unknown) {
-  return validatePlan(plan).errors;
-}
 
 describe("validatePlan — rule 9 (resources parseable)", () => {
   it("rejects empty cpu with INVALID_RESOURCES", () => {
