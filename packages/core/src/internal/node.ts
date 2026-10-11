@@ -21,43 +21,87 @@ interface NodeFields {
   readonly _id?: string;
 }
 
+/**
+ * Deep-freeze a spec-like value so callers cannot mutate it after the node
+ * is created. This enforces the immutable-composition contract.
+ */
+function deepFreezeSpec<T>(value: T): T {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    for (const el of value) deepFreezeSpec(el);
+    Object.freeze(value);
+  } else {
+    for (const k of Object.keys(value as Record<string, unknown>)) {
+      deepFreezeSpec((value as Record<string, unknown>)[k]);
+    }
+    Object.freeze(value);
+  }
+  return value;
+}
+
+/**
+ * Shallow-clone and freeze the spec so the node owns an immutable snapshot.
+ * Caller mutations to the original spec object cannot affect the node.
+ */
+function snapshotSpec(spec: Readonly<Partial<OperationSpec>>): Readonly<Partial<OperationSpec>> {
+  return deepFreezeSpec({ ...spec });
+}
+
 /** Build an immutable {@link OperationNode} with working composable methods. */
 function makeNode(fields: NodeFields): OperationNode {
   const { kind, spec, predecessors, siblings } = fields;
+  const frozenSpec = snapshotSpec(spec);
   const node: OperationNode = {
     kind,
-    spec,
+    spec: frozenSpec,
     predecessors,
     siblings,
     ...(fields._id !== undefined ? { _id: fields._id } : {}),
     after: (...predecessorsToAdd: Operation[]): Operation =>
       makeNode({
         kind,
-        spec,
-        predecessors: [...predecessors, ...(predecessorsToAdd as OperationNode[])],
+        spec: frozenSpec,
+        predecessors: [...predecessors, ...asNodes(predecessorsToAdd)],
         siblings,
       }),
     with: (...siblingsToAdd: Operation[]): Operation =>
       makeNode({
         kind,
-        spec,
+        spec: frozenSpec,
         predecessors,
-        siblings: [...siblings, ...(siblingsToAdd as OperationNode[])],
+        siblings: [...siblings, ...asNodes(siblingsToAdd)],
       }),
     named: (name: string): Operation =>
-      makeNode({ kind, spec: { ...spec, name }, predecessors, siblings }),
+      makeNode({ kind, spec: { ...frozenSpec, name }, predecessors, siblings }),
     tagged: (...tags: string[]): Operation =>
       makeNode({
         kind,
         spec: {
-          ...spec,
-          tags: concatDedupe([...(spec.tags ?? []), ...tags]),
+          ...frozenSpec,
+          tags: concatDedupe([...(frozenSpec.tags ?? []), ...tags]),
         },
         predecessors,
         siblings,
       }),
   };
   return node;
+}
+
+/** Narrow an array of public Operations to OperationNodes, validating each. */
+function asNodes(ops: readonly Operation[]): OperationNode[] {
+  return ops.map((op) => {
+    if (
+      op !== null &&
+      typeof op === "object" &&
+      "predecessors" in op &&
+      "siblings" in op
+    ) {
+      return op as OperationNode;
+    }
+    throw new TypeError(
+      "expected an Operation created by run()/pipeline()/parallel()/etc., got a plain object",
+    );
+  });
 }
 
 /** Create a fresh operation node with no predecessors or siblings. */

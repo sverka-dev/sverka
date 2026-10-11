@@ -72,4 +72,22 @@ describe("canonicalStringify", () => {
     expect(canonicalStringify({})).toBe("{}");
     expect(canonicalStringify([])).toBe("[]");
   });
+
+  it("escapes isolated high surrogate code units", () => {
+    // U+D800 — isolated high surrogate, must be escaped as \ud800
+    const s = String.fromCharCode(0xd800);
+    expect(canonicalStringify(s)).toBe('"\\ud800"');
+  });
+
+  it("escapes isolated low surrogate code units", () => {
+    // U+DC00 — isolated low surrogate, must be escaped as \udc00
+    const s = String.fromCharCode(0xdc00);
+    expect(canonicalStringify(s)).toBe('"\\udc00"');
+  });
+
+  it("preserves valid surrogate pairs (astral plane characters)", () => {
+    // U+1F600 (😀) is a valid surrogate pair: \uD83D\uDE00
+    const s = "\uD83D\uDE00";
+    expect(canonicalStringify(s)).toBe('"😀"');
+  });
 });

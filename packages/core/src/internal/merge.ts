@@ -11,10 +11,22 @@ const CONCAT_FIELDS: ReadonlySet<keyof OperationSpec> = new Set<keyof OperationS
   "tags",
 ]);
 
+/** Allowlist of valid OperationSpec field names, used to reject prototype pollution. */
+const SPEC_KEYS: ReadonlySet<string> = new Set<string>([
+  "id", "kind", "name", "description", "command", "args", "env", "workingDir",
+  "image", "imageDigest", "dependsOn", "condition", "matrix", "cpuLimit",
+  "memoryLimit", "timeoutSeconds", "retries", "continueOnError", "cache",
+  "artifacts", "network", "credentials", "tags",
+]);
+
 /**
  * Merge two partial specs. Scalar fields: `b` wins when defined. `dependsOn`
  * and `tags`: arrays concatenated and deduplicated. Nested objects (`cache`,
  * `credentials`, `artifacts`): `b` wins when defined (no deep merge for v1).
+ *
+ * Only keys in the {@link SPEC_KEYS} allowlist are copied from `b`; this
+ * prevents prototype pollution via `__proto__` or `constructor` keys in
+ * JSON-derived input.
  */
 export function mergeSpecs(
   a: Readonly<Partial<OperationSpec>>,
@@ -24,6 +36,7 @@ export function mergeSpecs(
   const target = result as Record<string, unknown>;
   for (const [key, value] of Object.entries(b)) {
     if (value === undefined) continue;
+    if (!SPEC_KEYS.has(key)) continue;
     const field = key as keyof OperationSpec;
     if (CONCAT_FIELDS.has(field)) {
       const prev = target[key] as readonly string[] | undefined;

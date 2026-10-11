@@ -150,6 +150,10 @@ function discover(roots: readonly Operation[]): OperationNode[] {
 
 /** Expand matrix template nodes into cartesian-product children. */
 function expandMatrices(nodes: readonly OperationNode[]): OperationNode[] {
+  // Map from template node → its expanded children, so that successor nodes
+  // that reference the template as a predecessor can be rewritten to depend
+  // on all children instead.
+  const templateToChildren = new Map<OperationNode, OperationNode[]>();
   const result: OperationNode[] = [];
   for (const node of nodes) {
     if (markerOf(node) !== MATRIX_MARKER) {
@@ -162,6 +166,7 @@ function expandMatrices(nodes: readonly OperationNode[]): OperationNode[] {
       continue;
     }
     validateMatrixDims(dims);
+    const children: OperationNode[] = [];
     for (const combo of cartesianProduct(dims)) {
       const env: Record<string, string> = { ...(node.spec.env ?? {}) };
       for (const [k, v] of combo) env[`MATRIX_${k.toUpperCase()}`] = String(v);
@@ -170,9 +175,37 @@ function expandMatrices(nodes: readonly OperationNode[]): OperationNode[] {
       delete (childSpec as unknown as Record<string, unknown>).matrix;
       const child = withSpec(node, { ...childSpec, env });
       (child as unknown as Record<string, unknown>).__matrixCombo = combo;
+      children.push(child);
       result.push(child);
     }
+    templateToChildren.set(node, children);
   }
+
+  // Rewrite predecessor references: any node that had a matrix template as a
+  // predecessor now depends on all children of that template.
+  if (templateToChildren.size > 0) {
+    for (let i = 0; i < result.length; i++) {
+      const node = result[i]!;
+      if (node.predecessors.length === 0) continue;
+      let changed = false;
+      const newPreds: OperationNode[] = [];
+      for (const pred of node.predecessors) {
+        const children = templateToChildren.get(pred);
+        if (children !== undefined) {
+          newPreds.push(...children);
+          changed = true;
+        } else {
+          newPreds.push(pred);
+        }
+      }
+      if (changed) {
+        result[i] = makeNodeWith(
+          node.kind, node.spec, newPreds, node.siblings, node._id, getMatrixCombo(node),
+        );
+      }
+    }
+  }
+
   return result;
 }
 
@@ -248,8 +281,11 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
   const resolvePred = (pred: OperationNode): OperationNode[] => {
     const m = markerOf(pred);
     if (m === JOIN_MARKER) {
-      // Depend on the join's siblings (each resolved recursively).
-      return pred.siblings.flatMap(resolvePred);
+      // Depend on the join's siblings (each resolved recursively), and also
+      // forward the join's own predecessors so dependencies are preserved.
+      const joinOwnPreds = pred.predecessors.flatMap(resolvePred);
+      const sibPreds = pred.siblings.flatMap(resolvePred);
+      return [...joinOwnPreds, ...sibPreds];
     }
     if (m === PIPELINE_EMPTY_MARKER) {
       return [];
@@ -265,7 +301,7 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       const combined = existing !== undefined ? `(${existing} && ${joinCond})` : joinCond;
       if (combined !== existing) {
         const newSpec = { ...node.spec, condition: combined };
-        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id);
+        return makeNodeWith(node.kind, newSpec, node.predecessors, node.siblings, node._id, getMatrixCombo(node));
       }
     }
     if (node.predecessors.length === 0) return node;
@@ -275,10 +311,17 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
       newPreds.length === node.predecessors.length &&
       newPreds.every((p, i) => p === node.predecessors[i]);
     if (same) return node;
-    return makeNodeWith(node.kind, node.spec, newPreds, node.siblings, node._id);
+    return makeNodeWith(node.kind, node.spec, newPreds, node.siblings, node._id, getMatrixCombo(node));
   });
 
   return rewritten.filter((n) => !isArtifact(n));
+}
+
+/** Extract the __matrixCombo metadata from a node, if present. */
+function getMatrixCombo(node: OperationNode): readonly [string, unknown][] | undefined {
+  return (node as unknown as Record<string, unknown>).__matrixCombo as
+    | readonly [string, unknown][]
+    | undefined;
 }
 
 /** Build a new node with the same spec/siblings but replaced predecessors. */
@@ -288,6 +331,7 @@ function makeNodeWith(
   predecessors: readonly OperationNode[],
   siblings: readonly OperationNode[],
   _id: string | undefined,
+  matrixCombo?: readonly [string, unknown][],
 ): OperationNode {
   // createNode yields a node with empty preds/siblings; reattach via the
   // immutable after()/with() API so the public contract is respected.
@@ -295,6 +339,9 @@ function makeNodeWith(
   if (predecessors.length > 0) n = asNode(n.after(...predecessors));
   if (siblings.length > 0) n = asNode(n.with(...siblings));
   if (_id !== undefined) (n as unknown as { _id: string })._id = _id;
+  if (matrixCombo !== undefined) {
+    (n as unknown as Record<string, unknown>).__matrixCombo = matrixCombo;
+  }
   return n;
 }
 
@@ -369,9 +416,7 @@ function nameFor(node: OperationNode): string {
 function contextFor(node: OperationNode): Record<string, unknown> {
   const s = node.spec;
   const ctx: Record<string, unknown> = {};
-  const combo = (node as unknown as Record<string, unknown>).__matrixCombo as
-    | readonly [string, unknown][]
-    | undefined;
+  const combo = getMatrixCombo(node);
   if (combo !== undefined) {
     for (const [k, v] of combo) ctx[k] = v;
   }

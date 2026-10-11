@@ -228,7 +228,9 @@ class Parser {
     const t = this.next();
     switch (t.type) {
       case "ident":
-        return this.context[t.value];
+        return Object.prototype.hasOwnProperty.call(this.context, t.value)
+          ? this.context[t.value]
+          : undefined;
       case "string":
         return t.value;
       case "number":
@@ -259,8 +261,16 @@ function isTruthy(v: OperandValue): boolean {
 function looseEqual(a: OperandValue, b: OperandValue): boolean {
   if (a === b) return true;
   if (a == null || b == null) return a == b;
-  if (typeof a === "string" && typeof b === "number") return a === String(b);
-  if (typeof a === "number" && typeof b === "string") return String(a) === b;
+  // Loose numeric coercion: compare string and number by numeric value,
+  // so "1.0" == 1, "01" == 1, "1e2" == 100, etc.
+  if (typeof a === "string" && typeof b === "number") {
+    const num = Number(a);
+    return !Number.isNaN(num) && num === b;
+  }
+  if (typeof a === "number" && typeof b === "string") {
+    const num = Number(b);
+    return !Number.isNaN(num) && a === num;
+  }
   if (typeof a === "boolean" || typeof b === "boolean") return a === b;
   return a === b;
 }
