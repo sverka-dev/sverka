@@ -30,6 +30,16 @@ export type RuntimeFinalization = Omit<
 >;
 
 /**
+ * The runtime-supplied portion of a {@link RuntimeResult}.
+ * `planWorkflow()` composes the final `RuntimeResult` from this by adding
+ * `operations`, `outcomes`, and `durationMs`.
+ */
+export type RuntimeFinalization = Omit<
+  RuntimeResult,
+  "operations" | "outcomes" | "durationMs"
+>;
+
+/**
  * A named artifact produced during Execution or Compile mode.
  * In Compile mode, `content` holds the emitted artifact (e.g. YAML text).
  */

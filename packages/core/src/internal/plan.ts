@@ -108,6 +108,79 @@ function nowMs(): number {
   return Date.now();
 }
 
+/**
+ * Evaluate operations in topo order, respecting conditions and failure policy.
+ * Operations with no outstanding dependencies are dispatched concurrently as
+ * a batch, so siblings produced by `parallel()` run simultaneously.
+ *
+ * In compile mode, all operations are passed to the runtime so compilers
+ * can emit them (including conditionally-skipped ones with their condition
+ * field intact). In execute/plan mode, false conditions produce a synthetic
+ * "skipped" outcome without calling runtime.evaluate().
+ */
+async function evaluateOperations(
+  ordered: readonly OperationSpec[],
+  runtime: Runtime,
+  outcomes: OperationOutcome[],
+): Promise<void> {
+  let aborted = false;
+  const done = new Set<string>();
+  const remaining = new Set(ordered.map((o) => o.id));
+  const byId = new Map(ordered.map((o) => [o.id, o] as const));
+
+  while (remaining.size > 0) {
+    const ready: OperationSpec[] = [];
+    for (const id of remaining) {
+      const spec = byId.get(id)!;
+      const deps = spec.dependsOn ?? [];
+      if (deps.every((d) => done.has(d) || !byId.has(d))) {
+        ready.push(spec);
+      }
+    }
+    if (ready.length === 0) {
+      throw new CompositionError("no ready operations (residual cycle)", {});
+    }
+
+    const promises: Promise<OperationOutcome>[] = [];
+    const promiseSpecs: OperationSpec[] = [];
+
+    for (const spec of ready) {
+      remaining.delete(spec.id);
+      if (aborted) {
+        outcomes.push({ operationId: spec.id, status: "cancelled", durationMs: 0 });
+        done.add(spec.id);
+        continue;
+      }
+      if (spec.condition !== undefined) {
+        const included = evaluateCondition(spec.condition, runtime.context);
+        if (!included) {
+          if (runtime.mode === "compile") {
+            promises.push(runtime.evaluate(spec));
+            promiseSpecs.push(spec);
+          } else {
+            outcomes.push({ operationId: spec.id, status: "skipped", durationMs: 0 });
+            done.add(spec.id);
+          }
+          continue;
+        }
+      }
+      promises.push(runtime.evaluate(spec));
+      promiseSpecs.push(spec);
+    }
+
+    const results = await Promise.all(promises);
+    for (let i = 0; i < results.length; i++) {
+      const outcome = results[i]!;
+      const spec = promiseSpecs[i]!;
+      outcomes.push(outcome);
+      done.add(spec.id);
+      if (outcome.status === "failure" && spec.continueOnError !== true) {
+        aborted = true;
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Marker helpers
 // ---------------------------------------------------------------------------
@@ -248,8 +321,13 @@ function flattenArtifacts(nodes: readonly OperationNode[]): OperationNode[] {
   const resolvePred = (pred: OperationNode): OperationNode[] => {
     const m = markerOf(pred);
     if (m === JOIN_MARKER) {
-      // Depend on the join's siblings (each resolved recursively).
-      return pred.siblings.flatMap(resolvePred);
+      // Depend on the join's siblings (each resolved recursively) AND the
+      // join's own predecessors, so that dependencies from before the
+      // parallel block are preserved.
+      const resolved: OperationNode[] = [];
+      for (const sib of pred.siblings) resolved.push(...resolvePred(sib));
+      for (const predPred of pred.predecessors) resolved.push(...resolvePred(predPred));
+      return resolved;
     }
     if (m === PIPELINE_EMPTY_MARKER) {
       return [];
@@ -439,6 +517,18 @@ const OPTIONAL_SPEC_KEYS = [
   "continueOnError", "cache", "artifacts", "network", "credentials", "tags",
 ] as const satisfies readonly (keyof OperationSpec)[];
 
+/**
+ * Resolve a single user-provided dependsOn string. It must be either an
+ * op- id already present in the plan, or otherwise an error (dangling
+ * reference).
+ */
+function resolveDep(dep: string, knownOpIds: Set<string>): string {
+  if (knownOpIds.has(dep)) return dep;
+  throw new CompositionError(`unresolved dependsOn reference '${dep}'`, {
+    dependsOn: dep,
+  });
+}
+
 function buildSpec(
   node: OperationNode,
   id: string,
@@ -463,27 +553,49 @@ function detectCycles(specs: Map<OperationNode, OperationSpec>): void {
   for (const spec of specs.values()) byId.set(spec.id, spec);
   const color = new Map<string, "white" | "gray" | "black">();
   for (const id of byId.keys()) color.set(id, "white");
-  const stack: string[] = [];
 
-  const visit = (id: string): void => {
-    const c = color.get(id);
-    if (c === "black") return;
-    if (c === "gray") {
-      const cycleStart = stack.indexOf(id);
-      throw new CompositionError("cycle detected in operation graph", {
-        cycle: stack.slice(cycleStart).concat(id),
-      });
+  // Iterative DFS with explicit frame stack to avoid call-stack overflow.
+  const frames: Array<{ id: string; depIdx: number }> = [];
+  const path: string[] = [];
+
+  for (const startId of byId.keys()) {
+    if (color.get(startId) !== "white") continue;
+    frames.push({ id: startId, depIdx: 0 });
+    color.set(startId, "gray");
+    path.push(startId);
+
+    while (frames.length > 0) {
+      const frame = frames[frames.length - 1]!;
+      const spec = byId.get(frame.id)!;
+      let nextDep: string | undefined;
+      while (frame.depIdx < (spec.dependsOn ?? []).length) {
+        const dep = (spec.dependsOn ?? [])[frame.depIdx]!;
+        frame.depIdx++;
+        if (byId.has(dep)) {
+          nextDep = dep;
+          break;
+        }
+      }
+      if (nextDep !== undefined) {
+        const depColor = color.get(nextDep);
+        if (depColor === "gray") {
+          const cycleStart = path.indexOf(nextDep);
+          throw new CompositionError("cycle detected in operation graph", {
+            cycle: path.slice(cycleStart).concat(nextDep),
+          });
+        }
+        if (depColor === "white") {
+          color.set(nextDep, "gray");
+          path.push(nextDep);
+          frames.push({ id: nextDep, depIdx: 0 });
+        }
+      } else {
+        color.set(frame.id, "black");
+        path.pop();
+        frames.pop();
+      }
     }
-    color.set(id, "gray");
-    stack.push(id);
-    const spec = byId.get(id)!;
-    for (const dep of spec.dependsOn ?? []) {
-      if (byId.has(dep)) visit(dep);
-    }
-    stack.pop();
-    color.set(id, "black");
-  };
-  for (const id of byId.keys()) visit(id);
+  }
 }
 
 // ---------------------------------------------------------------------------
