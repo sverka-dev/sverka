@@ -166,8 +166,8 @@ export async function loadBaseline(path: string): Promise<Baseline> {
     version: obj.version as number,
     fingerprints: obj.fingerprints as string[],
     suppressions: obj.suppressions as Suppression[],
-    createdAt: String(obj.createdAt ?? ""),
-    updatedAt: String(obj.updatedAt ?? ""),
+    createdAt: typeof obj.createdAt === "string" ? obj.createdAt : "",
+    updatedAt: typeof obj.updatedAt === "string" ? obj.updatedAt : "",
   };
 }
 
@@ -195,5 +195,5 @@ export async function saveBaseline(
  * Dedupe and sort an array of strings.
  */
 function dedupeSorted(items: readonly string[]): string[] {
-  return [...new Set(items)].sort();
+  return [...new Set(items)].sort((a, b) => a.localeCompare(b));
 }

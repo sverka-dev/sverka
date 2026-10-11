@@ -18,10 +18,10 @@ const DEFAULT_RULES: readonly GitlabRule[] = [
  * Sverka at runtime.
  */
 export function compileGitlabCi(
-  plan: Plan,
+  _plan: Plan,
   config?: GitlabCompilerConfig,
 ): string {
-  void plan; // accepted for API consistency; thin wrapper ignores contents
+  // _plan accepted for API consistency; thin wrapper ignores contents.
   const image = config?.image ?? "oven/bun:latest";
   const sverkaVersion = config?.sverkaVersion ?? "latest";
   const rules = config?.rules ?? DEFAULT_RULES;
