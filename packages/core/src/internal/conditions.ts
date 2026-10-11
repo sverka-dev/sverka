@@ -210,6 +210,15 @@ class Parser {
       const inner = this.parseOr();
       const close = this.next();
       if (close.type !== "rparen") fail(this.expr, "expected ')'");
+      // Allow a parenthesized group to participate in a comparison, e.g.
+      // `(a || b) == 'value'`.
+      const op = this.peek();
+      if (op?.type === "op" && (op.value === "==" || op.value === "!=")) {
+        this.next();
+        const right = this.parseOperand();
+        const eq = looseEqual(inner, right);
+        return op.value === "==" ? eq : !eq;
+      }
       return inner;
     }
     const left = this.parseOperand();

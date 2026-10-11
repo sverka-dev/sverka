@@ -19,7 +19,7 @@ Implement the canonical Plan IR for `sverka.dev/v1`:
 - Versioned schema types (`Plan`, `PlanOperation`, sub-types).
 - Deterministic IDs: `computePlanId`, `computeOperationId` (SHA-256).
 - Canonical (de)serialization: `serializePlan`, `deserializePlan`.
-- Validation: `validatePlan` (13 rules, never throws) + `ValidationResult`.
+- Validation: `validatePlan` (15 rules, never throws) + `ValidationResult`.
 - Error hierarchy: `IRError` → `ValidationError`, `SerializationError`.
 - `PLAN_SCHEMA_VERSION` constant.
 - Public re-exports from `src/index.ts`.
@@ -44,7 +44,7 @@ The builder must run `bun install` once after pulling the new
 Mirror `core`'s layout (one module per concern, `__tests__/` co-located,
 internal helpers under `internal/`):
 
-```
+```text
 packages/ir/src/
   index.ts              # public re-exports (matches spec §Interfaces)
   version.ts            # PLAN_SCHEMA_VERSION
@@ -119,7 +119,7 @@ The builder writes tests before each module. Suggested commit-sized slices:
 14. `internal/graph.ts` — `hasCycle(operations): string[] | undefined`
     returns the cycle path (ids) or undefined. DFS with WHITE/GRAY/BLACK
     coloring.
-15. `validate.test.ts` — one positive + 13 negative cases (one per rule),
+15. `validate.test.ts` — one positive + 15 negative cases (one per rule),
     each asserting `valid === false`, the right `code`, and `field`.
     Cycle test asserts the cycle path appears in `context`/`message`.
 16. `validate.ts` — `validatePlan(plan: unknown): ValidationResult`.
@@ -197,6 +197,8 @@ The builder should use these stable `code` strings (reviewer checks them):
 | 11   | `INVALID_NETWORK_POLICY`   | `operations[].network`         |
 | 12   | `MISSING_CACHE_KEY`        | `operations[].cache.key`       |
 | 13   | `EMPTY_CREDENTIAL_ENVVAR`  | `operations[].credentials[].envVar` |
+| 14   | `INVALID_METADATA`         | `metadata`                     |
+| 15   | `INVALID_OPERATION`        | `operations[]`                 |
 
 ## 8. Gates (reviewer runs these)
 

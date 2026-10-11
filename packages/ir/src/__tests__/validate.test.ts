@@ -532,3 +532,59 @@ describe("validatePlan — rule 15 (operation shape)", () => {
     ).toBe(true);
   });
 });
+
+describe("validatePlan — rule 14 (required top-level fields)", () => {
+  it("rejects a missing name with INVALID_PLAN", () => {
+    const { name: _omit, ...rest } = validPlan();
+    const result = validatePlan(rest);
+    expect(result.valid).toBe(false);
+    const err = result.errors.find(
+      (e) => e.code === "INVALID_PLAN" && e.field === "name",
+    );
+    expect(err).toBeDefined();
+  });
+
+  it("rejects a missing sourceContextHash with INVALID_PLAN", () => {
+    const { sourceContextHash: _omit, ...rest } = validPlan();
+    const result = validatePlan(rest);
+    expect(result.valid).toBe(false);
+    const err = result.errors.find(
+      (e) => e.code === "INVALID_PLAN" && e.field === "sourceContextHash",
+    );
+    expect(err).toBeDefined();
+  });
+
+  it("rejects a missing createdAt with INVALID_PLAN", () => {
+    const { createdAt: _omit, ...rest } = validPlan();
+    const result = validatePlan(rest);
+    expect(result.valid).toBe(false);
+    const err = result.errors.find(
+      (e) => e.code === "INVALID_PLAN" && e.field === "createdAt",
+    );
+    expect(err).toBeDefined();
+  });
+
+  it("rejects missing metadata with INVALID_METADATA", () => {
+    const { metadata: _omit, ...rest } = validPlan();
+    const result = validatePlan(rest);
+    expect(result.valid).toBe(false);
+    const err = result.errors.find((e) => e.code === "INVALID_METADATA");
+    expect(err).toBeDefined();
+    expect(err?.field).toBe("metadata");
+  });
+
+  it("rejects a plan with valid apiVersion/id/operations but no name/sourceContextHash/createdAt/metadata", () => {
+    // This is the exact case from the review: shapeOk is false so the id
+    // recompute is skipped, but the field errors must still fire.
+    const plan = {
+      apiVersion: "sverka.dev/v1",
+      id: "plan-anything",
+      operations: [validOperation()],
+    };
+    const result = validatePlan(plan);
+    expect(result.valid).toBe(false);
+    const codes = result.errors.map((e) => e.code);
+    expect(codes).toContain("INVALID_PLAN");
+    expect(codes).toContain("INVALID_METADATA");
+  });
+});

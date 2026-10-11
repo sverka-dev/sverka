@@ -8,9 +8,10 @@ describe("serializePlan", () => {
     const out = serializePlan(validPlan());
     expect(typeof out).toBe("string");
     expect(out.startsWith("{")).toBe(true);
-    // compact: no whitespace between tokens
-    expect(out).not.toMatch(/,\s/);
-    expect(out).not.toMatch(/:\s/);
+    // Compact: structural separators must not have whitespace.
+    // Compare against JSON.stringify(JSON.parse(out)) which produces
+    // canonical compact JSON; the serialized output must match it.
+    expect(out).toBe(JSON.stringify(JSON.parse(out)));
   });
 
   it("two identical plans produce byte-identical output", () => {
@@ -64,6 +65,15 @@ describe("serializePlan", () => {
     expect(out).not.toContain('"condition"');
     expect(out).not.toContain('"cache"');
     expect(out).not.toContain('"compiler"');
+  });
+
+  it("throws SerializationError on a plan containing NaN", () => {
+    // NaN is not valid JSON; canonicalStringify rejects it. The Plan type
+    // forbids NaN, but callers can smuggle it in via `as Plan`.
+    const plan = { ...validPlan(), name: NaN } as unknown as ReturnType<
+      typeof validPlan
+    >;
+    expect(() => serializePlan(plan)).toThrow(SerializationError);
   });
 });
 

@@ -146,6 +146,22 @@ function validateTopLevel(p: Record<string, unknown>, errors: ValidationErrorDet
     errors.push({ field: "id", code: "ID_MISMATCH", message: "id must be a non-empty string matching computePlanId" });
   }
 
+  // Rule 14: required top-level fields. Without these, a plan would pass
+  // validation silently because shapeOk gates the id recompute but never
+  // produces an error on its own.
+  if (typeof p.name !== "string" || p.name.length === 0) {
+    errors.push({ field: "name", code: "INVALID_PLAN", message: "name must be a non-empty string" });
+  }
+  if (typeof p.sourceContextHash !== "string" || p.sourceContextHash.length === 0) {
+    errors.push({ field: "sourceContextHash", code: "INVALID_PLAN", message: "sourceContextHash must be a non-empty string" });
+  }
+  if (typeof p.createdAt !== "string" || p.createdAt.length === 0) {
+    errors.push({ field: "createdAt", code: "INVALID_PLAN", message: "createdAt must be a non-empty ISO 8601 string" });
+  }
+  if (!isPlainObject(p.metadata)) {
+    errors.push({ field: "metadata", code: "INVALID_METADATA", message: "metadata must be an object" });
+  }
+
   const shapeOk =
     p.apiVersion === "sverka.dev/v1" &&
     typeof p.name === "string" &&

@@ -1,4 +1,4 @@
-import type { OperationKind, OperationSpec } from "../operation.js";
+import type { OperationKind } from "../operation.js";
 import type { OperationNode } from "./node.js";
 
 /**
@@ -71,9 +71,4 @@ export function isKnownKind(kind: string): kind is OperationKind {
     kind === "publish" ||
     kind === "custom"
   );
-}
-
-/** Public spec id helper — exposed for tests that build specs directly. */
-export function specId(spec: Readonly<Partial<OperationSpec>>): string | undefined {
-  return spec.id;
 }

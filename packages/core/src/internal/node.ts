@@ -24,25 +24,27 @@ interface NodeFields {
 /** Build an immutable {@link OperationNode} with working composable methods. */
 function makeNode(fields: NodeFields): OperationNode {
   const { kind, spec, predecessors, siblings } = fields;
+  // Snapshot the spec so later caller mutation does not alter planned nodes.
+  const specSnapshot: Readonly<Partial<OperationSpec>> = { ...spec };
   const node: OperationNode = {
     kind,
-    spec,
+    spec: specSnapshot,
     predecessors,
     siblings,
     ...(fields._id !== undefined ? { _id: fields._id } : {}),
     after: (...predecessorsToAdd: Operation[]): Operation =>
       makeNode({
         kind,
-        spec,
-        predecessors: [...predecessors, ...(predecessorsToAdd as OperationNode[])],
+        spec: specSnapshot,
+        predecessors: [...predecessors, ...predecessorsToAdd.map(asNode)],
         siblings,
       }),
     with: (...siblingsToAdd: Operation[]): Operation =>
       makeNode({
         kind,
-        spec,
+        spec: specSnapshot,
         predecessors,
-        siblings: [...siblings, ...(siblingsToAdd as OperationNode[])],
+        siblings: [...siblings, ...siblingsToAdd.map(asNode)],
       }),
     named: (name: string): Operation =>
       makeNode({ kind, spec: { ...spec, name }, predecessors, siblings }),
@@ -68,8 +70,19 @@ export function createNode(
   return makeNode({ kind, spec, predecessors: [], siblings: [] });
 }
 
-/** Type guard: narrow a public {@link Operation} to an internal node. */
+/** Type guard: narrow a public {@link Operation} to an internal node.
+ * Throws if the object lacks the internal `predecessors`/`siblings` arrays,
+ * preventing plain `Operation` objects from being confused with nodes. */
 export function asNode(operation: Operation): OperationNode {
+  const candidate = operation as unknown as Partial<OperationNode>;
+  if (
+    !Array.isArray(candidate.predecessors) ||
+    !Array.isArray(candidate.siblings)
+  ) {
+    throw new TypeError(
+      "expected an OperationNode with predecessors and siblings arrays, got a plain Operation",
+    );
+  }
   return operation as OperationNode;
 }
 

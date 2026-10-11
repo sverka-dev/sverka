@@ -39,7 +39,7 @@ export function deserializePlan(json: string): Plan {
   } catch (e) {
     throw new SerializationError(
       e instanceof Error ? e.message : "malformed JSON",
-      { raw: json.length > 256 ? json.slice(0, 256) + "…" : json },
+      { inputLength: json.length },
     );
   }
 
