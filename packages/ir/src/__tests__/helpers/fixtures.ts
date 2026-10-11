@@ -1,5 +1,5 @@
 import type { Plan, PlanOperation } from "../../plan.js";
-import { computePlanId } from "../../ids.js";
+import { computePlanId, computeOperationId } from "../../ids.js";
 
 /**
  * A single valid operation. All fields satisfy the 13 validation rules.
@@ -23,7 +23,16 @@ export function validOperation(
     timeoutSeconds: 60,
     continueOnError: false,
   };
-  return { ...base, ...overrides };
+  const merged = { ...base, ...overrides };
+  // If the caller didn't override the id, compute it from the operation
+  // content so it reflects the deterministic operation-ID behavior.
+  if (overrides.id === undefined) {
+    const computedId = computeOperationId(merged.kind, merged.name, {
+      command: merged.command,
+    });
+    return { ...merged, id: computedId };
+  }
+  return merged;
 }
 
 /** A docker executor operation with a valid sha256 image digest. */
@@ -68,11 +77,10 @@ export function validPlan(overrides: Partial<Omit<Plan, "id" | "createdAt">> = {
 
 /** A two-operation plan with a real dependency edge (a → b). */
 export function twoOpPlan(): Plan {
-  const opA = validOperation({ id: "op-a", name: "build", dependsOn: [] });
+  const opA = validOperation({ name: "build", dependsOn: [] });
   const opB = validOperation({
-    id: "op-b",
     name: "test",
-    dependsOn: ["op-a"],
+    dependsOn: [opA.id],
   });
   return validPlan({ operations: [opA, opB] });
 }
