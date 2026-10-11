@@ -1,4 +1,4 @@
-import type { Plan, PlanOperation } from "./plan.js";
+import type { Plan } from "./plan.js";
 import { computePlanId } from "./ids.js";
 import { findCycle } from "./internal/graph.js";
 
@@ -62,7 +62,7 @@ export function validatePlan(plan: unknown): ValidationResult {
   if (!idIsNonEmptyString) {
     errors.push({
       field: "id",
-      code: "ID_MISMATCH",
+      code: "INVALID_ID",
       message: "id must be a non-empty string matching computePlanId",
     });
   }
@@ -152,6 +152,12 @@ export function validatePlan(plan: unknown): ValidationResult {
     if (typeof op.id === "string") {
       idSet.add(op.id);
       idCounts.set(op.id, (idCounts.get(op.id) ?? 0) + 1);
+    } else {
+      errors.push({
+        field: "operations[].id",
+        code: "INVALID_OPERATION_ID",
+        message: "operation id must be a non-empty string",
+      });
     }
   }
   const reportedDup = new Set<string>();
@@ -183,6 +189,13 @@ export function validatePlan(plan: unknown): ValidationResult {
           });
         }
       }
+    } else if (op.dependsOn !== undefined) {
+      errors.push({
+        ...(opId !== undefined ? { operationId: opId } : {}),
+        field: "operations[].dependsOn",
+        code: "INVALID_DEPENDS_ON",
+        message: "dependsOn must be an array of operation ids",
+      });
     }
 
     // Rule 7: imageDigest required for docker/podman.

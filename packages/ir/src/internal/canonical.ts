@@ -126,6 +126,11 @@ function quoteString(s: string): string {
       default:
         if (code < 0x20) {
           parts.push("\\u" + code.toString(16).padStart(4, "0"));
+        } else if (code >= 0xd800 && code <= 0xdfff) {
+          // Isolated UTF-16 surrogate code unit. Emit as \uXXXX escape so the
+          // output is valid UTF-8 when hashed (Node replaces lone surrogates
+          // with U+FFFD, which would collide with a literal U+FFFD string).
+          parts.push("\\u" + code.toString(16).padStart(4, "0"));
         } else {
           parts.push(ch);
         }
