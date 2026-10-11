@@ -13,7 +13,18 @@ import { canonicalStringify } from "./internal/canonical.js";
  * trailing whitespace.
  */
 export function computePlanId(plan: Omit<Plan, "id" | "createdAt">): string {
-  const canonical = canonicalStringify(plan);
+  // Explicitly select only the fields that define the plan identity. This
+  // strips any extra `id` or `createdAt` properties that a caller may have
+  // passed via a complete `Plan` object (the type signature is a compile-time
+  // hint, not a runtime guarantee).
+  const body = {
+    apiVersion: plan.apiVersion,
+    name: plan.name,
+    sourceContextHash: plan.sourceContextHash,
+    operations: plan.operations,
+    metadata: plan.metadata,
+  };
+  const canonical = canonicalStringify(body);
   const hex = createHash("sha256").update(canonical, "utf8").digest("hex");
   return `plan-${hex}`;
 }
