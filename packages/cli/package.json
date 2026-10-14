@@ -49,7 +49,7 @@
     "@sverka/ui": "workspace:*",
     "@sverka/verification": "workspace:*",
     "@sverka/workflow": "workspace:*",
-    "chokidar": "4.0.3",
+    "chokidar": "5.0.0",
     "yargs": "^18.2.0",
     "zod": "^4.6.5"
   },
