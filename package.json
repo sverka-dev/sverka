@@ -34,7 +34,7 @@
     "@sverka/workflow": "workspace:*",
     "@types/node": "26.5.1",
     "cspell": "10.3.4",
-    "eslint": "10.11.0",
+    "eslint": "10.12.0",
     "knip": "6.38.0",
     "markdownlint-cli2": "0.23.3",
     "nx": "^23.2.1",
