@@ -38,7 +38,7 @@
     "@sverka/runtime": "workspace:*",
     "@sverka/verification": "workspace:*",
     "@sverka/workflow": "workspace:*",
-    "ink": "7.1.1",
+    "ink": "8.0.0",
     "react": "19.3.0"
   },
   "devDependencies": {
