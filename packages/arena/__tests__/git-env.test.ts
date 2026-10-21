@@ -61,6 +61,23 @@ describe("git child env", () => {
     expect(env["GIT_ASKPASS"]).toBe("");
   });
 
+  it("ssh cannot prompt either — no askpass helper, batch mode", async () => {
+    // git's prompt settings do not cover ssh: an ssh:// or scp-style
+    // remote would ask for a passphrase on the inherited tty and hang.
+    await git(["--version"]);
+    const env = lastEnv();
+    expect(env["SSH_ASKPASS"]).toBe("");
+    expect(env["SSH_ASKPASS_REQUIRE"]).toBe("never");
+    expect(env["GIT_SSH_COMMAND"]).toBe("ssh -oBatchMode=yes");
+  });
+
+  it("an explicit GIT_SSH_COMMAND wins", async () => {
+    await git(["--version"], {
+      env: { GIT_SSH_COMMAND: "ssh -i /key" },
+    });
+    expect(lastEnv()["GIT_SSH_COMMAND"]).toBe("ssh -i /key");
+  });
+
   it("opts.env still passes unrelated vars through", async () => {
     await git(["--version"], { env: { FOO_MARKER: "yes" } });
     expect(lastEnv()["FOO_MARKER"]).toBe("yes");

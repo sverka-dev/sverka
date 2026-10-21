@@ -13,6 +13,37 @@ export interface GitResult {
 
 const MAX_BUFFER = 8 * 1024 * 1024;
 
+/**
+ * Env for a `git` child.
+ *
+ * Arena children have no answerable tty — a credential prompt is always a
+ * hang, so prompting is disabled unconditionally (not overridable via
+ * `opts.env`). `GIT_ASKPASS` must be the empty string, not unset: git
+ * falls back to `core.askpass`/`SSH_ASKPASS` only when the var is absent.
+ *
+ * ssh has its own askpass helper and its own prompt path, which git's
+ * settings do not cover — an ssh:// or scp-style remote would prompt for
+ * a passphrase on the inherited tty. `BatchMode` makes ssh fail fast
+ * instead; an explicit `GIT_SSH_COMMAND` wins, the caller knows what it
+ * needs.
+ */
+function childEnv(opts: {
+  env?: Record<string, string>;
+}): Record<string, string> {
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    ...opts.env,
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_ASKPASS: "",
+    SSH_ASKPASS: "",
+    SSH_ASKPASS_REQUIRE: "never",
+  };
+  if (env["GIT_SSH_COMMAND"] === undefined) {
+    env["GIT_SSH_COMMAND"] = "ssh -oBatchMode=yes";
+  }
+  return env;
+}
+
 /** Run `git <args>`; resolves with the exit code, never rejects on non-zero. */
 export function git(
   args: readonly string[],
@@ -24,17 +55,7 @@ export function git(
       [...args],
       {
         cwd: opts.cwd,
-        // Arena children have no answerable tty — a credential prompt is
-        // always a hang, so prompting is disabled unconditionally (not
-        // overridable via opts.env). GIT_ASKPASS must be the empty string,
-        // not unset: git falls back to core.askpass/SSH_ASKPASS only when
-        // the var is absent.
-        env: {
-          ...process.env,
-          ...opts.env,
-          GIT_TERMINAL_PROMPT: "0",
-          GIT_ASKPASS: "",
-        },
+        env: childEnv(opts),
         maxBuffer: MAX_BUFFER,
       },
       (error, stdout, stderr) => {

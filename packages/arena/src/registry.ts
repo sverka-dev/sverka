@@ -465,7 +465,12 @@ function createGitTree(cfg: GitRegistryConfig): TreeStore & { dir: string } {
     if (res.code === 0) return;
     if (!rebaseInProgress()) {
       // The pull failed before any rebase started (fetch/auth/network).
-      throw unavailable(`git pull --rebase failed`, res.stderr.trim());
+      // The stderr is the cause the CLI prints — it can echo the remote
+      // URL, credentials included.
+      throw unavailable(
+        `git pull --rebase failed`,
+        redactUrl(res.stderr.trim()),
+      );
     }
     const resolved = await resolveRebaseConflicts().catch(() => false);
     if (!resolved) {
