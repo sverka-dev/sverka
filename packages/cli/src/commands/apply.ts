@@ -318,7 +318,9 @@ function gitlabApplyEnv(): {
   token: string;
 } {
   const env = process.env;
-  const api = requireHttpsApi(env["CI_API_V4_URL"] ?? "https://gitlab.com/api/v4");
+  const api = requireHttpsApi(
+    env["CI_API_V4_URL"] ?? "https://gitlab.com/api/v4",
+  );
   const project = env["CI_PROJECT_ID"];
   if (project === undefined || project === "") {
     throw new CliError(
@@ -340,7 +342,9 @@ function gitlabApplyEnv(): {
 
 async function applyGithubComment(write: AgentWrite): Promise<string> {
   const env = process.env;
-  const api = requireHttpsApi(env["GITHUB_API_URL"] ?? "https://api.github.com");
+  const api = requireHttpsApi(
+    env["GITHUB_API_URL"] ?? "https://api.github.com",
+  );
   const repo = env["GITHUB_REPOSITORY"];
   if (repo === undefined || repo === "") {
     throw new CliError(
