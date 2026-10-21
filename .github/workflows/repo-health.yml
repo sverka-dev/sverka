@@ -25,7 +25,7 @@ jobs:
           .check_suite_id) || exit 1; [ -n "$suite" ] || exit 1; out=$(gh api
           --paginate --slurp
           'repos/{owner}/{repo}/commits/main/check-runs?per_page=100' | jq -r
-          'add | .check_runs | group_by(.name) | map(last)[] |
+          'map(.check_runs) | add | group_by(.name) | map(last)[] |
           select(.app.slug=="github-actions") | select(.check_suite.id !=
           '"$suite"') | select(.conclusion != "success" and .conclusion !=
           "skipped" and .conclusion != "neutral") | "\(.name) (\(.conclusion //
@@ -89,9 +89,9 @@ jobs:
           persist-credentials: false
       - run: if ! out=$(gh api --paginate --slurp
           'repos/{owner}/{repo}/commits/main/check-runs?per_page=100' | jq -r
-          'add | .check_runs | group_by(.name) | map(last)[] | select(.app.slug
-          != "github-actions") | select(.conclusion != "success" and .conclusion
-          != "skipped" and .conclusion != "neutral") |
+          'map(.check_runs) | add | group_by(.name) | map(last)[] |
+          select(.app.slug != "github-actions") | select(.conclusion !=
+          "success" and .conclusion != "skipped" and .conclusion != "neutral") |
           "\((.app.slug|gsub("[\\x00-\\x1f\\x7f]";"")))\t\(.conclusion //
           .status)\t\((.name|gsub("[\\x00-\\x1f\\x7f]";"")))"'); then echo
           "check-runs query failed — report skipped"; exit 0; fi; if [ -z "$out"
