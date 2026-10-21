@@ -390,10 +390,12 @@ async function postJson(
   // the agent-produced artifact this command applies: posting file
   // content to the CI provider API is the command's purpose.
   // nosemgrep
-  // codeql[js/file-access-to-http]
   const res = await fetch(url, {
     method: "POST",
     headers,
+    // codeql[js/file-access-to-http] — the body IS the agent-produced
+    // artifact this command applies; the URL is CI-provider-controlled
+    // (see the note above).
     body: JSON.stringify(body),
     // A 307/308 redirect replays the body — and gitlab's PRIVATE-TOKEN
     // header — against the redirect target, which may be another host.
