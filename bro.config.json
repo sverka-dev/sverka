@@ -34,6 +34,14 @@
         "name": "retro-on-stop",
         "when": { "on": ["stop"] },
         "say": "session ending — loose ends: hand-rolled mechanics → bd gap beads, bro learn capture, bro debt collect"
+      },
+      {
+        "name": "clickable-pr-links",
+        "when": {
+          "on": ["session-start", "stop"],
+          "budget": 2
+        },
+        "say": "PR and issue references must be clickable links — always carry the full URL (https://github.com/<owner>/<repo>/pull/<n>), never a bare #123."
       }
     ]
   },
