@@ -1,3 +1,15 @@
+## 0.2.36 (2026-10-21)
+
+### 🩹 Fixes
+
+- **release:** retry the publish and verify the tarball is fetchable ([#390](https://github.com/sverka-dev/sverka/pull/390))
+- **workflow:** make the placeholder substitution linear ([#391](https://github.com/sverka-dev/sverka/pull/391))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.35 (2026-10-21)
 
 ### 🩹 Fixes
