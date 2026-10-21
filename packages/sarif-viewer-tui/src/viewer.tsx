@@ -1,5 +1,6 @@
 // @sverka/sarif-viewer-tui — Ink TUI component. Spec 46.
 
+import process from "node:process";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { Key } from "ink";
