@@ -20,6 +20,9 @@ import { git, gitOrThrow } from "../src/internal/git.js";
 import { createGitRegistry, resolveRegistryDir } from "../src/registry.js";
 import type { ArenaResultV1 } from "../src/registry.js";
 
+/* secretlint-disable @secretlint/secretlint-rule-basicauth -- fake credential
+   fixtures (user:TOKEN@host) that prove the redaction path; not real secrets. */
+
 const gitMock = vi.mocked(git);
 const gitOrThrowMock = vi.mocked(gitOrThrow);
 const okResult = { code: 0, stdout: "", stderr: "" };
