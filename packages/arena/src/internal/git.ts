@@ -58,12 +58,35 @@ export function git(
  * Replace URL userinfo with `<redacted>` — `https://user:TOKEN@host`
  * leaks the token into argv and any stderr that echoes it (CWE-209).
  * scp-style `git@host:path` carries no credential and is left alone.
+ *
+ * A scan, not a regex: the obvious pattern (`scheme://[^/]*@`) backtracks
+ * quadratically on a long run of `://` — CodeQL's js/polynomial-redos
+ * flags it, and the input is attacker-influenced (a remote URL, a git
+ * message).
  */
 export function redactUrl(value: string): string {
-  return value.replace(
-    /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)[^/\s@]*@/g,
-    "$1<redacted>@",
-  );
+  const SEP = "://";
+  let out = "";
+  let i = 0;
+  while (i < value.length) {
+    const sep = value.indexOf(SEP, i);
+    if (sep === -1) {
+      out += value.slice(i);
+      break;
+    }
+    const userinfoStart = sep + SEP.length;
+    const at = value.indexOf("@", userinfoStart);
+    const slash = value.indexOf("/", userinfoStart);
+    if (at === -1 || (slash !== -1 && slash < at)) {
+      // No userinfo before the path — keep looking past this separator.
+      out += value.slice(i, userinfoStart);
+      i = userinfoStart;
+      continue;
+    }
+    out += value.slice(i, userinfoStart) + "<redacted>@";
+    i = at + 1;
+  }
+  return out;
 }
 
 /** Args carrying credentials must never reach an error message (CWE-209). */

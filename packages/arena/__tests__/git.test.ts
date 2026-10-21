@@ -55,4 +55,16 @@ describe("internal git seam", () => {
     expect(redactUrl("git@host.com:repo.git")).toBe("git@host.com:repo.git");
     expect(redactUrl("/local/path")).toBe("/local/path");
   });
+
+  it("redactUrl stays linear on a long run of separators", () => {
+    // A regex redaction backtracks quadratically here — CodeQL's
+    // js/polynomial-redos flags that pattern. The input is
+    // attacker-influenced (a remote URL, a git message), so the scan has
+    // to finish in linear time; 50k separators take a backtracking
+    // implementation far past the test timeout.
+    const hostile = "://".repeat(50_000) + "user:SECRET@host";
+    const redacted = redactUrl(hostile);
+    expect(redacted).not.toContain("SECRET");
+    expect(redacted.endsWith("<redacted>@host")).toBe(true);
+  });
 });
