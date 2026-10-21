@@ -189,4 +189,34 @@ describe("expandPipelineCalls", () => {
     expect(expanded).toHaveLength(2);
     expect(expanded.map((s) => s.id)).toEqual(["ci/build", "ci/test"]);
   });
+
+  it("a long run of nested placeholders expands in linear time", () => {
+    // The placeholder pattern used to backtrack quadratically over a
+    // command that nests placeholders (CodeQL js/polynomial-redos, alert
+    // #118): 50k repetitions took ~37s to rewrite, the fixed pattern
+    // takes milliseconds. The command lives in a callee so the
+    // substitution actually runs.
+    const proj = new Project("myproj");
+    const deploy = new Pipeline(proj, "deploy", {
+      inputs: { env: { type: "string", required: true } },
+    });
+    const nested = "${inputs.".repeat(50_000);
+    new ShellStep(deploy, "deploy", { command: `${nested}x` });
+    const ci = new Pipeline(proj, "ci");
+    new PipelineCallStep(ci, "deploy-staging", {
+      callee: "deploy",
+      callInputs: { env: "staging" },
+    });
+
+    const graph = synthesize(proj);
+    const ciPipeline = graph.project.pipelines.find((p) => p.id === "ci")!;
+    const expanded = expandPipelineCalls(graph, ciPipeline.steps);
+
+    const callee = expanded.find((s) => s.id === "ci/deploy-staging/deploy");
+    expect(callee).toBeDefined();
+    // No binding for the field → the placeholder is left in place.
+    const op = callee?.operations[0];
+    expect(op?.kind).toBe("shell");
+    expect(op?.kind === "shell" ? op.command : undefined).toBe(`${nested}x`);
+  }, 10_000);
 });

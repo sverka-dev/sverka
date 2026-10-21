@@ -297,6 +297,61 @@ function substituteInputBindings(
   };
 }
 
+/** The placeholder prefix a shell command may carry. */
+const INPUT_PLACEHOLDER = "${inputs.";
+
+/**
+ * Rewrite `${inputs.X}` placeholders to the literal bound value.
+ * Reference bindings are left for the target lowering to translate.
+ *
+ * A scan, not a regex: the obvious pattern (`\$\{inputs\.([^}]+)\}`)
+ * backtracks quadratically over a command that nests placeholders — the
+ * input is user-authored, so a 0.5MB command took ~37s (CodeQL
+ * js/polynomial-redos, alert #118). The scan keeps the old semantics
+ * exactly: the field ends at the first `}` and may contain any other
+ * character.
+ */
+function substituteInputPlaceholders(
+  command: string,
+  bindings: Readonly<Record<string, Reference | InputLiteral>>,
+): string {
+  let out = "";
+  let i = 0;
+  for (;;) {
+    const start = command.indexOf(INPUT_PLACEHOLDER, i);
+    if (start === -1) {
+      out += command.slice(i);
+      return out;
+    }
+    const fieldStart = start + INPUT_PLACEHOLDER.length;
+    const end = command.indexOf("}", fieldStart);
+    // No closing brace left → no later placeholder can exist either.
+    if (end === -1) {
+      out += command.slice(i);
+      return out;
+    }
+    // An empty field is not a placeholder → skip it and keep looking.
+    if (end === fieldStart) {
+      out += command.slice(i, fieldStart);
+      i = fieldStart;
+      continue;
+    }
+    const field = command.slice(fieldStart, end);
+    const binding = bindings[field];
+    out += command.slice(i, start);
+    if (
+      binding === undefined ||
+      (typeof binding === "object" && binding !== null)
+    ) {
+      // Unbound or a reference → keep the placeholder for the lowering.
+      out += command.slice(start, end + 1);
+    } else {
+      out += String(binding);
+    }
+    i = end + 1;
+  }
+}
+
 /**
  * Rewrite `${inputs.X}` placeholders in shell command operations to the
  * literal bound value. Reference bindings are left for the target lowering
@@ -308,17 +363,10 @@ function substituteCommandBindings(
 ): readonly OperationDefinition[] {
   return operations.map((op) => {
     if (op.kind !== "shell") return op;
-    const rewritten = op.command.replace(
-      /\$\{inputs\.([^}]+)\}/g,
-      (_, field: string) => {
-        const binding = bindings[field];
-        if (binding === undefined) return `\${inputs.${field}}`;
-        if (typeof binding === "object" && binding !== null)
-          return `\${inputs.${field}}`;
-        return String(binding);
-      },
-    );
-    return { ...op, command: rewritten };
+    return {
+      ...op,
+      command: substituteInputPlaceholders(op.command, bindings),
+    };
   });
 }
 
