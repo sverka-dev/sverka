@@ -148,7 +148,47 @@ jobs:
               echo "Publishing $name@$version"
               # ./ prefix is required: npm parses a bare "packages/x" spec as
               # github:packages/x shorthand and fails on git ls-remote.
-              npm publish "./$dir" --access public --provenance || failed=1
+              # A publish can also fail transiently (registry/CDN hiccup) and
+              # leave the version registered without a tarball — which breaks
+              # `npm i sverka` for everyone. Retry, then verify the tarball is
+              # actually fetchable.
+              published=0
+              for attempt in 1 2 3; do
+                if npm publish "./$dir" --access public --provenance; then
+                  published=1
+                  break
+                fi
+                if [ "$attempt" -lt 3 ]; then
+                  echo "::warning::publish attempt $attempt failed for $name@$version — retrying"
+                  sleep 10
+                fi
+              done
+              if [ "$published" -ne 1 ]; then
+                echo "::error::could not publish $name@$version"
+                failed=1
+                continue
+              fi
+              # A fresh version is not served instantly — the registry (and
+              # its CDN) needs a moment to publish the tarball. Probe a few
+              # times before calling it broken, otherwise the check fails
+              # the release on a propagation delay.
+              fetchable=0
+              for probe in 1 2 3; do
+                tarball=$(npm view "$name@$version" dist.tarball 2>/dev/null || echo "")
+                if [ -n "$tarball" ] && curl -sfI "$tarball" >/dev/null 2>&1; then
+                  fetchable=1
+                  break
+                fi
+                if [ "$probe" -lt 3 ]; then
+                  sleep 10
+                fi
+              done
+              if [ "$fetchable" -eq 1 ]; then
+                echo "published $name@$version (tarball fetchable)"
+              else
+                echo "::error::$name@$version is registered but its tarball is not fetchable — npm install of this package would fail"
+                failed=1
+              fi
             fi
           done
           exit $failed
