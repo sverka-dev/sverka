@@ -185,6 +185,19 @@ const actionlint = new ShellStep(ci, "actionlint", {
   command: "bunx nx run repo-checks:actionlint",
 });
 
+// zizmor version pinned once, so the ci gate and the doctor run the
+// same audits — a PATH-installed zizmor is used locally when present,
+// the pinned one everywhere else.
+const ZIZMOR_VERSION = "1.30.1";
+
+/** The zizmor invocation, shared by the ci gate and the doctor step. */
+function zizmorCommand(): string {
+  return (
+    "if command -v zizmor >/dev/null 2>&1; then zizmor --version; " +
+    `zizmor .github/workflows/; else pipx run --spec zizmor==${ZIZMOR_VERSION} zizmor .github/workflows/; fi`
+  );
+}
+
 // Workflow security audit — zizmor lints every workflow file (generated
 // and hand-written) for template injection, unpinned actions, credential
 // leaks. A PATH-installed zizmor (brew/uv) wins locally; otherwise pipx
@@ -195,8 +208,7 @@ const actionlint = new ShellStep(ci, "actionlint", {
 // shell: sh is required locally — the host driver spawns command[0]
 // directly when no shell is set, so a bare `if` would never reach a shell.
 const zizmor = new ShellStep(ci, "zizmor", {
-  command:
-    "if command -v zizmor >/dev/null 2>&1; then zizmor --version; zizmor .github/workflows/; else pipx run --spec zizmor==1.30.1 zizmor .github/workflows/; fi",
+  command: zizmorCommand(),
   runtime: { shell: "sh" },
 });
 
@@ -342,6 +354,30 @@ const dependabotAlerts = new ShellStep(repoHealth, "dependabot-alerts", {
   runtime: { shell: "sh", secrets: ["REPO_HEALTH_TOKEN"] },
 });
 
+// Open code-scanning alerts — every analysis tool that uploads SARIF to
+// the repo lands in one feed: CodeQL, Scorecard and zizmor. Without this
+// check, "one or more analysis tools are reporting problems" only ever
+// reaches the GitHub notification, never the doctor run.
+// A 403 means the token cannot read code scanning (needs
+// security-events: read) — that degrades to a warning, like the
+// dependabot check above.
+const codeScanningAlerts = new ShellStep(repoHealth, "code-scanning-alerts", {
+  command:
+    'out=$(gh api --paginate \'repos/{owner}/{repo}/code-scanning/alerts?state=open\' --jq \'.[] | "\\(.number)\\t\\(.tool.name)\\t\\(.rule.id)\\t\\(.most_recent_instance.location.path):\\(.most_recent_instance.location.start_line)"\' 2>&1) || { if echo "$out" | grep -qi "rate limit"; then echo "$out"; echo "::error::GitHub API rate limit — code-scanning alerts NOT checked"; exit 1; fi; if echo "$out" | grep -qiE "not accessible|403|410|not enabled"; then echo "::warning::GITHUB_TOKEN cannot read code-scanning alerts (needs the security-events: read scope, and code scanning enabled); check skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo "open code-scanning alerts:"; echo "$out"; exit 1; }',
+  runtime: { shell: "sh" },
+});
+
+// zizmor on the workflows — the same gate the ci pipeline runs per PR,
+// repeated here so the doctor sees it on main (and nightly). zizmor
+// does not upload SARIF, so its findings never reach the code-scanning
+// feed the check above reads.
+// shell: sh is required locally — the host driver spawns command[0]
+// directly when no shell is set, so a bare "if" would never reach a shell.
+const zizmorHealth = new ShellStep(repoHealth, "zizmor", {
+  command: zizmorCommand(),
+  runtime: { shell: "sh" },
+});
+
 // Informational: prints currently open PRs (always passes).
 const openPrs = new ShellStep(repoHealth, "open-prs", {
   command:
@@ -355,6 +391,8 @@ const healthRoots = [
   reviewDebt.node.id,
   staleBranches.node.id,
   dependabotAlerts.node.id,
+  codeScanningAlerts.node.id,
+  zizmorHealth.node.id,
   openPrs.node.id,
 ];
 
