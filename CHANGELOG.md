@@ -1,3 +1,14 @@
+## 0.2.35 (2026-10-21)
+
+### 🩹 Fixes
+
+- **repo-health:** the doctor now sees the analysis tools ([#389](https://github.com/sverka-dev/sverka/pull/389))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.34 (2026-10-21)
 
 ### 🩹 Fixes
