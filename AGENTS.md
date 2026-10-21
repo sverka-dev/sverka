@@ -42,9 +42,15 @@ bun run typecheck    # typecheck all packages
   stdin, or credential helpers; never interpolate tokens into args or
   error text.
 - **Shared filesystem paths need ownership** — shared caches, clones, and
-  temp dirs get a lock, a lease, or a content-addressed name.
+  temp dirs get a lock, a lease, or a content-addressed name. The rule
+  applies to every shared path; the specs own the mechanism per surface
+  (e.g. the shared cache names its entries by content hash —
+  `<cacheDir>/<sha256>/` — Spec 19; a content-addressed _name_ is not
+  atomicity, the write path owns that).
 - **Composite keys get a canonical form** — no bare string concat
-  (`m`+`ab` collides with `ma`+`b`); use a tuple, JSON, or hash.
+  (`m`+`ab` collides with `ma`+`b`); use a tuple, JSON, or hash. A JS
+  `Map` compares array keys by identity, so a tuple has to be encoded
+  before it becomes a key — a nested map or one unambiguous string.
 - **Parse before comparing** — never lexical ordering for structured
   values (ISO timestamps with offsets, versions).
 - **Invalid input fails loud** — throw, report, or reject; a silent drop
