@@ -123,9 +123,22 @@ jobs:
         if: steps.version.outputs.released == 'true'
         run: |
           failed=0
-          for pkg in packages/*/package.json; do
-            dir=$(dirname "$pkg")
-            if [ -f "$dir/dist/index.mjs" ]; then
+          # Publish exactly the packages `nx release` versions — the lockstep
+          # group in nx.json. A package outside that group keeps its own
+          # version and is not on npm: publishing it fails with a 404 and
+          # takes the whole release (and main) down.
+          projects=$(node -p "
+            const cfg = require('./nx.json');
+            if (!cfg.release || !Array.isArray(cfg.release.projects)) {
+              process.stderr.write('ERROR: nx.json release.projects is not a flat string array\n');
+              process.exit(1);
+            }
+            cfg.release.projects.join(' ');
+          ") || exit 1
+          for project in $projects; do
+            dir="packages/$project"
+            pkg="$dir/package.json"
+            if [ -f "$pkg" ] && [ -f "$dir/dist/index.mjs" ]; then
               name=$(node -p "require('./$pkg').name")
               version=$(node -p "require('./$pkg').version")
               if npm view "$name@$version" version >/dev/null 2>&1; then
