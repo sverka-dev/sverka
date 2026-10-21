@@ -363,8 +363,51 @@ const dependabotAlerts = new ShellStep(repoHealth, "dependabot-alerts", {
 // dependabot check above.
 const codeScanningAlerts = new ShellStep(repoHealth, "code-scanning-alerts", {
   command:
-    'out=$(gh api --paginate \'repos/{owner}/{repo}/code-scanning/alerts?state=open\' --jq \'.[] | "\\(.number)\\t\\(.tool.name)\\t\\(.rule.id)\\t\\(.most_recent_instance.location.path):\\(.most_recent_instance.location.start_line)"\' 2>&1) || { if echo "$out" | grep -qi "rate limit"; then echo "$out"; echo "::error::GitHub API rate limit — code-scanning alerts NOT checked"; exit 1; fi; if echo "$out" | grep -qiE "not accessible|403|410|not enabled"; then echo "::warning::GITHUB_TOKEN cannot read code-scanning alerts (needs the security-events: read scope, and code scanning enabled); check skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo "open code-scanning alerts:"; echo "$out"; exit 1; }',
+    'out=$(gh api --paginate \'repos/{owner}/{repo}/code-scanning/alerts?state=open\' --jq \'.[] | "\\(.number)\\t\\(.tool.name)\\t\\(.rule.security_severity_level // .rule.severity // "-")\\t\\(.rule.id)\\t\\(.most_recent_instance.location.path):\\(.most_recent_instance.location.start_line)"\' 2>&1) || { if echo "$out" | grep -qi "rate limit"; then echo "$out"; echo "::error::GitHub API rate limit — code-scanning alerts NOT checked"; exit 1; fi; if echo "$out" | grep -qiE "not accessible|403|410|not enabled"; then echo "::warning::GITHUB_TOKEN cannot read code-scanning alerts (needs the security-events: read scope, and code scanning enabled); check skipped"; exit 0; fi; echo "$out"; exit 1; }; [ -z "$out" ] || { echo "open code-scanning alerts:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
+});
+
+// Open secret-scanning alerts — the Secret scanning section of the
+// repository's Security page. The repo has secret scanning enabled with
+// push protection; a leaked credential in a commit is the one finding
+// that must never wait for a human to open the page. A token without the
+// scope degrades to a warning, like the checks above.
+const secretScanningAlerts = new ShellStep(
+  repoHealth,
+  "secret-scanning-alerts",
+  {
+    // Reading secret-scanning alerts needs a token with the
+    // secret-scanning-alerts scope — the GITHUB_TOKEN cannot be granted
+    // it, so REPO_HEALTH_TOKEN provides it (the same secret the dependabot
+    // check uses). Without the secret the check warns and skips; it never
+    // claims the repo is clean.
+    command:
+      '[ -z "$REPO_HEALTH_TOKEN" ] || export GH_TOKEN="$REPO_HEALTH_TOKEN"; ' +
+      "failed=0; " +
+      'out=$(gh api --paginate \'repos/{owner}/{repo}/secret-scanning/alerts?state=open\' --jq \'.[] | "\\(.number)\\t\\(.resolution // "-")\\t\\(.secret_type_display_name // .secret_type)\\t\\(.html_url)"\' 2>&1) || { if echo "$out" | grep -qi "rate limit"; then echo "$out"; echo "::error::GitHub API rate limit — secret-scanning alerts NOT checked"; exit 1; fi; if echo "$out" | grep -qiE "not accessible|403|404"; then if [ -n "$REPO_HEALTH_TOKEN" ]; then echo "REPO_HEALTH_TOKEN cannot read secret-scanning alerts — check its scopes (secret-scanning-alerts read) or remove the secret"; exit 1; fi; echo "::warning::no token with the secret-scanning-alerts scope (REPO_HEALTH_TOKEN) — secret-scanning alerts NOT checked"; exit 0; fi; echo "$out"; exit 1; }; ' +
+      '[ -z "$out" ] || { echo "open secret-scanning alerts:"; echo "$out"; failed=1; }; ' +
+      // Push protection is a separate state from the alert list — with it
+      // disabled the next commit can still leak a credential.
+      "prot=$(gh api 'repos/{owner}/{repo}' --jq '.security_and_analysis.secret_scanning_push_protection.status // \"unknown\"' 2>/dev/null || echo unknown); " +
+      '[ "$prot" = "enabled" ] || { echo "::error::secret scanning push protection is $prot (expected enabled)"; failed=1; }; ' +
+      "exit $failed",
+    runtime: { shell: "sh", secrets: ["REPO_HEALTH_TOKEN"] },
+  },
+);
+
+// Advisories THIS repository published — the Security advisories section
+// of the Security page (sverka publishes the packages, so an open
+// advisory on one of them is a real problem). Advisories that AFFECT our
+// dependencies are the dependabot alerts above. Only published
+// advisories are on the page; drafts are not.
+// Reading them needs a token with the repository-advisories scope —
+// REPO_HEALTH_TOKEN provides it.
+const publishedAdvisories = new ShellStep(repoHealth, "published-advisories", {
+  command:
+    '[ -z "$REPO_HEALTH_TOKEN" ] || export GH_TOKEN="$REPO_HEALTH_TOKEN"; ' +
+    'out=$(gh api --paginate \'repos/{owner}/{repo}/security-advisories\' --jq \'.[] | select(.state == "published") | "\\(.ghsa_id)\\t\\(.severity)\\t\\(.summary)"\' 2>&1) || { if echo "$out" | grep -qi "rate limit"; then echo "$out"; echo "::error::GitHub API rate limit — published advisories NOT checked"; exit 1; fi; if echo "$out" | grep -qiE "not accessible|403"; then if [ -n "$REPO_HEALTH_TOKEN" ]; then echo "REPO_HEALTH_TOKEN cannot read repository advisories — check its scopes (repository-advisories read) or remove the secret"; exit 1; fi; echo "::warning::no token with the repository-advisories scope (REPO_HEALTH_TOKEN) — published advisories NOT checked"; exit 0; fi; echo "$out"; exit 1; }; ' +
+    '[ -z "$out" ] || { echo "open published advisories:"; echo "$out"; exit 1; }',
+  runtime: { shell: "sh", secrets: ["REPO_HEALTH_TOKEN"] },
 });
 
 // zizmor on the workflows — the same gate the ci pipeline runs per PR,
@@ -392,6 +435,8 @@ const healthRoots = [
   staleBranches.node.id,
   dependabotAlerts.node.id,
   codeScanningAlerts.node.id,
+  secretScanningAlerts.node.id,
+  publishedAdvisories.node.id,
   zizmorHealth.node.id,
   openPrs.node.id,
 ];
