@@ -23,7 +23,7 @@ import { uiCommand, type UiArgs } from "./commands/ui.js";
 import { agentCommand, type AgentArgs } from "./commands/agent.js";
 import { applyCommand, type ApplyArgs } from "./commands/apply.js";
 import { loginCommand, type LoginArgs } from "./commands/login.js";
-import { hubCommand, type HubArgs } from "./commands/hub.js";
+import type { HubArgs } from "./commands/hub.js";
 import { runsCommand, type RunsArgs } from "./commands/runs.js";
 
 /** Optional dependencies for main (testability seam). */
@@ -566,7 +566,7 @@ function dispatchLogin(
   return loginCommand(args, global, output, start);
 }
 
-function dispatchHub(
+async function dispatchHub(
   parsed: Arguments,
   global: GlobalFlags,
   output: OutputWriter,
@@ -577,6 +577,11 @@ function dispatchHub(
   if (typeof parsed.port === "number") args.port = parsed.port;
   if (typeof parsed.data === "string") args.data = parsed.data;
   if (typeof parsed.host === "string") args.host = parsed.host;
+  // The hub package is an optional dependency — it is not on npm yet, so
+  // the CLI must start without it. A static import cannot work here: the
+  // module is absent in a plain `npm i sverka`, and the failure would be
+  // a startup crash, not a missing-feature error.
+  const { hubCommand } = await import("./commands/hub.js");
   return hubCommand(args, global, output, start);
 }
 
