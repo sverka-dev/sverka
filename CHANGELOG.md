@@ -1,3 +1,15 @@
+## 0.2.33 (2026-10-21)
+
+### 🩹 Fixes
+
+- **cli:** make the hub package an optional dependency ([#387](https://github.com/sverka-dev/sverka/pull/387))
+- **release:** publish only the packages nx release versions ([#386](https://github.com/sverka-dev/sverka/pull/386))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.32 (2026-10-21)
 
 ### 🩹 Fixes
