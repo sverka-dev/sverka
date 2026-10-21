@@ -45,7 +45,7 @@ bun run typecheck    # typecheck all packages
   temp dirs get a lock, a lease, or a content-addressed name. The rule
   applies to every shared path; the specs own the mechanism per surface
   (e.g. the shared cache names its entries by content hash —
-  `<cacheDir>/<sha256>/` — Spec 19; a content-addressed *name* is not
+  `<cacheDir>/<sha256>/` — Spec 19; a content-addressed _name_ is not
   atomicity, the write path owns that).
 - **Composite keys get a canonical form** — no bare string concat
   (`m`+`ab` collides with `ma`+`b`); use a tuple, JSON, or hash. A JS
