@@ -40,6 +40,10 @@ function touchable(dir: string): Promise<void> {
   );
 }
 
+// The debounce window is deliberately wide (300ms — the spec default):
+// the burst below must land inside ONE window. With a 30-50ms window a
+// loaded CI runner can spread the three writes across two windows, and
+// the coalescing assertion then counts the extra run (sv-z568).
 describe("watchLoop (spec 53.2)", () => {
   it("runs once on start, then exactly once per debounced change", async () => {
     const dir = await getDir();
@@ -53,7 +57,7 @@ describe("watchLoop (spec 53.2)", () => {
       },
       output: new CaptureWriter(),
       signal: ac.signal,
-      debounceMs: 50,
+      debounceMs: 300,
     });
     await loop.ready;
     await until(() => runs === 1);
@@ -62,7 +66,7 @@ describe("watchLoop (spec 53.2)", () => {
     await touchable(dir);
     await touchable(dir);
     await until(() => runs === 2);
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 700));
     expect(runs).toBe(2);
     ac.abort();
     await loop.done;
@@ -87,7 +91,7 @@ describe("watchLoop (spec 53.2)", () => {
       },
       output: new CaptureWriter(),
       signal: ac.signal,
-      debounceMs: 30,
+      debounceMs: 300,
     });
     await loop.ready;
     await until(() => runs === 1);
@@ -95,10 +99,10 @@ describe("watchLoop (spec 53.2)", () => {
     await touchable(dir);
     // Keep run #1 in flight past the debounce window so the burst is
     // guaranteed to land in the pending path, not the idle path.
-    await new Promise((r) => setTimeout(r, 120));
+    await new Promise((r) => setTimeout(r, 900));
     resolveSlow!();
     await until(() => runs === 2);
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 700));
     expect(runs).toBe(2); // exactly one coalesced re-run
     ac.abort();
     await loop.done;
@@ -118,7 +122,7 @@ describe("watchLoop (spec 53.2)", () => {
       },
       output: out,
       signal: ac.signal,
-      debounceMs: 30,
+      debounceMs: 300,
     });
     await loop.ready;
     await until(() => runs === 1);
@@ -138,7 +142,7 @@ describe("watchLoop (spec 53.2)", () => {
       run: async () => 0,
       output: out,
       signal: ac.signal,
-      debounceMs: 30,
+      debounceMs: 300,
     });
     await loop.ready;
     await until(() => out.stderrText.includes("watch: run #1"));
@@ -163,7 +167,7 @@ describe("watchLoop (spec 53.2)", () => {
       },
       output: new CaptureWriter(),
       signal: ac.signal,
-      debounceMs: 30,
+      debounceMs: 300,
     });
     await loop.ready;
     await until(() => runs === 1);
@@ -173,7 +177,7 @@ describe("watchLoop (spec 53.2)", () => {
     void loop.done.then(() => {
       settled = true;
     });
-    await new Promise((r) => setTimeout(r, 120));
+    await new Promise((r) => setTimeout(r, 900));
     expect(settled).toBe(false);
     release!();
     await expect(loop.done).resolves.toBe(7);
@@ -191,7 +195,7 @@ describe("watchLoop (spec 53.2)", () => {
       },
       output: new CaptureWriter(),
       signal: ac.signal,
-      debounceMs: 30,
+      debounceMs: 300,
     });
     await loop.ready;
     await until(() => runs === 1);
@@ -203,7 +207,7 @@ describe("watchLoop (spec 53.2)", () => {
         await writeFile(join(dir, ".sverka", "report.html"), "<html/>");
       },
     );
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 900));
     expect(runs).toBe(1);
     ac.abort();
     await loop.done;
