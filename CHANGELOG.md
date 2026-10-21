@@ -1,3 +1,15 @@
+## 0.2.30 (2026-10-21)
+
+### 🩹 Fixes
+
+- **arena:** disable git credential prompts, redact creds in URLs ([#378](https://github.com/sverka-dev/sverka/pull/378))
+- **repo-health:** judge the latest check-run per check name, not every run ([#381](https://github.com/sverka-dev/sverka/pull/381))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.29 (2026-10-21)
 
 ### 🩹 Fixes
