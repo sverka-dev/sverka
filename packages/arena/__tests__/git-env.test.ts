@@ -16,6 +16,9 @@ vi.mock("node:child_process", () => ({ execFile: execFileMock }));
 
 import { git, gitOrThrow } from "../src/internal/git.js";
 
+/* secretlint-disable @secretlint/secretlint-rule-basicauth -- fake credential
+   fixtures (user:TOKEN@host) that prove the redaction path; not real secrets. */
+
 function lastEnv(): Record<string, string> {
   const env = execFileMock.mock.calls.at(-1)?.[2]?.env;
   if (env === undefined) throw new Error("git() did not pass an env");

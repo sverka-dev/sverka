@@ -5,6 +5,9 @@ import { join } from "node:path";
 
 import { git, gitOrThrow, redactUrl } from "../src/internal/git.js";
 
+/* secretlint-disable @secretlint/secretlint-rule-basicauth -- fake credential
+   fixtures (user:TOKEN@host) that prove the redaction path; not real secrets. */
+
 describe("internal git seam", () => {
   it("git rejects on spawn failure — ENOENT is not exit code 0", async () => {
     // PATH without git: execFile reports error.code as the string
