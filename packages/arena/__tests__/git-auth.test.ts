@@ -93,6 +93,41 @@ describe("git registry auth transport", () => {
     expect(err.message).toContain("https://<redacted>@example.com/reg.git");
   });
 
+  it("REGISTRY_UNAVAILABLE redacts a token echoed by a failed pull", async () => {
+    // The pull fails before any rebase starts — the stderr becomes the
+    // cause the CLI prints, and git echoes the remote URL in it.
+    gitMock.mockImplementation(async (args) =>
+      args.includes("push") ||
+      args.includes("pull") ||
+      (args.includes("diff") && args.includes("--cached"))
+        ? {
+            code: 1,
+            stdout: "",
+            stderr:
+              "fatal: unable to access 'https://user:SECRET-TOKEN@example.com/reg.git/'",
+          }
+        : okResult,
+    );
+    try {
+      const reg = createGitRegistry({
+        url: "https://user:SECRET-TOKEN@example.com/reg.git",
+        dir: freshCheckout(),
+      });
+      const err = await reg.publish(v1Doc()).then(
+        () => {
+          throw new Error("expected publish to reject");
+        },
+        (e: unknown) => e as ArenaError,
+      );
+      expect(err.code).toBe("REGISTRY_UNAVAILABLE");
+      expect(err.message).not.toContain("SECRET-TOKEN");
+      expect(String(err.cause)).not.toContain("SECRET-TOKEN");
+      expect(String(err.cause)).toContain("https://<redacted>@example.com");
+    } finally {
+      gitMock.mockImplementation(async () => okResult);
+    }
+  });
+
   it("PUBLISH_CONFLICT redacts a token embedded in the remote URL", async () => {
     // Drive the whole finalize path through the mocked seam: staged diff
     // → commit ok → push rejected → the rebase retry succeeds → the
