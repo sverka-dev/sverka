@@ -2,6 +2,11 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  test: {
+    // The CLI and public-API tests spawn the built CLI in a child
+    // process — they exceed vitest's 5s default under load.
+    testTimeout: 30000,
+  },
   resolve: {
     alias: {
       // Resolve workspace deps from source, not dist/ — concurrent nx

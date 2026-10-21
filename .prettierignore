@@ -35,3 +35,8 @@ packages/arena/fixtures/
 # Lockfiles & data files
 bun.lock
 *.jsonl
+
+# Local-only config — git-excluded, never committed. Formatting it is
+# meaningless, and `prettier --check .` would fail the format gate for
+# every checkout that has one.
+bro.config.local.json

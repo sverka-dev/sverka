@@ -4,7 +4,11 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   // Empty test block: knip's vitest plugin only registers default test
   // entries (src/** __tests__) when `test` is present in a resolved config.
-  test: {},
+  test: {
+    // Scheduler, retry and host-executor tests wait on real timers and
+    // child processes — they exceed vitest's 5s default under load.
+    testTimeout: 30000,
+  },
   resolve: {
     alias: {
       // Resolve workspace deps from source, not dist/ — concurrent nx
