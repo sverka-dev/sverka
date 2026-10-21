@@ -1,3 +1,14 @@
+## 0.2.32 (2026-10-21)
+
+### 🩹 Fixes
+
+- **cli:** anchor the file-access suppression to the tainted argument ([#385](https://github.com/sverka-dev/sverka/pull/385))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.31 (2026-10-21)
 
 ### 🩹 Fixes
