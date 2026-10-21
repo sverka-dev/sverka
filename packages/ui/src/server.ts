@@ -135,8 +135,8 @@ function handleRequest(
 
 /** List SARIF files and render the dashboard page.
  *  All user-controlled data (artifactsDir, filenames) is escaped via
- *  escapeHtml() in renderDashboard. CSP blocks inline scripts as
- *  defense-in-depth. */
+ *  escapeHtml() in renderDashboard; CSP blocks inline scripts as
+ *  defense-in-depth. The escaper is local — the alert is dismissed. */
 function serveDashboard(res: ServerResponse, artifactsDir: string): void {
   const files = listSarifFiles(artifactsDir);
   const html = renderDashboard(artifactsDir, files);

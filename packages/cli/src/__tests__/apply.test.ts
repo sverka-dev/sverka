@@ -170,6 +170,28 @@ describe("sverka apply — writes validation (Spec 54)", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("gitlab provider: a non-https API URL fails before the request", async () => {
+    await writeFile(
+      join(dir, "sverka-writes.json"),
+      JSON.stringify({ writes: [{ kind: "comment", body: "hi" }] }),
+      "utf-8",
+    );
+    process.env[DECL_ENV] = JSON.stringify([
+      { kind: "comment", target: "merge_request" },
+    ]);
+    process.env.CI_PROJECT_ID = "123";
+    process.env.SVERKA_APPLY_TOKEN = "glpat-test";
+    // The token and the comment body travel with every request — a
+    // plaintext base would put both on the wire in the clear.
+    process.env.CI_API_V4_URL = "http://gitlab.example.com/api/v4";
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    await expect(
+      applyCommand({ provider: "gitlab" }, global(), new CaptureWriter(), 0),
+    ).rejects.toThrow(/must be https/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("applies a declared comment write to a GitLab MR note", async () => {
     await writeFile(
       join(dir, "sverka-writes.json"),
@@ -197,6 +219,33 @@ describe("sverka apply — writes validation (Spec 54)", () => {
     expect(init.method).toBe("POST");
     expect(init.headers["PRIVATE-TOKEN"]).toBe("glpat-test");
     expect(out.stdoutText).toContain("applied 1 write(s)");
+  });
+
+  it("rejects provider redirects — the token must not follow a 307", async () => {
+    await writeFile(
+      join(dir, "sverka-writes.json"),
+      JSON.stringify({ writes: [{ kind: "comment", body: "hi" }] }),
+      "utf-8",
+    );
+    process.env[DECL_ENV] = JSON.stringify([
+      { kind: "comment", target: "merge_request" },
+    ]);
+    gitlabEnv();
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchSpy);
+    await applyCommand(
+      { provider: "gitlab" },
+      global(),
+      new CaptureWriter(),
+      0,
+    );
+    const [, init] = fetchSpy.mock.calls[0]! as unknown as [
+      string,
+      { redirect?: string },
+    ];
+    // A 307/308 redirect replays the body and gitlab's PRIVATE-TOKEN
+    // header against the redirect target — which may be another host.
+    expect(init.redirect).toBe("error");
   });
 
   it("applies a declared comment write to a GitLab issue when MR_IID is absent", async () => {
