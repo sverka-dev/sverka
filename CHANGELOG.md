@@ -1,3 +1,16 @@
+## 0.2.29 (2026-10-21)
+
+### 🩹 Fixes
+
+- **ci:** exclude own check suite in repo-health main-green gate ([#358](https://github.com/sverka-dev/sverka/pull/358))
+- **ci:** unblock the format gate and give process-driven tests headroom ([#377](https://github.com/sverka-dev/sverka/pull/377))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.28 (2026-10-10)
 
 ### 🩹 Fixes
