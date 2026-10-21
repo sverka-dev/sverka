@@ -221,6 +221,33 @@ describe("sverka apply — writes validation (Spec 54)", () => {
     expect(out.stdoutText).toContain("applied 1 write(s)");
   });
 
+  it("rejects provider redirects — the token must not follow a 307", async () => {
+    await writeFile(
+      join(dir, "sverka-writes.json"),
+      JSON.stringify({ writes: [{ kind: "comment", body: "hi" }] }),
+      "utf-8",
+    );
+    process.env[DECL_ENV] = JSON.stringify([
+      { kind: "comment", target: "merge_request" },
+    ]);
+    gitlabEnv();
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchSpy);
+    await applyCommand(
+      { provider: "gitlab" },
+      global(),
+      new CaptureWriter(),
+      0,
+    );
+    const [, init] = fetchSpy.mock.calls[0]! as unknown as [
+      string,
+      { redirect?: string },
+    ];
+    // A 307/308 redirect replays the body and gitlab's PRIVATE-TOKEN
+    // header against the redirect target — which may be another host.
+    expect(init.redirect).toBe("error");
+  });
+
   it("applies a declared comment write to a GitLab issue when MR_IID is absent", async () => {
     await writeFile(
       join(dir, "sverka-writes.json"),

@@ -395,6 +395,9 @@ async function postJson(
     method: "POST",
     headers,
     body: JSON.stringify(body),
+    // A 307/308 redirect replays the body — and gitlab's PRIVATE-TOKEN
+    // header — against the redirect target, which may be another host.
+    redirect: "error",
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
