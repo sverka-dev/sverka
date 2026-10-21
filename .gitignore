@@ -170,6 +170,8 @@ tmp/
 .opencode/
 .worktrees/
 .sverka/
+# Machine-local bro config — never committed (it carries local overrides)
+bro.config.local.json
 # examples/gitlab-agentic uses .sverka/*.md as its committed config surface
 !examples/gitlab-agentic/.sverka/
 .sverka-hub/
