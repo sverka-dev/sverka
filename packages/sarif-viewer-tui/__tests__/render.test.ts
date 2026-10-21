@@ -19,8 +19,15 @@ describe("renderSarifTui", () => {
     });
     captured = [];
     originalWrite = process.stdout.write.bind(process.stdout) as WriteFn;
-    process.stdout.write = ((chunk: unknown) => {
+    process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
       captured.push(String(chunk));
+      // ink resolves its exit promise through the write callback — a fake
+      // write that ignores it never lets waitUntilExit() settle.
+      const callback = rest.find(
+        (arg): arg is (error?: Error | null) => void =>
+          typeof arg === "function",
+      );
+      callback?.(null);
       return true;
     }) as typeof process.stdout.write;
   });

@@ -37,7 +37,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@sverka/compiler": "workspace:*",
     "@sverka/hub": "workspace:*",
     "@sverka/reporter": "workspace:*",
@@ -49,14 +49,14 @@
     "@sverka/ui": "workspace:*",
     "@sverka/verification": "workspace:*",
     "@sverka/workflow": "workspace:*",
-    "chokidar": "4.0.3",
+    "chokidar": "^6.0.0",
     "yargs": "^18.2.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/yargs": "^17.0.33",
-    "tsdown": "^0.23.0",
+    "@types/yargs": "^17.0.35",
+    "tsdown": "^0.23.1",
     "typescript": "^5.8.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.5"
   }
 }
