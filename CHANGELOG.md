@@ -1,3 +1,14 @@
+## 0.2.31 (2026-10-21)
+
+### 🩹 Fixes
+
+- **security:** acknowledge the two open code-scanning alerts ([#379](https://github.com/sverka-dev/sverka/pull/379))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.30 (2026-10-21)
 
 ### 🩹 Fixes
