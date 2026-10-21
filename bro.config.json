@@ -41,7 +41,7 @@
           "on": ["session-start", "stop"],
           "budget": 2
         },
-        "say": "PR and issue references must be clickable links — always carry the full URL (e.g. https://github.com/sverka-dev/sverka/pull/123), never a bare #123."
+        "say": "PR and issue references must be clickable links — a PR is https://github.com/<owner>/<repo>/pull/<n> (e.g. https://github.com/sverka-dev/sverka/pull/123), an issue is https://github.com/<owner>/<repo>/issues/<n>; never a bare #123."
       }
     ]
   },
