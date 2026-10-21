@@ -1,3 +1,14 @@
+## 0.2.34 (2026-10-21)
+
+### 🩹 Fixes
+
+- **workflow:** give the workflow tests a 30s timeout ([#388](https://github.com/sverka-dev/sverka/pull/388))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.33 (2026-10-21)
 
 ### 🩹 Fixes
