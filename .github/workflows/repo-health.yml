@@ -126,6 +126,51 @@ jobs:
         env:
           REPO_HEALTH_TOKEN: ${{ secrets.REPO_HEALTH_TOKEN }}
         shell: sh
+  code-scanning-alerts:
+    name: code-scanning-alerts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: "out=$(gh api --paginate
+          'repos/{owner}/{repo}/code-scanning/alerts?state=open' --jq '.[] |
+          \"\\(.number)\\t\\(.tool.name)\\t\\(.rule.id)\\t\\(.most_recent_insta\
+          nce.location.path):\\(.most_recent_instance.location.start_line)\"'
+          2>&1) || { if echo \"$out\" | grep -qi \"rate limit\"; then echo
+          \"$out\"; echo \"::error::GitHub API rate limit — code-scanning alerts
+          NOT checked\"; exit 1; fi; if echo \"$out\" | grep -qiE \"not
+          accessible|403|410|not enabled\"; then echo \"::warning::GITHUB_TOKEN
+          cannot read code-scanning alerts (needs the security-events: read
+          scope, and code scanning enabled); check skipped\"; exit 0; fi; echo
+          \"$out\"; exit 1; }; [ -z \"$out\" ] || { echo \"open code-scanning
+          alerts:\"; echo \"$out\"; exit 1; }"
+        shell: sh
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: if command -v zizmor >/dev/null 2>&1; then zizmor --version; zizmor
+          .github/workflows/; else pipx run --spec zizmor==1.30.1 zizmor
+          .github/workflows/; fi
+        shell: sh
   open-prs:
     name: open-prs
     runs-on: ubuntu-latest
