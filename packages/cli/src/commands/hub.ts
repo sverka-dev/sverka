@@ -3,13 +3,56 @@
 
 import type { GlobalFlags, OutputWriter } from "../types.js";
 import { CliError, ExitCode } from "../types.js";
-import { startHubServer } from "@sverka/hub";
+// Type-only import — erased at runtime, so it costs no dependency. The
+// runtime import below is the dynamic one.
+import type * as HubModule from "@sverka/hub";
 
 export interface HubArgs {
   action?: string;
   port?: number;
   data?: string;
   host?: string;
+}
+
+/** Import the hub package — the seam the tests drive. */
+export type HubLoader = () => Promise<typeof HubModule>;
+
+/** Node's "module not found" codes — only these mean "not installed". */
+const MODULE_NOT_FOUND: Record<string, true> = {
+  MODULE_NOT_FOUND: true,
+  ERR_MODULE_NOT_FOUND: true,
+};
+
+/**
+ * Load the hub package on demand.
+ *
+ * A static import cannot work here: `@sverka/hub` is an optional
+ * dependency (its name is not on npm yet), so in a plain `npm i sverka`
+ * the module is absent and a static import would turn a missing feature
+ * into a startup crash.
+ *
+ * Only a "module not found" failure means "not installed" — an error
+ * raised *inside* the package is rethrown unchanged, so a broken install
+ * is not reported as a missing one.
+ */
+export async function loadHub(
+  load: HubLoader = () => import("@sverka/hub"),
+): Promise<typeof HubModule> {
+  try {
+    return await load();
+  } catch (e) {
+    const code =
+      typeof e === "object" && e !== null && "code" in e ? e.code : undefined;
+    if (typeof code !== "string" || MODULE_NOT_FOUND[code] !== true) {
+      throw e;
+    }
+    throw new CliError(
+      "sverka hub: the @sverka/hub package is not installed — npm i @sverka/hub",
+      "PACKAGE_ERROR",
+      ExitCode.RuntimeError,
+      e,
+    );
+  }
 }
 
 export async function hubCommand(
@@ -36,6 +79,7 @@ export async function hubCommand(
     );
   }
   const dataDir = args.data ?? `${global.root}/.sverka-hub`;
+  const { startHubServer } = await loadHub();
   const server = await startHubServer({
     dataDir,
     ...(args.port !== undefined ? { port: args.port } : {}),
