@@ -170,6 +170,28 @@ describe("sverka apply — writes validation (Spec 54)", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("gitlab provider: a non-https API URL fails before the request", async () => {
+    await writeFile(
+      join(dir, "sverka-writes.json"),
+      JSON.stringify({ writes: [{ kind: "comment", body: "hi" }] }),
+      "utf-8",
+    );
+    process.env[DECL_ENV] = JSON.stringify([
+      { kind: "comment", target: "merge_request" },
+    ]);
+    process.env.CI_PROJECT_ID = "123";
+    process.env.SVERKA_APPLY_TOKEN = "glpat-test";
+    // The token and the comment body travel with every request — a
+    // plaintext base would put both on the wire in the clear.
+    process.env.CI_API_V4_URL = "http://gitlab.example.com/api/v4";
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    await expect(
+      applyCommand({ provider: "gitlab" }, global(), new CaptureWriter(), 0),
+    ).rejects.toThrow(/must be https/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("applies a declared comment write to a GitLab MR note", async () => {
     await writeFile(
       join(dir, "sverka-writes.json"),

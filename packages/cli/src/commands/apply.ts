@@ -287,6 +287,30 @@ async function applyGitlabComment(
   return `comment on ${on} !${iid}`;
 }
 
+/** The provider API base must be https — the apply token and the comment
+ *  body travel with every request, so a plaintext base would put both on
+ *  the wire in the clear. */
+function requireHttpsApi(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new CliError(
+      `sverka apply: provider API URL is not a valid URL: ${url}`,
+      "PACKAGE_ERROR",
+      ExitCode.RuntimeError,
+    );
+  }
+  if (parsed.protocol !== "https:") {
+    throw new CliError(
+      "sverka apply: provider API URL must be https",
+      "PACKAGE_ERROR",
+      ExitCode.RuntimeError,
+    );
+  }
+  return url;
+}
+
 /** Provider-supplied env for a GitLab apply call — all CI-controlled. */
 function gitlabApplyEnv(): {
   api: string;
@@ -294,7 +318,7 @@ function gitlabApplyEnv(): {
   token: string;
 } {
   const env = process.env;
-  const api = env["CI_API_V4_URL"] ?? "https://gitlab.com/api/v4";
+  const api = requireHttpsApi(env["CI_API_V4_URL"] ?? "https://gitlab.com/api/v4");
   const project = env["CI_PROJECT_ID"];
   if (project === undefined || project === "") {
     throw new CliError(
@@ -316,7 +340,7 @@ function gitlabApplyEnv(): {
 
 async function applyGithubComment(write: AgentWrite): Promise<string> {
   const env = process.env;
-  const api = env["GITHUB_API_URL"] ?? "https://api.github.com";
+  const api = requireHttpsApi(env["GITHUB_API_URL"] ?? "https://api.github.com");
   const repo = env["GITHUB_REPOSITORY"];
   if (repo === undefined || repo === "") {
     throw new CliError(
