@@ -1,6 +1,6 @@
 {
   "name": "@sverka/runtime",
-  "version": "0.2.34",
+  "version": "0.2.35",
   "description": "Sverka runtime — native engine, scheduler, host and docker executors",
   "license": "MIT",
   "sideEffects": false,
