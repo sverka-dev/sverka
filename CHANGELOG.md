@@ -1,3 +1,14 @@
+## 0.2.37 (2026-10-21)
+
+### 🩹 Fixes
+
+- **repo-health:** the doctor covers the whole Security page ([#392](https://github.com/sverka-dev/sverka/pull/392))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.36 (2026-10-21)
 
 ### 🩹 Fixes
