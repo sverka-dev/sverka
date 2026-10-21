@@ -201,8 +201,12 @@ function TuiApp({ store }: Readonly<{ store: TuiStore }>) {
     { isActive: store.interactive },
   );
 
-  const termRows = stdout.rows || 24;
-  const termCols = stdout.columns || 80;
+  // ink 8 types the rendered stream as NodeJS.WritableStream — the
+  // terminal dimensions are not part of that type. Read them from the
+  // stream when it exposes them (a TTY), else from the process stream.
+  const tty = stdout as Partial<Pick<NodeJS.WriteStream, "rows" | "columns">>;
+  const termRows = tty.rows ?? process.stdout.rows ?? 24;
+  const termCols = tty.columns ?? process.stdout.columns ?? 80;
   const rows = buildStepTree(store.graph, store.state);
   const selected = Math.min(store.selected, Math.max(0, rows.length - 1));
   const findings = store.visibleFindings();

@@ -1,5 +1,6 @@
 // @sverka/sarif-viewer-tui — Ink TUI component. Spec 46.
 
+import process from "node:process";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { Key } from "ink";
@@ -184,8 +185,12 @@ export function SarifTuiApp(props: Readonly<{ findings: readonly Finding[] }>) {
     { isActive: true },
   );
 
-  const termCols = stdout.columns || 80;
-  const termRows = stdout.rows || 24;
+  // ink 8 types the rendered stream as NodeJS.WritableStream — the
+  // terminal dimensions are not part of that type. Read them from the
+  // stream when it exposes them (a TTY), else from the process stream.
+  const tty = stdout as Partial<Pick<NodeJS.WriteStream, "rows" | "columns">>;
+  const termCols = tty.columns ?? process.stdout.columns ?? 80;
+  const termRows = tty.rows ?? process.stdout.rows ?? 24;
   const maxWidth = Math.max(10, termCols - 2);
   const visible = store.visibleFindings();
   const selected = Math.min(store.selected, Math.max(0, visible.length - 1));

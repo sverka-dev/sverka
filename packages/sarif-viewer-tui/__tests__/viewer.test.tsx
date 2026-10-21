@@ -11,8 +11,14 @@ class FakeStdout extends EventEmitter {
   rows = 30;
   isTTY = true;
   readonly frames: string[] = [];
-  write = (frame: string): boolean => {
+  // ink resolves its exit promise through the write callback — a fake
+  // stream that ignores it never lets waitUntilExit() settle.
+  write = (
+    frame: string,
+    callback?: (error?: Error | null) => void,
+  ): boolean => {
     this.frames.push(frame);
+    callback?.(null);
     return true;
   };
   lastFrame(): string {

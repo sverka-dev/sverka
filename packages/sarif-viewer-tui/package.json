@@ -37,7 +37,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "ink": ">=5 <8",
+    "ink": ">=5 <9",
     "react": ">=19.2.0 <20"
   },
   "dependencies": {
@@ -45,10 +45,10 @@
   },
   "devDependencies": {
     "@types/react": "^19",
-    "ink": "7.1.1",
-    "react": "19.3.0",
-    "tsdown": "^0.23.0",
+    "ink": "^8.0.0",
+    "react": "19.3.1",
+    "tsdown": "^0.23.1",
     "typescript": "^5.8.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.5"
   }
 }
