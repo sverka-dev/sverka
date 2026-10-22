@@ -236,28 +236,60 @@ function isAlive(pid: number): boolean {
 }
 
 /**
- * Remove a lock whose owner is gone — the process it names does not
+ * Take over a lock whose owner is gone — the process it names does not
  * exist, or the lock is older than the stale threshold (a recycled pid
- * or a lock file from a crash before the pid was written).
+ * or a lock file from a crash before the owner was written).
+ *
+ * The takeover moves the lock aside before removing it, and only
+ * removes what it judged dead: a concurrent taker that moved a live
+ * lock gets it back instead of losing it. A read error other than a
+ * vanished lock is never a free slot — that would spin.
  */
 async function stealAbandonedLock(lockPath: string): Promise<boolean> {
-  let owner: number | undefined;
-  let mtimeMs: number;
+  let owner: string;
   try {
-    owner = Number.parseInt((await readFile(lockPath, "utf8")).trim(), 10);
-    mtimeMs = (await stat(lockPath)).mtimeMs;
+    owner = (await readFile(lockPath, "utf8")).trim();
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "ENOENT";
+  }
+  const pid = Number.parseInt(owner.split(":")[0] ?? "", 10);
+  const ownerGone =
+    Number.isInteger(pid) && pid !== process.pid && !isAlive(pid);
+  let ageMs: number;
+  try {
+    ageMs = Date.now() - (await stat(lockPath)).mtimeMs;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "ENOENT";
+  }
+  if (!ownerGone && ageMs < STALE_LOCK_MS) return false;
+
+  // Move the lock aside — the rename is atomic, so the path is free
+  // for the next attempt and no one else can take it in between.
+  const quarantine = `${lockPath}.dead-${randomUUID()}`;
+  try {
+    await rename(lockPath, quarantine);
   } catch {
-    // The lock vanished under us — the next attempt takes it.
+    return false;
+  }
+  let moved: string;
+  try {
+    moved = (await readFile(quarantine, "utf8")).trim();
+  } catch {
+    moved = "";
+  }
+  if (moved === owner) {
+    await rm(quarantine, { force: true });
     return true;
   }
-  const ownerGone =
-    owner !== undefined &&
-    Number.isInteger(owner) &&
-    owner !== process.pid &&
-    !isAlive(owner);
-  if (!ownerGone && Date.now() - mtimeMs < STALE_LOCK_MS) return false;
-  await rm(lockPath, { force: true });
-  return true;
+  // What moved was a live lock (a slower taker read it before we
+  // decided) — put it back rather than dropping it.
+  try {
+    await rename(quarantine, lockPath);
+  } catch {
+    // Someone else holds the path now; the moved lock belongs to a live
+    // owner, so it stays where it is instead of being deleted.
+  }
+  return false;
 }
 
 /**
@@ -275,8 +307,9 @@ async function acquireLock(
   for (;;) {
     try {
       const handle = await open(lockPath, "wx", 0o600);
-      // The owner pid — a later waiter uses it to spot an abandoned lock.
-      await handle.writeFile(`${process.pid}\n`);
+      // The owner and a unique token — a later waiter uses them to
+      // tell an abandoned lock from a live one.
+      await handle.writeFile(`${process.pid}:${randomUUID()}\n`);
       await handle.close();
       return {
         release: async () => {
@@ -825,13 +858,20 @@ function stripTrailingSlashes(s: string): string {
 
 /**
  * A failed conditional write — S3 answers 412 when the ETag moved (or
- * when the object appeared). The caller re-reads and retries.
+ * when the object appeared), and 409 when a conflicting operation hit
+ * the same key during the upload. Both mean another publisher won:
+ * the caller re-reads and retries.
  */
 function isPreconditionFailed(err: unknown): boolean {
   const name = (err as { name?: string }).name ?? "";
   const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata
     ?.httpStatusCode;
-  return name === "PreconditionFailed" || status === 412;
+  return (
+    name === "PreconditionFailed" ||
+    name === "ConditionalRequestConflict" ||
+    status === 412 ||
+    status === 409
+  );
 }
 
 function createS3Tree(cfg: S3RegistryConfig): TreeStore {
@@ -1082,9 +1122,17 @@ function compareIndexRuns(a: IndexRun, b: IndexRun): number {
  * How many times a writer that lost the index race re-reads and
  * retries. A losing writer is not an error — the index is
  * denormalized state, so the next attempt merges the other writer's
- * entry and both survive. The bound keeps a hot index from spinning.
+ * entry and both survive. The bound keeps a hot index from spinning:
+ * with N publishers only one write wins per round, so the last one
+ * needs up to N attempts.
  */
-const INDEX_CAS_ATTEMPTS = 5;
+const INDEX_CAS_ATTEMPTS = 10;
+
+/** Pause between two attempts — a short, jittered backoff. */
+function casBackoff(attempt: number): Promise<void> {
+  const ms = Math.min(50 * attempt, 200) + Math.floor(Math.random() * 25);
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 async function updateIndex(
   tree: TreeStore,
@@ -1110,6 +1158,7 @@ async function updateIndex(
     ) {
       return;
     }
+    await casBackoff(attempt);
   }
   throw new ArenaError(
     `registry index update lost ${INDEX_CAS_ATTEMPTS} races — retry the publish`,
@@ -1391,6 +1440,7 @@ export async function reindexRegistry(
       await tree.finalize("arena: reindex");
       return { runs };
     }
+    await casBackoff(attempt);
   }
   throw new ArenaError(
     `registry reindex lost ${INDEX_CAS_ATTEMPTS} races — retry the reindex`,
