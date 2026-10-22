@@ -9,6 +9,7 @@ import {
   createOutputWritingMockDriver,
   createMockDriver,
 } from "./helpers/mock-driver.js";
+import { initGitRepo } from "./helpers/fixtures.js";
 import type { StepDefinition } from "@sverka/workflow";
 import type { RunEvent } from "../types.js";
 
@@ -327,6 +328,9 @@ describe("StepExecutor — context ref resolution", () => {
   });
 
   it("resolves git.sha from git rev-parse HEAD", async () => {
+    const repo = join(testDir, "repo");
+    await mkdir(repo, { recursive: true });
+    const git = await initGitRepo(repo);
     let capturedCommand = "";
     const driver = createMockDriver({
       executeFn: async (req) => {
@@ -348,22 +352,25 @@ describe("StepExecutor — context ref resolution", () => {
       outputs: [],
       dependencies: [],
     };
-    // Use the repo root as workspace so git context resolves
+    // The workspace is a repository of its own — the sha must come from
+    // that repo, not from whatever the checkout under test happens to be.
     await executeStep({
       step,
       driver,
-      workspace: process.cwd(),
+      workspace: repo,
       artifactStore: createArtifactStore(join(testDir, "art")),
       valueStore: createValueStore(),
       secrets: {},
       emit: () => {},
       isCancelled: () => false,
     });
-    // git.sha should be a non-empty hex string
-    expect(capturedCommand).toMatch(/^echo [0-9a-f]{7,40}$/);
+    expect(capturedCommand).toBe(`echo ${git.sha}`);
   });
 
   it("resolves git.branch from git rev-parse --abbrev-ref HEAD", async () => {
+    const repo = join(testDir, "repo");
+    await mkdir(repo, { recursive: true });
+    const git = await initGitRepo(repo);
     let capturedCommand = "";
     const driver = createMockDriver({
       executeFn: async (req) => {
@@ -385,20 +392,19 @@ describe("StepExecutor — context ref resolution", () => {
       outputs: [],
       dependencies: [],
     };
-    // Use the repo root as workspace so git context resolves
+    // The workspace is a repository of its own — the branch must come from
+    // that repo, not from whatever the checkout under test happens to be.
     await executeStep({
       step,
       driver,
-      workspace: process.cwd(),
+      workspace: repo,
       artifactStore: createArtifactStore(join(testDir, "art")),
       valueStore: createValueStore(),
       secrets: {},
       emit: () => {},
       isCancelled: () => false,
     });
-    // git.branch should be a non-empty branch name
-    expect(capturedCommand).not.toBe("echo ${git.branch}");
-    expect(capturedCommand.length).toBeGreaterThan("echo ".length);
+    expect(capturedCommand).toBe(`echo ${git.branch}`);
   });
 
   it("resolves inputs.X from pipeline inputs", async () => {
