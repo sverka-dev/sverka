@@ -8,6 +8,7 @@
       "cli",
       "compiler",
       "create-sverka",
+      "hub",
       "playground",
       "plugin-mcp",
       "reporter",
