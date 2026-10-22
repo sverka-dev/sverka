@@ -27,6 +27,7 @@ import type {
   CheckResult,
 } from "./types.js";
 import { judgeAllRuns, compareCombos } from "./judge.js";
+import { NO_PLUGINS_LABEL, pluginSetLabel } from "./labels.js";
 import { installPlugins } from "./adapters/devin.js";
 
 /** Resolve the arena package root (for fixture paths). */
@@ -772,14 +773,13 @@ function formatCell(
 
 /** Format an aggregate group label: "model-id/plugins=on,off" or "model-id/no-plugins". */
 function formatAggregateLabel(modelId: string, pluginIds: string[]): string {
-  if (pluginIds.length === 0) return `${modelId}/no-plugins`;
-  return `${modelId}/plugins=${pluginIds.join(",")}`;
+  if (pluginIds.length === 0) return `${modelId}/${NO_PLUGINS_LABEL}`;
+  return `${modelId}/plugins=${pluginSetLabel(pluginIds, ",")}`;
 }
 
 /** Format a plugin combo label for comparisons: "no-plugins" or comma-joined ids. */
 function comboLabel(pluginIds: string[]): string {
-  if (pluginIds.length === 0) return "no-plugins";
-  return pluginIds.join(",");
+  return pluginSetLabel(pluginIds, ",");
 }
 
 // ─── Case analysis ───────────────────────────────────────────────────
@@ -849,13 +849,13 @@ export function computeAnalysis(
       }
     }
 
-    const baselineRuns = comboGroups.get("no-plugins") ?? [];
+    const baselineRuns = comboGroups.get(NO_PLUGINS_LABEL) ?? [];
     const baseline = averageRun(baselineRuns);
     const comparisons: ComboComparison[] = [];
 
     if (baseline) {
       for (const [key, candidateRuns] of comboGroups) {
-        if (key === "no-plugins") continue;
+        if (key === NO_PLUGINS_LABEL) continue;
         const candidate = averageRun(candidateRuns);
         if (candidate) {
           comparisons.push(compareCombos(baseline, candidate));
