@@ -1,5 +1,11 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": [
+    "node_modules",
+    "scripts/update-arena-results.ts",
+    "scripts/update-arena-board.ts",
+    "__tests__/arena-board.test.ts"
+  ],
   "compilerOptions": {
     "strict": true,
     "esModuleInterop": true,

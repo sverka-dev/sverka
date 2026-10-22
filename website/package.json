@@ -8,7 +8,7 @@
     "dev": "bun run sync-docs && vite dev",
     "build": "bun run sync-docs && bun run docs:search && bun run docs:pipeline && vite build && bun scripts/finalize-output.ts",
     "preview": "vite preview",
-    "check": "tsc --noEmit",
+    "check": "bun scripts/gen-route-tree.ts && tsc --noEmit",
     "test": "bun test",
     "sync-docs": "bun scripts/sync-docs.ts",
     "docs:arena": "bun scripts/update-arena-results.ts",
