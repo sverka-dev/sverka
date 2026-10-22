@@ -1,3 +1,5 @@
+<!-- cspell:ignore wnhd -->
+
 # sv-wnhd — docs sweep: engdocs/user pages for undocumented packages
 
 ## Problem

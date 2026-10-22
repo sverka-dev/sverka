@@ -46,7 +46,9 @@ const run = store.insertRun({
   findings, // Finding[] — counted into the index
 });
 
-for (const r of store.listRuns({ project: "acme/app", limit: 20 })) { /*…*/ }
+for (const r of store.listRuns({ project: "acme/app", limit: 20 })) {
+  /*…*/
+}
 store.getRun(run.runId);
 store.flaky("acme/app", { n: 50 }); // per-step success rates
 ```
@@ -69,12 +71,12 @@ when `HubServerOptions.tokens` is omitted.
 The hub serves server-rendered HTML built on `@sverka/ui`'s `renderHub*`
 functions — plain string renderers, no client JS:
 
-| Function            | Page                                             |
-| ------------------- | ------------------------------------------------ |
-| `renderHubIndex`    | `/` — projects index                             |
-| `renderHubRunList`  | `/?project=<p>` — run list for a project         |
-| `renderHubRunDetail`| `/runs/{project}/{runId}` — steps + findings     |
-| `renderHubFlaky`    | `/flaky/{project}` — flaky-step rates            |
+| Function             | Page                                         |
+| -------------------- | -------------------------------------------- |
+| `renderHubIndex`     | `/` — projects index                         |
+| `renderHubRunList`   | `/?project=<p>` — run list for a project     |
+| `renderHubRunDetail` | `/runs/{project}/{runId}` — steps + findings |
+| `renderHubFlaky`     | `/flaky/{project}` — flaky-step rates        |
 
 Each takes `{ ...rows }` data (`HubRunRow`, `HubRunView`, `HubFlakyRow`)
 and returns an HTML string. `renderDashboard` is the sibling function
@@ -88,7 +90,7 @@ than scraping the hub dashboard.
 Two related surfaces live on sverka.dev rather than in `@sverka/hub`:
 
 - **Pipeline reports (Spec 50, shipped)** — `website/scripts/
-  gen-pipeline-data.ts` runs `sverka run --format html` against this repo
+gen-pipeline-data.ts` runs `sverka run --format html` against this repo
   and `examples/*/` during the site deploy and publishes the standalone
   reports under `/pipeline-reports/`. Always live data; a red pipeline
   renders too — the page never fails the deploy.
@@ -97,12 +99,12 @@ Two related surfaces live on sverka.dev rather than in `@sverka/hub`:
   alerts, and check-run annotations into one findings view, rendered
   in-browser with `@sverka/verification` normalization. Not built yet;
   the local equivalent today is [`sverka
-  view`/`sverka ui`](../findings/sarif-pipeline.md).
+view`/`sverka ui`](../findings/sarif-pipeline.md).
 
 ## See also
 
 - [Remote run hub API](./api.md) — HTTP surface, tokens, `sverka run
-  --remote`, degradation behavior
+--remote`, degradation behavior
 - [SARIF pipeline](../findings/sarif-pipeline.md) — the local dashboard
   (`sverka ui`) and standalone viewers
 - [Snapshot storage](../running/storage.md) — what the snapshots API

@@ -23,13 +23,13 @@ sverka mcp-server
 
 Starts an MCP server over stdio. The server exposes 5 tools:
 
-| Tool              | Input                                                              | Output                                                                                                      |
-| ----------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `sverka.validate` | `{ root?: string }`                                                | `{ path: string, valid: boolean, pipelines: number }`                                                       |
-| `sverka.plan`     | `{ root?: string, entryId?: string }`                              | `{ id: string, graphId: string, entry: { id: string, trigger: object }, steps: string[], inputs: unknown }` |
-| `sverka.graph`    | `{ root?: string }`                                                | Full DefinitionGraph object (pipelines, entries, steps, edges)                                              |
-| `sverka.run`      | `{ root?: string, entryId?: string, executor?: "host"\|"docker" }` | `{ planId: string, status: "success"\|"failure"\|"cancelled"\|"suspended", events: number }`                |
-| `sverka.synth`    | `{ root?: string, target: "github"\|"gitlab" }`                    | `{ artifacts: { path: string }[] }`                                                                         |
+| Tool              | Input                                                  | Output                                                                                                      |                                       |            |              |                                |
+| ----------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------- | ------------ | ------------------------------ |
+| `sverka.validate` | `{ root?: string }`                                    | `{ path: string, valid: boolean, pipelines: number }`                                                       |                                       |            |              |                                |
+| `sverka.plan`     | `{ root?: string, entryId?: string }`                  | `{ id: string, graphId: string, entry: { id: string, trigger: object }, steps: string[], inputs: unknown }` |                                       |            |              |                                |
+| `sverka.graph`    | `{ root?: string }`                                    | Full DefinitionGraph object (pipelines, entries, steps, edges)                                              |                                       |            |              |                                |
+| `sverka.run`      | `{ root?: string, entryId?: string, executor?: "host"\ | "docker" }`                                                                                                 | `{ planId: string, status: "success"\ | "failure"\ | "cancelled"\ | "suspended", events: number }` |
+| `sverka.synth`    | `{ root?: string, target: "github"\                    | "gitlab" }`                                                                                                 | `{ artifacts: { path: string }[] }`   |            |              |                                |
 
 The server runs until stdin closes or SIGTERM is received. stdout is
 reserved for MCP JSON-RPC transport — all logs go to stderr.
@@ -99,7 +99,12 @@ args)` routes to the right client.
 ```ts
 const plugin = createMCPPlugin({
   servers: [
-    { name: "github", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-github"] },
+    {
+      name: "github",
+      transport: "stdio",
+      command: "npx",
+      args: ["-y", "@modelcontextprotocol/server-github"],
+    },
     { name: "docs", transport: "http", url: "https://mcp.example.com/" },
   ],
 });
@@ -119,12 +124,12 @@ direct use outside the plugin shape.
 
 Failures throw `MCPPluginError` with a `code`:
 
-| Code               | Meaning                                                        |
-| ------------------ | -------------------------------------------------------------- |
-| `CONNECT_FAILED`   | `Client.connect()` threw — server not found or refused         |
-| `TOOL_NOT_FOUND`   | Tool name doesn't match `<server>.<tool>` or unknown server    |
-| `TOOL_CALL_FAILED` | The MCP server returned `isError: true` or threw               |
-| `TRANSPORT_ERROR`  | Transport-level failure — process exited, HTTP 5xx              |
+| Code               | Meaning                                                     |
+| ------------------ | ----------------------------------------------------------- |
+| `CONNECT_FAILED`   | `Client.connect()` threw — server not found or refused      |
+| `TOOL_NOT_FOUND`   | Tool name doesn't match `<server>.<tool>` or unknown server |
+| `TOOL_CALL_FAILED` | The MCP server returned `isError: true` or threw            |
+| `TRANSPORT_ERROR`  | Transport-level failure — process exited, HTTP 5xx          |
 
 The caller (e.g. `AgentStep`) decides whether a failure retries or fails
 the step — the plugin never swallows errors silently.

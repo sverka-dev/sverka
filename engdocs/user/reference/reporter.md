@@ -147,16 +147,16 @@ testability seams — normally left unset.
 
 ## CLI wiring
 
-| Flag / format                       | Effect                                                            |
-| ----------------------------------- | ----------------------------------------------------------------- |
-| `--format text` (default)           | `TextRenderer` → stdout                                           |
-| `--format json`                     | `sverka.run/v1` payload → stdout + `.sverka/runs/<id>/report.json` |
-| `--format html` / `--output <path>` | `HtmlRenderer` → file (implies `--evaluate`)                      |
-| `--report <path>`                   | Relocate the per-run HTML report                                  |
+| Flag / format                       | Effect                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| `--format text` (default)           | `TextRenderer` → stdout                                                                     |
+| `--format json`                     | `sverka.run/v1` payload → stdout + `.sverka/runs/<id>/report.json`                          |
+| `--format html` / `--output <path>` | `HtmlRenderer` → file (implies `--evaluate`)                                                |
+| `--report <path>`                   | Relocate the per-run HTML report                                                            |
 | `--format sarif` / `web`            | `serializeSarif` / `generateSarifHtml` (`@sverka/verification`, `@sverka/sarif-viewer-web`) |
-| `--evaluate`                        | `collectFindings` + `evaluateGate` after the run                  |
-| `--tui`                             | `InkRenderer` (opt-in; never auto-selected — text is always default) |
-| `--step-output-lines N`             | Text renderer tail length (`0` disables)                          |
+| `--evaluate`                        | `collectFindings` + `evaluateGate` after the run                                            |
+| `--tui`                             | `InkRenderer` (opt-in; never auto-selected — text is always default)                        |
+| `--step-output-lines N`             | Text renderer tail length (`0` disables)                                                    |
 
 Every run writes `.sverka/runs/<runId>/report.json` (schema
 `sverka.run/v1`, append-only) and `report.html`; human output ends with
@@ -170,17 +170,17 @@ are emission problems (e.g. unwritable `outputPath`).
 
 ## API summary
 
-| Export                                                              | Kind                                    |
-| ------------------------------------------------------------------- | --------------------------------------- |
-| `reduceEvent`, `createInitialState`                                 | Pure event → `UIState` reducer          |
-| `collectFindings`                                                   | SARIF artifacts → `FindingRow[]`        |
-| `evaluateGate`                                                      | Findings + policy → verdict + exit code |
-| `createTextRenderer`                                                | Vitest-style stdout renderer            |
-| `layoutDag`                                                         | `DefinitionGraph` → positioned nodes    |
-| `createHtmlRenderer`                                                | Self-contained HTML report              |
-| `stepGlyph`, `buildStepTree`, `filterFindings`, `searchFindings`, `FINDING_FILTERS` | Pure TUI model           |
-| `createInkRenderer`                                                 | Interactive terminal renderer           |
-| `ReporterError`, `ReporterErrorCode`                                | Errors                                  |
+| Export                                                                              | Kind                                    |
+| ----------------------------------------------------------------------------------- | --------------------------------------- |
+| `reduceEvent`, `createInitialState`                                                 | Pure event → `UIState` reducer          |
+| `collectFindings`                                                                   | SARIF artifacts → `FindingRow[]`        |
+| `evaluateGate`                                                                      | Findings + policy → verdict + exit code |
+| `createTextRenderer`                                                                | Vitest-style stdout renderer            |
+| `layoutDag`                                                                         | `DefinitionGraph` → positioned nodes    |
+| `createHtmlRenderer`                                                                | Self-contained HTML report              |
+| `stepGlyph`, `buildStepTree`, `filterFindings`, `searchFindings`, `FINDING_FILTERS` | Pure TUI model                          |
+| `createInkRenderer`                                                                 | Interactive terminal renderer           |
+| `ReporterError`, `ReporterErrorCode`                                                | Errors                                  |
 
 Types: `Renderer`, `UIState`, `StepUIState`, `StepState`,
 `DiagnosticEntry`, `FindingRow`, `FindingsCollectorOptions`,

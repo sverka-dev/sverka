@@ -61,7 +61,7 @@ measure something else.
 interface BenchmarkResult {
   timestamp: string;
   model: string;
-  results: RunResult[];           // one per task × agent
+  results: RunResult[]; // one per task × agent
   summary: {
     "raw-shell": AggregateMetrics;
     sverka: AggregateMetrics;
@@ -73,7 +73,7 @@ interface BenchmarkResult {
 `totalTokens` / `toolCallCount` / `executionTimeMs` / `stopReason`; a run
 counts as `success` when `stopReason === "end_turn"`.
 `extractMetrics(promptResult, toolCallCount, startTime)` and
-`aggregateMetrics(results, agentType)` are exported for custom rollups.
+`aggregateMetrics(results, agentType)` are exported for custom reporting.
 
 ## Transcripts → traces
 
@@ -111,13 +111,13 @@ The same directory also serves the arena artifacts (`board.html`,
 
 ## API summary
 
-| Export                                                             | Kind                                  |
-| ------------------------------------------------------------------ | ------------------------------------- |
-| `runBenchmark`, `writeReport`                                      | Run + persist a `BenchmarkResult`     |
-| `extractMetrics`, `aggregateMetrics`                               | Metrics helpers                       |
-| `BENCHMARK_TASKS`, `DEFAULT_AGENTS`                                | Built-in scenarios + agent pair       |
-| `readTranscript`, `transformTranscript`, `buildTraceData`, `writeTraceData`, `transcriptDir` | ACP transcript → trace pipeline |
-| `transformStep`, `countLlmCalls`                                   | Per-step trace helpers                |
+| Export                                                                                       | Kind                              |
+| -------------------------------------------------------------------------------------------- | --------------------------------- |
+| `runBenchmark`, `writeReport`                                                                | Run + persist a `BenchmarkResult` |
+| `extractMetrics`, `aggregateMetrics`                                                         | Metrics helpers                   |
+| `BENCHMARK_TASKS`, `DEFAULT_AGENTS`                                                          | Built-in scenarios + agent pair   |
+| `readTranscript`, `transformTranscript`, `buildTraceData`, `writeTraceData`, `transcriptDir` | ACP transcript → trace pipeline   |
+| `transformStep`, `countLlmCalls`                                                             | Per-step trace helpers            |
 
 Types: `Task`, `AgentConfig`, `RunMetrics`, `RunResult`,
 `AggregateMetrics`, `BenchmarkResult`, `BenchmarkConfig`, `Transcript`,

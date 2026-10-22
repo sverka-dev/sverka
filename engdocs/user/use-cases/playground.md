@@ -156,16 +156,16 @@ bundler-agnostic.
 
 ## API summary
 
-| Export                                                          | Kind                                             |
-| --------------------------------------------------------------- | ------------------------------------------------ |
-| `Project`, `Pipeline`, `FunctionStep`, `ShellStep`, `Entry`      | Browser-safe construct classes                   |
-| `runPipeline`, `runPipelineWithTimeout`                          | In-page runner                                   |
-| `evaluateUserCode`, `DEFAULT_CODE`                               | Editor source → `Project`                        |
-| `encodeShareLink`, `decodeShareLink`, `PlaygroundError`          | Share links (`DECODE_FAILED`, `PAYLOAD_TOO_LARGE`, `TRANSPILE_FAILED`) |
-| `mountRunner`                                                    | Embed API — returns `{ dispose() }`              |
-| `toSverkaConfig`                                                 | Playground source → `sverka.config.ts`           |
-| `listExamples`                                                   | `examples/*/` sources → picker entries           |
-| `SHARE_PAYLOAD_WARN_BYTES`, `SHARE_PAYLOAD_MAX_BYTES`            | 32 KB warn / 64 KB hard limit                    |
+| Export                                                      | Kind                                                                   |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `Project`, `Pipeline`, `FunctionStep`, `ShellStep`, `Entry` | Browser-safe construct classes                                         |
+| `runPipeline`, `runPipelineWithTimeout`                     | In-page runner                                                         |
+| `evaluateUserCode`, `DEFAULT_CODE`                          | Editor source → `Project`                                              |
+| `encodeShareLink`, `decodeShareLink`, `PlaygroundError`     | Share links (`DECODE_FAILED`, `PAYLOAD_TOO_LARGE`, `TRANSPILE_FAILED`) |
+| `mountRunner`                                               | Embed API — returns `{ dispose() }`                                    |
+| `toSverkaConfig`                                            | Playground source → `sverka.config.ts`                                 |
+| `listExamples`                                              | `examples/*/` sources → picker entries                                 |
+| `SHARE_PAYLOAD_WARN_BYTES`, `SHARE_PAYLOAD_MAX_BYTES`       | 32 KB warn / 64 KB hard limit                                          |
 
 Types: `Finding`, `FindingSource`, `PlaygroundFinding`, `Severity`,
 `StepResult`, `PipelineResult`, `ShareableRun`, `MountRunnerOptions`,
