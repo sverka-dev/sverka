@@ -24,7 +24,7 @@ const SHIP_PACKAGE_DIGESTS: Record<string, string> = {
   ".prettierignore":
     "5006eb6c926acacaa76a5040112ad9a4fa28fb3a6420423f220b812e66367fe4",
   "tsconfig.json":
-    "c65fb07be8206f77ef0c5c42ffb91850c3048609d9c1d4bf1be5b6280908eb62",
+    "3a6da5e3f30e752d7f5bb36066dc3e2d7b04b6f2a0979afda5d597ed25941a8a",
   "tsdown.config.ts":
     "f9799e4bc67a8e5b8f6246943a04231aa098ec547771e616772ed7c8f6d08f72",
   "src/__tests__/errors.test.ts":

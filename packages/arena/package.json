@@ -42,7 +42,7 @@
   },
   "devDependencies": {
     "vitest": "^5.0.5",
-    "typescript": "^5.8.0"
+    "typescript": "^6.0.3"
   },
   "bin": {
     "sverka-arena": "dist/bin.mjs"
