@@ -371,6 +371,34 @@ const codeScanningAlerts = new ShellStep(repoHealth, "code-scanning-alerts", {
   runtime: { shell: "sh" },
 });
 
+// The tools banner on the Security page — GitHub's summary of the health
+// of every code-scanning configuration in the repo ("Code scanning: one
+// or more analysis tools are reporting problems. Scorecard and zizmor are
+// reporting warnings"). The banner is driven by the CONFIGURATIONS, not by
+// the alerts: a scanner that stopped running leaves its configuration
+// behind, GitHub calls it stale, and the page keeps naming the tool even
+// though every one of its alerts is dismissed or fixed.
+//
+// The alert check above cannot see that — it only counts open alerts, and
+// a stale configuration has none. This check reconciles the two sides: for
+// every tool with a configuration, its most recent analysis must still be
+// recent and error-free. A tool whose configuration went stale is exactly
+// what the banner names.
+//
+// The stale configuration is cured either way, and GitHub documents both:
+// re-run the analysis (the tool reports again and the configuration is
+// current) or delete the stale configuration from the tool status page.
+//
+// A tool the repo no longer runs cannot report again, so its stale
+// configuration has to be deleted — that is reported, not failed: the
+// deletion is a one-time cleanup of GitHub state, and the page keeps
+// naming the tool until someone does it.
+const codeScanningTools = new ShellStep(repoHealth, "code-scanning-tools", {
+  command:
+    'now=$(date -u +%s); out=$(gh api --paginate \'repos/{owner}/{repo}/code-scanning/analyses?per_page=100\' 2>&1 | jq -rs --argjson now "$now" \'map(.) | add | group_by(.tool.name) | map(max_by(.created_at)) | map({tool: .tool.name, created: .created_at, age: (((($now - (.created_at | fromdateiso8601)) / 86400) | floor)), error: (.error // "")}) | .[] | if (.age > 14 or .error != "") then "STALE\\t\\(.tool)\\tlast analysis \\(.created) (\\(.age) days ago)\\(if .error != "" then " — failed: \\(.error)" else "" end)" else "OK\\t\\(.tool)\\tlast analysis \\(.created) (\\(.age) days ago)" end\' 2>&1) || { if echo "$out" | grep -qiE "not accessible|403|410|not enabled"; then echo "::warning::GITHUB_TOKEN cannot read code-scanning analyses (needs the security-events: read scope); check skipped"; exit 0; fi; echo "$out"; exit 1; }; stale=$(printf "%s\\n" "$out" | grep "^STALE" || true); [ -z "$stale" ] || { echo "code-scanning tools whose configuration is stale:"; printf "%s\\n" "$stale" | sed "s/^STALE\\t/  /"; echo "::error::a stale code-scanning configuration keeps the GitHub Security banner up — re-run the analysis (make the tool report again) or delete the stale configuration"; exit 1; }; printf "%s\\n" "$out" | sed "s/^OK\\t/  /"',
+  runtime: { shell: "sh" },
+});
+
 // Open secret-scanning alerts — the Secret scanning section of the
 // repository's Security page. The repo has secret scanning enabled with
 // push protection; a leaked credential in a commit is the one finding
@@ -425,6 +453,29 @@ const zizmorHealth = new ShellStep(repoHealth, "zizmor", {
   runtime: { shell: "sh" },
 });
 
+// zizmor's findings have to reach the code-scanning feed, or the tool's
+// configuration goes stale: GitHub marks a configuration stale once the
+// tool stops reporting, and the Security page then keeps naming zizmor
+// ("Scorecard and zizmor are reporting warnings") with nothing behind it.
+//
+// The report spec lowers to the upload-sarif action, and the compiler
+// grants security-events: write to the job that uses it — the pipeline
+// itself stays at read, so the other checks keep their narrower grant.
+// The gate is the zizmor step above; this one only writes the report
+// (its exit code is zizmor's, and the findings must not keep the upload
+// from happening).
+const zizmorSarif = new ShellStep(repoHealth, "zizmor-sarif", {
+  command:
+    "mkdir -p .sverka; " +
+    "if command -v zizmor >/dev/null 2>&1; then " +
+    "zizmor --format sarif .github/workflows/ > .sverka/zizmor.sarif; " +
+    "else " +
+    `pipx run --spec zizmor==${ZIZMOR_VERSION} zizmor --format sarif .github/workflows/ > .sverka/zizmor.sarif; ` +
+    "fi; true",
+  runtime: { shell: "sh" },
+  reports: [{ type: "sarif", path: ".sverka/zizmor.sarif" }],
+});
+
 // Informational: prints currently open PRs (always passes).
 const openPrs = new ShellStep(repoHealth, "open-prs", {
   command:
@@ -439,9 +490,11 @@ const healthRoots = [
   staleBranches.node.id,
   dependabotAlerts.node.id,
   codeScanningAlerts.node.id,
+  codeScanningTools.node.id,
   secretScanningAlerts.node.id,
   publishedAdvisories.node.id,
   zizmorHealth.node.id,
+  zizmorSarif.node.id,
   openPrs.node.id,
 ];
 

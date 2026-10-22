@@ -156,6 +156,42 @@ jobs:
           }; [ -z \"$out\" ] || { echo \"open code-scanning alerts:\"; echo
           \"$out\"; exit 1; }"
         shell: sh
+  code-scanning-tools:
+    name: code-scanning-tools
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - run: "now=$(date -u +%s); out=$(gh api --paginate
+          'repos/{owner}/{repo}/code-scanning/analyses?per_page=100' 2>&1 | jq
+          -rs --argjson now \"$now\" 'map(.) | add | group_by(.tool.name) |
+          map(max_by(.created_at)) | map({tool: .tool.name, created:
+          .created_at, age: (((($now - (.created_at | fromdateiso8601)) / 86400)
+          | floor)), error: (.error // \"\")}) | .[] | if (.age > 14 or .error
+          != \"\") then \"STALE\\t\\(.tool)\\tlast analysis \\(.created)
+          (\\(.age) days ago)\\(if .error != \"\" then \" — failed: \\(.error)\"
+          else \"\" end)\" else \"OK\\t\\(.tool)\\tlast analysis \\(.created)
+          (\\(.age) days ago)\" end' 2>&1) || { if echo \"$out\" | grep -qiE
+          \"not accessible|403|410|not enabled\"; then echo
+          \"::warning::GITHUB_TOKEN cannot read code-scanning analyses (needs
+          the security-events: read scope); check skipped\"; exit 0; fi; echo
+          \"$out\"; exit 1; }; stale=$(printf \"%s\\n\" \"$out\" | grep
+          \"^STALE\" || true); [ -z \"$stale\" ] || { echo \"code-scanning tools
+          whose configuration is stale:\"; printf \"%s\\n\" \"$stale\" | sed
+          \"s/^STALE\\t/  /\"; echo \"::error::a stale code-scanning
+          configuration keeps the GitHub Security banner up — re-run the
+          analysis (make the tool report again) or delete the stale
+          configuration\"; exit 1; }; printf \"%s\\n\" \"$out\" | sed
+          \"s/^OK\\t/  /\""
+        shell: sh
   secret-scanning-alerts:
     name: secret-scanning-alerts
     runs-on: ubuntu-latest
@@ -242,6 +278,29 @@ jobs:
           .github/workflows/; else pipx run --spec zizmor==1.30.1 zizmor
           .github/workflows/; fi
         shell: sh
+  zizmor-sarif:
+    name: zizmor-sarif
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - run: mkdir -p .sverka; if command -v zizmor >/dev/null 2>&1; then zizmor
+          --format sarif .github/workflows/ > .sverka/zizmor.sarif; else pipx
+          run --spec zizmor==1.30.1 zizmor --format sarif .github/workflows/ >
+          .sverka/zizmor.sarif; fi; true
+        shell: sh
+      - name: Upload sarif
+        uses: github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        with:
+          sarif_file: .sverka/zizmor.sarif
   open-prs:
     name: open-prs
     runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 // Emit: GithubTargetGraph → YAML artifacts.
 // Spec 08 — §19. F-31: multi-workflow emission. Spec 22 — action pinning.
 
-import { stringify } from "yaml";
+import { Document, isMap, isScalar, isSeq, stringify } from "yaml";
 import type {
   GithubTargetGraph,
   GithubJob,
@@ -40,6 +40,13 @@ function sanitizeWorkflowName(name: string): string {
 }
 
 /**
+ * A `uses:` value that carries a trailing comment: `org/name@<sha> # <tag>`.
+ *
+ * The tag is audit information, never part of the ref GitHub resolves.
+ */
+const USES_COMMENT_RE = /^(.+?) # (.+)$/;
+
+/**
  * Convert a GithubTargetGraph to a YAML string.
  */
 function stringifyTargetGraph(
@@ -73,22 +80,54 @@ function stringifyTargetGraph(
   }
   doc.jobs = jobs;
 
+  // Pinned refs carry the original tag as a trailing YAML comment
+  // (`org/name@<sha> # v4`). The serializer quotes any scalar holding a
+  // ` # ` — and folds it once the line passes the width — which would make
+  // GitHub resolve a ref that includes the tag. The tag is moved onto the
+  // node as a comment, so it renders as a comment on the `uses:` line
+  // whatever shape that line takes.
+  //
   // GitHub Actions does not support YAML anchors — never alias repeated
   // objects (e.g. identical `with:` maps injected into every job).
-  let yaml = stringify(doc, {
-    sortMapEntries: false,
-    aliasDuplicateObjects: false,
-  });
+  const document = new Document(doc, { aliasDuplicateObjects: false });
+  splitUsesComments(document.contents);
 
-  // Pinned refs carry the original tag as a trailing YAML comment
-  // (`org/name@<sha> # v4`). The serializer quotes such scalars, which would
-  // make GitHub treat the whole string — comment included — as the ref.
-  // Unquote `uses:` lines so the ` # ` part stays a real comment.
-  yaml = yaml.replaceAll(
-    /^(\s*uses:\s*)["']([^"']+@[0-9a-f]{40}) # ([^"']+)["']$/gm,
-    "$1$2 # $3",
-  );
-  return yaml;
+  return stringify(document, {
+    sortMapEntries: false,
+    commentString: (str: string) => `# ${str}`,
+  });
+}
+
+/**
+ * Move the trailing comment of every `uses:` value onto the node itself.
+ *
+ * The comment belongs to the node, not to a line of the serialized text:
+ * it lands on the `uses:` entry whether that entry is a map key or a
+ * sequence item (`- uses:`), and it never leaks into a `run:` script,
+ * whose text the serializer owns.
+ */
+function splitUsesComments(node: unknown): void {
+  if (isMap(node)) {
+    for (const pair of node.items) {
+      if (
+        isScalar(pair.key) &&
+        pair.key.value === "uses" &&
+        isScalar(pair.value)
+      ) {
+        const match = USES_COMMENT_RE.exec(String(pair.value.value));
+        if (match) {
+          pair.value.value = match[1]!;
+          pair.value.comment = match[2]!;
+        }
+      } else {
+        splitUsesComments(pair.value);
+      }
+    }
+  } else if (isSeq(node)) {
+    for (const item of node.items) {
+      splitUsesComments(item);
+    }
+  }
 }
 
 /**
