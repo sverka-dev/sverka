@@ -81,6 +81,11 @@ export interface ArenaConfig {
    * fully isolate checks that must not reach the network. Only has an
    * effect where the bwrap sandbox is available. */
   unshareNet?: boolean;
+  /** Opt-in: keep the per-run isolated workspace instead of deleting it.
+   * Default tears it down so eval runs leave nothing behind; set when the
+   * run is the only consumer and the caller wants the agent's work (its
+   * path is then reported on {@link RunResult.workspace}). */
+  keepWorkspace?: boolean;
 }
 
 /** Judge configuration — blind LLM evaluation of run outputs */
@@ -130,6 +135,9 @@ export interface RunResult {
   error?: string;
   /** Judge verdicts for this run (empty if no judge configured) */
   verdicts: JudgeVerdict[];
+  /** Path of the run's workspace — only set when {@link ArenaConfig.keepWorkspace}
+   *  is on; otherwise the temp copy is deleted and this stays undefined. */
+  workspace?: string;
 }
 
 /** Result of a single deterministic check */

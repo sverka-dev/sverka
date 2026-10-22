@@ -445,6 +445,44 @@ describe("runArena", () => {
     expect(result.results[0]?.error).toBe("boom");
     await rm(outDir, { recursive: true, force: true });
   });
+
+  it("deletes the temp workspace by default but keeps it when keepWorkspace is set", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "arena-test-"));
+    const workspaces: string[] = [];
+    const mockAdapter: AgentAdapter = {
+      id: "mock",
+      spawn: (opts): AgentProcess => {
+        workspaces.push(opts.workspace);
+        return {
+          run: async () => runResult(),
+          kill: () => {},
+        };
+      },
+    };
+    const base: ArenaConfig = {
+      tasks: [{ id: "t1", name: "T", prompt: "p" }],
+      agent: mockAdapter,
+      models: [{ id: "m1", name: "M" }],
+      plugins: [],
+      repetitions: 1,
+      outputDir: outDir,
+    };
+
+    // Default — the workspace is torn down and the result carries no path.
+    const discarded = await runArena(base);
+    expect(workspaces).toHaveLength(1);
+    expect(existsSync(workspaces[0]!)).toBe(false);
+    expect(discarded.results[0]?.workspace).toBeUndefined();
+
+    // keepWorkspace — the copy survives and its path is reported.
+    workspaces.length = 0;
+    const kept = await runArena({ ...base, keepWorkspace: true });
+    expect(workspaces).toHaveLength(1);
+    expect(existsSync(workspaces[0]!)).toBe(true);
+    expect(kept.results[0]?.workspace).toBe(workspaces[0]);
+    await rm(workspaces[0]!, { recursive: true, force: true });
+    await rm(outDir, { recursive: true, force: true });
+  });
 });
 
 // ─── computeAnalysis ─────────────────────────────────────────────────

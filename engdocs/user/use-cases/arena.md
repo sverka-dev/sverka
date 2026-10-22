@@ -54,16 +54,17 @@ use paths relative to the `@sverka/arena` package root.)
 
 ### Config fields
 
-| Field         | Type                                                           | Notes                                                                                                            |
-| ------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `agent`       | string                                                         | Adapter name. Currently `"devin"`.                                                                               |
-| `models[]`    | `{id, name, envVar?}`                                          | `id` is passed to `devin acp --model` (fuzzy names ok). `envVar` names an env var `doctor` should verify.        |
-| `plugins[]`   | `{id, name, path, enabled?}`                                   | `path` = skill dir copied into the workspace when the plugin is enabled.                                         |
-| `tasks[]`     | `Task`                                                         | `prompt`, optional `fixture`, `setup` (pre-run shell commands, e.g. `bun install`), `checks`, `successCriteria`. |
-| `workspace`   | string                                                         | Base dir for per-run isolated workspaces (default: system temp).                                                 |
-| `repetitions` | number                                                         | Runs per cell of the matrix (default 1).                                                                         |
-| `outputDir`   | string                                                         | Where `results.json` and traces land.                                                                            |
-| `judge`       | `{model, agent?, repetitions?, revealPlugins?, systemPrompt?}` | Optional blind evaluation; judge defaults to the same agent adapter.                                             |
+| Field           | Type                                                           | Notes                                                                                                                                                                                                                                       |
+| --------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent`         | string                                                         | Adapter name. Currently `"devin"`.                                                                                                                                                                                                          |
+| `models[]`      | `{id, name, envVar?}`                                          | `id` is passed to `devin acp --model` (fuzzy names ok). `envVar` names an env var `doctor` should verify.                                                                                                                                   |
+| `plugins[]`     | `{id, name, path, enabled?}`                                   | `path` = skill dir copied into the workspace when the plugin is enabled.                                                                                                                                                                    |
+| `tasks[]`       | `Task`                                                         | `prompt`, optional `fixture`, `setup` (pre-run shell commands, e.g. `bun install`), `checks`, `successCriteria`.                                                                                                                            |
+| `workspace`     | string                                                         | Base dir for per-run isolated workspaces (default: system temp).                                                                                                                                                                            |
+| `repetitions`   | number                                                         | Runs per cell of the matrix (default 1).                                                                                                                                                                                                    |
+| `outputDir`     | string                                                         | Where `results.json` and traces land.                                                                                                                                                                                                       |
+| `keepWorkspace` | boolean                                                        | Keep each run's isolated workspace instead of deleting it (default `false` — eval runs leave nothing behind). Set when the run is the only consumer and you want the agent's work; the kept path is reported on each `results[].workspace`. |
+| `judge`         | `{model, agent?, repetitions?, revealPlugins?, systemPrompt?}` | Optional blind evaluation; judge defaults to the same agent adapter.                                                                                                                                                                        |
 
 ## The matrix
 
@@ -94,6 +95,12 @@ Plugin-on cells are unaffected by the forbid: arena skills are copied into
 Deterministic `checks` run as shell commands after the agent finishes
 (exit 0 = pass). If `judge` is configured, each run's output is also scored
 0–100 by the judge model without being told which plugins were active.
+
+The per-run workspace is deleted when the cell finishes — the arena is an
+eval service, and its contract is the score (`results.json`, metrics, the
+trace), not the agent's edits. Set `keepWorkspace: true` when a run _is_
+the deliverable and you need the workspace afterwards (e.g. to lift the
+agent's diff); each result then carries the kept path on `.workspace`.
 
 ## `sverka-arena doctor`
 
