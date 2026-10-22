@@ -258,7 +258,8 @@ function addRunsCommand(y: Argv): Argv {
     });
 }
 
-function buildParser(): Argv {
+/** Internal: exported for tests that introspect the registered surface. */
+export function buildParser(): Argv {
   return yargs([])
     .scriptName("sverka")
     .version(cliVersion())

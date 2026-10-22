@@ -60,6 +60,7 @@ a `findings:` count and the report path.
 | `--jobs`, `-j`        | number  | `4`     | Max steps running concurrently                                    |
 | `--step-output-lines` | number  | `20`    | Captured stdout/stderr tail lines per step (`0` disables)         |
 | `--watch`, `-w`       | boolean | `false` | Re-run on file changes (debounced; keeps watching after failures) |
+| `--remote`            | boolean | `false` | Remote hub run: remote cache + snapshot store + report upload     |
 
 ### `sverka discover`
 
@@ -96,15 +97,17 @@ artifact to its own file under the given directory (mirrors the repo-relative
 paths, e.g. `<dir>/.github/workflows/<pipeline>.yml`). `--output` and
 `--output-dir` are mutually exclusive.
 
-| Flag             | Type   | Default | Description                                    |
-| ---------------- | ------ | ------- | ---------------------------------------------- |
-| `--target`       | string | —       | Target: `github` or `gitlab` (required)        |
-| `--output`, `-o` | string | —       | Write YAML to a file instead of stdout         |
-| `--output-dir`   | string | —       | Write each artifact to `<dir>/<artifact path>` |
+| Flag             | Type    | Default | Description                                              |
+| ---------------- | ------- | ------- | -------------------------------------------------------- |
+| `--target`       | string  | —       | Target: `github` or `gitlab` (required)                  |
+| `--output`, `-o` | string  | —       | Write YAML to a file instead of stdout                   |
+| `--output-dir`   | string  | —       | Write each artifact to `<dir>/<artifact path>`           |
+| `--pin`          | boolean | `false` | Pin GitHub action refs to commit SHAs (`github` target)  |
 
 ### `sverka synth --target github|gitlab`
 
-Alias for `compile`. Same flags, without `--output`.
+Alias for `compile` — registers the same flags (`--target`, `--output`,
+`--output-dir`, `--pin`).
 
 ### `sverka mcp-server`
 
@@ -151,10 +154,20 @@ Options: `--port` (default `7357`), `--host`, `--data` (default
 Store hub credentials in `~/.config/sverka/credentials`. See
 [Remote run hub](../hub/api.md#client-configuration).
 
+| Flag      | Type   | Default | Description                                |
+| --------- | ------ | ------- | ------------------------------------------ |
+| `--hub`   | string | —       | Hub base URL (or `SVERKA_HUB_URL`)         |
+| `--token` | string | —       | Hub bearer token (or `SVERKA_HUB_TOKEN`)   |
+
 ### `sverka runs`
 
 List run reports — local `.sverka/runs/` by default, `--remote` for runs
 stored on the hub. See [Remote run hub](../hub/api.md).
+
+| Flag       | Type    | Default | Description                            |
+| ---------- | ------- | ------- | -------------------------------------- |
+| `--remote` | boolean | `false` | List runs stored on the configured hub |
+| `--limit`  | number  | —       | Max runs to list                       |
 
 ### `sverka agent`
 
@@ -162,11 +175,20 @@ Execute an agent job inside generated CI (Spec 54) — resolves the driver
 from `SVERKA_AGENT_*` env vars and writes `agent-result.json` +
 `sverka-writes.json`. See [Agentic workflows](../gitlab/agentic.md).
 
+| Flag           | Type   | Default  | Description                                              |
+| -------------- | ------ | -------- | -------------------------------------------------------- |
+| `--output-dir` | string | `<root>` | Directory for `agent-result.json` + `sverka-writes.json` |
+
 ### `sverka apply`
 
 Apply an agent job's declared writes (Spec 54 safe-outputs stage) —
 `sverka apply --provider <gitlab|github>` inside the generated `__apply`
 job. See [Agentic workflows](../gitlab/agentic.md).
+
+| Flag         | Type   | Default       | Description                         |
+| ------------ | ------ | ------------- | ----------------------------------- |
+| `--provider` | string | auto-detected | CI provider: `gitlab` or `github`   |
+| `--file`     | string | `<root>`      | Path to `sverka-writes.json`        |
 
 ## Global flags
 
