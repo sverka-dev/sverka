@@ -13,6 +13,7 @@ import type { DefinitionGraph } from "@sverka/workflow";
 import type { ReportContext } from "@sverka/reporter";
 import { createHtmlRenderer } from "@sverka/reporter";
 import type { RunResult, TraceData, TraceStep, ToolCall } from "./types.js";
+import { pluginSetLabel } from "./labels.js";
 
 /** Relative duration weight per step kind — shares of the real total. */
 type StepKind = "tool" | "think" | "message";
@@ -259,9 +260,7 @@ export function writeTraceReport(
   context?: ReportContext,
 ): void {
   const actions = traceToActions(result.trace);
-  const combo = result.pluginIds.length
-    ? result.pluginIds.join("+")
-    : "no-plugins";
+  const combo = pluginSetLabel(result.pluginIds);
   // Caller meta extends the defaults — the synthetic-timing row must
   // survive a custom context.
   const meta = [

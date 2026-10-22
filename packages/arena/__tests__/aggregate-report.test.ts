@@ -57,6 +57,34 @@ describe("runStepId", () => {
       "fix-test/glm-5-2/sverka/r2",
     );
   });
+
+  it("keeps plugin sets apart when a name contains the separator", () => {
+    // ["a+b"] and ["a","b"] are different sets — they must not share a
+    // step id (the id is the run's identity in the report).
+    expect(runStepId(run({ pluginIds: ["a+b"] }), 1)).not.toBe(
+      runStepId(run({ pluginIds: ["a", "b"] }), 1),
+    );
+    expect(runStepId(run({ pluginIds: ["a+b"] }), 1)).toBe(
+      "fix-test/glm-5-2/a%2Bb/r1",
+    );
+  });
+
+  it("encodes a name that already contains a percent sign", () => {
+    // "%" is the escape character — a raw name must not be able to look
+    // like an encoded one.
+    expect(runStepId(run({ pluginIds: ["a%2Bb"] }), 1)).toBe(
+      "fix-test/glm-5-2/a%252Bb/r1",
+    );
+  });
+
+  it("survives a plugin name with a lone surrogate", () => {
+    // The plugin schema accepts any string; encodeURIComponent throws on a
+    // lone surrogate, which must not abort the report.
+    const lone = "\ud800";
+    expect(runStepId(run({ pluginIds: [lone] }), 1)).toBe(
+      "fix-test/glm-5-2/%D800/r1",
+    );
+  });
 });
 
 describe("arenaResultGraph", () => {

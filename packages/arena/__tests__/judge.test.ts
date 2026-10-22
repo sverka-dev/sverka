@@ -321,6 +321,21 @@ describe("compareCombos", () => {
     expect(cmp.candidate).toBe("sverka,extra");
   });
 
+  it("keeps plugin sets apart when a name contains the separator", () => {
+    // The comparison label is comma-separated — ["a,b"] and ["a","b"] are
+    // different sets and must not share a label.
+    const one = compareCombos(
+      runResult({ pluginIds: [] }),
+      runResult({ pluginIds: ["a,b"] }),
+    );
+    const two = compareCombos(
+      runResult({ pluginIds: [] }),
+      runResult({ pluginIds: ["a", "b"] }),
+    );
+    expect(one.candidate).not.toBe(two.candidate);
+    expect(one.candidate).toBe("a%2Cb");
+  });
+
   it("marks candidateBetter=true when judge score improved", () => {
     const baseline = runResult({ verdicts: [verdict({ score: 60 })] });
     const candidate = runResult({

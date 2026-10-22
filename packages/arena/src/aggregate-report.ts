@@ -12,9 +12,10 @@ import type { DefinitionGraph } from "@sverka/workflow";
 import type { ReportContext } from "@sverka/reporter";
 import { createHtmlRenderer } from "@sverka/reporter";
 import type { ArenaResult, RunResult } from "./types.js";
+import { pluginSetLabel } from "./labels.js";
 
 function comboLabel(result: RunResult): string {
-  return result.pluginIds.length ? result.pluginIds.join("+") : "no-plugins";
+  return pluginSetLabel(result.pluginIds);
 }
 
 /** Stable per-run step id — readable in the DAG, Gantt and step list. */

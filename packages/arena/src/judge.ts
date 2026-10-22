@@ -17,6 +17,7 @@ import type {
   Task,
   ComboComparison,
 } from "./types.js";
+import { pluginSetLabel } from "./labels.js";
 
 /** Default system prompt for the judge. */
 export const DEFAULT_JUDGE_PROMPT =
@@ -338,6 +339,5 @@ function avgJudgeScore(run: RunResult): number {
 
 /** Build a human-readable combo label for a run's plugin set. */
 function comboLabel(run: RunResult): string {
-  if (run.pluginIds.length === 0) return "no-plugins";
-  return run.pluginIds.join(",");
+  return pluginSetLabel(run.pluginIds, ",");
 }
