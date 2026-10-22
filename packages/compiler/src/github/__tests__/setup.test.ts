@@ -183,6 +183,53 @@ describe("compileGithub — setup injection", () => {
     expect(step?.uses).toBe(`github/codeql-action/upload-sarif@${sha}`);
   });
 
+  it("keeps the tag on a uses-only step (a step without a name)", () => {
+    const sha = loadBundledRegistry()["github/codeql-action/upload-sarif@v3"]!;
+    const result = compileGithub(makeGraph(), {
+      ...SETUP,
+      setup: [{ uses: "github/codeql-action/upload-sarif@v3" }],
+      pinning: { mode: "strict" },
+    });
+    const content = result.artifacts[0]!.content;
+    // A step without a name renders as `- uses: …` — the tag rides along.
+    expect(content).toContain(
+      `- uses: github/codeql-action/upload-sarif@${sha} # v3`,
+    );
+  });
+
+  it("leaves a run script that mentions a uses: line alone", () => {
+    const sha = loadBundledRegistry()["actions/checkout@v7"]!;
+    const script = `cat > workflow.yml <<'EOF'\nuses: actions/checkout@${sha}\nEOF`;
+    const result = compileGithub(makeGraph(), {
+      ...SETUP,
+      setup: [{ name: "Write", run: script }],
+      pinning: { mode: "strict" },
+    });
+    const content = result.artifacts[0]!.content;
+    // The comment belongs to the `uses:` node, not to a line of the text —
+    // a script that writes one keeps what it writes.
+    const yaml = parse(content) as {
+      jobs: Record<string, YamlJob>;
+    };
+    const written = yaml.jobs["build"]!.steps.find((s) => s.name === "Write");
+    expect(written?.run).toBe(script);
+  });
+
+  it("keeps each tag with its own ref when two tags share a SHA", () => {
+    const sha = "0123456789abcdef0123456789abcdef01234567";
+    const result = compileGithub(makeGraph(), {
+      ...SETUP,
+      setup: [{ uses: "acme/one@v1" }, { uses: "acme/two@v2" }],
+      pinning: {
+        mode: "strict",
+        registry: { "acme/one@v1": sha, "acme/two@v2": sha },
+      },
+    });
+    const content = result.artifacts[0]!.content;
+    expect(content).toContain(`uses: acme/one@${sha} # v1`);
+    expect(content).toContain(`uses: acme/two@${sha} # v2`);
+  });
+
   it("omits setup when config not provided (backward compat)", () => {
     const result = compileGithub(makeGraph());
     const yaml = parse(result.artifacts[0]!.content) as {

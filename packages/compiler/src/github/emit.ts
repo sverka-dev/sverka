@@ -1,7 +1,7 @@
 // Emit: GithubTargetGraph → YAML artifacts.
 // Spec 08 — §19. F-31: multi-workflow emission. Spec 22 — action pinning.
 
-import { stringify } from "yaml";
+import { Document, isMap, isScalar, isSeq, stringify } from "yaml";
 import type {
   GithubTargetGraph,
   GithubJob,
@@ -40,11 +40,11 @@ function sanitizeWorkflowName(name: string): string {
 }
 
 /**
- * A pinned `uses:` ref: `org/name@<40-hex sha> # <tag>`.
+ * A `uses:` value that carries a trailing comment: `org/name@<sha> # <tag>`.
  *
  * The tag is audit information, never part of the ref GitHub resolves.
  */
-const PINNED_USES_RE = /^(.+@[0-9a-f]{40}) # (.+)$/;
+const USES_COMMENT_RE = /^(.+?) # (.+)$/;
 
 /**
  * Convert a GithubTargetGraph to a YAML string.
@@ -75,57 +75,59 @@ function stringifyTargetGraph(
   }
 
   const jobs: Record<string, unknown> = {};
-  // Pin tags, keyed by the ref they belong to — re-attached as real YAML
-  // comments once the document is serialized.
-  const pinTags = new Map<string, string>();
   for (const job of graph.jobs) {
-    jobs[job.id] = jobToYaml(job, options, pinTags);
+    jobs[job.id] = jobToYaml(job, options);
   }
   doc.jobs = jobs;
-
-  // GitHub Actions does not support YAML anchors — never alias repeated
-  // objects (e.g. identical `with:` maps injected into every job).
-  let yaml = stringify(doc, {
-    sortMapEntries: false,
-    aliasDuplicateObjects: false,
-  });
 
   // Pinned refs carry the original tag as a trailing YAML comment
   // (`org/name@<sha> # v4`). The serializer quotes any scalar holding a
   // ` # ` — and folds it once the line passes the width — which would make
-  // GitHub resolve a ref that includes the tag. The tag is stripped before
-  // serialization; here it goes back as a real comment.
-  yaml = yaml.replace(
-    /^([ \t]*uses:[ \t]*)("?)([^"'\s]+)\2[ \t]*$/gm,
-    (match, prefix: string, quote: string, ref: string) => {
-      const tag = pinTags.get(ref);
-      return tag === undefined
-        ? match
-        : `${prefix}${quote}${ref}${quote} # ${tag}`;
-    },
-  );
-  return yaml;
+  // GitHub resolve a ref that includes the tag. The tag is moved onto the
+  // node as a comment, so it renders as a comment on the `uses:` line
+  // whatever shape that line takes.
+  //
+  // GitHub Actions does not support YAML anchors — never alias repeated
+  // objects (e.g. identical `with:` maps injected into every job).
+  const document = new Document(doc, { aliasDuplicateObjects: false });
+  splitUsesComments(document.contents);
+
+  return stringify(document, {
+    sortMapEntries: false,
+    commentString: (str: string) => `# ${str}`,
+  });
 }
 
 /**
- * Resolve a `uses:` ref to the value GitHub must resolve.
+ * Move the trailing comment of every `uses:` value onto the node itself.
  *
- * A pinned ref carries its original tag as a trailing comment
- * (`org/name@<sha> # v4`). The tag is stripped here — so the serializer
- * emits a plain, unfolded scalar — and recorded in `pinTags` for the
- * emitter to re-attach as a YAML comment.
+ * The comment belongs to the node, not to a line of the serialized text:
+ * it lands on the `uses:` entry whether that entry is a map key or a
+ * sequence item (`- uses:`), and it never leaks into a `run:` script,
+ * whose text the serializer owns.
  */
-function usesValue(
-  ref: string,
-  options: EmitOptions | undefined,
-  pinTags: Map<string, string>,
-): string {
-  const value = options?.pinUses ? options.pinUses(ref) : ref;
-  const match = PINNED_USES_RE.exec(value);
-  if (!match) return value;
-  const pinnedRef = match[1]!;
-  pinTags.set(pinnedRef, match[2]!);
-  return pinnedRef;
+function splitUsesComments(node: unknown): void {
+  if (isMap(node)) {
+    for (const pair of node.items) {
+      if (
+        isScalar(pair.key) &&
+        pair.key.value === "uses" &&
+        isScalar(pair.value)
+      ) {
+        const match = USES_COMMENT_RE.exec(String(pair.value.value));
+        if (match) {
+          pair.value.value = match[1]!;
+          pair.value.comment = match[2]!;
+        }
+      } else {
+        splitUsesComments(pair.value);
+      }
+    }
+  } else if (isSeq(node)) {
+    for (const item of node.items) {
+      splitUsesComments(item);
+    }
+  }
 }
 
 /**
@@ -133,8 +135,7 @@ function usesValue(
  */
 function jobToYaml(
   job: GithubJob,
-  options: EmitOptions | undefined,
-  pinTags: Map<string, string>,
+  options?: EmitOptions,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {
     name: job.name,
@@ -142,7 +143,7 @@ function jobToYaml(
 
   // Reusable workflow call job: uses/with/secrets (no runs-on/steps).
   if (job.uses) {
-    return reusableJobToYaml(job, result, options, pinTags);
+    return reusableJobToYaml(job, result, options);
   }
 
   // Normal job.
@@ -188,9 +189,7 @@ function jobToYaml(
     result.concurrency = concurrencyToYaml(job.concurrency);
   }
 
-  result.steps = job.steps.map((step, i) =>
-    stepToYaml(step, i, options, pinTags),
-  );
+  result.steps = job.steps.map((step, i) => stepToYaml(step, i, options));
 
   return result;
 }
@@ -217,10 +216,9 @@ function strategyToYaml(
 function reusableJobToYaml(
   job: GithubJob,
   result: Record<string, unknown>,
-  options: EmitOptions | undefined,
-  pinTags: Map<string, string>,
+  options?: EmitOptions,
 ): Record<string, unknown> {
-  result.uses = usesValue(job.uses!, options, pinTags);
+  result.uses = options?.pinUses ? options.pinUses(job.uses!) : job.uses;
   if (job.needs.length > 0) {
     result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
   }
@@ -253,8 +251,7 @@ function concurrencyToYaml(conc: {
 function stepToYaml(
   step: GithubStep,
   index: number,
-  options: EmitOptions | undefined,
-  pinTags: Map<string, string>,
+  options?: EmitOptions,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
@@ -269,7 +266,7 @@ function stepToYaml(
   }
 
   if (step.uses) {
-    result.uses = usesValue(step.uses, options, pinTags);
+    result.uses = options?.pinUses ? options.pinUses(step.uses) : step.uses;
   }
   if (step.run) {
     result.run = step.run;
