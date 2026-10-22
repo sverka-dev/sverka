@@ -2,8 +2,10 @@
 
 ## Document-first
 
-Engineering docs are written before code. Every package, every architectural
-decision, every non-trivial design choice is documented here first.
+Engineering docs ship with user-facing work. A new package, CLI command,
+config surface, or behavior a user or agent must discover gets its page
+here in the same PR. Fixes, chores, and internal refactors are exempt —
+their record is the spec and the tests.
 
 ## Structure
 

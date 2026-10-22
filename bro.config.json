@@ -31,6 +31,19 @@
         "say": "packages/*/src changed and no test file moved — TDD repo, is the new behavior covered?"
       },
       {
+        "name": "docs-on-stop",
+        "when": {
+          "on": ["stop"],
+          "state": {
+            "diff": {
+              "changed": ["packages/*/src/**"],
+              "without": ["engdocs/**", "specs/**"]
+            }
+          }
+        },
+        "say": "packages/*/src changed and no engdocs/ or specs/ file moved — document-first applies to user-facing work; if this change ships a feature a user or agent must discover, write its engdocs page"
+      },
+      {
         "name": "retro-on-stop",
         "when": { "on": ["stop"] },
         "say": "session ending — loose ends: hand-rolled mechanics → bd gap beads, bro learn capture, bro debt collect"

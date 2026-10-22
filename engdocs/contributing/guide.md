@@ -151,7 +151,10 @@ Sverka is built in waves. Each wave goes through:
 
 - **SDD:** Specs are written first in `specs/`.
 - **TDD:** Tests are written before implementation.
-- **Document-first:** Engineering docs in `engdocs/` before code.
+- **Document-first:** User-facing work ships with `engdocs/` — a new
+  package, CLI command, config surface, or behavior a user or agent must
+  discover gets its engdocs page in the same PR. Fixes, chores, and
+  internal refactors are exempt; their record is the spec and the tests.
 - **No `any`:** Use `unknown` and narrow. Strict TypeScript.
 - **Public API:** Everything public is exported from `src/index.ts`.
 - **Error handling:** Custom error classes per package.
