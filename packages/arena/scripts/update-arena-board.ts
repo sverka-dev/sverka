@@ -19,13 +19,21 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile, rename } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-// The arena is consumed as a package, not as sources: website/ is not an
-// npm workspace member, so importing ../packages/arena/src would drag
-// node-side arena code into the website's typecheck, where the DOM lib's
-// ReadableStream and node:stream's are different types.
-import { buildBoard, openRegistry, renderBoardHtml } from "@sverka/arena";
+// The arena's own sources, not the built package: this script runs before
+// the workspace is built (the website's typecheck and test suites must
+// work on a clean checkout), and it lives inside the arena package, so
+// the relative import needs no dist and no build.
+import { buildBoard, openRegistry, renderBoardHtml } from "../src/index.js";
 
-const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
+// This script lives in packages/arena/scripts/ and publishes into the
+// website — three levels up is the repo root, then website/.
+const websiteDir = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "website",
+);
 const fixtureRegistry = join(websiteDir, "fixtures", "arena-registry");
 const defaultOut = join(websiteDir, "public", "benchmark", "board.html");
 

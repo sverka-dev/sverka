@@ -20,20 +20,20 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, rename, rm } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { userInfo } from "node:os";
 import { fileURLToPath } from "node:url";
-// The arena is consumed as a package, not as sources: website/ is not an
-// npm workspace member, so importing ../packages/arena/src would drag
-// node-side arena code into the website's typecheck, where the DOM lib's
-// ReadableStream and node:stream's are different types.
+// The arena's own sources, not the built package: this script runs before
+// the workspace is built (the website's typecheck and test suites must
+// work on a clean checkout), and it lives inside the arena package, so
+// the relative import needs no dist and no build.
 import type {
   ArenaResult,
   RunResult,
   TraceData,
   TraceStep,
-} from "@sverka/arena";
-import { writeAggregateReport, writeTraceReport } from "@sverka/arena";
+} from "../src/index.js";
+import { writeAggregateReport, writeTraceReport } from "../src/index.js";
 
 // Committed traces are public artifacts — strip host/session specifics
 // (absolute paths, kernel build, session ids) and drop replayed context:
@@ -133,8 +133,15 @@ function sanitizeTrace(trace: TraceData): TraceData {
   };
 }
 
-const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
-const repoRoot = dirname(websiteDir);
+// This script lives in packages/arena/scripts/ and publishes into the
+// website — three levels up is the repo root, then website/.
+const repoRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+);
+const websiteDir = join(repoRoot, "website");
 const arenaDir = join(repoRoot, "packages", "arena");
 const resultsSrc = join(arenaDir, ".arena", "results.json");
 const benchDir = join(websiteDir, "public", "benchmark");
