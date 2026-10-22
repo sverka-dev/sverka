@@ -25,7 +25,14 @@
 
 import { describe, it, expect } from "vitest";
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,11 +52,17 @@ interface PackageRun {
   readonly output: string;
 }
 
-/** Vitest inherits the parent's worker env — a nested run must not see it. */
+/**
+ * Vitest inherits the parent's worker env — a nested run must not see it.
+ * NODE_OPTIONS is dropped too: a vitest worker injects its own `--import`
+ * loader flags there, and the child must resolve its own loaders.
+ */
 function childEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && !key.startsWith("VITEST")) env[key] = value;
+    if (value === undefined) continue;
+    if (key.startsWith("VITEST") || key === "NODE_OPTIONS") continue;
+    env[key] = value;
   }
   return env;
 }
@@ -62,10 +75,7 @@ function childEnv(): NodeJS.ProcessEnv {
  * same way). The config is the package's real one — the check is about what
  * the repo ships, not about a synthetic config.
  */
-function startVitest(
-  pkg: string,
-  workspace: string,
-): Promise<PackageRun> {
+function startVitest(pkg: string, workspace: string): Promise<PackageRun> {
   const { promise, resolve, reject } = Promise.withResolvers<PackageRun>();
   const child = spawn(
     "bun",

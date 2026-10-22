@@ -1,9 +1,12 @@
 // Test fixtures for engine tests.
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RunPlan, InputValue } from "@sverka/workflow";
 import type { StepDefinition, Reference, Expression } from "@sverka/workflow";
+
+const execFileAsync = promisify(execFile);
 
 export function makeSingleStepPlan(command: string = "echo hello"): RunPlan {
   const step: StepDefinition = {
@@ -214,23 +217,28 @@ export interface GitRepoFixture {
  * repository instead.
  */
 export async function initGitRepo(dir: string): Promise<GitRepoFixture> {
-  const git = (...args: string[]): string =>
-    execFileSync("git", args, {
+  // execFile is async throughout the fixture and its rejection carries the
+  // command's stderr, so a git failure fails the test with the git error
+  // text rather than a bare "Command failed" exit code.
+  const git = async (...args: string[]): Promise<string> => {
+    const { stdout } = await execFileAsync("git", args, {
       cwd: dir,
       encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
     });
-  git("init", "--quiet");
+    return stdout;
+  };
+  await git("init", "--quiet");
   // Identity and branch are set locally — the test must not depend on the
   // machine's global git config.
-  git("config", "user.email", "test@example.com");
-  git("config", "user.name", "test");
-  git("config", "commit.gpgsign", "false");
+  await git("config", "user.email", "test@example.com");
+  await git("config", "user.name", "test");
+  await git("config", "commit.gpgsign", "false");
   await writeFile(join(dir, "file.txt"), "content\n", "utf-8");
-  git("add", "-A");
-  git("commit", "--quiet", "-m", "init");
-  return {
-    sha: git("rev-parse", "HEAD").trim(),
-    branch: git("rev-parse", "--abbrev-ref", "HEAD").trim(),
-  };
+  await git("add", "-A");
+  await git("commit", "--quiet", "-m", "init");
+  const [sha, branch] = await Promise.all([
+    git("rev-parse", "HEAD"),
+    git("rev-parse", "--abbrev-ref", "HEAD"),
+  ]);
+  return { sha: sha.trim(), branch: branch.trim() };
 }
