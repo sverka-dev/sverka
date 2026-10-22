@@ -1,11 +1,17 @@
 {
-  "generated_at": "2026-10-07T18:08:01.250Z",
-  "open_count": 2,
+  "generated_at": "2026-10-10T13:27:08.554Z",
+  "open_count": 6,
   "by_area": {
-    "packages/playground": 2
+    "packages/playground": 2,
+    "packages/cli": 1,
+    "packages/ui": 1,
+    "(root)": 2
   },
   "by_author": {
-    "coderabbitai": 2
+    "coderabbitai": 2,
+    "github-code-scanning": 2,
+    "ThePlenkov": 1,
+    "ci": 1
   },
   "duplicate_fingerprints": [],
   "oldest_open": "2026-10-07T18:07:47.517Z"
