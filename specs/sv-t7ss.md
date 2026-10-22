@@ -42,9 +42,9 @@ filed as a suggestion in the PR body.
 ## Plan
 
 - [x] Spec `specs/sv-t7ss.md` (satisfies the SDD gate for this bead)
-- [ ] `bro.config.json`: add `docs-on-stop` guard def
-- [ ] `AGENTS.md`, `engdocs/contributing/guide.md`, `engdocs/README.md`:
+- [x] `bro.config.json`: add `docs-on-stop` guard def
+- [x] `AGENTS.md`, `engdocs/contributing/guide.md`, `engdocs/README.md`:
       scope the document-first convention to user-facing work
-- [ ] File follow-up beads for the per-feature docs sweep
-- [ ] `bro self guard test` / equivalent check that the guard def parses
-      and fires as intended
+- [x] File follow-up beads for the per-feature docs sweep (sv-wnhd)
+- [x] `bro self guard test` — def parses, loads `ok`, correctly SKIPs a
+      doc-touching diff
