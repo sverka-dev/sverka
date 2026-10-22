@@ -27,10 +27,11 @@ jobs:
           'repos/{owner}/{repo}/commits/main/check-runs?per_page=100' | jq -r
           --arg suite "$suite" 'map(.check_runs) | add | group_by(.name) |
           map(last)[] | select(.app.slug=="github-actions") |
-          select(.check_suite.id != $suite) | select(.conclusion != "success"
-          and .conclusion != "skipped" and .conclusion != "neutral") | "\(.name)
-          (\(.conclusion // .status))"') || exit 1; [ -z "$out" ] || { echo
-          "non-green or in-progress checks on main:"; echo "$out"; exit 1; }
+          select((.check_suite.id | tostring) != $suite) | select(.conclusion !=
+          "success" and .conclusion != "skipped" and .conclusion != "neutral") |
+          "\(.name) (\(.conclusion // .status))"') || exit 1; [ -z "$out" ] || {
+          echo "non-green or in-progress checks on main:"; echo "$out"; exit 1;
+          }
         shell: sh
   review-debt:
     name: review-debt

@@ -311,7 +311,7 @@ const repoHealth = new Pipeline(proj, "repo-health", {
 // has no current suite to exclude, so it checks every latest check.
 const mainGreen = new ShellStep(repoHealth, "main-green", {
   command:
-    'suite=""; if [ -n "$GITHUB_RUN_ID" ]; then suite=$(gh api \'repos/{owner}/{repo}/actions/runs/\'"$GITHUB_RUN_ID" --jq .check_suite_id) || exit 1; fi; out=$(gh api --paginate --slurp \'repos/{owner}/{repo}/commits/main/check-runs?per_page=100\' | jq -r --arg suite "$suite" \'map(.check_runs) | add | group_by(.name) | map(last)[] | select(.app.slug=="github-actions") | select(.check_suite.id != $suite) | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\(.name) (\\(.conclusion // .status))"\') || exit 1; [ -z "$out" ] || { echo "non-green or in-progress checks on main:"; echo "$out"; exit 1; }',
+    'suite=""; if [ -n "$GITHUB_RUN_ID" ]; then suite=$(gh api \'repos/{owner}/{repo}/actions/runs/\'"$GITHUB_RUN_ID" --jq .check_suite_id) || exit 1; fi; out=$(gh api --paginate --slurp \'repos/{owner}/{repo}/commits/main/check-runs?per_page=100\' | jq -r --arg suite "$suite" \'map(.check_runs) | add | group_by(.name) | map(last)[] | select(.app.slug=="github-actions") | select((.check_suite.id | tostring) != $suite) | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\(.name) (\\(.conclusion // .status))"\') || exit 1; [ -z "$out" ] || { echo "non-green or in-progress checks on main:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
