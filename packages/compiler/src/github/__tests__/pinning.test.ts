@@ -18,12 +18,12 @@ import {
 } from "../../index.js";
 
 const BUNDLED = loadBundledRegistry();
-const CHECKOUT_SHA = BUNDLED["actions/checkout@v4"]!;
+const CHECKOUT_SHA = BUNDLED["actions/checkout@v7"]!;
 
 describe("pinActionRef — unit (spec 22 items 1–4)", () => {
   it("1. pins a registry action to its SHA with a version comment", () => {
-    const out = pinActionRef("actions/checkout@v4", BUNDLED);
-    expect(out).toBe(`actions/checkout@${CHECKOUT_SHA} # v4`);
+    const out = pinActionRef("actions/checkout@v7", BUNDLED);
+    expect(out).toBe(`actions/checkout@${CHECKOUT_SHA} # v7`);
   });
 
   it("2. passes local actions (./) through unchanged", () => {
@@ -67,7 +67,7 @@ describe("loadBundledRegistry — spec 22 item 8", () => {
 
   it("includes the actions currently emitted by github/lower.ts", () => {
     const reg = loadBundledRegistry();
-    expect(reg["actions/checkout@v4"]).toBeDefined();
+    expect(reg["actions/checkout@v7"]).toBeDefined();
     expect(reg["actions/upload-artifact@v7"]).toBeDefined();
     expect(reg["actions/download-artifact@v8"]).toBeDefined();
     expect(reg["actions/cache@v4"]).toBeDefined();
@@ -90,7 +90,7 @@ function makeCheckoutGraph(): ReturnType<typeof synthesize> {
 }
 
 describe("GithubTarget pinning — strict mode (spec 22 items 5, 6)", () => {
-  it("5. emits a SHA ref + # v4 comment for a registry action", () => {
+  it("5. emits a SHA ref + # v7 comment for a registry action", () => {
     const target = new GithubTarget({ pinning: { mode: "strict" } });
     const result = target.compile(makeCheckoutGraph());
     const yaml = parse(result.artifacts[0]!.content);
@@ -98,10 +98,10 @@ describe("GithubTarget pinning — strict mode (spec 22 items 5, 6)", () => {
       s.uses?.includes("checkout"),
     );
     expect(checkoutStep).toBeDefined();
-    // ` # v4` is a real YAML comment — GitHub resolves only the ref part.
+    // ` # v7` is a real YAML comment — GitHub resolves only the ref part.
     expect(checkoutStep.uses).toBe(`actions/checkout@${CHECKOUT_SHA}`);
     expect(result.artifacts[0]!.content).toContain(
-      `uses: actions/checkout@${CHECKOUT_SHA} # v4`,
+      `uses: actions/checkout@${CHECKOUT_SHA} # v7`,
     );
   });
 
@@ -115,12 +115,12 @@ describe("GithubTarget pinning — strict mode (spec 22 items 5, 6)", () => {
     );
     expect(diag).toBeDefined();
     expect(diag?.severity).toBe("error");
-    expect(diag?.message).toContain("actions/checkout@v4");
+    expect(diag?.message).toContain("actions/checkout@v7");
   });
 });
 
 describe("GithubTarget pinning — off mode (spec 22 item 7)", () => {
-  it("7. leaves @v4 unchanged and warns for a missing registry entry", () => {
+  it("7. leaves the ref unchanged and warns for a missing registry entry", () => {
     const target = new GithubTarget({
       pinning: { mode: "off", registry: {} },
     });
@@ -129,7 +129,7 @@ describe("GithubTarget pinning — off mode (spec 22 item 7)", () => {
     const checkoutStep = yaml.jobs.build.steps.find((s: { uses?: string }) =>
       s.uses?.includes("checkout"),
     );
-    expect(checkoutStep.uses).toBe("actions/checkout@v4");
+    expect(checkoutStep.uses).toBe("actions/checkout@v7");
     const diag = result.diagnostics.find(
       (d) => d.capability === "unpinned-action",
     );
