@@ -1,3 +1,19 @@
+## 0.2.44 (2026-10-22)
+
+### 🚀 Features
+
+- **arena:** migrate @agentclientprotocol/sdk to 2.x ([#408](https://github.com/sverka-dev/sverka/pull/408))
+
+### 🩹 Fixes
+
+- **release:** give the tarball probe ten minutes, not three ([#405](https://github.com/sverka-dev/sverka/pull/405))
+
+### ❤️ Thank You
+
+- Devin @devin-ai-integration[bot]
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.43 (2026-10-22)
 
 ### 🩹 Fixes
