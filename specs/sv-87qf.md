@@ -42,5 +42,7 @@ machinery for near-zero gain and adds a per-config path expression.
 
 1. `bun run test` — all packages green.
 2. Concurrent `vitest run` in `packages/runtime` and `packages/workflow`
-   after `touch bun.lock` (stale lockfile hash) no longer produces the
+   with a deliberately stale `lockfileHash` in
+   `node_modules/.vitest-cache/_metadata.json` (the cleanup trigger —
+   vitest hashes lockfile content, not mtime) no longer produces the
    ENOTEMPTY startup error.
