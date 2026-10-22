@@ -302,6 +302,43 @@ describe("file registry", () => {
     expect((await reg.list()).map((d) => d.runId)).toEqual(["r-ctor"]);
   });
 
+  it("concurrent publishes to one directory keep every entry", async () => {
+    // The index update is a read-modify-write: without a compare-and-swap
+    // two writers read the same index and the second write drops the
+    // first run — the run vanishes from list and the leaderboard until
+    // a reindex. Ten publishers make the collision near-certain.
+    const regDir = join(dir, "reg-race");
+    const runIds = Array.from({ length: 10 }, (_, i) => `race-${i}`);
+    await Promise.all(
+      runIds.map((runId) =>
+        createFileRegistry(regDir).publish(v1Doc({ runId })),
+      ),
+    );
+    const index = JSON.parse(
+      readFileSync(join(regDir, "index.json"), "utf8"),
+    ) as { packs: Record<string, { runs: { runId: string }[] }> };
+    const runs = (index.packs["node-ci"]?.runs ?? []).map((r) => r.runId);
+    expect(runs.sort()).toEqual([...runIds].sort());
+    expect(
+      (await createFileRegistry(regDir).list()).map((d) => d.runId).sort(),
+    ).toEqual([...runIds].sort());
+    // The lock is released — a stale lock would block the next publish.
+    expect(existsSync(join(regDir, "index.json.lock"))).toBe(false);
+  });
+
+  it("an abandoned lock from a killed publisher does not block the next one", async () => {
+    // A publisher killed mid-write never releases its lock — without a
+    // stale-lock check every later publish would wait and fail.
+    const regDir = join(dir, "reg-stale-lock");
+    mkdirSync(regDir, { recursive: true });
+    // A pid above the default pid_max cannot be running.
+    writeFileSync(join(regDir, "index.json.lock"), "4194305\n");
+    const reg = createFileRegistry(regDir);
+    await reg.publish(v1Doc({ runId: "after-stale" }));
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["after-stale"]);
+    expect(existsSync(join(regDir, "index.json.lock"))).toBe(false);
+  });
+
   it("a malformed index.json (packs: null) is ignored, not crashed on", async () => {
     const regDir = join(dir, "reg-nullidx");
     const reg = createFileRegistry(regDir);
@@ -451,6 +488,126 @@ describe("s3 registry", () => {
       },
     });
     await expectArenaError(() => reg.publish(v1Doc()), "REGISTRY_UNAVAILABLE");
+  });
+
+  it("a client without ETags still publishes (the plain-write fallback)", async () => {
+    // A custom client may hand out no ETag. The index update then has
+    // no token to compare against — it must write plainly instead of
+    // sending a condition that every write would fail.
+    const objects = new Map<string, string>();
+    const client: S3ClientLike = {
+      async putObject({ Key, Body, IfNoneMatch, IfMatch }) {
+        // A strict bucket: a condition that does not hold is a 412.
+        if (IfNoneMatch === "*" && objects.has(Key)) {
+          const err = new Error("PreconditionFailed");
+          (err as { name?: string }).name = "PreconditionFailed";
+          throw err;
+        }
+        if (IfMatch !== undefined && !objects.has(Key)) {
+          const err = new Error("PreconditionFailed");
+          (err as { name?: string }).name = "PreconditionFailed";
+          throw err;
+        }
+        objects.set(Key, String(Body));
+      },
+      async getObject({ Key }) {
+        const body = objects.get(Key);
+        if (body === undefined) {
+          const err = new Error("NoSuchKey");
+          (err as { name?: string }).name = "NoSuchKey";
+          throw err;
+        }
+        return { Body: body };
+      },
+      async listObjectsV2({ Prefix }) {
+        return {
+          Contents: [...objects.keys()]
+            .filter((k) => Prefix === undefined || k.startsWith(Prefix))
+            .map((Key) => ({ Key })),
+        };
+      },
+    };
+    const reg = createS3Registry({ bucket: "b", prefix: "reg", client });
+    await reg.publish(v1Doc({ runId: "no-etag" }));
+    // The second publish updates the index that now exists — the case
+    // where a condition without a token would reject every write.
+    await reg.publish(v1Doc({ runId: "no-etag-2" }));
+    expect((await reg.list()).map((d) => d.runId).sort()).toEqual([
+      "no-etag",
+      "no-etag-2",
+    ]);
+  });
+
+  it("two concurrent publishes to one bucket keep both entries", async () => {
+    // A bucket that hands out ETags and rejects a conditional write
+    // whose token is stale — the race the index update has to
+    // survive. The barrier holds both publishes on the same index
+    // snapshot, so the race is deterministic instead of timing-dependent.
+    const objects = new Map<string, string>();
+    const etags = new Map<string, string>();
+    let counter = 0;
+    let indexReads = 0;
+    let openBarrier: () => void = () => {};
+    const barrier = new Promise<void>((resolve) => {
+      openBarrier = resolve;
+    });
+    const preconditionFailed = (): Error => {
+      const err = new Error("PreconditionFailed");
+      (err as { name?: string }).name = "PreconditionFailed";
+      (err as { $metadata?: { httpStatusCode?: number } }).$metadata = {
+        httpStatusCode: 412,
+      };
+      return err;
+    };
+    const client: S3ClientLike = {
+      async putObject({ Key, Body, IfMatch, IfNoneMatch }) {
+        const current = etags.get(Key);
+        if (IfNoneMatch === "*" && current !== undefined) {
+          throw preconditionFailed();
+        }
+        if (IfMatch !== undefined && current !== IfMatch) {
+          throw preconditionFailed();
+        }
+        const etag = `etag-${++counter}`;
+        etags.set(Key, etag);
+        objects.set(Key, String(Body));
+      },
+      async getObject({ Key }) {
+        if (Key.endsWith("index.json")) {
+          indexReads += 1;
+          if (indexReads === 2) openBarrier();
+          await barrier;
+        }
+        const body = objects.get(Key);
+        if (body === undefined) {
+          const err = new Error("NoSuchKey");
+          (err as { name?: string }).name = "NoSuchKey";
+          throw err;
+        }
+        return { Body: body, ETag: etags.get(Key) };
+      },
+      async listObjectsV2({ Prefix }) {
+        return {
+          Contents: [...objects.keys()]
+            .filter((k) => Prefix === undefined || k.startsWith(Prefix))
+            .map((Key) => ({ Key })),
+        };
+      },
+    };
+    const reg = createS3Registry({ bucket: "b", prefix: "reg", client });
+    await Promise.all([
+      reg.publish(v1Doc({ runId: "race-a" })),
+      reg.publish(v1Doc({ runId: "race-b" })),
+    ]);
+    const index = JSON.parse(objects.get("reg/index.json") ?? "{}") as {
+      packs: Record<string, { runs: { runId: string }[] }>;
+    };
+    const runs = (index.packs["node-ci"]?.runs ?? []).map((r) => r.runId);
+    expect(runs.sort()).toEqual(["race-a", "race-b"]);
+    expect((await reg.list()).map((d) => d.runId).sort()).toEqual([
+      "race-a",
+      "race-b",
+    ]);
   });
 });
 

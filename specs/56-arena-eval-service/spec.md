@@ -185,6 +185,19 @@ index.json                       # denormalized: pack → latest runIds
 `index.json` is rebuilt by a CI job on each publish push (or by
 `arena reindex`); readers never scan the tree.
 
+The index update is a compare-and-swap: a publisher reads the index
+together with its version token (the S3 ETag, the content hash for
+the file backend), writes it back only while the token still holds,
+and re-reads and retries when another publisher won the race. Without
+it, two matrix jobs publishing to the same bucket read the same index
+and the second write drops the first run — the run disappears from
+`list` and the leaderboard until the next reindex. The file backend
+serializes the same window with an exclusive lock next to the index
+and writes it through a temporary file, so a reader never sees a
+half-written index. A lock whose owner is gone (a publisher killed
+mid-write) is reclaimed — the lock names its owner, and a waiter takes
+over a lock whose process no longer exists.
+
 ## Error handling
 
 - Schema mismatch on publish → `ArenaError(SCHEMA_INVALID)` with
@@ -223,6 +236,9 @@ index.json                       # denormalized: pack → latest runIds
    into one board row.
 10. `createS3Registry` put-object path exercised against a mock
     client (no real AWS dependency in tests).
+11. Concurrent publishes to one registry (file directory and S3
+    bucket): every run is in the index afterwards — the index update
+    is a compare-and-swap, not a last-writer-wins overwrite.
 
 ## Positioning note
 
