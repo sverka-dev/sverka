@@ -93,8 +93,8 @@ One plugin fronts any number of named MCP servers. `MCPServerConfig` is a
 union — `transport: "stdio"` (`command`, `args?`, `env?`, `cwd?`) or
 `transport: "http"` (`url` — Streamable HTTP with automatic SSE
 fallback). Tools are exposed as `<server>.<tool>` so identically named
-tools on different servers never collide; `callTool("<server>.<tool>",
-args)` routes to the right client.
+tools on different servers never collide;
+`callTool("<server>.<tool>", args)` routes to the right client.
 
 ```ts
 const plugin = createMCPPlugin({

@@ -9,7 +9,7 @@ The playground demos the _authoring + findings + report_ loop, not real
 shell execution — a browser cannot spawn processes. The honest contract:
 **the graph you build transfers verbatim to a local config**, and
 `toSverkaConfig()` does that conversion. To run real checks, take the
-pipeline home with `npm create sverka`.
+pipeline home with `bun create sverka`.
 
 ## The pipeline model
 
@@ -79,8 +79,8 @@ const result = await runPipeline(proj);
 
 `runPipelineWithTimeout(project, timeoutMs)` wraps the same run in a
 deadline so a stuck `fn` can't wedge the UI. `evaluateUserCode(code)`
-turns editor source into a `Project` — it runs user code through `new
-Function()` in the page context, the same trust model as a local REPL.
+turns editor source into a `Project` — it runs user code through
+`new Function()` in the page context, the same trust model as a local REPL.
 
 The standalone app (a Monaco editor + findings report, from the
 `index.html`/`vite.config.ts` in the package) builds on exactly these
@@ -90,8 +90,8 @@ evaluates it, `runPipelineWithTimeout` runs it, and
 
 ## Share links
 
-A share link serializes `{ schema: "sverka.playground/v1", code,
-findings? }` through deflate → base64url → the URL fragment:
+A share link serializes `{ schema: "sverka.playground/v1", code, findings? }`
+through deflate → base64url → the URL fragment:
 
 ```ts
 import { encodeShareLink, decodeShareLink } from "@sverka/playground";
@@ -178,5 +178,5 @@ Types: `Finding`, `FindingSource`, `PlaygroundFinding`, `Severity`,
   in a docs page
 - [SARIF pipeline](../findings/sarif-pipeline.md) — the report renderer
   the playground reuses
-- [Install](../getting-started/install.md) — `npm create sverka`, the
+- [Install](../getting-started/install.md) — `bun create sverka`, the
   take-it-home path

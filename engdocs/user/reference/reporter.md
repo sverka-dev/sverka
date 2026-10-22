@@ -38,9 +38,9 @@ interface Renderer {
 
 `reduceEvent(state, event)` folds a `RunEvent` into an immutable
 `UIState`; `createInitialState()` starts empty. `UIState` holds
-`runId`/`planId`, run `status`, `durationMs`, a `Map<stepId,
-StepUIState>` (state, duration, error, retry attempt), and a
-`DiagnosticEntry[]` log. Because it's pure and total — it only consumes
+`runId`/`planId`, run `status`, `durationMs`, a
+`Map<stepId, StepUIState>` (state, duration, error, retry attempt), and
+a `DiagnosticEntry[]` log. Because it's pure and total — it only consumes
 existing event types — the same state drives text, HTML, and TUI without
 per-format bookkeeping.
 

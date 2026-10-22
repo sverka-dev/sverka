@@ -64,16 +64,16 @@ index is updated for every new page.
 
 ## Plan
 
-- [ ] `use-cases/playground.md`
-- [ ] `use-cases/benchmark.md`
-- [ ] `reference/reporter.md`
-- [ ] `reference/verification.md`
-- [ ] `hub/embedding.md`
-- [ ] Expand `agent-integration/mcp.md` (MCP client section)
-- [ ] `getting-started/install.md`: `bun create sverka` section
-- [ ] `findings/sarif-pipeline.md`: standalone viewer CLIs + `SarifTuiApp`
-- [ ] Fix stale `Source:` paths in `reference/checks.md`,
+- [x] `use-cases/playground.md`
+- [x] `use-cases/benchmark.md`
+- [x] `reference/reporter.md`
+- [x] `reference/verification.md`
+- [x] `hub/embedding.md`
+- [x] Expand `agent-integration/mcp.md` (MCP client section)
+- [x] `getting-started/install.md`: `bun create sverka` section
+- [x] `findings/sarif-pipeline.md`: standalone viewer CLIs + `SarifTuiApp`
+- [x] Fix stale `Source:` paths in `reference/checks.md`,
       `findings.md`, `policy.md`
-- [ ] `running/cli.md`: 14 → 19 commands (add hub/login/runs/agent/apply)
-- [ ] Update `engdocs/user/README.md` index
-- [ ] `bun run docs:sync` (website) + prettier/cspell/markdownlint clean
+- [x] `running/cli.md`: 14 → 19 commands (add hub/login/runs/agent/apply)
+- [x] Update `engdocs/user/README.md` index
+- [x] `bun run docs:sync` (website) + prettier/cspell/markdownlint clean

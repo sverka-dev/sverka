@@ -89,22 +89,23 @@ than scraping the hub dashboard.
 
 Two related surfaces live on sverka.dev rather than in `@sverka/hub`:
 
-- **Pipeline reports (Spec 50, shipped)** — `website/scripts/
-gen-pipeline-data.ts` runs `sverka run --format html` against this repo
-  and `examples/*/` during the site deploy and publishes the standalone
-  reports under `/pipeline-reports/`. Always live data; a red pipeline
-  renders too — the page never fails the deploy.
+- **Pipeline reports (Spec 50, shipped)** — the site deploy runs
+  `website/scripts/gen-pipeline-data.ts`, which runs
+  `sverka run --format html` against this repo and `examples/*/` and
+  publishes the standalone reports under `/pipeline-reports/`. Always
+  live data; a red pipeline renders too — the page never fails the
+  deploy.
 - **Findings hub (Spec 50, proposed)** — a hosted SARIF viewer that
   aggregates a GitHub repo's workflow-artifact SARIF, code-scanning
   alerts, and check-run annotations into one findings view, rendered
   in-browser with `@sverka/verification` normalization. Not built yet;
-  the local equivalent today is [`sverka
-view`/`sverka ui`](../findings/sarif-pipeline.md).
+  the local equivalent today is
+  [`sverka view` / `sverka ui`](../findings/sarif-pipeline.md).
 
 ## See also
 
-- [Remote run hub API](./api.md) — HTTP surface, tokens, `sverka run
---remote`, degradation behavior
+- [Remote run hub API](./api.md) — HTTP surface, tokens,
+  `sverka run --remote`, degradation behavior
 - [SARIF pipeline](../findings/sarif-pipeline.md) — the local dashboard
   (`sverka ui`) and standalone viewers
 - [Snapshot storage](../running/storage.md) — what the snapshots API
