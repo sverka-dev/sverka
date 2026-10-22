@@ -97,12 +97,12 @@ artifact to its own file under the given directory (mirrors the repo-relative
 paths, e.g. `<dir>/.github/workflows/<pipeline>.yml`). `--output` and
 `--output-dir` are mutually exclusive.
 
-| Flag             | Type    | Default | Description                                              |
-| ---------------- | ------- | ------- | -------------------------------------------------------- |
-| `--target`       | string  | —       | Target: `github` or `gitlab` (required)                  |
-| `--output`, `-o` | string  | —       | Write YAML to a file instead of stdout                   |
-| `--output-dir`   | string  | —       | Write each artifact to `<dir>/<artifact path>`           |
-| `--pin`          | boolean | `false` | Pin GitHub action refs to commit SHAs (`github` target)  |
+| Flag             | Type    | Default | Description                                             |
+| ---------------- | ------- | ------- | ------------------------------------------------------- |
+| `--target`       | string  | —       | Target: `github` or `gitlab` (required)                 |
+| `--output`, `-o` | string  | —       | Write YAML to a file instead of stdout                  |
+| `--output-dir`   | string  | —       | Write each artifact to `<dir>/<artifact path>`          |
+| `--pin`          | boolean | `false` | Pin GitHub action refs to commit SHAs (`github` target) |
 
 ### `sverka synth --target github|gitlab`
 
@@ -154,10 +154,10 @@ Options: `--port` (default `7357`), `--host`, `--data` (default
 Store hub credentials in `~/.config/sverka/credentials`. See
 [Remote run hub](../hub/api.md#client-configuration).
 
-| Flag      | Type   | Default | Description                                |
-| --------- | ------ | ------- | ------------------------------------------ |
-| `--hub`   | string | —       | Hub base URL (or `SVERKA_HUB_URL`)         |
-| `--token` | string | —       | Hub bearer token (or `SVERKA_HUB_TOKEN`)   |
+| Flag      | Type   | Default | Description                              |
+| --------- | ------ | ------- | ---------------------------------------- |
+| `--hub`   | string | —       | Hub base URL (or `SVERKA_HUB_URL`)       |
+| `--token` | string | —       | Hub bearer token (or `SVERKA_HUB_TOKEN`) |
 
 ### `sverka runs`
 
@@ -185,10 +185,10 @@ Apply an agent job's declared writes (Spec 54 safe-outputs stage) —
 `sverka apply --provider <gitlab|github>` inside the generated `__apply`
 job. See [Agentic workflows](../gitlab/agentic.md).
 
-| Flag         | Type   | Default       | Description                         |
-| ------------ | ------ | ------------- | ----------------------------------- |
-| `--provider` | string | auto-detected | CI provider: `gitlab` or `github`   |
-| `--file`     | string | `<root>`      | Path to `sverka-writes.json`        |
+| Flag         | Type   | Default                     | Description                       |
+| ------------ | ------ | --------------------------- | --------------------------------- |
+| `--provider` | string | auto-detected               | CI provider: `gitlab` or `github` |
+| `--file`     | string | `<root>/sverka-writes.json` | Path to `sverka-writes.json`      |
 
 ## Global flags
 

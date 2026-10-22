@@ -15,16 +15,22 @@ const AUTO_FLAGS = new Set(["help", "version"]);
 async function helpFor(args: string[]): Promise<string> {
   const parser = buildParser().exitProcess(false);
   let out = "";
-  await parser.parseAsync(args, (_err, _argv, output) => {
-    if (output) out = output;
-  });
+  await parser.parseAsync(
+    args,
+    (_err: unknown, _argv: unknown, output: string | undefined) => {
+      if (output) out = output;
+    },
+  );
   return out;
 }
 
 /** Extracts `--flag` names from help output. */
 function flagsOf(help: string): Set<string> {
   const flags = new Set<string>();
-  for (const m of help.matchAll(/^\s+--([a-z0-9-]+)/gm)) flags.add(m[1]);
+  for (const m of help.matchAll(/^\s+--([a-z0-9-]+)/gm)) {
+    const name = m[1];
+    if (name) flags.add(name);
+  }
   for (const auto of AUTO_FLAGS) flags.delete(auto);
   return flags;
 }
@@ -35,7 +41,7 @@ async function commandNames(): Promise<string[]> {
   const names: string[] = [];
   for (const line of help.split("\n")) {
     const m = line.match(/^\s*sverka ([a-z-]+)/);
-    if (m) names.push(m[1]);
+    if (m?.[1]) names.push(m[1]);
   }
   return names;
 }
@@ -46,9 +52,12 @@ function docSections(doc: string): Map<string, string> {
   const re = /^### `sverka ([a-z-]+)[^`]*`$/gm;
   const heads = [...doc.matchAll(re)];
   heads.forEach((h, i) => {
-    const start = h.index! + h[0].length;
-    const end = i + 1 < heads.length ? heads[i + 1].index! : doc.indexOf("\n## Global flags");
-    sections.set(h[1], doc.slice(start, end));
+    const start = h.index + h[0].length;
+    const next = heads[i + 1];
+    const tail = doc.indexOf("\n## Global flags");
+    const end = next ? next.index : tail >= 0 ? tail : doc.length;
+    const name = h[1];
+    if (name) sections.set(name, doc.slice(start, end));
   });
   return sections;
 }
@@ -69,7 +78,10 @@ describe("cli.md stays in sync with registered commands", () => {
       const flags = flagsOf(await helpFor([cmd, "--help"]));
       const section = sections.get(cmd) ?? "";
       for (const flag of flags) {
-        if (!section.includes(`--${flag}`) && !globalSection.includes(`--${flag}`)) {
+        if (
+          !section.includes(`--${flag}`) &&
+          !globalSection.includes(`--${flag}`)
+        ) {
           missing.push(`${cmd} --${flag}`);
         }
       }
