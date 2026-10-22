@@ -1,6 +1,12 @@
 // Test fixtures for engine tests.
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { RunPlan, InputValue } from "@sverka/workflow";
 import type { StepDefinition, Reference, Expression } from "@sverka/workflow";
+
+const execFileAsync = promisify(execFile);
 
 export function makeSingleStepPlan(command: string = "echo hello"): RunPlan {
   const step: StepDefinition = {
@@ -190,4 +196,49 @@ export function makeNeverConditionPlan(): RunPlan {
     steps: [step],
     createdAt: "2026-08-13T00:00:00.000Z",
   };
+}
+
+/** A git repository with one commit, as the runtime sees it. */
+export interface GitRepoFixture {
+  /** The commit sha of HEAD. */
+  readonly sha: string;
+  /** The branch HEAD points at. */
+  readonly branch: string;
+}
+
+/**
+ * Turn `dir` into a git repository with a single commit.
+ *
+ * The engine resolves `git.*` context refs by running git *in the
+ * workspace*, so a test that asserts on git context needs a workspace that
+ * is a repository of its own. Using the repo under test would make the
+ * assertion depend on that repo's git state (and would write the step's
+ * scratch directory into it), so every caller builds its own throwaway
+ * repository instead.
+ */
+export async function initGitRepo(dir: string): Promise<GitRepoFixture> {
+  // execFile is async throughout the fixture and its rejection carries the
+  // command's stderr, so a git failure fails the test with the git error
+  // text rather than a bare "Command failed" exit code.
+  const git = async (...args: string[]): Promise<string> => {
+    const { stdout } = await execFileAsync("git", args, {
+      cwd: dir,
+      encoding: "utf-8",
+    });
+    return stdout;
+  };
+  await git("init", "--quiet");
+  // Identity and branch are set locally — the test must not depend on the
+  // machine's global git config.
+  await git("config", "user.email", "test@example.com");
+  await git("config", "user.name", "test");
+  await git("config", "commit.gpgsign", "false");
+  await writeFile(join(dir, "file.txt"), "content\n", "utf-8");
+  await git("add", "-A");
+  await git("commit", "--quiet", "-m", "init");
+  const [sha, branch] = await Promise.all([
+    git("rev-parse", "HEAD"),
+    git("rev-parse", "--abbrev-ref", "HEAD"),
+  ]);
+  return { sha: sha.trim(), branch: branch.trim() };
 }

@@ -122,6 +122,7 @@
     "fumadocs",
     "gantt",
     "ghsa",
+    "gpgsign",
     "graphlib",
     "gsub",
     "hardlink",
