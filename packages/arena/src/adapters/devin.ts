@@ -351,24 +351,31 @@ export function extractUsageTokens(usage: UsageUpdate | null | undefined): {
  * `totalTokens`; otherwise `totalTokens` falls back to the last reported
  * context occupancy.
  */
-function buildMetrics(
+export function buildMetrics(
   promptResult: { stopReason: string },
   usage: UsageUpdate | undefined,
-  transcriptMetrics: TranscriptMetrics | undefined,
+  transcriptMetrics:
+    | Pick<TranscriptMetrics, "total_prompt_tokens" | "total_completion_tokens">
+    | undefined,
   toolCallCount: number,
   llmCallCount: number,
   startTime: number,
 ): RunMetrics {
   const usageTokens = extractUsageTokens(usage);
+  // A session-DB transcript can have rows whose nodes carry no per-call
+  // token metrics — a zero prompt+completion total means "no accounting",
+  // not "no usage", so context occupancy supplies the total.
+  const transcriptTotal = transcriptMetrics
+    ? transcriptMetrics.total_prompt_tokens +
+      transcriptMetrics.total_completion_tokens
+    : 0;
   return {
     inputTokens: transcriptMetrics?.total_prompt_tokens ?? 0,
     outputTokens: transcriptMetrics?.total_completion_tokens ?? 0,
     thoughtTokens: 0,
     ...usageTokens,
-    totalTokens: transcriptMetrics
-      ? transcriptMetrics.total_prompt_tokens +
-        transcriptMetrics.total_completion_tokens
-      : usageTokens.totalTokens,
+    totalTokens:
+      transcriptTotal > 0 ? transcriptTotal : usageTokens.totalTokens,
     toolCallCount,
     llmCallCount,
     executionTimeMs: Date.now() - startTime,

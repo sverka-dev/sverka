@@ -13,6 +13,7 @@ import {
   transcriptDir,
   countLlmCalls,
   readSessionTranscript,
+  buildMetrics,
 } from "../src/adapters/devin.js";
 import type {
   AgentSpawnConfig,
@@ -549,5 +550,66 @@ describe("countLlmCalls", () => {
       ],
     };
     expect(countLlmCalls(transcript)).toBe(0);
+  });
+});
+
+// ─── buildMetrics ────────────────────────────────────────────────────
+
+describe("buildMetrics", () => {
+  const start = Date.now() - 1000;
+
+  it("uses transcript per-call sums for totalTokens when accounting exists", () => {
+    const m = buildMetrics(
+      { stopReason: "end_turn" },
+      { used: 5000, size: 200_000 },
+      { total_prompt_tokens: 300, total_completion_tokens: 70 },
+      2,
+      2,
+      start,
+    );
+    expect(m.totalTokens).toBe(370);
+    expect(m.inputTokens).toBe(300);
+    expect(m.outputTokens).toBe(70);
+    expect(m.contextTokensUsed).toBe(5000);
+    expect(m.contextWindowSize).toBe(200_000);
+  });
+
+  it("falls back to context occupancy when the transcript has no token accounting", () => {
+    const m = buildMetrics(
+      { stopReason: "end_turn" },
+      { used: 5000, size: 200_000 },
+      { total_prompt_tokens: 0, total_completion_tokens: 0 },
+      2,
+      2,
+      start,
+    );
+    expect(m.totalTokens).toBe(5000);
+    expect(m.inputTokens).toBe(0);
+    expect(m.outputTokens).toBe(0);
+  });
+
+  it("falls back to context occupancy when there is no transcript", () => {
+    const m = buildMetrics(
+      { stopReason: "end_turn" },
+      { used: 5000, size: 200_000 },
+      undefined,
+      0,
+      0,
+      start,
+    );
+    expect(m.totalTokens).toBe(5000);
+  });
+
+  it("reports zero tokens when neither transcript nor usage exists", () => {
+    const m = buildMetrics(
+      { stopReason: "cancelled" },
+      undefined,
+      undefined,
+      0,
+      0,
+      start,
+    );
+    expect(m.totalTokens).toBe(0);
+    expect(m.contextTokensUsed).toBeUndefined();
   });
 });

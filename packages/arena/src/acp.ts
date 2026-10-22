@@ -204,19 +204,6 @@ async function runSessionLoop(
 ): Promise<AcpSessionResult> {
   onSession?.(session.sessionId);
   const collector: SessionCollector = { usage: undefined };
-  const promptPromise = session
-    .prompt(prompt)
-    .then((response): AcpSessionResult => ({
-      response,
-      usage: collector.usage,
-    }));
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(
-      () => reject(new Error(`Agent timed out after ${timeoutMs}ms`)),
-      timeoutMs,
-    ),
-  );
-
   const collectPromise = (async (): Promise<AcpSessionResult> => {
     for (;;) {
       const message = await session.nextUpdate();
@@ -229,8 +216,24 @@ async function runSessionLoop(
       if (result) return { response: result, usage: collector.usage };
     }
   })();
+  // prompt() resolves with the same response the session queues as a
+  // `stop` message — resolve through the collect loop so the final
+  // usage_update is drained before the result is read. A prompt()
+  // rejection still fails the race.
+  const promptSettled = session.prompt(prompt).then(() => collectPromise);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Agent timed out after ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+  });
 
-  return Promise.race([promptPromise, collectPromise, timeoutPromise]);
+  try {
+    return await Promise.race([promptSettled, collectPromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
