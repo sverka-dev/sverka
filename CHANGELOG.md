@@ -1,3 +1,14 @@
+## 0.2.39 (2026-10-22)
+
+### 🩹 Fixes
+
+- **arena:** percent-encode plugin names in every combo label ([#394](https://github.com/sverka-dev/sverka/pull/394))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.38 (2026-10-22)
 
 ### 🩹 Fixes
