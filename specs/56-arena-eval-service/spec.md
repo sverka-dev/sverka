@@ -194,7 +194,9 @@ and the second write drops the first run — the run disappears from
 `list` and the leaderboard until the next reindex. The file backend
 serializes the same window with an exclusive lock next to the index
 and writes it through a temporary file, so a reader never sees a
-half-written index.
+half-written index. A lock whose owner is gone (a publisher killed
+mid-write) is reclaimed — the lock names its owner, and a waiter takes
+over a lock whose process no longer exists.
 
 ## Error handling
 

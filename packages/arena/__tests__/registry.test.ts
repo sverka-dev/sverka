@@ -326,6 +326,19 @@ describe("file registry", () => {
     expect(existsSync(join(regDir, "index.json.lock"))).toBe(false);
   });
 
+  it("an abandoned lock from a killed publisher does not block the next one", async () => {
+    // A publisher killed mid-write never releases its lock — without a
+    // stale-lock check every later publish would wait and fail.
+    const regDir = join(dir, "reg-stale-lock");
+    mkdirSync(regDir, { recursive: true });
+    // A pid above the default pid_max cannot be running.
+    writeFileSync(join(regDir, "index.json.lock"), "4194305\n");
+    const reg = createFileRegistry(regDir);
+    await reg.publish(v1Doc({ runId: "after-stale" }));
+    expect((await reg.list()).map((d) => d.runId)).toEqual(["after-stale"]);
+    expect(existsSync(join(regDir, "index.json.lock"))).toBe(false);
+  });
+
   it("a malformed index.json (packs: null) is ignored, not crashed on", async () => {
     const regDir = join(dir, "reg-nullidx");
     const reg = createFileRegistry(regDir);
@@ -475,6 +488,54 @@ describe("s3 registry", () => {
       },
     });
     await expectArenaError(() => reg.publish(v1Doc()), "REGISTRY_UNAVAILABLE");
+  });
+
+  it("a client without ETags still publishes (the plain-write fallback)", async () => {
+    // A custom client may hand out no ETag. The index update then has
+    // no token to compare against — it must write plainly instead of
+    // sending a condition that every write would fail.
+    const objects = new Map<string, string>();
+    const client: S3ClientLike = {
+      async putObject({ Key, Body, IfNoneMatch, IfMatch }) {
+        // A strict bucket: a condition that does not hold is a 412.
+        if (IfNoneMatch === "*" && objects.has(Key)) {
+          const err = new Error("PreconditionFailed");
+          (err as { name?: string }).name = "PreconditionFailed";
+          throw err;
+        }
+        if (IfMatch !== undefined && !objects.has(Key)) {
+          const err = new Error("PreconditionFailed");
+          (err as { name?: string }).name = "PreconditionFailed";
+          throw err;
+        }
+        objects.set(Key, String(Body));
+      },
+      async getObject({ Key }) {
+        const body = objects.get(Key);
+        if (body === undefined) {
+          const err = new Error("NoSuchKey");
+          (err as { name?: string }).name = "NoSuchKey";
+          throw err;
+        }
+        return { Body: body };
+      },
+      async listObjectsV2({ Prefix }) {
+        return {
+          Contents: [...objects.keys()]
+            .filter((k) => Prefix === undefined || k.startsWith(Prefix))
+            .map((Key) => ({ Key })),
+        };
+      },
+    };
+    const reg = createS3Registry({ bucket: "b", prefix: "reg", client });
+    await reg.publish(v1Doc({ runId: "no-etag" }));
+    // The second publish updates the index that now exists — the case
+    // where a condition without a token would reject every write.
+    await reg.publish(v1Doc({ runId: "no-etag-2" }));
+    expect((await reg.list()).map((d) => d.runId).sort()).toEqual([
+      "no-etag",
+      "no-etag-2",
+    ]);
   });
 
   it("two concurrent publishes to one bucket keep both entries", async () => {

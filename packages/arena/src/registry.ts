@@ -15,7 +15,7 @@
  * (clone → write → commit → push), s3 (put-object via an injectable
  * client — no AWS SDK dependency in tests).
  */
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   chmod,
@@ -25,6 +25,7 @@ import {
   readdir,
   rename,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -174,25 +175,26 @@ interface TreeStore {
   /** Relative posix paths under relPrefix, recursive. */
   listFiles(relPrefix: string): Promise<string[]>;
   /**
-   * Read a file together with the token a conditional write checks
-   * against — the S3 ETag, the content hash for the file backend; null
-   * when the file does not exist. Backends without compare-and-swap
-   * support leave this (and `writeFileIfVersion`) undefined: the caller
-   * then falls back to a plain read-modify-write.
+   * Read a file together with the state a conditional write checks
+   * against: `exists` says whether the file is there, `version` is the
+   * backend's token for it (the S3 ETag, the content hash for the file
+   * backend). A null version on an existing file means the backend
+   * cannot express a compare-and-swap — the caller writes plainly.
    */
   readFileVersioned?(rel: string): Promise<{
     content: string | null;
+    exists: boolean;
     version: string | null;
   }>;
   /**
-   * Write only while the file still carries `version` — false when
-   * another writer got there first (the caller re-reads and retries).
-   * A null version means "the file must not exist yet".
+   * Write the file only while it still has the given state — false
+   * when another writer got there first (the caller re-reads and
+   * retries). A null version writes plainly, without a condition.
    */
   writeFileIfVersion?(
     rel: string,
     data: string,
-    version: string | null,
+    state: { exists: boolean; version: string | null },
   ): Promise<boolean>;
   /**
    * Re-sync remote state before a read operation — the git backend
@@ -211,10 +213,51 @@ const registries = new WeakMap<ArenaRegistry, TreeStore>();
 const LOCK_TIMEOUT_MS = 5_000;
 /** How often a writer retries a taken lock. */
 const LOCK_POLL_MS = 25;
+/**
+ * A lock older than this is treated as abandoned. A publisher killed
+ * mid-write never releases its lock, and without this every later
+ * publish would block on it until somebody removes the file by hand.
+ */
+const STALE_LOCK_MS = 10 * 60_000;
 
 /** Content hash — the file backend's version token for a compare-and-swap. */
 function contentVersion(content: string): string {
   return createHash("sha256").update(content).digest("hex");
+}
+
+/** Is the process alive? EPERM means it exists but belongs to someone else. */
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * Remove a lock whose owner is gone — the process it names does not
+ * exist, or the lock is older than the stale threshold (a recycled pid
+ * or a lock file from a crash before the pid was written).
+ */
+async function stealAbandonedLock(lockPath: string): Promise<boolean> {
+  let owner: number | undefined;
+  let mtimeMs: number;
+  try {
+    owner = Number.parseInt((await readFile(lockPath, "utf8")).trim(), 10);
+    mtimeMs = (await stat(lockPath)).mtimeMs;
+  } catch {
+    // The lock vanished under us — the next attempt takes it.
+    return true;
+  }
+  const ownerGone =
+    owner !== undefined &&
+    Number.isInteger(owner) &&
+    owner !== process.pid &&
+    !isAlive(owner);
+  if (!ownerGone && Date.now() - mtimeMs < STALE_LOCK_MS) return false;
+  await rm(lockPath, { force: true });
+  return true;
 }
 
 /**
@@ -232,6 +275,8 @@ async function acquireLock(
   for (;;) {
     try {
       const handle = await open(lockPath, "wx", 0o600);
+      // The owner pid — a later waiter uses it to spot an abandoned lock.
+      await handle.writeFile(`${process.pid}\n`);
       await handle.close();
       return {
         release: async () => {
@@ -240,6 +285,7 @@ async function acquireLock(
       };
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      if (await stealAbandonedLock(lockPath)) continue;
       if (Date.now() >= deadline) {
         throw new ArenaError(
           `registry index is locked by another writer (${lockPath})`,
@@ -259,7 +305,7 @@ async function acquireLock(
  */
 async function writeFileAtomic(target: string, data: string): Promise<void> {
   await mkdir(join(target, ".."), { recursive: true });
-  const tmp = `${target}.${process.pid}.${Date.now()}.tmp`;
+  const tmp = `${target}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(tmp, data, { encoding: "utf8", mode: 0o600 });
   try {
     await rename(tmp, target);
@@ -303,17 +349,18 @@ function createFileTree(dir: string): TreeStore {
       const content = await readText(rel);
       return {
         content,
+        exists: content !== null,
         version: content === null ? null : contentVersion(content),
       };
     },
-    async writeFileIfVersion(rel, data, version) {
+    async writeFileIfVersion(rel, data, state) {
       const target = join(dir, rel);
       const lock = await acquireLock(target);
       try {
         const current = await readText(rel);
         const currentVersion =
           current === null ? null : contentVersion(current);
-        if (currentVersion !== version) return false;
+        if (currentVersion !== state.version) return false;
         try {
           await writeFileAtomic(target, data);
         } catch (err) {
@@ -849,25 +896,38 @@ function createS3Tree(cfg: S3RegistryConfig): TreeStore {
         });
         return {
           content: await s3BodyToString(res?.Body),
+          exists: true,
+          // A client that hands out no ETag cannot express a
+          // compare-and-swap — the write then goes out plainly.
           version: res?.ETag ?? null,
         };
       } catch (err) {
         const name = (err as { name?: string }).name ?? "";
         if (name === "NoSuchKey" || name === "NotFound") {
-          return { content: null, version: null };
+          return { content: null, exists: false, version: null };
         }
         if (err instanceof ArenaError) throw err;
         throw unavailable(`getObject ${rel} failed`, err);
       }
     },
-    async writeFileIfVersion(rel, data, version) {
+    async writeFileIfVersion(rel, data, state) {
       const c = await client();
+      // IfMatch — write only while the object still has this ETag.
+      // IfNoneMatch — write only while the object does not exist.
+      // Neither — the backend gave no token, so the write goes out
+      // plainly (last-writer-wins, as before the compare-and-swap).
+      const condition =
+        state.version !== null
+          ? { IfMatch: state.version }
+          : state.exists
+            ? {}
+            : { IfNoneMatch: "*" };
       try {
         await c.putObject({
           Bucket: cfg.bucket,
           Key: prefix + rel,
           Body: data,
-          ...(version === null ? { IfNoneMatch: "*" } : { IfMatch: version }),
+          ...condition,
         });
         return true;
       } catch (err) {
@@ -962,17 +1022,20 @@ async function readIndex(tree: TreeStore): Promise<RegistryIndex> {
 }
 
 /**
- * Read the index together with the token a conditional write checks
- * against — backends without compare-and-swap support report a null
- * version and fall back to a plain write.
+ * Read the index together with the state a conditional write checks
+ * against — backends without compare-and-swap support report no state
+ * and fall back to a plain write.
  */
-async function readIndexVersioned(
-  tree: TreeStore,
-): Promise<{ content: string | null; version: string | null }> {
+async function readIndexVersioned(tree: TreeStore): Promise<{
+  content: string | null;
+  exists: boolean;
+  version: string | null;
+}> {
   if (tree.readFileVersioned !== undefined) {
     return tree.readFileVersioned(INDEX_PATH);
   }
-  return { content: await tree.readFile(INDEX_PATH), version: null };
+  const content = await tree.readFile(INDEX_PATH);
+  return { content, exists: content !== null, version: null };
 }
 
 /**
@@ -982,12 +1045,12 @@ async function readIndexVersioned(
 async function writeIndexConditional(
   tree: TreeStore,
   index: RegistryIndex,
-  version: string | null,
+  state: { exists: boolean; version: string | null },
 ): Promise<boolean> {
   index.updatedAt = new Date().toISOString();
   const data = JSON.stringify(index, null, 2) + "\n";
   if (tree.writeFileIfVersion !== undefined) {
-    return tree.writeFileIfVersion(INDEX_PATH, data, version);
+    return tree.writeFileIfVersion(INDEX_PATH, data, state);
   }
   await tree.writeFile(INDEX_PATH, data);
   return true;
@@ -1030,8 +1093,8 @@ async function updateIndex(
 ): Promise<void> {
   const date = relPath.split("/")[3] ?? doc.startedAt.slice(0, 10);
   for (let attempt = 1; attempt <= INDEX_CAS_ATTEMPTS; attempt++) {
-    const { content, version } = await readIndexVersioned(tree);
-    const index = parseIndex(content);
+    const state = await readIndexVersioned(tree);
+    const index = parseIndex(state.content);
     const pack = indexPack(index, doc.pack) ?? { runs: [] };
     pack.runs = [
       ...pack.runs.filter((r) => r.runId !== doc.runId),
@@ -1039,7 +1102,14 @@ async function updateIndex(
     ];
     pack.runs.sort(compareIndexRuns);
     index.packs[doc.pack] = pack;
-    if (await writeIndexConditional(tree, index, version)) return;
+    if (
+      await writeIndexConditional(tree, index, {
+        exists: state.exists,
+        version: state.version,
+      })
+    ) {
+      return;
+    }
   }
   throw new ArenaError(
     `registry index update lost ${INDEX_CAS_ATTEMPTS} races — retry the publish`,
@@ -1310,9 +1380,14 @@ export async function reindexRegistry(
   // catches that and the retry re-scans — by then the published result
   // file is in the tree and the entry survives.
   for (let attempt = 1; attempt <= INDEX_CAS_ATTEMPTS; attempt++) {
-    const { version } = await readIndexVersioned(tree);
+    const state = await readIndexVersioned(tree);
     const { index, runs } = await buildIndex(tree);
-    if (await writeIndexConditional(tree, index, version)) {
+    if (
+      await writeIndexConditional(tree, index, {
+        exists: state.exists,
+        version: state.version,
+      })
+    ) {
       await tree.finalize("arena: reindex");
       return { runs };
     }
