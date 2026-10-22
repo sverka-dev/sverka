@@ -88,6 +88,22 @@ jobs:
         env:
           NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_TOKEN }}
 
+      # The lockfile records the workspace package versions — without a
+      # refresh it stays behind the bump, and every 'bun install' then
+      # rewrites bun.lock (a dirty tree for everyone, and a diff that
+      # reappears in unrelated PRs). Fold the refreshed lockfile into the
+      # release commit.
+      - name: Sync bun.lock with the released versions
+        if: steps.version.outputs.released == 'true'
+        run: |
+          bun install --lockfile-only
+          # Only amend when HEAD is the release commit — on a no-op version
+          # step HEAD is an unrelated commit and must not be rewritten.
+          if [ -n "$(git status --porcelain bun.lock)" ] && git log -1 --format=%s | grep -q "^chore(release)"; then
+            git add bun.lock
+            git commit --amend --no-edit
+          fi
+
       # plugin.json tracks the released version — fold it into the release
       # commit (nothing is pushed until the changelog step's --atomic push).
       - name: Sync plugin.json version
