@@ -15,25 +15,25 @@
  *     dogfooding the report on agent traces)
  *
  * Refresh after a local `sverka-arena run`: `bun run docs:arena`
- * (needs `bun run build` first — imports @sverka/arena dist).
+ * (needs `bun run build` first — the arena config it reads imports
+ * @sverka/arena from the workspace).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { userInfo } from "node:os";
 import { fileURLToPath } from "node:url";
-// Source import — website/ is not an npm workspace member, so
-// @sverka/arena isn't resolvable by name. Bun runs TS directly;
-// the module's own @sverka/* imports resolve via arena's deps (dist,
-// so `bun run build` must have run at least once).
+// The arena is consumed as a package, not as sources: website/ is not an
+// npm workspace member, so importing ../packages/arena/src would drag
+// node-side arena code into the website's typecheck, where the DOM lib's
+// ReadableStream and node:stream's are different types.
 import type {
   ArenaResult,
   RunResult,
   TraceData,
   TraceStep,
-} from "../../packages/arena/src/types.js";
-import { writeTraceReport } from "../../packages/arena/src/trace-report.js";
-import { writeAggregateReport } from "../../packages/arena/src/aggregate-report.js";
+} from "@sverka/arena";
+import { writeAggregateReport, writeTraceReport } from "@sverka/arena";
 
 // Committed traces are public artifacts — strip host/session specifics
 // (absolute paths, kernel build, session ids) and drop replayed context:
