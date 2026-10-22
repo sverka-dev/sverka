@@ -848,26 +848,110 @@ function tryParseResult(raw: string | null): ArenaResultV1 | null {
   }
 }
 
+/** A trace payload prepared for writing — name validated, data read. */
+interface PreparedTrace {
+  readonly name: string;
+  readonly data: string;
+}
+
+/** Upper bound on the trace payload one publish may hold in memory. */
+const MAX_TRACE_BYTES = 64 * 1024 * 1024;
+
+/**
+ * Validate every trace name and read every payload BEFORE the first
+ * write. A bad trace name or an unreadable file must not leave an orphan
+ * result document behind: the result would sit in the tree without an
+ * index entry, and the next publish (or a reindex) would pick it up as
+ * an unpublished run.
+ *
+ * The payloads are held in memory until the first write, so their total
+ * size is bounded — a batch that would not fit fails loudly instead of
+ * exhausting the heap.
+ */
+async function prepareTraces(
+  traces: readonly TraceInput[] | undefined,
+): Promise<PreparedTrace[]> {
+  const prepared: PreparedTrace[] = [];
+  let bytes = 0;
+  for (const trace of traces ?? []) {
+    const name =
+      typeof trace === "string" ? basename(trace) : basename(trace.name);
+    checkSegment(name.replace(/\.[^.]+$/, ""), "trace name");
+    let data: string;
+    if (typeof trace === "string") {
+      try {
+        data = await readFile(trace, "utf8");
+      } catch (e) {
+        throw new ArenaError(
+          `trace "${trace}" could not be read`,
+          "REGISTRY_UNAVAILABLE",
+          e,
+        );
+      }
+    } else {
+      data = JSON.stringify(trace.data) + "\n"; // single-line — .trace.jsonl stays valid JSONL
+    }
+    bytes += Buffer.byteLength(data, "utf8");
+    if (bytes > MAX_TRACE_BYTES) {
+      throw new ArenaError(
+        `trace payload exceeds the ${MAX_TRACE_BYTES} byte limit — publish fewer runs per batch`,
+        "SCHEMA_INVALID",
+      );
+    }
+    prepared.push({ name, data });
+  }
+  return prepared;
+}
+
+/** A document ready to write — path validated, traces read. */
+interface PreparedDoc {
+  readonly valid: ArenaResultV1;
+  /** The validated result path (pack/agent/runId/date checked). */
+  readonly rel: string;
+  readonly traces: readonly PreparedTrace[];
+}
+
+/** Validate a document and its traces — no write happens here. */
+async function prepareDoc(
+  doc: ArenaResultV1,
+  opts: PublishOptions,
+): Promise<PreparedDoc> {
+  const valid = parseArenaResultV1(doc);
+  // The result path is validated here, not at write time: an invalid
+  // pack, agent, runId or date must not throw after an earlier document
+  // of the same batch was already written.
+  const rel = resultPath(valid, opts.date);
+  const traces = await prepareTraces(opts.traces);
+  return { valid, rel, traces };
+}
+
+/** Write a prepared document (result + its traces) into the tree. */
+async function writePrepared(
+  tree: TreeStore,
+  prepared: PreparedDoc,
+): Promise<string> {
+  await tree.writeFile(
+    prepared.rel,
+    JSON.stringify(prepared.valid, null, 2) + "\n",
+  );
+  for (const trace of prepared.traces) {
+    await tree.writeFile(
+      `traces/${prepared.valid.runId}/${trace.name}`,
+      trace.data,
+    );
+  }
+  await updateIndex(tree, prepared.valid, prepared.rel);
+  return prepared.rel;
+}
+
 async function writeResult(
   tree: TreeStore,
   doc: ArenaResultV1,
   opts: PublishOptions,
 ): Promise<string> {
-  const valid = parseArenaResultV1(doc);
-  const rel = resultPath(valid, opts.date);
-  await tree.writeFile(rel, JSON.stringify(valid, null, 2) + "\n");
-  for (const trace of opts.traces ?? []) {
-    const name =
-      typeof trace === "string" ? basename(trace) : basename(trace.name);
-    checkSegment(name.replace(/\.[^.]+$/, ""), "trace name");
-    const data =
-      typeof trace === "string"
-        ? await readFile(trace, "utf8")
-        : JSON.stringify(trace.data) + "\n"; // single-line — .trace.jsonl stays valid JSONL
-    await tree.writeFile(`traces/${valid.runId}/${name}`, data);
-  }
-  await updateIndex(tree, valid, rel);
-  return rel;
+  // Prepare first — a bad trace must not leave the result document
+  // behind.
+  return writePrepared(tree, await prepareDoc(doc, opts));
 }
 
 /**
@@ -888,8 +972,14 @@ export async function publishBatch(
     return paths;
   }
   const paths: string[] = [];
-  for (const { doc, opts } of docs) {
-    paths.push(await writeResult(tree, doc, opts ?? {}));
+  // Preflight every document before the first write: one bad trace (or
+  // one invalid result path) must not leave the documents before it
+  // written without a commit.
+  const prepared = await Promise.all(
+    docs.map(async ({ doc, opts }) => prepareDoc(doc, opts ?? {})),
+  );
+  for (const doc of prepared) {
+    paths.push(await writePrepared(tree, doc));
   }
   await tree.finalize(message);
   return paths;
