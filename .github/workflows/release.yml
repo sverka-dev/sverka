@@ -193,8 +193,13 @@ jobs:
               # served). The deadline caps the whole probe, and both requests
               # carry their own timeout — a stalled request must not hold the
               # release open.
+              #
+              # Ten minutes, because the delay is not bounded by anything
+              # the publisher controls: a 0.2.42 publish was registered and
+              # unserved for more than three. Re-running the release is safe
+              # — the publish step skips the versions that are already out.
               fetchable=0
-              deadline=$(( $(date +%s) + 180 ))
+              deadline=$(( $(date +%s) + 600 ))
               probe=0
               while [ "$(date +%s)" -lt "$deadline" ]; do
                 probe=$((probe + 1))
@@ -204,7 +209,7 @@ jobs:
                   break
                 fi
                 echo "::warning::$name@$version is registered but not served yet — probing again ($probe)"
-                sleep 20
+                sleep 30
               done
               if [ "$fetchable" -eq 1 ]; then
                 echo "published $name@$version (tarball fetchable)"
