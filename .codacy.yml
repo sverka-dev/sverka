@@ -71,6 +71,10 @@ engines:
       - "packages/ui/src/dashboard.ts"
       - "packages/playground/src/app.ts"
       - "packages/sdk/src/markdown.ts"
+      # main.ts is the flat command registry — ~80 lines of declarative
+      # `.command()` calls whose length is the registered surface, not
+      # complexity. Splitting it would scatter a read-through list.
+      - "packages/cli/src/main.ts"
 
 # Disable analysis of markdown files (we only care about code)
 languages:
