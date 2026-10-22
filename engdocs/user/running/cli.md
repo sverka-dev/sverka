@@ -139,10 +139,12 @@ Check installation health, dependencies, and configuration.
 | -------- | ---- | ------- | ---------------------- |
 | _(none)_ | —    | —       | Uses global flags only |
 
-### `sverka hub`
+### `sverka hub serve`
 
 Run a self-hosted remote run hub (shared cache + run history + dashboard).
-See [Remote run hub](../hub/api.md).
+The `serve` action is required — `sverka hub` alone is a usage error.
+Options: `--port` (default `7357`), `--host`, `--data` (default
+`.sverka-hub` under `--root`). See [Remote run hub](../hub/api.md).
 
 ### `sverka login`
 

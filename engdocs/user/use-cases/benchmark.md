@@ -25,9 +25,10 @@ DEVIN_MODEL=<model> sverka-benchmark ./results
 The harness spawns `devin acp --model <model>` per task × agent, talks
 JSON-RPC over stdio (`@agentclientprotocol/sdk`), and tallies
 `tool_call` session updates plus the `PromptResponse.usage` block.
-`DEVIN_PERMISSION_MODE` auto-approves tools in both cells; the sverka
-cell additionally gets `@sverka/cli` in `node_modules` and the `sverka`
-skill under `.agents/skills/`.
+`DEVIN_PERMISSION_MODE` auto-approves tools in both cells. Both agents
+run in the real Sverka checkout — no temp copy — so the only difference
+is that the sverka cell gets the `sverka` skill ensured at
+`.agents/skills/sverka/SKILL.md`.
 
 ## Programmatic use
 
@@ -43,11 +44,15 @@ const result = await runBenchmark({
   tasks: [...BENCHMARK_TASKS],
   agents: [...DEFAULT_AGENTS],
   model: "swe-2-high",
-  outputDir: ".benchmark",
 });
 
-await writeReport(result, ".benchmark/result.json");
+// writeReport takes a file path — the parent directory must exist.
+await writeReport(result, "benchmark-result.json");
 ```
+
+`BenchmarkConfig` also accepts `outputDir`, but the current
+implementation does not read it — trace/report locations are chosen by
+the caller (`writeReport`, `writeTraceData`).
 
 `BENCHMARK_TASKS` ships 5 scenarios ordered simple → complex —
 `run-checks`, `discover`, `create-config`, `compile-github`,
@@ -81,18 +86,24 @@ The `collector` module turns raw ACP transcripts into the trace format
 the website renders:
 
 ```ts
-import {
-  readTranscript,
-  transformTranscript,
-  writeTraceData,
-} from "@sverka/benchmark";
+import { buildTraceData, writeTraceData } from "@sverka/benchmark";
 
-const transcript = await readTranscript(transcriptDir(runId));
-const trace = transformTranscript(transcript); // TraceData steps + metrics
-await writeTraceData(trace, `traces/${runId}.json`);
+// buildTraceData reads both agents' transcripts by session ID from
+// ~/.local/share/devin/cli/transcripts (transcriptDir() — pass `dir`
+// to override) and returns the combined TraceData.
+const trace = buildTraceData(
+  taskId,
+  prompt,
+  rawShellSessionId,
+  sverkaSessionId,
+);
+
+// Writes <outputDir>/<taskId>/trace.json — outputDir is a directory.
+await writeTraceData(trace, "traces");
 ```
 
-`transformStep`, `countLlmCalls`, and `buildTraceData` are the pieces if
+`readTranscript`, `transformTranscript` (per-agent `TraceAgentData`),
+`transformStep`, `countLlmCalls`, and `transcriptDir` are the pieces if
 you need per-step control.
 
 ## The dashboard
@@ -101,9 +112,11 @@ you need per-step control.
 `website/public/benchmark/index.html`) that loads a `BenchmarkResult`
 JSON and renders the left/right comparison — one row per task, raw-shell
 on the left, sverka on the right, with a delta column (green when sverka
-uses fewer tokens/tools/time). It reads the committed
-`sample-result.json` by default and accepts `?data=<url>` for any other
-result file — point it at the JSON `sverka-benchmark` just wrote.
+uses fewer tokens/tools/time). It loads `arena-results.json` by
+default; `?data=arena-sample.json` selects the committed sample — those
+two files are the only values the parameter accepts (anything else
+falls back to the default), so it renders committed results, not an
+arbitrary local file.
 
 The same directory also serves the arena artifacts (`board.html`,
 `arena-results.json`, `traces/`) produced by `sverka-arena board` — see

@@ -16,9 +16,15 @@ findings + policy ──→ evaluateGate ──→ verdict + exit code
             ┌──────────────┬───────────────────┴──┐
             ▼              ▼                      ▼
      TextRenderer    HtmlRenderer            InkRenderer
-     (stdout)        (.sverka/runs/          (opt-in TUI)
-                     <runId>/report.html)
+     (stdout)        (--output, default     (opt-in TUI)
+                      .sverka/report.html)
 ```
+
+`HtmlRenderer` is the explicit `--format html` report — it is **not**
+the per-run `.sverka/runs/<runId>/report.html`: that one is written
+best-effort by `generateSarifHtml` (`@sverka/sarif-viewer-web`, see
+[SARIF pipeline](../findings/sarif-pipeline.md)) alongside `report.json`
+on every run, relocatable with `--report`.
 
 ## The Renderer contract
 

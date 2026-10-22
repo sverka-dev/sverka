@@ -129,7 +129,12 @@ Failures throw `MCPPluginError` with a `code`:
 | `CONNECT_FAILED`   | `Client.connect()` threw — server not found or refused      |
 | `TOOL_NOT_FOUND`   | Tool name doesn't match `<server>.<tool>` or unknown server |
 | `TOOL_CALL_FAILED` | The MCP server returned `isError: true` or threw            |
-| `TRANSPORT_ERROR`  | Transport-level failure — process exited, HTTP 5xx          |
+| `TRANSPORT_ERROR`  | Reserved — declared in the union but not thrown today       |
+
+Note `TRANSPORT_ERROR` is declared for future use: mid-session
+transport failures surface as `CONNECT_FAILED`, `TOOL_CALL_FAILED`, or
+pass through from the underlying client — they do not currently carry
+this code.
 
 The caller (e.g. `AgentStep`) decides whether a failure retries or fails
 the step — the plugin never swallows errors silently.

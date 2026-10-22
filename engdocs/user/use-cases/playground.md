@@ -13,9 +13,12 @@ pipeline home with `bun create sverka`.
 
 ## The pipeline model
 
-The package mirrors the `@sverka/workflow` Construct API — same names,
-same structure — so example code moves between the two unchanged. The
-only difference is the step kind:
+The package mirrors the `@sverka/workflow` Construct API — `Project`,
+`Pipeline`, `ShellStep`, `Entry` have the same names and structure — so
+most example code moves between the two unchanged. The exception is the
+step kind: `FunctionStep` exists only in the playground (`@sverka/workflow`
+has no equivalent), which is exactly what `toSverkaConfig()` translates
+into shell TODO steps on the way out.
 
 - `FunctionStep` — runs a JavaScript function returning
   `PlaygroundFinding[]`. This is how you simulate a check in the browser.
@@ -77,8 +80,11 @@ const result = await runPipeline(proj);
 // result.success: boolean
 ```
 
-`runPipelineWithTimeout(project, timeoutMs)` wraps the same run in a
-deadline so a stuck `fn` can't wedge the UI. `evaluateUserCode(code)`
+`runPipelineWithTimeout(project, timeoutMs)` races the same run against
+a deadline so an `fn` whose promise never settles can't wedge the UI —
+note a synchronous infinite loop still blocks the page entirely, since
+the timer itself can't fire while `fn` holds the thread.
+`evaluateUserCode(code)`
 turns editor source into a `Project` — it runs user code through
 `new Function()` in the page context, the same trust model as a local REPL.
 
@@ -98,7 +104,7 @@ import { encodeShareLink, decodeShareLink } from "@sverka/playground";
 
 const url = encodeShareLink(
   { schema: "sverka.playground/v1", code: source, findings },
-  "https://sverka.dev",
+  "https://sverka.dev/playground",
 );
 // → https://sverka.dev/playground#c=<deflate-base64url>
 
