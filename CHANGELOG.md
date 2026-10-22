@@ -1,3 +1,14 @@
+## 0.2.46 (2026-10-22)
+
+### 🩹 Fixes
+
+- **repo-health:** reconcile the code-scanning tools with the Security banner ([#411](https://github.com/sverka-dev/sverka/pull/411))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.45 (2026-10-22)
 
 ### 🩹 Fixes
