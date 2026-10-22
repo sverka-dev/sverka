@@ -1,6 +1,6 @@
 {
   "name": "@sverka/arena",
-  "version": "0.2.47",
+  "version": "0.2.48",
   "description": "Sverka agent arena — run agents against verification workflows",
   "license": "MIT",
   "sideEffects": false,
