@@ -305,9 +305,13 @@ const repoHealth = new Pipeline(proj, "repo-health", {
 // executed for the commit, so a superseded failure (a workflow that failed
 // before its config was fixed, then re-ran green) would keep main red
 // forever — branch protection evaluates the latest check per name too.
+//
+// The own-suite exclusion needs the run id, which only exists inside
+// Actions. An on-demand local run (`sverka run --entry repo-health/check`)
+// has no current suite to exclude, so it checks every latest check.
 const mainGreen = new ShellStep(repoHealth, "main-green", {
   command:
-    'suite=$(gh api \'repos/{owner}/{repo}/actions/runs/\'"$GITHUB_RUN_ID" --jq .check_suite_id) || exit 1; [ -n "$suite" ] || exit 1; out=$(gh api --paginate --slurp \'repos/{owner}/{repo}/commits/main/check-runs?per_page=100\' | jq -r \'map(.check_runs) | add | group_by(.name) | map(last)[] | select(.app.slug=="github-actions") | select(.check_suite.id != \'"$suite"\') | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\(.name) (\\(.conclusion // .status))"\') || exit 1; [ -z "$out" ] || { echo "non-green or in-progress checks on main:"; echo "$out"; exit 1; }',
+    'suite=""; if [ -n "$GITHUB_RUN_ID" ]; then suite=$(gh api \'repos/{owner}/{repo}/actions/runs/\'"$GITHUB_RUN_ID" --jq .check_suite_id) || exit 1; fi; out=$(gh api --paginate --slurp \'repos/{owner}/{repo}/commits/main/check-runs?per_page=100\' | jq -r --arg suite "$suite" \'map(.check_runs) | add | group_by(.name) | map(last)[] | select(.app.slug=="github-actions") | select(.check_suite.id != $suite) | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | "\\(.name) (\\(.conclusion // .status))"\') || exit 1; [ -z "$out" ] || { echo "non-green or in-progress checks on main:"; echo "$out"; exit 1; }',
   runtime: { shell: "sh" },
 });
 
