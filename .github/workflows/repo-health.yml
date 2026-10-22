@@ -21,16 +21,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - run: suite=$(gh api 'repos/{owner}/{repo}/actions/runs/'"$GITHUB_RUN_ID" --jq
-          .check_suite_id) || exit 1; [ -n "$suite" ] || exit 1; out=$(gh api
-          --paginate --slurp
+      - run: suite=""; if [ -n "$GITHUB_RUN_ID" ]; then suite=$(gh api
+          'repos/{owner}/{repo}/actions/runs/'"$GITHUB_RUN_ID" --jq
+          .check_suite_id) || exit 1; fi; out=$(gh api --paginate --slurp
           'repos/{owner}/{repo}/commits/main/check-runs?per_page=100' | jq -r
-          'map(.check_runs) | add | group_by(.name) | map(last)[] |
-          select(.app.slug=="github-actions") | select(.check_suite.id !=
-          '"$suite"') | select(.conclusion != "success" and .conclusion !=
-          "skipped" and .conclusion != "neutral") | "\(.name) (\(.conclusion //
-          .status))"') || exit 1; [ -z "$out" ] || { echo "non-green or
-          in-progress checks on main:"; echo "$out"; exit 1; }
+          --arg suite "$suite" 'map(.check_runs) | add | group_by(.name) |
+          map(last)[] | select(.app.slug=="github-actions") |
+          select((.check_suite.id | tostring) != $suite) | select(.conclusion !=
+          "success" and .conclusion != "skipped" and .conclusion != "neutral") |
+          "\(.name) (\(.conclusion // .status))"') || exit 1; [ -z "$out" ] || {
+          echo "non-green or in-progress checks on main:"; echo "$out"; exit 1;
+          }
         shell: sh
   review-debt:
     name: review-debt
