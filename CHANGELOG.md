@@ -1,3 +1,14 @@
+## 0.2.38 (2026-10-22)
+
+### 🩹 Fixes
+
+- **arena:** preflight the traces and the result path before writing ([#393](https://github.com/sverka-dev/sverka/pull/393))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.37 (2026-10-21)
 
 ### 🩹 Fixes
