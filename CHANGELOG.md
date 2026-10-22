@@ -1,3 +1,15 @@
+## 0.2.41 (2026-10-22)
+
+### 🩹 Fixes
+
+- **arena:** the index update is a compare-and-swap, not a last-writer-wins write ([#398](https://github.com/sverka-dev/sverka/pull/398))
+- **release:** refresh bun.lock with the released versions ([#397](https://github.com/sverka-dev/sverka/pull/397))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.40 (2026-10-22)
 
 ### 🩹 Fixes
