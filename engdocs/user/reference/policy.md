@@ -1,7 +1,7 @@
 # Policy evaluation
 
 Policy evaluation determines whether a set of findings passes or fails.
-Source: `packages/policy/src/`.
+Source: `packages/verification/src/policy/`.
 
 ## `evaluatePolicy(findings, policy, baselineFingerprints)`
 

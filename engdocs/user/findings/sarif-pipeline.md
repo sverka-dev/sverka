@@ -85,6 +85,19 @@ The TUI provides:
 - Detail panel with full finding information
 - Keyboard navigation (j/k, /, f, s, d, q)
 
+Both viewers are **standalone packages** — they work on any SARIF 2.1.0
+file from any tool (Semgrep, CodeQL, ESLint, Bandit) without installing
+Sverka's workflow runtime, and each ships its own binary:
+
+```bash
+# Same TUI, no sverka install — file argument or stdin
+npx @sverka/sarif-viewer-tui findings.sarif
+cat findings.sarif | npx @sverka/sarif-viewer-tui
+
+# Same HTML report — defaults output to sarif-report.html
+npx @sverka/sarif-viewer-web findings.sarif -o report.html
+```
+
 ### HTML report
 
 ```bash
@@ -153,6 +166,22 @@ await renderSarifTui({ sarif: sarifLog });
 // or: await renderSarifTui({ findings });
 // or: await renderSarifTui({ sarifPath: "findings.sarif" });
 ```
+
+Exactly one of `sarif`, `sarifPath`, `findings` must be provided; a
+`context?: NormalizeContext` option overrides the default normalization
+(`{ root: cwd, checkIdPrefix: "", defaultConfidence: 0.5 }`, exported as
+`DEFAULT_NORMALIZE_CONTEXT`). For embedding inside another Ink app, the
+`SarifTuiApp` component takes `Finding[]` directly:
+
+```tsx
+import { SarifTuiApp } from "@sverka/sarif-viewer-tui";
+
+<SarifTuiApp findings={findings} />;
+```
+
+The standalone viewer deliberately drops the `new` and `error` filters
+the run TUI has — they need baseline fingerprints and run context a
+SARIF file doesn't carry.
 
 ### HTML generator
 

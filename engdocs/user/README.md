@@ -7,6 +7,8 @@ run them locally, get structured findings. Compile to CI when you need to.
 
 - [Why Sverka](./concepts/README.md) — what it solves, how it fits, design principles
 - [Use cases](./use-cases/README.md) — local checks, CI compilation, agent orchestration, SARIF tooling
+- [Playground](./use-cases/playground.md) — browser pipeline runner, share links, docs embeds
+- [Benchmark](./use-cases/benchmark.md) — two-agent comparison harness + static dashboard
 
 ## Getting started
 
@@ -28,6 +30,7 @@ run them locally, get structured findings. Compile to CI when you need to.
 ## Remote hub
 
 - [Remote run hub](./hub/api.md) — self-hosted shared cache + run history, tokens, `/v1/` API, dashboard
+- [Embedding the hub](./hub/embedding.md) — `@sverka/hub` programmatic API, store, dashboard pages
 
 ## Workflows
 
@@ -51,9 +54,11 @@ run them locally, get structured findings. Compile to CI when you need to.
 
 ## Reference
 
+- [Verification package](./reference/verification.md) — `@sverka/verification`: checks + findings + policy in one package
 - [Built-in checks](./reference/checks.md) — check IDs, resolver behavior, SARIF extraction
 - [Findings normalization](./reference/findings.md) — SARIF normalization, fingerprints, baselines
 - [Policy enforcement](./reference/policy.md) — rules, severities, enforcement
+- [Run reporting](./reference/reporter.md) — `@sverka/reporter`: text/HTML/TUI renderers, reducer, policy gate
 - [Run audit](./reference/audit.md) _(planned)_ — per-step timings, AI cost estimation
 - [Graph visualization](./reference/graph.md) _(planned)_ — Mermaid flowchart output
 - [Markdown authoring](./reference/markdown-authoring.md) — `.sverka.md` files

@@ -1,6 +1,6 @@
 # CLI reference
 
-Sverka's CLI has 14 commands. Source of truth: `packages/cli/src/main.ts`.
+Sverka's CLI has 19 commands. Source of truth: `packages/cli/src/main.ts`.
 
 ## Commands
 
@@ -138,6 +138,35 @@ Check installation health, dependencies, and configuration.
 | Flag     | Type | Default | Description            |
 | -------- | ---- | ------- | ---------------------- |
 | _(none)_ | —    | —       | Uses global flags only |
+
+### `sverka hub serve`
+
+Run a self-hosted remote run hub (shared cache + run history + dashboard).
+The `serve` action is required — `sverka hub` alone is a usage error.
+Options: `--port` (default `7357`), `--host`, `--data` (default
+`.sverka-hub` under `--root`). See [Remote run hub](../hub/api.md).
+
+### `sverka login`
+
+Store hub credentials in `~/.config/sverka/credentials`. See
+[Remote run hub](../hub/api.md#client-configuration).
+
+### `sverka runs`
+
+List run reports — local `.sverka/runs/` by default, `--remote` for runs
+stored on the hub. See [Remote run hub](../hub/api.md).
+
+### `sverka agent`
+
+Execute an agent job inside generated CI (Spec 54) — resolves the driver
+from `SVERKA_AGENT_*` env vars and writes `agent-result.json` +
+`sverka-writes.json`. See [Agentic workflows](../gitlab/agentic.md).
+
+### `sverka apply`
+
+Apply an agent job's declared writes (Spec 54 safe-outputs stage) —
+`sverka apply --provider <gitlab|github>` inside the generated `__apply`
+job. See [Agentic workflows](../gitlab/agentic.md).
 
 ## Global flags
 

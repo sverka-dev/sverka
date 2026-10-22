@@ -1,7 +1,7 @@
 # Findings normalization
 
 Sverka normalizes output from any analysis tool into a single `Finding[]`
-model. Source: `packages/findings/src/`.
+model. Source: `packages/verification/src/findings/`.
 
 ## Finding model
 

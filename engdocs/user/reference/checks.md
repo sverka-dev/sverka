@@ -1,7 +1,7 @@
 # Built-in checks
 
 Sverka's built-in check resolver maps 6 check IDs to commands based on the
-detected package manager. Source: `packages/checks/src/resolver.ts`.
+detected package manager. Source: `packages/verification/src/checks/resolver.ts`.
 
 ## Check IDs
 
