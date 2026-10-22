@@ -13,14 +13,14 @@ version tags in the github native lowering target (`packages/compiler/src/
 github/`). Inspired by gh-aw's security model. SHAs are sourced from a
 **bundled registry** committed to the repo (no network access at compile
 time — §31.3). Pinned output embeds the version as a comment for
-auditability: `actions/checkout@<sha> # v4`.
+auditability: `actions/checkout@<sha> # v7`.
 
 ## Goals
 
-- `pinned-actions.json` registry: `{ "actions/checkout@v4": "<40-char-sha>",
+- `pinned-actions.json` registry: `{ "actions/checkout@v7": "<40-char-sha>",
 ... }` bundled in the compiler package.
-- `pinActionRef(ref, registry)` pure function: `actions/checkout@v4` →
-  `actions/checkout@<sha> # v4`; local actions (`./.github/...`) and
+- `pinActionRef(ref, registry)` pure function: `actions/checkout@v7` →
+  `actions/checkout@<sha> # v7`; local actions (`./.github/...`) and
   already-pinned refs (`@<40-hex>`) pass through unchanged.
 - `GithubTarget` constructor accepts an optional
   `GithubTargetConfig` (`new GithubTarget({ pinning })`); default `off` to
@@ -54,7 +54,7 @@ auditability: `actions/checkout@<sha> # v4`.
 
 interface PinRegistry {
   readonly [ref: string]: string;
-} // "actions/checkout@v4" → sha
+} // "actions/checkout@v7" → sha
 
 interface PinningConfig {
   readonly mode: "strict" | "off"; // default "off"
@@ -110,17 +110,17 @@ channel.
 
 ## Test plan
 
-1. `pinActionRef("actions/checkout@v4", reg)` →
-   `actions/checkout@<sha> # v4` when in registry.
+1. `pinActionRef("actions/checkout@v7", reg)` →
+   `actions/checkout@<sha> # v7` when in registry.
 2. `pinActionRef("./.github/workflows/foo.yml", reg)` → unchanged (local).
 3. `pinActionRef("actions/checkout@<40hex>", reg)` → unchanged (already
    pinned).
 4. `pinActionRef("acme/unknown@v1", reg)` → unchanged (not in registry).
 5. `GithubTarget` with `pinning.mode: "strict"`: a graph using
-   `actions/checkout` emits YAML with the SHA ref + `# v4` comment.
+   `actions/checkout` emits YAML with the SHA ref + `# v7` comment.
 6. `pinning.mode: "strict"` + an action not in registry → `unpinned-action`
    diagnostic with severity `error`.
-7. `pinning.mode: "off"` (default) → YAML unchanged (`@v4`); `unpinned-action`
+7. `pinning.mode: "off"` (default) → YAML unchanged (`@v7`); `unpinned-action`
    diagnostic with severity `warn` for third-party actions.
 8. `loadBundledRegistry()` returns a non-empty map; every value is a 40-char
    hex string.

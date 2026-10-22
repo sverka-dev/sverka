@@ -18,7 +18,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: suite=$(gh api 'repos/{owner}/{repo}/actions/runs/'"$GITHUB_RUN_ID" --jq
@@ -43,7 +43,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: |-
@@ -61,7 +61,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: if ! heads=$(git ls-remote --heads origin); then echo "ls-remote failed";
@@ -84,7 +84,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: if ! out=$(gh api --paginate --slurp
@@ -110,7 +110,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: "[ -z \"$REPO_HEALTH_TOKEN\" ] || export GH_TOKEN=\"$REPO_HEALTH_TOKEN\";
@@ -137,7 +137,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: "out=$(gh api --paginate
@@ -166,7 +166,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: "[ -z \"$REPO_HEALTH_TOKEN\" ] || export GH_TOKEN=\"$REPO_HEALTH_TOKEN\";
@@ -203,7 +203,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: "[ -z \"$REPO_HEALTH_TOKEN\" ] || export GH_TOKEN=\"$REPO_HEALTH_TOKEN\";
@@ -234,7 +234,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: if command -v zizmor >/dev/null 2>&1; then zizmor --version; zizmor
@@ -252,7 +252,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: gh pr list --state open --limit 100 --json number,title,author --jq '.[] |

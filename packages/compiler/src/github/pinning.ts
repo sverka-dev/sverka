@@ -3,7 +3,7 @@
 // Pins third-party `uses:` refs to immutable commit SHAs sourced from a
 // bundled registry (no network access at compile time — §31.3). Pinned
 // output embeds the original version as a comment for auditability:
-// `actions/checkout@<sha> # v4`.
+// `actions/checkout@<sha> # v7`.
 
 import bundledRegistry from "./pinned-actions.json" with { type: "json" };
 

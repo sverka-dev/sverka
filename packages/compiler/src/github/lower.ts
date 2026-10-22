@@ -99,7 +99,7 @@ function checkoutStep(
   };
   return {
     name: "Checkout",
-    uses: "actions/checkout@v4",
+    uses: "actions/checkout@v7",
     ...(Object.keys(withMap).length > 0 ? { with: withMap } : {}),
   };
 }

@@ -44,7 +44,7 @@ describe("compileGithub — setup injection", () => {
     };
     for (const job of Object.values(yaml.jobs)) {
       expect(job.steps[0]).toMatchObject({
-        uses: "actions/checkout@v4",
+        uses: "actions/checkout@v7",
         with: { submodules: "recursive" },
       });
       expect(job.steps[1]).toMatchObject({
@@ -93,7 +93,7 @@ describe("compileGithub — setup injection", () => {
       jobs: Record<string, YamlJob>;
     };
     const steps = yaml.jobs["deploy"]!.steps;
-    expect(steps[0]).toMatchObject({ uses: "actions/checkout@v4" });
+    expect(steps[0]).toMatchObject({ uses: "actions/checkout@v7" });
     expect(steps[1]).toMatchObject({ uses: "oven-sh/setup-bun@v2" });
     expect(steps[3]).toMatchObject({ uses: "org/deploy-action@v1" });
   });
@@ -149,7 +149,7 @@ describe("compileGithub — setup injection", () => {
     const content = result.artifacts[0]!.content;
     // GitHub resolves `uses:` literally — a quoted "…@sha # v4" would fail.
     expect(content).toContain(
-      "uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4",
+      "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
     );
     expect(content).not.toContain('"actions/checkout@');
     expect(content).toContain(
@@ -163,7 +163,7 @@ describe("compileGithub — setup injection", () => {
       jobs: Record<string, YamlJob>;
     };
     for (const job of Object.values(yaml.jobs)) {
-      expect(job.steps[0]).toMatchObject({ uses: "actions/checkout@v4" });
+      expect(job.steps[0]).toMatchObject({ uses: "actions/checkout@v7" });
       expect(job.steps[0]).not.toHaveProperty("with");
       expect(job.steps).toHaveLength(2);
     }
