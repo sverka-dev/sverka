@@ -171,6 +171,13 @@ required: `--agent` or a config with `agent`) or an already-shaped
 then `PUBLISH_CONFLICT` — results stay append-only, and the failed commit
 remains in the local checkout (the error names its path).
 
+Matrix jobs publish in parallel, so the index update is a
+compare-and-swap: a publisher writes `index.json` only while the version it
+read is still current (the S3 ETag, the content hash for a local directory)
+and re-reads and retries when another publisher got there first. Every run
+stays in `list` and on the board — no publish is silently dropped, and
+`reindex` is a repair tool, not a routine step.
+
 `board` groups results into cohorts keyed
 (pack · task · sverka version · prompt hash) — runs from different prompts
 or sverka versions never merge into one score — and renders one row per

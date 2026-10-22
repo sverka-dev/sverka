@@ -302,6 +302,30 @@ describe("file registry", () => {
     expect((await reg.list()).map((d) => d.runId)).toEqual(["r-ctor"]);
   });
 
+  it("concurrent publishes to one directory keep every entry", async () => {
+    // The index update is a read-modify-write: without a compare-and-swap
+    // two writers read the same index and the second write drops the
+    // first run — the run vanishes from list and the leaderboard until
+    // a reindex. Ten publishers make the collision near-certain.
+    const regDir = join(dir, "reg-race");
+    const runIds = Array.from({ length: 10 }, (_, i) => `race-${i}`);
+    await Promise.all(
+      runIds.map((runId) =>
+        createFileRegistry(regDir).publish(v1Doc({ runId })),
+      ),
+    );
+    const index = JSON.parse(
+      readFileSync(join(regDir, "index.json"), "utf8"),
+    ) as { packs: Record<string, { runs: { runId: string }[] }> };
+    const runs = (index.packs["node-ci"]?.runs ?? []).map((r) => r.runId);
+    expect(runs.sort()).toEqual([...runIds].sort());
+    expect(
+      (await createFileRegistry(regDir).list()).map((d) => d.runId).sort(),
+    ).toEqual([...runIds].sort());
+    // The lock is released — a stale lock would block the next publish.
+    expect(existsSync(join(regDir, "index.json.lock"))).toBe(false);
+  });
+
   it("a malformed index.json (packs: null) is ignored, not crashed on", async () => {
     const regDir = join(dir, "reg-nullidx");
     const reg = createFileRegistry(regDir);
@@ -451,6 +475,78 @@ describe("s3 registry", () => {
       },
     });
     await expectArenaError(() => reg.publish(v1Doc()), "REGISTRY_UNAVAILABLE");
+  });
+
+  it("two concurrent publishes to one bucket keep both entries", async () => {
+    // A bucket that hands out ETags and rejects a conditional write
+    // whose token is stale — the race the index update has to
+    // survive. The barrier holds both publishes on the same index
+    // snapshot, so the race is deterministic instead of timing-dependent.
+    const objects = new Map<string, string>();
+    const etags = new Map<string, string>();
+    let counter = 0;
+    let indexReads = 0;
+    let openBarrier: () => void = () => {};
+    const barrier = new Promise<void>((resolve) => {
+      openBarrier = resolve;
+    });
+    const preconditionFailed = (): Error => {
+      const err = new Error("PreconditionFailed");
+      (err as { name?: string }).name = "PreconditionFailed";
+      (err as { $metadata?: { httpStatusCode?: number } }).$metadata = {
+        httpStatusCode: 412,
+      };
+      return err;
+    };
+    const client: S3ClientLike = {
+      async putObject({ Key, Body, IfMatch, IfNoneMatch }) {
+        const current = etags.get(Key);
+        if (IfNoneMatch === "*" && current !== undefined) {
+          throw preconditionFailed();
+        }
+        if (IfMatch !== undefined && current !== IfMatch) {
+          throw preconditionFailed();
+        }
+        const etag = `etag-${++counter}`;
+        etags.set(Key, etag);
+        objects.set(Key, String(Body));
+      },
+      async getObject({ Key }) {
+        if (Key.endsWith("index.json")) {
+          indexReads += 1;
+          if (indexReads === 2) openBarrier();
+          await barrier;
+        }
+        const body = objects.get(Key);
+        if (body === undefined) {
+          const err = new Error("NoSuchKey");
+          (err as { name?: string }).name = "NoSuchKey";
+          throw err;
+        }
+        return { Body: body, ETag: etags.get(Key) };
+      },
+      async listObjectsV2({ Prefix }) {
+        return {
+          Contents: [...objects.keys()]
+            .filter((k) => Prefix === undefined || k.startsWith(Prefix))
+            .map((Key) => ({ Key })),
+        };
+      },
+    };
+    const reg = createS3Registry({ bucket: "b", prefix: "reg", client });
+    await Promise.all([
+      reg.publish(v1Doc({ runId: "race-a" })),
+      reg.publish(v1Doc({ runId: "race-b" })),
+    ]);
+    const index = JSON.parse(objects.get("reg/index.json") ?? "{}") as {
+      packs: Record<string, { runs: { runId: string }[] }>;
+    };
+    const runs = (index.packs["node-ci"]?.runs ?? []).map((r) => r.runId);
+    expect(runs.sort()).toEqual(["race-a", "race-b"]);
+    expect((await reg.list()).map((d) => d.runId).sort()).toEqual([
+      "race-a",
+      "race-b",
+    ]);
   });
 });
 
