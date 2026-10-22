@@ -1,3 +1,14 @@
+## 0.2.43 (2026-10-22)
+
+### 🩹 Fixes
+
+- **arena:** a cell's runId comes from its content, so a retry is idempotent ([#404](https://github.com/sverka-dev/sverka/pull/404))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.42 (2026-10-22)
 
 ### 🩹 Fixes
