@@ -298,8 +298,7 @@ jobs:
           .sverka/zizmor.sarif; fi; true
         shell: sh
       - name: Upload sarif
-        uses: "github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c0336553\
-          6d # v3"
+        uses: github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c03365536d # v3
         with:
           sarif_file: .sverka/zizmor.sarif
   open-prs:

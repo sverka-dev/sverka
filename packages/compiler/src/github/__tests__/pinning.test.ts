@@ -197,6 +197,12 @@ describe("GithubTarget pinning — release step pins composite actions", () => {
       s.uses?.includes("action-gh-release"),
     );
     const sha = BUNDLED["softprops/action-gh-release@v2"]!;
-    expect(releaseStep.uses).toBe(`softprops/action-gh-release@${sha} # v2`);
+    // The tag is a YAML comment — GitHub resolves the ref alone. A quoted
+    // "…@sha # v2" scalar (what the serializer used to produce once the
+    // line passed the width) would hand GitHub a ref that included the tag.
+    expect(releaseStep.uses).toBe(`softprops/action-gh-release@${sha}`);
+    expect(result.artifacts[0]!.content).toContain(
+      `uses: softprops/action-gh-release@${sha} # v2`,
+    );
   });
 });

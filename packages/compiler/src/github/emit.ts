@@ -40,6 +40,13 @@ function sanitizeWorkflowName(name: string): string {
 }
 
 /**
+ * A pinned `uses:` ref: `org/name@<40-hex sha> # <tag>`.
+ *
+ * The tag is audit information, never part of the ref GitHub resolves.
+ */
+const PINNED_USES_RE = /^(.+@[0-9a-f]{40}) # (.+)$/;
+
+/**
  * Convert a GithubTargetGraph to a YAML string.
  */
 function stringifyTargetGraph(
@@ -68,8 +75,11 @@ function stringifyTargetGraph(
   }
 
   const jobs: Record<string, unknown> = {};
+  // Pin tags, keyed by the ref they belong to — re-attached as real YAML
+  // comments once the document is serialized.
+  const pinTags = new Map<string, string>();
   for (const job of graph.jobs) {
-    jobs[job.id] = jobToYaml(job, options);
+    jobs[job.id] = jobToYaml(job, options, pinTags);
   }
   doc.jobs = jobs;
 
@@ -81,14 +91,41 @@ function stringifyTargetGraph(
   });
 
   // Pinned refs carry the original tag as a trailing YAML comment
-  // (`org/name@<sha> # v4`). The serializer quotes such scalars, which would
-  // make GitHub treat the whole string — comment included — as the ref.
-  // Unquote `uses:` lines so the ` # ` part stays a real comment.
-  yaml = yaml.replaceAll(
-    /^(\s*uses:\s*)["']([^"']+@[0-9a-f]{40}) # ([^"']+)["']$/gm,
-    "$1$2 # $3",
+  // (`org/name@<sha> # v4`). The serializer quotes any scalar holding a
+  // ` # ` — and folds it once the line passes the width — which would make
+  // GitHub resolve a ref that includes the tag. The tag is stripped before
+  // serialization; here it goes back as a real comment.
+  yaml = yaml.replace(
+    /^([ \t]*uses:[ \t]*)("?)([^"'\s]+)\2[ \t]*$/gm,
+    (match, prefix: string, quote: string, ref: string) => {
+      const tag = pinTags.get(ref);
+      return tag === undefined
+        ? match
+        : `${prefix}${quote}${ref}${quote} # ${tag}`;
+    },
   );
   return yaml;
+}
+
+/**
+ * Resolve a `uses:` ref to the value GitHub must resolve.
+ *
+ * A pinned ref carries its original tag as a trailing comment
+ * (`org/name@<sha> # v4`). The tag is stripped here — so the serializer
+ * emits a plain, unfolded scalar — and recorded in `pinTags` for the
+ * emitter to re-attach as a YAML comment.
+ */
+function usesValue(
+  ref: string,
+  options: EmitOptions | undefined,
+  pinTags: Map<string, string>,
+): string {
+  const value = options?.pinUses ? options.pinUses(ref) : ref;
+  const match = PINNED_USES_RE.exec(value);
+  if (!match) return value;
+  const pinnedRef = match[1]!;
+  pinTags.set(pinnedRef, match[2]!);
+  return pinnedRef;
 }
 
 /**
@@ -96,7 +133,8 @@ function stringifyTargetGraph(
  */
 function jobToYaml(
   job: GithubJob,
-  options?: EmitOptions,
+  options: EmitOptions | undefined,
+  pinTags: Map<string, string>,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {
     name: job.name,
@@ -104,7 +142,7 @@ function jobToYaml(
 
   // Reusable workflow call job: uses/with/secrets (no runs-on/steps).
   if (job.uses) {
-    return reusableJobToYaml(job, result, options);
+    return reusableJobToYaml(job, result, options, pinTags);
   }
 
   // Normal job.
@@ -150,7 +188,9 @@ function jobToYaml(
     result.concurrency = concurrencyToYaml(job.concurrency);
   }
 
-  result.steps = job.steps.map((step, i) => stepToYaml(step, i, options));
+  result.steps = job.steps.map((step, i) =>
+    stepToYaml(step, i, options, pinTags),
+  );
 
   return result;
 }
@@ -177,9 +217,10 @@ function strategyToYaml(
 function reusableJobToYaml(
   job: GithubJob,
   result: Record<string, unknown>,
-  options?: EmitOptions,
+  options: EmitOptions | undefined,
+  pinTags: Map<string, string>,
 ): Record<string, unknown> {
-  result.uses = options?.pinUses ? options.pinUses(job.uses!) : job.uses;
+  result.uses = usesValue(job.uses!, options, pinTags);
   if (job.needs.length > 0) {
     result.needs = job.needs.length === 1 ? job.needs[0] : [...job.needs];
   }
@@ -212,7 +253,8 @@ function concurrencyToYaml(conc: {
 function stepToYaml(
   step: GithubStep,
   index: number,
-  options?: EmitOptions,
+  options: EmitOptions | undefined,
+  pinTags: Map<string, string>,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
@@ -227,7 +269,7 @@ function stepToYaml(
   }
 
   if (step.uses) {
-    result.uses = options?.pinUses ? options.pinUses(step.uses) : step.uses;
+    result.uses = usesValue(step.uses, options, pinTags);
   }
   if (step.run) {
     result.run = step.run;

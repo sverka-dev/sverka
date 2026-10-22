@@ -8,7 +8,7 @@ import {
   Entry,
   synthesize,
 } from "@sverka/workflow";
-import { compileGithub } from "../../index.js";
+import { compileGithub, loadBundledRegistry } from "../../index.js";
 
 function makeGraph() {
   const proj = new Project("test");
@@ -155,6 +155,32 @@ describe("compileGithub — setup injection", () => {
     expect(content).toContain(
       "uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2",
     );
+  });
+
+  it("keeps a long pinned ref on one line — the tag stays a YAML comment", () => {
+    const sha = loadBundledRegistry()["github/codeql-action/upload-sarif@v3"]!;
+    const result = compileGithub(makeGraph(), {
+      ...SETUP,
+      setup: [
+        { name: "Upload sarif", uses: "github/codeql-action/upload-sarif@v3" },
+      ],
+      pinning: { mode: "strict" },
+    });
+    const content = result.artifacts[0]!.content;
+    // Past the serializer's line width the ref used to fold into a quoted
+    // scalar — which handed GitHub a ref that included the tag, and made
+    // zizmor's `unpinned-uses` audit abort on the workflow.
+    expect(content).toContain(
+      `uses: github/codeql-action/upload-sarif@${sha} # v3`,
+    );
+    expect(content).not.toMatch(/uses: "[^"]*\\\n/);
+    const yaml = parse(content) as {
+      jobs: Record<string, YamlJob>;
+    };
+    const step = yaml.jobs["build"]!.steps.find((s) =>
+      s.uses?.includes("upload-sarif"),
+    );
+    expect(step?.uses).toBe(`github/codeql-action/upload-sarif@${sha}`);
   });
 
   it("omits setup when config not provided (backward compat)", () => {
