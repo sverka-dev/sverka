@@ -138,6 +138,7 @@ async function runMatrix(
             rep,
             config.workspace,
             config.unshareNet,
+            config.keepWorkspace,
           );
           results.push(result);
           process.stderr.write(
@@ -187,6 +188,7 @@ async function runCell(
   rep: number,
   workspaceBase?: string,
   unshareNet = false,
+  keepWorkspace = false,
 ): Promise<RunResult> {
   const tempWorkspace = await createTempWorkspace(
     task,
@@ -204,7 +206,11 @@ async function runCell(
     tempWorkspace,
     unshareNet,
   );
-  await rm(tempWorkspace, { recursive: true, force: true });
+  if (keepWorkspace) {
+    result.workspace = tempWorkspace;
+  } else {
+    await rm(tempWorkspace, { recursive: true, force: true });
+  }
   return result;
 }
 
