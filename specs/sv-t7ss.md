@@ -17,8 +17,8 @@ not nudge feature PRs that land without docs.
 
 Three-part fix, all repo-local:
 
-1. **Scope the convention** — document-first applies to *user-facing
-   features and architecture changes* (new packages, new CLI commands,
+1. **Scope the convention** — document-first applies to _user-facing
+   features and architecture changes_ (new packages, new CLI commands,
    new config surface, new behavior a user or agent must discover).
    Fixes, chores, internal refactors, and test-only work are exempt —
    their record is the spec, the tests, and the commit. This matches how
