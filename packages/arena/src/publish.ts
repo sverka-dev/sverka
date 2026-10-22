@@ -189,6 +189,18 @@ function toTaskResult(
       ...(run.metrics.stopReason !== undefined
         ? { stopReason: run.metrics.stopReason }
         : {}),
+      ...(run.metrics.contextTokensUsed !== undefined
+        ? { contextUsed: run.metrics.contextTokensUsed }
+        : {}),
+      ...(run.metrics.contextWindowSize !== undefined
+        ? { contextSize: run.metrics.contextWindowSize }
+        : {}),
+      ...(run.metrics.costAmount !== undefined
+        ? { costAmount: run.metrics.costAmount }
+        : {}),
+      ...(run.metrics.costCurrency !== undefined
+        ? { costCurrency: run.metrics.costCurrency }
+        : {}),
     },
     ...(hasTrace
       ? { traceRef: `traces/${runId}/${traceName(runIndex, run.taskId)}` }

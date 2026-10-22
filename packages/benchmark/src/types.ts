@@ -15,10 +15,24 @@ export interface AgentConfig {
 
 /** Metrics collected from ACP events + timing. */
 export interface RunMetrics {
+  /** Prompt-side tokens — 0 under ACP 2.x (no per-turn breakdown is
+   *  reported and the benchmark has no transcript source). */
   inputTokens: number;
+  /** Completion-side tokens — 0 under ACP 2.x. */
   outputTokens: number;
+  /** Thinking/reasoning tokens — 0 under ACP 2.x. */
   thoughtTokens: number;
+  /** Token estimate: the last `usage_update.used` — context-window
+   *  occupancy at turn end, the only token number ACP 2.x reports. */
   totalTokens: number;
+  /** Tokens in context at turn end (last ACP `usage_update.used`). */
+  contextTokensUsed?: number;
+  /** Agent's context window size (last ACP `usage_update.size`). */
+  contextWindowSize?: number;
+  /** Cumulative session cost (last ACP `usage_update.cost.amount`). */
+  costAmount?: number;
+  /** ISO 4217 currency of {@link costAmount}. */
+  costCurrency?: string;
   toolCallCount: number;
   executionTimeMs: number;
   stopReason: string;

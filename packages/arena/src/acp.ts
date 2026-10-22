@@ -16,6 +16,7 @@ import type {
   PromptResponse,
   RequestPermissionResponse,
   SessionUpdate,
+  UsageUpdate,
 } from "@agentclientprotocol/sdk";
 
 import type { AgentSpawnConfig } from "./types.js";
@@ -33,6 +34,21 @@ export type ToolCallUpdateMessage = Extract<
   SessionUpdate,
   { sessionUpdate: "tool_call_update" }
 >;
+
+/**
+ * Outcome of a completed ACP prompt turn: the final `PromptResponse` plus
+ * the last `usage_update` the agent reported during the turn, if any.
+ * ACP 2.x reports context-window occupancy (`used`/`size`) and cumulative
+ * session `cost` through usage updates — `PromptResponse` itself carries
+ * no per-turn token breakdown.
+ */
+export interface AcpSessionResult {
+  /** Final `session/prompt` response — carries the stop reason. */
+  response: PromptResponse;
+  /** Last `usage_update` received this turn; `undefined` when the agent
+   *  never reported one. */
+  usage: UsageUpdate | undefined;
+}
 
 // ─── Environment sanitization ────────────────────────────────────────
 
@@ -142,6 +158,13 @@ export function createPermissionHandler(): acp.ClientRequestHandler<
 
 // ─── Session loop ────────────────────────────────────────────────────
 
+/** Mutable per-session collection state shared across the update loop. */
+interface SessionCollector {
+  /** Last `usage_update` seen — context occupancy is point-in-time, so
+   *  the most recent report is the most complete. */
+  usage: UsageUpdate | undefined;
+}
+
 /**
  * Process a single {@link acp.ActiveSessionMessage} from the session update
  * stream. Returns the final {@link PromptResponse} when the session reports
@@ -150,6 +173,7 @@ export function createPermissionHandler(): acp.ClientRequestHandler<
  */
 function handleSessionUpdate(
   message: acp.ActiveSessionMessage,
+  collector: SessionCollector,
   onToolCall?: (update: ToolCallMessage, receivedAt: number) => void,
   onToolUpdate?: (update: ToolCallUpdateMessage, receivedAt: number) => void,
 ): PromptResponse | undefined {
@@ -160,13 +184,15 @@ function handleSessionUpdate(
     onToolCall?.(update, receivedAt);
   } else if (update.sessionUpdate === "tool_call_update") {
     onToolUpdate?.(update, receivedAt);
+  } else if (update.sessionUpdate === "usage_update") {
+    collector.usage = update;
   }
   return undefined;
 }
 
 /**
  * Drive a single ACP session: send the prompt, race the collect loop
- * against a timeout, and return the final {@link PromptResponse}.
+ * against a timeout, and return the final {@link AcpSessionResult}.
  */
 async function runSessionLoop(
   session: acp.ActiveSession,
@@ -175,9 +201,12 @@ async function runSessionLoop(
   onToolCall?: (update: ToolCallMessage, receivedAt: number) => void,
   onToolUpdate?: (update: ToolCallUpdateMessage, receivedAt: number) => void,
   onSession?: (sessionId: string) => void,
-): Promise<PromptResponse> {
+): Promise<AcpSessionResult> {
   onSession?.(session.sessionId);
-  const promptPromise = session.prompt(prompt);
+  const collector: SessionCollector = { usage: undefined };
+  const promptPromise = session
+    .prompt(prompt)
+    .then((response): AcpSessionResult => ({ response, usage: collector.usage }));
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(
       () => reject(new Error(`Agent timed out after ${timeoutMs}ms`)),
@@ -185,11 +214,16 @@ async function runSessionLoop(
     ),
   );
 
-  const collectPromise = (async (): Promise<PromptResponse> => {
+  const collectPromise = (async (): Promise<AcpSessionResult> => {
     for (;;) {
       const message = await session.nextUpdate();
-      const result = handleSessionUpdate(message, onToolCall, onToolUpdate);
-      if (result) return result;
+      const result = handleSessionUpdate(
+        message,
+        collector,
+        onToolCall,
+        onToolUpdate,
+      );
+      if (result) return { response: result, usage: collector.usage };
     }
   })();
 
@@ -208,7 +242,7 @@ async function runSessionLoop(
  * optional `onSession` callback reports the session ID once created. All
  * callbacks are optional.
  *
- * @returns The final {@link PromptResponse} from the agent.
+ * @returns The final {@link AcpSessionResult} from the agent.
  */
 export async function runAcpSession(
   proc: ChildProcess,
@@ -218,7 +252,7 @@ export async function runAcpSession(
   onToolCall?: (update: ToolCallMessage, receivedAt: number) => void,
   onToolUpdate?: (update: ToolCallUpdateMessage, receivedAt: number) => void,
   onSession?: (sessionId: string) => void,
-): Promise<PromptResponse> {
+): Promise<AcpSessionResult> {
   if (!proc.stdin || !proc.stdout) {
     throw new Error("Agent process missing stdin/stdout");
   }

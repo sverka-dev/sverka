@@ -18,7 +18,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import type {
   PromptResponse,
-  Usage,
+  UsageUpdate,
   ToolCallContent,
 } from "@agentclientprotocol/sdk";
 
@@ -320,30 +320,55 @@ function extractTextContent(
   return parts.join("\n");
 }
 
-/** Extract token counts from a Usage object, defaulting to 0. */
-export function extractUsageTokens(usage: Usage | null | undefined): {
-  inputTokens: number;
-  outputTokens: number;
-  thoughtTokens: number;
+/**
+ * Map an ACP `usage_update` ({@link UsageUpdate}: context-window `used`/
+ * `size` + cumulative `cost`) to the token/context fields of
+ * {@link RunMetrics}. `totalTokens` falls back to `used` — context
+ * occupancy at turn end is the only token number ACP 2.x reports.
+ */
+export function extractUsageTokens(usage: UsageUpdate | null | undefined): {
   totalTokens: number;
+  contextTokensUsed?: number;
+  contextWindowSize?: number;
+  costAmount?: number;
+  costCurrency?: string;
 } {
+  if (!usage) return { totalTokens: 0 };
   return {
-    inputTokens: usage?.inputTokens ?? 0,
-    outputTokens: usage?.outputTokens ?? 0,
-    thoughtTokens: usage?.thoughtTokens ?? 0,
-    totalTokens: usage?.totalTokens ?? 0,
+    totalTokens: usage.used,
+    contextTokensUsed: usage.used,
+    contextWindowSize: usage.size,
+    ...(usage.cost
+      ? { costAmount: usage.cost.amount, costCurrency: usage.cost.currency }
+      : {}),
   };
 }
 
-/** Build {@link RunMetrics} from a PromptResponse + collected counts + timing. */
+/**
+ * Build {@link RunMetrics} from the session result + collected counts +
+ * timing. When the session-DB transcript supplied real per-call token
+ * accounting, it wins for the directional fields and the cumulative
+ * `totalTokens`; otherwise `totalTokens` falls back to the last reported
+ * context occupancy.
+ */
 function buildMetrics(
-  promptResult: { stopReason: string; usage?: Usage | null },
+  promptResult: { stopReason: string },
+  usage: UsageUpdate | undefined,
+  transcriptMetrics: TranscriptMetrics | undefined,
   toolCallCount: number,
   llmCallCount: number,
   startTime: number,
 ): RunMetrics {
+  const usageTokens = extractUsageTokens(usage);
   return {
-    ...extractUsageTokens(promptResult.usage),
+    inputTokens: transcriptMetrics?.total_prompt_tokens ?? 0,
+    outputTokens: transcriptMetrics?.total_completion_tokens ?? 0,
+    thoughtTokens: 0,
+    ...usageTokens,
+    totalTokens: transcriptMetrics
+      ? transcriptMetrics.total_prompt_tokens +
+        transcriptMetrics.total_completion_tokens
+      : usageTokens.totalTokens,
     toolCallCount,
     llmCallCount,
     executionTimeMs: Date.now() - startTime,
@@ -662,7 +687,9 @@ function buildErrorResult(
   error: unknown,
 ): RunResult {
   const metrics = buildMetrics(
-    { stopReason: "cancelled", usage: null },
+    { stopReason: "cancelled" },
+    undefined,
+    undefined,
     toolCallCount,
     0,
     startTime,
@@ -707,7 +734,7 @@ async function runDevinSession(
   let sessionId = "";
 
   try {
-    const promptResult = await runAcpSession(
+    const sessionResult = await runAcpSession(
       proc,
       config.workspace,
       prompt,
@@ -719,21 +746,31 @@ async function runDevinSession(
       },
     );
 
-    const trace = await buildTrace(
-      sessionId,
-      model,
-      collector.collectedToolCalls,
-      collector.observationsByCallId,
-      childHome,
-    );
+    const transcript = sessionId
+      ? await loadTranscript(sessionId, childHome)
+      : undefined;
+    const trace = transcript
+      ? traceFromTranscript(
+          transcript,
+          collector.collectedToolCalls,
+          collector.observationsByCallId,
+        )
+      : buildTraceFallback(
+          sessionId,
+          model,
+          collector.collectedToolCalls,
+          collector.observationsByCallId,
+        );
     const llmCallCount = trace.steps.filter((s) => s.isLlmCall).length;
     const metrics = buildMetrics(
-      promptResult,
+      sessionResult.response,
+      sessionResult.usage,
+      transcript?.final_metrics,
       collector.toolCallCount,
       llmCallCount,
       startTime,
     );
-    const agentOutput = extractAgentOutput(promptResult, trace);
+    const agentOutput = extractAgentOutput(sessionResult.response, trace);
 
     return {
       taskId: "",
@@ -759,37 +796,27 @@ async function runDevinSession(
 }
 
 /**
- * Build {@link TraceData} from the Devin transcript, enriched with
- * ACP-collected tool calls. Returns `undefined` when no transcript is
- * available so the caller can fall back to {@link buildTraceFallback}.
+ * Build {@link TraceData} from an already-loaded Devin transcript,
+ * enriched with ACP-collected tool calls.
  */
-async function buildTraceFromTranscript(
-  sessionId: string,
+function traceFromTranscript(
+  transcript: Transcript,
   collectedToolCalls: ToolCall[],
   observationsByCallId: Map<string, Observation>,
-  childHome: string,
-): Promise<TraceData | undefined> {
-  if (!sessionId) return undefined;
-  try {
-    const transcript = await loadTranscript(sessionId, childHome);
-    if (!transcript) return undefined;
-    const steps = transcript.steps.map(buildTraceStep);
-    attachToolCallsToSteps(steps, collectedToolCalls, observationsByCallId);
-    return {
-      sessionId: transcript.session_id,
-      model: transcript.agent.model_name,
-      steps,
-      finalMetrics: {
-        totalPromptTokens: transcript.final_metrics.total_prompt_tokens,
-        totalCompletionTokens: transcript.final_metrics.total_completion_tokens,
-        totalCachedTokens: transcript.final_metrics.total_cached_tokens,
-        totalSteps: transcript.final_metrics.total_steps,
-      },
-    };
-  } catch {
-    // Transcript not available — fall through to ACP-only trace.
-    return undefined;
-  }
+): TraceData {
+  const steps = transcript.steps.map(buildTraceStep);
+  attachToolCallsToSteps(steps, collectedToolCalls, observationsByCallId);
+  return {
+    sessionId: transcript.session_id,
+    model: transcript.agent.model_name,
+    steps,
+    finalMetrics: {
+      totalPromptTokens: transcript.final_metrics.total_prompt_tokens,
+      totalCompletionTokens: transcript.final_metrics.total_completion_tokens,
+      totalCachedTokens: transcript.final_metrics.total_cached_tokens,
+      totalSteps: transcript.final_metrics.total_steps,
+    },
+  };
 }
 
 /** Attach the next tool call + observation to an agent step. Returns true if attached. */
@@ -868,26 +895,3 @@ function buildTraceFallback(
   };
 }
 
-/** Build {@link TraceData} from the Devin transcript, falling back to ACP-only data. */
-async function buildTrace(
-  sessionId: string,
-  model: ModelConfig,
-  collectedToolCalls: ToolCall[],
-  observationsByCallId: Map<string, Observation>,
-  childHome: string,
-): Promise<TraceData> {
-  return (
-    (await buildTraceFromTranscript(
-      sessionId,
-      collectedToolCalls,
-      observationsByCallId,
-      childHome,
-    )) ??
-    buildTraceFallback(
-      sessionId,
-      model,
-      collectedToolCalls,
-      observationsByCallId,
-    )
-  );
-}

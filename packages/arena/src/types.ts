@@ -142,10 +142,26 @@ export interface CheckResult {
 
 /** Metrics collected per run */
 export interface RunMetrics {
+  /** Prompt-side tokens. Populated from the agent transcript when the
+   *  adapter exposes per-call accounting (Devin session DB); 0 when ACP
+   *  is the only source — ACP 2.x no longer reports a per-turn split. */
   inputTokens: number;
+  /** Completion-side tokens — same provenance as {@link inputTokens}. */
   outputTokens: number;
+  /** Thinking/reasoning tokens — 0 when the source has no breakdown. */
   thoughtTokens: number;
+  /** Total tokens: cumulative sum when the adapter reports per-call
+   *  accounting; otherwise the last `usage_update.used` (context-window
+   *  occupancy at turn end — the only token number ACP 2.x provides). */
   totalTokens: number;
+  /** Tokens in context at turn end (last ACP `usage_update.used`). */
+  contextTokensUsed?: number;
+  /** Agent's context window size (last ACP `usage_update.size`). */
+  contextWindowSize?: number;
+  /** Cumulative session cost (last ACP `usage_update.cost.amount`). */
+  costAmount?: number;
+  /** ISO 4217 currency of {@link costAmount}. */
+  costCurrency?: string;
   toolCallCount: number;
   llmCallCount: number;
   executionTimeMs: number;

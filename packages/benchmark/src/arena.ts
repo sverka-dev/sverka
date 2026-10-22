@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-import type { Usage } from "@agentclientprotocol/sdk";
+import type { UsageUpdate } from "@agentclientprotocol/sdk";
 
 import { sanitizeEnv, runAcpSession, extractUsageTokens } from "@sverka/arena";
 
@@ -22,13 +22,21 @@ import type {
   BenchmarkConfig,
 } from "./types.js";
 
-/** Extract RunMetrics from a PromptResponse + collected event data. */
+/**
+ * Extract {@link RunMetrics} from the prompt stop reason + the last ACP
+ * `usage_update` + collected event data. ACP 2.x reports context-window
+ * occupancy rather than a per-turn token split, so the directional
+ * fields are 0 and `totalTokens` carries the occupancy estimate.
+ */
 export function extractMetrics(
-  promptResult: { stopReason: string; usage?: Usage | null },
+  promptResult: { stopReason: string; usage?: UsageUpdate | null | undefined },
   toolCallCount: number,
   startTime: number,
 ): RunMetrics {
   return {
+    inputTokens: 0,
+    outputTokens: 0,
+    thoughtTokens: 0,
     ...extractUsageTokens(promptResult.usage),
     toolCallCount,
     executionTimeMs: Date.now() - startTime,
@@ -112,7 +120,7 @@ async function runTask(
   try {
     proc = spawnAcpAgent(workspace, model);
     let toolCallCount = 0;
-    const promptResult = await runAcpSession(
+    const sessionResult = await runAcpSession(
       proc,
       workspace,
       task.prompt,
@@ -121,7 +129,11 @@ async function runTask(
         toolCallCount++;
       },
     );
-    const metrics = extractMetrics(promptResult, toolCallCount, startTime);
+    const metrics = extractMetrics(
+      { stopReason: sessionResult.response.stopReason, usage: sessionResult.usage },
+      toolCallCount,
+      startTime,
+    );
     return {
       taskId: task.id,
       agentId: agent.id,

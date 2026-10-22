@@ -37,7 +37,7 @@
         "sverka-arena": "dist/bin.mjs",
       },
       "dependencies": {
-        "@agentclientprotocol/sdk": "^1.9.0",
+        "@agentclientprotocol/sdk": "^2.0.1",
         "@sverka/reporter": "workspace:*",
         "@sverka/runtime": "workspace:*",
         "@sverka/workflow": "workspace:*",
@@ -55,7 +55,7 @@
         "sverka-benchmark": "dist/bin.mjs",
       },
       "dependencies": {
-        "@agentclientprotocol/sdk": "^1.9.0",
+        "@agentclientprotocol/sdk": "^2.0.1",
         "@sverka/arena": "workspace:*",
       },
       "devDependencies": {
@@ -308,7 +308,7 @@
     "smol-toml": "^1.8.0",
   },
   "packages": {
-    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@1.9.0", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-saCOTPYBK1iqWqJFAYHXbg3+zCoFXyZZFoqQAwdTWkbrZZPpAETr80QOnYr2l+dzPwL0jpNhn3eDY8MoEIDbUA=="],
+    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@2.0.1", "", { "peerDependencies": { "zod": "^3.25.76 || ^4.0.0" } }, "sha512-v4E/NcBTGFEKmorGso8ysAjJTkNh5UMJPP4aDznyMNmnP9t10g/aCCo/Djy7RYaYZy5ZROFK3G5cEj9tDgGOTQ=="],
 
     "@alcalzone/ansi-tokenize": ["@alcalzone/ansi-tokenize@0.3.1", "", { "dependencies": { "ansi-styles": "^6.2.1", "is-fullwidth-code-point": "^5.0.0" } }, "sha512-cUD0PT0YX+rImRhfn7BfMRduP/tX/Zqt/N0dHlAyn2RlcJssCb5KsCJkhln61eh9vuJDkH8wKn3L8zJzzWXPFg=="],
 
