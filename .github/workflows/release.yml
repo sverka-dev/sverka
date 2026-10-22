@@ -133,10 +133,16 @@ jobs:
       # Rewrite workspace:* -> ^<version> in the working tree only (the release
       # commit already pushed). Restored after publish.
       - run: node scripts/prepare-publish.mjs
-        if: steps.version.outputs.released == 'true'
+        if: steps.version.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
 
       - name: Publish packages (npm OIDC)
-        if: steps.version.outputs.released == 'true'
+        # A manual dispatch is the recovery path for a publish that failed
+        # after the release commit was pushed: the version step is a no-op
+        # then, so `released` is false and the publish would be skipped. The
+        # step publishes exactly the versions the manifests carry and skips
+        # the ones that are already on npm — a dispatch with nothing missing
+        # is a no-op.
+        if: steps.version.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           failed=0
           # Publish exactly the packages `nx release` versions — the lockstep
@@ -157,44 +163,56 @@ jobs:
             if [ -f "$pkg" ] && [ -f "$dir/dist/index.mjs" ]; then
               name=$(node -p "require('./$pkg').name")
               version=$(node -p "require('./$pkg').version")
-              if npm view "$name@$version" version >/dev/null 2>&1; then
-                echo "Skipping $name@$version (already published)"
-                continue
-              fi
-              echo "Publishing $name@$version"
-              # ./ prefix is required: npm parses a bare "packages/x" spec as
-              # github:packages/x shorthand and fails on git ls-remote.
-              # A publish can also fail transiently (registry/CDN hiccup) and
-              # leave the version registered without a tarball — which breaks
-              # `npm i sverka` for everyone. Retry, then verify the tarball is
-              # actually fetchable.
               published=0
-              for attempt in 1 2 3; do
-                if npm publish "./$dir" --access public --provenance; then
-                  published=1
-                  break
+              if npm view "$name@$version" version >/dev/null 2>&1; then
+                # Already registered — but the tarball still has to be
+                # served: a version that was published and never served
+                # leaves `npm i sverka` broken, and a re-run must not
+                # report success over it. The probe below decides.
+                echo "$name@$version is already published — checking that its tarball is served"
+                published=1
+              else
+                echo "Publishing $name@$version"
+                # ./ prefix is required: npm parses a bare "packages/x" spec as
+                # github:packages/x shorthand and fails on git ls-remote.
+                # A publish can also fail transiently (registry/CDN hiccup) and
+                # leave the version registered without a tarball — which breaks
+                # `npm i sverka` for everyone. Retry, then verify the tarball is
+                # actually fetchable.
+                for attempt in 1 2 3; do
+                  if npm publish "./$dir" --access public --provenance; then
+                    published=1
+                    break
+                  fi
+                  if [ "$attempt" -lt 3 ]; then
+                    echo "::warning::publish attempt $attempt failed for $name@$version — retrying"
+                    sleep 10
+                  fi
+                done
+                if [ "$published" -ne 1 ]; then
+                  echo "::error::could not publish $name@$version"
+                  failed=1
+                  continue
                 fi
-                if [ "$attempt" -lt 3 ]; then
-                  echo "::warning::publish attempt $attempt failed for $name@$version — retrying"
-                  sleep 10
-                fi
-              done
-              if [ "$published" -ne 1 ]; then
-                echo "::error::could not publish $name@$version"
-                failed=1
-                continue
               fi
-              # A fresh version is not served instantly — the registry (and
-              # its CDN) needs a moment to publish the tarball. Probe over a
-              # few minutes before calling it broken, otherwise the check
-              # fails the release on a propagation delay (the registry
-              # regularly needs well over the old 20 seconds for a first
-              # publish, while a later publish of the same run is already
-              # served). The deadline caps the whole probe, and both requests
-              # carry their own timeout — a stalled request must not hold the
-              # release open.
+              # A version is not served instantly — the registry (and its
+              # CDN) needs a moment to publish the tarball. Probe over a few
+              # minutes before calling it broken, otherwise the check fails
+              # the release on a propagation delay (the registry regularly
+              # needs well over the old 20 seconds for a first publish, while
+              # a later publish of the same run is already served). The
+              # deadline caps the whole probe, and both requests carry their
+              # own timeout — a stalled request must not hold the release
+              # open.
+              #
+              # Ten minutes, because the delay is not bounded by anything
+              # the publisher controls: a 0.2.42 publish was registered and
+              # unserved for more than three. A failed publish is recovered
+              # by dispatching this workflow again — it publishes the
+              # versions that are missing and re-checks the ones that are
+              # out.
               fetchable=0
-              deadline=$(( $(date +%s) + 180 ))
+              deadline=$(( $(date +%s) + 600 ))
               probe=0
               while [ "$(date +%s)" -lt "$deadline" ]; do
                 probe=$((probe + 1))
@@ -204,10 +222,10 @@ jobs:
                   break
                 fi
                 echo "::warning::$name@$version is registered but not served yet — probing again ($probe)"
-                sleep 20
+                sleep 30
               done
               if [ "$fetchable" -eq 1 ]; then
-                echo "published $name@$version (tarball fetchable)"
+                echo "$name@$version is on npm (tarball fetchable)"
               else
                 echo "::error::$name@$version is registered but its tarball is not fetchable — npm install of this package would fail"
                 failed=1
