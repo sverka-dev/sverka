@@ -47,6 +47,14 @@ export interface TaskResult {
     readonly toolCalls?: number;
     readonly durationMs: number;
     readonly stopReason?: string;
+    /** Tokens in context at turn end (ACP 2.x `usage_update.used`). */
+    readonly contextUsed?: number;
+    /** Agent's context window size (ACP 2.x `usage_update.size`). */
+    readonly contextSize?: number;
+    /** Cumulative session cost (ACP 2.x `usage_update.cost.amount`). */
+    readonly costAmount?: number;
+    /** ISO 4217 currency of `costAmount`. */
+    readonly costCurrency?: string;
   };
   readonly traceRef?: string;
 }
@@ -75,6 +83,12 @@ const taskResultSchema = z.object({
     toolCalls: z.number().optional(),
     durationMs: z.number(),
     stopReason: z.string().optional(),
+    // ACP 2.x context-window + cost fields — optional additions keep the
+    // v1 literal: old docs validate, old readers strip unknown keys.
+    contextUsed: z.number().optional(),
+    contextSize: z.number().optional(),
+    costAmount: z.number().optional(),
+    costCurrency: z.string().optional(),
   }),
   traceRef: z.string().optional(),
 });

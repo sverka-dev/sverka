@@ -30,7 +30,11 @@ export {
 } from "./adapters/devin.js";
 
 export { sanitizeEnv, runAcpSession, createPermissionHandler } from "./acp.js";
-export type { ToolCallMessage, ToolCallUpdateMessage } from "./acp.js";
+export type {
+  ToolCallMessage,
+  ToolCallUpdateMessage,
+  AcpSessionResult,
+} from "./acp.js";
 export { extractUsageTokens } from "./adapters/devin.js";
 
 export {

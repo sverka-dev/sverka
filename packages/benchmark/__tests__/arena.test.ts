@@ -3,15 +3,14 @@ import { extractMetrics, aggregateMetrics } from "../src/arena.js";
 import type { RunResult, RunMetrics } from "../src/index.js";
 
 describe("extractMetrics", () => {
-  it("maps PromptResponse usage and tool call count to RunMetrics", () => {
+  it("maps a usage_update + tool call count to RunMetrics", () => {
     const startTime = Date.now() - 5000;
     const promptResult = {
       stopReason: "end_turn" as const,
       usage: {
-        totalTokens: 1000,
-        inputTokens: 600,
-        outputTokens: 400,
-        thoughtTokens: 100,
+        used: 1000,
+        size: 200000,
+        cost: { amount: 0.42, currency: "USD" },
       },
     };
     const toolCallCount = 7;
@@ -19,9 +18,14 @@ describe("extractMetrics", () => {
     const metrics = extractMetrics(promptResult, toolCallCount, startTime);
 
     expect(metrics.totalTokens).toBe(1000);
-    expect(metrics.inputTokens).toBe(600);
-    expect(metrics.outputTokens).toBe(400);
-    expect(metrics.thoughtTokens).toBe(100);
+    expect(metrics.contextTokensUsed).toBe(1000);
+    expect(metrics.contextWindowSize).toBe(200000);
+    expect(metrics.costAmount).toBe(0.42);
+    expect(metrics.costCurrency).toBe("USD");
+    // ACP 2.x reports no per-turn token split.
+    expect(metrics.inputTokens).toBe(0);
+    expect(metrics.outputTokens).toBe(0);
+    expect(metrics.thoughtTokens).toBe(0);
     expect(metrics.toolCallCount).toBe(7);
     expect(metrics.stopReason).toBe("end_turn");
     expect(metrics.executionTimeMs).toBeGreaterThanOrEqual(4000);
@@ -40,22 +44,26 @@ describe("extractMetrics", () => {
     expect(metrics.inputTokens).toBe(0);
     expect(metrics.outputTokens).toBe(0);
     expect(metrics.thoughtTokens).toBe(0);
+    expect(metrics.contextTokensUsed).toBeUndefined();
+    expect(metrics.contextWindowSize).toBeUndefined();
   });
 
-  it("handles missing thoughtTokens", () => {
+  it("handles a usage_update without cost", () => {
     const startTime = Date.now();
     const promptResult = {
       stopReason: "end_turn" as const,
       usage: {
-        totalTokens: 500,
-        inputTokens: 300,
-        outputTokens: 200,
+        used: 500,
+        size: 200000,
       },
     };
 
     const metrics = extractMetrics(promptResult, 3, startTime);
 
-    expect(metrics.thoughtTokens).toBe(0);
+    expect(metrics.totalTokens).toBe(500);
+    expect(metrics.contextTokensUsed).toBe(500);
+    expect(metrics.costAmount).toBeUndefined();
+    expect(metrics.costCurrency).toBeUndefined();
   });
 
   it("records non-end_turn stop reasons", () => {
