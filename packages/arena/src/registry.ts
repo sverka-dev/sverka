@@ -15,7 +15,7 @@
  * (clone → write → commit → push), s3 (put-object via an injectable
  * client — no AWS SDK dependency in tests).
  */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   chmod,
@@ -318,7 +318,9 @@ async function acquireLock(
       };
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
-      if (await stealAbandonedLock(lockPath)) continue;
+      // The lock poll is sequential by nature: the next attempt must
+      // wait for this one.
+      if (await stealAbandonedLock(lockPath)) continue; // NOSONAR — sequential by design
       if (Date.now() >= deadline) {
         throw new ArenaError(
           `registry index is locked by another writer (${lockPath})`,
@@ -874,6 +876,21 @@ function isPreconditionFailed(err: unknown): boolean {
   );
 }
 
+/**
+ * The conditional-write headers for a put: IfMatch pins the object to
+ * the ETag the caller read, IfNoneMatch creates it only when it is
+ * still missing, and an existing object without a token gets no
+ * condition at all (the backend cannot express one).
+ */
+function s3WriteCondition(state: { exists: boolean; version: string | null }): {
+  IfMatch?: string;
+  IfNoneMatch?: string;
+} {
+  if (state.version !== null) return { IfMatch: state.version };
+  if (state.exists) return {};
+  return { IfNoneMatch: "*" };
+}
+
 function createS3Tree(cfg: S3RegistryConfig): TreeStore {
   const stripped =
     cfg.prefix === undefined ? "" : stripTrailingSlashes(cfg.prefix);
@@ -956,12 +973,7 @@ function createS3Tree(cfg: S3RegistryConfig): TreeStore {
       // IfNoneMatch — write only while the object does not exist.
       // Neither — the backend gave no token, so the write goes out
       // plainly (last-writer-wins, as before the compare-and-swap).
-      const condition =
-        state.version !== null
-          ? { IfMatch: state.version }
-          : state.exists
-            ? {}
-            : { IfNoneMatch: "*" };
+      const condition = s3WriteCondition(state);
       try {
         await c.putObject({
           Bucket: cfg.bucket,
@@ -1130,7 +1142,8 @@ const INDEX_CAS_ATTEMPTS = 10;
 
 /** Pause between two attempts — a short, jittered backoff. */
 function casBackoff(attempt: number): Promise<void> {
-  const ms = Math.min(50 * attempt, 200) + Math.floor(Math.random() * 25);
+  const jitter = randomInt(0, 25);
+  const ms = Math.min(50 * attempt, 200) + jitter;
   return new Promise((r) => setTimeout(r, ms));
 }
 
@@ -1141,7 +1154,9 @@ async function updateIndex(
 ): Promise<void> {
   const date = relPath.split("/")[3] ?? doc.startedAt.slice(0, 10);
   for (let attempt = 1; attempt <= INDEX_CAS_ATTEMPTS; attempt++) {
-    const state = await readIndexVersioned(tree);
+    // The compare-and-swap is sequential: each attempt reads the state
+    // the write is checked against.
+    const state = await readIndexVersioned(tree); // NOSONAR — sequential by design
     const index = parseIndex(state.content);
     const pack = indexPack(index, doc.pack) ?? { runs: [] };
     pack.runs = [
@@ -1429,7 +1444,9 @@ export async function reindexRegistry(
   // catches that and the retry re-scans — by then the published result
   // file is in the tree and the entry survives.
   for (let attempt = 1; attempt <= INDEX_CAS_ATTEMPTS; attempt++) {
-    const state = await readIndexVersioned(tree);
+    // The compare-and-swap is sequential: each attempt reads the state
+    // the write is checked against.
+    const state = await readIndexVersioned(tree); // NOSONAR — sequential by design
     const { index, runs } = await buildIndex(tree);
     if (
       await writeIndexConditional(tree, index, {
