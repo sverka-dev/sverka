@@ -185,19 +185,26 @@ jobs:
                 continue
               fi
               # A fresh version is not served instantly — the registry (and
-              # its CDN) needs a moment to publish the tarball. Probe a few
-              # times before calling it broken, otherwise the check fails
-              # the release on a propagation delay.
+              # its CDN) needs a moment to publish the tarball. Probe over a
+              # few minutes before calling it broken, otherwise the check
+              # fails the release on a propagation delay (the registry
+              # regularly needs well over the old 20 seconds for a first
+              # publish, while a later publish of the same run is already
+              # served). The deadline caps the whole probe, and both requests
+              # carry their own timeout — a stalled request must not hold the
+              # release open.
               fetchable=0
-              for probe in 1 2 3; do
-                tarball=$(npm view "$name@$version" dist.tarball 2>/dev/null || echo "")
-                if [ -n "$tarball" ] && curl -sfI "$tarball" >/dev/null 2>&1; then
+              deadline=$(( $(date +%s) + 180 ))
+              probe=0
+              while [ "$(date +%s)" -lt "$deadline" ]; do
+                probe=$((probe + 1))
+                tarball=$(npm view "$name@$version" dist.tarball --fetch-timeout=20000 --fetch-retries=0 2>/dev/null || echo "")
+                if [ -n "$tarball" ] && curl -sfI --max-time 30 "$tarball" >/dev/null 2>&1; then
                   fetchable=1
                   break
                 fi
-                if [ "$probe" -lt 3 ]; then
-                  sleep 10
-                fi
+                echo "::warning::$name@$version is registered but not served yet — probing again ($probe)"
+                sleep 20
               done
               if [ "$fetchable" -eq 1 ]; then
                 echo "published $name@$version (tarball fetchable)"
