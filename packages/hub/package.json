@@ -1,6 +1,6 @@
 {
   "name": "@sverka/hub",
-  "version": "0.2.45",
+  "version": "0.2.46",
   "description": "Sverka hub — self-hosted remote run hub (cache + history + findings)",
   "license": "MIT",
   "sideEffects": false,
