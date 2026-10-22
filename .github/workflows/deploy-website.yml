@@ -63,6 +63,13 @@ jobs:
       - name: Install website dependencies
         run: bun --cwd=${{ github.workspace }}/website install --frozen-lockfile
 
+      # The website's typecheck stands on its own: the route tree is
+      # generated first, and nothing outside website/ is needed to check
+      # it. A sibling package's sources would break it — the DOM lib's
+      # ReadableStream and node:stream's are different types.
+      - name: Typecheck website
+        run: bun --cwd=${{ github.workspace }}/website run check
+
       # website/ is nxignored — its tests only run here
       - name: Test website
         run: bun --cwd=${{ github.workspace }}/website test

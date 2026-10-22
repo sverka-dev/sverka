@@ -19,10 +19,11 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile, rename } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-// Source imports — website/ is not an npm workspace member; bun runs
-// the arena sources directly (same convention as update-arena-results).
-import { openRegistry } from "../../packages/arena/src/registry.js";
-import { buildBoard, renderBoardHtml } from "../../packages/arena/src/board.js";
+// The arena is consumed as a package, not as sources: website/ is not an
+// npm workspace member, so importing ../packages/arena/src would drag
+// node-side arena code into the website's typecheck, where the DOM lib's
+// ReadableStream and node:stream's are different types.
+import { buildBoard, openRegistry, renderBoardHtml } from "@sverka/arena";
 
 const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const fixtureRegistry = join(websiteDir, "fixtures", "arena-registry");

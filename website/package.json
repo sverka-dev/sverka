@@ -8,7 +8,8 @@
     "dev": "bun run sync-docs && vite dev",
     "build": "bun run sync-docs && bun run docs:search && bun run docs:pipeline && vite build && bun scripts/finalize-output.ts",
     "preview": "vite preview",
-    "check": "tsc --noEmit",
+    "check": "bun run gen:route-tree && tsc --noEmit",
+    "gen:route-tree": "bun scripts/gen-route-tree.ts",
     "test": "bun test",
     "sync-docs": "bun scripts/sync-docs.ts",
     "docs:arena": "bun scripts/update-arena-results.ts",
@@ -32,7 +33,9 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@sverka/arena": "0.2.45",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/router-generator": "1.167.45",
     "@types/bun": "^1.4.3",
     "@types/mdx": "^2.0.14",
     "@types/node": "^26.6.5",

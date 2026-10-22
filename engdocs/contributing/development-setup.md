@@ -28,6 +28,28 @@ bun run build --filter=@sverka/core   # build a single package
 bun test --filter=@sverka/core        # test a single package
 ```
 
+## Website
+
+The site (`website/`) is a package tree of its own — it is not an npm
+workspace member, so it installs and checks on its own:
+
+```bash
+bun --cwd=website install     # install the website's dependencies
+bun --cwd=website run check   # typecheck the site (generates the route tree first)
+bun --cwd=website test        # run the website's tests
+bun --cwd=website run build   # build the site
+```
+
+`run check` generates `src/routeTree.gen.ts` (a build artifact the router
+plugin writes) before running `tsc --noEmit`, so the typecheck works from
+a clean checkout. The website consumes the published `@sverka/*` packages;
+importing a sibling package's sources instead would typecheck node-side
+code against the DOM lib.
+
+`run build` also runs `docs:pipeline`, which executes the source CLI — the
+root `bun install` from above (and built packages) is a prerequisite for a
+full website build, though not for `run check` or `test`.
+
 ## IDE setup
 
 - VS Code / Cursor recommended
