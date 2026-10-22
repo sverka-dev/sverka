@@ -133,10 +133,16 @@ jobs:
       # Rewrite workspace:* -> ^<version> in the working tree only (the release
       # commit already pushed). Restored after publish.
       - run: node scripts/prepare-publish.mjs
-        if: steps.version.outputs.released == 'true'
+        if: steps.version.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
 
       - name: Publish packages (npm OIDC)
-        if: steps.version.outputs.released == 'true'
+        # A manual dispatch is the recovery path for a publish that failed
+        # after the release commit was pushed: the version step is a no-op
+        # then, so `released` is false and the publish would be skipped. The
+        # step publishes exactly the versions the manifests carry and skips
+        # the ones that are already on npm — a dispatch with nothing missing
+        # is a no-op.
+        if: steps.version.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           failed=0
           # Publish exactly the packages `nx release` versions — the lockstep
@@ -196,8 +202,9 @@ jobs:
               #
               # Ten minutes, because the delay is not bounded by anything
               # the publisher controls: a 0.2.42 publish was registered and
-              # unserved for more than three. Re-running the release is safe
-              # — the publish step skips the versions that are already out.
+              # unserved for more than three. A failed publish is recovered
+              # by dispatching this workflow again — it publishes the
+              # versions that are missing and skips the ones that are out.
               fetchable=0
               deadline=$(( $(date +%s) + 600 ))
               probe=0
