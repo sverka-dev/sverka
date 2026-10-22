@@ -1,3 +1,5 @@
+<!-- cspell:ignore kaci -->
+
 # sv-kaci — migrate @agentclientprotocol/sdk to 2.x
 
 ## Problem

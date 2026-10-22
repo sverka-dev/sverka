@@ -894,4 +894,3 @@ function buildTraceFallback(
     },
   };
 }
-

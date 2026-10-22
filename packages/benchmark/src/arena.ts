@@ -130,7 +130,10 @@ async function runTask(
       },
     );
     const metrics = extractMetrics(
-      { stopReason: sessionResult.response.stopReason, usage: sessionResult.usage },
+      {
+        stopReason: sessionResult.response.stopReason,
+        usage: sessionResult.usage,
+      },
       toolCallCount,
       startTime,
     );

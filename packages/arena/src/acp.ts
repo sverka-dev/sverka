@@ -206,7 +206,10 @@ async function runSessionLoop(
   const collector: SessionCollector = { usage: undefined };
   const promptPromise = session
     .prompt(prompt)
-    .then((response): AcpSessionResult => ({ response, usage: collector.usage }));
+    .then((response): AcpSessionResult => ({
+      response,
+      usage: collector.usage,
+    }));
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(
       () => reject(new Error(`Agent timed out after ${timeoutMs}ms`)),
