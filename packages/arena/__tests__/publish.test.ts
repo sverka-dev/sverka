@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { ArenaError } from "../src/config.js";
 import { createFileRegistry, promptHash } from "../src/registry.js";
-import { explodeResult, publishFile } from "../src/publish.js";
+import { explodeResult, publishFile, publishResult } from "../src/publish.js";
 import type { ArenaResult, RunResult } from "../src/types.js";
 
 const dir = mkdtempSync(join(tmpdir(), "arena-pub-"));
@@ -140,6 +140,48 @@ describe("explodeResult", () => {
       ctx,
     )[0]!.runId;
     expect(plugged).not.toBe(first);
+  });
+
+  it("gives the same run id when the matrix reports its runs in another order", () => {
+    // The order the matrix happened to emit its runs in must not change
+    // the id — a re-generated results file can order them differently.
+    const runs = [
+      run({ taskId: "t1", modelId: "m1" }),
+      run({ taskId: "t2", modelId: "m1" }),
+      run({ taskId: "t1", modelId: "m2" }),
+    ];
+    const ctx = { ...CTX, runId: undefined };
+    const ordered = explodeResult(matrix(runs), ctx);
+    const shuffled = explodeResult(matrix([...runs].reverse()), ctx);
+    expect(shuffled.map((d) => d.runId).sort()).toEqual(
+      ordered.map((d) => d.runId).sort(),
+    );
+  });
+
+  it("a retried publish leaves one entry per cell in the registry", async () => {
+    // The whole point: a publish that failed halfway and is retried
+    // must not double the cells in the registry.
+    const reg = createFileRegistry(join(dir, "pub-retry"));
+    const result = matrix([
+      run({ taskId: "t1", modelId: "m1" }),
+      run({ taskId: "t2", modelId: "m1" }),
+      run({ taskId: "t1", modelId: "m2" }),
+    ]);
+    const ctx = { ...CTX, runId: undefined };
+    await publishResult(result, reg, ctx);
+    await publishResult(result, reg, ctx);
+    const listed = await reg.list();
+    expect(listed.map((d) => d.model).sort()).toEqual(["m1", "m2"]);
+    expect(new Set(listed.map((d) => d.runId)).size).toBe(2);
+    // The result documents and their trace references stay readable.
+    for (const doc of listed) {
+      for (const task of doc.tasks) {
+        if (task.traceRef === undefined) continue;
+        expect(
+          readFileSync(join(dir, "pub-retry", task.traceRef), "utf8").length,
+        ).toBeGreaterThan(0);
+      }
+    }
   });
 
   it("emits one v1 doc per (model, plugin-set) cell", () => {

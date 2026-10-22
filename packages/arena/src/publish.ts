@@ -41,6 +41,16 @@ export function newRunId(): string {
 }
 
 /**
+ * Code-unit order — locale-independent, so the same set of ids hashes
+ * to the same digest on every machine. `localeCompare` would order
+ * them differently under another locale and mint a second id for the
+ * same cell.
+ */
+function compareCodeUnits(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
  * Deterministic run id for a cell.
  *
  * A matrix publish that fails halfway leaves some cell documents
@@ -49,10 +59,14 @@ export function newRunId(): string {
  * appears twice in the registry and twice on the board.
  *
  * The id covers the cell's identity (model, plugin set) and the run's
- * identity (pack, agent, startedAt, the tasks and their prompt hashes):
- * the same cell of the same run always gets the same id — a retry
- * overwrites its documents instead of duplicating them — while another
- * run never collides with it.
+ * identity (pack, agent, startedAt, the tasks and their prompt
+ * hashes): the same cell of the same run always gets the same id — a
+ * retry overwrites its documents instead of duplicating them — while
+ * another run never collides with it.
+ *
+ * Everything that goes into the digest is sorted by code units first:
+ * the order the matrix happened to report its runs in must not change
+ * the id.
  */
 function deterministicRunId(
   result: ArenaResult,
@@ -60,17 +74,20 @@ function deterministicRunId(
   cell: Cell,
 ): string {
   const startedAt = ctx.startedAt ?? result.timestamp;
-  const tasks = cell.runs.map((run) => [
-    run.taskId,
-    promptHash(promptFor(result, ctx, run.taskId)),
-  ]);
+  const tasks = cell.runs
+    .map((run) => [run.taskId, promptHash(promptFor(result, ctx, run.taskId))])
+    .sort(
+      (a, b) =>
+        compareCodeUnits(a[0]!, b[0]!) || compareCodeUnits(a[1]!, b[1]!),
+    );
+  const plugins = [...cell.plugins].sort(compareCodeUnits);
   const digest = createHash("sha256")
     .update(
       JSON.stringify([
         ctx.pack,
         ctx.agent,
         cell.model,
-        cell.plugins,
+        plugins,
         startedAt,
         tasks,
       ]),
