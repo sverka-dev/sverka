@@ -39,6 +39,22 @@ This creates a `sverka.config.ts` file with a default Construct-based
 verification workflow. Sverka auto-discovers your project type and suggests
 relevant checks.
 
+## Scaffold a new project (`create-sverka`)
+
+The `create-sverka` package is the create-* convention entry point — it
+forwards to `sverka init` with argument translation, so no global install
+is needed:
+
+```sh
+bun create sverka          # = sverka init (current directory)
+bun create sverka my-app   # = sverka init --root my-app (creates the dir)
+npm create sverka my-app   # same via npm
+```
+
+A leading positional argument is the target directory; every other flag
+forwards verbatim to `sverka init` (`--template full`, `--detect`,
+`--force`, …).
+
 ## Next steps
 
 - [Define your first plan](./first-plan.md)
