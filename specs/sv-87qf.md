@@ -1,4 +1,4 @@
-<!-- cspell:ignore vitest svqf -->
+<!-- cspell:ignore vitest svqf ENOTEMPTY -->
 
 # sv-87qf — runtime:test flake under dogfood parallel load
 
@@ -7,7 +7,7 @@
 A dogfood `sverka run --entry ci` run (22 parallel steps) failed `ci/test`
 with both `runtime:test` and `workflow:test` exiting at **startup**:
 
-```
+```text
 Error: ENOTEMPTY: directory not empty, rmdir
   '/home/pepl/projects/sverka/node_modules/.vitest-cache'
 ```
