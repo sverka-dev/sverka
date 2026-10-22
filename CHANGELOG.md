@@ -1,3 +1,14 @@
+## 0.2.48 (2026-10-22)
+
+### 🩹 Fixes
+
+- **website:** make the typecheck standalone on a clean checkout ([#418](https://github.com/sverka-dev/sverka/pull/418))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.47 (2026-10-22)
 
 ### 🚀 Features
