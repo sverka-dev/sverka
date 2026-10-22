@@ -62,6 +62,13 @@ function docSections(doc: string): Map<string, string> {
   return sections;
 }
 
+/** True when `--<flag>` appears as a complete flag name (not a prefix of a longer flag). */
+function docMentions(text: string, flag: string): boolean {
+  return new RegExp(
+    `--${flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9-])`,
+  ).test(text);
+}
+
 describe("cli.md stays in sync with registered commands", () => {
   const doc = readFileSync(DOC_PATH, "utf8");
 
@@ -78,10 +85,7 @@ describe("cli.md stays in sync with registered commands", () => {
       const flags = flagsOf(await helpFor([cmd, "--help"]));
       const section = sections.get(cmd) ?? "";
       for (const flag of flags) {
-        if (
-          !section.includes(`--${flag}`) &&
-          !globalSection.includes(`--${flag}`)
-        ) {
+        if (!docMentions(section, flag) && !docMentions(globalSection, flag)) {
           missing.push(`${cmd} --${flag}`);
         }
       }
@@ -92,7 +96,7 @@ describe("cli.md stays in sync with registered commands", () => {
   it("documents every global flag", async () => {
     const section = doc.slice(doc.indexOf("## Global flags"));
     const missing = [...flagsOf(await helpFor(["--help"]))].filter(
-      (f) => !section.includes(`--${f}`),
+      (f) => !docMentions(section, f),
     );
     expect(missing).toEqual([]);
   });
