@@ -44,7 +44,7 @@
     "@sverka/workflow": "workspace:*",
     "jsdom": "^30.1.3",
     "tsdown": "^0.23.1",
-    "typescript": "^5.8.0",
+    "typescript": "^6.0.3",
     "vite": "^8.3.3",
     "vitest": "^5.0.5"
   }
