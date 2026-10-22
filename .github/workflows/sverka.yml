@@ -20,7 +20,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run build
@@ -40,7 +40,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run typecheck
@@ -60,7 +60,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run lint
@@ -80,7 +80,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run test
@@ -97,7 +97,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: |-
@@ -129,7 +129,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - name: Download eslint.sarif
@@ -155,7 +155,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun audit --ignore GHSA-vfj7-8cjw-p6xm --ignore GHSA-238p-pmpm-9mq7
@@ -174,7 +174,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: rc=0; out=$(bun audit 2>&1) || rc=$?; if [ "$rc" -ne 0 ] && ! echo "$out" |
@@ -200,7 +200,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bunx nx run repo-checks:format
@@ -219,7 +219,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun packages/cli/src/bin.ts doctor
@@ -238,7 +238,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: d=$(mktemp -d) && trap 'rm -rf "$d"' EXIT && bun packages/cli/src/bin.ts
@@ -262,7 +262,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bunx nx run repo-checks:docs
@@ -281,7 +281,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun packages/cli/src/bin.ts validate && bun packages/cli/src/bin.ts plan
@@ -302,7 +302,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: "! grep -rE 'from \"(ink|react|react-dom|express|fastify|ws)\"'
@@ -329,7 +329,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bunx nx run repo-checks:spell
@@ -348,7 +348,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bunx nx run repo-checks:secrets
@@ -367,7 +367,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bunx nx run repo-checks:deps
@@ -387,7 +387,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run lint:pack
@@ -407,7 +407,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run lint:attw
@@ -426,7 +426,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bunx nx run repo-checks:actionlint
@@ -445,7 +445,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: if command -v zizmor >/dev/null 2>&1; then zizmor --version; zizmor
@@ -467,7 +467,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.3
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
       - run: bun packages/cli/src/bin.ts run --entry ci/self-demo --format html --output
