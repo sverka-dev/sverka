@@ -46,6 +46,10 @@ a clean checkout. The website consumes the published `@sverka/*` packages;
 importing a sibling package's sources instead would typecheck node-side
 code against the DOM lib.
 
+`run build` also runs `docs:pipeline`, which executes the source CLI — the
+root `bun install` from above (and built packages) is a prerequisite for a
+full website build, though not for `run check` or `test`.
+
 ## IDE setup
 
 - VS Code / Cursor recommended
