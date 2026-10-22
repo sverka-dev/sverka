@@ -1,3 +1,18 @@
+## 0.2.47 (2026-10-22)
+
+### 🚀 Features
+
+- **arena:** keepWorkspace — keep the run workspace and report its path ([#417](https://github.com/sverka-dev/sverka/pull/417))
+
+### 🩹 Fixes
+
+- **website:** make the typecheck runnable standalone ([#414](https://github.com/sverka-dev/sverka/pull/414))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.46 (2026-10-22)
 
 ### 🩹 Fixes
