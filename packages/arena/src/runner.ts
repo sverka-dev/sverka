@@ -130,16 +130,11 @@ async function runMatrix(
         for (let rep = 0; rep < repetitions; rep++) {
           const cellLabel = formatCell(task.id, model.id, combo, rep);
           process.stderr.write(`[arena] ${cellLabel} running...\n`);
-          const result = await runCell(
-            config.agent,
-            task,
-            model,
-            combo,
-            rep,
-            config.workspace,
-            config.unshareNet,
-            config.keepWorkspace,
-          );
+          const result = await runCell(config.agent, task, model, combo, rep, {
+            workspaceBase: config.workspace,
+            unshareNet: config.unshareNet,
+            keepWorkspace: config.keepWorkspace,
+          });
           results.push(result);
           process.stderr.write(
             `[arena] ${cellLabel} ${result.success ? "PASS" : "FAIL"} — ` +
@@ -179,6 +174,16 @@ function buildAggregates(
   return aggregates;
 }
 
+/** Per-run isolation options shared by the matrix cells. */
+interface RunCellOpts {
+  /** Base dir for the per-run isolated workspaces (default: system temp). */
+  workspaceBase?: string | undefined;
+  /** Run checks inside a network namespace too (--unshare-net). */
+  unshareNet?: boolean | undefined;
+  /** Keep the run's workspace instead of deleting it. */
+  keepWorkspace?: boolean | undefined;
+}
+
 /** Run a single matrix cell in an ISOLATED temp workspace. */
 async function runCell(
   agent: ArenaConfig["agent"],
@@ -186,16 +191,14 @@ async function runCell(
   model: ArenaConfig["models"][number],
   combo: PluginConfig[],
   rep: number,
-  workspaceBase?: string,
-  unshareNet = false,
-  keepWorkspace = false,
+  opts: RunCellOpts = {},
 ): Promise<RunResult> {
   const tempWorkspace = await createTempWorkspace(
     task,
     model,
     combo,
     rep,
-    workspaceBase,
+    opts.workspaceBase,
   );
   await installPlugins(tempWorkspace, combo);
   const result = await executeRun(
@@ -204,9 +207,9 @@ async function runCell(
     model,
     combo,
     tempWorkspace,
-    unshareNet,
+    opts.unshareNet ?? false,
   );
-  if (keepWorkspace) {
+  if (opts.keepWorkspace) {
     result.workspace = tempWorkspace;
   } else {
     await rm(tempWorkspace, { recursive: true, force: true });
