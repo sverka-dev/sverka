@@ -1,3 +1,16 @@
+## 0.2.42 (2026-10-22)
+
+### 🩹 Fixes
+
+- **release:** give the tarball probe the time the registry needs ([#399](https://github.com/sverka-dev/sverka/pull/399))
+- **release:** the lockfile refresh needs bun 1.4.3, not 1.4.0 ([#401](https://github.com/sverka-dev/sverka/pull/401))
+- **repo-health:** the main-green check must work outside Actions ([#400](https://github.com/sverka-dev/sverka/pull/400))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.41 (2026-10-22)
 
 ### 🩹 Fixes
