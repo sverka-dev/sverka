@@ -20,6 +20,7 @@ import {
   openRegistry,
   parseArenaResultV1,
   promptHash,
+  publishBatch,
   reindexRegistry,
   resultPath,
   type ArenaResultV1,
@@ -178,6 +179,72 @@ describe("file registry", () => {
       "SCHEMA_INVALID",
     );
     expect(existsSync(join(dir, "reg3", "results"))).toBe(false);
+  });
+
+  it("a bad trace name writes no result document", async () => {
+    // The trace name is validated before the result is written — an
+    // orphan result would show up in a later publish as a run that was
+    // never indexed.
+    const reg = createFileRegistry(join(dir, "reg3b"));
+    await expectArenaError(
+      () =>
+        reg.publish(v1Doc(), {
+          traces: [{ name: "bad name.trace.jsonl", data: {} }],
+        }),
+      "SCHEMA_INVALID",
+    );
+    expect(existsSync(join(dir, "reg3b", "results"))).toBe(false);
+  });
+
+  it("an unreadable trace fails as an ArenaError and writes nothing", async () => {
+    const reg = createFileRegistry(join(dir, "reg3c"));
+    const err = await expectArenaError(
+      () =>
+        reg.publish(v1Doc(), {
+          traces: [join(dir, "does-not-exist.trace.jsonl")],
+        }),
+      "REGISTRY_UNAVAILABLE",
+    );
+    expect(err.message).toContain("does-not-exist.trace.jsonl");
+    expect(existsSync(join(dir, "reg3c", "results"))).toBe(false);
+  });
+
+  it("a batch preflights every document before writing any", async () => {
+    // One bad trace in a later document must not leave the earlier
+    // documents written without a commit.
+    const reg = createFileRegistry(join(dir, "reg3d"));
+    await expectArenaError(
+      () =>
+        publishBatch(
+          reg,
+          [
+            { doc: v1Doc() },
+            {
+              doc: v1Doc(),
+              opts: { traces: [{ name: "bad name.trace.jsonl", data: {} }] },
+            },
+          ],
+          "arena: publish",
+        ),
+      "SCHEMA_INVALID",
+    );
+    expect(existsSync(join(dir, "reg3d", "results"))).toBe(false);
+  });
+
+  it("a batch validates every result path before writing any", async () => {
+    // An invalid date partition in a later document must not throw after
+    // the earlier documents were written and indexed.
+    const reg = createFileRegistry(join(dir, "reg3e"));
+    await expectArenaError(
+      () =>
+        publishBatch(
+          reg,
+          [{ doc: v1Doc() }, { doc: v1Doc(), opts: { date: "../../tmp" } }],
+          "arena: publish",
+        ),
+      "SCHEMA_INVALID",
+    );
+    expect(existsSync(join(dir, "reg3e", "results"))).toBe(false);
   });
 
   it("list filters by pack, agent, and since", async () => {
