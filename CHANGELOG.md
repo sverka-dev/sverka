@@ -1,3 +1,14 @@
+## 0.2.40 (2026-10-22)
+
+### 🩹 Fixes
+
+- **compiler:** emit actions/checkout v7 in the generated workflows ([#395](https://github.com/sverka-dev/sverka/pull/395))
+
+### ❤️ Thank You
+
+- omp
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.39 (2026-10-22)
 
 ### 🩹 Fixes
