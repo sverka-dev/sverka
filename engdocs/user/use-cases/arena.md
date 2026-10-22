@@ -178,6 +178,12 @@ and re-reads and retries when another publisher got there first. Every run
 stays in `list` and on the board — no publish is silently dropped, and
 `reindex` is a repair tool, not a routine step.
 
+A cell's `runId` is derived from what the cell contains (model, plugin set,
+pack, agent, start time, the tasks and their prompt hashes), not drawn at
+random. A publish that fails halfway can be retried as-is: the retried
+cells land on the same paths and overwrite their documents instead of
+showing up twice on the leaderboard.
+
 `board` groups results into cohorts keyed
 (pack · task · sverka version · prompt hash) — runs from different prompts
 or sverka versions never merge into one score — and renders one row per

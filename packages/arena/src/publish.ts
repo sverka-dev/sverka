@@ -4,7 +4,7 @@
  * (model, plugin-set) cell, then writes result + trace files via the
  * registry backend. Spec: specs/56-arena-eval-service.
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { ArenaError } from "./config.js";
@@ -38,6 +38,63 @@ export interface PublishContext {
 /** Unique per-document run id — readable, sortable, collision-free. */
 export function newRunId(): string {
   return `run-${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
+}
+
+/**
+ * Code-unit order — locale-independent, so the same set of ids hashes
+ * to the same digest on every machine. `localeCompare` would order
+ * them differently under another locale and mint a second id for the
+ * same cell.
+ */
+function compareCodeUnits(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * Deterministic run id for a cell.
+ *
+ * A matrix publish that fails halfway leaves some cell documents
+ * written; the retry republishes the whole matrix. With a fresh random
+ * id per attempt the retried cells land under new ids, so the run
+ * appears twice in the registry and twice on the board.
+ *
+ * The id covers the cell's identity (model, plugin set) and the run's
+ * identity (pack, agent, startedAt, the tasks and their prompt
+ * hashes): the same cell of the same run always gets the same id — a
+ * retry overwrites its documents instead of duplicating them — while
+ * another run never collides with it.
+ *
+ * Everything that goes into the digest is sorted by code units first:
+ * the order the matrix happened to report its runs in must not change
+ * the id.
+ */
+function deterministicRunId(
+  result: ArenaResult,
+  ctx: PublishContext,
+  cell: Cell,
+): string {
+  const startedAt = ctx.startedAt ?? result.timestamp;
+  const tasks = cell.runs
+    .map((run) => [run.taskId, promptHash(promptFor(result, ctx, run.taskId))])
+    .sort(
+      (a, b) =>
+        compareCodeUnits(a[0]!, b[0]!) || compareCodeUnits(a[1]!, b[1]!),
+    );
+  const plugins = [...cell.plugins].sort(compareCodeUnits);
+  const digest = createHash("sha256")
+    .update(
+      JSON.stringify([
+        ctx.pack,
+        ctx.agent,
+        cell.model,
+        plugins,
+        startedAt,
+        tasks,
+      ]),
+    )
+    .digest("hex")
+    .slice(0, 16);
+  return `run-${digest}`;
 }
 
 /** Registry-safe file stem for a task id. */
@@ -150,7 +207,7 @@ export function explodeResult(
   return cellsOf(result).map((cell, i) => {
     const runId =
       ctx.runId?.({ model: cell.model, plugins: cell.plugins }, i) ??
-      newRunId();
+      deterministicRunId(result, ctx, cell);
     return {
       schema: "arena.result/v1",
       runId,

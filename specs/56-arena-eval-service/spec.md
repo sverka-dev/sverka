@@ -45,8 +45,14 @@ Two service halves:
   `traces/`). `arena publish <file>` accepts a matrix
   `results.json` (same explosion) or an already-shaped
   `arena.result/v1` doc. Every emitted document validates against
-  the `arena.result/v1` schema and lands at
+  `arena.result/v1` schema and lands at
   `results/<pack>/<agent>/<YYYY-MM-DD>/<runId>.json`.
+  The `runId` of a cell is **derived from the cell's content** (model,
+  plugin set, pack, agent, startedAt, the tasks and their prompt
+  hashes), not minted at random: a publish that fails halfway and is
+  retried republishes the same ids, so the retried cells overwrite
+  their documents instead of appearing twice in the registry and twice
+  on the board.
 - Registry backends: `git` (clone → write → commit → push; default,
   auditable, PR-reviewable) and `s3` (put-object; for volume).
 - `sverka-arena board --pack <name>` renders the leaderboard
@@ -239,6 +245,9 @@ over a lock whose process no longer exists.
 11. Concurrent publishes to one registry (file directory and S3
     bucket): every run is in the index afterwards — the index update
     is a compare-and-swap, not a last-writer-wins overwrite.
+12. The same matrix published twice yields the same `runId` per cell
+    (a retry overwrites, it does not duplicate); a different run of the
+    same cell yields a different one.
 
 ## Positioning note
 

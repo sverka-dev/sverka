@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { ArenaError } from "../src/config.js";
 import { createFileRegistry, promptHash } from "../src/registry.js";
-import { explodeResult, publishFile } from "../src/publish.js";
+import { explodeResult, publishFile, publishResult } from "../src/publish.js";
 import type { ArenaResult, RunResult } from "../src/types.js";
 
 const dir = mkdtempSync(join(tmpdir(), "arena-pub-"));
@@ -104,6 +104,86 @@ const CTX = {
 };
 
 describe("explodeResult", () => {
+  it("mints the same run id for the same cell — a retry is idempotent", () => {
+    // A matrix publish that fails halfway leaves some cell documents
+    // written; the retry republishes the whole matrix. With a fresh
+    // random id per attempt the retried cells land under new ids and
+    // the run appears twice in the registry and twice on the board.
+    const result = matrix([
+      run({ taskId: "t1", modelId: "m1" }),
+      run({ taskId: "t2", modelId: "m1" }),
+      run({ taskId: "t1", modelId: "m2" }),
+    ]);
+    const ctx = { ...CTX, runId: undefined };
+    const first = explodeResult(result, ctx);
+    const retry = explodeResult(result, ctx);
+    expect(retry.map((d) => d.runId)).toEqual(first.map((d) => d.runId));
+    // Distinct cells still get distinct ids.
+    expect(new Set(first.map((d) => d.runId)).size).toBe(first.length);
+    expect(first.every((d) => /^run-[0-9a-f]{16}$/.test(d.runId))).toBe(true);
+  });
+
+  it("gives a different run id to a different run of the same cell", () => {
+    const result = matrix([run({ taskId: "t1", modelId: "m1" })]);
+    const ctx = { ...CTX, runId: undefined };
+    const first = explodeResult(result, ctx)[0]!.runId;
+    // Another run of the same cell — a later timestamp is a different
+    // run, not a retry.
+    const later = explodeResult(
+      { ...result, timestamp: "2026-10-03T00:00:00.000Z" },
+      ctx,
+    )[0]!.runId;
+    expect(later).not.toBe(first);
+    // A different plugin set is a different cell.
+    const plugged = explodeResult(
+      matrix([run({ taskId: "t1", modelId: "m1", pluginIds: ["sverka"] })]),
+      ctx,
+    )[0]!.runId;
+    expect(plugged).not.toBe(first);
+  });
+
+  it("gives the same run id when the matrix reports its runs in another order", () => {
+    // The order the matrix happened to emit its runs in must not change
+    // the id — a re-generated results file can order them differently.
+    const runs = [
+      run({ taskId: "t1", modelId: "m1" }),
+      run({ taskId: "t2", modelId: "m1" }),
+      run({ taskId: "t1", modelId: "m2" }),
+    ];
+    const ctx = { ...CTX, runId: undefined };
+    const ordered = explodeResult(matrix(runs), ctx);
+    const shuffled = explodeResult(matrix([...runs].reverse()), ctx);
+    expect(shuffled.map((d) => d.runId).sort()).toEqual(
+      ordered.map((d) => d.runId).sort(),
+    );
+  });
+
+  it("a retried publish leaves one entry per cell in the registry", async () => {
+    // The whole point: a publish that failed halfway and is retried
+    // must not double the cells in the registry.
+    const reg = createFileRegistry(join(dir, "pub-retry"));
+    const result = matrix([
+      run({ taskId: "t1", modelId: "m1" }),
+      run({ taskId: "t2", modelId: "m1" }),
+      run({ taskId: "t1", modelId: "m2" }),
+    ]);
+    const ctx = { ...CTX, runId: undefined };
+    await publishResult(result, reg, ctx);
+    await publishResult(result, reg, ctx);
+    const listed = await reg.list();
+    expect(listed.map((d) => d.model).sort()).toEqual(["m1", "m2"]);
+    expect(new Set(listed.map((d) => d.runId)).size).toBe(2);
+    // The result documents and their trace references stay readable.
+    for (const doc of listed) {
+      for (const task of doc.tasks) {
+        if (task.traceRef === undefined) continue;
+        expect(
+          readFileSync(join(dir, "pub-retry", task.traceRef), "utf8").length,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("emits one v1 doc per (model, plugin-set) cell", () => {
     const result = matrix([
       run({ taskId: "t1", modelId: "m1" }),
