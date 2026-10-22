@@ -1,3 +1,13 @@
+## 0.2.45 (2026-10-22)
+
+### 🩹 Fixes
+
+- **test:** disable vitest fsModuleCache — shared .vitest-cache races under parallel nx targets ([#412](https://github.com/sverka-dev/sverka/pull/412))
+
+### ❤️ Thank You
+
+- Petr Plenkov @ThePlenkov
+
 ## 0.2.44 (2026-10-22)
 
 ### 🚀 Features
