@@ -104,6 +104,44 @@ const CTX = {
 };
 
 describe("explodeResult", () => {
+  it("mints the same run id for the same cell — a retry is idempotent", () => {
+    // A matrix publish that fails halfway leaves some cell documents
+    // written; the retry republishes the whole matrix. With a fresh
+    // random id per attempt the retried cells land under new ids and
+    // the run appears twice in the registry and twice on the board.
+    const result = matrix([
+      run({ taskId: "t1", modelId: "m1" }),
+      run({ taskId: "t2", modelId: "m1" }),
+      run({ taskId: "t1", modelId: "m2" }),
+    ]);
+    const ctx = { ...CTX, runId: undefined };
+    const first = explodeResult(result, ctx);
+    const retry = explodeResult(result, ctx);
+    expect(retry.map((d) => d.runId)).toEqual(first.map((d) => d.runId));
+    // Distinct cells still get distinct ids.
+    expect(new Set(first.map((d) => d.runId)).size).toBe(first.length);
+    expect(first.every((d) => /^run-[0-9a-f]{16}$/.test(d.runId))).toBe(true);
+  });
+
+  it("gives a different run id to a different run of the same cell", () => {
+    const result = matrix([run({ taskId: "t1", modelId: "m1" })]);
+    const ctx = { ...CTX, runId: undefined };
+    const first = explodeResult(result, ctx)[0]!.runId;
+    // Another run of the same cell — a later timestamp is a different
+    // run, not a retry.
+    const later = explodeResult(
+      { ...result, timestamp: "2026-10-03T00:00:00.000Z" },
+      ctx,
+    )[0]!.runId;
+    expect(later).not.toBe(first);
+    // A different plugin set is a different cell.
+    const plugged = explodeResult(
+      matrix([run({ taskId: "t1", modelId: "m1", pluginIds: ["sverka"] })]),
+      ctx,
+    )[0]!.runId;
+    expect(plugged).not.toBe(first);
+  });
+
   it("emits one v1 doc per (model, plugin-set) cell", () => {
     const result = matrix([
       run({ taskId: "t1", modelId: "m1" }),
