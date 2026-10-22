@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const websiteDir = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -30,6 +30,15 @@ describe("website typecheck", () => {
   }, 300_000);
 
   it("reads no file outside the website", () => {
+    // The route tree is a prerequisite of the typecheck — the test must
+    // generate it itself so it also passes when run in isolation.
+    const gen = spawnSync("bun", ["run", "gen:route-tree"], {
+      cwd: websiteDir,
+      encoding: "utf8",
+      timeout: 300_000,
+    });
+    expect(gen.status, `${gen.stdout ?? ""}${gen.stderr ?? ""}`).toBe(0);
+
     const listed = spawnSync("bunx", ["tsc", "--noEmit", "--listFiles"], {
       cwd: websiteDir,
       encoding: "utf8",
@@ -38,10 +47,17 @@ describe("website typecheck", () => {
     const output = `${listed.stdout ?? ""}${listed.stderr ?? ""}`;
     expect(listed.status, output).toBe(0);
 
+    // Every emitted line is a file the program read. Whether tsc prints it
+    // absolute or relative, it must resolve inside the website — resolve()
+    // returns absolute paths unchanged and joins relative ones to
+    // websiteDir, so a `../` escape or a sibling-package path is caught.
     const outside = output
       .split("\n")
-      .filter((line) => line.startsWith("/"))
-      .filter((line) => !line.startsWith(`${websiteDir}/`));
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .filter(
+        (line) => !resolve(websiteDir, line).startsWith(`${websiteDir}/`),
+      );
     expect(
       outside,
       `typecheck reads files outside the website:\n${outside.join("\n")}`,
