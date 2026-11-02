@@ -8,7 +8,7 @@
         "@arethetypeswrong/cli": "0.18.5",
         "@microsoft/eslint-formatter-sarif": "3.1.0",
         "@nx-devkit/prepare-for-release": "0.1.22",
-        "@nx-devkit/skill": "0.1.19",
+        "@nx-devkit/skill": "0.1.21",
         "@nx-devkit/skillspector": "0.1.19",
         "@nx-devkit/typescript": "0.2.18",
         "@nx/js": "^23.3.0",
@@ -770,7 +770,7 @@
 
     "@nx-devkit/prepare-for-release": ["@nx-devkit/prepare-for-release@0.1.22", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "tinyglobby": "^0.2.0" } }, "sha512-1eD8w+JpzolI9DosMMw5jl0ZPxNQw5iqUDi1+vtCGGHpyuNsme6ddYzSrhP+QjIm//4/kHWC89nwKv8Sc1eSiw=="],
 
-    "@nx-devkit/skill": ["@nx-devkit/skill@0.1.19", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1", "yaml": "^2.9.0" } }, "sha512-4TTF11uaGloqmv7FciPBdpJIyeKKr1pxxH2gGPfwi/QLHZl+Q/qb0nAX5wBJ5htcYF5vrUM3Ez87cFtFooRrUw=="],
+    "@nx-devkit/skill": ["@nx-devkit/skill@0.1.21", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1", "yaml": "^2.9.0" } }, "sha512-t8apGSNd74N3Tpfw1SmiDLVQtbJ3z1pZoXETPzCFcYtH/jLHb9D5ylGz+nkGrfJKieWOTRcWtS4LVQYV6+rxMw=="],
 
     "@nx-devkit/skillspector": ["@nx-devkit/skillspector@0.1.19", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1" } }, "sha512-wlSM9AAE+juluwCcO5aYbrYCAF4GX2rvkMrMP8S0bbL8fZzMq1Qvq3vzYZSif/mfN59WA9szHvnZx72qZNe4qA=="],
 
