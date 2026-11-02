@@ -10,7 +10,7 @@
         "@nx-devkit/prepare-for-release": "0.1.22",
         "@nx-devkit/skill": "0.1.19",
         "@nx-devkit/skillspector": "0.1.19",
-        "@nx-devkit/typescript": "0.2.18",
+        "@nx-devkit/typescript": "0.2.21",
         "@nx/js": "^23.3.0",
         "@secretlint/secretlint-rule-preset-recommend": "13.0.7",
         "@sverka/workflow": "workspace:*",
@@ -774,7 +774,7 @@
 
     "@nx-devkit/skillspector": ["@nx-devkit/skillspector@0.1.19", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1" } }, "sha512-wlSM9AAE+juluwCcO5aYbrYCAF4GX2rvkMrMP8S0bbL8fZzMq1Qvq3vzYZSif/mfN59WA9szHvnZx72qZNe4qA=="],
 
-    "@nx-devkit/typescript": ["@nx-devkit/typescript@0.2.18", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1" }, "peerDependencies": { "@biomejs/biome": "^2.0.0", "eslint": "^9.0.0", "oxlint": "^1.0.0", "tsdown": "^0.22.0", "typescript": "^6.0.0", "vitest": "^4.0.0" }, "optionalPeers": ["@biomejs/biome", "eslint", "oxlint", "tsdown", "vitest"], "bin": { "nx-devkit-typescript": "dist/bin/init.mjs" } }, "sha512-MkAPFvnbonhwYaa29tDf4ozNPC2DklUZVDIRloKm2GBOyJYZHvoldX/765VxF+OF9CWwWAd5s9Yi9VobRIFC4Q=="],
+    "@nx-devkit/typescript": ["@nx-devkit/typescript@0.2.21", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1" }, "peerDependencies": { "@biomejs/biome": "^2.0.0", "eslint": "^9.0.0", "oxlint": "^1.0.0", "tsdown": "^0.22.0", "typescript": "^6.0.0", "vitest": "^4.0.0" }, "optionalPeers": ["@biomejs/biome", "eslint", "oxlint", "tsdown", "vitest"], "bin": { "nx-devkit-typescript": "dist/bin/init.mjs" } }, "sha512-bitniU7nhfdkwjFR3Q4M2P7mYNC+UNO4V6uepBwufHzCoH/L2YQpIq/oVOWUGiHgVzAIsfCzyPWGeNIDI0cOMA=="],
 
     "@nx/devkit": ["@nx/devkit@23.3.0", "", { "dependencies": { "ejs": "5.0.1", "minimatch": "10.2.5", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" }, "peerDependencies": { "nx": ">= 22 <= 24 || ^23.0.0-0" } }, "sha512-xGSV4gCwQsVdt49VRcfxd2L31dAO/9t9Isv2bM5O89vyEzwd/tkW/IQwUzWn3OdhCnHayd37S1tDyJ5DilCv7w=="],
 
