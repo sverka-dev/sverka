@@ -42,7 +42,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^2.0.1",
+    "@agentclientprotocol/sdk": "^2.0.2",
     "@sverka/arena": "workspace:*"
   },
   "devDependencies": {

@@ -34,7 +34,7 @@
     "typecheck": "nx typecheck"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^2.0.1",
+    "@agentclientprotocol/sdk": "^2.0.2",
     "zod": "^4.6.7",
     "@sverka/runtime": "workspace:*",
     "@sverka/reporter": "workspace:*",
