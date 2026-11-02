@@ -9,7 +9,7 @@
         "@microsoft/eslint-formatter-sarif": "3.1.0",
         "@nx-devkit/prepare-for-release": "0.1.22",
         "@nx-devkit/skill": "0.1.19",
-        "@nx-devkit/skillspector": "0.1.19",
+        "@nx-devkit/skillspector": "0.1.21",
         "@nx-devkit/typescript": "0.2.18",
         "@nx/js": "^23.3.0",
         "@secretlint/secretlint-rule-preset-recommend": "13.0.7",
@@ -772,7 +772,7 @@
 
     "@nx-devkit/skill": ["@nx-devkit/skill@0.1.19", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1", "yaml": "^2.9.0" } }, "sha512-4TTF11uaGloqmv7FciPBdpJIyeKKr1pxxH2gGPfwi/QLHZl+Q/qb0nAX5wBJ5htcYF5vrUM3Ez87cFtFooRrUw=="],
 
-    "@nx-devkit/skillspector": ["@nx-devkit/skillspector@0.1.19", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1" } }, "sha512-wlSM9AAE+juluwCcO5aYbrYCAF4GX2rvkMrMP8S0bbL8fZzMq1Qvq3vzYZSif/mfN59WA9szHvnZx72qZNe4qA=="],
+    "@nx-devkit/skillspector": ["@nx-devkit/skillspector@0.1.21", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1" } }, "sha512-vnWt+jhcNXAPzOYWV+4lYa6I6/SgGx9CD6udnPdNXmO3T2oRaNnxTWOKf8LQ3BGwUMcEVzSQ+ojUILMClKCv0Q=="],
 
     "@nx-devkit/typescript": ["@nx-devkit/typescript@0.2.18", "", { "dependencies": { "@nx/devkit": "^22.0.0 || ^23.0.0", "jsonc-parser": "^3.3.1" }, "peerDependencies": { "@biomejs/biome": "^2.0.0", "eslint": "^9.0.0", "oxlint": "^1.0.0", "tsdown": "^0.22.0", "typescript": "^6.0.0", "vitest": "^4.0.0" }, "optionalPeers": ["@biomejs/biome", "eslint", "oxlint", "tsdown", "vitest"], "bin": { "nx-devkit-typescript": "dist/bin/init.mjs" } }, "sha512-MkAPFvnbonhwYaa29tDf4ozNPC2DklUZVDIRloKm2GBOyJYZHvoldX/765VxF+OF9CWwWAd5s9Yi9VobRIFC4Q=="],
 
