@@ -28,7 +28,7 @@
     "@nx-devkit/skill": "0.1.19",
     "@nx-devkit/skillspector": "0.1.19",
     "@nx-devkit/typescript": "0.2.18",
-    "@nx/js": "^23.3.0",
+    "@nx/js": "^24.0.2",
     "@secretlint/secretlint-rule-preset-recommend": "13.0.7",
     "sverka": "workspace:*",
     "@sverka/workflow": "workspace:*",
