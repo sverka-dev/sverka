@@ -24,7 +24,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@microsoft/eslint-formatter-sarif": "3.1.0",
-    "@nx-devkit/prepare-for-release": "0.1.22",
+    "@nx-devkit/prepare-for-release": "0.1.24",
     "@nx-devkit/skill": "0.1.19",
     "@nx-devkit/skillspector": "0.1.19",
     "@nx-devkit/typescript": "0.2.18",
