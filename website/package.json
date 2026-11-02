@@ -35,7 +35,7 @@
   "devDependencies": {
     "@sverka/arena": "0.2.45",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/router-generator": "1.167.45",
+    "@tanstack/router-generator": "1.167.46",
     "@types/bun": "^1.4.3",
     "@types/mdx": "^2.0.14",
     "@types/node": "^26.6.5",
