@@ -26,7 +26,10 @@ jobs:
     uses: nx-devkit/nx.ts/.github/workflows/release-preview.yml@127f912f537741665732ffc19fc30a0aaaaf5b72
     with:
       specifier: ${{ inputs.specifier || 'none' }}
-      branch: main
+      # Temporary: the callee only runs while the caller ref equals this
+      # branch — point it at the dogfood branch until the PR merges, then
+      # switch back to main.
+      branch: feat/release-preview-reusable
       # sverka tags releases as v{version} (fixed lockstep) — the current
       # helper only understands <prefix><project>@<version>; this input is
       # a placeholder until the pattern is generalized.
@@ -48,7 +51,7 @@ jobs:
       checks: read
     uses: nx-devkit/nx.ts/.github/workflows/release-ai-notes.lock.yml@127f912f537741665732ffc19fc30a0aaaaf5b72
     with:
-      branch: main
+      branch: feat/release-preview-reusable # matches the preview branch above
       disabled: true # ANYROUTER_API_KEY not configured in this repo yet
     secrets:
       ANYROUTER_API_KEY: ${{ secrets.ANYROUTER_API_KEY }}
