@@ -1,0 +1,53 @@
+name: release-preview
+
+# Dogfoods the reusable release-preview pipeline from nx-devkit/nx.ts.
+# The draft "next" release accumulates pending conventional-commit
+# releases; publishing it is the human release decision (release.yml
+# reacts to release:published — wired separately once the tag scheme is
+# generalized beyond `name@version` tags).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      specifier:
+        description: Force a version specifier (none|patch|minor|major)
+        required: false
+        type: choice
+        options: [none, patch, minor, major]
+        default: none
+
+jobs:
+  preview:
+    # Pinned to the feat/release-reusable head — move to a release tag
+    # once nx-devkit/nx.ts publishes one.
+    uses: nx-devkit/nx.ts/.github/workflows/release-preview.yml@127f912f537741665732ffc19fc30a0aaaaf5b72
+    with:
+      specifier: ${{ inputs.specifier || 'none' }}
+      branch: main
+      # sverka tags releases as v{version} (fixed lockstep) — the current
+      # helper only understands <prefix><project>@<version>; this input is
+      # a placeholder until the pattern is generalized.
+      tag-prefix: v
+      source-ref: 127f912f537741665732ffc19fc30a0aaaaf5b72
+    secrets:
+      NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+    permissions:
+      contents: write # draft release create/edit/delete via GITHUB_TOKEN
+
+  ai-notes:
+    needs: preview
+    if: github.event_name != 'release' && needs.preview.result == 'success'
+    permissions:
+      contents: write
+      actions: read
+      issues: write
+      pull-requests: read
+      checks: read
+    uses: nx-devkit/nx.ts/.github/workflows/release-ai-notes.lock.yml@127f912f537741665732ffc19fc30a0aaaaf5b72
+    with:
+      branch: main
+      disabled: true # ANYROUTER_API_KEY not configured in this repo yet
+    secrets:
+      ANYROUTER_API_KEY: ${{ secrets.ANYROUTER_API_KEY }}
