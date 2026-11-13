@@ -8,7 +8,8 @@ name: release-preview
 
 on:
   push:
-    branches: [main]
+    # feat/* stays until the dogfood branch merges — then drop it.
+    branches: [main, 'feat/release-preview-reusable']
   workflow_dispatch:
     inputs:
       specifier:
