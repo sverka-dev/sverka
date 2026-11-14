@@ -48,6 +48,6 @@ jobs:
     uses: nx-devkit/nx.ts/.github/workflows/release-ai-notes.lock.yml@release-action/v1
     with:
       branch: feat/release-preview-reusable # matches the preview branch above
-      disabled: true # ANYROUTER_API_KEY not configured in this repo yet
+      disabled: false # ANYROUTER_API_KEY synced from Infisical (project: Github Actions, env: dev)
     secrets:
       ANYROUTER_API_KEY: ${{ secrets.ANYROUTER_API_KEY }}
