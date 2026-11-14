@@ -1,11 +1,18 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "gh-stack": {
       "source": "github/gh-stack",
       "sourceType": "github",
       "skillPath": "skills/gh-stack/SKILL.md",
-      "computedHash": "28d42250d52f33424b807add6fbdec75736e835f98752311db321ab51733fea6"
+      "computedHash": "4ff26e30a0103af77552e5eebbabfbf80734fd23b1485f0c513a0b35a3126613",
+      "installMode": "copy"
+    },
+    "sverka": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "e84992f70c6b8f93201210803146cf52a809c915f72e2ed0140369fa73a14749",
+      "installMode": "copy"
     }
   }
 }
