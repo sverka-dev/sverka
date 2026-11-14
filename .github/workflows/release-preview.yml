@@ -23,14 +23,14 @@ jobs:
   preview:
     # Pinned to the feat/release-reusable head — move to a release tag
     # once nx-devkit/nx.ts publishes one.
-    uses: nx-devkit/nx.ts/.github/workflows/release-preview.yml@b84650ef7ce369ce1c2ffe838b20250f30fd97f6
+    uses: nx-devkit/nx.ts/.github/workflows/release-preview.yml@release-action/v1
     with:
       specifier: ${{ inputs.specifier || 'none' }}
       # Temporary: the callee only runs while the caller ref equals this
       # branch — point it at the dogfood branch until the PR merges, then
       # switch back to main.
       branch: feat/release-preview-reusable
-      source-ref: b84650ef7ce369ce1c2ffe838b20250f30fd97f6
+      source-ref: release-action/v1
     secrets:
       NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
     permissions:
@@ -45,7 +45,7 @@ jobs:
       issues: write
       pull-requests: read
       checks: read
-    uses: nx-devkit/nx.ts/.github/workflows/release-ai-notes.lock.yml@b84650ef7ce369ce1c2ffe838b20250f30fd97f6
+    uses: nx-devkit/nx.ts/.github/workflows/release-ai-notes.lock.yml@release-action/v1
     with:
       branch: feat/release-preview-reusable # matches the preview branch above
       disabled: true # ANYROUTER_API_KEY not configured in this repo yet
