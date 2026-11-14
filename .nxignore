@@ -2,6 +2,7 @@
 website
 .agents
 .devin
+.claude
 agent
 packages/arena/fixtures
 examples

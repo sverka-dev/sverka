@@ -28,6 +28,7 @@ packages/arena/fixtures/
 .beads/
 .codacy/
 .devin/
+.claude/
 .gc/
 .opencode/
 .evidence/
